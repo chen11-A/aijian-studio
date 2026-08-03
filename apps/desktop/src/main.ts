@@ -1,14 +1,33 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { app, BrowserWindow, ipcMain } from "electron";
 
-import { createLocalApiClient } from "./api-client";
+import { createLocalApiClient, type LocalApiClient } from "./api-client";
+import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
 const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173";
-const DEVELOPMENT_API_URL = "http://127.0.0.1:8000";
-const apiClient = createLocalApiClient(fetch, process.env.AIJIAN_API_URL ?? DEVELOPMENT_API_URL);
 
 let mainWindow: BrowserWindow | null = null;
+let apiClient: LocalApiClient | null = null;
+let sidecar: SidecarHandle | null = null;
+let quitting = false;
+
+function developmentSidecarOptions(): StartSidecarOptions {
+  if (app.isPackaged) {
+    throw new Error("Packaged sidecar runtime is not available");
+  }
+  const repositoryRoot = resolve(__dirname, "../../..");
+  const command =
+    process.platform === "win32"
+      ? join(repositoryRoot, ".venv", "Scripts", "python.exe")
+      : join(repositoryRoot, ".venv", "bin", "python");
+  return {
+    command,
+    args: ["-m", "aijian_api.sidecar"],
+    cwd: repositoryRoot,
+    env: { PYTHONPATH: join(repositoryRoot, "services", "api", "src") },
+  };
+}
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -44,9 +63,17 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-ipcMain.handle("health:get", async () => apiClient.getHealth());
+ipcMain.handle("health:get", async (event) => {
+  if (mainWindow === null || event.sender !== mainWindow.webContents || apiClient === null) {
+    throw new Error("Local API is not available");
+  }
+  return apiClient.getHealth();
+});
 
-void app.whenReady().then(() => {
+async function startApplication(): Promise<void> {
+  await app.whenReady();
+  sidecar = await startSidecar(developmentSidecarOptions());
+  apiClient = createLocalApiClient(fetch, sidecar.session);
   mainWindow = createMainWindow();
 
   app.on("activate", () => {
@@ -54,6 +81,24 @@ void app.whenReady().then(() => {
       mainWindow = createMainWindow();
     }
   });
+}
+
+void startApplication().catch(() => {
+  app.quit();
+});
+
+app.on("before-quit", (event) => {
+  if (quitting || sidecar === null) return;
+  event.preventDefault();
+  quitting = true;
+  void sidecar
+    .stop()
+    .catch(() => undefined)
+    .finally(() => {
+      sidecar = null;
+      apiClient = null;
+      app.quit();
+    });
 });
 
 app.on("window-all-closed", () => {

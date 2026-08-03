@@ -24,6 +24,7 @@ def create_listener() -> tuple[socket.socket, int]:
     if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
     listener.bind((SIDECAR_HOST, 0))
+    listener.listen()
     port = int(listener.getsockname()[1])
     return listener, port
 

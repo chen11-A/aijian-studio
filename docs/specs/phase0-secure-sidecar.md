@@ -1,6 +1,6 @@
 # Phase 0 安全 Sidecar 实施规格
 
-状态：实施中
+状态：本地实现与验收完成；双平台 CI 待提交验证
 
 对应 Backlog：D01、D02、R01 的首个纵切
 
@@ -44,3 +44,11 @@
 - Electron Renderer 源码、DOM、preload 公共对象和环境变量均不包含端口/令牌。
 - 关闭桌面窗口后 Python 在 5 秒内退出；强杀 Electron 后也在 5 秒内退出。
 - 单元、集成、类型、格式、依赖审计和 Windows/Ubuntu CI 通过。
+
+## 本地验收记录（2026-08-03）
+
+- Windows 连续启动 20 次：20 个随机端口、20 个随机令牌均唯一，未使用固定端口 8000，全部在关闭 stdin 后 5 秒内退出。
+- 真实 Electron 窗口：标题为 `Aijian Studio`，窗口可响应；sidecar 仅监听 IPv4 回环地址，端口和令牌未出现在命令行。
+- 正常关闭窗口与强制终止 Electron 主进程两条路径均未遗留 Python sidecar。
+- Renderer、preload 公共接口与前端源码扫描未发现 sidecar 令牌、Authorization 头或固定交付端口。
+- 本地 23 项 Python 测试、26 项桌面测试、5 项前端测试通过；Python 覆盖率 99.33%，桌面覆盖率 95.61%，前端覆盖率 94.59%。

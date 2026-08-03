@@ -1,7 +1,10 @@
 import type { components } from "@aijian/contracts";
 
+import type { SidecarSession } from "./sidecar-protocol";
+
 type HealthResponse = components["schemas"]["HealthResponse"];
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
+type SidecarApiSession = Pick<SidecarSession, "origin" | "token">;
 
 export interface LocalApiClient {
   getHealth(): Promise<HealthResponse>;
@@ -26,7 +29,7 @@ function canonicalLoopbackOrigin(baseUrl: string): string {
     url.pathname === "/" &&
     url.search === "" &&
     url.hash === "";
-  if (!isCanonical) {
+  if (!isCanonical || url.origin !== baseUrl) {
     throw new Error("Local API URL must be a canonical loopback origin");
   }
   return url.origin;
@@ -43,13 +46,21 @@ function isHealthResponse(value: unknown): value is HealthResponse {
   return data.status === "ok" && data.service === "aijian-api" && typeof data.version === "string";
 }
 
-export function createLocalApiClient(fetcher: Fetcher, baseUrl: string): LocalApiClient {
-  const origin = canonicalLoopbackOrigin(baseUrl);
+export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSession): LocalApiClient {
+  const origin = canonicalLoopbackOrigin(session.origin);
+  if (!/^[A-Za-z0-9_-]{43,256}$/.test(session.token)) {
+    throw new Error("Local API client requires a valid sidecar session");
+  }
+  const authorization = `Bearer ${session.token}`;
 
   return {
     async getHealth(): Promise<HealthResponse> {
       const response = await fetcher(`${origin}/api/v1/health`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          Authorization: authorization,
+          Origin: "app://aijian",
+        },
       });
       if (!response.ok) {
         throw new Error(`Local API health request failed with status ${response.status}`);

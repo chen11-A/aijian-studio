@@ -48,3 +48,6 @@ def test_health_contract_is_published_in_openapi() -> None:
     operation = schema["paths"]["/api/v1/health"]["get"]
     response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
     assert response_schema["$ref"] == "#/components/schemas/HealthResponse"
+    for status_code in ("401", "403"):
+        error_schema = operation["responses"][status_code]["content"]["application/json"]["schema"]
+        assert error_schema["$ref"] == "#/components/schemas/ErrorResponse"

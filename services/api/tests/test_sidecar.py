@@ -17,6 +17,7 @@ def test_listener_uses_an_os_assigned_ipv4_loopback_port() -> None:
         assert port == actual_port
         assert 1 <= port <= 65535
         assert listener.family == socket.AF_INET
+        assert listener.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN) == 1
     finally:
         listener.close()
 

@@ -10,6 +10,11 @@ const healthyResponse: HealthResponse = {
   request_id: "88ed7974-adc3-4e35-a5c8-38b9674fc45c",
 };
 
+const session = {
+  origin: "http://127.0.0.1:43123",
+  token: "s".repeat(43),
+};
+
 describe("local API client", () => {
   test("requests health only from the configured loopback origin", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -18,11 +23,15 @@ describe("local API client", () => {
         headers: { "Content-Type": "application/json" },
       }),
     );
-    const client = createLocalApiClient(fetchMock, "http://127.0.0.1:43123");
+    const client = createLocalApiClient(fetchMock, session);
 
     await expect(client.getHealth()).resolves.toEqual(healthyResponse);
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:43123/api/v1/health", {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${session.token}`,
+        Origin: "app://aijian",
+      },
     });
   });
 
@@ -34,8 +43,16 @@ describe("local API client", () => {
     "http://0.0.0.0:43123",
     "http://example.com:43123",
     "http://user:password@127.0.0.1:43123",
-  ])("rejects a non-canonical local API URL: %s", (baseUrl) => {
-    expect(() => createLocalApiClient(vi.fn(), baseUrl)).toThrow("canonical loopback");
+  ])("rejects a non-canonical local API URL: %s", (origin) => {
+    expect(() => createLocalApiClient(vi.fn(), { ...session, origin })).toThrow(
+      "canonical loopback",
+    );
+  });
+
+  test("rejects a weak sidecar token", () => {
+    expect(() => createLocalApiClient(vi.fn(), { ...session, token: "short" })).toThrow(
+      "valid sidecar session",
+    );
   });
 
   test("rejects HTTP failures and malformed health payloads", async () => {
@@ -43,7 +60,7 @@ describe("local API client", () => {
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 502 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: { status: "ok" } })));
-    const client = createLocalApiClient(fetchMock, "http://127.0.0.1:43123");
+    const client = createLocalApiClient(fetchMock, session);
 
     await expect(client.getHealth()).rejects.toThrow("status 502");
     await expect(client.getHealth()).rejects.toThrow("published contract");

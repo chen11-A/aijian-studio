@@ -7,7 +7,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/api-client.ts"],
+      include: ["src/api-client.ts", "src/sidecar-process.ts", "src/sidecar-protocol.ts"],
       thresholds: {
         lines: 90,
         functions: 90,

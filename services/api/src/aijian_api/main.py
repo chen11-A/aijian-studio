@@ -69,7 +69,15 @@ def create_app(*, sidecar_security: SidecarSecurity | None = None) -> FastAPI:
         _apply_security_headers(response, request.state.request_id)
         return response
 
-    @app.get("/api/v1/health", operation_id="getHealth", response_model=HealthResponse)
+    @app.get(
+        "/api/v1/health",
+        operation_id="getHealth",
+        response_model=HealthResponse,
+        responses={
+            401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+            403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+        },
+    )
     async def health(request: Request) -> HealthResponse:
         return HealthResponse(
             data=HealthData(version=__version__),

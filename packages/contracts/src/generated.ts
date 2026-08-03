@@ -26,6 +26,34 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * ErrorBody
+         * @description Stable machine-readable error details.
+         */
+        ErrorBody: {
+            /** Code */
+            code: string;
+            /** Details */
+            details: {
+                [key: string]: string;
+            };
+            /** Message */
+            message: string;
+            /** Retryable */
+            retryable: boolean;
+        };
+        /**
+         * ErrorResponse
+         * @description Error envelope shared by all HTTP boundaries.
+         */
+        ErrorResponse: {
+            error: components["schemas"]["ErrorBody"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /**
          * HealthData
          * @description Stable service identity returned by the health endpoint.
          */
@@ -82,6 +110,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
