@@ -1,0 +1,16 @@
+.cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+coverage/
+dist/
+downloads/
+node_modules/
+upstreams/
+pnpm-lock.yaml
+uv.lock
+LICENSE
+NOTICE
+packages/contracts/openapi.json
+packages/contracts/src/generated.ts

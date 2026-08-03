@@ -4,15 +4,15 @@
 
 ## 已安装的基础环境
 
-| 组件 | 版本 | 用途 |
-| --- | --- | --- |
-| Git | 2.53.0.windows.3 | 源码与版本管理 |
-| Node.js | 24.15.0 | Web、工作流与桌面端开发 |
-| npm | 11.12.1 | Node.js 自带包管理工具 |
-| pnpm | 11.9.0 | Monorepo 前端依赖管理 |
-| uv | 0.12.1 | Python 与虚拟环境管理 |
-| Python | 3.11.15、3.12.13 | AI 后端与 ViMax 运行时 |
-| FFmpeg / ffprobe | 8.1.2 full build | 音视频合成、转码和探测 |
+| 组件             | 版本             | 用途                    |
+| ---------------- | ---------------- | ----------------------- |
+| Git              | 2.53.0.windows.3 | 源码与版本管理          |
+| Node.js          | 24.15.0          | Web、工作流与桌面端开发 |
+| npm              | 11.12.1          | Node.js 自带包管理工具  |
+| pnpm             | 11.9.0           | Monorepo 前端依赖管理   |
+| uv               | 0.12.1           | Python 与虚拟环境管理   |
+| Python           | 3.11.15、3.12.13 | AI 后端与 ViMax 运行时  |
+| FFmpeg / ffprobe | 8.1.2 full build | 音视频合成、转码和探测  |
 
 `uv`、Python 和 FFmpeg 的用户级 PATH 已写入系统环境。新开的 PowerShell 会自动生效；当前窗口如需立即使用，可执行：
 
@@ -24,12 +24,12 @@ $env:Path = "$env:APPDATA\Python\Python312\Scripts;$env:LOCALAPPDATA\Microsoft\W
 
 所有第三方源码位于 `upstreams/`，该目录已被本工作区的 `.gitignore` 排除，便于后续把自研代码与上游代码分开管理。
 
-| 项目 | 固定版本 | 已完成 | 建议用途 |
-| --- | --- | --- | --- |
-| LumenX | `7a1213a0db73ab90ca976f5c4b4ca680e1ae1d2d` | Node/Python 依赖、前端构建 | 小说拆解、脚本和分镜生成的参考后端 |
-| Wind Comic | `b669de64f871f5a96f50d4c7afca341662e13683` | Node 依赖、Next.js 构建 | 第一优先主流程原型；已有多 Agent 和 Grok 视频提供器 |
-| ViMax | `05a48943878312d88fe5a016c12a9654940ecc43` | Python/Node 依赖、Web 构建 | Agent 编排、会话与制片工作流参考 |
-| PrintFilm | `b5ed4b840b048a921e801accc253a0d4549137df` | Node 依赖、Vite 构建 | 漫剧编辑器和桌面端交互参考 |
+| 项目       | 固定版本                                   | 已完成                     | 建议用途                                            |
+| ---------- | ------------------------------------------ | -------------------------- | --------------------------------------------------- |
+| LumenX     | `7a1213a0db73ab90ca976f5c4b4ca680e1ae1d2d` | Node/Python 依赖、前端构建 | 小说拆解、脚本和分镜生成的参考后端                  |
+| Wind Comic | `b669de64f871f5a96f50d4c7afca341662e13683` | Node 依赖、Next.js 构建    | 第一优先主流程原型；已有多 Agent 和 Grok 视频提供器 |
+| ViMax      | `05a48943878312d88fe5a016c12a9654940ecc43` | Python/Node 依赖、Web 构建 | Agent 编排、会话与制片工作流参考                    |
+| PrintFilm  | `b5ed4b840b048a921e801accc253a0d4549137df` | Node 依赖、Vite 构建       | 漫剧编辑器和桌面端交互参考                          |
 
 安装后的 Python 虚拟环境位于：
 

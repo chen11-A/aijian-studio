@@ -16,19 +16,17 @@
   "project_id": "prj_01K...",
   "status": "needs_review",
   "created_at": "2026-08-03T12:00:00Z",
-  "created_by": {"type": "agent", "id": "director.v1"},
-  "inputs": [
-    {"version_id": "ver_scene_7", "relationship": "derived_from", "impact": "blocking"}
-  ],
+  "created_by": { "type": "agent", "id": "director.v1" },
+  "inputs": [{ "version_id": "ver_scene_7", "relationship": "derived_from", "impact": "blocking" }],
   "source_spans": [
-    {"source_block_id": "srcb_42", "start": 18, "end": 71, "claim": "character_action"}
+    { "source_block_id": "srcb_42", "start": 18, "end": 71, "claim": "character_action" }
   ],
   "content": {},
   "content_hash": "sha256:...",
   "change_summary": "将主观描述改成可执行的近景动作",
   "assumptions": ["此场景发生在日落前"],
   "open_questions": ["道具是否保留旧版裂纹"],
-  "risks": [{"code": "CONTINUITY_PROP", "severity": "warning"}],
+  "risks": [{ "code": "CONTINUITY_PROP", "severity": "warning" }],
   "generation": {
     "provider": "openai",
     "adapter_version": "0.1.0",
@@ -37,7 +35,7 @@
     "request_id": "provider-request-id",
     "parameters": {},
     "usage": {},
-    "cost": {"currency": "USD", "reserved": "0.10", "accrued": "0.06"}
+    "cost": { "currency": "USD", "reserved": "0.10", "accrued": "0.06" }
   },
   "approval": {
     "required_roles": ["producer", "director"],

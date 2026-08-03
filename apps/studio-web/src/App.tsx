@@ -3,9 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createHealthTransport, type HealthResponse, type HealthTransport } from "./api/health";
 
 type ConnectionState =
-  | { kind: "loading" }
-  | { kind: "connected"; health: HealthResponse }
-  | { kind: "error" };
+  { kind: "loading" } | { kind: "connected"; health: HealthResponse } | { kind: "error" };
 
 interface AppProps {
   transport?: HealthTransport;
@@ -95,9 +93,7 @@ export function App({ transport }: AppProps) {
               <span>把一个故事，变成一部</span>
               <em>能继续创作的影片。</em>
             </h2>
-            <p>
-              从小说拆解、剧本编排到分镜、素材与剪辑，每一步都保留来源、版本和人工决定。
-            </p>
+            <p>从小说拆解、剧本编排到分镜、素材与剪辑，每一步都保留来源、版本和人工决定。</p>
           </div>
           <div className={`engine-status ${connection.kind}`} aria-live="polite">
             <span className="signal" aria-hidden="true" />
@@ -161,8 +157,8 @@ export function App({ transport }: AppProps) {
             <span className="eyebrow">当前完成</span>
             <h2>可验证的创作底座</h2>
             <p>
-              前后端共享 OpenAPI 契约；浏览器使用同源传输，桌面端使用隔离 IPC。下一步接入随机端口 sidecar
-              与项目导入，不把开发端口当作交付方案。
+              前后端共享 OpenAPI 契约；浏览器使用同源传输，桌面端使用隔离 IPC。下一步接入随机端口
+              sidecar 与项目导入，不把开发端口当作交付方案。
             </p>
           </div>
           <div className="foundation-tags" aria-label="已完成能力">

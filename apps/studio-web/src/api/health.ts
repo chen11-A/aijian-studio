@@ -22,11 +22,7 @@ function isHealthResponse(value: unknown): value is HealthResponse {
   if (typeof candidate.request_id !== "string") return false;
   if (typeof candidate.data !== "object" || candidate.data === null) return false;
   const data = candidate.data as Record<string, unknown>;
-  return (
-    data.status === "ok" &&
-    data.service === "aijian-api" &&
-    typeof data.version === "string"
-  );
+  return data.status === "ok" && data.service === "aijian-api" && typeof data.version === "string";
 }
 
 async function fetchHealth(): Promise<HealthResponse> {

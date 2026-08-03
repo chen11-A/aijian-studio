@@ -7,8 +7,7 @@ export interface LocalApiClient {
   getHealth(): Promise<HealthResponse>;
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function canonicalLoopbackOrigin(baseUrl: string): string {
   let url: URL;
@@ -41,11 +40,7 @@ function isHealthResponse(value: unknown): value is HealthResponse {
   }
   if (typeof candidate.data !== "object" || candidate.data === null) return false;
   const data = candidate.data as Record<string, unknown>;
-  return (
-    data.status === "ok" &&
-    data.service === "aijian-api" &&
-    typeof data.version === "string"
-  );
+  return data.status === "ok" && data.service === "aijian-api" && typeof data.version === "string";
 }
 
 export function createLocalApiClient(fetcher: Fetcher, baseUrl: string): LocalApiClient {

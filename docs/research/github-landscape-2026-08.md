@@ -10,41 +10,41 @@
 
 ### A 级：允许在审计后复用代码或依赖
 
-| 项目 | 许可证 | 取其精华 | 不能照搬的部分 | 决策 |
-| --- | --- | --- | --- | --- |
-| [Jellyfish](https://github.com/Forget-C/Jellyfish) | Apache-2.0 | Project/Chapter/Shot/ShotDetail、角色/场景/服装/道具、PromptTemplate、统一任务真相层、OpenAPI 客户端 | 无完整鉴权和多租户；API Key 数据库存储方案不达标；缺桌面/NLE/全文来源链 | 主要架构参考，做隔离式提取实验，不整仓 Fork |
-| [LumenX](https://github.com/alibaba/lumenx) | MIT | 六阶段漫剧 SOP、模型目录、参考图工作流、供应商接入体验 | 固定本机端口、宽松 CORS、核心 API/流水线文件过大 | 复用交互与流程概念，按模块重写 |
-| [Wind Comic](https://github.com/ChrisChen667788/wind-comic) | MIT | 长篇/季/集、类型化 DAG、时间线、Yjs 协作、SQLite/PostgreSQL 双模式、较多测试 | 存储抽象仍有绕过；部署文档暴露单 Redis 通道和 SQLite 并发问题 | 复用测试思路、图模型和协作协议概念 |
-| [Toonflow](https://github.com/HBAI-Ltd/Toonflow-app) | Apache-2.0 | 无限画布、章节事件图、三层 Agent、可编辑 Skills、本机随机端口 | 可编辑 UI 源码并不完整，主要前端是编译产物；宽松 CORS；动态代码执行风险 | 只选服务端小模块或设计，不能作为 UI 基座 |
-| [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) | MIT | Electron Windows 打包、FFmpeg 探测、桌面本地后端、供应商覆盖 | 独立服务器模式缺少可靠鉴权；密钥明文和前端回传风险 | 只借鉴打包、迁移和媒体探测 |
-| [ViMax](https://github.com/HKUDS/ViMax) | MIT | 制片人/导演/编剧等 Agent 角色、Idea/Script/Novel 三入口 | 研究型编排，不是完整生产系统 | 复用提示词与角色边界概念 |
-| [OpenTimelineIO](https://github.com/AcademySoftwareFoundation/OpenTimelineIO) | Apache-2.0 | 时间线交换模型、FCPXML/AAF/EDL 等适配 | 不能承载全部 AI 来源/提示词/审批元数据 | 作为导入导出层，不作为唯一内部模型 |
-| [React Flow / xyflow](https://github.com/xyflow/xyflow) | MIT | 节点画布、工作流和事件图 UI | 大型画布仍需虚拟化与状态设计 | 作为前端依赖候选 |
-| [HyperFrames](https://github.com/heygen-com/hyperframes) | Apache-2.0 | HTML/CSS/GSAP 可寻址逐帧渲染、Puppeteer + FFmpeg、字幕/图表/转场/包装动效、同源确定性输出 | 不是影视时间线、人物视频生成器或资产连续性系统；Chromium 渲染成本需实测 | W4 做渲染 Spike，候选内置 motion-graphics lane |
-| [Code2MP4](https://github.com/code2mp4/code2mp4) | Apache-2.0 | Brief/Script/Storyboard/Scene/Render Config Schema、七层 Prompt Stack、质量清单、可编辑 motion source | 2026-08 审计时社区和发布成熟度仍很低；偏产品宣传/解释视频，不是漫剧 | 只借鉴契约和测试夹具，暂不做基座或核心依赖 |
+| 项目                                                                          | 许可证     | 取其精华                                                                                              | 不能照搬的部分                                                          | 决策                                           |
+| ----------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------- |
+| [Jellyfish](https://github.com/Forget-C/Jellyfish)                            | Apache-2.0 | Project/Chapter/Shot/ShotDetail、角色/场景/服装/道具、PromptTemplate、统一任务真相层、OpenAPI 客户端  | 无完整鉴权和多租户；API Key 数据库存储方案不达标；缺桌面/NLE/全文来源链 | 主要架构参考，做隔离式提取实验，不整仓 Fork    |
+| [LumenX](https://github.com/alibaba/lumenx)                                   | MIT        | 六阶段漫剧 SOP、模型目录、参考图工作流、供应商接入体验                                                | 固定本机端口、宽松 CORS、核心 API/流水线文件过大                        | 复用交互与流程概念，按模块重写                 |
+| [Wind Comic](https://github.com/ChrisChen667788/wind-comic)                   | MIT        | 长篇/季/集、类型化 DAG、时间线、Yjs 协作、SQLite/PostgreSQL 双模式、较多测试                          | 存储抽象仍有绕过；部署文档暴露单 Redis 通道和 SQLite 并发问题           | 复用测试思路、图模型和协作协议概念             |
+| [Toonflow](https://github.com/HBAI-Ltd/Toonflow-app)                          | Apache-2.0 | 无限画布、章节事件图、三层 Agent、可编辑 Skills、本机随机端口                                         | 可编辑 UI 源码并不完整，主要前端是编译产物；宽松 CORS；动态代码执行风险 | 只选服务端小模块或设计，不能作为 UI 基座       |
+| [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama)              | MIT        | Electron Windows 打包、FFmpeg 探测、桌面本地后端、供应商覆盖                                          | 独立服务器模式缺少可靠鉴权；密钥明文和前端回传风险                      | 只借鉴打包、迁移和媒体探测                     |
+| [ViMax](https://github.com/HKUDS/ViMax)                                       | MIT        | 制片人/导演/编剧等 Agent 角色、Idea/Script/Novel 三入口                                               | 研究型编排，不是完整生产系统                                            | 复用提示词与角色边界概念                       |
+| [OpenTimelineIO](https://github.com/AcademySoftwareFoundation/OpenTimelineIO) | Apache-2.0 | 时间线交换模型、FCPXML/AAF/EDL 等适配                                                                 | 不能承载全部 AI 来源/提示词/审批元数据                                  | 作为导入导出层，不作为唯一内部模型             |
+| [React Flow / xyflow](https://github.com/xyflow/xyflow)                       | MIT        | 节点画布、工作流和事件图 UI                                                                           | 大型画布仍需虚拟化与状态设计                                            | 作为前端依赖候选                               |
+| [HyperFrames](https://github.com/heygen-com/hyperframes)                      | Apache-2.0 | HTML/CSS/GSAP 可寻址逐帧渲染、Puppeteer + FFmpeg、字幕/图表/转场/包装动效、同源确定性输出             | 不是影视时间线、人物视频生成器或资产连续性系统；Chromium 渲染成本需实测 | W4 做渲染 Spike，候选内置 motion-graphics lane |
+| [Code2MP4](https://github.com/code2mp4/code2mp4)                              | Apache-2.0 | Brief/Script/Storyboard/Scene/Render Config Schema、七层 Prompt Stack、质量清单、可编辑 motion source | 2026-08 审计时社区和发布成熟度仍很低；偏产品宣传/解释视频，不是漫剧     | 只借鉴契约和测试夹具，暂不做基座或核心依赖     |
 
 任何上游代码进入仓库前，都必须记录源仓库、固定提交、文件路径、许可证、修改说明和 NOTICE 需求。A 级不等于“可随意复制”。
 
 ### B 级：只研究行为、架构和测试，不复制代码
 
-| 项目 | 约束 | 可借鉴内容 |
-| --- | --- | --- |
-| [ArcReel](https://github.com/ArcReel/ArcReel) | AGPL-3.0 | ADR/规格/测试、版本回退、资产指纹、任务检查点、剪映草稿导出、沙箱 Agent |
-| [OpenMontage](https://github.com/calesthio/OpenMontage) | AGPL-3.0 | 生产工具/Skills 编排、真实视频合成知识库、Remotion 管线经验 |
-| [ComfyUI](https://github.com/comfyanonymous/ComfyUI) | GPL-3.0 | 节点式生成图、本地模型生态；仅作为外部服务通过 HTTP 调用 |
-| Shotcut / Olive / LosslessCut | GPL 系列 | 时间线交互、代理媒体、无损切割；不可并入 Apache 核心 |
-| OpenFrame | AGPL-3.0 | FCPXML/EDL 和 Web/桌面剪辑体验 |
+| 项目                                                    | 约束     | 可借鉴内容                                                              |
+| ------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
+| [ArcReel](https://github.com/ArcReel/ArcReel)           | AGPL-3.0 | ADR/规格/测试、版本回退、资产指纹、任务检查点、剪映草稿导出、沙箱 Agent |
+| [OpenMontage](https://github.com/calesthio/OpenMontage) | AGPL-3.0 | 生产工具/Skills 编排、真实视频合成知识库、Remotion 管线经验             |
+| [ComfyUI](https://github.com/comfyanonymous/ComfyUI)    | GPL-3.0  | 节点式生成图、本地模型生态；仅作为外部服务通过 HTTP 调用                |
+| Shotcut / Olive / LosslessCut                           | GPL 系列 | 时间线交互、代理媒体、无损切割；不可并入 Apache 核心                    |
+| OpenFrame                                               | AGPL-3.0 | FCPXML/EDL 和 Web/桌面剪辑体验                                          |
 
 “只研究”要求独立实现，不复制源代码、独有素材或大量文本。设计文档要记录独立推导过程。
 
 ### C 级：无明确许可证或商业条款不兼容
 
-| 项目 | 问题 | 处理 |
-| --- | --- | --- |
-| PrintFilm | 仓库未提供明确许可证 | 仅做公开页面体验观察，不复制代码 |
-| drama-workshop | 未提供许可证 | 只观察 React Flow 交互 |
-| OpenShorts | 许可证元数据不明确/含自定义条款 | 不进入核心依赖 |
-| Remotion | 当前为分层商业/源可用条款，并非可自由形成 Apache 衍生产品 | 不作为内置渲染核心；将来可做“用户自行安装的外部渲染器”适配 |
+| 项目           | 问题                                                      | 处理                                                       |
+| -------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
+| PrintFilm      | 仓库未提供明确许可证                                      | 仅做公开页面体验观察，不复制代码                           |
+| drama-workshop | 未提供许可证                                              | 只观察 React Flow 交互                                     |
+| OpenShorts     | 许可证元数据不明确/含自定义条款                           | 不进入核心依赖                                             |
+| Remotion       | 当前为分层商业/源可用条款，并非可自由形成 Apache 衍生产品 | 不作为内置渲染核心；将来可做“用户自行安装的外部渲染器”适配 |
 
 ## “Deterministic Flow” 应怎样吸收
 

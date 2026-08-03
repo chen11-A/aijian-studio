@@ -7,7 +7,7 @@ type HealthResponse = components["schemas"]["HealthResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
-  request_id: "88ed7974-adc3-4e35-a5c8-38b9674fc45c"
+  request_id: "88ed7974-adc3-4e35-a5c8-38b9674fc45c",
 };
 
 describe("local API client", () => {
@@ -15,14 +15,14 @@ describe("local API client", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(healthyResponse), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
-      })
+        headers: { "Content-Type": "application/json" },
+      }),
     );
     const client = createLocalApiClient(fetchMock, "http://127.0.0.1:43123");
 
     await expect(client.getHealth()).resolves.toEqual(healthyResponse);
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:43123/api/v1/health", {
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
     });
   });
 
@@ -33,7 +33,7 @@ describe("local API client", () => {
     "http://localhost:43123",
     "http://0.0.0.0:43123",
     "http://example.com:43123",
-    "http://user:password@127.0.0.1:43123"
+    "http://user:password@127.0.0.1:43123",
   ])("rejects a non-canonical local API URL: %s", (baseUrl) => {
     expect(() => createLocalApiClient(vi.fn(), baseUrl)).toThrow("canonical loopback");
   });

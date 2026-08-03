@@ -30,18 +30,18 @@ flowchart LR
 
 ## 角色边界
 
-| 角色 | 输入 | 输出 | 不允许做的事 |
-| --- | --- | --- | --- |
-| 阿健·制片统筹 | 用户目标、预算、平台、截止期、各部门状态 | 制作任务书、优先级、冲突清单、Gate 建议 | 直接改剧本或绕过审批发布 |
-| 产品经理 | 需求与操作反馈 | 用户故事、验收条件、范围变更 | 把电影创作意见当软件缺陷 |
-| 编剧 | 来源锚点、故事圣经、分集卡 | 场景剧本、台词、改编说明 | 删除来源关系或偷偷改变核心设定 |
-| 导演 | 剧本、风格约束、时长 | 导演阐述、节奏、表演和镜头意图 | 直接生成供应商专用提示词并锁死模型 |
-| 美术总监 | 角色/场景/道具连续性、导演意图 | 视觉圣经、款式变体、一致性检查 | 覆盖已批准资产而不建新版本 |
-| 摄影/分镜 | 场景、动作、空间和画幅 | ShotIntent、构图、机位、运动、参考图需求 | 用自然语言代替结构化镜头参数 |
-| 声音导演 | 台词、角色声线、情绪、环境 | 配音计划、音效、音乐/版权信息 | 未经批准克隆真人声音 |
-| 剪辑师 | 已批准镜头、声音、字幕、节奏标记 | TimelineVersion、修改单、导出计划 | 修改上游资产文件本体 |
-| 连续性监督 | 全部已批准版本 | 冲突报告、阻断或警告 | 自动“修正”创意决定 |
-| 法务/发布检查 | 来源、模型、授权、导出目标 | 发布许可清单 | 用免责声明代替授权证据 |
+| 角色          | 输入                                     | 输出                                     | 不允许做的事                       |
+| ------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| 阿健·制片统筹 | 用户目标、预算、平台、截止期、各部门状态 | 制作任务书、优先级、冲突清单、Gate 建议  | 直接改剧本或绕过审批发布           |
+| 产品经理      | 需求与操作反馈                           | 用户故事、验收条件、范围变更             | 把电影创作意见当软件缺陷           |
+| 编剧          | 来源锚点、故事圣经、分集卡               | 场景剧本、台词、改编说明                 | 删除来源关系或偷偷改变核心设定     |
+| 导演          | 剧本、风格约束、时长                     | 导演阐述、节奏、表演和镜头意图           | 直接生成供应商专用提示词并锁死模型 |
+| 美术总监      | 角色/场景/道具连续性、导演意图           | 视觉圣经、款式变体、一致性检查           | 覆盖已批准资产而不建新版本         |
+| 摄影/分镜     | 场景、动作、空间和画幅                   | ShotIntent、构图、机位、运动、参考图需求 | 用自然语言代替结构化镜头参数       |
+| 声音导演      | 台词、角色声线、情绪、环境               | 配音计划、音效、音乐/版权信息            | 未经批准克隆真人声音               |
+| 剪辑师        | 已批准镜头、声音、字幕、节奏标记         | TimelineVersion、修改单、导出计划        | 修改上游资产文件本体               |
+| 连续性监督    | 全部已批准版本                           | 冲突报告、阻断或警告                     | 自动“修正”创意决定                 |
+| 法务/发布检查 | 来源、模型、授权、导出目标               | 发布许可清单                             | 用免责声明代替授权证据             |
 
 ## 从小说到分镜
 
@@ -108,8 +108,8 @@ flowchart LR
   "model": "configured-video-model",
   "positive": "...",
   "negative": "...",
-  "references": [{"asset_version_id": "char_lin_v7", "role": "character"}],
-  "parameters": {"duration_s": 5, "aspect_ratio": "9:16"},
+  "references": [{ "asset_version_id": "char_lin_v7", "role": "character" }],
+  "parameters": { "duration_s": 5, "aspect_ratio": "9:16" },
   "losses": ["provider_does_not_support_camera_path"]
 }
 ```
@@ -144,21 +144,21 @@ invalidation:
 
 ## 生产 Gate
 
-| Gate | 审批内容 | 通过后冻结 | 下游关键影响 |
-| --- | --- | --- | --- |
-| G0 需求立项 | 目标平台、受众、题材、时长、预算、权利 | ProductionBrief/DeliveryProfile | 全部 |
-| G1 原文解析 | 章节、规范化和来源锚点 | SourceDocumentVersion | 圣经/改编 |
-| G2 故事圣经 | 人物、关系、世界观、时间线 | StoryBible/Canon | 分集/剧本/资产 |
-| G3 分集规划 | 钩子、冲突、时长、改编账本 | EpisodePlan | 剧本/镜头 |
-| G4 剧本 | 场景、台词、节奏、来源与新增 | Screenplay | 声音/镜头/时间线 |
-| G4T 桌读 | 临时对白能否自然说完、发音和节奏 | ScratchVoice/ReadthroughReport | 镜头时长/字幕 |
-| G5 视觉圣经 | 角色/服装/场景/道具版本和 9:16 安全区 | VisualBible/AssetVersion | 分镜/生成 |
-| G6A 镜头与 Coverage | ShotIntent、剪辑手柄、覆盖用途、预算 | ShotPlan/CoveragePlan | Animatic/生成 |
-| G6B 生产就绪 | Animatic、MotionProof、供应商能力损失、资产齐套 | Animatic/MotionProofReport | 正式生成 |
-| G7A 粗剪与补拍 | RoughCut、连续性、缺口和补拍优先级 | RoughCut/PickupList | 重生成/精剪 |
-| G7B 画面锁定 | FineCut、最终帧边界、转场和画面连续性 | PictureLock | 声音/字幕/口型/母版 |
-| G7C Finishing | OnlineMaster、MixMaster、SubtitleMaster、CueSheet、权利 | MasterCandidate | Master QC |
-| G8 母版发布 | Technical/Continuity/Editorial/Creative/Rights QC 与平台规格 | ReleaseManifest/MasterQCReport | 正式导出 |
+| Gate                | 审批内容                                                     | 通过后冻结                      | 下游关键影响        |
+| ------------------- | ------------------------------------------------------------ | ------------------------------- | ------------------- |
+| G0 需求立项         | 目标平台、受众、题材、时长、预算、权利                       | ProductionBrief/DeliveryProfile | 全部                |
+| G1 原文解析         | 章节、规范化和来源锚点                                       | SourceDocumentVersion           | 圣经/改编           |
+| G2 故事圣经         | 人物、关系、世界观、时间线                                   | StoryBible/Canon                | 分集/剧本/资产      |
+| G3 分集规划         | 钩子、冲突、时长、改编账本                                   | EpisodePlan                     | 剧本/镜头           |
+| G4 剧本             | 场景、台词、节奏、来源与新增                                 | Screenplay                      | 声音/镜头/时间线    |
+| G4T 桌读            | 临时对白能否自然说完、发音和节奏                             | ScratchVoice/ReadthroughReport  | 镜头时长/字幕       |
+| G5 视觉圣经         | 角色/服装/场景/道具版本和 9:16 安全区                        | VisualBible/AssetVersion        | 分镜/生成           |
+| G6A 镜头与 Coverage | ShotIntent、剪辑手柄、覆盖用途、预算                         | ShotPlan/CoveragePlan           | Animatic/生成       |
+| G6B 生产就绪        | Animatic、MotionProof、供应商能力损失、资产齐套              | Animatic/MotionProofReport      | 正式生成            |
+| G7A 粗剪与补拍      | RoughCut、连续性、缺口和补拍优先级                           | RoughCut/PickupList             | 重生成/精剪         |
+| G7B 画面锁定        | FineCut、最终帧边界、转场和画面连续性                        | PictureLock                     | 声音/字幕/口型/母版 |
+| G7C Finishing       | OnlineMaster、MixMaster、SubtitleMaster、CueSheet、权利      | MasterCandidate                 | Master QC           |
+| G8 母版发布         | Technical/Continuity/Editorial/Creative/Rights QC 与平台规格 | ReleaseManifest/MasterQCReport  | 正式导出            |
 
 解冻已批准产物必须说明原因，系统计算失效下游并由负责人确认费用和工期。
 
@@ -170,23 +170,23 @@ RoughCut、FineCut、PictureLock、OnlineMaster、MixMaster、SubtitleMaster 和
 
 ## 正式节点和交接产物
 
-| 节点 | DRI | 主要输入 | 主要输出 | 失败/拒收原因 |
-| --- | --- | --- | --- | --- |
-| `source.ingest` | 编辑/系统 | 原文件 | SourceManifest/SourceBlock | 格式、编码、来源映射不可靠 |
-| `story.extract` | 编剧 | SourceSpan | StoryBibleProposal/CanonConflict | 无证据、别名冲突、时间线冲突 |
-| `adaptation.plan` | 制片/编剧 | StoryBible | AdaptationLedger/EpisodePlan | 时长、钩子、原著损失不可接受 |
-| `screenplay.generate` | 编剧 | EpisodePlan/Canon | Screenplay | 来源缺失、台词/场景不可执行 |
-| `readthrough.build` | 声音/剪辑 | Screenplay/VoicePlan | ScratchVoice/ReadthroughReport | 台词超时、发音/停顿问题 |
-| `visual_bible.build` | 美术 | Canon/DirectorTreatment | VisualBible/AssetVersion | 身份、服装、权利或竖屏构图问题 |
-| `shot.plan` | 导演/摄影/剪辑 | Screenplay/VisualBible | ShotPlan/CoveragePlan | 无覆盖、手柄不足、预算不可行 |
-| `animatic.build` | 剪辑/声音 | ShotPlan/ScratchVoice | Animatic | 时长、节奏、钩子或对白不成立 |
-| `motion.prove` | 生成师/导演 | 高风险 Shot/ProviderCapability | MotionProofReport | 身份漂移、动作/方向/控制不支持 |
-| `asset.generate` | 生成师 | PromptPlan/批准引用 | GenerationAttempt/AssetVersion | 安全拒绝、成本、质量或连续性失败 |
-| `roughcut.build` | 剪辑 | 批准资产/Voice/Sound | RoughCut/PickupList | 叙事缺口、不可剪、连续性硬错 |
-| `picture.lock` | 导演/剪辑 | FineCut | PictureLock | 补拍未结、帧边界或转场未定 |
-| `sound.finish` | 声音 | PictureLock/VoicePlan | SoundSpottingPlan/CueSheet/MixMaster | ADR、授权、响度、同步问题 |
-| `online.finish` | 在线/字幕 | PictureLock | OnlineMaster/SubtitleMaster | 媒体缺失、字幕区、画质问题 |
-| `master.qc` | 制片/法务/QC | 全部 Master/RightsLedger | MasterQCReport/ReleaseManifest | 任一不可豁免阻断项 |
+| 节点                  | DRI            | 主要输入                       | 主要输出                             | 失败/拒收原因                    |
+| --------------------- | -------------- | ------------------------------ | ------------------------------------ | -------------------------------- |
+| `source.ingest`       | 编辑/系统      | 原文件                         | SourceManifest/SourceBlock           | 格式、编码、来源映射不可靠       |
+| `story.extract`       | 编剧           | SourceSpan                     | StoryBibleProposal/CanonConflict     | 无证据、别名冲突、时间线冲突     |
+| `adaptation.plan`     | 制片/编剧      | StoryBible                     | AdaptationLedger/EpisodePlan         | 时长、钩子、原著损失不可接受     |
+| `screenplay.generate` | 编剧           | EpisodePlan/Canon              | Screenplay                           | 来源缺失、台词/场景不可执行      |
+| `readthrough.build`   | 声音/剪辑      | Screenplay/VoicePlan           | ScratchVoice/ReadthroughReport       | 台词超时、发音/停顿问题          |
+| `visual_bible.build`  | 美术           | Canon/DirectorTreatment        | VisualBible/AssetVersion             | 身份、服装、权利或竖屏构图问题   |
+| `shot.plan`           | 导演/摄影/剪辑 | Screenplay/VisualBible         | ShotPlan/CoveragePlan                | 无覆盖、手柄不足、预算不可行     |
+| `animatic.build`      | 剪辑/声音      | ShotPlan/ScratchVoice          | Animatic                             | 时长、节奏、钩子或对白不成立     |
+| `motion.prove`        | 生成师/导演    | 高风险 Shot/ProviderCapability | MotionProofReport                    | 身份漂移、动作/方向/控制不支持   |
+| `asset.generate`      | 生成师         | PromptPlan/批准引用            | GenerationAttempt/AssetVersion       | 安全拒绝、成本、质量或连续性失败 |
+| `roughcut.build`      | 剪辑           | 批准资产/Voice/Sound           | RoughCut/PickupList                  | 叙事缺口、不可剪、连续性硬错     |
+| `picture.lock`        | 导演/剪辑      | FineCut                        | PictureLock                          | 补拍未结、帧边界或转场未定       |
+| `sound.finish`        | 声音           | PictureLock/VoicePlan          | SoundSpottingPlan/CueSheet/MixMaster | ADR、授权、响度、同步问题        |
+| `online.finish`       | 在线/字幕      | PictureLock                    | OnlineMaster/SubtitleMaster          | 媒体缺失、字幕区、画质问题       |
+| `master.qc`           | 制片/法务/QC   | 全部 Master/RightsLedger       | MasterQCReport/ReleaseManifest       | 任一不可豁免阻断项               |
 
 每个节点的具体 Schema、权限、失效边和 CI fixture 在实施 Issue 中版本化；消费者必须显式接受、拒收或请求修订，不允许静默补字段。
 
