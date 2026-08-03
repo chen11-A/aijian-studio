@@ -1,0 +1,19 @@
+{
+  "name": "@aijian/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/generated.ts",
+  "exports": {
+    ".": {
+      "types": "./src/generated.ts",
+      "default": "./src/generated.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

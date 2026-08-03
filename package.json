@@ -1,0 +1,39 @@
+{
+  "name": "aijian-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-native motion comic production studio",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others --names api,web,desktop --prefix-colors yellow,cyan,magenta \"pnpm dev:api\" \"pnpm dev:web\" \"pnpm dev:desktop\"",
+    "dev:api": "uv run uvicorn aijian_api.main:app --app-dir services/api/src --host 127.0.0.1 --port 8000 --reload",
+    "dev:web": "pnpm --filter @aijian/studio-web dev",
+    "dev:desktop": "pnpm --filter @aijian/desktop dev",
+    "contracts:generate": "uv run python scripts/export_openapi.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/generated.ts",
+    "contracts:check": "pnpm contracts:generate && git diff --exit-code -- packages/contracts",
+    "lint": "pnpm lint:ts && pnpm lint:py",
+    "lint:ts": "eslint .",
+    "lint:py": "uv run ruff check services/api scripts && uv run ruff format --check services/api scripts",
+    "typecheck": "pnpm typecheck:ts && pnpm typecheck:py",
+    "typecheck:ts": "pnpm -r --if-present typecheck",
+    "typecheck:py": "uv run mypy",
+    "test": "pnpm test:ts && pnpm test:py",
+    "test:ts": "pnpm -r --if-present test",
+    "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing",
+    "build": "pnpm -r --if-present build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.4",
+    "eslint": "^10.8.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "wait-on": "^9.1.0"
+  }
+}
