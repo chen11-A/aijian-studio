@@ -1,11 +1,13 @@
 """Crash-safe SQLite persistence for local project, source, and artifact truth."""
 
 import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -20,20 +22,34 @@ from aijian_api.domain import (
     ArtifactSourceSpanDraft,
     ArtifactVersion,
     ArtifactVersionRecord,
+    ConfirmationChallenge,
     DependencyImpact,
+    GateDecision,
+    GateDecisionResult,
+    GateDecisionValue,
+    GateReadinessReport,
+    PreparedReviewAction,
     Project,
     ProjectStatus,
+    ReviewAction,
+    ReviewSignoffResult,
+    ReviewSubmission,
+    ReviewSubmissionResult,
+    RoleSignoff,
     SourceBlock,
     SourceBlockKind,
     SourceDocument,
     SourceDocumentSummary,
     SourceSpanRole,
+    TrustedReviewActor,
 )
+from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 type MigrationHook = Callable[[int, int], None]
+type TransactionHook = Callable[[str, str], None]
 
 
 _MIGRATION_1 = (
@@ -401,7 +417,497 @@ _IMMUTABILITY_TRIGGERS = tuple(
 )
 
 
-_MIGRATIONS = {1: _MIGRATION_1, 2: _MIGRATION_2 + _IMMUTABILITY_TRIGGERS}
+_LEGACY_V2_CHALLENGE_COLUMNS = (
+    """
+    ALTER TABLE confirmation_challenges
+    ADD COLUMN action_payload_hash TEXT NOT NULL
+        DEFAULT 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+    """,
+    """
+    ALTER TABLE confirmation_challenges
+    ADD COLUMN policy_snapshot_hash TEXT NOT NULL
+        DEFAULT 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+    """,
+    """
+    ALTER TABLE confirmation_challenges
+    ADD COLUMN actor_id TEXT NOT NULL DEFAULT 'legacy-unbound'
+    """,
+    "ALTER TABLE confirmation_challenges ADD COLUMN actor_roles_json TEXT NOT NULL DEFAULT '[]'",
+)
+
+
+_MIGRATION_3 = (
+    """
+    ALTER TABLE gate_decisions
+    ADD COLUMN confirmation_challenge_id TEXT
+    """,
+    """
+    ALTER TABLE gate_decisions
+    ADD COLUMN head_revision INTEGER NOT NULL DEFAULT 0 CHECK (head_revision >= 0)
+    """,
+    """
+    CREATE TRIGGER artifact_heads_revision_increments_once
+    BEFORE UPDATE ON artifact_heads
+    WHEN NEW.revision <> OLD.revision + 1
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact head revision must increment exactly once');
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_heads_accepted_requires_decision
+    BEFORE UPDATE OF accepted_version_id ON artifact_heads
+    WHEN NEW.accepted_version_id IS NOT OLD.accepted_version_id
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM gate_decisions AS decision
+            WHERE decision.artifact_id = NEW.artifact_id
+              AND decision.version_id = NEW.accepted_version_id
+              AND decision.decision = 'approved'
+              AND decision.head_revision = OLD.revision
+              AND decision.confirmation_challenge_id IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM confirmation_challenges AS challenge
+                  WHERE challenge.challenge_id = decision.confirmation_challenge_id
+                    AND challenge.artifact_id = decision.artifact_id
+                    AND challenge.version_id = decision.version_id
+                    AND challenge.gate = decision.gate
+                    AND challenge.action = 'decision'
+                    AND challenge.consumed_at IS NOT NULL
+              )
+        ) THEN RAISE(ABORT, 'accepted head requires an approved Gate decision') END;
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_heads_review_submission_owner
+    BEFORE UPDATE OF review_submission_id ON artifact_heads
+    WHEN NEW.review_submission_id IS NOT NULL
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM review_submissions AS submission
+            WHERE submission.submission_id = NEW.review_submission_id
+              AND submission.artifact_id = NEW.artifact_id
+              AND submission.version_id = NEW.review_version_id
+        ) THEN RAISE(ABORT, 'review head submission ownership mismatch') END;
+    END
+    """,
+    """
+    CREATE TRIGGER gate_readiness_report_submission_owner
+    BEFORE INSERT ON gate_readiness_reports
+    WHEN NEW.submission_id IS NOT NULL
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM review_submissions AS submission
+            WHERE submission.submission_id = NEW.submission_id
+              AND submission.artifact_id = NEW.artifact_id
+              AND submission.version_id = NEW.version_id
+              AND submission.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'readiness report submission ownership mismatch') END;
+    END
+    """,
+    """
+    CREATE TRIGGER review_submission_ownership
+    BEFORE INSERT ON review_submissions
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM gate_readiness_reports AS report
+            WHERE report.report_id = NEW.readiness_report_id
+              AND report.artifact_id = NEW.artifact_id
+              AND report.version_id = NEW.version_id
+              AND report.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'submission readiness ownership mismatch') END;
+        SELECT CASE WHEN NEW.supersedes_submission_id IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM review_submissions AS previous
+            WHERE previous.submission_id = NEW.supersedes_submission_id
+              AND previous.artifact_id = NEW.artifact_id
+              AND previous.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'submission predecessor ownership mismatch') END;
+    END
+    """,
+    """
+    CREATE TRIGGER role_signoff_ownership
+    BEFORE INSERT ON role_signoffs
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM review_submissions AS submission
+            WHERE submission.submission_id = NEW.submission_id
+              AND submission.artifact_id = NEW.artifact_id
+              AND submission.version_id = NEW.version_id
+              AND submission.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'signoff submission ownership mismatch') END;
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM gate_readiness_reports AS report
+            WHERE report.report_id = NEW.readiness_report_id
+              AND report.artifact_id = NEW.artifact_id
+              AND report.version_id = NEW.version_id
+              AND report.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'signoff report ownership mismatch') END;
+        SELECT CASE WHEN NEW.supersedes_signoff_id IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM role_signoffs AS previous
+            WHERE previous.signoff_id = NEW.supersedes_signoff_id
+              AND previous.artifact_id = NEW.artifact_id
+              AND previous.version_id = NEW.version_id
+              AND previous.gate = NEW.gate
+              AND previous.role = NEW.role
+        ) THEN RAISE(ABORT, 'signoff predecessor ownership mismatch') END;
+    END
+    """,
+    """
+    CREATE TRIGGER gate_decision_policy_and_ownership
+    BEFORE INSERT ON gate_decisions
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM artifacts AS artifact
+            WHERE artifact.artifact_id = NEW.artifact_id
+              AND ((artifact.artifact_type = 'story_bible' AND NEW.gate = 'G2')
+                OR (artifact.artifact_type = 'source_manifest' AND NEW.gate = 'G1'))
+        ) THEN RAISE(ABORT, 'Gate policy is not registered for artifact') END;
+        SELECT CASE WHEN NEW.decision = 'approved_with_waiver'
+            THEN RAISE(ABORT, 'waiver approval is not enabled') END;
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM review_submissions AS submission
+            WHERE submission.submission_id = NEW.submission_id
+              AND submission.artifact_id = NEW.artifact_id
+              AND submission.version_id = NEW.version_id
+              AND submission.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'decision submission ownership mismatch') END;
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM gate_readiness_reports AS report
+            WHERE report.report_id = NEW.readiness_report_id
+              AND report.artifact_id = NEW.artifact_id
+              AND report.version_id = NEW.version_id
+              AND report.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'decision report ownership mismatch') END;
+        SELECT CASE WHEN NEW.confirmation_challenge_id IS NULL OR NOT EXISTS (
+            SELECT 1 FROM confirmation_challenges AS challenge
+            WHERE challenge.challenge_id = NEW.confirmation_challenge_id
+              AND challenge.artifact_id = NEW.artifact_id
+              AND challenge.version_id = NEW.version_id
+              AND challenge.gate = NEW.gate
+              AND challenge.action = 'decision'
+              AND challenge.readiness_report_id = NEW.readiness_report_id
+              AND challenge.actor_id = NEW.actor_id
+              AND challenge.head_revision = NEW.head_revision
+              AND challenge.consumed_at IS NOT NULL
+        ) THEN RAISE(ABORT, 'decision challenge ownership mismatch') END;
+        SELECT CASE WHEN NEW.decision = 'approved' AND NOT EXISTS (
+            SELECT 1 FROM role_signoffs AS signoff
+            WHERE signoff.version_id = NEW.version_id AND signoff.gate = NEW.gate
+              AND signoff.submission_id = NEW.submission_id
+              AND signoff.readiness_report_id = NEW.readiness_report_id
+              AND signoff.role = 'producer'
+        ) THEN RAISE(ABORT, 'producer signoff is required') END;
+        SELECT CASE WHEN NEW.decision = 'approved' AND NOT EXISTS (
+            SELECT 1 FROM role_signoffs AS signoff
+            WHERE signoff.version_id = NEW.version_id AND signoff.gate = NEW.gate
+              AND signoff.submission_id = NEW.submission_id
+              AND signoff.readiness_report_id = NEW.readiness_report_id
+              AND signoff.role = 'writer'
+        ) THEN RAISE(ABORT, 'writer signoff is required') END;
+        SELECT CASE WHEN NEW.decision = 'approved' AND NEW.gate = 'G2' AND NOT EXISTS (
+            SELECT 1 FROM role_signoffs AS signoff
+            WHERE signoff.version_id = NEW.version_id AND signoff.gate = NEW.gate
+              AND signoff.submission_id = NEW.submission_id
+              AND signoff.readiness_report_id = NEW.readiness_report_id
+              AND signoff.role = 'continuity_reviewer'
+        ) THEN RAISE(ABORT, 'continuity signoff is required') END;
+    END
+    """,
+    """
+    CREATE TRIGGER confirmation_challenge_ownership
+    BEFORE INSERT ON confirmation_challenges
+    BEGIN
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM artifact_versions AS version
+            WHERE version.version_id = NEW.version_id
+              AND version.artifact_id = NEW.artifact_id
+        ) THEN RAISE(ABORT, 'challenge version ownership mismatch') END;
+        SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM gate_readiness_reports AS report
+            WHERE report.report_id = NEW.readiness_report_id
+              AND report.artifact_id = NEW.artifact_id
+              AND report.version_id = NEW.version_id
+              AND report.gate = NEW.gate
+        ) THEN RAISE(ABORT, 'challenge report ownership mismatch') END;
+    END
+    """,
+    """
+    CREATE TRIGGER confirmation_challenges_consume_once
+    BEFORE UPDATE ON confirmation_challenges
+    WHEN OLD.consumed_at IS NOT NULL
+        OR NEW.consumed_at IS NULL
+        OR NEW.challenge_id <> OLD.challenge_id
+        OR NEW.artifact_id <> OLD.artifact_id
+        OR NEW.version_id <> OLD.version_id
+        OR NEW.gate <> OLD.gate
+        OR NEW.action <> OLD.action
+        OR NEW.action_payload_hash <> OLD.action_payload_hash
+        OR NEW.policy_snapshot_hash <> OLD.policy_snapshot_hash
+        OR NEW.actor_id <> OLD.actor_id
+        OR NEW.actor_roles_json <> OLD.actor_roles_json
+        OR NEW.readiness_report_id <> OLD.readiness_report_id
+        OR NEW.challenge_hash <> OLD.challenge_hash
+        OR NEW.head_revision <> OLD.head_revision
+        OR NEW.review_evidence_revision <> OLD.review_evidence_revision
+        OR NEW.expires_at <> OLD.expires_at
+        OR NEW.created_at <> OLD.created_at
+    BEGIN
+        SELECT RAISE(ABORT, 'confirmation challenge is immutable except first consumption');
+    END
+    """,
+    """
+    CREATE TRIGGER confirmation_challenges_no_delete
+    BEFORE DELETE ON confirmation_challenges
+    BEGIN
+        SELECT RAISE(ABORT, 'confirmation challenge cannot be deleted');
+    END
+    """,
+    """
+    CREATE TRIGGER review_findings_not_enabled
+    BEFORE INSERT ON review_findings
+    BEGIN
+        SELECT RAISE(ABORT, 'review finding writes are not enabled');
+    END
+    """,
+    """
+    CREATE TRIGGER gate_waivers_not_enabled
+    BEFORE INSERT ON gate_waivers
+    BEGIN
+        SELECT RAISE(ABORT, 'Gate waiver writes are not enabled');
+    END
+    """,
+    """
+    CREATE TRIGGER review_finding_events_not_enabled
+    BEFORE INSERT ON review_finding_events
+    BEGIN
+        SELECT RAISE(ABORT, 'review finding event writes are not enabled');
+    END
+    """,
+    """
+    CREATE TRIGGER gate_waiver_events_not_enabled
+    BEFORE INSERT ON gate_waiver_events
+    BEGIN
+        SELECT RAISE(ABORT, 'Gate waiver event writes are not enabled');
+    END
+    """,
+)
+
+
+_IMMUTABLE_V3_TABLES = ("source_documents", "source_blocks")
+_IMMUTABILITY_V3_TRIGGERS = tuple(
+    f"""
+    CREATE TRIGGER {table}_immutable_update
+    BEFORE UPDATE ON {table}
+    BEGIN
+        SELECT RAISE(ABORT, '{table} rows are immutable');
+    END
+    """
+    for table in _IMMUTABLE_V3_TABLES
+) + tuple(
+    f"""
+    CREATE TRIGGER {table}_immutable_delete
+    BEFORE DELETE ON {table}
+    BEGIN
+        SELECT RAISE(ABORT, '{table} rows are immutable');
+    END
+    """
+    for table in _IMMUTABLE_V3_TABLES
+)
+
+
+_MIGRATIONS = {
+    1: _MIGRATION_1,
+    2: _MIGRATION_2 + _IMMUTABILITY_TRIGGERS,
+    3: _MIGRATION_3 + _IMMUTABILITY_V3_TRIGGERS,
+}
+
+
+_V3_LEGACY_INVARIANT_CHECKS = (
+    (
+        "artifact head review ownership mismatch",
+        """
+        SELECT 1 FROM artifact_heads AS head
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = head.review_submission_id
+        WHERE head.review_submission_id IS NOT NULL AND (
+            submission.submission_id IS NULL
+            OR submission.artifact_id <> head.artifact_id
+            OR submission.version_id <> head.review_version_id
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "accepted head has no approved Gate decision",
+        """
+        SELECT 1 FROM artifact_heads AS head
+        WHERE head.accepted_version_id IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM gate_decisions AS decision
+            WHERE decision.artifact_id = head.artifact_id
+              AND decision.version_id = head.accepted_version_id
+              AND decision.decision = 'approved'
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "readiness report submission ownership mismatch",
+        """
+        SELECT 1 FROM gate_readiness_reports AS report
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = report.submission_id
+        WHERE report.submission_id IS NOT NULL AND (
+            submission.submission_id IS NULL
+            OR submission.artifact_id <> report.artifact_id
+            OR submission.version_id <> report.version_id
+            OR submission.gate <> report.gate
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "review submission readiness ownership mismatch",
+        """
+        SELECT 1 FROM review_submissions AS submission
+        LEFT JOIN gate_readiness_reports AS report
+          ON report.report_id = submission.readiness_report_id
+        WHERE report.report_id IS NULL
+           OR report.artifact_id <> submission.artifact_id
+           OR report.version_id <> submission.version_id
+           OR report.gate <> submission.gate
+        LIMIT 1
+        """,
+    ),
+    (
+        "review submission predecessor ownership mismatch",
+        """
+        SELECT 1 FROM review_submissions AS submission
+        LEFT JOIN review_submissions AS previous
+          ON previous.submission_id = submission.supersedes_submission_id
+        WHERE submission.supersedes_submission_id IS NOT NULL AND (
+            previous.submission_id IS NULL
+            OR previous.artifact_id <> submission.artifact_id
+            OR previous.gate <> submission.gate
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "review finding submission ownership mismatch",
+        """
+        SELECT 1 FROM review_findings AS finding
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = finding.submission_id
+        WHERE submission.submission_id IS NULL
+           OR submission.artifact_id <> finding.artifact_id
+           OR submission.version_id <> finding.version_id
+        LIMIT 1
+        """,
+    ),
+    (
+        "review finding event predecessor ownership mismatch",
+        """
+        SELECT 1 FROM review_finding_events AS event
+        LEFT JOIN review_finding_events AS previous
+          ON previous.event_id = event.previous_event_id
+        WHERE event.previous_event_id IS NOT NULL AND (
+            previous.event_id IS NULL
+            OR previous.artifact_id <> event.artifact_id
+            OR previous.finding_id <> event.finding_id
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "role signoff ownership mismatch",
+        """
+        SELECT 1 FROM role_signoffs AS signoff
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = signoff.submission_id
+        LEFT JOIN gate_readiness_reports AS report
+          ON report.report_id = signoff.readiness_report_id
+        WHERE submission.submission_id IS NULL
+           OR submission.artifact_id <> signoff.artifact_id
+           OR submission.version_id <> signoff.version_id
+           OR submission.gate <> signoff.gate
+           OR report.report_id IS NULL
+           OR report.artifact_id <> signoff.artifact_id
+           OR report.version_id <> signoff.version_id
+           OR report.gate <> signoff.gate
+        LIMIT 1
+        """,
+    ),
+    (
+        "role signoff predecessor ownership mismatch",
+        """
+        SELECT 1 FROM role_signoffs AS signoff
+        LEFT JOIN role_signoffs AS previous
+          ON previous.signoff_id = signoff.supersedes_signoff_id
+        WHERE signoff.supersedes_signoff_id IS NOT NULL AND (
+            previous.signoff_id IS NULL
+            OR previous.artifact_id <> signoff.artifact_id
+            OR previous.version_id <> signoff.version_id
+            OR previous.gate <> signoff.gate
+            OR previous.role <> signoff.role
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "Gate waiver submission ownership mismatch",
+        """
+        SELECT 1 FROM gate_waivers AS waiver
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = waiver.submission_id
+        WHERE submission.submission_id IS NULL
+           OR submission.artifact_id <> waiver.artifact_id
+           OR submission.version_id <> waiver.version_id
+        LIMIT 1
+        """,
+    ),
+    (
+        "Gate waiver event predecessor ownership mismatch",
+        """
+        SELECT 1 FROM gate_waiver_events AS event
+        LEFT JOIN gate_waiver_events AS previous
+          ON previous.event_id = event.previous_event_id
+        WHERE event.previous_event_id IS NOT NULL AND (
+            previous.event_id IS NULL
+            OR previous.artifact_id <> event.artifact_id
+            OR previous.waiver_id <> event.waiver_id
+        ) LIMIT 1
+        """,
+    ),
+    (
+        "Gate decision ownership mismatch",
+        """
+        SELECT 1 FROM gate_decisions AS decision
+        LEFT JOIN review_submissions AS submission
+          ON submission.submission_id = decision.submission_id
+        LEFT JOIN gate_readiness_reports AS report
+          ON report.report_id = decision.readiness_report_id
+        WHERE submission.submission_id IS NULL
+           OR submission.artifact_id <> decision.artifact_id
+           OR submission.version_id <> decision.version_id
+           OR submission.gate <> decision.gate
+           OR report.report_id IS NULL
+           OR report.artifact_id <> decision.artifact_id
+           OR report.version_id <> decision.version_id
+           OR report.gate <> decision.gate
+        LIMIT 1
+        """,
+    ),
+    (
+        "confirmation challenge ownership mismatch",
+        """
+        SELECT 1 FROM confirmation_challenges AS challenge
+        LEFT JOIN artifact_versions AS version
+          ON version.version_id = challenge.version_id
+        LEFT JOIN gate_readiness_reports AS report
+          ON report.report_id = challenge.readiness_report_id
+        WHERE version.version_id IS NULL
+           OR version.artifact_id <> challenge.artifact_id
+           OR report.report_id IS NULL
+           OR report.artifact_id <> challenge.artifact_id
+           OR report.version_id <> challenge.version_id
+           OR report.gate <> challenge.gate
+        LIMIT 1
+        """,
+    ),
+)
 
 
 class ProjectNotFoundError(LookupError):
@@ -424,12 +930,24 @@ class SourceSpanInvalidError(ValueError):
     pass
 
 
+class ReviewInvalidError(RuntimeError):
+    pass
+
+
+class GateNotReadyError(RuntimeError):
+    pass
+
+
 def _default_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _challenge_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def _timestamp(value: datetime) -> str:
@@ -448,11 +966,20 @@ class StudioRepository:
         id_factory: Callable[[str], str] = _default_id,
         clock: Callable[[], datetime] = _utc_now,
         migration_hook: MigrationHook | None = None,
+        challenge_token_factory: Callable[[], str] = _challenge_token,
+        gate_policies: Mapping[str, GatePolicy] | None = None,
+        allow_gate_policy_override: bool = False,
+        transaction_hook: TransactionHook | None = None,
     ) -> None:
         self._database_path = database_path
         self._id_factory = id_factory
         self._clock = clock
         self._migration_hook = migration_hook
+        self._challenge_token_factory = challenge_token_factory
+        if gate_policies is not None and not allow_gate_policy_override:
+            raise ValueError("Gate policy overrides are restricted to explicit test composition")
+        self._gate_policies = gate_policies or DEFAULT_GATE_POLICIES
+        self._transaction_hook = transaction_hook
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -480,8 +1007,19 @@ class StudioRepository:
             while version < SCHEMA_VERSION:
                 next_version = version + 1
                 statements = _MIGRATIONS[next_version]
+                if next_version == 3:
+                    challenge_columns = {
+                        str(row["name"])
+                        for row in connection.execute(
+                            "PRAGMA table_info(confirmation_challenges)"
+                        ).fetchall()
+                    }
+                    if "action_payload_hash" not in challenge_columns:
+                        statements = _LEGACY_V2_CHALLENGE_COLUMNS + statements
                 connection.execute("BEGIN IMMEDIATE")
                 try:
+                    if next_version == 3:
+                        self._validate_v3_legacy_invariants(connection)
                     for step, statement in enumerate(statements):
                         connection.execute(statement)
                         if self._migration_hook is not None:
@@ -495,6 +1033,12 @@ class StudioRepository:
                     connection.rollback()
                     raise
                 version = next_version
+
+    @staticmethod
+    def _validate_v3_legacy_invariants(connection: sqlite3.Connection) -> None:
+        for message, query in _V3_LEGACY_INVARIANT_CHECKS:
+            if connection.execute(query).fetchone() is not None:
+                raise RuntimeError(f"Cannot migrate workspace to schema v3: {message}")
 
     def create_project(
         self,
@@ -941,6 +1485,779 @@ class StudioRepository:
             dependencies=tuple(self._artifact_dependency_from_row(row) for row in dependency_rows),
         )
 
+    def prepare_review_action(
+        self,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+        action: ReviewAction,
+        action_payload: dict[str, object],
+        actor: TrustedReviewActor,
+        expected_revision: int,
+        readiness_report_id: str | None = None,
+    ) -> PreparedReviewAction:
+        """Freeze review evidence and issue a short-lived native confirmation challenge."""
+
+        policy = self._gate_policy(artifact_type)
+        now = self._clock()
+        expires_at = now + timedelta(minutes=5)
+        self._authorize_review_action(policy, action, action_payload, actor)
+        bound_payload = self._bound_action_payload(action_payload, actor, policy)
+
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                if int(head_row["revision"]) != expected_revision:
+                    raise ArtifactConflictError("Artifact head revision has changed")
+                if (
+                    action in ("signoff", "decision")
+                    and not policy.allow_self_review
+                    and str(version_row["author_actor_id"]) == actor.subject_id
+                ):
+                    raise ReviewInvalidError("This Gate policy forbids self-review")
+                if action == "submit":
+                    if str(head_row["latest_version_id"]) != version_id:
+                        raise ReviewInvalidError("Only the latest draft can be submitted")
+                    duplicate = connection.execute(
+                        "SELECT 1 FROM review_submissions WHERE version_id = ? AND gate = ?",
+                        (version_id, policy.gate),
+                    ).fetchone()
+                    if duplicate is not None:
+                        raise ReviewInvalidError("This version has already been submitted")
+                elif (
+                    str(head_row["review_version_id"] or "") != version_id
+                    or head_row["review_submission_id"] is None
+                ):
+                    raise ReviewInvalidError("Review action requires the current open submission")
+
+                if readiness_report_id is None:
+                    content = cast(dict[str, object], json.loads(str(version_row["content_json"])))
+                    readiness_report = policy.evaluate(content)
+                    if readiness_report.get("ready") is not True:
+                        raise GateNotReadyError("Gate readiness has blocking checks")
+                    report = GateReadinessReport(
+                        id=self._id_factory("rpt"),
+                        artifact_id=str(version_row["artifact_id"]),
+                        version_id=version_id,
+                        gate=policy.gate,
+                        submission_id=(
+                            str(head_row["review_submission_id"])
+                            if action != "submit" and head_row["review_submission_id"] is not None
+                            else None
+                        ),
+                        policy_code=policy.policy_code,
+                        policy_version=policy.policy_version,
+                        head_revision=expected_revision,
+                        review_evidence_revision=int(head_row["review_evidence_revision"]),
+                        report=readiness_report,
+                        report_hash=canonical_content_hash(readiness_report),
+                        expires_at=expires_at,
+                        created_at=now,
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO gate_readiness_reports VALUES (
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        )
+                        """,
+                        (
+                            report.id,
+                            report.artifact_id,
+                            report.version_id,
+                            report.gate,
+                            report.submission_id,
+                            report.policy_code,
+                            report.policy_version,
+                            report.head_revision,
+                            report.review_evidence_revision,
+                            canonical_content_bytes(report.report).decode("utf-8"),
+                            report.report_hash,
+                            _timestamp(report.expires_at),
+                            _timestamp(report.created_at),
+                        ),
+                    )
+                else:
+                    report_row = connection.execute(
+                        "SELECT * FROM gate_readiness_reports WHERE report_id = ?",
+                        (readiness_report_id,),
+                    ).fetchone()
+                    if report_row is None:
+                        raise ReviewInvalidError("Readiness report was not found")
+                    report = self._readiness_report_from_row(report_row)
+                    if (
+                        report.version_id != version_id
+                        or report.gate != policy.gate
+                        or report.policy_code != policy.policy_code
+                        or report.policy_version != policy.policy_version
+                        or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
+                        or report.review_evidence_revision
+                        != int(head_row["review_evidence_revision"])
+                        or report.expires_at <= now
+                        or report.report.get("ready") is not True
+                        or report.submission_id != str(head_row["review_submission_id"])
+                    ):
+                        raise ReviewInvalidError("Readiness report does not match review evidence")
+
+                challenge_id = self._id_factory("chg")
+                confirmation_token = self._challenge_token_factory()
+                challenge = ConfirmationChallenge(
+                    id=challenge_id,
+                    artifact_id=str(version_row["artifact_id"]),
+                    version_id=version_id,
+                    gate=policy.gate,
+                    action=action,
+                    action_payload_hash=canonical_content_hash(bound_payload),
+                    policy_snapshot_hash=policy.snapshot_hash,
+                    actor_id=actor.subject_id,
+                    actor_roles=actor.roles,
+                    readiness_report_id=report.id,
+                    head_revision=expected_revision,
+                    review_evidence_revision=int(head_row["review_evidence_revision"]),
+                    expires_at=expires_at,
+                    consumed_at=None,
+                    created_at=now,
+                )
+                connection.execute(
+                    """
+                    INSERT INTO confirmation_challenges (
+                        challenge_id, artifact_id, version_id, gate, action,
+                        action_payload_hash, policy_snapshot_hash, actor_id,
+                        actor_roles_json, readiness_report_id, challenge_hash,
+                        head_revision, review_evidence_revision, expires_at,
+                        consumed_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+                    """,
+                    (
+                        challenge.id,
+                        challenge.artifact_id,
+                        challenge.version_id,
+                        challenge.gate,
+                        challenge.action,
+                        challenge.action_payload_hash,
+                        challenge.policy_snapshot_hash,
+                        challenge.actor_id,
+                        canonical_content_bytes(list(challenge.actor_roles)).decode("utf-8"),
+                        challenge.readiness_report_id,
+                        self._confirmation_hash(challenge.id, confirmation_token),
+                        challenge.head_revision,
+                        challenge.review_evidence_revision,
+                        _timestamp(challenge.expires_at),
+                        _timestamp(challenge.created_at),
+                    ),
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return PreparedReviewAction(
+            report=report,
+            challenge=challenge,
+            confirmation_token=confirmation_token,
+        )
+
+    def submit_artifact_review(
+        self,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+        expected_revision: int,
+        challenge_id: str,
+        confirmation_token: str,
+        actor: TrustedReviewActor,
+    ) -> ReviewSubmissionResult:
+        policy = self._gate_policy(artifact_type)
+        self._authorize_review_action(policy, "submit", {}, actor)
+        now = self._clock()
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                report = self._consume_challenge(
+                    connection,
+                    challenge_id=challenge_id,
+                    confirmation_token=confirmation_token,
+                    expected_action="submit",
+                    action_payload={},
+                    actor=actor,
+                    policy=policy,
+                    version_id=version_id,
+                    gate=policy.gate,
+                    expected_revision=expected_revision,
+                    expected_evidence_revision=int(head_row["review_evidence_revision"]),
+                    consumed_at=now,
+                )
+                self._transaction_step("submit_review", "challenge_consumed")
+                previous_submission_id = (
+                    str(head_row["review_submission_id"])
+                    if head_row["review_submission_id"] is not None
+                    else None
+                )
+                submission = ReviewSubmission(
+                    id=self._id_factory("sub"),
+                    artifact_id=str(version_row["artifact_id"]),
+                    version_id=version_id,
+                    gate=policy.gate,
+                    readiness_report_id=report.id,
+                    supersedes_submission_id=previous_submission_id,
+                    submitted_by_actor_id=actor.subject_id,
+                    submitted_at=now,
+                )
+                connection.execute(
+                    "INSERT INTO review_submissions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        submission.id,
+                        submission.artifact_id,
+                        submission.version_id,
+                        submission.gate,
+                        submission.readiness_report_id,
+                        submission.supersedes_submission_id,
+                        submission.submitted_by_actor_id,
+                        _timestamp(submission.submitted_at),
+                    ),
+                )
+                self._transaction_step("submit_review", "submission_inserted")
+                updated = connection.execute(
+                    """
+                    UPDATE artifact_heads
+                    SET review_version_id = ?, review_submission_id = ?,
+                        revision = revision + 1,
+                        review_evidence_revision = review_evidence_revision + 1,
+                        updated_at = ?
+                    WHERE artifact_id = ? AND revision = ?
+                    """,
+                    (
+                        version_id,
+                        submission.id,
+                        _timestamp(now),
+                        submission.artifact_id,
+                        expected_revision,
+                    ),
+                )
+                if updated.rowcount != 1:
+                    raise ArtifactConflictError("Artifact head revision has changed")
+                self._transaction_step("submit_review", "head_updated")
+                result_head = self._load_artifact_head(connection, submission.artifact_id)
+                connection.commit()
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise ReviewInvalidError("Review submission violated an invariant") from error
+            except Exception:
+                connection.rollback()
+                raise
+        return ReviewSubmissionResult(submission=submission, head=result_head)
+
+    def signoff_artifact_review(
+        self,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+        roles: tuple[str, ...],
+        expected_revision: int,
+        challenge_id: str,
+        confirmation_token: str,
+        actor: TrustedReviewActor,
+    ) -> ReviewSignoffResult:
+        policy = self._gate_policy(artifact_type)
+        now = self._clock()
+        payload: dict[str, object] = {"roles": list(roles)}
+        self._authorize_review_action(policy, "signoff", payload, actor)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                submission_id = self._require_open_review(head_row, version_id)
+                report = self._consume_challenge(
+                    connection,
+                    challenge_id=challenge_id,
+                    confirmation_token=confirmation_token,
+                    expected_action="signoff",
+                    action_payload=payload,
+                    actor=actor,
+                    policy=policy,
+                    version_id=version_id,
+                    gate=policy.gate,
+                    expected_revision=expected_revision,
+                    expected_evidence_revision=int(head_row["review_evidence_revision"]),
+                    consumed_at=now,
+                )
+                self._transaction_step("signoff_review", "challenge_consumed")
+                self_review = str(version_row["author_actor_id"]) == actor.subject_id
+                signoffs: list[RoleSignoff] = []
+                for role in roles:
+                    previous = connection.execute(
+                        """
+                        SELECT signoff_id FROM role_signoffs
+                        WHERE version_id = ? AND gate = ? AND role = ?
+                        ORDER BY review_evidence_revision DESC, signed_at DESC LIMIT 1
+                        """,
+                        (version_id, policy.gate, role),
+                    ).fetchone()
+                    signoff = RoleSignoff(
+                        id=self._id_factory("sig"),
+                        artifact_id=str(version_row["artifact_id"]),
+                        version_id=version_id,
+                        submission_id=submission_id,
+                        gate=policy.gate,
+                        role=role,
+                        actor_id=actor.subject_id,
+                        review_evidence_revision=int(head_row["review_evidence_revision"]),
+                        readiness_report_id=report.id,
+                        self_review=self_review,
+                        supersedes_signoff_id=(
+                            str(previous["signoff_id"]) if previous is not None else None
+                        ),
+                        signed_at=now,
+                    )
+                    connection.execute(
+                        """
+                        INSERT INTO role_signoffs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            signoff.id,
+                            signoff.artifact_id,
+                            signoff.version_id,
+                            signoff.submission_id,
+                            signoff.gate,
+                            signoff.role,
+                            signoff.actor_id,
+                            signoff.review_evidence_revision,
+                            signoff.readiness_report_id,
+                            int(signoff.self_review),
+                            signoff.supersedes_signoff_id,
+                            _timestamp(signoff.signed_at),
+                        ),
+                    )
+                    self._transaction_step("signoff_review", f"signoff_{len(signoffs) + 1}")
+                    signoffs.append(signoff)
+                self._advance_head_revision(
+                    connection,
+                    artifact_id=str(version_row["artifact_id"]),
+                    expected_revision=expected_revision,
+                    updated_at=now,
+                )
+                self._transaction_step("signoff_review", "head_updated")
+                result_head = self._load_artifact_head(connection, str(version_row["artifact_id"]))
+                connection.commit()
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise ReviewInvalidError("Role signoff violated an invariant") from error
+            except Exception:
+                connection.rollback()
+                raise
+        return ReviewSignoffResult(signoffs=tuple(signoffs), head=result_head)
+
+    def decide_artifact_gate(
+        self,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+        decision: GateDecisionValue,
+        rationale: str,
+        expected_revision: int,
+        challenge_id: str,
+        confirmation_token: str,
+        actor: TrustedReviewActor,
+        actor_role: str,
+    ) -> GateDecisionResult:
+        policy = self._gate_policy(artifact_type)
+        now = self._clock()
+        payload: dict[str, object] = {
+            "decision": decision,
+            "rationale": rationale,
+            "actor_role": actor_role,
+        }
+        self._authorize_review_action(policy, "decision", payload, actor)
+        if decision == "approved_with_waiver":
+            raise ReviewInvalidError(
+                "Waiver approval is disabled until waiver review is implemented"
+            )
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                submission_id = self._require_open_review(head_row, version_id)
+                report = self._consume_challenge(
+                    connection,
+                    challenge_id=challenge_id,
+                    confirmation_token=confirmation_token,
+                    expected_action="decision",
+                    action_payload=payload,
+                    actor=actor,
+                    policy=policy,
+                    version_id=version_id,
+                    gate=policy.gate,
+                    expected_revision=expected_revision,
+                    expected_evidence_revision=int(head_row["review_evidence_revision"]),
+                    consumed_at=now,
+                )
+                self._transaction_step("decide_gate", "challenge_consumed")
+                if decision != "rejected":
+                    signed_roles = {
+                        str(row["role"])
+                        for row in connection.execute(
+                            """
+                            SELECT role FROM role_signoffs
+                            WHERE version_id = ? AND gate = ?
+                                AND review_evidence_revision = ?
+                                AND readiness_report_id = ?
+                            """,
+                            (
+                                version_id,
+                                policy.gate,
+                                int(head_row["review_evidence_revision"]),
+                                report.id,
+                            ),
+                        ).fetchall()
+                    }
+                    if not set(policy.required_roles) <= signed_roles:
+                        raise ReviewInvalidError("Required role signoffs are incomplete")
+                    if self._has_open_blocking_findings(connection, submission_id):
+                        raise ReviewInvalidError("Blocking review findings remain open")
+                gate_decision = GateDecision(
+                    id=self._id_factory("dec"),
+                    artifact_id=str(version_row["artifact_id"]),
+                    version_id=version_id,
+                    submission_id=submission_id,
+                    gate=policy.gate,
+                    decision=decision,
+                    readiness_report_id=report.id,
+                    confirmation_challenge_id=challenge_id,
+                    head_revision=expected_revision,
+                    actor_id=actor.subject_id,
+                    actor_role=actor_role,
+                    self_review=str(version_row["author_actor_id"]) == actor.subject_id,
+                    rationale=rationale,
+                    decided_at=now,
+                )
+                connection.execute(
+                    """
+                    INSERT INTO gate_decisions (
+                        decision_id, artifact_id, version_id, submission_id, gate,
+                        decision, readiness_report_id, actor_id, actor_role,
+                        self_review, rationale, decided_at,
+                        confirmation_challenge_id, head_revision
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        gate_decision.id,
+                        gate_decision.artifact_id,
+                        gate_decision.version_id,
+                        gate_decision.submission_id,
+                        gate_decision.gate,
+                        gate_decision.decision,
+                        gate_decision.readiness_report_id,
+                        gate_decision.actor_id,
+                        gate_decision.actor_role,
+                        int(gate_decision.self_review),
+                        gate_decision.rationale,
+                        _timestamp(gate_decision.decided_at),
+                        gate_decision.confirmation_challenge_id,
+                        gate_decision.head_revision,
+                    ),
+                )
+                self._transaction_step("decide_gate", "decision_inserted")
+                accepted_version_id = (
+                    version_id
+                    if decision in ("approved", "approved_with_waiver")
+                    else head_row["accepted_version_id"]
+                )
+                updated = connection.execute(
+                    """
+                    UPDATE artifact_heads
+                    SET review_version_id = NULL, review_submission_id = NULL,
+                        accepted_version_id = ?, revision = revision + 1, updated_at = ?
+                    WHERE artifact_id = ? AND revision = ?
+                    """,
+                    (
+                        accepted_version_id,
+                        _timestamp(now),
+                        gate_decision.artifact_id,
+                        expected_revision,
+                    ),
+                )
+                if updated.rowcount != 1:
+                    raise ArtifactConflictError("Artifact head revision has changed")
+                self._transaction_step("decide_gate", "head_updated")
+                result_head = self._load_artifact_head(connection, gate_decision.artifact_id)
+                connection.commit()
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise ReviewInvalidError("Gate decision violated an invariant") from error
+            except Exception:
+                connection.rollback()
+                raise
+        return GateDecisionResult(decision=gate_decision, head=result_head)
+
+    def _review_context(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+    ) -> tuple[sqlite3.Row, sqlite3.Row]:
+        version_row = connection.execute(
+            """
+            SELECT artifact_versions.*
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                AND artifact_versions.version_id = ?
+            """,
+            (project_id, artifact_type, version_id),
+        ).fetchone()
+        if version_row is None:
+            raise ReviewInvalidError("Artifact version was not found")
+        head_row = connection.execute(
+            "SELECT * FROM artifact_heads WHERE artifact_id = ?",
+            (str(version_row["artifact_id"]),),
+        ).fetchone()
+        if head_row is None:
+            raise ReviewInvalidError("Artifact head was not found")
+        return version_row, head_row
+
+    def _consume_challenge(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        challenge_id: str,
+        confirmation_token: str,
+        expected_action: ReviewAction,
+        action_payload: dict[str, object],
+        actor: TrustedReviewActor,
+        policy: GatePolicy,
+        version_id: str,
+        gate: str,
+        expected_revision: int,
+        expected_evidence_revision: int,
+        consumed_at: datetime,
+    ) -> GateReadinessReport:
+        row = connection.execute(
+            "SELECT * FROM confirmation_challenges WHERE challenge_id = ?",
+            (challenge_id,),
+        ).fetchone()
+        if row is None:
+            raise ReviewInvalidError("Confirmation challenge was not found")
+        actual_hash = self._confirmation_hash(challenge_id, confirmation_token)
+        if not hmac.compare_digest(str(row["challenge_hash"]), actual_hash):
+            raise ReviewInvalidError("Confirmation token is invalid")
+        if (
+            row["consumed_at"] is not None
+            or _datetime(str(row["expires_at"])) <= consumed_at
+            or str(row["version_id"]) != version_id
+            or str(row["gate"]) != gate
+            or str(row["action"]) != expected_action
+            or str(row["action_payload_hash"])
+            != canonical_content_hash(self._bound_action_payload(action_payload, actor, policy))
+            or str(row["policy_snapshot_hash"]) != policy.snapshot_hash
+            or str(row["actor_id"]) != actor.subject_id
+            or cast(list[str], json.loads(str(row["actor_roles_json"]))) != list(actor.roles)
+            or int(row["head_revision"]) != expected_revision
+            or int(row["review_evidence_revision"]) != expected_evidence_revision
+        ):
+            raise ReviewInvalidError("Confirmation challenge no longer matches the review")
+        updated = connection.execute(
+            """
+            UPDATE confirmation_challenges SET consumed_at = ?
+            WHERE challenge_id = ? AND consumed_at IS NULL
+            """,
+            (_timestamp(consumed_at), challenge_id),
+        )
+        if updated.rowcount != 1:
+            raise ReviewInvalidError("Confirmation challenge was already consumed")
+        report_row = connection.execute(
+            "SELECT * FROM gate_readiness_reports WHERE report_id = ?",
+            (str(row["readiness_report_id"]),),
+        ).fetchone()
+        if report_row is None:
+            raise ReviewInvalidError("Readiness report was not found")
+        report = self._readiness_report_from_row(report_row)
+        if (
+            report.version_id != version_id
+            or report.gate != gate
+            or report.review_evidence_revision != expected_evidence_revision
+            or report.expires_at <= consumed_at
+            or report.policy_code != policy.policy_code
+            or report.policy_version != policy.policy_version
+            or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
+            or report.report.get("ready") is not True
+        ):
+            raise ReviewInvalidError("Readiness report no longer matches the review")
+        return report
+
+    def _transaction_step(self, operation: str, step: str) -> None:
+        if self._transaction_hook is not None:
+            self._transaction_hook(operation, step)
+
+    def _gate_policy(self, artifact_type: str) -> GatePolicy:
+        policy = self._gate_policies.get(artifact_type)
+        if policy is None or policy.artifact_type != artifact_type:
+            raise ReviewInvalidError("Artifact type does not have a registered Gate policy")
+        return policy
+
+    @staticmethod
+    def _authorize_review_action(
+        policy: GatePolicy,
+        action: ReviewAction,
+        action_payload: dict[str, object],
+        actor: TrustedReviewActor,
+    ) -> None:
+        actor_roles = set(actor.roles)
+        if not actor.subject_id or not actor.roles or len(actor_roles) != len(actor.roles):
+            raise ReviewInvalidError("Trusted review actor is invalid")
+        if action == "submit":
+            if not actor_roles.intersection(policy.submit_roles):
+                raise ReviewInvalidError("Actor cannot submit this Gate")
+            return
+        if action == "signoff":
+            roles = action_payload.get("roles")
+            if (
+                not isinstance(roles, list)
+                or not roles
+                or not all(isinstance(role, str) for role in roles)
+            ):
+                raise ReviewInvalidError("Signoff requires explicit roles")
+            selected_roles = cast(list[str], roles)
+            if len(set(selected_roles)) != len(selected_roles):
+                raise ReviewInvalidError("Signoff roles must be unique")
+            if not set(selected_roles) <= actor_roles.intersection(policy.required_roles):
+                raise ReviewInvalidError("Actor is not authorized for selected signoff roles")
+            if len(selected_roles) > 1 and not policy.allow_multi_role_signoff:
+                raise ReviewInvalidError("Gate policy forbids multi-role signoff")
+            return
+        decision = action_payload.get("decision")
+        rationale = action_payload.get("rationale")
+        actor_role = action_payload.get("actor_role")
+        if (
+            decision not in ("approved", "approved_with_waiver", "rejected")
+            or not isinstance(rationale, str)
+            or not rationale.strip()
+            or not isinstance(actor_role, str)
+            or actor_role not in actor_roles.intersection(policy.decision_roles)
+        ):
+            raise ReviewInvalidError("Actor cannot make this Gate decision")
+
+    @staticmethod
+    def _bound_action_payload(
+        action_payload: dict[str, object],
+        actor: TrustedReviewActor,
+        policy: GatePolicy,
+    ) -> dict[str, object]:
+        return {
+            **action_payload,
+            "_actor_id": actor.subject_id,
+            "_actor_roles": list(actor.roles),
+            "_policy_snapshot_hash": policy.snapshot_hash,
+        }
+
+    @staticmethod
+    def _has_open_blocking_findings(connection: sqlite3.Connection, submission_id: str) -> bool:
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM review_findings AS finding
+            WHERE finding.submission_id = ? AND finding.severity = 'blocking'
+              AND COALESCE(
+                (
+                    SELECT event.event_type
+                    FROM review_finding_events AS event
+                    WHERE event.finding_id = finding.finding_id
+                    ORDER BY event.sequence DESC LIMIT 1
+                ),
+                'open'
+              ) <> 'resolved'
+            LIMIT 1
+            """,
+            (submission_id,),
+        ).fetchone()
+        return row is not None
+
+    @staticmethod
+    def _confirmation_hash(challenge_id: str, confirmation_token: str) -> str:
+        value = f"{challenge_id}:{confirmation_token}".encode()
+        return f"sha256:{hashlib.sha256(value).hexdigest()}"
+
+    @staticmethod
+    def _require_open_review(head_row: sqlite3.Row, version_id: str) -> str:
+        if (
+            str(head_row["review_version_id"] or "") != version_id
+            or head_row["review_submission_id"] is None
+        ):
+            raise ReviewInvalidError("Review action requires the current open submission")
+        return str(head_row["review_submission_id"])
+
+    @staticmethod
+    def _advance_head_revision(
+        connection: sqlite3.Connection,
+        *,
+        artifact_id: str,
+        expected_revision: int,
+        updated_at: datetime,
+    ) -> None:
+        updated = connection.execute(
+            """
+            UPDATE artifact_heads SET revision = revision + 1, updated_at = ?
+            WHERE artifact_id = ? AND revision = ?
+            """,
+            (_timestamp(updated_at), artifact_id, expected_revision),
+        )
+        if updated.rowcount != 1:
+            raise ArtifactConflictError("Artifact head revision has changed")
+
+    def _load_artifact_head(self, connection: sqlite3.Connection, artifact_id: str) -> ArtifactHead:
+        row = connection.execute(
+            "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Artifact head is missing")
+        return self._artifact_head_from_row(row)
+
+    @staticmethod
+    def _readiness_report_from_row(row: sqlite3.Row) -> GateReadinessReport:
+        report_content = cast(dict[str, object], json.loads(str(row["report_json"])))
+        if canonical_content_hash(report_content) != str(row["report_hash"]):
+            raise ReviewInvalidError("Readiness report hash does not match its content")
+        return GateReadinessReport(
+            id=str(row["report_id"]),
+            artifact_id=str(row["artifact_id"]),
+            version_id=str(row["version_id"]),
+            gate=str(row["gate"]),
+            submission_id=(str(row["submission_id"]) if row["submission_id"] is not None else None),
+            policy_code=str(row["policy_code"]),
+            policy_version=str(row["policy_version"]),
+            head_revision=int(row["head_revision"]),
+            review_evidence_revision=int(row["review_evidence_revision"]),
+            report=report_content,
+            report_hash=str(row["report_hash"]),
+            expires_at=_datetime(str(row["expires_at"])),
+            created_at=_datetime(str(row["created_at"])),
+        )
+
     def _insert_source_span(
         self,
         connection: sqlite3.Connection,
@@ -1071,12 +2388,15 @@ class StudioRepository:
 
     @staticmethod
     def _artifact_version_from_row(row: sqlite3.Row) -> ArtifactVersion:
+        content = cast(dict[str, object], json.loads(str(row["content_json"])))
+        if canonical_content_hash(content) != str(row["content_hash"]):
+            raise ArtifactConflictError("Artifact content hash does not match its content")
         return ArtifactVersion(
             id=str(row["version_id"]),
             artifact_id=str(row["artifact_id"]),
             version_number=int(row["version_number"]),
             schema_version=str(row["schema_version"]),
-            content=cast(dict[str, object], json.loads(str(row["content_json"]))),
+            content=content,
             content_hash=str(row["content_hash"]),
             author_actor_type=cast(ArtifactActorType, row["author_actor_type"]),
             author_actor_id=str(row["author_actor_id"]),

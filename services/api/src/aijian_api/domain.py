@@ -9,6 +9,8 @@ type SourceBlockKind = Literal["chapter_heading", "paragraph"]
 type ArtifactActorType = Literal["human", "agent", "system"]
 type SourceSpanRole = Literal["supports", "contradicts", "context"]
 type DependencyImpact = Literal["blocking", "advisory", "render_only"]
+type ReviewAction = Literal["submit", "signoff", "decision"]
+type GateDecisionValue = Literal["approved", "approved_with_waiver", "rejected"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,3 +163,116 @@ class ArtifactVersionRecord:
     head: ArtifactHead
     source_spans: tuple[ArtifactSourceSpan, ...]
     dependencies: tuple[ArtifactDependency, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedReviewActor:
+    subject_id: str
+    roles: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GateReadinessReport:
+    id: str
+    artifact_id: str
+    version_id: str
+    gate: str
+    submission_id: str | None
+    policy_code: str
+    policy_version: str
+    head_revision: int
+    review_evidence_revision: int
+    report: dict[str, object]
+    report_hash: str
+    expires_at: datetime
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmationChallenge:
+    id: str
+    artifact_id: str
+    version_id: str
+    gate: str
+    action: ReviewAction
+    action_payload_hash: str
+    policy_snapshot_hash: str
+    actor_id: str
+    actor_roles: tuple[str, ...]
+    readiness_report_id: str
+    head_revision: int
+    review_evidence_revision: int
+    expires_at: datetime
+    consumed_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedReviewAction:
+    report: GateReadinessReport
+    challenge: ConfirmationChallenge
+    confirmation_token: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewSubmission:
+    id: str
+    artifact_id: str
+    version_id: str
+    gate: str
+    readiness_report_id: str
+    supersedes_submission_id: str | None
+    submitted_by_actor_id: str
+    submitted_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewSubmissionResult:
+    submission: ReviewSubmission
+    head: ArtifactHead
+
+
+@dataclass(frozen=True, slots=True)
+class RoleSignoff:
+    id: str
+    artifact_id: str
+    version_id: str
+    submission_id: str
+    gate: str
+    role: str
+    actor_id: str
+    review_evidence_revision: int
+    readiness_report_id: str
+    self_review: bool
+    supersedes_signoff_id: str | None
+    signed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewSignoffResult:
+    signoffs: tuple[RoleSignoff, ...]
+    head: ArtifactHead
+
+
+@dataclass(frozen=True, slots=True)
+class GateDecision:
+    id: str
+    artifact_id: str
+    version_id: str
+    submission_id: str
+    gate: str
+    decision: GateDecisionValue
+    readiness_report_id: str
+    confirmation_challenge_id: str
+    head_revision: int
+    actor_id: str
+    actor_role: str
+    self_review: bool
+    rationale: str
+    decided_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class GateDecisionResult:
+    decision: GateDecision
+    head: ArtifactHead

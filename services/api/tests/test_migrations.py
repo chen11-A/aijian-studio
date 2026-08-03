@@ -84,6 +84,16 @@ def database_version(path: Path) -> int:
         return int(connection.execute("PRAGMA user_version").fetchone()[0])
 
 
+def create_current_v2_database(path: Path) -> None:
+    def stop_before_v3(version: int, step: int) -> None:
+        if version == 3 and step == 0:
+            raise RuntimeError("stop before v3")
+
+    with pytest.raises(RuntimeError, match="stop before v3"):
+        StudioRepository(path, migration_hook=stop_before_v3)
+    assert database_version(path) == 2
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -96,7 +106,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-    assert SCHEMA_VERSION == 2
+    assert SCHEMA_VERSION == 3
     assert database_version(database) == SCHEMA_VERSION
     assert {
         "projects",
@@ -129,7 +139,7 @@ def test_v1_migration_preserves_projects_sources_and_blocks(tmp_path: Path) -> N
     source = repository.get_source("prj_existing", "src_existing")
     assert source.normalized_text == "第一段"
     assert [block.text for block in source.blocks] == ["第一段"]
-    assert database_version(database) == 2
+    assert database_version(database) == 3
 
 
 def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
@@ -161,7 +171,262 @@ def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
         assert artifact_table is None
 
         StudioRepository(database)
+        assert database_version(database) == 3
+
+
+def test_every_v3_ddl_failure_rolls_back_to_v2_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v3.db"
+    create_current_v2_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 3 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v3-failure-{failed_step}.db"
+        create_current_v2_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 3 and step == target:
+                raise RuntimeError(f"injected v3 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v3 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
         assert database_version(database) == 2
+
+        StudioRepository(database)
+        assert database_version(database) == 3
+
+
+def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:
+    database = tmp_path / "v2-with-challenge.db"
+    create_current_v2_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_legacy', '旧工作区', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO artifacts VALUES ('art_legacy', 'prj_legacy', 'story_bible', ?) ",
+            ("2026-08-03T00:00:00Z",),
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_versions VALUES (
+                'ver_legacy', 'art_legacy', 1, '1.0.0', '{}', ?, 'human',
+                'local-user', NULL, 'legacy', '2026-08-03T00:00:00Z'
+            )
+            """,
+            (f"sha256:{'a' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_heads VALUES (
+                'art_legacy', 'ver_legacy', NULL, NULL, NULL, 1, 0,
+                '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_readiness_reports VALUES (
+                'rpt_legacy', 'art_legacy', 'ver_legacy', 'G2', NULL,
+                'g2.story-bible', '1', 1, 0, '{"ready":true}', ?,
+                '2026-08-03T12:05:00Z', '2026-08-03T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'b' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO confirmation_challenges VALUES (
+                'chg_legacy', 'art_legacy', 'ver_legacy', 'G2', 'submit',
+                'rpt_legacy', 'sha256:legacy-token', 1, 0,
+                '2026-08-03T12:05:00Z', NULL, '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute("PRAGMA user_version = 2")
+        connection.commit()
+
+    StudioRepository(database)
+
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            "SELECT * FROM confirmation_challenges WHERE challenge_id = 'chg_legacy'"
+        ).fetchone()
+        assert row is not None
+        assert row["actor_id"] == "legacy-unbound"
+        assert row["actor_roles_json"] == "[]"
+        assert str(row["policy_snapshot_hash"]).startswith("sha256:")
+    assert database_version(database) == 3
+
+
+def test_v3_migration_rejects_legacy_cross_artifact_review_links(tmp_path: Path) -> None:
+    database = tmp_path / "v2-invalid-ownership.db"
+    create_current_v2_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_existing', '旧工作区', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        insert_artifact_version(
+            connection,
+            artifact_id="art_first",
+            artifact_type="story_bible",
+            version_id="ver_first",
+        )
+        insert_artifact_version(
+            connection,
+            artifact_id="art_second",
+            artifact_type="source_manifest",
+            version_id="ver_second",
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_readiness_reports VALUES (
+                'rpt_first', 'art_first', 'ver_first', 'G2', NULL,
+                'g2.story-bible', '1', 1, 0, '{"ready":true}', ?,
+                '2026-08-03T12:05:00Z', '2026-08-03T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'d' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO review_submissions VALUES (
+                'sub_first', 'art_first', 'ver_first', 'G2', 'rpt_first', NULL,
+                'local-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET review_version_id = 'ver_second', review_submission_id = 'sub_first'
+            WHERE artifact_id = 'art_second'
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(RuntimeError, match="artifact head review ownership mismatch"):
+        StudioRepository(database)
+    assert database_version(database) == 2
+
+
+def test_v3_disables_events_for_legacy_findings_and_waivers(tmp_path: Path) -> None:
+    database = tmp_path / "v2-legacy-review-evidence.db"
+    create_current_v2_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_existing', '旧工作区', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        insert_artifact_version(
+            connection,
+            artifact_id="art_story",
+            artifact_type="story_bible",
+            version_id="ver_story",
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_readiness_reports VALUES (
+                'rpt_story', 'art_story', 'ver_story', 'G2', NULL,
+                'g2.story-bible', '1', 1, 0, '{"ready":true}', ?,
+                '2026-08-03T12:05:00Z', '2026-08-03T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'e' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO review_submissions VALUES (
+                'sub_story', 'art_story', 'ver_story', 'G2', 'rpt_story', NULL,
+                'local-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO review_findings VALUES (
+                'finding_story', 'art_story', 'ver_story', 'sub_story',
+                'artifact', NULL, 'blocking', '修正连续性冲突', 'writer',
+                'producer-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO review_finding_events VALUES (
+                'finding_event_open', 'art_story', 'finding_story', NULL, 1,
+                'open', NULL, '发现阻断项', 'producer-user',
+                '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_waivers VALUES (
+                'waiver_story', 'art_story', 'ver_story', 'sub_story',
+                'artifact', 'story-bible', '临时制作例外', '[]', 'G2',
+                'producer-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_waiver_events VALUES (
+                'waiver_event_open', 'art_story', 'waiver_story', NULL, 1,
+                'open', '等待复核', 'producer-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.commit()
+
+    StudioRepository(database)
+
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        with pytest.raises(sqlite3.IntegrityError, match="finding event writes"):
+            connection.execute(
+                """
+                INSERT INTO review_finding_events VALUES (
+                    'finding_event_resolved', 'art_story', 'finding_story',
+                    'finding_event_open', 2, 'resolved', 'ver_story',
+                    '绕过解决', 'local-user', '2026-08-03T12:01:00Z'
+                )
+                """
+            )
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="waiver event writes"):
+            connection.execute(
+                """
+                INSERT INTO gate_waiver_events VALUES (
+                    'waiver_event_reviewed', 'art_story', 'waiver_story',
+                    'waiver_event_open', 2, 'reviewed', '绕过复核',
+                    'local-user', '2026-08-03T12:01:00Z'
+                )
+                """
+            )
+        connection.rollback()
 
 
 def test_migration_hook_type_accepts_noop_callable(tmp_path: Path) -> None:
@@ -231,6 +496,12 @@ def test_database_enforces_version_immutability_head_ownership_and_acyclic_edges
             )
         with pytest.raises(sqlite3.IntegrityError, match="immutable"):
             connection.execute("DELETE FROM artifact_versions WHERE version_id = 'ver_story'")
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "UPDATE source_documents SET normalized_text = '被改写' WHERE id = 'src_existing'"
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute("DELETE FROM source_blocks WHERE id = 'srcb_existing'")
 
         connection.execute(
             """
@@ -251,10 +522,9 @@ def test_database_enforces_version_immutability_head_ownership_and_acyclic_edges
             )
         connection.rollback()
 
-        connection.execute(
-            "UPDATE artifact_heads SET accepted_version_id = 'ver_source' "
-            "WHERE artifact_id = 'art_story'"
-        )
-        with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
-            connection.commit()
+        with pytest.raises(sqlite3.IntegrityError, match="accepted head"):
+            connection.execute(
+                "UPDATE artifact_heads SET accepted_version_id = 'ver_source' "
+                "WHERE artifact_id = 'art_story'"
+            )
         connection.rollback()
