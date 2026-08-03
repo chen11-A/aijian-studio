@@ -1,6 +1,6 @@
 # Phase 0 Walking Skeleton 实施规格
 
-状态：实施中
+状态：首个纵切已完成
 
 负责人：技术负责人
 对应 Backlog：A02、A03、B01、D01 的最小前置切片

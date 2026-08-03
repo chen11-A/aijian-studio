@@ -8,15 +8,16 @@
 | --- | --- | --- |
 | Git | 2.53.0.windows.3 | 源码与版本管理 |
 | Node.js | 24.15.0 | Web、工作流与桌面端开发 |
-| npm | 11.12.1 | 前端依赖管理 |
-| uv | 0.11.32 | Python 与虚拟环境管理 |
+| npm | 11.12.1 | Node.js 自带包管理工具 |
+| pnpm | 11.9.0 | Monorepo 前端依赖管理 |
+| uv | 0.12.1 | Python 与虚拟环境管理 |
 | Python | 3.11.15、3.12.13 | AI 后端与 ViMax 运行时 |
 | FFmpeg / ffprobe | 8.1.2 full build | 音视频合成、转码和探测 |
 
 `uv`、Python 和 FFmpeg 的用户级 PATH 已写入系统环境。新开的 PowerShell 会自动生效；当前窗口如需立即使用，可执行：
 
 ```powershell
-$env:Path = "$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:USERPROFILE\.local\bin;$env:Path"
+$env:Path = "$env:APPDATA\Python\Python312\Scripts;$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:USERPROFILE\.local\bin;$env:Path"
 ```
 
 ## 已下载并完成依赖安装的候选项目
@@ -36,6 +37,16 @@ $env:Path = "$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:USERPROFILE\.local\bi
 - `upstreams/ViMax/.venv`：Python 3.12
 
 ## 启动方式
+
+### Aijian Studio
+
+```powershell
+Set-Location C:\Users\Administrator\Documents\sp
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-windows.ps1
+```
+
+首次脚本按锁文件安装 pnpm/uv 依赖并校验 OpenAPI；第二个脚本同时启动 FastAPI、Vite 和 Electron。当前固定端口只用于开发，随机回环端口 sidecar 属于下一切片。
 
 ### Wind Comic（建议先验收）
 
@@ -93,4 +104,4 @@ Docker Desktop 也暂未安装，因为当前四个项目均可直接运行；�
 - LumenX、Wind Comic、ViMax Web、PrintFilm 的生产构建全部通过。
 - 四个上游仓库源码内容均与各自固定提交一致。
 
-可随时运行 `powershell -ExecutionPolicy Bypass -File .\scripts\verify-environment.ps1` 复查环境。
+可随时运行 `powershell -ExecutionPolicy Bypass -File .\scripts\verify-environment.ps1` 复查核心开发环境；追加 `-IncludeUpstreams` 才会检查未纳入仓库的上游研究副本。

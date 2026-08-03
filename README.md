@@ -2,7 +2,7 @@
 
 面向小说、漫画和原创故事的 AI 原生漫剧/短剧制作工作台。目标不是“一键抽卡式生成视频”，而是把制片、编剧、导演、美术、摄影、声音和剪辑真正连接成可审阅、可回退、可协作的生产流程。
 
-> 项目目前处于规格与架构阶段。公开仓库已确定为 `chen11-A/aijian-studio`；“阿健漫剧工场”仍是暂定产品展示名。
+> 项目目前处于 Phase 0 工程骨架阶段。首个 walking skeleton 已包含 FastAPI 健康契约、OpenAPI 类型生成、React 工作台和隔离 Electron 壳；小说导入、剧本拆解、分镜生成、Provider 与时间线尚未完成。“阿健漫剧工场”仍是暂定产品展示名。
 
 ## 产品主流程
 
@@ -51,6 +51,29 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 - [首个 8 周可执行任务](docs/roadmap/phase-0-backlog.md)
 - [安全模型](docs/security/security-model.md)
 - [质量基线](docs/quality/quality-baseline-v0.md)
+
+## 本地开发
+
+基础要求：Windows 11、Git、Node.js 24、pnpm 11、Python 3.12、uv 0.12。首次克隆后执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-windows.ps1
+```
+
+第二条命令同时启动 FastAPI、Vite 与 Electron。开发阶段的 `8000`/`5173` 仅用于本机调试；交付版会由 Electron main 启动 Python sidecar，使用操作系统分配的随机 `127.0.0.1` 端口和一次性令牌。
+
+常用质量命令：
+
+```powershell
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+当前 walking skeleton 的实施边界和验收标准见 [Phase 0 实施规格](docs/specs/phase0-walking-skeleton.md)。
 
 ## 当前原则
 

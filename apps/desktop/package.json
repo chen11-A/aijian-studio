@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "dev": "pnpm build && wait-on http://127.0.0.1:5173 && electron .",
+    "dev": "pnpm build && wait-on http://127.0.0.1:5173 http://127.0.0.1:8000/api/v1/health && electron .",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --coverage"
