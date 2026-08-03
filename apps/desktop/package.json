@@ -1,0 +1,23 @@
+{
+  "name": "@aijian/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "pnpm build && wait-on http://127.0.0.1:5173 && electron .",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@aijian/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "electron": "^43.2.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
+    "wait-on": "^9.1.0"
+  }
+}
