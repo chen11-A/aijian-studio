@@ -18,7 +18,377 @@ from aijian_api.domain import (
 )
 from aijian_api.ingestion import ParsedSource
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+type MigrationHook = Callable[[int, int], None]
+
+
+_MIGRATION_1 = (
+    """
+    CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        aspect_ratio TEXT NOT NULL,
+        target_duration_seconds INTEGER NOT NULL,
+        source_language TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('active', 'archived')),
+        revision INTEGER NOT NULL CHECK (revision >= 1),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE source_documents (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        encoding TEXT NOT NULL,
+        byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
+        raw_sha256 TEXT NOT NULL,
+        normalized_text TEXT NOT NULL,
+        imported_at TEXT NOT NULL,
+        chapter_count INTEGER NOT NULL CHECK (chapter_count >= 1),
+        UNIQUE (project_id, raw_sha256)
+    )
+    """,
+    """
+    CREATE TABLE source_blocks (
+        id TEXT PRIMARY KEY,
+        source_document_id TEXT NOT NULL REFERENCES source_documents(id) ON DELETE CASCADE,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+        kind TEXT NOT NULL CHECK (kind IN ('chapter_heading', 'paragraph')),
+        chapter_index INTEGER NOT NULL CHECK (chapter_index >= 1),
+        text TEXT NOT NULL,
+        normalized_start_byte INTEGER NOT NULL CHECK (normalized_start_byte >= 0),
+        normalized_end_byte INTEGER NOT NULL
+            CHECK (normalized_end_byte >= normalized_start_byte),
+        content_sha256 TEXT NOT NULL,
+        UNIQUE (source_document_id, ordinal)
+    )
+    """,
+    "CREATE INDEX source_documents_project ON source_documents(project_id, imported_at DESC)",
+    "CREATE INDEX source_blocks_document ON source_blocks(source_document_id, ordinal)",
+)
+
+
+_MIGRATION_2 = (
+    "CREATE UNIQUE INDEX source_documents_project_id ON source_documents(project_id, id)",
+    """
+    CREATE UNIQUE INDEX source_blocks_project_document_id
+    ON source_blocks(project_id, source_document_id, id)
+    """,
+    """
+    CREATE TABLE artifacts (
+        artifact_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        artifact_type TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (project_id, artifact_type)
+    )
+    """,
+    """
+    CREATE TABLE artifact_versions (
+        version_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL REFERENCES artifacts(artifact_id) ON DELETE CASCADE,
+        version_number INTEGER NOT NULL CHECK (version_number >= 1),
+        schema_version TEXT NOT NULL,
+        content_json TEXT NOT NULL,
+        content_hash TEXT NOT NULL
+            CHECK (length(content_hash) = 71 AND content_hash LIKE 'sha256:%'),
+        author_actor_type TEXT NOT NULL
+            CHECK (author_actor_type IN ('human', 'agent', 'system')),
+        author_actor_id TEXT NOT NULL,
+        parent_version_id TEXT,
+        change_summary TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (artifact_id, version_number),
+        UNIQUE (artifact_id, version_id),
+        FOREIGN KEY (artifact_id, parent_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id)
+            DEFERRABLE INITIALLY DEFERRED
+    )
+    """,
+    """
+    CREATE TABLE artifact_heads (
+        artifact_id TEXT PRIMARY KEY REFERENCES artifacts(artifact_id) ON DELETE CASCADE,
+        latest_version_id TEXT NOT NULL,
+        review_version_id TEXT,
+        review_submission_id TEXT,
+        accepted_version_id TEXT,
+        revision INTEGER NOT NULL CHECK (revision >= 1),
+        review_evidence_revision INTEGER NOT NULL CHECK (review_evidence_revision >= 0),
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (artifact_id, latest_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id)
+            DEFERRABLE INITIALLY DEFERRED,
+        FOREIGN KEY (artifact_id, review_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id)
+            DEFERRABLE INITIALLY DEFERRED,
+        FOREIGN KEY (artifact_id, accepted_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id)
+            DEFERRABLE INITIALLY DEFERRED
+    )
+    """,
+    """
+    CREATE TABLE artifact_source_spans (
+        span_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        fact_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        source_document_id TEXT NOT NULL,
+        source_block_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('supports', 'contradicts', 'context')),
+        start_byte INTEGER NOT NULL CHECK (start_byte >= 0),
+        end_byte INTEGER NOT NULL CHECK (end_byte > start_byte),
+        claim TEXT NOT NULL,
+        quote_hash TEXT NOT NULL
+            CHECK (length(quote_hash) = 71 AND quote_hash LIKE 'sha256:%'),
+        created_at TEXT NOT NULL,
+        UNIQUE (version_id, fact_id, source_block_id, start_byte, end_byte, role),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE,
+        FOREIGN KEY (project_id, source_document_id)
+            REFERENCES source_documents(project_id, id),
+        FOREIGN KEY (project_id, source_document_id, source_block_id)
+            REFERENCES source_blocks(project_id, source_document_id, id)
+    )
+    """,
+    """
+    CREATE TABLE artifact_dependencies (
+        dependency_id TEXT PRIMARY KEY,
+        downstream_artifact_id TEXT NOT NULL,
+        downstream_version_id TEXT NOT NULL,
+        upstream_artifact_id TEXT NOT NULL,
+        upstream_version_id TEXT NOT NULL,
+        relationship TEXT NOT NULL,
+        impact TEXT NOT NULL CHECK (impact IN ('blocking', 'advisory', 'render_only')),
+        created_at TEXT NOT NULL,
+        CHECK (downstream_version_id <> upstream_version_id),
+        UNIQUE (downstream_version_id, upstream_version_id, relationship),
+        FOREIGN KEY (downstream_artifact_id, downstream_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE,
+        FOREIGN KEY (upstream_artifact_id, upstream_version_id)
+            REFERENCES artifact_versions(artifact_id, version_id)
+    )
+    """,
+    """
+    CREATE TABLE gate_readiness_reports (
+        report_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        gate TEXT NOT NULL,
+        submission_id TEXT,
+        policy_code TEXT NOT NULL,
+        policy_version TEXT NOT NULL,
+        head_revision INTEGER NOT NULL CHECK (head_revision >= 1),
+        review_evidence_revision INTEGER NOT NULL CHECK (review_evidence_revision >= 0),
+        report_json TEXT NOT NULL,
+        report_hash TEXT NOT NULL
+            CHECK (length(report_hash) = 71 AND report_hash LIKE 'sha256:%'),
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (artifact_id, report_id),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE review_submissions (
+        submission_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        gate TEXT NOT NULL,
+        readiness_report_id TEXT NOT NULL REFERENCES gate_readiness_reports(report_id),
+        supersedes_submission_id TEXT REFERENCES review_submissions(submission_id),
+        submitted_by_actor_id TEXT NOT NULL,
+        submitted_at TEXT NOT NULL,
+        UNIQUE (version_id, gate),
+        UNIQUE (artifact_id, submission_id),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE review_findings (
+        finding_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL REFERENCES review_submissions(submission_id),
+        scope_type TEXT NOT NULL,
+        scope_id TEXT,
+        severity TEXT NOT NULL CHECK (severity IN ('blocking', 'major', 'minor', 'note')),
+        expected_change TEXT NOT NULL,
+        responsible_role TEXT NOT NULL,
+        created_by_actor_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (artifact_id, finding_id),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE review_finding_events (
+        event_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        finding_id TEXT NOT NULL,
+        previous_event_id TEXT REFERENCES review_finding_events(event_id),
+        sequence INTEGER NOT NULL CHECK (sequence >= 1),
+        event_type TEXT NOT NULL CHECK (event_type IN ('open', 'resolved', 'disputed')),
+        resolution_version_id TEXT,
+        reason TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (finding_id, sequence),
+        FOREIGN KEY (artifact_id, finding_id)
+            REFERENCES review_findings(artifact_id, finding_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE role_signoffs (
+        signoff_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL REFERENCES review_submissions(submission_id),
+        gate TEXT NOT NULL,
+        role TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        review_evidence_revision INTEGER NOT NULL CHECK (review_evidence_revision >= 0),
+        readiness_report_id TEXT NOT NULL REFERENCES gate_readiness_reports(report_id),
+        self_review INTEGER NOT NULL CHECK (self_review IN (0, 1)),
+        supersedes_signoff_id TEXT REFERENCES role_signoffs(signoff_id),
+        signed_at TEXT NOT NULL,
+        UNIQUE (version_id, gate, role, review_evidence_revision)
+    )
+    """,
+    """
+    CREATE TABLE gate_waivers (
+        waiver_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL REFERENCES review_submissions(submission_id),
+        scope_type TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        impact_scope_json TEXT NOT NULL,
+        review_gate TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (artifact_id, waiver_id),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE gate_waiver_events (
+        event_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        waiver_id TEXT NOT NULL,
+        previous_event_id TEXT REFERENCES gate_waiver_events(event_id),
+        sequence INTEGER NOT NULL CHECK (sequence >= 1),
+        event_type TEXT NOT NULL CHECK (event_type IN ('open', 'reviewed', 'closed')),
+        reason TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (waiver_id, sequence),
+        FOREIGN KEY (artifact_id, waiver_id)
+            REFERENCES gate_waivers(artifact_id, waiver_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE gate_decisions (
+        decision_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL,
+        version_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL REFERENCES review_submissions(submission_id),
+        gate TEXT NOT NULL,
+        decision TEXT NOT NULL
+            CHECK (decision IN ('approved', 'approved_with_waiver', 'rejected')),
+        readiness_report_id TEXT NOT NULL REFERENCES gate_readiness_reports(report_id),
+        actor_id TEXT NOT NULL,
+        actor_role TEXT NOT NULL,
+        self_review INTEGER NOT NULL CHECK (self_review IN (0, 1)),
+        rationale TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        UNIQUE (version_id, gate),
+        FOREIGN KEY (artifact_id, version_id)
+            REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE confirmation_challenges (
+        challenge_id TEXT PRIMARY KEY,
+        artifact_id TEXT NOT NULL REFERENCES artifacts(artifact_id) ON DELETE CASCADE,
+        version_id TEXT NOT NULL REFERENCES artifact_versions(version_id) ON DELETE CASCADE,
+        gate TEXT NOT NULL,
+        action TEXT NOT NULL,
+        readiness_report_id TEXT NOT NULL REFERENCES gate_readiness_reports(report_id),
+        challenge_hash TEXT NOT NULL UNIQUE,
+        head_revision INTEGER NOT NULL CHECK (head_revision >= 1),
+        review_evidence_revision INTEGER NOT NULL CHECK (review_evidence_revision >= 0),
+        expires_at TEXT NOT NULL,
+        consumed_at TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TRIGGER artifact_dependencies_no_cycle
+    BEFORE INSERT ON artifact_dependencies
+    BEGIN
+        SELECT CASE WHEN EXISTS (
+            WITH RECURSIVE upstream(version_id) AS (
+                SELECT NEW.upstream_version_id
+                UNION
+                SELECT dependency.upstream_version_id
+                FROM artifact_dependencies AS dependency
+                JOIN upstream ON dependency.downstream_version_id = upstream.version_id
+            )
+            SELECT 1 FROM upstream WHERE version_id = NEW.downstream_version_id
+        ) THEN RAISE(ABORT, 'artifact dependency cycle') END;
+    END
+    """,
+)
+
+
+_IMMUTABLE_V2_TABLES = (
+    "artifact_versions",
+    "artifact_source_spans",
+    "artifact_dependencies",
+    "gate_readiness_reports",
+    "review_submissions",
+    "review_findings",
+    "review_finding_events",
+    "role_signoffs",
+    "gate_decisions",
+    "gate_waivers",
+    "gate_waiver_events",
+)
+
+
+_IMMUTABILITY_TRIGGERS = tuple(
+    f"""
+    CREATE TRIGGER {table}_immutable_update
+    BEFORE UPDATE ON {table}
+    BEGIN
+        SELECT RAISE(ABORT, '{table} rows are immutable');
+    END
+    """
+    for table in _IMMUTABLE_V2_TABLES
+) + tuple(
+    f"""
+    CREATE TRIGGER {table}_immutable_delete
+    BEFORE DELETE ON {table}
+    BEGIN
+        SELECT RAISE(ABORT, '{table} rows are immutable');
+    END
+    """
+    for table in _IMMUTABLE_V2_TABLES
+)
+
+
+_MIGRATIONS = {1: _MIGRATION_1, 2: _MIGRATION_2 + _IMMUTABILITY_TRIGGERS}
 
 
 class ProjectNotFoundError(LookupError):
@@ -56,10 +426,12 @@ class StudioRepository:
         *,
         id_factory: Callable[[str], str] = _default_id,
         clock: Callable[[], datetime] = _utc_now,
+        migration_hook: MigrationHook | None = None,
     ) -> None:
         self._database_path = database_path
         self._id_factory = id_factory
         self._clock = clock
+        self._migration_hook = migration_hook
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -84,59 +456,24 @@ class StudioRepository:
             if version > SCHEMA_VERSION:
                 raise SchemaTooNewError("Workspace schema is newer than this application")
             connection.execute("PRAGMA journal_mode = WAL")
-            if version == 0:
-                connection.executescript(
-                    """
-                    CREATE TABLE projects (
-                        id TEXT PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        aspect_ratio TEXT NOT NULL,
-                        target_duration_seconds INTEGER NOT NULL,
-                        source_language TEXT NOT NULL,
-                        status TEXT NOT NULL CHECK (status IN ('active', 'archived')),
-                        revision INTEGER NOT NULL CHECK (revision >= 1),
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT NOT NULL
-                    );
-
-                    CREATE TABLE source_documents (
-                        id TEXT PRIMARY KEY,
-                        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                        filename TEXT NOT NULL,
-                        media_type TEXT NOT NULL,
-                        encoding TEXT NOT NULL,
-                        byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
-                        raw_sha256 TEXT NOT NULL,
-                        normalized_text TEXT NOT NULL,
-                        imported_at TEXT NOT NULL,
-                        chapter_count INTEGER NOT NULL CHECK (chapter_count >= 1),
-                        UNIQUE (project_id, raw_sha256)
-                    );
-
-                    CREATE TABLE source_blocks (
-                        id TEXT PRIMARY KEY,
-                        source_document_id TEXT NOT NULL
-                            REFERENCES source_documents(id) ON DELETE CASCADE,
-                        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-                        ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
-                        kind TEXT NOT NULL CHECK (kind IN ('chapter_heading', 'paragraph')),
-                        chapter_index INTEGER NOT NULL CHECK (chapter_index >= 1),
-                        text TEXT NOT NULL,
-                        normalized_start_byte INTEGER NOT NULL CHECK (normalized_start_byte >= 0),
-                        normalized_end_byte INTEGER NOT NULL
-                            CHECK (normalized_end_byte >= normalized_start_byte),
-                        content_sha256 TEXT NOT NULL,
-                        UNIQUE (source_document_id, ordinal)
-                    );
-
-                    CREATE INDEX source_documents_project
-                        ON source_documents(project_id, imported_at DESC);
-                    CREATE INDEX source_blocks_document
-                        ON source_blocks(source_document_id, ordinal);
-                    PRAGMA user_version = 1;
-                    """
-                )
-                connection.commit()
+            while version < SCHEMA_VERSION:
+                next_version = version + 1
+                statements = _MIGRATIONS[next_version]
+                connection.execute("BEGIN IMMEDIATE")
+                try:
+                    for step, statement in enumerate(statements):
+                        connection.execute(statement)
+                        if self._migration_hook is not None:
+                            self._migration_hook(next_version, step)
+                    foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
+                    if foreign_key_errors:
+                        raise RuntimeError("Migration produced invalid foreign keys")
+                    connection.execute(f"PRAGMA user_version = {next_version}")
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
+                version = next_version
 
     def create_project(
         self,
