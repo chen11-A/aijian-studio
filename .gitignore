@@ -1,6 +1,7 @@
 /upstreams/
 /downloads/
 /.cache/
+/.aijian-dev/
 .venv/
 node_modules/
 dist/
