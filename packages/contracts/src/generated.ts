@@ -125,6 +125,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/story-bible/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Story Bible Version */
+        post: operations["createStoryBibleVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -179,6 +196,40 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CharacterFactDraftV1 */
+        CharacterFactDraftV1: {
+            /** Attribute */
+            attribute: string;
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Character Id */
+            character_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "character_fact";
+            origin: components["schemas"]["FactOrigin"];
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Value */
+            value: string;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+        };
         /** CharacterFactV1 */
         CharacterFactV1: {
             /** Attribute */
@@ -213,6 +264,16 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** ClientRefV1 */
+        ClientRefV1: {
+            /** Client Key */
+            client_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            ref_type: "client_key";
+        };
         /** CostumeEntityV1 */
         CostumeEntityV1: {
             /** Aliases */
@@ -226,6 +287,43 @@ export interface components {
             kind: "costume";
             /** Name */
             name: string;
+        };
+        /** CostumeFactDraftV1 */
+        CostumeFactDraftV1: {
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Costume Id */
+            costume_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "costume_fact";
+            origin: components["schemas"]["FactOrigin"];
+            /**
+             * Property Key
+             * @enum {string}
+             */
+            property_key: "wearer" | "location" | "condition" | "appearance";
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Value */
+            value: (components["schemas"]["TextStateValueV1"] | components["schemas"]["EntityStateValueDraftV1"] | components["schemas"]["BooleanStateValueV1"] | components["schemas"]["NumberStateValueV1"]) | null;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
         };
         /** CostumeFactV1 */
         CostumeFactV1: {
@@ -286,6 +384,28 @@ export interface components {
              */
             target_duration_seconds: number;
         };
+        /** CreateStoryBibleVersionRequest */
+        CreateStoryBibleVersionRequest: {
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["StoryBibleContentDraftV1"];
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+            /** Source Spans */
+            source_spans: components["schemas"]["StorySourceSpanDraftV1"][];
+        };
+        /** @enum {string} */
+        EntityKind: "character" | "location" | "organization" | "prop" | "costume";
+        /** EntityStateValueDraftV1 */
+        EntityStateValueDraftV1: {
+            /** Entity Id */
+            entity_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "entity_ref";
+        };
         /** EntityStateValueV1 */
         EntityStateValueV1: {
             /** Entity Id */
@@ -323,6 +443,47 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** EventFactDraftV1 */
+        EventFactDraftV1: {
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Caused By Fact Ids */
+            caused_by_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "event_fact";
+            /** Location Id */
+            location_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+            origin: components["schemas"]["FactOrigin"];
+            /** Participants */
+            participants: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Source Narrative Order */
+            source_narrative_order: number;
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** State Changes */
+            state_changes?: components["schemas"]["StateChangeDraftV1"][];
+            /** Story Time Order */
+            story_time_order: number;
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Temporal Relations */
+            temporal_relations?: components["schemas"]["TemporalRelationDraftV1"][];
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
         };
         /** EventFactV1 */
         EventFactV1: {
@@ -365,12 +526,44 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** EventValidityDraftV1 */
+        EventValidityDraftV1: {
+            /** Ends After Event Fact Id */
+            ends_after_event_fact_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+            /** Starts After Event Fact Id */
+            starts_after_event_fact_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+        };
         /** EventValidityV1 */
         EventValidityV1: {
             /** Ends After Event Fact Id */
             ends_after_event_fact_id?: string | null;
             /** Starts After Event Fact Id */
             starts_after_event_fact_id?: string | null;
+        };
+        /** FactConflictDraftV1 */
+        FactConflictDraftV1: {
+            /** Conflict Id */
+            conflict_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Conflict Type */
+            conflict_type: string;
+            /** Fact Ids */
+            fact_ids: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Resolution Fact Id */
+            resolution_fact_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+            /** Resolution Reason */
+            resolution_reason?: string | null;
+            /** Responsible Role */
+            responsible_role: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocking" | "major" | "minor" | "note";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unresolved" | "resolved_as_source_ambiguity" | "resolved_by_user_decision";
         };
         /** FactConflictV1 */
         FactConflictV1: {
@@ -460,6 +653,40 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** LocationFactDraftV1 */
+        LocationFactDraftV1: {
+            /** Attribute */
+            attribute: string;
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "location_fact";
+            /** Location Id */
+            location_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            origin: components["schemas"]["FactOrigin"];
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Value */
+            value: string;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+        };
         /** LocationFactV1 */
         LocationFactV1: {
             /** Attribute */
@@ -518,6 +745,40 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** OrganizationFactDraftV1 */
+        OrganizationFactDraftV1: {
+            /** Attribute */
+            attribute: string;
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "organization_fact";
+            /** Organization Id */
+            organization_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            origin: components["schemas"]["FactOrigin"];
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Value */
+            value: string;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+        };
         /** OrganizationFactV1 */
         OrganizationFactV1: {
             /** Attribute */
@@ -551,6 +812,16 @@ export interface components {
             value: string;
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
+        };
+        /** PermanentRefV1 */
+        PermanentRefV1: {
+            /** Permanent Id */
+            permanent_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            ref_type: "permanent_id";
         };
         /** ProjectData */
         ProjectData: {
@@ -621,6 +892,43 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** PropFactDraftV1 */
+        PropFactDraftV1: {
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "prop_fact";
+            origin: components["schemas"]["FactOrigin"];
+            /** Prop Id */
+            prop_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /**
+             * Property Key
+             * @enum {string}
+             */
+            property_key: "holder" | "location" | "condition" | "appearance";
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Value */
+            value: (components["schemas"]["TextStateValueV1"] | components["schemas"]["EntityStateValueDraftV1"] | components["schemas"]["BooleanStateValueV1"] | components["schemas"]["NumberStateValueV1"]) | null;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+        };
         /** PropFactV1 */
         PropFactV1: {
             canon_certainty: components["schemas"]["CanonCertainty"];
@@ -657,6 +965,40 @@ export interface components {
             value: (components["schemas"]["TextStateValueV1"] | components["schemas"]["EntityStateValueV1"] | components["schemas"]["BooleanStateValueV1"] | components["schemas"]["NumberStateValueV1"]) | null;
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
+        };
+        /** RelationshipFactDraftV1 */
+        RelationshipFactDraftV1: {
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "relationship_fact";
+            /** Object Entity Id */
+            object_entity_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            origin: components["schemas"]["FactOrigin"];
+            /** Predicate */
+            predicate: string;
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Subject Entity Id */
+            subject_entity_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            validity?: components["schemas"]["EventValidityDraftV1"] | null;
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
         };
         /** RelationshipFactV1 */
         RelationshipFactV1: {
@@ -914,6 +1256,16 @@ export interface components {
             /** Source Document Id */
             source_document_id: string;
         };
+        /** StateChangeDraftV1 */
+        StateChangeDraftV1: {
+            /** After */
+            after?: (components["schemas"]["TextStateValueV1"] | components["schemas"]["EntityStateValueDraftV1"] | components["schemas"]["BooleanStateValueV1"] | components["schemas"]["NumberStateValueV1"]) | null;
+            /** Before */
+            before?: (components["schemas"]["TextStateValueV1"] | components["schemas"]["EntityStateValueDraftV1"] | components["schemas"]["BooleanStateValueV1"] | components["schemas"]["NumberStateValueV1"]) | null;
+            /** Entity Id */
+            entity_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            property_key: components["schemas"]["StatePropertyKey"];
+        };
         /** StateChangeV1 */
         StateChangeV1: {
             /** After */
@@ -926,6 +1278,22 @@ export interface components {
         };
         /** @enum {string} */
         StatePropertyKey: "holder" | "wearer" | "location" | "condition" | "possession" | "relationship_status" | "alive" | "appearance";
+        /** StoryBibleContentDraftV1 */
+        StoryBibleContentDraftV1: {
+            /** Conflicts */
+            conflicts?: components["schemas"]["FactConflictDraftV1"][];
+            /** Entities */
+            entities: components["schemas"]["StoryEntityDraftV1"][];
+            /** Facts */
+            facts: (components["schemas"]["CharacterFactDraftV1"] | components["schemas"]["LocationFactDraftV1"] | components["schemas"]["RelationshipFactDraftV1"] | components["schemas"]["EventFactDraftV1"] | components["schemas"]["WorldRuleFactDraftV1"] | components["schemas"]["OrganizationFactDraftV1"] | components["schemas"]["PropFactDraftV1"] | components["schemas"]["CostumeFactDraftV1"])[];
+            /** Logline */
+            logline: string;
+            /** Questions */
+            questions?: components["schemas"]["StoryQuestionDraftV1"][];
+            source_scope: components["schemas"]["StorySourceScopeV1"];
+            /** Title */
+            title: string;
+        };
         /** StoryBibleContentV1 */
         StoryBibleContentV1: {
             /** Conflicts */
@@ -950,6 +1318,24 @@ export interface components {
         /** StoryBibleResponse */
         StoryBibleResponse: {
             data: components["schemas"]["StoryBibleData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryBibleVersionCreatedData */
+        StoryBibleVersionCreatedData: {
+            head: components["schemas"]["ArtifactHeadData"];
+            /** Id Map */
+            id_map: {
+                [key: string]: string;
+            };
+            version: components["schemas"]["StoryBibleVersionData"];
+        };
+        /** StoryBibleVersionCreatedResponse */
+        StoryBibleVersionCreatedResponse: {
+            data: components["schemas"]["StoryBibleVersionCreatedData"];
             /**
              * Request Id
              * Format: uuid
@@ -981,6 +1367,46 @@ export interface components {
             schema_version: "1.0.0";
             /** Version Number */
             version_number: number;
+        };
+        /** StoryEntityDraftV1 */
+        StoryEntityDraftV1: {
+            /** Aliases */
+            aliases?: string[];
+            /** Entity Id */
+            entity_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            kind: components["schemas"]["EntityKind"];
+            /** Name */
+            name: string;
+        };
+        /** StoryQuestionDraftV1 */
+        StoryQuestionDraftV1: {
+            /** Blocking */
+            blocking: boolean;
+            /** Question */
+            question: string;
+            /** Question Id */
+            question_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Resolution */
+            resolution?: string | null;
+            /** Responsible Role */
+            responsible_role: string;
+            /** Scope Id */
+            scope_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
+            /**
+             * Scope Type
+             * @enum {string}
+             */
+            scope_type: "artifact" | "entity" | "fact" | "source_document";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocking" | "major" | "minor" | "note";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "resolved";
         };
         /** StoryQuestionV1 */
         StoryQuestionV1: {
@@ -1026,6 +1452,36 @@ export interface components {
             /** Source Manifest Version Id */
             source_manifest_version_id: string;
         };
+        /** StorySourceSpanDraftV1 */
+        StorySourceSpanDraftV1: {
+            /** Claim */
+            claim: string;
+            /** End Byte */
+            end_byte: number;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "supports" | "contradicts" | "context";
+            /** Source Block Id */
+            source_block_id: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Start Byte */
+            start_byte: number;
+        };
+        /** TemporalRelationDraftV1 */
+        TemporalRelationDraftV1: {
+            /** Other Event Fact Id */
+            other_event_fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "before" | "after" | "simultaneous";
+        };
         /** TemporalRelationV1 */
         TemporalRelationV1: {
             /** Other Event Fact Id */
@@ -1045,6 +1501,39 @@ export interface components {
             kind: "text";
             /** Value */
             value: string;
+        };
+        /** WorldRuleFactDraftV1 */
+        WorldRuleFactDraftV1: {
+            canon_certainty: components["schemas"]["CanonCertainty"];
+            canon_status: components["schemas"]["CanonStatus"];
+            /** Decision Reason */
+            decision_reason?: string | null;
+            /** Derived From Fact Ids */
+            derived_from_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Exceptions */
+            exceptions?: string[];
+            /** Extraction Confidence Bps */
+            extraction_confidence_bps?: number | null;
+            /** Fact Id */
+            fact_id: components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"];
+            /** Impact Scope */
+            impact_scope?: string[];
+            importance: components["schemas"]["FactImportance"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "world_rule_fact";
+            origin: components["schemas"]["FactOrigin"];
+            /** Rule */
+            rule: string;
+            /** Rule Scope */
+            rule_scope: string;
+            source_reliability: components["schemas"]["SourceReliability"];
+            /** Supersedes Fact Ids */
+            supersedes_fact_ids?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"])[];
+            /** Viewpoint Entity Id */
+            viewpoint_entity_id?: (components["schemas"]["PermanentRefV1"] | components["schemas"]["ClientRefV1"]) | null;
         };
         /** WorldRuleFactV1 */
         WorldRuleFactV1: {
@@ -1595,6 +2084,97 @@ export interface operations {
             };
             /** @description Request validation failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createStoryBibleVersion: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStoryBibleVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryBibleVersionCreatedResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or parent artifact not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Accepted source dependency is unavailable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Artifact revision changed */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description If-Match is required for a revision */
+            428: {
                 headers: {
                     [name: string]: unknown;
                 };

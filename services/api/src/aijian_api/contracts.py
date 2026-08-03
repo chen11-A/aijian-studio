@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
+from aijian_api.story_bible_drafts import StoryBibleContentDraftV1, StorySourceSpanDraftV1
 
 PROJECT_ID_PATTERN = r"^prj_[0-9a-f]{32}$"
 SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
@@ -246,6 +247,35 @@ class StoryBibleResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: StoryBibleData
+    request_id: UUID
+
+
+class CreateStoryBibleVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: StoryBibleContentDraftV1
+    source_spans: list[StorySourceSpanDraftV1] = Field(max_length=100000)
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    change_summary: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("change_summary", mode="before")
+    @classmethod
+    def normalize_change_summary(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class StoryBibleVersionCreatedData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    head: ArtifactHeadData
+    version: StoryBibleVersionData
+    id_map: dict[str, str]
+
+
+class StoryBibleVersionCreatedResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryBibleVersionCreatedData
     request_id: UUID
 
 

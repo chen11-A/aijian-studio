@@ -150,6 +150,205 @@
         "title": "CharacterEntityV1",
         "type": "object"
       },
+      "CharacterFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          },
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "character_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "character_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "character_id",
+          "attribute",
+          "value"
+        ],
+        "title": "CharacterFactDraftV1",
+        "type": "object"
+      },
       "CharacterFactV1": {
         "additionalProperties": false,
         "properties": {
@@ -282,6 +481,27 @@
         "title": "CharacterFactV1",
         "type": "object"
       },
+      "ClientRefV1": {
+        "additionalProperties": false,
+        "properties": {
+          "client_key": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,63}$",
+            "title": "Client Key",
+            "type": "string"
+          },
+          "ref_type": {
+            "const": "client_key",
+            "title": "Ref Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_type",
+          "client_key"
+        ],
+        "title": "ClientRefV1",
+        "type": "object"
+      },
       "CostumeEntityV1": {
         "additionalProperties": false,
         "properties": {
@@ -316,6 +536,236 @@
           "kind"
         ],
         "title": "CostumeEntityV1",
+        "type": "object"
+      },
+      "CostumeFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "costume_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Costume Id"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "costume_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "property_key": {
+            "enum": [
+              "wearer",
+              "location",
+              "condition",
+              "appearance"
+            ],
+            "title": "Property Key",
+            "type": "string"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "boolean": "#/components/schemas/BooleanStateValueV1",
+                    "entity_ref": "#/components/schemas/EntityStateValueDraftV1",
+                    "number": "#/components/schemas/NumberStateValueV1",
+                    "text": "#/components/schemas/TextStateValueV1"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TextStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EntityStateValueDraftV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BooleanStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NumberStateValueV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "costume_id",
+          "property_key",
+          "value"
+        ],
+        "title": "CostumeFactDraftV1",
         "type": "object"
       },
       "CostumeFactV1": {
@@ -516,6 +966,91 @@
         "title": "CreateProjectRequest",
         "type": "object"
       },
+      "CreateStoryBibleVersionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "change_summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "content": {
+            "$ref": "#/components/schemas/StoryBibleContentDraftV1"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "source_spans": {
+            "items": {
+              "$ref": "#/components/schemas/StorySourceSpanDraftV1"
+            },
+            "maxItems": 100000,
+            "title": "Source Spans",
+            "type": "array"
+          }
+        },
+        "required": [
+          "content",
+          "source_spans",
+          "change_summary"
+        ],
+        "title": "CreateStoryBibleVersionRequest",
+        "type": "object"
+      },
+      "EntityKind": {
+        "enum": [
+          "character",
+          "location",
+          "organization",
+          "prop",
+          "costume"
+        ],
+        "type": "string"
+      },
+      "EntityStateValueDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "entity_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "kind": {
+            "const": "entity_ref",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "entity_id"
+        ],
+        "title": "EntityStateValueDraftV1",
+        "type": "object"
+      },
       "EntityStateValueV1": {
         "additionalProperties": false,
         "properties": {
@@ -588,6 +1123,261 @@
           "request_id"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EventFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "caused_by_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Caused By Fact Ids",
+            "type": "array"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "event_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "participants": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Participants",
+            "type": "array"
+          },
+          "source_narrative_order": {
+            "minimum": 0.0,
+            "title": "Source Narrative Order",
+            "type": "integer"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "state_changes": {
+            "items": {
+              "$ref": "#/components/schemas/StateChangeDraftV1"
+            },
+            "maxItems": 100,
+            "title": "State Changes",
+            "type": "array"
+          },
+          "story_time_order": {
+            "minimum": 0.0,
+            "title": "Story Time Order",
+            "type": "integer"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "temporal_relations": {
+            "items": {
+              "$ref": "#/components/schemas/TemporalRelationDraftV1"
+            },
+            "maxItems": 100,
+            "title": "Temporal Relations",
+            "type": "array"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "participants",
+          "source_narrative_order",
+          "story_time_order"
+        ],
+        "title": "EventFactDraftV1",
         "type": "object"
       },
       "EventFactV1": {
@@ -750,6 +1540,63 @@
         "title": "EventFactV1",
         "type": "object"
       },
+      "EventValidityDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "ends_after_event_fact_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends After Event Fact Id"
+          },
+          "starts_after_event_fact_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts After Event Fact Id"
+          }
+        },
+        "title": "EventValidityDraftV1",
+        "type": "object"
+      },
       "EventValidityV1": {
         "additionalProperties": false,
         "properties": {
@@ -779,6 +1626,130 @@
           }
         },
         "title": "EventValidityV1",
+        "type": "object"
+      },
+      "FactConflictDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "conflict_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Conflict Id"
+          },
+          "conflict_type": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Conflict Type",
+            "type": "string"
+          },
+          "fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "resolution_fact_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Fact Id"
+          },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
+          "responsible_role": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Responsible Role",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "major",
+              "minor",
+              "note"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "unresolved",
+              "resolved_as_source_ambiguity",
+              "resolved_by_user_decision"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conflict_id",
+          "conflict_type",
+          "fact_ids",
+          "severity",
+          "responsible_role",
+          "status"
+        ],
+        "title": "FactConflictDraftV1",
         "type": "object"
       },
       "FactConflictV1": {
@@ -993,6 +1964,205 @@
         "title": "LocationEntityV1",
         "type": "object"
       },
+      "LocationFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          },
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "location_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "location_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "location_id",
+          "attribute",
+          "value"
+        ],
+        "title": "LocationFactDraftV1",
+        "type": "object"
+      },
       "LocationFactV1": {
         "additionalProperties": false,
         "properties": {
@@ -1181,6 +2351,205 @@
         "title": "OrganizationEntityV1",
         "type": "object"
       },
+      "OrganizationFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          },
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "organization_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "organization_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Organization Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "organization_id",
+          "attribute",
+          "value"
+        ],
+        "title": "OrganizationFactDraftV1",
+        "type": "object"
+      },
       "OrganizationFactV1": {
         "additionalProperties": false,
         "properties": {
@@ -1311,6 +2680,27 @@
           "value"
         ],
         "title": "OrganizationFactV1",
+        "type": "object"
+      },
+      "PermanentRefV1": {
+        "additionalProperties": false,
+        "properties": {
+          "permanent_id": {
+            "pattern": "^(ent|fact|qst|cfl|src)_[0-9a-f]{32}$",
+            "title": "Permanent Id",
+            "type": "string"
+          },
+          "ref_type": {
+            "const": "permanent_id",
+            "title": "Ref Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_type",
+          "permanent_id"
+        ],
+        "title": "PermanentRefV1",
         "type": "object"
       },
       "ProjectData": {
@@ -1452,6 +2842,236 @@
           "kind"
         ],
         "title": "PropEntityV1",
+        "type": "object"
+      },
+      "PropFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "prop_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "prop_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Prop Id"
+          },
+          "property_key": {
+            "enum": [
+              "holder",
+              "location",
+              "condition",
+              "appearance"
+            ],
+            "title": "Property Key",
+            "type": "string"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "boolean": "#/components/schemas/BooleanStateValueV1",
+                    "entity_ref": "#/components/schemas/EntityStateValueDraftV1",
+                    "number": "#/components/schemas/NumberStateValueV1",
+                    "text": "#/components/schemas/TextStateValueV1"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TextStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EntityStateValueDraftV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BooleanStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NumberStateValueV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "prop_id",
+          "property_key",
+          "value"
+        ],
+        "title": "PropFactDraftV1",
         "type": "object"
       },
       "PropFactV1": {
@@ -1615,6 +3235,217 @@
           "value"
         ],
         "title": "PropFactV1",
+        "type": "object"
+      },
+      "RelationshipFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "relationship_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "object_entity_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Object Entity Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "predicate": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Predicate",
+            "type": "string"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "subject_entity_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Subject Entity Id"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EventValidityDraftV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "subject_entity_id",
+          "predicate",
+          "object_entity_id"
+        ],
+        "title": "RelationshipFactDraftV1",
         "type": "object"
       },
       "RelationshipFactV1": {
@@ -2292,6 +4123,104 @@
         "title": "SourceScopeDocumentV1",
         "type": "object"
       },
+      "StateChangeDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "boolean": "#/components/schemas/BooleanStateValueV1",
+                    "entity_ref": "#/components/schemas/EntityStateValueDraftV1",
+                    "number": "#/components/schemas/NumberStateValueV1",
+                    "text": "#/components/schemas/TextStateValueV1"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TextStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EntityStateValueDraftV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BooleanStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NumberStateValueV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "boolean": "#/components/schemas/BooleanStateValueV1",
+                    "entity_ref": "#/components/schemas/EntityStateValueDraftV1",
+                    "number": "#/components/schemas/NumberStateValueV1",
+                    "text": "#/components/schemas/TextStateValueV1"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TextStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EntityStateValueDraftV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BooleanStateValueV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NumberStateValueV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "entity_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "property_key": {
+            "$ref": "#/components/schemas/StatePropertyKey"
+          }
+        },
+        "required": [
+          "entity_id",
+          "property_key"
+        ],
+        "title": "StateChangeDraftV1",
+        "type": "object"
+      },
       "StateChangeV1": {
         "additionalProperties": false,
         "properties": {
@@ -2389,6 +4318,107 @@
           "appearance"
         ],
         "type": "string"
+      },
+      "StoryBibleContentDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/FactConflictDraftV1"
+            },
+            "maxItems": 2000,
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/StoryEntityDraftV1"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Entities",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "character_fact": "#/components/schemas/CharacterFactDraftV1",
+                  "costume_fact": "#/components/schemas/CostumeFactDraftV1",
+                  "event_fact": "#/components/schemas/EventFactDraftV1",
+                  "location_fact": "#/components/schemas/LocationFactDraftV1",
+                  "organization_fact": "#/components/schemas/OrganizationFactDraftV1",
+                  "prop_fact": "#/components/schemas/PropFactDraftV1",
+                  "relationship_fact": "#/components/schemas/RelationshipFactDraftV1",
+                  "world_rule_fact": "#/components/schemas/WorldRuleFactDraftV1"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CharacterFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/LocationFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/RelationshipFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/EventFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/WorldRuleFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/OrganizationFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/PropFactDraftV1"
+                },
+                {
+                  "$ref": "#/components/schemas/CostumeFactDraftV1"
+                }
+              ]
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "title": "Facts",
+            "type": "array"
+          },
+          "logline": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Logline",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/StoryQuestionDraftV1"
+            },
+            "maxItems": 2000,
+            "title": "Questions",
+            "type": "array"
+          },
+          "source_scope": {
+            "$ref": "#/components/schemas/StorySourceScopeV1"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "logline",
+          "source_scope",
+          "entities",
+          "facts"
+        ],
+        "title": "StoryBibleContentDraftV1",
+        "type": "object"
       },
       "StoryBibleContentV1": {
         "additionalProperties": false,
@@ -2553,6 +4583,50 @@
         "title": "StoryBibleResponse",
         "type": "object"
       },
+      "StoryBibleVersionCreatedData": {
+        "additionalProperties": false,
+        "properties": {
+          "head": {
+            "$ref": "#/components/schemas/ArtifactHeadData"
+          },
+          "id_map": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Id Map",
+            "type": "object"
+          },
+          "version": {
+            "$ref": "#/components/schemas/StoryBibleVersionData"
+          }
+        },
+        "required": [
+          "head",
+          "version",
+          "id_map"
+        ],
+        "title": "StoryBibleVersionCreatedData",
+        "type": "object"
+      },
+      "StoryBibleVersionCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryBibleVersionCreatedData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryBibleVersionCreatedResponse",
+        "type": "object"
+      },
       "StoryBibleVersionData": {
         "additionalProperties": false,
         "properties": {
@@ -2617,6 +4691,168 @@
           "created_at"
         ],
         "title": "StoryBibleVersionData",
+        "type": "object"
+      },
+      "StoryEntityDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Aliases",
+            "type": "array"
+          },
+          "entity_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "kind",
+          "name"
+        ],
+        "title": "StoryEntityDraftV1",
+        "type": "object"
+      },
+      "StoryQuestionDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "question": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "question_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "responsible_role": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Responsible Role",
+            "type": "string"
+          },
+          "scope_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Id"
+          },
+          "scope_type": {
+            "enum": [
+              "artifact",
+              "entity",
+              "fact",
+              "source_document"
+            ],
+            "title": "Scope Type",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "major",
+              "minor",
+              "note"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "scope_type",
+          "question",
+          "severity",
+          "responsible_role",
+          "blocking",
+          "status"
+        ],
+        "title": "StoryQuestionDraftV1",
         "type": "object"
       },
       "StoryQuestionV1": {
@@ -2748,6 +4984,113 @@
         "title": "StorySourceScopeV1",
         "type": "object"
       },
+      "StorySourceSpanDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "role": {
+            "enum": [
+              "supports",
+              "contradicts",
+              "context"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_block_id": {
+            "pattern": "^srcb_[0-9a-f]{32}$",
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fact_id",
+          "source_document_id",
+          "source_block_id",
+          "role",
+          "start_byte",
+          "end_byte",
+          "claim"
+        ],
+        "title": "StorySourceSpanDraftV1",
+        "type": "object"
+      },
+      "TemporalRelationDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "other_event_fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Other Event Fact Id"
+          },
+          "relation": {
+            "enum": [
+              "before",
+              "after",
+              "simultaneous"
+            ],
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation",
+          "other_event_fact_id"
+        ],
+        "title": "TemporalRelationDraftV1",
+        "type": "object"
+      },
       "TemporalRelationV1": {
         "additionalProperties": false,
         "properties": {
@@ -2793,6 +5136,184 @@
           "value"
         ],
         "title": "TextStateValueV1",
+        "type": "object"
+      },
+      "WorldRuleFactDraftV1": {
+        "additionalProperties": false,
+        "properties": {
+          "canon_certainty": {
+            "$ref": "#/components/schemas/CanonCertainty"
+          },
+          "canon_status": {
+            "$ref": "#/components/schemas/CanonStatus"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "derived_from_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Derived From Fact Ids",
+            "type": "array"
+          },
+          "exceptions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Exceptions",
+            "type": "array"
+          },
+          "extraction_confidence_bps": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Confidence Bps"
+          },
+          "fact_id": {
+            "discriminator": {
+              "mapping": {
+                "client_key": "#/components/schemas/ClientRefV1",
+                "permanent_id": "#/components/schemas/PermanentRefV1"
+              },
+              "propertyName": "ref_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PermanentRefV1"
+              },
+              {
+                "$ref": "#/components/schemas/ClientRefV1"
+              }
+            ],
+            "title": "Fact Id"
+          },
+          "impact_scope": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Impact Scope",
+            "type": "array"
+          },
+          "importance": {
+            "$ref": "#/components/schemas/FactImportance"
+          },
+          "kind": {
+            "const": "world_rule_fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "rule": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Rule",
+            "type": "string"
+          },
+          "rule_scope": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Rule Scope",
+            "type": "string"
+          },
+          "source_reliability": {
+            "$ref": "#/components/schemas/SourceReliability"
+          },
+          "supersedes_fact_ids": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "client_key": "#/components/schemas/ClientRefV1",
+                  "permanent_id": "#/components/schemas/PermanentRefV1"
+                },
+                "propertyName": "ref_type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PermanentRefV1"
+                },
+                {
+                  "$ref": "#/components/schemas/ClientRefV1"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "title": "Supersedes Fact Ids",
+            "type": "array"
+          },
+          "viewpoint_entity_id": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "client_key": "#/components/schemas/ClientRefV1",
+                    "permanent_id": "#/components/schemas/PermanentRefV1"
+                  },
+                  "propertyName": "ref_type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PermanentRefV1"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ClientRefV1"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewpoint Entity Id"
+          }
+        },
+        "required": [
+          "fact_id",
+          "importance",
+          "origin",
+          "canon_status",
+          "canon_certainty",
+          "source_reliability",
+          "kind",
+          "rule_scope",
+          "rule"
+        ],
+        "title": "WorldRuleFactDraftV1",
         "type": "object"
       },
       "WorldRuleFactV1": {
@@ -3528,6 +6049,131 @@
           }
         },
         "summary": "Get Story Bible"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-bible/versions": {
+      "post": {
+        "operationId": "createStoryBibleVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStoryBibleVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryBibleVersionCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or parent artifact not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Accepted source dependency is unavailable"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact revision changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "If-Match is required for a revision"
+          }
+        },
+        "summary": "Create Story Bible Version"
       }
     }
   }

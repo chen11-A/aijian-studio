@@ -55,6 +55,10 @@ SCHEMA_VERSION = 3
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
+type ArtifactContentResolver = Callable[
+    [Callable[[str], str]],
+    tuple[dict[str, object], tuple[ArtifactSourceSpanDraft, ...]],
+]
 
 
 _MIGRATION_1 = (
@@ -1417,7 +1421,7 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         schema_version: str,
-        content: dict[str, object],
+        content: dict[str, object] | None,
         author_actor_type: ArtifactActorType,
         author_actor_id: str,
         change_summary: str,
@@ -1426,14 +1430,9 @@ class StudioRepository:
         source_spans: tuple[ArtifactSourceSpanDraft, ...] = (),
         dependencies: tuple[ArtifactDependencyDraft, ...] = (),
         required_accepted_upstream_version_id: str | None = None,
+        content_resolver: ArtifactContentResolver | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
-
-        content_bytes = canonical_content_bytes(content)
-        content_json = content_bytes.decode("utf-8")
-        content_hash = canonical_content_hash(content)
-        created_at = self._clock()
-        version_id = self._id_factory("ver")
 
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -1479,6 +1478,21 @@ class StudioRepository:
                             "StoryBible requires an exact accepted SourceManifest dependency"
                         )
 
+                if content_resolver is not None:
+                    if content is not None or source_spans:
+                        raise ValueError(
+                            "Resolved artifact creation cannot also provide canonical "
+                            "content or spans"
+                        )
+                    content, source_spans = content_resolver(self._id_factory)
+                if content is None:
+                    raise ValueError("Artifact content is required")
+                content_bytes = canonical_content_bytes(content)
+                content_json = content_bytes.decode("utf-8")
+                content_hash = canonical_content_hash(content)
+                created_at = self._clock()
+                version_id = self._id_factory("ver")
+
                 artifact_row = connection.execute(
                     "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ?",
                     (project_id, artifact_type),
@@ -1505,6 +1519,12 @@ class StudioRepository:
                         raise ArtifactConflictError("Artifact head revision has changed")
                     if parent_version_id is None:
                         raise ArtifactConflictError("A revision must identify its parent version")
+                    if artifact_type == "story_bible" and parent_version_id != str(
+                        head_row["latest_version_id"]
+                    ):
+                        raise ArtifactConflictError(
+                            "A StoryBible revision must use the current latest version as parent"
+                        )
                     parent = connection.execute(
                         """
                         SELECT version_number FROM artifact_versions

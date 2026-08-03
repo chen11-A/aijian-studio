@@ -230,3 +230,16 @@ def test_story_bible_aggregate_rejects_forged_span_links(failure: str) -> None:
             source_manifest=manifest,
             source_spans=spans + (forged_span,),
         )
+
+
+def test_story_bible_aggregate_limits_evidence_per_fact() -> None:
+    content, manifest, spans = valid_aggregate()
+    first_fact_span = evidence_span(content.facts[0].fact_id)
+
+    with pytest.raises(StoryBibleAggregateInvalidError, match="more than 100"):
+        validate_story_bible_aggregate(
+            content,
+            source_manifest_version_id=identifier("ver", "1"),
+            source_manifest=manifest,
+            source_spans=spans + (first_fact_span,) * 100,
+        )

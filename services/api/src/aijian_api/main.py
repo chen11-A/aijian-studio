@@ -42,6 +42,7 @@ from aijian_api.repository import (
     ProjectNotFoundError,
     ReviewInvalidError,
     SourceAlreadyImportedError,
+    SourceSpanInvalidError,
     StudioRepository,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
@@ -49,6 +50,7 @@ from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
 )
+from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -232,6 +234,26 @@ def create_app(
             request_id=request_id(request),
         )
 
+    @app.exception_handler(StoryBibleDraftInvalidError)
+    async def story_bible_draft_invalid(
+        request: Request, _error: StoryBibleDraftInvalidError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="STORY_BIBLE_INVALID",
+            message="The StoryBible draft violates the canonical content rules",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceSpanInvalidError)
+    async def source_span_invalid(request: Request, _error: SourceSpanInvalidError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="SOURCE_SPAN_INVALID",
+            message="A StoryBible source span is invalid",
+            request_id=request_id(request),
+        )
+
     @app.exception_handler(GateNotReadyError)
     async def gate_not_ready(request: Request, _error: GateNotReadyError) -> JSONResponse:
         return _error_response(
@@ -407,7 +429,7 @@ def create_app(
         )
 
     app.include_router(create_source_manifest_public_router(get_repository))
-    app.include_router(create_story_bible_public_router(get_repository))
+    app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     if sidecar_security is not None:
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)

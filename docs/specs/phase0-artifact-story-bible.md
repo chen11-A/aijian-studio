@@ -42,7 +42,7 @@
 - `questions`：0–2,000 个开放问题。
 - `conflicts`：0–2,000 个事实冲突。
 
-所有枚举拒绝未知值；所有永久 ID 由服务端分配。客户端新增项使用本次请求内唯一的 `client_key`；请求中的实体、事实、lineage、question/conflict scope 和 span fact 引用使用 `LocalRef={permanent_id}|{client_key}` 判别联合。后端先在同一事务分配并解析全部 key，再做领域校验、规范序列化和 hash；响应只返回永久 ID 映射。字符串按原值进入规范 JSON，不做 Unicode NFC/NFD 转换；比较用服务端定义的大小写折叠显示键，但 hash 仍覆盖原值。
+所有枚举拒绝未知值；所有永久 ID 由服务端分配。客户端新增项使用本次请求内全局唯一的 `client_key`；请求中的实体、事实、lineage、question/conflict scope 和 span fact 引用使用 `LocalRef={ref_type=permanent_id, permanent_id}|{ref_type=client_key, client_key}` 判别联合。首版自有 ID 只能使用 client key；修订中的永久自有 ID 必须存在于所选父版本且不能改变实体/事实 kind。后端在同一 `BEGIN IMMEDIATE` 事务中复核 accepted G1、分配并解析全部 key，再做领域/证据校验、规范序列化和 hash；响应只返回 client key 到永久 ID 的映射。字符串按原值进入规范 JSON，不做 Unicode NFC/NFD 转换；比较用服务端定义的大小写折叠显示键，但 hash 仍覆盖原值。
 
 ### 3.2 实体判别联合
 
@@ -237,9 +237,9 @@ waiver 必须引用 checklist/finding/question/fact/conflict ID，包含责任�
 | `POST` | `/api/v1/projects/{project_id}/story-bible/versions/{version_id}:prepare-decision` | 复用最终报告并生成决策 challenge      |
 | `POST` | `/api/v1/projects/{project_id}/story-bible/versions/{version_id}/decisions`        | 追加唯一 G2 Gate 决定                 |
 
-compare 至少返回实体/事实新增、删除、修改，provenance/canon 状态、证据、决定理由、问题、冲突、finding 与 Gate 变化。可从任意历史版本创建修订，但必须声明 `parent_version_id`；服务端验证稳定 ID 与 lineage。所有审阅写操作由服务端统一检查“当前开放 submission + 当前 review head + 当前 revision”，历史或 terminal 版本写入返回 `REVIEW_INVALID`。
+compare 至少返回实体/事实新增、删除、修改，provenance/canon 状态、证据、决定理由、问题、冲突、finding 与 Gate 变化。普通修订必须声明 `parent_version_id` 且精确等于 current latest；服务端在同一事务同时验证 ETag、parent、稳定 ID 与 lineage，禁止携带当前 ETag 从旧快照静默改挂 latest。显式历史恢复/分支未来使用独立动作并展示丢弃影响，不复用普通保存。所有审阅写操作由服务端统一检查“当前开放 submission + 当前 review head + 当前 revision”，历史或 terminal 版本写入返回 `REVIEW_INVALID`。
 
-稳定错误码：`STORY_BIBLE_NOT_FOUND`、`ARTIFACT_CONFLICT`、`SOURCE_SPAN_INVALID`、`STORY_BIBLE_INVALID`、`GATE_NOT_READY`、`REVIEW_INVALID`、`APPROVAL_INVALID`、`PRECONDITION_REQUIRED`、`PRECONDITION_FAILED`。错误体不得返回小说正文、引文、内部 SQL 或 Python 异常。
+稳定错误码：`STORY_BIBLE_NOT_FOUND`、`ARTIFACT_CONFLICT`、`ARTIFACT_DEPENDENCY_INVALID`、`SOURCE_SPAN_INVALID`、`STORY_BIBLE_INVALID`、`GATE_NOT_READY`、`REVIEW_INVALID`、`APPROVAL_INVALID`、`PRECONDITION_REQUIRED`、`PRECONDITION_FAILED`。错误体不得返回小说正文、引文、内部 SQL 或 Python 异常。
 
 Electron preload 只增加具名 `get/list/create/compare/submit/find/resolve/sign/decideStoryBible` 方法；Renderer 不获得通用 artifact 写入、任意 URL、SQL、数据库路径、端口、令牌或可信 actor 字段。
 
