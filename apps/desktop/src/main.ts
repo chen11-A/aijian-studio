@@ -1,8 +1,13 @@
 import { join, resolve } from "node:path";
 
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 
-import { createLocalApiClient, type LocalApiClient } from "./api-client";
+import {
+  createLocalApiClient,
+  type CreateProjectInput,
+  type ImportTextSourceInput,
+  type LocalApiClient,
+} from "./api-client";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
 const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173";
@@ -25,7 +30,10 @@ function developmentSidecarOptions(): StartSidecarOptions {
     command,
     args: ["-m", "aijian_api.sidecar"],
     cwd: repositoryRoot,
-    env: { PYTHONPATH: join(repositoryRoot, "services", "api", "src") },
+    env: {
+      AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
+      PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
+    },
   };
 }
 
@@ -63,12 +71,30 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-ipcMain.handle("health:get", async (event) => {
+function clientFor(event: IpcMainInvokeEvent): LocalApiClient {
   if (mainWindow === null || event.sender !== mainWindow.webContents || apiClient === null) {
     throw new Error("Local API is not available");
   }
-  return apiClient.getHealth();
-});
+  return apiClient;
+}
+
+ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
+ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
+ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
+  clientFor(event).createProject(input),
+);
+ipcMain.handle("projects:get", (event, projectId: string) =>
+  clientFor(event).getProject(projectId),
+);
+ipcMain.handle("sources:list", (event, projectId: string) =>
+  clientFor(event).listSources(projectId),
+);
+ipcMain.handle("sources:get", (event, projectId: string, sourceId: string) =>
+  clientFor(event).getSource(projectId, sourceId),
+);
+ipcMain.handle("sources:import-text", (event, projectId: string, input: ImportTextSourceInput) =>
+  clientFor(event).importTextSource(projectId, input),
+);
 
 async function startApplication(): Promise<void> {
   await app.whenReady();
