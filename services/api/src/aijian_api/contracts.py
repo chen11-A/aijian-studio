@@ -8,9 +8,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from aijian_api.source_manifest import SourceManifestContentV1
+
 PROJECT_ID_PATTERN = r"^prj_[0-9a-f]{32}$"
 SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
 SOURCE_BLOCK_ID_PATTERN = r"^srcb_[0-9a-f]{32}$"
+ARTIFACT_ID_PATTERN = r"^art_[0-9a-f]{32}$"
+VERSION_ID_PATTERN = r"^ver_[0-9a-f]{32}$"
+CONTENT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
 
 
 class HealthData(BaseModel):
@@ -166,4 +171,45 @@ class SourceDocumentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: SourceDocumentData
+    request_id: UUID
+
+
+class ArtifactHeadData(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    latest_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    review_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    review_submission_id: str | None
+    accepted_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    revision: int = Field(ge=1)
+    review_evidence_revision: int = Field(ge=0)
+    updated_at: datetime
+
+
+class SourceManifestVersionData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=VERSION_ID_PATTERN)
+    artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    version_number: int = Field(ge=1)
+    schema_version: Literal["1.0.0"]
+    content: SourceManifestContentV1
+    content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    change_summary: str
+    created_at: datetime
+
+
+class SourceManifestData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    head: ArtifactHeadData
+    latest_version: SourceManifestVersionData
+
+
+class SourceManifestResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: SourceManifestData
     request_id: UUID

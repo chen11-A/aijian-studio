@@ -45,6 +45,11 @@ from aijian_api.domain import (
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
+from aijian_api.source_manifest import (
+    SourceManifestBlockV1,
+    SourceManifestContentV1,
+    SourceManifestDocumentV1,
+)
 
 SCHEMA_VERSION = 3
 
@@ -926,6 +931,12 @@ class ArtifactConflictError(RuntimeError):
     pass
 
 
+class ArtifactNotFoundError(LookupError):
+    def __init__(self, artifact_type: str) -> None:
+        super().__init__(f"Artifact was not found: {artifact_type}")
+        self.artifact_type = artifact_type
+
+
 class SourceSpanInvalidError(ValueError):
     pass
 
@@ -1172,6 +1183,12 @@ class StudioRepository:
                         ),
                     )
                     blocks.append(block)
+                self._append_source_manifest_draft(
+                    connection,
+                    project_id=project_id,
+                    created_at=imported_at,
+                )
+                self._transaction_step("import_source", "manifest_updated")
                 connection.execute(
                     "UPDATE projects SET revision = revision + 1, updated_at = ? WHERE id = ?",
                     (_timestamp(imported_at), project_id),
@@ -1192,6 +1209,159 @@ class StudioRepository:
             imported_at=imported_at,
             chapter_count=source.chapter_count,
             blocks=tuple(blocks),
+        )
+
+    def _append_source_manifest_draft(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        created_at: datetime,
+    ) -> ArtifactVersionRecord:
+        document_rows = connection.execute(
+            """
+            SELECT * FROM source_documents
+            WHERE project_id = ?
+            ORDER BY imported_at ASC, id ASC
+            """,
+            (project_id,),
+        ).fetchall()
+        documents: list[SourceManifestDocumentV1] = []
+        for import_order, document_row in enumerate(document_rows, start=1):
+            block_rows = connection.execute(
+                """
+                SELECT * FROM source_blocks
+                WHERE project_id = ? AND source_document_id = ?
+                ORDER BY ordinal ASC
+                """,
+                (project_id, str(document_row["id"])),
+            ).fetchall()
+            documents.append(
+                SourceManifestDocumentV1(
+                    source_document_id=str(document_row["id"]),
+                    import_order=import_order,
+                    filename=str(document_row["filename"]),
+                    media_type="text/plain",
+                    encoding="utf-8",
+                    byte_size=int(document_row["byte_size"]),
+                    raw_sha256=str(document_row["raw_sha256"]),
+                    normalized_sha256=hashlib.sha256(
+                        str(document_row["normalized_text"]).encode("utf-8")
+                    ).hexdigest(),
+                    chapter_count=int(document_row["chapter_count"]),
+                    blocks=[
+                        SourceManifestBlockV1(
+                            source_block_id=str(block_row["id"]),
+                            ordinal=int(block_row["ordinal"]),
+                            kind=cast(SourceBlockKind, str(block_row["kind"])),
+                            chapter_index=int(block_row["chapter_index"]),
+                            start_byte=int(block_row["normalized_start_byte"]),
+                            end_byte=int(block_row["normalized_end_byte"]),
+                            content_sha256=str(block_row["content_sha256"]),
+                        )
+                        for block_row in block_rows
+                    ],
+                )
+            )
+        content_model = SourceManifestContentV1(documents=documents)
+        content = cast(dict[str, object], content_model.model_dump(mode="json"))
+        content_json = canonical_content_bytes(content).decode("utf-8")
+        content_hash = canonical_content_hash(content)
+        artifact_row = connection.execute(
+            """
+            SELECT * FROM artifacts
+            WHERE project_id = ? AND artifact_type = 'source_manifest'
+            """,
+            (project_id,),
+        ).fetchone()
+        version_id = self._id_factory("ver")
+        if artifact_row is None:
+            artifact_id = self._id_factory("art")
+            version_number = 1
+            parent_version_id = None
+            connection.execute(
+                "INSERT INTO artifacts VALUES (?, ?, 'source_manifest', ?)",
+                (artifact_id, project_id, _timestamp(created_at)),
+            )
+        else:
+            artifact_id = str(artifact_row["artifact_id"])
+            head_row = connection.execute(
+                "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+            ).fetchone()
+            if head_row is None:
+                raise RuntimeError("Source manifest head is missing")
+            parent_version_id = str(head_row["latest_version_id"])
+            version_number = int(
+                connection.execute(
+                    """
+                    SELECT COALESCE(MAX(version_number), 0) + 1
+                    FROM artifact_versions WHERE artifact_id = ?
+                    """,
+                    (artifact_id,),
+                ).fetchone()[0]
+            )
+        version = ArtifactVersion(
+            id=version_id,
+            artifact_id=artifact_id,
+            version_number=version_number,
+            schema_version="1.0.0",
+            content=content,
+            content_hash=content_hash,
+            author_actor_type="system",
+            author_actor_id="source-import",
+            parent_version_id=parent_version_id,
+            change_summary="同步不可变来源清单",
+            created_at=created_at,
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_versions (
+                version_id, artifact_id, version_number, schema_version, content_json,
+                content_hash, author_actor_type, author_actor_id, parent_version_id,
+                change_summary, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                version.id,
+                version.artifact_id,
+                version.version_number,
+                version.schema_version,
+                content_json,
+                version.content_hash,
+                version.author_actor_type,
+                version.author_actor_id,
+                version.parent_version_id,
+                version.change_summary,
+                _timestamp(version.created_at),
+            ),
+        )
+        self._transaction_step("import_source", "manifest_version_inserted")
+        if artifact_row is None:
+            connection.execute(
+                """
+                INSERT INTO artifact_heads (
+                    artifact_id, latest_version_id, review_version_id,
+                    review_submission_id, accepted_version_id, revision,
+                    review_evidence_revision, updated_at
+                ) VALUES (?, ?, NULL, NULL, NULL, 1, 0, ?)
+                """,
+                (artifact_id, version.id, _timestamp(created_at)),
+            )
+        else:
+            connection.execute(
+                """
+                UPDATE artifact_heads
+                SET latest_version_id = ?, revision = revision + 1, updated_at = ?
+                WHERE artifact_id = ?
+                """,
+                (version.id, _timestamp(created_at), artifact_id),
+            )
+        head = self._load_artifact_head(connection, artifact_id)
+        return ArtifactVersionRecord(
+            version=version,
+            head=head,
+            source_spans=(),
+            dependencies=(),
         )
 
     def list_sources(self, project_id: str) -> list[SourceDocumentSummary]:
@@ -1483,6 +1653,26 @@ class StudioRepository:
             head=self._artifact_head_from_row(head_row),
             source_spans=tuple(self._artifact_source_span_from_row(row) for row in span_rows),
             dependencies=tuple(self._artifact_dependency_from_row(row) for row in dependency_rows),
+        )
+
+    def get_latest_artifact(self, project_id: str, artifact_type: str) -> ArtifactVersionRecord:
+        self.get_project(project_id)
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT artifact_heads.latest_version_id
+                FROM artifact_heads
+                JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
+                WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                """,
+                (project_id, artifact_type),
+            ).fetchone()
+        if row is None:
+            raise ArtifactNotFoundError(artifact_type)
+        return self.get_artifact_version(
+            project_id,
+            artifact_type,
+            str(row["latest_version_id"]),
         )
 
     def prepare_review_action(

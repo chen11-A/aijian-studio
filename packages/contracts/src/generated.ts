@@ -56,6 +56,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/source-manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Manifest */
+        get: operations["getSourceManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/sources": {
         parameters: {
             query?: never;
@@ -95,6 +112,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ArtifactHeadData */
+        ArtifactHeadData: {
+            /** Accepted Version Id */
+            accepted_version_id?: string | null;
+            /** Artifact Id */
+            artifact_id: string;
+            /** Latest Version Id */
+            latest_version_id: string;
+            /** Review Evidence Revision */
+            review_evidence_revision: number;
+            /** Review Submission Id */
+            review_submission_id: string | null;
+            /** Review Version Id */
+            review_version_id?: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** CreateProjectRequest */
         CreateProjectRequest: {
             /**
@@ -352,6 +391,108 @@ export interface components {
             /** Raw Sha256 */
             raw_sha256: string;
         };
+        /** SourceManifestBlockV1 */
+        SourceManifestBlockV1: {
+            /** Chapter Index */
+            chapter_index: number;
+            /** Content Sha256 */
+            content_sha256: string;
+            /** End Byte */
+            end_byte: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "chapter_heading" | "paragraph";
+            /** Ordinal */
+            ordinal: number;
+            /** Source Block Id */
+            source_block_id: string;
+            /** Start Byte */
+            start_byte: number;
+        };
+        /** SourceManifestContentV1 */
+        SourceManifestContentV1: {
+            /** Documents */
+            documents: components["schemas"]["SourceManifestDocumentV1"][];
+            /** Exclusions */
+            exclusions?: string[];
+            /**
+             * Scope Type
+             * @default full_work
+             * @constant
+             */
+            scope_type: "full_work";
+        };
+        /** SourceManifestData */
+        SourceManifestData: {
+            head: components["schemas"]["ArtifactHeadData"];
+            latest_version: components["schemas"]["SourceManifestVersionData"];
+        };
+        /** SourceManifestDocumentV1 */
+        SourceManifestDocumentV1: {
+            /** Blocks */
+            blocks: components["schemas"]["SourceManifestBlockV1"][];
+            /** Byte Size */
+            byte_size: number;
+            /** Chapter Count */
+            chapter_count: number;
+            /**
+             * Encoding
+             * @constant
+             */
+            encoding: "utf-8";
+            /** Filename */
+            filename: string;
+            /** Import Order */
+            import_order: number;
+            /**
+             * Media Type
+             * @constant
+             */
+            media_type: "text/plain";
+            /** Normalized Sha256 */
+            normalized_sha256: string;
+            /** Raw Sha256 */
+            raw_sha256: string;
+            /** Source Document Id */
+            source_document_id: string;
+        };
+        /** SourceManifestResponse */
+        SourceManifestResponse: {
+            data: components["schemas"]["SourceManifestData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** SourceManifestVersionData */
+        SourceManifestVersionData: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["SourceManifestContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Version Number */
+            version_number: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -536,6 +677,64 @@ export interface operations {
                 };
             };
             /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSourceManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceManifestResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or SourceManifest not found */
             404: {
                 headers: {
                     [name: string]: unknown;

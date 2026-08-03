@@ -11,6 +11,7 @@ from aijian_api.repository import (
     SourceSpanInvalidError,
     StudioRepository,
 )
+from aijian_api.source_manifest import SourceManifestContentV1
 
 
 def deterministic_id_factory():
@@ -143,6 +144,90 @@ def test_source_span_uses_document_absolute_utf8_bytes_and_server_hash(tmp_path:
         .source_spans[0]
         == span
     )
+
+
+def test_source_import_atomically_creates_and_revises_typed_manifest(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    first_source = repository.import_source(
+        project.id,
+        ingest_text_file(filename="第一章.txt", content="第一章\n雾城来信".encode()),
+    )
+    first_head = repository.get_artifact_head(project.id, "source_manifest")
+    first_record = repository.get_artifact_version(
+        project.id, "source_manifest", first_head.latest_version_id
+    )
+    first_content = SourceManifestContentV1.model_validate(first_record.version.content)
+
+    assert first_record.version.version_number == 1
+    assert first_record.version.author_actor_type == "system"
+    assert first_record.version.author_actor_id == "source-import"
+    assert first_content.documents[0].source_document_id == first_source.id
+    assert (
+        first_content.documents[0].normalized_sha256
+        == hashlib.sha256(first_source.normalized_text.encode("utf-8")).hexdigest()
+    )
+    assert [block.source_block_id for block in first_content.documents[0].blocks] == [
+        block.id for block in first_source.blocks
+    ]
+
+    second_source = repository.import_source(
+        project.id,
+        ingest_text_file(filename="第二章.txt", content="第二章\n旧站重逢".encode()),
+    )
+    second_head = repository.get_artifact_head(project.id, "source_manifest")
+    second_record = repository.get_artifact_version(
+        project.id, "source_manifest", second_head.latest_version_id
+    )
+    second_content = SourceManifestContentV1.model_validate(second_record.version.content)
+
+    assert second_record.version.version_number == 2
+    assert second_record.version.parent_version_id == first_record.version.id
+    assert second_head.revision == 2
+    assert second_head.accepted_version_id is None
+    assert [document.source_document_id for document in second_content.documents] == [
+        first_source.id,
+        second_source.id,
+    ]
+    assert (
+        repository.get_artifact_version(
+            project.id, "source_manifest", first_record.version.id
+        ).version.content
+        == first_record.version.content
+    )
+
+
+def test_source_manifest_failure_rolls_back_source_blocks_and_head(tmp_path: Path) -> None:
+    failure_enabled = True
+
+    def fail_after_manifest_version(operation: str, step: str) -> None:
+        if failure_enabled and (operation, step) == (
+            "import_source",
+            "manifest_version_inserted",
+        ):
+            raise RuntimeError("injected manifest failure")
+
+    repository = StudioRepository(
+        tmp_path / "workspace.db",
+        id_factory=deterministic_id_factory(),
+        clock=lambda: datetime(2026, 8, 3, 12, 0, tzinfo=UTC),
+        transaction_hook=fail_after_manifest_version,
+    )
+    project = create_project(repository)
+    parsed = ingest_text_file(filename="story.txt", content="第一章\n雾城".encode())
+
+    with pytest.raises(RuntimeError, match="injected manifest failure"):
+        repository.import_source(project.id, parsed)
+
+    assert repository.list_sources(project.id) == []
+    assert repository.get_project(project.id).revision == 1
+    with pytest.raises(ArtifactConflictError):
+        repository.get_artifact_head(project.id, "source_manifest")
+
+    failure_enabled = False
+    imported = repository.import_source(project.id, parsed)
+    assert imported.filename == "story.txt"
+    assert repository.get_artifact_head(project.id, "source_manifest").revision == 1
 
 
 @pytest.mark.parametrize("offsets", [(1, 6), (0, 1), (0, 1000)])

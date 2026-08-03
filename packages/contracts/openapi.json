@@ -1,6 +1,81 @@
 {
   "components": {
     "schemas": {
+      "ArtifactHeadData": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Version Id"
+          },
+          "artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "latest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Latest Version Id",
+            "type": "string"
+          },
+          "review_evidence_revision": {
+            "minimum": 0.0,
+            "title": "Review Evidence Revision",
+            "type": "integer"
+          },
+          "review_submission_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Submission Id"
+          },
+          "review_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Version Id"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "latest_version_id",
+          "review_submission_id",
+          "revision",
+          "review_evidence_revision",
+          "updated_at"
+        ],
+        "title": "ArtifactHeadData",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "additionalProperties": false,
         "properties": {
@@ -503,6 +578,267 @@
         ],
         "title": "SourceDocumentSummaryData",
         "type": "object"
+      },
+      "SourceManifestBlockV1": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter_index": {
+            "minimum": 1.0,
+            "title": "Chapter Index",
+            "type": "integer"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "chapter_heading",
+              "paragraph"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "source_block_id": {
+            "pattern": "^srcb_[0-9a-f]{32}$",
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_block_id",
+          "ordinal",
+          "kind",
+          "chapter_index",
+          "start_byte",
+          "end_byte",
+          "content_sha256"
+        ],
+        "title": "SourceManifestBlockV1",
+        "type": "object"
+      },
+      "SourceManifestContentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/SourceManifestDocumentV1"
+            },
+            "minItems": 1,
+            "title": "Documents",
+            "type": "array"
+          },
+          "exclusions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "scope_type": {
+            "const": "full_work",
+            "default": "full_work",
+            "title": "Scope Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documents"
+        ],
+        "title": "SourceManifestContentV1",
+        "type": "object"
+      },
+      "SourceManifestData": {
+        "additionalProperties": false,
+        "properties": {
+          "head": {
+            "$ref": "#/components/schemas/ArtifactHeadData"
+          },
+          "latest_version": {
+            "$ref": "#/components/schemas/SourceManifestVersionData"
+          }
+        },
+        "required": [
+          "head",
+          "latest_version"
+        ],
+        "title": "SourceManifestData",
+        "type": "object"
+      },
+      "SourceManifestDocumentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/SourceManifestBlockV1"
+            },
+            "minItems": 1,
+            "title": "Blocks",
+            "type": "array"
+          },
+          "byte_size": {
+            "minimum": 0.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "chapter_count": {
+            "minimum": 1.0,
+            "title": "Chapter Count",
+            "type": "integer"
+          },
+          "encoding": {
+            "const": "utf-8",
+            "title": "Encoding",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "import_order": {
+            "minimum": 1.0,
+            "title": "Import Order",
+            "type": "integer"
+          },
+          "media_type": {
+            "const": "text/plain",
+            "title": "Media Type",
+            "type": "string"
+          },
+          "normalized_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Normalized Sha256",
+            "type": "string"
+          },
+          "raw_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Raw Sha256",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_document_id",
+          "import_order",
+          "filename",
+          "media_type",
+          "encoding",
+          "byte_size",
+          "raw_sha256",
+          "normalized_sha256",
+          "chapter_count",
+          "blocks"
+        ],
+        "title": "SourceManifestDocumentV1",
+        "type": "object"
+      },
+      "SourceManifestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SourceManifestData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "SourceManifestResponse",
+        "type": "object"
+      },
+      "SourceManifestVersionData": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "change_summary": {
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "content": {
+            "$ref": "#/components/schemas/SourceManifestContentV1"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version_number": {
+            "minimum": 1.0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "artifact_id",
+          "version_number",
+          "schema_version",
+          "content",
+          "content_hash",
+          "change_summary",
+          "created_at"
+        ],
+        "title": "SourceManifestVersionData",
+        "type": "object"
       }
     }
   },
@@ -721,6 +1057,75 @@
           }
         },
         "summary": "Get Project"
+      }
+    },
+    "/api/v1/projects/{project_id}/source-manifest": {
+      "get": {
+        "operationId": "getSourceManifest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceManifestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or SourceManifest not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Source Manifest"
       }
     },
     "/api/v1/projects/{project_id}/sources": {

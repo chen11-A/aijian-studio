@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
 from aijian_api.contracts import (
+    ArtifactHeadData,
     CreateProjectRequest,
     ErrorBody,
     ErrorResponse,
@@ -27,15 +28,20 @@ from aijian_api.contracts import (
     SourceDocumentListResponse,
     SourceDocumentResponse,
     SourceDocumentSummaryData,
+    SourceManifestData,
+    SourceManifestResponse,
+    SourceManifestVersionData,
 )
-from aijian_api.domain import SourceDocument
+from aijian_api.domain import ArtifactVersionRecord, SourceDocument
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.repository import (
+    ArtifactNotFoundError,
     ProjectNotFoundError,
     SourceAlreadyImportedError,
     StudioRepository,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
+from aijian_api.source_manifest import SourceManifestContentV1
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -100,6 +106,24 @@ def _source_document_data(document: SourceDocument) -> SourceDocumentData:
     )
 
 
+def _source_manifest_data(record: ArtifactVersionRecord) -> SourceManifestData:
+    version = record.version
+    return SourceManifestData(
+        head=ArtifactHeadData.model_validate(record.head),
+        latest_version=SourceManifestVersionData(
+            id=version.id,
+            artifact_id=version.artifact_id,
+            version_number=version.version_number,
+            schema_version="1.0.0",
+            content=SourceManifestContentV1.model_validate(version.content),
+            content_hash=version.content_hash,
+            parent_version_id=version.parent_version_id,
+            change_summary=version.change_summary,
+            created_at=version.created_at,
+        ),
+    )
+
+
 def create_app(
     *,
     sidecar_security: SidecarSecurity | None = None,
@@ -142,6 +166,20 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="PROJECT_NOT_FOUND",
             message="The requested project or source was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactNotFoundError)
+    async def artifact_not_found(request: Request, error: ArtifactNotFoundError) -> JSONResponse:
+        code = (
+            "SOURCE_MANIFEST_NOT_FOUND"
+            if error.artifact_type == "source_manifest"
+            else "STORY_BIBLE_NOT_FOUND"
+        )
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=code,
+            message="The requested artifact was not found",
             request_id=request_id(request),
         )
 
@@ -310,6 +348,27 @@ def create_app(
         document = get_repository().get_source(project_id, source_id)
         return SourceDocumentResponse(
             data=_source_document_data(document),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/source-manifest",
+        operation_id="getSourceManifest",
+        response_model=SourceManifestResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project or SourceManifest not found", "model": ErrorResponse},
+        },
+    )
+    def get_source_manifest(
+        request: Request,
+        response: Response,
+        project_id: str,
+    ) -> SourceManifestResponse:
+        record = get_repository().get_latest_artifact(project_id, "source_manifest")
+        response.headers["ETag"] = f'"revision-{record.head.revision}"'
+        return SourceManifestResponse(
+            data=_source_manifest_data(record),
             request_id=request_id(request),
         )
 

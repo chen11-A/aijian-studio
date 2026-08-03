@@ -1,4 +1,5 @@
 import base64
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,47 @@ def test_imports_original_bytes_and_returns_traceable_blocks(client: TestClient)
     ]
     assert fetched.status_code == 200
     assert fetched.json()["data"] == document
+
+
+def test_source_manifest_is_typed_versioned_and_exposes_head_etag(client: TestClient) -> None:
+    project = create_project(client)
+    missing = client.get(f"/api/v1/projects/{project['id']}/source-manifest")
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "SOURCE_MANIFEST_NOT_FOUND"
+
+    first_text = "第一章 初见\n雨落在霓虹灯下😀"
+    first_import = client.post(
+        f"/api/v1/projects/{project['id']}/sources",
+        json=source_payload(first_text),
+    )
+    assert first_import.status_code == 201
+    first_source = first_import.json()["data"]
+    first_manifest = client.get(f"/api/v1/projects/{project['id']}/source-manifest")
+
+    assert first_manifest.status_code == 200
+    assert first_manifest.headers["etag"] == '"revision-1"'
+    first_data = first_manifest.json()["data"]
+    assert first_data["head"]["latest_version_id"] == first_data["latest_version"]["id"]
+    assert first_data["head"]["accepted_version_id"] is None
+    assert first_data["latest_version"]["version_number"] == 1
+    document = first_data["latest_version"]["content"]["documents"][0]
+    assert document["source_document_id"] == first_source["id"]
+    assert document["normalized_sha256"] == hashlib.sha256(first_text.encode()).hexdigest()
+    assert [block["source_block_id"] for block in document["blocks"]] == [
+        block["id"] for block in first_source["blocks"]
+    ]
+
+    second_import = client.post(
+        f"/api/v1/projects/{project['id']}/sources",
+        json={**source_payload("第二章 重逢\n她回到旧车站"), "filename": "第二章.txt"},
+    )
+    assert second_import.status_code == 201
+    second_manifest = client.get(f"/api/v1/projects/{project['id']}/source-manifest")
+    second_data = second_manifest.json()["data"]
+    assert second_manifest.headers["etag"] == '"revision-2"'
+    assert second_data["latest_version"]["version_number"] == 2
+    assert second_data["latest_version"]["parent_version_id"] == first_data["latest_version"]["id"]
+    assert len(second_data["latest_version"]["content"]["documents"]) == 2
 
 
 def test_returns_stable_safe_errors_for_project_and_source_failures(
@@ -197,4 +239,10 @@ def test_project_and_source_contracts_are_published_in_openapi(tmp_path: Path) -
     assert (
         schema["paths"]["/api/v1/projects/{project_id}/sources/{source_id}"]["get"]["operationId"]
         == "getSource"
+    )
+    manifest_operation = schema["paths"]["/api/v1/projects/{project_id}/source-manifest"]["get"]
+    assert manifest_operation["operationId"] == "getSourceManifest"
+    assert (
+        manifest_operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/SourceManifestResponse"
     )
