@@ -1,6 +1,6 @@
 # Phase 0 项目与 TXT 摄取纵切规格
 
-状态：本地验收完成，远程 CI 待确认
+状态：完成
 
 对应 Backlog：B01、E01、API01、UI01 的首个纵切
 
@@ -83,3 +83,4 @@
 - Web：16 个测试通过，行覆盖率 95.15%、分支覆盖率 85.24%；TypeScript、ESLint、Prettier 与生产构建通过。
 - 真实 Chromium：1440 px 与 CDP 390 px 视口人工检查通过；390 px 下文档宽 375 px、无横向溢出，控制台 error/warning 为 0，标题层级为 H1→H2→H3。
 - 真实 Electron：同一隔离用户目录连续启动两次，sidecar 端口从 64972 变为 49424；第二次启动自动恢复 1 个项目、2 章和 4 个来源块，窗口正常响应，两次关闭后 sidecar 均退出。
+- 远程 CI：[GitHub Actions 30783572722](https://github.com/chen11-A/aijian-studio/actions/runs/30783572722) 的 Windows 与 Ubuntu quality job 均通过。
