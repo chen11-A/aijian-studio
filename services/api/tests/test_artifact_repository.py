@@ -50,7 +50,7 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
 
     first = repository.create_artifact_version(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type="test_artifact",
         schema_version="1.0.0",
         content={"title": "雾城", "facts": []},
         author_actor_type="human",
@@ -59,7 +59,7 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
     )
     second = repository.create_artifact_version(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type="test_artifact",
         schema_version="1.0.0",
         content={"facts": [], "title": "雾城来信"},
         author_actor_type="human",
@@ -70,9 +70,9 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
     )
 
     restored = StudioRepository(database).get_artifact_version(
-        project.id, "story_bible", first.version.id
+        project.id, "test_artifact", first.version.id
     )
-    head = StudioRepository(database).get_artifact_head(project.id, "story_bible")
+    head = StudioRepository(database).get_artifact_head(project.id, "test_artifact")
 
     assert first.version.version_number == 1
     assert first.head.revision == 1
@@ -88,7 +88,7 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
     with pytest.raises(ArtifactConflictError):
         repository.create_artifact_version(
             project_id=project.id,
-            artifact_type="story_bible",
+            artifact_type="test_artifact",
             schema_version="1.0.0",
             content={"title": "过期编辑", "facts": []},
             author_actor_type="human",
@@ -97,7 +97,7 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
             parent_version_id=second.version.id,
             expected_revision=1,
         )
-    assert repository.get_artifact_head(project.id, "story_bible") == second.head
+    assert repository.get_artifact_head(project.id, "test_artifact") == second.head
 
 
 def test_source_span_uses_document_absolute_utf8_bytes_and_server_hash(tmp_path: Path) -> None:
@@ -114,7 +114,7 @@ def test_source_span_uses_document_absolute_utf8_bytes_and_server_hash(tmp_path:
 
     created = repository.create_artifact_version(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type="test_artifact",
         schema_version="1.0.0",
         content={"title": "雾城", "facts": [{"fact_id": "fact_1"}]},
         author_actor_type="human",
@@ -140,7 +140,7 @@ def test_source_span_uses_document_absolute_utf8_bytes_and_server_hash(tmp_path:
     assert span.quote_hash == f"sha256:{hashlib.sha256(expected_quote).hexdigest()}"
     assert (
         StudioRepository(database)
-        .get_artifact_version(project.id, "story_bible", created.version.id)
+        .get_artifact_version(project.id, "test_artifact", created.version.id)
         .source_spans[0]
         == span
     )
@@ -246,7 +246,7 @@ def test_invalid_utf8_or_block_span_rolls_back_artifact(
     with pytest.raises(SourceSpanInvalidError):
         repository.create_artifact_version(
             project_id=project.id,
-            artifact_type="story_bible",
+            artifact_type="test_artifact",
             schema_version="1.0.0",
             content={"title": "雾城", "facts": [{"fact_id": "fact_1"}]},
             author_actor_type="human",
@@ -266,7 +266,7 @@ def test_invalid_utf8_or_block_span_rolls_back_artifact(
         )
 
     with pytest.raises(ArtifactConflictError):
-        repository.get_artifact_head(project.id, "story_bible")
+        repository.get_artifact_head(project.id, "test_artifact")
 
 
 def test_artifact_dependency_points_to_exact_upstream_version(tmp_path: Path) -> None:
@@ -284,7 +284,7 @@ def test_artifact_dependency_points_to_exact_upstream_version(tmp_path: Path) ->
 
     story_bible = repository.create_artifact_version(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type="test_artifact",
         schema_version="1.0.0",
         content={"title": "雾城", "facts": []},
         author_actor_type="human",
@@ -318,7 +318,7 @@ def test_cross_project_source_span_is_rejected_without_partial_artifact(tmp_path
     with pytest.raises(SourceSpanInvalidError):
         repository.create_artifact_version(
             project_id=target_project.id,
-            artifact_type="story_bible",
+            artifact_type="test_artifact",
             schema_version="1.0.0",
             content={"title": "错误项目", "facts": [{"fact_id": "fact_1"}]},
             author_actor_type="human",
@@ -337,7 +337,7 @@ def test_cross_project_source_span_is_rejected_without_partial_artifact(tmp_path
             ),
         )
     with pytest.raises(ArtifactConflictError):
-        repository.get_artifact_head(target_project.id, "story_bible")
+        repository.get_artifact_head(target_project.id, "test_artifact")
 
 
 def test_identifier_collision_rolls_back_artifact_transaction(tmp_path: Path) -> None:
@@ -363,7 +363,7 @@ def test_identifier_collision_rolls_back_artifact_transaction(tmp_path: Path) ->
     with pytest.raises(ArtifactConflictError):
         collision.create_artifact_version(
             project_id=project.id,
-            artifact_type="story_bible",
+            artifact_type="test_artifact",
             schema_version="1.0.0",
             content={"title": "冲突", "facts": []},
             author_actor_type="human",
@@ -372,4 +372,4 @@ def test_identifier_collision_rolls_back_artifact_transaction(tmp_path: Path) ->
         )
 
     with pytest.raises(ArtifactConflictError):
-        repository.get_artifact_head(project.id, "story_bible")
+        repository.get_artifact_head(project.id, "test_artifact")

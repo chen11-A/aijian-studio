@@ -5,13 +5,15 @@ from pathlib import Path
 
 import pytest
 from aijian_api.domain import (
+    ArtifactDependencyDraft,
     ArtifactVersionRecord,
     GateDecisionResult,
     Project,
     TrustedReviewActor,
 )
-from aijian_api.gate_policy import GatePolicy
+from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.repository import (
+    ArtifactDependencyInvalidError,
     GateNotReadyError,
     ReviewInvalidError,
     StudioRepository,
@@ -81,6 +83,21 @@ def create_reviewable_artifact(repository: StudioRepository, *, ready: bool = Tr
         if ready
         else {"title": "", "logline": "", "entities": [], "facts": []}
     )
+    source_manifest = repository.create_artifact_version(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        schema_version="1.0.0",
+        content={"documents": [{"source_document_id": "src_review_fixture"}]},
+        author_actor_type="system",
+        author_actor_id="source-ingestion",
+        change_summary="来源基线",
+    )
+    approve_artifact(repository, project, source_manifest, "source_manifest")
+    dependency = ArtifactDependencyDraft(
+        upstream_version_id=source_manifest.version.id,
+        relationship="derived_from",
+        impact="blocking",
+    )
     artifact = repository.create_artifact_version(
         project_id=project.id,
         artifact_type="story_bible",
@@ -89,6 +106,8 @@ def create_reviewable_artifact(repository: StudioRepository, *, ready: bool = Tr
         author_actor_type="human",
         author_actor_id="local-user",
         change_summary="初稿",
+        dependencies=(dependency,),
+        required_accepted_upstream_version_id=source_manifest.version.id,
     )
     return project, artifact
 
@@ -97,10 +116,16 @@ def approve_artifact(
     repository: StudioRepository,
     project: Project,
     artifact: ArtifactVersionRecord,
+    artifact_type: str = "story_bible",
 ) -> GateDecisionResult:
+    roles = (
+        ("writer", "producer")
+        if artifact_type == "source_manifest"
+        else ("writer", "continuity_reviewer", "producer")
+    )
     prepared_submit = repository.prepare_review_action(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
         action="submit",
         action_payload={},
@@ -109,7 +134,7 @@ def approve_artifact(
     )
     submitted = repository.submit_artifact_review(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
         expected_revision=artifact.head.revision,
         challenge_id=prepared_submit.challenge.id,
@@ -118,18 +143,18 @@ def approve_artifact(
     )
     prepared_signoff = repository.prepare_review_action(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
         action="signoff",
-        action_payload={"roles": ["writer", "continuity_reviewer", "producer"]},
+        action_payload={"roles": list(roles)},
         actor=LOCAL_ACTOR,
         expected_revision=submitted.head.revision,
     )
     signed = repository.signoff_artifact_review(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
-        roles=("writer", "continuity_reviewer", "producer"),
+        roles=roles,
         expected_revision=submitted.head.revision,
         challenge_id=prepared_signoff.challenge.id,
         confirmation_token=prepared_signoff.confirmation_token,
@@ -138,7 +163,7 @@ def approve_artifact(
     rationale = "连续性基线可用"
     prepared_decision = repository.prepare_review_action(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
         action="decision",
         action_payload={
@@ -152,7 +177,7 @@ def approve_artifact(
     )
     return repository.decide_artifact_gate(
         project_id=project.id,
-        artifact_type="story_bible",
+        artifact_type=artifact_type,
         version_id=artifact.version.id,
         decision="approved",
         rationale=rationale,
@@ -162,6 +187,82 @@ def approve_artifact(
         actor=LOCAL_ACTOR,
         actor_role="producer",
     )
+
+
+def inherited_source_dependency(artifact: ArtifactVersionRecord) -> dict[str, object]:
+    source_version_id = next(
+        dependency.upstream_version_id
+        for dependency in artifact.dependencies
+        if dependency.relationship == "derived_from" and dependency.impact == "blocking"
+    )
+    return {
+        "dependencies": (
+            ArtifactDependencyDraft(
+                upstream_version_id=source_version_id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+        "required_accepted_upstream_version_id": source_version_id,
+    }
+
+
+def test_story_bible_creation_requires_exact_accepted_source_manifest_dependency(
+    tmp_path: Path,
+) -> None:
+    clock = MutableClock()
+    repository = create_review_repository(tmp_path / "workspace.db", clock)
+    project = repository.create_project(
+        name="雾城来信",
+        aspect_ratio="9:16",
+        target_duration_seconds=90,
+        source_language="zh-CN",
+    )
+    source_manifest = repository.create_artifact_version(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        schema_version="1.0.0",
+        content={"documents": [{"source_document_id": "src_accepted"}]},
+        author_actor_type="system",
+        author_actor_id="source-ingestion",
+        change_summary="来源基线",
+    )
+    dependency = ArtifactDependencyDraft(
+        upstream_version_id=source_manifest.version.id,
+        relationship="derived_from",
+        impact="blocking",
+    )
+    creation = {
+        "project_id": project.id,
+        "artifact_type": "story_bible",
+        "schema_version": "1.0.0",
+        "content": {"title": "雾城", "facts": []},
+        "author_actor_type": "human",
+        "author_actor_id": "local-user",
+        "change_summary": "故事圣经",
+        "dependencies": (dependency,),
+        "required_accepted_upstream_version_id": source_manifest.version.id,
+    }
+
+    with pytest.raises(ArtifactDependencyInvalidError):
+        repository.create_artifact_version(**creation)
+
+    omitted_guard = {
+        key: value
+        for key, value in creation.items()
+        if key != "required_accepted_upstream_version_id"
+    }
+    with pytest.raises(ArtifactDependencyInvalidError):
+        repository.create_artifact_version(**omitted_guard)
+
+    approve_artifact(repository, project, source_manifest, "source_manifest")
+    without_blocking_edge = {**creation, "dependencies": ()}
+    with pytest.raises(ArtifactDependencyInvalidError):
+        repository.create_artifact_version(**without_blocking_edge)
+
+    story_bible = repository.create_artifact_version(**creation)
+
+    assert story_bible.dependencies[0].upstream_version_id == source_manifest.version.id
 
 
 def test_prepare_submit_signoff_and_approve_use_frozen_review_evidence(
@@ -295,6 +396,7 @@ def test_prepare_submit_signoff_and_approve_use_frozen_review_evidence(
         change_summary="待拒绝修订",
         parent_version_id=artifact.version.id,
         expected_revision=approved.head.revision,
+        **inherited_source_dependency(artifact),
     )
     prepared_revised_submit = repository.prepare_review_action(
         project_id=project.id,
@@ -361,6 +463,7 @@ def test_accepted_head_rejects_clear_and_stale_approved_decision_replay(
         change_summary="第二个已批准版本",
         parent_version_id=first_artifact.version.id,
         expected_revision=first_approval.head.revision,
+        **inherited_source_dependency(first_artifact),
     )
     second_approval = approve_artifact(repository, project, second_artifact)
     assert second_approval.head.accepted_version_id == second_artifact.version.id
@@ -468,6 +571,7 @@ def test_confirmation_is_single_use_revision_bound_and_expires(tmp_path: Path) -
         change_summary="修订",
         parent_version_id=artifact.version.id,
         expected_revision=2,
+        **inherited_source_dependency(artifact),
     )
     expiring = repository.prepare_review_action(
         project_id=project.id,
@@ -635,7 +739,10 @@ def test_unknown_policy_and_policy_forbidden_self_review_are_rejected(tmp_path: 
         id_factory=deterministic_id_factory(),
         clock=clock,
         challenge_token_factory=lambda: "restricted-confirmation",
-        gate_policies={"story_bible": no_self_review},
+        gate_policies={
+            "source_manifest": DEFAULT_GATE_POLICIES["source_manifest"],
+            "story_bible": no_self_review,
+        },
         allow_gate_policy_override=True,
     )
     restricted_project, restricted_artifact = create_reviewable_artifact(restricted)

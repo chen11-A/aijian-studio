@@ -36,6 +36,7 @@ from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.repository import (
     ArtifactConflictError,
+    ArtifactDependencyInvalidError,
     ArtifactNotFoundError,
     GateNotReadyError,
     ProjectNotFoundError,
@@ -217,6 +218,17 @@ def create_app(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             code="PRECONDITION_FAILED",
             message="The artifact revision no longer matches",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactDependencyInvalidError)
+    async def artifact_dependency_invalid(
+        request: Request, _error: ArtifactDependencyInvalidError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_DEPENDENCY_INVALID",
+            message="The required accepted upstream artifact is not available",
             request_id=request_id(request),
         )
 

@@ -937,6 +937,10 @@ class ArtifactNotFoundError(LookupError):
         self.artifact_type = artifact_type
 
 
+class ArtifactDependencyInvalidError(RuntimeError):
+    """Raised when a downstream version is not bound to an accepted upstream version."""
+
+
 class SourceSpanInvalidError(ValueError):
     pass
 
@@ -1421,6 +1425,7 @@ class StudioRepository:
         expected_revision: int | None = None,
         source_spans: tuple[ArtifactSourceSpanDraft, ...] = (),
         dependencies: tuple[ArtifactDependencyDraft, ...] = (),
+        required_accepted_upstream_version_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
@@ -1438,6 +1443,41 @@ class StudioRepository:
                 ).fetchone()
                 if project is None:
                     raise ProjectNotFoundError("Project was not found")
+
+                if artifact_type == "story_bible" and required_accepted_upstream_version_id is None:
+                    raise ArtifactDependencyInvalidError(
+                        "StoryBible requires an exact accepted SourceManifest dependency"
+                    )
+                if required_accepted_upstream_version_id is not None:
+                    accepted_upstream = connection.execute(
+                        """
+                        SELECT artifacts.artifact_type, artifact_heads.accepted_version_id
+                        FROM artifact_versions
+                        JOIN artifacts
+                            ON artifacts.artifact_id = artifact_versions.artifact_id
+                        JOIN artifact_heads
+                            ON artifact_heads.artifact_id = artifacts.artifact_id
+                        WHERE artifacts.project_id = ?
+                            AND artifact_versions.version_id = ?
+                        """,
+                        (project_id, required_accepted_upstream_version_id),
+                    ).fetchone()
+                    has_blocking_dependency = any(
+                        dependency.upstream_version_id == required_accepted_upstream_version_id
+                        and dependency.relationship == "derived_from"
+                        and dependency.impact == "blocking"
+                        for dependency in dependencies
+                    )
+                    if (
+                        accepted_upstream is None
+                        or str(accepted_upstream["artifact_type"]) != "source_manifest"
+                        or accepted_upstream["accepted_version_id"]
+                        != required_accepted_upstream_version_id
+                        or not has_blocking_dependency
+                    ):
+                        raise ArtifactDependencyInvalidError(
+                            "StoryBible requires an exact accepted SourceManifest dependency"
+                        )
 
                 artifact_row = connection.execute(
                     "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ?",

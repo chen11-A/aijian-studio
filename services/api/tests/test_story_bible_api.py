@@ -1,8 +1,10 @@
 from pathlib import Path
 
+from aijian_api.domain import ArtifactDependencyDraft
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from fastapi.testclient import TestClient
+from test_review_repository import approve_artifact
 from test_story_bible import valid_story_bible_payload
 
 
@@ -14,6 +16,16 @@ def test_get_story_bible_returns_typed_latest_version_and_revision_etag(tmp_path
         target_duration_seconds=90,
         source_language="zh-CN",
     )
+    source_manifest = repository.create_artifact_version(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        schema_version="1.0.0",
+        content={"documents": [{"source_document_id": "src_api_fixture"}]},
+        author_actor_type="system",
+        author_actor_id="source-ingestion",
+        change_summary="来源基线",
+    )
+    approve_artifact(repository, project, source_manifest, "source_manifest")
     created = repository.create_artifact_version(
         project_id=project.id,
         artifact_type="story_bible",
@@ -22,6 +34,14 @@ def test_get_story_bible_returns_typed_latest_version_and_revision_etag(tmp_path
         author_actor_type="human",
         author_actor_id="local-user",
         change_summary="建立故事圣经",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=source_manifest.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+        required_accepted_upstream_version_id=source_manifest.version.id,
     )
     client = TestClient(create_app(repository=repository))
 
