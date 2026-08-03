@@ -1,6 +1,6 @@
 # Phase 0 安全 Sidecar 实施规格
 
-状态：本地实现与验收完成；双平台 CI 待提交验证
+状态：已完成
 
 对应 Backlog：D01、D02、R01 的首个纵切
 
@@ -52,3 +52,4 @@
 - 正常关闭窗口与强制终止 Electron 主进程两条路径均未遗留 Python sidecar。
 - Renderer、preload 公共接口与前端源码扫描未发现 sidecar 令牌、Authorization 头或固定交付端口。
 - 本地 23 项 Python 测试、26 项桌面测试、5 项前端测试通过；Python 覆盖率 99.33%，桌面覆盖率 95.61%，前端覆盖率 94.59%。
+- GitHub Actions [运行 30781044010](https://github.com/chen11-A/aijian-studio/actions/runs/30781044010) 的 Windows 与 Ubuntu 质量任务均通过。
