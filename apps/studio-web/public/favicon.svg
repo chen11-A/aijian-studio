@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="18" fill="#dcff4f" />
+  <path d="M18 17h28v5H18zm4 10h20v5H22zm-4 10h28v5H18z" fill="#29300e" opacity=".22" />
+  <text x="32" y="43" fill="#12150a" font-family="serif" font-size="30" font-weight="700" text-anchor="middle">剪</text>
+</svg>

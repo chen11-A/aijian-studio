@@ -1,6 +1,6 @@
 # Phase 0 项目与 TXT 摄取纵切规格
 
-状态：实施中
+状态：本地验收完成，远程 CI 待确认
 
 对应 Backlog：B01、E01、API01、UI01 的首个纵切
 
@@ -36,18 +36,20 @@
 
 ## API 契约
 
-| 方法   | 路径                                    | 结果                                                    |
-| ------ | --------------------------------------- | ------------------------------------------------------- |
-| `GET`  | `/api/v1/projects`                      | 按最近更新时间返回项目                                  |
-| `POST` | `/api/v1/projects`                      | 创建项目，返回 `201`                                    |
-| `GET`  | `/api/v1/projects/{project_id}`         | 返回一个项目                                            |
-| `POST` | `/api/v1/projects/{project_id}/sources` | Base64 传入原始 TXT，原子解析并返回文档及块，返回 `201` |
+| 方法   | 路径                                                | 结果                                                    |
+| ------ | --------------------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/api/v1/projects`                                  | 按最近更新时间返回项目                                  |
+| `POST` | `/api/v1/projects`                                  | 创建项目，返回 `201`                                    |
+| `GET`  | `/api/v1/projects/{project_id}`                     | 返回一个项目                                            |
+| `GET`  | `/api/v1/projects/{project_id}/sources`             | 返回来源文档摘要列表                                    |
+| `POST` | `/api/v1/projects/{project_id}/sources`             | Base64 传入原始 TXT，原子解析并返回文档及块，返回 `201` |
+| `GET`  | `/api/v1/projects/{project_id}/sources/{source_id}` | 返回一个来源文档及其块                                  |
 
 所有成功响应继续使用 `{data, request_id}`；失败使用 `{error, request_id}`。稳定错误码至少包括 `PROJECT_NOT_FOUND`、`INVALID_SOURCE_FILE`、`SOURCE_TOO_LARGE`、`SOURCE_ALREADY_IMPORTED` 和 `VALIDATION_ERROR`。Base64、原文、文件路径和内部异常不得进入错误消息或日志。
 
 ## Electron 边界
 
-- Renderer 只获得 `health()`、`listProjects()`、`createProject(input)`、`getProject(id)` 和 `importTextSource(id, input)` 五个窄方法。
+- Renderer 只获得健康、项目、来源列表/读取和 TXT 导入所需的具名窄方法；不提供任意 URL、SQL、文件路径或通用 HTTP 方法。
 - Electron main 校验 IPC sender，并通过带 sidecar 令牌的本地 API 客户端代发请求；Renderer 不读取端口、Host、Authorization 或数据库路径。
 - 浏览器开发模式使用相同的 OpenAPI 数据结构和同源 `/api` 路径。
 
@@ -73,3 +75,11 @@
 - Markdown/DOCX、raw-normalized 完整映射、章节人工校对和 10 万块虚拟列表属于 E02/E03。
 - 故事圣经、剧本拆解、分镜和提示词编译在来源 Gate 之后实现；本切片只建立其可追溯输入。
 - 项目删除、导入覆盖、跨设备同步、服务器 RBAC、安装包内冻结 Python 不在本切片范围。
+
+## 2026-08-03 本地验收记录
+
+- Python：45 个测试通过，总覆盖率 98.09%；Ruff、Ruff format 与 mypy strict 通过。
+- Desktop：31 个测试通过，行覆盖率 96.98%；Renderer 仅见 7 个具名 preload 方法，`window.process` 不可见。
+- Web：15 个测试通过，行覆盖率 95.03%、分支覆盖率 86.84%；TypeScript、ESLint、Prettier 与生产构建通过。
+- 真实 Chromium：1440 px 与 CDP 390 px 视口人工检查通过；390 px 下文档宽 375 px、无横向溢出，控制台 error/warning 为 0，标题层级为 H1→H2→H3。
+- 真实 Electron：同一隔离用户目录连续启动两次，sidecar 端口从 64972 变为 49424；第二次启动自动恢复 1 个项目、2 章和 4 个来源块，窗口正常响应，两次关闭后 sidecar 均退出。
