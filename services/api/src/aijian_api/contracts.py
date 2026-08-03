@@ -23,3 +23,23 @@ class HealthResponse(BaseModel):
 
     data: HealthData
     request_id: UUID
+
+
+class ErrorBody(BaseModel):
+    """Stable machine-readable error details."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+    details: dict[str, str]
+    retryable: bool
+
+
+class ErrorResponse(BaseModel):
+    """Error envelope shared by all HTTP boundaries."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    error: ErrorBody
+    request_id: UUID
