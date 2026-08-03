@@ -217,7 +217,7 @@ GA 的质量评审分成 Technical QC、Continuity QC、Editorial QC、Creative 
 
 ## 9. 开放决策
 
-- 正式产品名和仓库名。
+- 正式产品展示名；GitHub 仓库已确定为公开的 `chen11-A/aijian-studio`。
 - GitHub 贡献者治理和首次社区发布时点。自有代码许可证已由 Owner 确认为 Apache-2.0；第三方代码仍必须逐项通过来源和兼容性审计。
 - Creator Beta 必须支持的首批视频生成供应商，以真实 API 可用性和成本验证决定。
 - 是否在 W36 前加入 macOS 桌面；默认不承诺。

@@ -19,7 +19,7 @@ E01/E02 来源摄取、M03 基础时间线、D01 桌面 IPC 安全并行汇入 K
 
 | ID | PD | DRI | DependsOn | 交付物 | CI/验收 |
 | --- | ---: | --- | --- | --- | --- |
-| A01 | 2 | Product Owner | - | 确认产品/仓库名、可见性、Apache-2.0 | `repo-policy` 人工 Gate |
+| A01 | 2 | Product Owner | - | 已确认公开仓库 `chen11-A/aijian-studio` 与 Apache-2.0；产品展示名仍待定 | `repo-policy` 人工 Gate 已通过 |
 | A02 | 5 | Tech Lead | A01 | pnpm/uv Monorepo、锁文件、一键 dev | `bootstrap-windows`, `bootstrap-linux` |
 | A03 | 5 | DevOps Lead | A02 | lint/typecheck/unit/build/license CI | `ci-required` |
 | A04 | 2 | Tech Lead | A01 | ADR/PR/Issue/CODEOWNERS/Provenance 模板 | `docs-links`, `provenance-schema` |
