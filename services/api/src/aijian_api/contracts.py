@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aijian_api.source_manifest import SourceManifestContentV1
+from aijian_api.story_bible import StoryBibleContentV1
 
 PROJECT_ID_PATTERN = r"^prj_[0-9a-f]{32}$"
 SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
@@ -217,6 +218,34 @@ class SourceManifestResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: SourceManifestData
+    request_id: UUID
+
+
+class StoryBibleVersionData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=VERSION_ID_PATTERN)
+    artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    version_number: int = Field(ge=1)
+    schema_version: Literal["1.0.0"]
+    content: StoryBibleContentV1
+    content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    change_summary: str
+    created_at: datetime
+
+
+class StoryBibleData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    head: ArtifactHeadData
+    latest_version: StoryBibleVersionData
+
+
+class StoryBibleResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryBibleData
     request_id: UUID
 
 

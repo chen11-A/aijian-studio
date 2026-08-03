@@ -48,6 +48,7 @@ from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
 )
+from aijian_api.story_bible_routes import create_story_bible_public_router
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -394,6 +395,7 @@ def create_app(
         )
 
     app.include_router(create_source_manifest_public_router(get_repository))
+    app.include_router(create_story_bible_public_router(get_repository))
     if sidecar_security is not None:
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
