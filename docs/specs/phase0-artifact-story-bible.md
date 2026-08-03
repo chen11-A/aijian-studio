@@ -46,7 +46,7 @@
 
 ### 3.2 实体判别联合
 
-实体只保存身份：`entity_id`、`kind`、`name`、`aliases[]` 和非权威 `display_summary?`。`display_summary` 只帮助人浏览，Agent、规则、连续性和下游生成不得读取它作为事实。
+实体 canonical content 只保存身份：`entity_id`、`kind`、`name`、`aliases[]`。人物卡摘要等非权威显示文本进入独立 presentation/review metadata，不进入内容 hash，也不会出现在 Agent、规则、连续性或下游生成 DTO 中。
 
 - `character`
 - `location`
@@ -68,7 +68,7 @@
 - `viewpoint_entity_id?`、`source_reliability=reliable/uncertain/unreliable/not_applicable`；
 - `decision_reason?`、`impact_scope[]`、`supersedes_fact_ids[]`、`derived_from_fact_ids[]`。
 
-typed payload 是唯一机器权威；可选 `editor_note` 只供人阅读，Agent/规则不得把它当 canon。UI 从结构化字段生成可读摘要并优先展示结构化字段，不能让制片只审批自然语言说明。
+typed payload 是唯一机器权威；编辑备注进入独立 review metadata，不进入 canonical content 或下游 DTO。UI 从结构化字段生成可读摘要并优先展示结构化字段，不能让制片只审批自然语言说明。
 
 事实载荷为判别联合：
 
@@ -78,12 +78,12 @@ typed payload 是唯一机器权威；可选 `editor_note` 只供人阅读，Age
 - `event_fact`：`participants[]`、`location_id?`、`source_narrative_order` 整数、稳定 `story_time_order`、`temporal_relations[]`、`caused_by_fact_ids[]`、`state_changes[]`。每个 state change 明确 `entity_id/property/before/after`。
 - `world_rule_fact`：`rule_scope`、`rule`、`exceptions[]`。
 - `organization_fact`：`organization_id`、`attribute`、`value`、有效期。
-- `prop_fact`：`prop_id`、`holder_character_id?`、`state`、有效期。
-- `costume_fact`：`costume_id`、`wearer_character_id`、`state`、有效期。
+- `prop_fact`：`prop_id`、类型化 `property_key=holder/location/condition/appearance`、`value`、有效期。
+- `costume_fact`：`costume_id`、类型化 `property_key=wearer/location/condition/appearance`、`value`、有效期。
 
-有效期通过稳定 event fact ID 表达，不引用裸整数或自由文本。领域校验拒绝悬空引用、事件因果/时间环、同一故事时间上的互斥状态、无 lineage 的语义 ID 改用，以及同一实体同名同类的明显重复。语义相似但无法确定时生成 conflict，不静默合并。
+`state_changes`、`prop_fact` 和 `costume_fact` 共用同一状态词汇与类型约束：holder/wearer 只能指向人物，location 只能指向地点，alive 只能是布尔值，condition/relationship_status/appearance 只能是文本，possession 只能指向道具或服装；每个 property 同时约束可承载它的实体种类。有效期通过稳定 event fact ID 表达，不引用裸整数或自由文本。领域校验拒绝悬空引用、未来事件导致过去事件、事件因果/时间环、同一故事时间上的互斥状态、道具/服装状态事实与事件状态变化冲突、无 lineage 的语义 ID 改用，以及同一实体同名同类的明显重复。语义相似但无法确定时生成 conflict，不静默合并。
 
-`effective_canon` 是唯一可供 G3/G4、资产与连续性节点消费的投影，只包含 `canon_status=confirmed` 的 typed facts。`proposed/contested/rejected` 仅供审阅与审计；G2 前所有 core fact 必须 confirmed 或 rejected，任何 contested core fact 必须由 blocking conflict/question 阻断。
+`effective_canon` 是唯一可供 G3/G4、资产与连续性节点消费的投影，只包含 `canon_status=confirmed` 且不属于 `resolved_as_source_ambiguity` 候选的 typed facts。歧义候选仍保留在 `confirmed_claims` 供审计，但不能当作世界真值；制作需要确定值时必须新增用户决定。`proposed/contested/rejected` 仅供审阅与审计；G2 前所有 core fact 必须 confirmed 或 rejected，任何 contested core fact 必须由 blocking conflict/question 阻断。
 
 ### 3.4 来源证据
 
