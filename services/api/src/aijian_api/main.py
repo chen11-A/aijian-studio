@@ -12,8 +12,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
+from aijian_api.application_errors import (
+    PreconditionFailedError,
+    PreconditionRequiredError,
+)
 from aijian_api.contracts import (
-    ArtifactHeadData,
     CreateProjectRequest,
     ErrorBody,
     ErrorResponse,
@@ -28,20 +31,23 @@ from aijian_api.contracts import (
     SourceDocumentListResponse,
     SourceDocumentResponse,
     SourceDocumentSummaryData,
-    SourceManifestData,
-    SourceManifestResponse,
-    SourceManifestVersionData,
 )
-from aijian_api.domain import ArtifactVersionRecord, SourceDocument
+from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.repository import (
+    ArtifactConflictError,
     ArtifactNotFoundError,
+    GateNotReadyError,
     ProjectNotFoundError,
+    ReviewInvalidError,
     SourceAlreadyImportedError,
     StudioRepository,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
-from aijian_api.source_manifest import SourceManifestContentV1
+from aijian_api.source_manifest_routes import (
+    create_source_manifest_internal_router,
+    create_source_manifest_public_router,
+)
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -106,28 +112,11 @@ def _source_document_data(document: SourceDocument) -> SourceDocumentData:
     )
 
 
-def _source_manifest_data(record: ArtifactVersionRecord) -> SourceManifestData:
-    version = record.version
-    return SourceManifestData(
-        head=ArtifactHeadData.model_validate(record.head),
-        latest_version=SourceManifestVersionData(
-            id=version.id,
-            artifact_id=version.artifact_id,
-            version_number=version.version_number,
-            schema_version="1.0.0",
-            content=SourceManifestContentV1.model_validate(version.content),
-            content_hash=version.content_hash,
-            parent_version_id=version.parent_version_id,
-            change_summary=version.change_summary,
-            created_at=version.created_at,
-        ),
-    )
-
-
 def create_app(
     *,
     sidecar_security: SidecarSecurity | None = None,
     repository: StudioRepository | None = None,
+    review_actor: TrustedReviewActor | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
 
@@ -139,6 +128,10 @@ def create_app(
     )
     repository_holder = [repository]
     repository_lock = Lock()
+    trusted_review_actor = review_actor or TrustedReviewActor(
+        subject_id="local-user",
+        roles=("writer", "continuity_reviewer", "producer"),
+    )
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -192,6 +185,55 @@ def create_app(
             status_code=status.HTTP_409_CONFLICT,
             code="SOURCE_ALREADY_IMPORTED",
             message="This source is already part of the project",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(PreconditionRequiredError)
+    async def precondition_required(
+        request: Request, _error: PreconditionRequiredError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            code="PRECONDITION_REQUIRED",
+            message="If-Match is required for this artifact action",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(PreconditionFailedError)
+    async def precondition_failed(
+        request: Request, _error: PreconditionFailedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            code="PRECONDITION_FAILED",
+            message="The artifact revision no longer matches",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactConflictError)
+    async def artifact_conflict(request: Request, _error: ArtifactConflictError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            code="PRECONDITION_FAILED",
+            message="The artifact revision no longer matches",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(GateNotReadyError)
+    async def gate_not_ready(request: Request, _error: GateNotReadyError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="GATE_NOT_READY",
+            message="The artifact has blocking readiness checks",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ReviewInvalidError)
+    async def review_invalid(request: Request, _error: ReviewInvalidError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="REVIEW_INVALID",
+            message="The review action is not valid for the current artifact state",
             request_id=request_id(request),
         )
 
@@ -351,25 +393,10 @@ def create_app(
             request_id=request_id(request),
         )
 
-    @app.get(
-        "/api/v1/projects/{project_id}/source-manifest",
-        operation_id="getSourceManifest",
-        response_model=SourceManifestResponse,
-        responses={
-            **shared_errors,
-            404: {"description": "Project or SourceManifest not found", "model": ErrorResponse},
-        },
-    )
-    def get_source_manifest(
-        request: Request,
-        response: Response,
-        project_id: str,
-    ) -> SourceManifestResponse:
-        record = get_repository().get_latest_artifact(project_id, "source_manifest")
-        response.headers["ETag"] = f'"revision-{record.head.revision}"'
-        return SourceManifestResponse(
-            data=_source_manifest_data(record),
-            request_id=request_id(request),
+    app.include_router(create_source_manifest_public_router(get_repository))
+    if sidecar_security is not None:
+        app.include_router(
+            create_source_manifest_internal_router(get_repository, trusted_review_actor)
         )
 
     return app
