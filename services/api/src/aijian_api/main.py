@@ -24,7 +24,9 @@ from aijian_api.contracts import (
     ProjectResponse,
     SourceBlockData,
     SourceDocumentData,
+    SourceDocumentListResponse,
     SourceDocumentResponse,
+    SourceDocumentSummaryData,
 )
 from aijian_api.domain import SourceDocument
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
@@ -254,6 +256,22 @@ def create_app(
             request_id=request_id(request),
         )
 
+    @app.get(
+        "/api/v1/projects/{project_id}/sources",
+        operation_id="listSources",
+        response_model=SourceDocumentListResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project not found", "model": ErrorResponse},
+        },
+    )
+    def list_sources(request: Request, project_id: str) -> SourceDocumentListResponse:
+        sources = [
+            SourceDocumentSummaryData.model_validate(source)
+            for source in get_repository().list_sources(project_id)
+        ]
+        return SourceDocumentListResponse(data=sources, request_id=request_id(request))
+
     @app.post(
         "/api/v1/projects/{project_id}/sources",
         operation_id="importTextSource",
@@ -274,6 +292,22 @@ def create_app(
     ) -> SourceDocumentResponse:
         parsed = ingest_text_file(filename=payload.filename, content=payload.decoded_content())
         document = get_repository().import_source(project_id, parsed)
+        return SourceDocumentResponse(
+            data=_source_document_data(document),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/sources/{source_id}",
+        operation_id="getSource",
+        response_model=SourceDocumentResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project or source not found", "model": ErrorResponse},
+        },
+    )
+    def get_source(request: Request, project_id: str, source_id: str) -> SourceDocumentResponse:
+        document = get_repository().get_source(project_id, source_id)
         return SourceDocumentResponse(
             data=_source_document_data(document),
             request_id=request_id(request),

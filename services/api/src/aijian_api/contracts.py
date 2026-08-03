@@ -134,8 +134,8 @@ class SourceBlockData(BaseModel):
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
-class SourceDocumentData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class SourceDocumentSummaryData(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     id: str = Field(pattern=SOURCE_ID_PATTERN)
     project_id: str = Field(pattern=PROJECT_ID_PATTERN)
@@ -147,7 +147,19 @@ class SourceDocumentData(BaseModel):
     imported_at: datetime
     chapter_count: int
     block_count: int
+
+
+class SourceDocumentData(SourceDocumentSummaryData):
+    model_config = ConfigDict(extra="forbid")
+
     blocks: list[SourceBlockData]
+
+
+class SourceDocumentListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: list[SourceDocumentSummaryData]
+    request_id: UUID
 
 
 class SourceDocumentResponse(BaseModel):

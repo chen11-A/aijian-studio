@@ -77,6 +77,15 @@ def test_imports_original_bytes_and_returns_traceable_blocks(client: TestClient)
         for block in document["blocks"]
     )
 
+    listed = client.get(f"/api/v1/projects/{project['id']}/sources")
+    fetched = client.get(f"/api/v1/projects/{project['id']}/sources/{document['id']}")
+    assert listed.status_code == 200
+    assert listed.json()["data"] == [
+        {key: value for key, value in document.items() if key != "blocks"}
+    ]
+    assert fetched.status_code == 200
+    assert fetched.json()["data"] == document
+
 
 def test_returns_stable_safe_errors_for_project_and_source_failures(
     client: TestClient,
@@ -181,3 +190,11 @@ def test_project_and_source_contracts_are_published_in_openapi(tmp_path: Path) -
             ]
             == "#/components/schemas/ErrorResponse"
         )
+    assert (
+        schema["paths"]["/api/v1/projects/{project_id}/sources"]["get"]["operationId"]
+        == "listSources"
+    )
+    assert (
+        schema["paths"]["/api/v1/projects/{project_id}/sources/{source_id}"]["get"]["operationId"]
+        == "getSource"
+    )

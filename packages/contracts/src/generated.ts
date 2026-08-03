@@ -63,10 +63,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Sources */
+        get: operations["listSources"];
         put?: never;
         /** Import Text Source */
         post: operations["importTextSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source */
+        get: operations["getSource"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -283,6 +301,16 @@ export interface components {
             /** Raw Sha256 */
             raw_sha256: string;
         };
+        /** SourceDocumentListResponse */
+        SourceDocumentListResponse: {
+            /** Data */
+            data: components["schemas"]["SourceDocumentSummaryData"][];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** SourceDocumentResponse */
         SourceDocumentResponse: {
             data: components["schemas"]["SourceDocumentData"];
@@ -291,6 +319,38 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** SourceDocumentSummaryData */
+        SourceDocumentSummaryData: {
+            /** Block Count */
+            block_count: number;
+            /** Byte Size */
+            byte_size: number;
+            /** Chapter Count */
+            chapter_count: number;
+            /**
+             * Encoding
+             * @constant
+             */
+            encoding: "utf-8";
+            /** Filename */
+            filename: string;
+            /** Id */
+            id: string;
+            /**
+             * Imported At
+             * Format: date-time
+             */
+            imported_at: string;
+            /**
+             * Media Type
+             * @constant
+             */
+            media_type: "text/plain";
+            /** Project Id */
+            project_id: string;
+            /** Raw Sha256 */
+            raw_sha256: string;
         };
     };
     responses: never;
@@ -495,6 +555,64 @@ export interface operations {
             };
         };
     };
+    listSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDocumentListResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     importTextSource: {
         parameters: {
             query?: never;
@@ -566,6 +684,65 @@ export interface operations {
             };
             /** @description Source file too large */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDocumentResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or source not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
