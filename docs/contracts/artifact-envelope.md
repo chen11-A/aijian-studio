@@ -51,10 +51,11 @@
 
 - `artifact_id` 跨版本稳定；`version_id` 永不复用；内容修改必须产生新版本。
 - `content_hash` 基于规范化序列化，缓存和幂等不得依赖显示名称。
+- `ArtifactVersion.content/content_hash` 只覆盖类型化领域内容；示例中的 `status`、`approval`、finding 和 head 是由 append-only 事件与 `ArtifactHead` 查询时生成的 read-model projection，不写回版本，也不改变内容 hash。
 - 输入必须指向确切版本，不只指向“当前角色”。
 - `impact` 为 `blocking/advisory/render_only`，用于失效传播；依赖图必须无环。
-- Schema 验证后立即写入不可变 `draft` 版本，批注和 Gate 引用其 `version_id`；审批通过追加 `ApprovalDecision` 并更新 `ArtifactHead.accepted_version_id`，版本内容和哈希不变。
-- 状态至少为 `draft/needs_review/approved/approved_with_waiver/rejected/stale/superseded`；这些是生命周期投影，决定事件另存。
+- Schema 验证后立即写入不可变 `draft` 版本；submission、finding、`RoleSignoff`、`GateDecision` 和 waiver 以 append-only 事件引用确切 `version_id`。`approved` 或 `approved_with_waiver` 才更新 `ArtifactHead.accepted_version_id`，版本内容和哈希不变。
+- 状态至少为 `draft/needs_review/changes_requested/approved/approved_with_waiver/rejected/stale/superseded`；这些是生命周期投影，决定事件另存。
 - `approved` 版本不可原地修改，但可通过新版本和 Change Request 取代；“不可变”不等于“永不删除”。
 - 用户删除项目或执行合规清除后，可回收不再可达的版本和 Blob，并留下不含内容的审计墓碑（法律允许时）。
 - 生成字段不得包含明文密钥、完整认证 Header、浏览器 Cookie 或短期签名 URL。
@@ -62,7 +63,7 @@
 
 ## 失效算法
 
-1. 新版本提交后，比较语义字段和依赖类型，生成候选影响集合。
+1. 仅当 `accepted_version_id` 从旧版本原子推进到新版本后，比较两个 accepted 版本的语义字段和依赖类型，生成候选影响集合；创建草稿、送审、finding 和拒绝均不传播 stale。
 2. 在一个持久化操作中标记直接和传递下游为 `stale`，保留其内容与人工修改。
 3. UI 向人展示“重基底、接受旧版、重新生成、扩大影响”选择。
 4. 已批准但 stale 的版本默认阻断发布，只有具名 waiver 能继续。
