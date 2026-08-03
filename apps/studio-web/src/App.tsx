@@ -419,7 +419,7 @@ export function App({ transport }: AppProps) {
 
   const importFile = async (file: File) => {
     if (!selectedProject) return;
-    sourceRequestGeneration.current += 1;
+    const generation = ++sourceRequestGeneration.current;
     if (!file.name.toLowerCase().endsWith(".txt")) {
       setImportState({ kind: "error", message: "请选择扩展名为 .txt 的 UTF-8 文本。" });
       return;
@@ -431,17 +431,21 @@ export function App({ transport }: AppProps) {
     setImportState({ kind: "loading", filename: file.name });
     try {
       const content = await fileAsBase64(file);
+      if (generation !== sourceRequestGeneration.current) return;
       const response = await studio.importTextSource(selectedProject.id, {
         filename: file.name,
         media_type: "text/plain",
         content_base64: content,
       });
+      if (generation !== sourceRequestGeneration.current) return;
       setImportState({ kind: "success", response });
       const refreshed = await studio.getProject(selectedProject.id);
+      if (generation !== sourceRequestGeneration.current) return;
       setProjects((current) =>
         current.map((project) => (project.id === refreshed.data.id ? refreshed.data : project)),
       );
     } catch {
+      if (generation !== sourceRequestGeneration.current) return;
       setImportState({
         kind: "error",
         message: "导入失败。请确认文件是 UTF-8 文本且尚未导入，然后重试。",

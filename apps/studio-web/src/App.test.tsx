@@ -254,3 +254,32 @@ test("ignores a stale source restore after the user switches projects", async ()
   await waitFor(() => expect(transport.listSources).toHaveBeenCalledTimes(2));
   expect(transport.getSource).not.toHaveBeenCalled();
 });
+
+test("does not show an imported source under a project selected while upload was pending", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+  };
+  const transport = studioTransport([project, second]);
+  let resolveImport: ((value: SourceDocumentResponse) => void) | undefined;
+  vi.mocked(transport.importTextSource).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveImport = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.change(screen.getByLabelText("选择 TXT 文件"), {
+    target: { files: [new File(["第一章 初见"], "story.txt", { type: "text/plain" })] },
+  });
+  await waitFor(() => expect(transport.importTextSource).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: /夜航/ }));
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+  resolveImport?.(sourceResponse);
+
+  await waitFor(() => expect(transport.listSources).toHaveBeenCalledTimes(2));
+  expect(screen.queryByText("第一章 初见")).not.toBeInTheDocument();
+});
