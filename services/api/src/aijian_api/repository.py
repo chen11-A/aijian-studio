@@ -1,5 +1,7 @@
-"""Crash-safe SQLite persistence for local project and source truth."""
+"""Crash-safe SQLite persistence for local project, source, and artifact truth."""
 
+import hashlib
+import json
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -8,13 +10,24 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
 from aijian_api.domain import (
+    ArtifactActorType,
+    ArtifactDependency,
+    ArtifactDependencyDraft,
+    ArtifactHead,
+    ArtifactSourceSpan,
+    ArtifactSourceSpanDraft,
+    ArtifactVersion,
+    ArtifactVersionRecord,
+    DependencyImpact,
     Project,
     ProjectStatus,
     SourceBlock,
     SourceBlockKind,
     SourceDocument,
     SourceDocumentSummary,
+    SourceSpanRole,
 )
 from aijian_api.ingestion import ParsedSource
 
@@ -403,6 +416,14 @@ class SchemaTooNewError(RuntimeError):
     pass
 
 
+class ArtifactConflictError(RuntimeError):
+    pass
+
+
+class SourceSpanInvalidError(ValueError):
+    pass
+
+
 def _default_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
 
@@ -670,6 +691,452 @@ class StudioRepository:
             imported_at=_datetime(str(document["imported_at"])),
             chapter_count=int(document["chapter_count"]),
             blocks=blocks,
+        )
+
+    def create_artifact_version(
+        self,
+        *,
+        project_id: str,
+        artifact_type: str,
+        schema_version: str,
+        content: dict[str, object],
+        author_actor_type: ArtifactActorType,
+        author_actor_id: str,
+        change_summary: str,
+        parent_version_id: str | None = None,
+        expected_revision: int | None = None,
+        source_spans: tuple[ArtifactSourceSpanDraft, ...] = (),
+        dependencies: tuple[ArtifactDependencyDraft, ...] = (),
+    ) -> ArtifactVersionRecord:
+        """Append an immutable artifact version and conditionally move its latest head."""
+
+        content_bytes = canonical_content_bytes(content)
+        content_json = content_bytes.decode("utf-8")
+        content_hash = canonical_content_hash(content)
+        created_at = self._clock()
+        version_id = self._id_factory("ver")
+
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                project = connection.execute(
+                    "SELECT id FROM projects WHERE id = ?", (project_id,)
+                ).fetchone()
+                if project is None:
+                    raise ProjectNotFoundError("Project was not found")
+
+                artifact_row = connection.execute(
+                    "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ?",
+                    (project_id, artifact_type),
+                ).fetchone()
+                if artifact_row is None:
+                    if expected_revision is not None or parent_version_id is not None:
+                        raise ArtifactConflictError("Artifact does not have the expected head")
+                    artifact_id = self._id_factory("art")
+                    version_number = 1
+                    connection.execute(
+                        "INSERT INTO artifacts VALUES (?, ?, ?, ?)",
+                        (artifact_id, project_id, artifact_type, _timestamp(created_at)),
+                    )
+                else:
+                    artifact_id = str(artifact_row["artifact_id"])
+                    head_row = connection.execute(
+                        "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+                    ).fetchone()
+                    if (
+                        head_row is None
+                        or expected_revision is None
+                        or int(head_row["revision"]) != expected_revision
+                    ):
+                        raise ArtifactConflictError("Artifact head revision has changed")
+                    if parent_version_id is None:
+                        raise ArtifactConflictError("A revision must identify its parent version")
+                    parent = connection.execute(
+                        """
+                        SELECT version_number FROM artifact_versions
+                        WHERE artifact_id = ? AND version_id = ?
+                        """,
+                        (artifact_id, parent_version_id),
+                    ).fetchone()
+                    if parent is None:
+                        raise ArtifactConflictError(
+                            "Parent version does not belong to the artifact"
+                        )
+                    version_number = int(
+                        connection.execute(
+                            """
+                            SELECT COALESCE(MAX(version_number), 0) + 1
+                            FROM artifact_versions WHERE artifact_id = ?
+                            """,
+                            (artifact_id,),
+                        ).fetchone()[0]
+                    )
+
+                version = ArtifactVersion(
+                    id=version_id,
+                    artifact_id=artifact_id,
+                    version_number=version_number,
+                    schema_version=schema_version,
+                    content=content,
+                    content_hash=content_hash,
+                    author_actor_type=author_actor_type,
+                    author_actor_id=author_actor_id,
+                    parent_version_id=parent_version_id,
+                    change_summary=change_summary,
+                    created_at=created_at,
+                )
+                connection.execute(
+                    """
+                    INSERT INTO artifact_versions (
+                        version_id, artifact_id, version_number, schema_version, content_json,
+                        content_hash, author_actor_type, author_actor_id, parent_version_id,
+                        change_summary, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        version.id,
+                        version.artifact_id,
+                        version.version_number,
+                        version.schema_version,
+                        content_json,
+                        version.content_hash,
+                        version.author_actor_type,
+                        version.author_actor_id,
+                        version.parent_version_id,
+                        version.change_summary,
+                        _timestamp(version.created_at),
+                    ),
+                )
+
+                persisted_spans = tuple(
+                    self._insert_source_span(
+                        connection,
+                        project_id=project_id,
+                        artifact_id=artifact_id,
+                        version_id=version.id,
+                        draft=draft,
+                        created_at=created_at,
+                    )
+                    for draft in source_spans
+                )
+                persisted_dependencies = tuple(
+                    self._insert_dependency(
+                        connection,
+                        project_id=project_id,
+                        downstream_artifact_id=artifact_id,
+                        downstream_version_id=version.id,
+                        draft=draft,
+                        created_at=created_at,
+                    )
+                    for draft in dependencies
+                )
+
+                if artifact_row is None:
+                    connection.execute(
+                        """
+                        INSERT INTO artifact_heads (
+                            artifact_id, latest_version_id, review_version_id,
+                            review_submission_id, accepted_version_id, revision,
+                            review_evidence_revision, updated_at
+                        ) VALUES (?, ?, NULL, NULL, NULL, 1, 0, ?)
+                        """,
+                        (artifact_id, version.id, _timestamp(created_at)),
+                    )
+                else:
+                    updated = connection.execute(
+                        """
+                        UPDATE artifact_heads
+                        SET latest_version_id = ?, revision = revision + 1, updated_at = ?
+                        WHERE artifact_id = ? AND revision = ?
+                        """,
+                        (
+                            version.id,
+                            _timestamp(created_at),
+                            artifact_id,
+                            expected_revision,
+                        ),
+                    )
+                    if updated.rowcount != 1:
+                        raise ArtifactConflictError("Artifact head revision has changed")
+
+                head_row = connection.execute(
+                    "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+                ).fetchone()
+                if head_row is None:
+                    raise RuntimeError("Artifact head was not persisted")
+                head = self._artifact_head_from_row(head_row)
+                connection.commit()
+            except sqlite3.IntegrityError as error:
+                connection.rollback()
+                raise ArtifactConflictError("Artifact transaction violated an invariant") from error
+            except Exception:
+                connection.rollback()
+                raise
+
+        return ArtifactVersionRecord(
+            version=version,
+            head=head,
+            source_spans=persisted_spans,
+            dependencies=persisted_dependencies,
+        )
+
+    def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT artifact_heads.*
+                FROM artifact_heads
+                JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
+                WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                """,
+                (project_id, artifact_type),
+            ).fetchone()
+        if row is None:
+            raise ArtifactConflictError("Artifact was not found")
+        return self._artifact_head_from_row(row)
+
+    def get_artifact_version(
+        self,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+    ) -> ArtifactVersionRecord:
+        with self._connection() as connection:
+            version_row = connection.execute(
+                """
+                SELECT artifact_versions.*
+                FROM artifact_versions
+                JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+                WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifact_versions.version_id = ?
+                """,
+                (project_id, artifact_type, version_id),
+            ).fetchone()
+            if version_row is None:
+                raise ArtifactConflictError("Artifact version was not found")
+            artifact_id = str(version_row["artifact_id"])
+            head_row = connection.execute(
+                "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+            ).fetchone()
+            span_rows = connection.execute(
+                """
+                SELECT * FROM artifact_source_spans
+                WHERE version_id = ? ORDER BY fact_id, start_byte, span_id
+                """,
+                (version_id,),
+            ).fetchall()
+            dependency_rows = connection.execute(
+                """
+                SELECT * FROM artifact_dependencies
+                WHERE downstream_version_id = ? ORDER BY dependency_id
+                """,
+                (version_id,),
+            ).fetchall()
+        if head_row is None:
+            raise RuntimeError("Artifact head is missing")
+        return ArtifactVersionRecord(
+            version=self._artifact_version_from_row(version_row),
+            head=self._artifact_head_from_row(head_row),
+            source_spans=tuple(self._artifact_source_span_from_row(row) for row in span_rows),
+            dependencies=tuple(self._artifact_dependency_from_row(row) for row in dependency_rows),
+        )
+
+    def _insert_source_span(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_id: str,
+        version_id: str,
+        draft: ArtifactSourceSpanDraft,
+        created_at: datetime,
+    ) -> ArtifactSourceSpan:
+        source_row = connection.execute(
+            """
+            SELECT source_documents.normalized_text,
+                source_blocks.normalized_start_byte, source_blocks.normalized_end_byte
+            FROM source_documents
+            JOIN source_blocks ON source_blocks.source_document_id = source_documents.id
+            WHERE source_documents.project_id = ? AND source_documents.id = ?
+                AND source_blocks.project_id = ? AND source_blocks.id = ?
+            """,
+            (
+                project_id,
+                draft.source_document_id,
+                project_id,
+                draft.source_block_id,
+            ),
+        ).fetchone()
+        if source_row is None:
+            raise SourceSpanInvalidError("Source span does not belong to the project")
+        block_start = int(source_row["normalized_start_byte"])
+        block_end = int(source_row["normalized_end_byte"])
+        if not (block_start <= draft.start_byte < draft.end_byte <= block_end):
+            raise SourceSpanInvalidError("Source span falls outside its source block")
+        normalized_bytes = str(source_row["normalized_text"]).encode("utf-8")
+        quote_bytes = normalized_bytes[draft.start_byte : draft.end_byte]
+        try:
+            quote_bytes.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise SourceSpanInvalidError(
+                "Source span is not aligned to UTF-8 boundaries"
+            ) from error
+        quote_hash = f"sha256:{hashlib.sha256(quote_bytes).hexdigest()}"
+        span = ArtifactSourceSpan(
+            id=self._id_factory("spn"),
+            artifact_id=artifact_id,
+            version_id=version_id,
+            fact_id=draft.fact_id,
+            project_id=project_id,
+            source_document_id=draft.source_document_id,
+            source_block_id=draft.source_block_id,
+            role=draft.role,
+            start_byte=draft.start_byte,
+            end_byte=draft.end_byte,
+            claim=draft.claim,
+            quote_hash=quote_hash,
+            created_at=created_at,
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_source_spans VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                span.id,
+                span.artifact_id,
+                span.version_id,
+                span.fact_id,
+                span.project_id,
+                span.source_document_id,
+                span.source_block_id,
+                span.role,
+                span.start_byte,
+                span.end_byte,
+                span.claim,
+                span.quote_hash,
+                _timestamp(span.created_at),
+            ),
+        )
+        return span
+
+    def _insert_dependency(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        downstream_artifact_id: str,
+        downstream_version_id: str,
+        draft: ArtifactDependencyDraft,
+        created_at: datetime,
+    ) -> ArtifactDependency:
+        upstream = connection.execute(
+            """
+            SELECT artifact_versions.artifact_id
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            WHERE artifact_versions.version_id = ? AND artifacts.project_id = ?
+            """,
+            (draft.upstream_version_id, project_id),
+        ).fetchone()
+        if upstream is None:
+            raise ArtifactConflictError("Dependency version does not belong to the project")
+        dependency = ArtifactDependency(
+            id=self._id_factory("dep"),
+            downstream_artifact_id=downstream_artifact_id,
+            downstream_version_id=downstream_version_id,
+            upstream_artifact_id=str(upstream["artifact_id"]),
+            upstream_version_id=draft.upstream_version_id,
+            relationship=draft.relationship,
+            impact=draft.impact,
+            created_at=created_at,
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_dependencies VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                dependency.id,
+                dependency.downstream_artifact_id,
+                dependency.downstream_version_id,
+                dependency.upstream_artifact_id,
+                dependency.upstream_version_id,
+                dependency.relationship,
+                dependency.impact,
+                _timestamp(dependency.created_at),
+            ),
+        )
+        return dependency
+
+    @staticmethod
+    def _artifact_version_from_row(row: sqlite3.Row) -> ArtifactVersion:
+        return ArtifactVersion(
+            id=str(row["version_id"]),
+            artifact_id=str(row["artifact_id"]),
+            version_number=int(row["version_number"]),
+            schema_version=str(row["schema_version"]),
+            content=cast(dict[str, object], json.loads(str(row["content_json"]))),
+            content_hash=str(row["content_hash"]),
+            author_actor_type=cast(ArtifactActorType, row["author_actor_type"]),
+            author_actor_id=str(row["author_actor_id"]),
+            parent_version_id=(
+                str(row["parent_version_id"]) if row["parent_version_id"] is not None else None
+            ),
+            change_summary=str(row["change_summary"]),
+            created_at=_datetime(str(row["created_at"])),
+        )
+
+    @staticmethod
+    def _artifact_head_from_row(row: sqlite3.Row) -> ArtifactHead:
+        return ArtifactHead(
+            artifact_id=str(row["artifact_id"]),
+            latest_version_id=str(row["latest_version_id"]),
+            review_version_id=(
+                str(row["review_version_id"]) if row["review_version_id"] is not None else None
+            ),
+            review_submission_id=(
+                str(row["review_submission_id"])
+                if row["review_submission_id"] is not None
+                else None
+            ),
+            accepted_version_id=(
+                str(row["accepted_version_id"]) if row["accepted_version_id"] is not None else None
+            ),
+            revision=int(row["revision"]),
+            review_evidence_revision=int(row["review_evidence_revision"]),
+            updated_at=_datetime(str(row["updated_at"])),
+        )
+
+    @staticmethod
+    def _artifact_source_span_from_row(row: sqlite3.Row) -> ArtifactSourceSpan:
+        return ArtifactSourceSpan(
+            id=str(row["span_id"]),
+            artifact_id=str(row["artifact_id"]),
+            version_id=str(row["version_id"]),
+            fact_id=str(row["fact_id"]),
+            project_id=str(row["project_id"]),
+            source_document_id=str(row["source_document_id"]),
+            source_block_id=str(row["source_block_id"]),
+            role=cast(SourceSpanRole, row["role"]),
+            start_byte=int(row["start_byte"]),
+            end_byte=int(row["end_byte"]),
+            claim=str(row["claim"]),
+            quote_hash=str(row["quote_hash"]),
+            created_at=_datetime(str(row["created_at"])),
+        )
+
+    @staticmethod
+    def _artifact_dependency_from_row(row: sqlite3.Row) -> ArtifactDependency:
+        return ArtifactDependency(
+            id=str(row["dependency_id"]),
+            downstream_artifact_id=str(row["downstream_artifact_id"]),
+            downstream_version_id=str(row["downstream_version_id"]),
+            upstream_artifact_id=str(row["upstream_artifact_id"]),
+            upstream_version_id=str(row["upstream_version_id"]),
+            relationship=str(row["relationship"]),
+            impact=cast(DependencyImpact, row["impact"]),
+            created_at=_datetime(str(row["created_at"])),
         )
 
     @staticmethod
