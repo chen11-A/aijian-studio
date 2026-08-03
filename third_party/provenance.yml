@@ -1,0 +1,18 @@
+version: 1
+
+# Research-only repositories are documented under docs/research and are not
+# listed here. Add an entry only when code, assets, fonts, models, binaries, or
+# bundled datasets enter the distributable product.
+components: []
+
+# Required fields for each future component:
+# - name
+# - source_url
+# - commit_or_version
+# - paths_imported
+# - spdx_license
+# - license_file
+# - notice_required
+# - modifications
+# - reviewed_by
+# - reviewed_at

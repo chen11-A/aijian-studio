@@ -1,0 +1,34 @@
+# Quality Baseline v0（规划版）
+
+W4 前由 QA、媒体和影片团队用固定夹具实测并锁定为 v1。这里的数字是首轮工程门槛，不是营销承诺。
+
+## 参考环境
+
+- Windows 11 x64 当前支持版本，标准用户，16 GB RAM，4 核 CPU，集成显卡，无 Node/Python/FFmpeg 开发环境。
+- 服务器基准：8 vCPU、32 GB RAM、PostgreSQL、Redis、MinIO；具体云/物理规格记录到报告。
+- 所有夹具记录 SHA-256，敏感/无授权内容不进入公共仓库。
+
+## Phase 0 / Creator Beta
+
+| 指标 | 门槛 |
+| --- | --- |
+| 六 kill 点恢复 | 每点 100 个确定种子；60 秒内为可解释状态；0 已提交 hash 变化；0 未知状态自动重提 |
+| 来源事实 | 冻结夹具 precision ≥0.90、recall ≥0.85；95% 需依据原文的批准事实有 SourceSpan |
+| SourceSpan | 中文、emoji、NFC/NFKC 测试在 Python/TypeScript 坐标完全一致 |
+| 30 分钟时间线 | 代理回连原片导出首尾 A/V 漂移 ≤1 sequence frame |
+| UI 交互 | 1,000 Clip 项目常用编辑命令 p95 <100 ms；代理 seek p95 <500 ms |
+| 播放 | 1080p 代理连续 10 分钟，无未解释掉帧；目标 24/25 fps 由项目 profile 决定 |
+| 安装 | 标准用户、中文用户名、长路径、Defender、无开发工具、离线打开全通过 |
+| Creator Beta 试用 | ≥5 人、≥50 编辑小时、1 黄金+2 held-out；0 数据损坏、0 Sev-0/1 |
+
+## Studio Beta
+
+| 指标 | 门槛 |
+| --- | --- |
+| 负载 | 10 用户×3 项目×72 小时；0 数据损坏/跨租户泄漏/Task truth 丢失 |
+| 权限 | API/S3/队列/缓存/SSE/WebSocket/审片链接的跨租户、撤销、重放、猜 ID 全拒绝 |
+| 恢复 | 已提交编辑 RPO=0；Task 状态恢复 ≤60 秒；备份恢复时间写入每次报告 |
+
+## 影片质量 Rubric
+
+Technical、Continuity、Editorial、Creative、Rights 分开审。独立审片人盲看记录：剧情理解错误、角色误认、连续性硬错、动作方向/可读性、节奏与结尾钩子、对白可懂度、手机字幕可读性、人工修复分钟和无法发布镜头数。权利缺失、媒体损坏、缺声轨/字幕、安全和 DeliveryProfile 不符不可豁免。
