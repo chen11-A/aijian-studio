@@ -11,6 +11,12 @@ export type SourceDocumentResponse = components["schemas"]["SourceDocumentRespon
 export type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
+export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type CreateProviderConnectionInput =
+  components["schemas"]["CreateProviderConnectionRequest"];
+export type ProviderConnectionListResponse =
+  components["schemas"]["ProviderConnectionListResponse"];
+export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
 
 export interface StudioTransport {
   getHealth(): Promise<HealthResponse>;
@@ -26,6 +32,12 @@ export interface StudioTransport {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProviderConnections(): Promise<ProviderConnectionListResponse>;
+  createProviderConnection(
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse>;
+  deleteProviderConnection(connectionId: string): Promise<void>;
 }
 
 export interface AijianDesktopBridge {
@@ -42,6 +54,12 @@ export interface AijianDesktopBridge {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProviderConnections(): Promise<ProviderConnectionListResponse>;
+  createProviderConnection(
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse>;
+  deleteProviderConnection(connectionId: string): Promise<void>;
 }
 
 declare global {
@@ -62,7 +80,14 @@ function isHealthResponse(value: unknown): value is HealthResponse {
 async function browserRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
-    throw new Error(`Studio API request failed with status ${response.status}`);
+    let code = "";
+    try {
+      const payload: unknown = await response.json();
+      code = isErrorResponse(payload) ? ` (${payload.error.code})` : "";
+    } catch {
+      // Preserve the stable HTTP status when an intermediary returned a non-JSON body.
+    }
+    throw new Error(`Studio API request failed with status ${response.status}${code}`);
   }
   return (await response.json()) as T;
 }
@@ -113,6 +138,11 @@ function postRequest<T>(path: string, payload: unknown): Promise<T> {
   });
 }
 
+async function deleteRequest(path: string): Promise<void> {
+  const response = await fetch(path, { method: "DELETE", headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error(`Studio API request failed with status ${response.status}`);
+}
+
 export function createStudioTransport(): StudioTransport {
   const bridge = window.aijian;
   if (bridge) {
@@ -128,6 +158,10 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleIndex: (projectId) => bridge.getStoryBibleIndex(projectId),
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
+      listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      listProviderConnections: () => bridge.listProviderConnections(),
+      createProviderConnection: (input) => bridge.createProviderConnection(input),
+      deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
     };
   }
   return {
@@ -155,5 +189,13 @@ export function createStudioTransport(): StudioTransport {
       getRequest<StoryBibleVersionResponse>(
         `/api/v1/projects/${projectId}/story-bible/versions/${versionId}`,
       ),
+    listProjectTasks: (projectId) =>
+      getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    listProviderConnections: () =>
+      getRequest<ProviderConnectionListResponse>("/api/v1/provider-connections"),
+    createProviderConnection: (input) =>
+      postRequest<ProviderConnectionResponse>("/api/v1/provider-connections", input),
+    deleteProviderConnection: (connectionId) =>
+      deleteRequest(`/api/v1/provider-connections/${connectionId}`),
   };
 }

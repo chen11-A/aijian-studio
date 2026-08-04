@@ -7,6 +7,7 @@ import {
   type SourceManifestResponse,
   type StoryBibleIndexResponse,
   type StoryBibleVersionResponse,
+  type TaskQueueResponse,
 } from "./studio";
 
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
@@ -109,6 +110,15 @@ const storyBibleIndex = {
   },
   request_id: requestId,
 } satisfies StoryBibleIndexResponse;
+const taskQueue = {
+  data: {
+    project_id: project.id,
+    summary: { total: 0, attention: 0, active: 0, completed: 0 },
+    tasks: [],
+  },
+  request_id: requestId,
+} satisfies TaskQueueResponse;
+const providerConnections = { data: [], request_id: requestId };
 
 afterEach(() => {
   delete window.aijian;
@@ -128,6 +138,10 @@ describe("studio transport", () => {
       getSourceManifest: vi.fn().mockResolvedValue(sourceManifest),
       getStoryBibleIndex: vi.fn().mockResolvedValue(storyBibleIndex),
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
+      listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
+      listProviderConnections: vi.fn().mockResolvedValue(providerConnections),
+      createProviderConnection: vi.fn().mockResolvedValue({}),
+      deleteProviderConnection: vi.fn().mockResolvedValue(undefined),
     };
     window.aijian = bridge;
     const transport = createStudioTransport();
@@ -151,6 +165,16 @@ describe("studio transport", () => {
     await transport.getSourceManifest(project.id);
     await transport.getStoryBibleIndex(project.id);
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
+    await transport.listProjectTasks(project.id);
+    await transport.listProviderConnections();
+    await transport.createProviderConnection({
+      provider_kind: "OLLAMA",
+      display_name: "本机 Ollama",
+      base_url: "http://127.0.0.1:11434/v1",
+      enabled: true,
+      models: [],
+    });
+    await transport.deleteProviderConnection(`pcn_${"1".repeat(32)}`);
 
     expect(bridge.health).toHaveBeenCalledOnce();
     expect(bridge.listProjects).toHaveBeenCalledOnce();
@@ -164,6 +188,56 @@ describe("studio transport", () => {
     expect(bridge.getStoryBibleVersion).toHaveBeenCalledWith(
       project.id,
       storyBibleVersion.data.version.id,
+    );
+    expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
+    expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
+    expect(bridge.createProviderConnection).toHaveBeenCalledOnce();
+    expect(bridge.deleteProviderConnection).toHaveBeenCalledOnce();
+  });
+
+  test("reads the project task queue from the versioned browser route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(taskQueue));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.listProjectTasks(project.id)).resolves.toEqual(taskQueue);
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  test("uses versioned provider connection routes in a browser", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(providerConnections))
+      .mockResolvedValueOnce(Response.json({}, { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+    const input = {
+      provider_kind: "OLLAMA" as const,
+      display_name: "本机 Ollama",
+      base_url: "http://127.0.0.1:11434/v1",
+      enabled: true,
+      models: [],
+    };
+
+    await expect(transport.listProviderConnections()).resolves.toEqual(providerConnections);
+    await transport.createProviderConnection(input);
+    await transport.deleteProviderConnection(`pcn_${"1".repeat(32)}`);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/provider-connections", {
+      headers: { Accept: "application/json" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/v1/provider-connections",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `/api/v1/provider-connections/pcn_${"1".repeat(32)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
     );
   });
 
@@ -264,6 +338,30 @@ describe("studio transport", () => {
 
     await expect(transport.getHealth()).rejects.toThrow("status 503");
     await expect(transport.getHealth()).rejects.toThrow("published contract");
+  });
+
+  test("preserves a typed credential-cleanup error for provider recovery UI", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              code: "CREDENTIAL_CLEANUP_REQUIRED",
+              message: "cleanup required",
+              details: {},
+              retryable: false,
+            },
+            request_id: requestId,
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    await expect(createStudioTransport().listProviderConnections()).rejects.toThrow(
+      "CREDENTIAL_CLEANUP_REQUIRED",
+    );
   });
 
   test("reads optional G1 and G2 artifacts from versioned browser routes", async () => {

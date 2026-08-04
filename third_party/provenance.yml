@@ -1,15 +1,41 @@
 version: 1
 
 # Research-only repositories are documented under docs/research and are not
-# listed here. Add an entry only when code, assets, fonts, models, binaries, or
-# bundled datasets enter the distributable product.
-components: []
+# listed here. Runtime dependencies and evidence-producing development tools
+# are recorded; development-only tools are explicitly marked as not distributed.
+components:
+  - name: keyring
+    source_url: https://pypi.org/project/keyring/
+    commit_or_version: 25.7.0
+    paths_imported: Python runtime dependency via uv.lock
+    purpose: Store write-only provider API keys in the operating-system credential vault
+    alternatives_considered: Platform-specific Windows Credential Manager and macOS Keychain adapters
+    spdx_license: MIT
+    license_file: keyring distribution metadata LICENSE
+    notice_required: false
+    modifications: none
+    reviewed_by: Codex
+    reviewed_at: 2026-08-04
+  - name: playwright-core
+    source_url: https://github.com/microsoft/playwright
+    commit_or_version: 1.62.1
+    paths_imported: Development-only Electron and Edge Chromium evidence dependency via pnpm-lock.yaml
+    purpose: Run real Electron IPC and responsive Chromium evidence checks
+    alternatives_considered: WebdriverIO and separate full Playwright package
+    spdx_license: Apache-2.0
+    license_file: playwright-core package LICENSE
+    notice_required: false
+    modifications: none; development-only and not distributed
+    reviewed_by: Codex
+    reviewed_at: 2026-08-04
 
 # Required fields for each future component:
 # - name
 # - source_url
 # - commit_or_version
 # - paths_imported
+# - purpose
+# - alternatives_considered
 # - spdx_license
 # - license_file
 # - notice_required

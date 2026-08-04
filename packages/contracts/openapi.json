@@ -966,6 +966,70 @@
         "title": "CreateProjectRequest",
         "type": "object"
       },
+      "CreateProviderConnectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 8192,
+                "minLength": 8,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Base Url",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderModelData"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Models",
+            "type": "array"
+          },
+          "provider_kind": {
+            "enum": [
+              "OPENAI",
+              "XAI",
+              "OPENAI_COMPATIBLE",
+              "OLLAMA"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_kind",
+          "display_name",
+          "base_url",
+          "models"
+        ],
+        "title": "CreateProviderConnectionRequest",
+        "type": "object"
+      },
       "CreateStoryBibleVersionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3237,6 +3301,158 @@
         "title": "PropFactV1",
         "type": "object"
       },
+      "ProviderConnectionData": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "credential_status": {
+            "enum": [
+              "CONFIGURED",
+              "MISSING",
+              "UNAVAILABLE"
+            ],
+            "title": "Credential Status",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^pcn_[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderModelData"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "provider_kind": {
+            "enum": [
+              "OPENAI",
+              "XAI",
+              "OPENAI_COMPATIBLE",
+              "OLLAMA"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_kind",
+          "display_name",
+          "base_url",
+          "enabled",
+          "models",
+          "credential_status",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderConnectionData",
+        "type": "object"
+      },
+      "ProviderConnectionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderConnectionData"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ProviderConnectionListResponse",
+        "type": "object"
+      },
+      "ProviderConnectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProviderConnectionData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ProviderConnectionResponse",
+        "type": "object"
+      },
+      "ProviderModelData": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "enum": [
+                "TEXT",
+                "IMAGE",
+                "VIDEO",
+                "SPEECH"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "model_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$",
+            "title": "Model Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id",
+          "capabilities"
+        ],
+        "title": "ProviderModelData",
+        "type": "object"
+      },
       "RelationshipFactDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -5290,6 +5506,559 @@
         "title": "StorySourceSpanDraftV1",
         "type": "object"
       },
+      "TaskAttemptData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "execution_mode": {
+            "enum": [
+              "local",
+              "remote"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "number": {
+            "minimum": 1.0,
+            "title": "Number",
+            "type": "integer"
+          },
+          "output_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Version Id"
+          },
+          "provider_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Job Id"
+          },
+          "provider_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Model"
+          },
+          "retry_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SAFE_LOCAL_RETRY",
+                  "PROVIDER_CONFIRMED_NOT_ACCEPTED",
+                  "NON_RETRYABLE",
+                  "REMOTE_UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Disposition"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "LEASED",
+              "RUNNING",
+              "SUBMIT_INTENT",
+              "SUBMITTING",
+              "WAITING_REMOTE",
+              "REMOTE_UNKNOWN",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "NOT_SUBMITTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "number",
+          "execution_mode",
+          "status",
+          "provider_model",
+          "provider_job_id",
+          "retry_disposition",
+          "error_code",
+          "started_at",
+          "finished_at",
+          "updated_at"
+        ],
+        "title": "TaskAttemptData",
+        "type": "object"
+      },
+      "TaskCostData": {
+        "additionalProperties": false,
+        "properties": {
+          "accrued": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accrued"
+          },
+          "billed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billed"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Limit"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "reserved": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserved"
+          },
+          "retry_increment_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Increment Limit"
+          },
+          "status": {
+            "const": "NOT_RECORDED",
+            "default": "NOT_RECORDED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "TaskCostData",
+        "type": "object"
+      },
+      "TaskLedgerData": {
+        "additionalProperties": false,
+        "properties": {
+          "available_at": {
+            "format": "date-time",
+            "title": "Available At",
+            "type": "string"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat At"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expires At"
+          },
+          "lease_generation": {
+            "minimum": 0.0,
+            "title": "Lease Generation",
+            "type": "integer"
+          },
+          "priority": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "LEASED",
+              "COMPLETED",
+              "CANCELLED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "pattern": "^task_[0-9a-f]{32}$",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "kind",
+          "status",
+          "priority",
+          "available_at",
+          "lease_generation",
+          "lease_expires_at",
+          "heartbeat_at",
+          "updated_at"
+        ],
+        "title": "TaskLedgerData",
+        "type": "object"
+      },
+      "TaskNodeData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_count": {
+            "minimum": 0.0,
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "input_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "input_version_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Input Version Ids",
+            "type": "array"
+          },
+          "max_attempts": {
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "node_key": {
+            "title": "Node Key",
+            "type": "string"
+          },
+          "node_run_id": {
+            "pattern": "^node_[0-9a-f]{32}$",
+            "title": "Node Run Id",
+            "type": "string"
+          },
+          "node_type": {
+            "title": "Node Type",
+            "type": "string"
+          },
+          "output_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Version Id"
+          },
+          "responsible_role": {
+            "title": "Responsible Role",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "BLOCKED",
+              "PENDING",
+              "RUNNING",
+              "RECONCILIATION_REQUIRED",
+              "NEEDS_REVIEW",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "SUPERSEDED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upstream_gate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Gate"
+          },
+          "workflow_run_id": {
+            "pattern": "^wfr_[0-9a-f]{32}$",
+            "title": "Workflow Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_run_id",
+          "node_run_id",
+          "node_key",
+          "node_type",
+          "status",
+          "responsible_role",
+          "upstream_gate",
+          "input_hash",
+          "input_version_ids",
+          "attempt_count",
+          "max_attempts",
+          "updated_at"
+        ],
+        "title": "TaskNodeData",
+        "type": "object"
+      },
+      "TaskPresentationData": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "const": "VIEW_DETAILS",
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "next_action_label": {
+            "title": "Next Action Label",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status_label",
+          "next_action_label",
+          "allowed_actions"
+        ],
+        "title": "TaskPresentationData",
+        "type": "object"
+      },
+      "TaskQueueData": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/TaskQueueSummaryData"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskQueueItemData"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "summary",
+          "tasks"
+        ],
+        "title": "TaskQueueData",
+        "type": "object"
+      },
+      "TaskQueueItemData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/TaskAttemptData"
+          },
+          "cost": {
+            "$ref": "#/components/schemas/TaskCostData"
+          },
+          "node": {
+            "$ref": "#/components/schemas/TaskNodeData"
+          },
+          "presentation": {
+            "$ref": "#/components/schemas/TaskPresentationData"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskLedgerData"
+          }
+        },
+        "required": [
+          "node",
+          "attempt",
+          "task",
+          "cost",
+          "presentation"
+        ],
+        "title": "TaskQueueItemData",
+        "type": "object"
+      },
+      "TaskQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TaskQueueData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "TaskQueueResponse",
+        "type": "object"
+      },
+      "TaskQueueSummaryData": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "minimum": 0.0,
+            "title": "Active",
+            "type": "integer"
+          },
+          "attention": {
+            "minimum": 0.0,
+            "title": "Attention",
+            "type": "integer"
+          },
+          "completed": {
+            "minimum": 0.0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "attention",
+          "active",
+          "completed"
+        ],
+        "title": "TaskQueueSummaryData",
+        "type": "object"
+      },
       "TemporalRelationDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -6510,6 +7279,302 @@
           }
         },
         "summary": "Get Story Bible Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/tasks": {
+      "get": {
+        "operationId": "listProjectTasks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "List Project Tasks"
+      }
+    },
+    "/api/v1/provider-connections": {
+      "get": {
+        "operationId": "listProviderConnections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConnectionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Provider connection conflicts"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operating-system credential vault unavailable"
+          }
+        },
+        "summary": "List Provider Connections"
+      },
+      "post": {
+        "operationId": "createProviderConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProviderConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Provider connection conflicts"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operating-system credential vault unavailable"
+          }
+        },
+        "summary": "Create Provider Connection"
+      }
+    },
+    "/api/v1/provider-connections/{connection_id}": {
+      "delete": {
+        "operationId": "deleteProviderConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "pattern": "^pcn_[0-9a-f]{32}$",
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Provider not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Provider connection conflicts"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operating-system credential vault unavailable"
+          }
+        },
+        "summary": "Delete Provider Connection"
       }
     }
   }

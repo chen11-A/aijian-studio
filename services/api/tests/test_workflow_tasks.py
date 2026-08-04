@@ -302,6 +302,32 @@ def test_remote_recovery_distinguishes_idempotency_from_lookup() -> None:
     )
 
 
+def test_remote_recovery_requires_persisted_identity_before_resuming_submission() -> None:
+    submitting = attempt(
+        mode="remote",
+        state="SUBMITTING",
+        dispatch_started_at=NOW,
+        capabilities=ProviderCapabilities(True, True),
+    )
+
+    assert recovery_action_for_attempt(replace(submitting, provider_idempotency_key=None)) == (
+        "QUERY_PROVIDER"
+    )
+    assert recovery_action_for_attempt(replace(submitting, provider_account_id="")) == (
+        "QUERY_PROVIDER"
+    )
+    assert (
+        recovery_action_for_attempt(
+            replace(
+                submitting,
+                provider_idempotency_key=None,
+                provider_capabilities=ProviderCapabilities(True, False),
+            )
+        )
+        == "QUARANTINE_REMOTE_UNKNOWN"
+    )
+
+
 def test_remote_attempt_cannot_skip_submission_boundary() -> None:
     running = transition_attempt(
         transition_attempt(attempt(mode="remote"), "LEASED", now=NOW),

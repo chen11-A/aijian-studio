@@ -318,7 +318,16 @@ def recovery_action_for_attempt(attempt: TaskAttempt) -> RecoveryAction:
     if attempt.execution_mode != "remote" or attempt.state != "SUBMITTING":
         return "NONE"
     capabilities = attempt.provider_capabilities
-    if capabilities and capabilities.supports_idempotency_key:
+    has_persisted_idempotency_identity = bool(
+        capabilities
+        and capabilities.supports_idempotency_key
+        and attempt.provider_account_id
+        and attempt.provider_account_id.strip()
+        and attempt.provider_idempotency_key
+        and attempt.provider_idempotency_key.strip()
+        and _SHA256_PATTERN.fullmatch(attempt.request_fingerprint)
+    )
+    if has_persisted_idempotency_identity:
         return "RESUME_SAME_ATTEMPT"
     if capabilities and capabilities.supports_lookup_by_client_request_id:
         return "QUERY_PROVIDER"

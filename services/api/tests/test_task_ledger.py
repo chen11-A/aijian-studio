@@ -35,6 +35,7 @@ def enqueue(
     node_key: str = "render.preview",
     priority: int = 50,
     available_at: datetime = NOW,
+    node_input_hash: str = HASH_A,
 ):
     return ledger.enqueue_local_node(
         project_id=project_id,
@@ -47,7 +48,7 @@ def enqueue(
         node_type=node_key,
         contract_version=1,
         input_bindings={"source": "ver_source_1"},
-        node_input_hash=HASH_A,
+        node_input_hash=node_input_hash,
         request_fingerprint=HASH_B,
         idempotency_key=f"golden-short:{node_key}:{HASH_A}",
         max_attempts=2,
@@ -117,6 +118,37 @@ def test_two_connections_can_claim_a_task_only_once(tmp_path: Path) -> None:
         assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
 
 
+def test_enqueue_is_idempotent_across_two_independent_connections(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    barrier = Barrier(2)
+
+    def submit(_worker_id: str):
+        ledger = LocalTaskLedger(database, clock=lambda: NOW)
+        barrier.wait()
+        return enqueue(ledger, project_id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        queued = list(pool.map(submit, ["caller-a", "caller-b"]))
+
+    assert queued[0] == queued[1]
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM workflow_runs").fetchone() == (1,)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_node_runs").fetchone() == (1,)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
+        assert connection.execute("SELECT COUNT(*) FROM task_ledger").fetchone() == (1,)
+
+
+def test_enqueue_rejects_idempotency_key_reuse_for_different_input(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(ledger, project_id)
+
+    with pytest.raises(ValueError, match="idempotency key"):
+        enqueue(ledger, project_id, node_input_hash=HASH_B)
+
+
 def test_claim_orders_ready_tasks_by_priority_and_availability(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
     project_id = create_project(database)
@@ -138,6 +170,21 @@ def test_claim_orders_ready_tasks_by_priority_and_availability(tmp_path: Path) -
 
     assert claimed is not None
     assert claimed.task_id == high.task_id
+
+
+def test_same_second_fractional_availability_is_not_claimed_early(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(
+        ledger,
+        project_id,
+        available_at=NOW + timedelta(microseconds=500_000),
+    )
+
+    assert (
+        ledger.claim_ready_task(worker_id="worker-a", lease_duration=timedelta(seconds=30)) is None
+    )
 
 
 def test_heartbeat_and_worker_start_require_current_fencing_values(tmp_path: Path) -> None:
@@ -279,6 +326,8 @@ def test_ledger_validates_claim_and_enqueue_boundaries(tmp_path: Path) -> None:
         )
     with pytest.raises(ValueError, match="timezone"):
         timestamp(datetime(2026, 8, 4, 9, 30))
+
+    assert timestamp(NOW) == "2026-08-04T09:30:00.000000Z"
 
     assert utc_now().tzinfo is not None
     assert new_id("task").startswith("task_")

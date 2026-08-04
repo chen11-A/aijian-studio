@@ -240,3 +240,50 @@ MIGRATION_4 = (
     END
     """,
 )
+
+
+MIGRATION_5 = (
+    """
+    CREATE TABLE workflow_enqueue_keys (
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) > 0),
+        workflow_run_id TEXT NOT NULL REFERENCES workflow_runs(workflow_run_id)
+            ON DELETE CASCADE,
+        node_run_id TEXT NOT NULL REFERENCES workflow_node_runs(node_run_id)
+            ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (project_id, idempotency_key),
+        UNIQUE (workflow_run_id),
+        UNIQUE (node_run_id)
+    )
+    """,
+    """
+    INSERT INTO workflow_enqueue_keys (
+        project_id, idempotency_key, workflow_run_id, node_run_id, created_at
+    )
+    SELECT run.project_id, node.idempotency_key, run.workflow_run_id,
+           node.node_run_id, node.created_at
+    FROM workflow_node_runs AS node
+    JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id
+    """,
+    """
+    CREATE TRIGGER workflow_enqueue_keys_immutable_update
+    BEFORE UPDATE ON workflow_enqueue_keys
+    BEGIN
+        SELECT RAISE(ABORT, 'workflow enqueue keys are immutable');
+    END
+    """,
+)
+
+
+MIGRATION_6 = (
+    """
+    ALTER TABLE artifact_versions
+    ADD COLUMN producer_attempt_id TEXT REFERENCES workflow_attempts(attempt_id)
+    """,
+    """
+    CREATE UNIQUE INDEX artifact_version_one_output_per_attempt
+    ON artifact_versions(producer_attempt_id)
+    WHERE producer_attempt_id IS NOT NULL
+    """,
+)

@@ -74,7 +74,7 @@ REMOTE_UNKNOWN / SUCCEEDED / FAILED / CANCEL_REQUESTED / CANCELLED / NOT_SUBMITT
 
 ## 当前实现证据
 
-- Schema v4 已建立 WorkflowDefinition/Run、NodeRun、Attempt、TaskLedger、transition event 与 remote reconciliation 表；每一步迁移都通过故障注入回滚/重试测试。
+- Schema v4 已建立 WorkflowDefinition/Run、NodeRun、Attempt、TaskLedger、transition event 与 remote reconciliation 表；Schema v5 增加项目级 `workflow_enqueue_keys`，同一幂等请求并发入队只返回一个 Run/Node，复用 key 但改变输入则拒绝。每一步迁移都通过故障注入回滚/重试测试。
 - 两个独立 SQLite 连接并发领取同一任务时，只有一个 `BEGIN IMMEDIATE + UPDATE RETURNING` 事务成功。
 - 心跳和启动提交校验 owner/token/generation/revision；旧 worker 与过期 lease 均被拒绝。
 - 过期本地任务保留失败 Attempt，再创建新 Attempt/Task；尝试耗尽时 Node 明确失败。活跃租约和远程租约不会被本地恢复器重排。

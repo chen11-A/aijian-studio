@@ -11,7 +11,7 @@
 
 建立自有、持久化、版本化的 DAG 状态机。节点通过输入/输出 Schema、确切 Artifact 版本、幂等键、重试类、预算预留和 Gate 执行。Agent 是一种 Node Executor，只能提交 ArtifactProposal；Schema/业务验证成功后先形成不可变 `ArtifactVersion(status=DRAFT)`。Gate 和批注引用确切 `version_id`；审批通过只追加 `ApprovalDecision` 并推进 `ArtifactHead.accepted_version_id`，不改版本内容。退回后的修订形成新版本。
 
-远程提交先在事务内写 `SUBMIT_INTENT`、唯一请求指纹、本地幂等键、供应商能力快照和预算预留；网络发送前再持久化 `SUBMITTING/dispatch_started_at`。支持幂等键时只能恢复同一 Attempt 和同一 key；仅支持按客户端请求 ID 查询时必须先查询，只有供应商权威确认未受理后才允许创建下一 Attempt。查询超时、账户或区域不一致、查无明确结论以及无查询能力时，Attempt 进入 `REMOTE_UNKNOWN`、Node 进入 `RECONCILIATION_REQUIRED`，禁止自动重提。
+远程提交先在事务内写 `SUBMIT_INTENT`、唯一请求指纹、本地幂等键、供应商能力快照和预算预留；网络发送前再持久化 `SUBMITTING/dispatch_started_at`。只有供应商账户、非空幂等键、请求指纹和能力快照均已持久化时，才可恢复同一 Attempt 和同一 key；仅支持按客户端请求 ID 查询时必须先查询，只有供应商权威确认未受理后才允许创建下一 Attempt。查询超时、账户或区域不一致、查无明确结论以及无查询能力时，Attempt 进入 `REMOTE_UNKNOWN`、Node 进入 `RECONCILIATION_REQUIRED`，禁止自动重提。
 
 产品状态保存在核心数据库，队列只负责唤醒。桌面使用 SQLite Ledger/LocalExecutor，服务器可使用 Redis/Celery 或后续适配器。LangGraph/Temporal/Prefect/Dagster 可用于实验或执行适配，但不能成为项目文件的唯一可解释状态。
 

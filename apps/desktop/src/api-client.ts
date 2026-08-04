@@ -1,8 +1,35 @@
 import type { components } from "@aijian/contracts";
 
+import {
+  hasControlCharacter,
+  hasOnlyKeys,
+  hasRequestId,
+  isIdArray,
+  isNullableId,
+  isRecord,
+  isStringArray,
+} from "./api-contract-guards";
+import { isHealthResponse, type HealthResponse } from "./health-contract";
+import {
+  isCreateProviderConnectionInput,
+  isProviderConnectionId,
+  isProviderConnectionListResponse,
+  isProviderConnectionResponse,
+  type CreateProviderConnectionInput,
+  type ProviderConnectionListResponse,
+  type ProviderConnectionResponse,
+} from "./provider-connection-contract";
 import type { SidecarSession } from "./sidecar-protocol";
+import { canonicalLoopbackOrigin } from "./sidecar-origin";
+import { isTaskQueueResponse, type TaskQueueResponse } from "./task-queue-contract";
 
-type HealthResponse = components["schemas"]["HealthResponse"];
+export type {
+  CreateProviderConnectionInput,
+  ProviderConnectionListResponse,
+  ProviderConnectionResponse,
+} from "./provider-connection-contract";
+export type { TaskQueueResponse } from "./task-queue-contract";
+
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 export type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
 export type ProjectListResponse = components["schemas"]["ProjectListResponse"];
@@ -29,9 +56,14 @@ export interface LocalApiClient {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProviderConnections(): Promise<ProviderConnectionListResponse>;
+  createProviderConnection(
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse>;
+  deleteProviderConnection(connectionId: string): Promise<void>;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
 const SOURCE_ID_PATTERN = /^src_[0-9a-f]{32}$/;
 const SOURCE_BLOCK_ID_PATTERN = /^srcb_[0-9a-f]{32}$/;
@@ -48,75 +80,6 @@ const CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const MAX_SOURCE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 const MAX_LOCAL_API_JSON_BYTES = 16 * 1024 * 1024;
-
-function canonicalLoopbackOrigin(baseUrl: string): string {
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    throw new Error("Local API URL must be a canonical loopback origin");
-  }
-
-  const isCanonical =
-    url.protocol === "http:" &&
-    url.hostname === "127.0.0.1" &&
-    url.port !== "" &&
-    url.username === "" &&
-    url.password === "" &&
-    url.pathname === "/" &&
-    url.search === "" &&
-    url.hash === "";
-  if (!isCanonical || url.origin !== baseUrl) {
-    throw new Error("Local API URL must be a canonical loopback origin");
-  }
-  return url.origin;
-}
-
-function isHealthResponse(value: unknown): value is HealthResponse {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  if (
-    !hasOnlyKeys(candidate, ["data", "request_id"]) ||
-    typeof candidate.request_id !== "string" ||
-    !UUID_PATTERN.test(candidate.request_id)
-  ) {
-    return false;
-  }
-  if (typeof candidate.data !== "object" || candidate.data === null) return false;
-  const data = candidate.data as Record<string, unknown>;
-  return (
-    hasOnlyKeys(data, ["status", "service", "version"]) &&
-    data.status === "ok" &&
-    data.service === "aijian-api" &&
-    typeof data.version === "string"
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: readonly string[]): boolean {
-  const allowed = new Set(allowedKeys);
-  return Object.keys(value).every((key) => allowed.has(key));
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
-
-function isIdArray(value: unknown, pattern: RegExp): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string" && pattern.test(item))
-  );
-}
-
-function hasControlCharacter(value: string): boolean {
-  return [...value].some((character) => {
-    const code = character.codePointAt(0) ?? 0;
-    return code < 32 || code === 127;
-  });
-}
 
 function isProject(value: unknown): boolean {
   if (!isRecord(value)) return false;
@@ -143,10 +106,6 @@ function isProject(value: unknown): boolean {
     typeof value.created_at === "string" &&
     typeof value.updated_at === "string"
   );
-}
-
-function hasRequestId(value: Record<string, unknown>): boolean {
-  return typeof value.request_id === "string" && UUID_PATTERN.test(value.request_id);
 }
 
 function isErrorResponse(value: unknown): value is {
@@ -294,10 +253,6 @@ function isSourceDocumentResponse(
     data.block_count === data.blocks.length &&
     data.blocks.every(isSourceBlock)
   );
-}
-
-function isNullableId(value: unknown, pattern: RegExp): boolean {
-  return value === null || (typeof value === "string" && pattern.test(value));
 }
 
 function isArtifactHead(value: unknown): value is Record<string, unknown> {
@@ -1096,7 +1051,14 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
   ): Promise<T> {
     const response = await fetcher(`${origin}${path}`, init);
     if (!response.ok) {
-      throw new Error(`Local API request failed with status ${response.status}`);
+      let errorPayload: unknown;
+      try {
+        errorPayload = await readJsonWithLimit(response);
+      } catch {
+        throw new Error(`Local API request failed with status ${response.status}`);
+      }
+      const code = isErrorResponse(errorPayload) ? ` (${errorPayload.error.code})` : "";
+      throw new Error(`Local API request failed with status ${response.status}${code}`);
     }
     const payload = await readJsonWithLimit(response);
     if (!validator(payload)) {
@@ -1256,6 +1218,49 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
           isStoryBibleVersionResponse(payload, projectId, versionId),
         { headers },
       );
+    },
+    async listProjectTasks(projectId: string): Promise<TaskQueueResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/tasks`,
+        (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
+        { headers },
+      );
+    },
+    listProviderConnections: () =>
+      requestJson("/api/v1/provider-connections", isProviderConnectionListResponse, { headers }),
+    async createProviderConnection(
+      input: CreateProviderConnectionInput,
+    ): Promise<ProviderConnectionResponse> {
+      if (!isCreateProviderConnectionInput(input)) {
+        throw new Error("Local API client requires valid provider connection input");
+      }
+      return requestJson(
+        "/api/v1/provider-connections",
+        isProviderConnectionResponse,
+        postInit(input),
+      );
+    },
+    async deleteProviderConnection(connectionId: string): Promise<void> {
+      if (!isProviderConnectionId(connectionId)) {
+        throw new Error("Local API client requires a valid provider connection id");
+      }
+      const response = await fetcher(`${origin}/api/v1/provider-connections/${connectionId}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!response.ok) {
+        let code = "";
+        try {
+          const errorPayload = await readJsonWithLimit(response);
+          code = isErrorResponse(errorPayload) ? ` (${errorPayload.error.code})` : "";
+        } catch {
+          // The stable HTTP status remains useful if an intermediary replaced the error body.
+        }
+        throw new Error(`Local API request failed with status ${response.status}${code}`);
+      }
     },
   };
 }

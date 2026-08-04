@@ -75,6 +75,8 @@ flowchart TB
 - SQLite 开启 WAL；素材按 SHA-256 存在项目库，数据库只存元数据和引用。
 - 长任务由本地任务表和子进程执行器恢复；关闭窗口进入托盘，main/sidecar/worker 继续。选择“退出应用”时停止领取新任务、等待安全检查点后结束本地子进程；已提交的远程任务不自动取消，下次启动继续轮询。异常退出由租约恢复，禁止留下不可管理的孤儿进程。
 - 所有外部模型请求仍走 Provider Gateway，密钥存 Windows Credential Manager。
+- “模型与 API”界面只登记连接元数据和 write-only 密钥；Renderer 通过最小 IPC 调用 main，main 再访问本地 API。项目和任务只保存 `connection_id/model_id`，不复制密钥。
+- 当前 `provider_connections` 是个人桌面专用表；工作室服务器实现必须迁移为带 `workspace_id`、RBAC 和不可变审计事件的独立资源，不能把本地表直接暴露为多租户 API。
 
 这解决个人创作者的安装和离线编辑问题。其他电脑不能访问这个随机端口，也不应该访问。
 
@@ -151,6 +153,9 @@ API 使用 `/api/v1`，资源命名复数，长任务一律异步：
 ```http
 POST /api/v1/projects
 POST /api/v1/projects/{project_id}/sources:ingest
+GET  /api/v1/provider-connections
+POST /api/v1/provider-connections
+DELETE /api/v1/provider-connections/{connection_id}
 POST /api/v1/projects/{project_id}/workflows
 GET  /api/v1/workflow-runs/{run_id}
 POST /api/v1/node-runs/{node_run_id}:approve

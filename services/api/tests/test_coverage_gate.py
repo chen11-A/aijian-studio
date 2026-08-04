@@ -1,7 +1,13 @@
 import json
 from pathlib import Path
 
-from scripts.check_python_coverage import coverage_percentages, main
+from scripts.check_python_coverage import (
+    CRITICAL_FULL_COVERAGE_MODULES,
+    coverage_percentages,
+    main,
+)
+
+CRITICAL_MODULES = CRITICAL_FULL_COVERAGE_MODULES
 
 
 def write_report(
@@ -11,16 +17,26 @@ def write_report(
     missing_lines: int = 5,
     branches: int = 100,
     covered_branches: int = 84,
+    branch_coverage: bool = True,
+    critical_covered: bool = True,
 ) -> None:
+    critical_summary = {
+        "num_statements": 10,
+        "missing_lines": 0 if critical_covered else 1,
+        "num_branches": 4,
+        "covered_branches": 4,
+    }
     path.write_text(
         json.dumps(
             {
+                "meta": {"branch_coverage": branch_coverage},
                 "totals": {
                     "num_statements": statements,
                     "missing_lines": missing_lines,
                     "num_branches": branches,
                     "covered_branches": covered_branches,
-                }
+                },
+                "files": {module: {"summary": critical_summary} for module in CRITICAL_MODULES},
             }
         ),
         encoding="utf-8",
@@ -55,3 +71,25 @@ def test_coverage_gate_rejects_malformed_or_inconsistent_reports(tmp_path: Path)
     assert main([str(inconsistent)]) == 2
 
     assert main([]) == 2
+
+
+def test_coverage_gate_rejects_disabled_or_empty_branch_collection(tmp_path: Path) -> None:
+    disabled = tmp_path / "disabled.json"
+    write_report(disabled, branch_coverage=False)
+    assert main([str(disabled)]) == 2
+
+    empty = tmp_path / "empty.json"
+    write_report(empty, branches=0, covered_branches=0)
+    assert main([str(empty)]) == 2
+
+
+def test_coverage_gate_enforces_each_critical_ledger_module(tmp_path: Path) -> None:
+    report = tmp_path / "critical.json"
+    write_report(report, critical_covered=False)
+
+    assert main([str(report)]) == 1
+
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    del payload["files"][CRITICAL_MODULES[0]]
+    report.write_text(json.dumps(payload), encoding="utf-8")
+    assert main([str(report)]) == 1

@@ -2,6 +2,7 @@
 /downloads/
 /.cache/
 /.aijian-dev/
+/.playwright-cli/
 .venv/
 node_modules/
 dist/

@@ -4,7 +4,7 @@ import sqlite3
 from collections.abc import Callable
 from datetime import datetime
 
-from aijian_api.task_ledger_events import append_event
+from aijian_api.task_ledger_events import EventEntityKind, append_event
 from aijian_api.task_ledger_models import LeaseLostError, RecoverySummary, timestamp
 
 
@@ -16,6 +16,7 @@ def recover_expired_local_tasks(
 ) -> RecoverySummary:
     now_text = timestamp(clock())
     recovered = 0
+    succeeded = 0
     requeued = 0
     failed = 0
     connection = connection_factory()
@@ -26,7 +27,8 @@ def recover_expired_local_tasks(
             SELECT ledger.*, attempt.node_run_id, attempt.attempt_number,
                    attempt.status AS attempt_status, attempt.input_hash,
                    attempt.request_fingerprint, attempt.revision AS attempt_revision,
-                   node.status AS node_status, node.attempt_count, node.max_attempts,
+                   node.workflow_run_id, node.status AS node_status,
+                   node.attempt_count, node.max_attempts,
                    node.revision AS node_revision
             FROM task_ledger AS ledger
             JOIN workflow_attempts AS attempt ON attempt.attempt_id = ledger.attempt_id
@@ -40,6 +42,18 @@ def recover_expired_local_tasks(
             (now_text,),
         ).fetchall()
         for row in rows:
+            output_version_id = _committed_output(connection, row)
+            if output_version_id is not None:
+                _complete_committed_output(
+                    connection,
+                    row,
+                    output_version_id,
+                    now_text,
+                    id_factory,
+                )
+                recovered += 1
+                succeeded += 1
+                continue
             _finish_expired_attempt(connection, row, now_text, id_factory)
             recovered += 1
             if int(row["attempt_count"]) < int(row["max_attempts"]):
@@ -54,7 +68,110 @@ def recover_expired_local_tasks(
         raise
     finally:
         connection.close()
-    return RecoverySummary(recovered=recovered, requeued=requeued, failed=failed)
+    return RecoverySummary(
+        recovered=recovered,
+        succeeded=succeeded,
+        requeued=requeued,
+        failed=failed,
+    )
+
+
+def _committed_output(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
+    output = connection.execute(
+        """
+        SELECT version.version_id
+        FROM artifact_versions AS version
+        JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+        JOIN workflow_runs AS run ON run.workflow_run_id = ?
+        WHERE version.producer_attempt_id = ? AND artifact.project_id = run.project_id
+        """,
+        (str(row["workflow_run_id"]), str(row["attempt_id"])),
+    ).fetchone()
+    return None if output is None else str(output["version_id"])
+
+
+def _complete_committed_output(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+    output_version_id: str,
+    now_text: str,
+    id_factory: Callable[[str], str],
+) -> None:
+    task = connection.execute(
+        """
+        UPDATE task_ledger
+        SET status = 'COMPLETED', revision = revision + 1, updated_at = ?
+        WHERE task_id = ? AND status = 'LEASED' AND revision = ?
+          AND lease_generation = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            str(row["task_id"]),
+            int(row["revision"]),
+            int(row["lease_generation"]),
+        ),
+    ).fetchone()
+    attempt = connection.execute(
+        """
+        UPDATE workflow_attempts
+        SET status = 'SUCCEEDED', output_version_id = ?, finished_at = ?,
+            revision = revision + 1, updated_at = ?
+        WHERE attempt_id = ? AND status = ? AND revision = ?
+        RETURNING revision
+        """,
+        (
+            output_version_id,
+            now_text,
+            now_text,
+            str(row["attempt_id"]),
+            str(row["attempt_status"]),
+            int(row["attempt_revision"]),
+        ),
+    ).fetchone()
+    node = connection.execute(
+        """
+        UPDATE workflow_node_runs
+        SET status = 'SUCCEEDED', output_version_id = ?,
+            revision = revision + 1, updated_at = ?
+        WHERE node_run_id = ? AND status = 'RUNNING'
+          AND active_attempt_id = ? AND revision = ?
+        RETURNING revision
+        """,
+        (
+            output_version_id,
+            now_text,
+            str(row["node_run_id"]),
+            str(row["attempt_id"]),
+            int(row["node_revision"]),
+        ),
+    ).fetchone()
+    if task is None or attempt is None or node is None:
+        raise LeaseLostError("committed output changed during recovery")
+    generation = int(row["lease_generation"])
+    events: tuple[tuple[EventEntityKind, str, str, str], ...] = (
+        ("task", str(row["task_id"]), "LEASED", "COMPLETED"),
+        (
+            "attempt",
+            str(row["attempt_id"]),
+            str(row["attempt_status"]),
+            "SUCCEEDED",
+        ),
+        ("node", str(row["node_run_id"]), "RUNNING", "SUCCEEDED"),
+    )
+    for entity_kind, entity_id, from_status, to_status in events:
+        append_event(
+            connection,
+            id_factory,
+            entity_kind,
+            entity_id,
+            from_status,
+            to_status,
+            "output.receipt_recovered",
+            now_text,
+            actor_id="local-recovery",
+            lease_generation=generation,
+        )
 
 
 def _finish_expired_attempt(

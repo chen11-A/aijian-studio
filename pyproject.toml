@@ -5,6 +5,7 @@ description = "Aijian Studio local and server API"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.141.1,<0.142.0",
+  "keyring>=25.7.0,<26.0.0",
   "pydantic>=2.13.4,<3.0.0",
   "uvicorn[standard]>=0.52.1,<0.53.0",
 ]
@@ -31,7 +32,6 @@ branch = true
 source = ["aijian_api"]
 
 [tool.coverage.report]
-fail_under = 90
 show_missing = true
 
 [tool.ruff]

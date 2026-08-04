@@ -56,6 +56,12 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Verify evidence hashes
+        run: pnpm evidence:check
+
+      - name: Audit production JavaScript dependencies
+        run: pnpm audit --prod
+
       - name: Build
         run: pnpm build
 

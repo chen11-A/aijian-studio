@@ -104,6 +104,36 @@ def create_current_v3_database(path: Path) -> None:
     assert database_version(path) == 3
 
 
+def create_current_v4_database(path: Path) -> None:
+    def stop_before_v5(version: int, step: int) -> None:
+        if version == 5 and step == 0:
+            raise RuntimeError("stop before v5")
+
+    with pytest.raises(RuntimeError, match="stop before v5"):
+        StudioRepository(path, migration_hook=stop_before_v5)
+    assert database_version(path) == 4
+
+
+def create_current_v5_database(path: Path) -> None:
+    def stop_before_v6(version: int, step: int) -> None:
+        if version == 6 and step == 0:
+            raise RuntimeError("stop before v6")
+
+    with pytest.raises(RuntimeError, match="stop before v6"):
+        StudioRepository(path, migration_hook=stop_before_v6)
+    assert database_version(path) == 5
+
+
+def create_current_v6_database(path: Path) -> None:
+    def stop_before_v7(version: int, step: int) -> None:
+        if version == 7 and step == 0:
+            raise RuntimeError("stop before v7")
+
+    with pytest.raises(RuntimeError, match="stop before v7"):
+        StudioRepository(path, migration_hook=stop_before_v7)
+    assert database_version(path) == 6
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -116,8 +146,16 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-    assert SCHEMA_VERSION == 4
+        artifact_version_columns = {
+            str(row[1]) for row in connection.execute("PRAGMA table_info(artifact_versions)")
+        }
+        indexes = {
+            str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
+        }
+    assert SCHEMA_VERSION == 7
     assert database_version(database) == SCHEMA_VERSION
+    assert "producer_attempt_id" in artifact_version_columns
+    assert "artifact_version_one_output_per_attempt" in indexes
     assert {
         "projects",
         "source_documents",
@@ -143,6 +181,8 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "task_ledger",
         "workflow_transition_events",
         "remote_reconciliations",
+        "workflow_enqueue_keys",
+        "provider_connections",
     } <= tables
 
 
@@ -156,7 +196,7 @@ def test_v1_migration_preserves_projects_sources_and_blocks(tmp_path: Path) -> N
     source = repository.get_source("prj_existing", "src_existing")
     assert source.normalized_text == "第一段"
     assert [block.text for block in source.blocks] == ["第一段"]
-    assert database_version(database) == 4
+    assert database_version(database) == SCHEMA_VERSION
 
 
 def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
@@ -188,7 +228,7 @@ def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
         assert artifact_table is None
 
         StudioRepository(database)
-        assert database_version(database) == 4
+        assert database_version(database) == SCHEMA_VERSION
 
 
 def test_every_v3_ddl_failure_rolls_back_to_v2_and_can_retry(tmp_path: Path) -> None:
@@ -214,7 +254,7 @@ def test_every_v3_ddl_failure_rolls_back_to_v2_and_can_retry(tmp_path: Path) -> 
         assert database_version(database) == 2
 
         StudioRepository(database)
-        assert database_version(database) == 4
+        assert database_version(database) == SCHEMA_VERSION
 
 
 def test_every_v4_ddl_failure_rolls_back_to_v3_and_can_retry(tmp_path: Path) -> None:
@@ -240,7 +280,95 @@ def test_every_v4_ddl_failure_rolls_back_to_v3_and_can_retry(tmp_path: Path) -> 
         assert database_version(database) == 3
 
         StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v5_ddl_failure_rolls_back_to_v4_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v5.db"
+    create_current_v4_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 5 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v5-failure-{failed_step}.db"
+        create_current_v4_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 5 and step == target:
+                raise RuntimeError(f"injected v5 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v5 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
         assert database_version(database) == 4
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v6_ddl_failure_rolls_back_to_v5_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v6.db"
+    create_current_v5_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 6 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v6-failure-{failed_step}.db"
+        create_current_v5_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 6 and step == target:
+                raise RuntimeError(f"injected v6 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v6 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 5
+        with sqlite3.connect(database) as connection:
+            columns = {
+                str(row[1]) for row in connection.execute("PRAGMA table_info(artifact_versions)")
+            }
+        assert "producer_attempt_id" not in columns
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v7_ddl_failure_rolls_back_to_v6_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v7.db"
+    create_current_v6_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 7 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v7-failure-{failed_step}.db"
+        create_current_v6_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 7 and step == target:
+                raise RuntimeError(f"injected v7 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v7 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 6
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'provider_connections'"
+            ).fetchone()
+        assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
 
 
 def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:
@@ -310,7 +438,7 @@ def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:
         assert row["actor_id"] == "legacy-unbound"
         assert row["actor_roles_json"] == "[]"
         assert str(row["policy_snapshot_hash"]).startswith("sha256:")
-    assert database_version(database) == 4
+    assert database_version(database) == SCHEMA_VERSION
 
 
 def test_v3_migration_rejects_legacy_cross_artifact_review_links(tmp_path: Path) -> None:
@@ -492,7 +620,11 @@ def insert_artifact_version(
     )
     connection.execute(
         """
-        INSERT INTO artifact_versions VALUES (
+        INSERT INTO artifact_versions (
+            version_id, artifact_id, version_number, schema_version, content_json,
+            content_hash, author_actor_type, author_actor_id, parent_version_id,
+            change_summary, created_at
+        ) VALUES (
             ?, ?, 1, '1.0.0', '{}', ?, 'human', 'local-user', NULL,
             'initial', '2026-08-03T00:00:00Z'
         )

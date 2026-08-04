@@ -27,6 +27,10 @@ CHALLENGE_ID_PATTERN = r"^chg_[0-9a-f]{32}$"
 SUBMISSION_ID_PATTERN = r"^sub_[0-9a-f]{32}$"
 SIGNOFF_ID_PATTERN = r"^sig_[0-9a-f]{32}$"
 DECISION_ID_PATTERN = r"^dec_[0-9a-f]{32}$"
+WORKFLOW_RUN_ID_PATTERN = r"^wfr_[0-9a-f]{32}$"
+NODE_RUN_ID_PATTERN = r"^node_[0-9a-f]{32}$"
+ATTEMPT_ID_PATTERN = r"^att_[0-9a-f]{32}$"
+TASK_ID_PATTERN = r"^task_[0-9a-f]{32}$"
 
 
 class HealthData(BaseModel):
@@ -65,6 +69,141 @@ class ErrorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     error: ErrorBody
+    request_id: UUID
+
+
+class TaskNodeData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_run_id: str = Field(pattern=WORKFLOW_RUN_ID_PATTERN)
+    node_run_id: str = Field(pattern=NODE_RUN_ID_PATTERN)
+    node_key: str
+    node_type: str
+    status: Literal[
+        "BLOCKED",
+        "PENDING",
+        "RUNNING",
+        "RECONCILIATION_REQUIRED",
+        "NEEDS_REVIEW",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+        "SUPERSEDED",
+    ]
+    responsible_role: str
+    upstream_gate: str | None
+    input_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    input_version_ids: list[str]
+    output_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    attempt_count: int = Field(ge=0)
+    max_attempts: int = Field(ge=1)
+    updated_at: datetime
+
+
+class TaskAttemptData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attempt_id: str = Field(pattern=ATTEMPT_ID_PATTERN)
+    number: int = Field(ge=1)
+    execution_mode: Literal["local", "remote"]
+    status: Literal[
+        "READY",
+        "LEASED",
+        "RUNNING",
+        "SUBMIT_INTENT",
+        "SUBMITTING",
+        "WAITING_REMOTE",
+        "REMOTE_UNKNOWN",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+        "NOT_SUBMITTED",
+    ]
+    provider_model: str | None
+    provider_job_id: str | None
+    retry_disposition: (
+        Literal[
+            "SAFE_LOCAL_RETRY",
+            "PROVIDER_CONFIRMED_NOT_ACCEPTED",
+            "NON_RETRYABLE",
+            "REMOTE_UNKNOWN",
+        ]
+        | None
+    )
+    error_code: str | None
+    output_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    started_at: datetime | None
+    finished_at: datetime | None
+    updated_at: datetime
+
+
+class TaskLedgerData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str = Field(pattern=TASK_ID_PATTERN)
+    kind: str
+    status: Literal["READY", "LEASED", "COMPLETED", "CANCELLED"]
+    priority: int = Field(ge=0, le=100)
+    available_at: datetime
+    lease_generation: int = Field(ge=0)
+    lease_expires_at: datetime | None
+    heartbeat_at: datetime | None
+    updated_at: datetime
+
+
+class TaskCostData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["NOT_RECORDED"] = "NOT_RECORDED"
+    currency: str | None = None
+    reserved: str | None = None
+    accrued: str | None = None
+    billed: str | None = None
+    budget_limit: str | None = None
+    retry_increment_limit: str | None = None
+
+
+class TaskPresentationData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status_label: str
+    next_action_label: str
+    allowed_actions: list[Literal["VIEW_DETAILS"]]
+
+
+class TaskQueueItemData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node: TaskNodeData
+    attempt: TaskAttemptData
+    task: TaskLedgerData
+    cost: TaskCostData
+    presentation: TaskPresentationData
+
+
+class TaskQueueSummaryData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(ge=0)
+    attention: int = Field(ge=0)
+    active: int = Field(ge=0)
+    completed: int = Field(ge=0)
+
+
+class TaskQueueData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    summary: TaskQueueSummaryData
+    tasks: list[TaskQueueItemData]
+
+
+class TaskQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: TaskQueueData
     request_id: UUID
 
 

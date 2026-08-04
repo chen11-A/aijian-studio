@@ -39,6 +39,7 @@ class ClaimedTask:
 @dataclass(frozen=True, slots=True)
 class RecoverySummary:
     recovered: int
+    succeeded: int
     requeued: int
     failed: int
 
@@ -69,7 +70,7 @@ def lease_token() -> str:
 def timestamp(value: datetime) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("task ledger timestamps must include a timezone")
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def parse_datetime(value: str) -> datetime:

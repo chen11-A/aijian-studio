@@ -24,16 +24,20 @@
 - 日志、错误、遥测、导出包和截图自动脱敏。
 - Provider 子进程按任务获取短期解密值，结束后清除内存引用；不写临时 `.env`。
 
+Phase 0 已实现 Provider 创建/列表/删除的最小安全切片：SQLite 只保存连接与模型能力元数据，API Key 通过 write-only `SecretStr` 输入后写入 Python keyring 对接的操作系统凭据库。公开响应和 Electron Renderer 只看到 `CONFIGURED / MISSING / UNAVAILABLE`。凭据写入后的任何回读不一致都触发补偿删除；若补偿也失败，元数据不得回滚，以稳定连接 ID 保留可定位的恢复入口。连接测试与轮换尚未开放；完成 SSRF 和 Provider Gateway 约束前，不允许用通用 Base URL 发起探测请求。
+
 ## 网络与 SSRF
 
 - 内置供应商固定允许的 HTTPS Origin。
-- 自定义 OpenAI-compatible 地址需 Owner 明确启用，默认禁止环回、链路本地、云元数据和内网网段。
+- 自定义 OpenAI-compatible 登记只允许 HTTPS，并立即拒绝显式 localhost 和非公网 IP；域名的 DNS 结果必须在未来 Provider Gateway 真正出站前再次校验，禁止环回、链路本地、云元数据和内网网段。
 - “本地 ComfyUI”是单独连接类型，只允许桌面本机或管理员许可的私网地址。
 - 下载远程媒体限制协议、重定向次数、大小、MIME、超时和解压后体积。
-- 通用 OpenAI-compatible 首版只允许 HTTPS、零重定向和精确 Origin 绑定；拒绝 URL 内嵌凭据、云元数据、链路本地和 DNS 解析后落入禁用地址。私网 HTTP 必须使用单独的“受信任本地服务”流程并再次确认。
+- 通用 OpenAI-compatible 登记首版只允许 HTTPS，并拒绝 URL 内嵌凭据和显式非公网 IP。后续 Provider Gateway 请求必须零重定向、绑定登记 Origin，并拒绝 DNS 解析后落入云元数据、链路本地和内网地址。私网 HTTP 必须使用单独的“受信任本地服务”流程并再次确认。
 - 不让用户注入任意 Header、Shell 模板或可执行请求代码；不静默继承系统代理。
 
 ## 多租户和授权
+
+当前 Phase 0 Provider 表仅属于单用户桌面数据库，不满足本节的服务器多租户要求。服务器模式不得直接复用该表上线；必须先加入 `workspace_id`、Repository 强制作用域和 Provider 创建/删除/轮换审计事件。
 
 - 所有服务器资源包含 `workspace_id`，查询必须在 Repository 层强制作用域。
 - 对象存储 Key 含不可猜测 ID；下载使用短时签名 URL。

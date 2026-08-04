@@ -25,6 +25,18 @@ export default defineConfig({
         functions: 90,
         branches: 80,
         statements: 90,
+        "src/components/ProviderSettings/**/*.{ts,tsx}": {
+          lines: 90,
+          functions: 90,
+          branches: 80,
+          statements: 90,
+        },
+        "src/components/TaskQueue/**/*.{ts,tsx}": {
+          lines: 90,
+          functions: 90,
+          branches: 80,
+          statements: 90,
+        },
       },
     },
   },

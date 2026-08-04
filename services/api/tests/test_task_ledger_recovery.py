@@ -197,6 +197,55 @@ def test_recovery_rolls_back_if_attempt_changes_inside_transaction(tmp_path: Pat
         ).fetchone() == ("RUNNING",)
 
 
+def test_output_receipt_recovery_rolls_back_if_attempt_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    ledger, queued = setup_task(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-old",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    repository = StudioRepository(database, clock=lambda: clock[0])
+    project_id = repository.list_projects()[0].id
+    repository.create_artifact_version(
+        project_id=project_id,
+        artifact_type="fake_render",
+        schema_version="1.0.0",
+        content={"media_hash": HASH_B},
+        author_actor_type="system",
+        author_actor_id="fake-provider",
+        change_summary="模拟输出已提交后进程崩溃",
+        producer_attempt_id=running.attempt_id,
+    )
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_receipt_recovery_race
+            AFTER UPDATE OF status ON task_ledger
+            WHEN NEW.status = 'COMPLETED'
+            BEGIN
+                UPDATE workflow_attempts SET status = 'CANCELLED'
+                WHERE attempt_id = NEW.attempt_id;
+            END
+            """
+        )
+        connection.commit()
+    clock[0] = NOW + timedelta(seconds=31)
+
+    with pytest.raises(LeaseLostError, match="committed output changed"):
+        ledger.recover_expired_local_tasks()
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (queued.task_id,)
+        ).fetchone() == ("LEASED",)
+        assert connection.execute(
+            "SELECT status FROM workflow_attempts WHERE attempt_id = ?", (queued.attempt_id,)
+        ).fetchone() == ("RUNNING",)
+
+
 @pytest.mark.parametrize(
     ("max_attempts", "message"),
     [(2, "expired lease recovery"), (1, "final lease recovery")],

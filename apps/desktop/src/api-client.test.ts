@@ -12,6 +12,7 @@ type SourceDocumentListResponse = components["schemas"]["SourceDocumentListRespo
 type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
+type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
@@ -250,6 +251,88 @@ const storyBibleIndexResponse: StoryBibleIndexResponse = {
     },
     review_version: null,
     accepted_version: null,
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const taskQueueResponse: components["schemas"]["TaskQueueResponse"] = {
+  data: {
+    project_id: project.id,
+    summary: { total: 1, attention: 0, active: 1, completed: 0 },
+    tasks: [
+      {
+        node: {
+          workflow_run_id: `wfr_${"1".repeat(32)}`,
+          node_run_id: `node_${"2".repeat(32)}`,
+          node_key: "story.extract",
+          node_type: "story.extract",
+          status: "PENDING",
+          responsible_role: "编剧",
+          upstream_gate: "G1",
+          input_hash: `sha256:${"a".repeat(64)}`,
+          input_version_ids: [`ver_${"3".repeat(32)}`],
+          output_version_id: null,
+          attempt_count: 0,
+          max_attempts: 2,
+          updated_at: "2026-08-04T09:30:00Z",
+        },
+        attempt: {
+          attempt_id: `att_${"4".repeat(32)}`,
+          number: 1,
+          execution_mode: "local",
+          status: "READY",
+          provider_model: null,
+          provider_job_id: null,
+          retry_disposition: null,
+          error_code: null,
+          output_version_id: null,
+          started_at: null,
+          finished_at: null,
+          updated_at: "2026-08-04T09:30:00Z",
+        },
+        task: {
+          task_id: `task_${"5".repeat(32)}`,
+          kind: "local.story.extract",
+          status: "READY",
+          priority: 70,
+          available_at: "2026-08-04T09:30:00Z",
+          lease_generation: 0,
+          lease_expires_at: null,
+          heartbeat_at: null,
+          updated_at: "2026-08-04T09:30:00Z",
+        },
+        cost: {
+          status: "NOT_RECORDED",
+          currency: null,
+          reserved: null,
+          accrued: null,
+          billed: null,
+          budget_limit: null,
+          retry_increment_limit: null,
+        },
+        presentation: {
+          status_label: "等待本地执行",
+          next_action_label: "等待执行器领取",
+          allowed_actions: ["VIEW_DETAILS"],
+        },
+      },
+    ],
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const providerConnectionResponse: ProviderConnectionResponse = {
+  data: {
+    id: `pcn_${"6".repeat(32)}`,
+    provider_kind: "OPENAI",
+    display_name: "OpenAI 主连接",
+    base_url: "https://api.openai.com/v1",
+    enabled: true,
+    models: [{ model_id: "gpt-production", capabilities: ["TEXT"] }],
+    credential_status: "CONFIGURED",
+    revision: 1,
+    created_at: "2026-08-04T09:30:00Z",
+    updated_at: "2026-08-04T09:30:00Z",
   },
   request_id: healthyResponse.request_id,
 };
@@ -709,6 +792,188 @@ describe("local API client", () => {
       `${session.origin}/api/v1/projects/${project.id}/story-bible/versions/${storyBibleResponse.data.version.id}`,
       expect.objectContaining({ headers: expect.any(Object) }),
     );
+  });
+
+  test("reads a project-scoped task queue and rejects secret-shaped extra fields", async () => {
+    const validClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(taskQueueResponse)),
+      session,
+    );
+    await expect(validClient.listProjectTasks(project.id)).resolves.toEqual(taskQueueResponse);
+
+    const invalidPayload = structuredClone(taskQueueResponse) as unknown as Record<string, unknown>;
+    const data = invalidPayload.data as { tasks: Array<{ task: Record<string, unknown> }> };
+    data.tasks[0]!.task.lease_token = "must-not-cross-ipc";
+    const invalidClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(invalidPayload)),
+      session,
+    );
+    await expect(invalidClient.listProjectTasks(project.id)).rejects.toThrow("published contract");
+  });
+
+  test("validates provider connections across the privileged desktop boundary", async () => {
+    const listResponse = {
+      data: [providerConnectionResponse.data],
+      request_id: healthyResponse.request_id,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(listResponse))
+      .mockResolvedValueOnce(Response.json(providerConnectionResponse, { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createLocalApiClient(fetchMock, session);
+    const input = {
+      provider_kind: "OPENAI" as const,
+      display_name: "OpenAI 主连接",
+      base_url: "https://api.openai.com/v1",
+      enabled: true,
+      models: [{ model_id: "gpt-production", capabilities: ["TEXT" as const] }],
+      api_key: "sk-test-only",
+    };
+
+    await expect(client.listProviderConnections()).resolves.toEqual(listResponse);
+    await expect(client.createProviderConnection(input)).resolves.toEqual(
+      providerConnectionResponse,
+    );
+    await expect(client.deleteProviderConnection(providerConnectionResponse.data.id)).resolves.toBe(
+      undefined,
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${session.origin}/api/v1/provider-connections`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    );
+  });
+
+  test("rejects provider secrets in responses and unsafe renderer inputs", async () => {
+    const secretShaped = structuredClone(providerConnectionResponse) as unknown as {
+      data: Record<string, unknown>;
+    };
+    secretShaped.data.api_key = "must-not-cross-ipc";
+    const responseClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(secretShaped)),
+      session,
+    );
+    await expect(
+      responseClient.createProviderConnection({
+        provider_kind: "OLLAMA",
+        display_name: "本机",
+        base_url: "http://127.0.0.1:11434/v1",
+        enabled: true,
+        models: [{ model_id: "qwen-local", capabilities: ["TEXT"] }],
+      }),
+    ).rejects.toThrow("published contract");
+
+    const fetchMock = vi.fn();
+    const inputClient = createLocalApiClient(fetchMock, session);
+    await expect(
+      inputClient.createProviderConnection({
+        provider_kind: "OPENAI",
+        display_name: "不安全",
+        base_url: "http://api.example.com/v1",
+        enabled: true,
+        models: [],
+        api_key: "sk-test-only",
+      }),
+    ).rejects.toThrow("valid provider connection input");
+    for (const unsafeInput of [
+      {
+        provider_kind: "OPENAI" as const,
+        display_name: "伪造 OpenAI",
+        base_url: "https://evil.example/v1",
+        enabled: true,
+        models: [{ model_id: "gpt-production", capabilities: ["TEXT" as const] }],
+        api_key: "sk-test-only",
+      },
+      {
+        provider_kind: "XAI" as const,
+        display_name: "错误 xAI",
+        base_url: "https://api.openai.com/v1",
+        enabled: true,
+        models: [{ model_id: "grok-production", capabilities: ["TEXT" as const] }],
+        api_key: "xai-test-only",
+      },
+      {
+        provider_kind: "OLLAMA" as const,
+        display_name: "远程 Ollama",
+        base_url: "https://ollama.example/v1",
+        enabled: true,
+        models: [{ model_id: "qwen-remote", capabilities: ["TEXT" as const] }],
+      },
+      {
+        provider_kind: "OPENAI_COMPATIBLE" as const,
+        display_name: "本地兼容",
+        base_url: "http://127.0.0.1:9000/v1",
+        enabled: true,
+        models: [{ model_id: "local-compatible", capabilities: ["TEXT" as const] }],
+        api_key: "compatible-test",
+      },
+      {
+        provider_kind: "OPENAI_COMPATIBLE" as const,
+        display_name: "私网兼容",
+        base_url: "https://169.254.169.254/latest/meta-data",
+        enabled: true,
+        models: [{ model_id: "private-compatible", capabilities: ["TEXT" as const] }],
+        api_key: "compatible-test",
+      },
+      {
+        provider_kind: "OPENAI_COMPATIBLE" as const,
+        display_name: "组播兼容",
+        base_url: "https://[ff02::1]/v1",
+        enabled: true,
+        models: [{ model_id: "multicast-compatible", capabilities: ["TEXT" as const] }],
+        api_key: "compatible-test",
+      },
+    ]) {
+      await expect(inputClient.createProviderConnection(unsafeInput)).rejects.toThrow(
+        "valid provider connection input",
+      );
+    }
+    await expect(inputClient.deleteProviderConnection("pcn_unsafe")).rejects.toThrow(
+      "valid provider connection id",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("surfaces provider deletion failures", async () => {
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
+      session,
+    );
+
+    await expect(
+      client.deleteProviderConnection(providerConnectionResponse.data.id),
+    ).rejects.toThrow("status 503");
+  });
+
+  test("preserves a typed credential-cleanup error across the desktop boundary", async () => {
+    const errorResponse = {
+      error: {
+        code: "CREDENTIAL_CLEANUP_REQUIRED",
+        message: "cleanup required",
+        details: {},
+        retryable: false,
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(errorResponse, { status: 503 })),
+      session,
+    );
+
+    await expect(
+      client.createProviderConnection({
+        provider_kind: "OPENAI",
+        display_name: "OpenAI 主连接",
+        base_url: "https://api.openai.com/v1",
+        enabled: true,
+        models: [{ model_id: "gpt-production", capabilities: ["TEXT"] }],
+        api_key: "sk-test-only",
+      }),
+    ).rejects.toThrow("CREDENTIAL_CLEANUP_REQUIRED");
   });
 
   test("accepts every typed fact variant and exact historical story roles", async () => {

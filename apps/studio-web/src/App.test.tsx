@@ -11,6 +11,7 @@ import type {
   StoryBibleIndexResponse,
   StoryBibleVersionResponse,
   StudioTransport,
+  TaskQueueResponse,
 } from "./api/studio";
 
 type StoryBibleResponse = StoryBibleVersionResponse;
@@ -389,8 +390,45 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
     getSourceManifest: vi.fn().mockResolvedValue(null),
     getStoryBibleIndex: vi.fn().mockResolvedValue(null),
     getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleResponse),
+    listProjectTasks: vi.fn().mockResolvedValue({
+      data: {
+        project_id: project.id,
+        summary: { total: 0, attention: 0, active: 0, completed: 0 },
+        tasks: [],
+      },
+      request_id: requestId,
+    } satisfies TaskQueueResponse),
+    listProviderConnections: vi.fn().mockResolvedValue({ data: [], request_id: requestId }),
+    createProviderConnection: vi.fn(),
+    deleteProviderConnection: vi.fn(),
   };
 }
+
+test("opens the project-scoped production task queue", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /任务队列/ }));
+
+  expect(await screen.findByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
+  expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
+  expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
+});
+
+test("opens model and API settings without requiring a selected project", async () => {
+  const transport = studioTransport();
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "还没有制作项目" });
+
+  fireEvent.click(screen.getByRole("button", { name: /模型与 API/ }));
+
+  expect(
+    await screen.findByRole("heading", { name: "统一模型连接", level: 2 }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("会员与 API 是两套账户体系")).toBeInTheDocument();
+  expect(transport.listProviderConnections).toHaveBeenCalledTimes(1);
+});
 
 test("shows a connected, actionable empty workspace", async () => {
   render(<App transport={studioTransport()} />);
@@ -398,7 +436,7 @@ test("shows a connected, actionable empty workspace", async () => {
   expect(screen.getByText("正在连接创作引擎…")).toBeInTheDocument();
   expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "创建第一个项目" })).toBeEnabled();
-  expect(screen.getByText("创作引擎已连接")).toBeInTheDocument();
+  expect(screen.getByText("本地工作区服务已连接")).toBeInTheDocument();
 });
 
 test("creates and opens a project from the keyboard-friendly dialog", async () => {
@@ -1113,8 +1151,8 @@ test("exposes scoped questions, typed fact links, and resolved conflict decision
   await waitFor(() => {
     const preview = document.querySelector(".evidence-document");
     expect(within(preview as HTMLElement).getByText("雾城来信.txt")).toBeInTheDocument();
+    expect(document.querySelector(".evidence-excerpts")).toHaveFocus();
   });
-  expect(document.querySelector(".evidence-excerpts")).toHaveFocus();
 });
 
 test("marks unavailable evidence explicitly instead of substituting another source", async () => {

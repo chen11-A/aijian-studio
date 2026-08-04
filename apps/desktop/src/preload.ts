@@ -11,6 +11,10 @@ type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
+type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+type CreateProviderConnectionInput = components["schemas"]["CreateProviderConnectionRequest"];
+type ProviderConnectionListResponse = components["schemas"]["ProviderConnectionListResponse"];
+type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
 
 contextBridge.exposeInMainWorld("aijian", {
   health: (): Promise<HealthResponse> =>
@@ -49,4 +53,14 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       versionId,
     ) as Promise<StoryBibleVersionResponse>,
+  listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
+    ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
+  listProviderConnections: (): Promise<ProviderConnectionListResponse> =>
+    ipcRenderer.invoke("providers:list") as Promise<ProviderConnectionListResponse>,
+  createProviderConnection: (
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse> =>
+    ipcRenderer.invoke("providers:create", input) as Promise<ProviderConnectionResponse>,
+  deleteProviderConnection: (connectionId: string): Promise<void> =>
+    ipcRenderer.invoke("providers:delete", connectionId) as Promise<void>,
 });

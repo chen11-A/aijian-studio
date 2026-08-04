@@ -52,11 +52,12 @@ def complete_local_task(
             JOIN workflow_node_runs AS node ON node.node_run_id = ?
             JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id
             WHERE version.version_id = ? AND artifact.project_id = run.project_id
+              AND version.producer_attempt_id = ?
             """,
-            (claim.node_run_id, output_version_id),
+            (claim.node_run_id, output_version_id, claim.attempt_id),
         ).fetchone()
         if output is None:
-            raise ValueError("output version must exist in the same project as the task")
+            raise ValueError("output version must be produced by the current attempt")
         attempt = connection.execute(
             """
             UPDATE workflow_attempts

@@ -159,6 +159,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Tasks */
+        get: operations["listProjectTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provider-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Provider Connections */
+        get: operations["listProviderConnections"];
+        put?: never;
+        /** Create Provider Connection */
+        post: operations["createProviderConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provider-connections/{connection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Provider Connection */
+        delete: operations["deleteProviderConnection"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -400,6 +452,27 @@ export interface components {
              * @default 90
              */
             target_duration_seconds: number;
+        };
+        /** CreateProviderConnectionRequest */
+        CreateProviderConnectionRequest: {
+            /** Api Key */
+            api_key?: string | null;
+            /** Base Url */
+            base_url: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Models */
+            models: components["schemas"]["ProviderModelData"][];
+            /**
+             * Provider Kind
+             * @enum {string}
+             */
+            provider_kind: "OPENAI" | "XAI" | "OPENAI_COMPATIBLE" | "OLLAMA";
         };
         /** CreateStoryBibleVersionRequest */
         CreateStoryBibleVersionRequest: {
@@ -983,6 +1056,67 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** ProviderConnectionData */
+        ProviderConnectionData: {
+            /** Base Url */
+            base_url: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Credential Status
+             * @enum {string}
+             */
+            credential_status: "CONFIGURED" | "MISSING" | "UNAVAILABLE";
+            /** Display Name */
+            display_name: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: string;
+            /** Models */
+            models: components["schemas"]["ProviderModelData"][];
+            /**
+             * Provider Kind
+             * @enum {string}
+             */
+            provider_kind: "OPENAI" | "XAI" | "OPENAI_COMPATIBLE" | "OLLAMA";
+            /** Revision */
+            revision: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProviderConnectionListResponse */
+        ProviderConnectionListResponse: {
+            /** Data */
+            data: components["schemas"]["ProviderConnectionData"][];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ProviderConnectionResponse */
+        ProviderConnectionResponse: {
+            data: components["schemas"]["ProviderConnectionData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ProviderModelData */
+        ProviderModelData: {
+            /** Capabilities */
+            capabilities: ("TEXT" | "IMAGE" | "VIDEO" | "SPEECH")[];
+            /** Model Id */
+            model_id: string;
+        };
         /** RelationshipFactDraftV1 */
         RelationshipFactDraftV1: {
             canon_certainty: components["schemas"]["CanonCertainty"];
@@ -1563,6 +1697,173 @@ export interface components {
             source_document_id: string;
             /** Start Byte */
             start_byte: number;
+        };
+        /** TaskAttemptData */
+        TaskAttemptData: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Execution Mode
+             * @enum {string}
+             */
+            execution_mode: "local" | "remote";
+            /** Finished At */
+            finished_at: string | null;
+            /** Number */
+            number: number;
+            /** Output Version Id */
+            output_version_id?: string | null;
+            /** Provider Job Id */
+            provider_job_id: string | null;
+            /** Provider Model */
+            provider_model: string | null;
+            /** Retry Disposition */
+            retry_disposition: ("SAFE_LOCAL_RETRY" | "PROVIDER_CONFIRMED_NOT_ACCEPTED" | "NON_RETRYABLE" | "REMOTE_UNKNOWN") | null;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "LEASED" | "RUNNING" | "SUBMIT_INTENT" | "SUBMITTING" | "WAITING_REMOTE" | "REMOTE_UNKNOWN" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "NOT_SUBMITTED";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TaskCostData */
+        TaskCostData: {
+            /** Accrued */
+            accrued?: string | null;
+            /** Billed */
+            billed?: string | null;
+            /** Budget Limit */
+            budget_limit?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Reserved */
+            reserved?: string | null;
+            /** Retry Increment Limit */
+            retry_increment_limit?: string | null;
+            /**
+             * Status
+             * @default NOT_RECORDED
+             * @constant
+             */
+            status: "NOT_RECORDED";
+        };
+        /** TaskLedgerData */
+        TaskLedgerData: {
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Heartbeat At */
+            heartbeat_at: string | null;
+            /** Kind */
+            kind: string;
+            /** Lease Expires At */
+            lease_expires_at: string | null;
+            /** Lease Generation */
+            lease_generation: number;
+            /** Priority */
+            priority: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "LEASED" | "COMPLETED" | "CANCELLED";
+            /** Task Id */
+            task_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TaskNodeData */
+        TaskNodeData: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Input Hash */
+            input_hash: string;
+            /** Input Version Ids */
+            input_version_ids: string[];
+            /** Max Attempts */
+            max_attempts: number;
+            /** Node Key */
+            node_key: string;
+            /** Node Run Id */
+            node_run_id: string;
+            /** Node Type */
+            node_type: string;
+            /** Output Version Id */
+            output_version_id?: string | null;
+            /** Responsible Role */
+            responsible_role: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "BLOCKED" | "PENDING" | "RUNNING" | "RECONCILIATION_REQUIRED" | "NEEDS_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "SUPERSEDED";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Upstream Gate */
+            upstream_gate: string | null;
+            /** Workflow Run Id */
+            workflow_run_id: string;
+        };
+        /** TaskPresentationData */
+        TaskPresentationData: {
+            /** Allowed Actions */
+            allowed_actions: "VIEW_DETAILS"[];
+            /** Next Action Label */
+            next_action_label: string;
+            /** Status Label */
+            status_label: string;
+        };
+        /** TaskQueueData */
+        TaskQueueData: {
+            /** Project Id */
+            project_id: string;
+            summary: components["schemas"]["TaskQueueSummaryData"];
+            /** Tasks */
+            tasks: components["schemas"]["TaskQueueItemData"][];
+        };
+        /** TaskQueueItemData */
+        TaskQueueItemData: {
+            attempt: components["schemas"]["TaskAttemptData"];
+            cost: components["schemas"]["TaskCostData"];
+            node: components["schemas"]["TaskNodeData"];
+            presentation: components["schemas"]["TaskPresentationData"];
+            task: components["schemas"]["TaskLedgerData"];
+        };
+        /** TaskQueueResponse */
+        TaskQueueResponse: {
+            data: components["schemas"]["TaskQueueData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** TaskQueueSummaryData */
+        TaskQueueSummaryData: {
+            /** Active */
+            active: number;
+            /** Attention */
+            attention: number;
+            /** Completed */
+            completed: number;
+            /** Total */
+            total: number;
         };
         /** TemporalRelationDraftV1 */
         TemporalRelationDraftV1: {
@@ -2344,6 +2645,272 @@ export interface operations {
             };
             /** @description Request validation failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskQueueResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProviderConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderConnectionListResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Provider connection conflicts */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Operating-system credential vault unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProviderConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderConnectionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Provider connection conflicts */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Operating-system credential vault unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Provider not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Provider connection conflicts */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Operating-system credential vault unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -48,14 +48,15 @@ from aijian_api.domain import (
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
+from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
     SourceManifestContentV1,
     SourceManifestDocumentV1,
 )
-from aijian_api.workflow_schema import MIGRATION_4
+from aijian_api.workflow_schema import MIGRATION_4, MIGRATION_5, MIGRATION_6
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 7
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -734,6 +735,9 @@ _MIGRATIONS = {
     2: _MIGRATION_2 + _IMMUTABILITY_TRIGGERS,
     3: _MIGRATION_3 + _IMMUTABILITY_V3_TRIGGERS,
     4: MIGRATION_4,
+    5: MIGRATION_5,
+    6: MIGRATION_6,
+    7: MIGRATION_7,
 }
 
 
@@ -1009,6 +1013,12 @@ class StudioRepository:
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
+    @property
+    def database_path(self) -> Path:
+        """Return the workspace database used by separately owned read models."""
+
+        return self._database_path
+
     def _open(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._database_path, timeout=5)
         connection.row_factory = sqlite3.Row
@@ -1042,6 +1052,8 @@ class StudioRepository:
                     }
                     if "action_payload_hash" not in challenge_columns:
                         statements = _LEGACY_V2_CHALLENGE_COLUMNS + statements
+                if next_version == 5:
+                    self._validate_v5_enqueue_keys(connection)
                 connection.execute("BEGIN IMMEDIATE")
                 try:
                     if next_version == 3:
@@ -1065,6 +1077,23 @@ class StudioRepository:
         for message, query in _V3_LEGACY_INVARIANT_CHECKS:
             if connection.execute(query).fetchone() is not None:
                 raise RuntimeError(f"Cannot migrate workspace to schema v3: {message}")
+
+    @staticmethod
+    def _validate_v5_enqueue_keys(connection: sqlite3.Connection) -> None:
+        duplicate = connection.execute(
+            """
+            SELECT run.project_id, node.idempotency_key
+            FROM workflow_node_runs AS node
+            JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id
+            GROUP BY run.project_id, node.idempotency_key
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        ).fetchone()
+        if duplicate is not None:
+            raise RuntimeError(
+                "Cannot migrate workspace to schema v5: duplicate workflow enqueue key"
+            )
 
     def create_project(
         self,
@@ -1439,6 +1468,7 @@ class StudioRepository:
         required_accepted_upstream_version_id: str | None = None,
         content_resolver: ArtifactContentResolver | None = None,
         record_validator: ArtifactRecordValidator | None = None,
+        producer_attempt_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
@@ -1450,6 +1480,26 @@ class StudioRepository:
                 ).fetchone()
                 if project is None:
                     raise ProjectNotFoundError("Project was not found")
+                if producer_attempt_id is not None:
+                    producer = connection.execute(
+                        """
+                        SELECT 1
+                        FROM workflow_attempts AS attempt
+                        JOIN workflow_node_runs AS node
+                          ON node.node_run_id = attempt.node_run_id
+                        JOIN workflow_runs AS run
+                          ON run.workflow_run_id = node.workflow_run_id
+                        WHERE attempt.attempt_id = ? AND attempt.status = 'RUNNING'
+                          AND node.status = 'RUNNING'
+                          AND node.active_attempt_id = attempt.attempt_id
+                          AND run.project_id = ?
+                        """,
+                        (producer_attempt_id, project_id),
+                    ).fetchone()
+                    if producer is None:
+                        raise ValueError(
+                            "producer attempt must be the running attempt for this project"
+                        )
 
                 if artifact_type == "story_bible" and required_accepted_upstream_version_id is None:
                     raise ArtifactDependencyInvalidError(
@@ -1572,8 +1622,8 @@ class StudioRepository:
                     INSERT INTO artifact_versions (
                         version_id, artifact_id, version_number, schema_version, content_json,
                         content_hash, author_actor_type, author_actor_id, parent_version_id,
-                        change_summary, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        change_summary, created_at, producer_attempt_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         version.id,
@@ -1587,6 +1637,7 @@ class StudioRepository:
                         version.parent_version_id,
                         version.change_summary,
                         _timestamp(version.created_at),
+                        producer_attempt_id,
                     ),
                 )
 

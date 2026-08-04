@@ -11,6 +11,8 @@ import {
   type StoryBibleVersionResponse,
   type StudioTransport,
 } from "./api/studio";
+import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
+import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { cacheRecentVersion, touchRecentVersion } from "./story-version-cache";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
@@ -23,7 +25,7 @@ type ImportState =
   | { kind: "loading"; filename: string }
   | { kind: "success"; response: SourceDocumentResponse }
   | { kind: "error"; message: string };
-type WorkspaceView = "project" | "story";
+type WorkspaceView = "project" | "story" | "queue" | "settings";
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -54,7 +56,8 @@ const navigation = [
   { id: "director", label: "分镜导演", index: "03", available: false },
   { id: "assets", label: "素材中心", index: "04", available: false },
   { id: "edit", label: "剪辑台", index: "05", available: false },
-  { id: "queue", label: "任务队列", index: "06", available: false },
+  { id: "queue", label: "任务队列", index: "06", available: true },
+  { id: "settings", label: "模型与 API", index: "07", available: true },
 ] as const;
 
 const entityKindLabels = {
@@ -291,7 +294,7 @@ function EngineBadge({ connection }: { connection: ConnectionState }) {
         {connection.kind === "loading" && <strong>正在连接创作引擎…</strong>}
         {connection.kind === "connected" && (
           <>
-            <strong>创作引擎已连接</strong>
+            <strong>本地工作区服务已连接</strong>
             <small>v{connection.health.data.version}</small>
           </>
         )}
@@ -1790,9 +1793,15 @@ export function App({ transport }: AppProps) {
         <nav className="primary-nav" aria-label="创作模块">
           <p className="nav-label">工作区</p>
           {navigation.map((item) => {
-            const isWorkspace = item.id === "project" || item.id === "story";
+            const isWorkspace =
+              item.id === "project" ||
+              item.id === "story" ||
+              item.id === "queue" ||
+              item.id === "settings";
             const active = isWorkspace && activeWorkspace === item.id;
-            const enabled = item.available && (item.id !== "story" || selectedProject !== null);
+            const enabled =
+              item.available &&
+              ((item.id !== "story" && item.id !== "queue") || selectedProject !== null);
             return (
               <button
                 className={`nav-item${active ? " active" : ""}${!item.available ? " unavailable" : ""}`}
@@ -1830,7 +1839,15 @@ export function App({ transport }: AppProps) {
         <header className="topbar">
           <div>
             <span className="eyebrow">CREATOR WORKSPACE</span>
-            <h1>{activeWorkspace === "project" ? "项目与原文" : "故事工坊"}</h1>
+            <h1>
+              {activeWorkspace === "project"
+                ? "项目与原文"
+                : activeWorkspace === "story"
+                  ? "故事工坊"
+                  : activeWorkspace === "queue"
+                    ? "任务队列"
+                    : "模型与 API"}
+            </h1>
           </div>
           <div className="topbar-actions">
             <EngineBadge connection={connection} />
@@ -1865,11 +1882,19 @@ export function App({ transport }: AppProps) {
           </section>
         )}
 
-        {workspaceReady && projects.length === 0 && (
+        {workspaceReady && activeWorkspace === "settings" && (
+          <ProviderSettingsWorkspace
+            listConnections={studio.listProviderConnections}
+            createConnection={studio.createProviderConnection}
+            deleteConnection={studio.deleteProviderConnection}
+          />
+        )}
+
+        {workspaceReady && activeWorkspace !== "settings" && projects.length === 0 && (
           <EmptyWorkspace onCreate={() => setDialogOpen(true)} />
         )}
 
-        {workspaceReady && projects.length > 0 && (
+        {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
           <div className="project-workspace">
             <ProjectRail
               projects={projects}
@@ -1913,7 +1938,7 @@ export function App({ transport }: AppProps) {
                       onFile={importFile}
                     />
                   </>
-                ) : (
+                ) : activeWorkspace === "story" ? (
                   <StoryWorkshop
                     key={selectedProject.id}
                     project={selectedProject}
@@ -1922,6 +1947,12 @@ export function App({ transport }: AppProps) {
                     getSource={studio.getSource}
                     getStoryBibleVersion={studio.getStoryBibleVersion}
                     onRetry={() => void loadStoryWorkspace(selectedProject.id)}
+                  />
+                ) : (
+                  <TaskQueueWorkspace
+                    key={selectedProject.id}
+                    project={selectedProject}
+                    loadTasks={studio.listProjectTasks}
                   />
                 )}
               </section>

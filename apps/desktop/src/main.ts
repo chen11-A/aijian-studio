@@ -5,6 +5,7 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 import {
   createLocalApiClient,
   type CreateProjectInput,
+  type CreateProviderConnectionInput,
   type ImportTextSourceInput,
   type LocalApiClient,
 } from "./api-client";
@@ -103,6 +104,16 @@ ipcMain.handle("artifacts:get-story-bible-index", (event, projectId: string) =>
 );
 ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, versionId: string) =>
   clientFor(event).getStoryBibleVersion(projectId, versionId),
+);
+ipcMain.handle("tasks:list", (event, projectId: string) =>
+  clientFor(event).listProjectTasks(projectId),
+);
+ipcMain.handle("providers:list", (event) => clientFor(event).listProviderConnections());
+ipcMain.handle("providers:create", (event, input: CreateProviderConnectionInput) =>
+  clientFor(event).createProviderConnection(input),
+);
+ipcMain.handle("providers:delete", (event, connectionId: string) =>
+  clientFor(event).deleteProviderConnection(connectionId),
 );
 
 async function startApplication(): Promise<void> {

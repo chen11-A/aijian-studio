@@ -33,8 +33,23 @@ from aijian_api.contracts import (
     SourceDocumentResponse,
     SourceDocumentSummaryData,
 )
+from aijian_api.credential_vault import (
+    CredentialCleanupRequiredError,
+    CredentialVault,
+    CredentialVaultUnavailableError,
+    SystemCredentialVault,
+)
 from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
+from aijian_api.provider_connection_repository import (
+    ProviderConnectionConflictError,
+    ProviderConnectionNotFoundError,
+    ProviderConnectionRepository,
+)
+from aijian_api.provider_connection_routes import create_provider_connection_router
+from aijian_api.provider_connections import (
+    ProviderConnectionService,
+)
 from aijian_api.repository import (
     ArtifactConflictError,
     ArtifactDependencyInvalidError,
@@ -53,6 +68,8 @@ from aijian_api.source_manifest_routes import (
 )
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.task_queue_read import TaskQueueReader
+from aijian_api.task_queue_routes import create_task_queue_router
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -122,6 +139,7 @@ def create_app(
     sidecar_security: SidecarSecurity | None = None,
     repository: StudioRepository | None = None,
     review_actor: TrustedReviewActor | None = None,
+    credential_vault: CredentialVault | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
 
@@ -137,6 +155,7 @@ def create_app(
         subject_id="local-user",
         roles=("writer", "continuity_reviewer", "producer"),
     )
+    resolved_credential_vault = credential_vault or SystemCredentialVault()
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -145,6 +164,15 @@ def create_app(
                 repository_instance = StudioRepository(_default_database_path())
                 repository_holder[0] = repository_instance
             return repository_instance
+
+    def get_task_queue_reader() -> TaskQueueReader:
+        return TaskQueueReader(get_repository().database_path)
+
+    def get_provider_connection_service() -> ProviderConnectionService:
+        return ProviderConnectionService(
+            ProviderConnectionRepository(get_repository().database_path),
+            resolved_credential_vault,
+        )
 
     def request_id(request: Request) -> UUID:
         return cast(UUID, request.state.request_id)
@@ -298,6 +326,54 @@ def create_app(
             request_id=request_id(request),
         )
 
+    @app.exception_handler(ProviderConnectionConflictError)
+    async def provider_connection_conflict(
+        request: Request,
+        _error: ProviderConnectionConflictError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROVIDER_CONNECTION_CONFLICT",
+            message="A provider connection with this name already exists",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProviderConnectionNotFoundError)
+    async def provider_connection_not_found(
+        request: Request,
+        _error: ProviderConnectionNotFoundError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="PROVIDER_CONNECTION_NOT_FOUND",
+            message="The provider connection was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(CredentialCleanupRequiredError)
+    async def credential_cleanup_required(
+        request: Request,
+        _error: CredentialCleanupRequiredError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="CREDENTIAL_CLEANUP_REQUIRED",
+            message="A provider credential may require explicit cleanup",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(CredentialVaultUnavailableError)
+    async def credential_vault_unavailable(
+        request: Request,
+        _error: CredentialVaultUnavailableError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="CREDENTIAL_VAULT_UNAVAILABLE",
+            message="The operating-system credential vault is unavailable",
+            request_id=request_id(request),
+        )
+
     @app.middleware("http")
     async def enforce_request_boundary(
         request: Request,
@@ -442,6 +518,8 @@ def create_app(
 
     app.include_router(create_source_manifest_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
+    app.include_router(create_task_queue_router(get_task_queue_reader))
+    app.include_router(create_provider_connection_router(get_provider_connection_service))
     if sidecar_security is not None:
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
