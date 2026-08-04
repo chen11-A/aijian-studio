@@ -28,6 +28,7 @@
     "test:e2e:desktop": "pnpm --filter @aijian/desktop build && wait-on --timeout 30000 http-get://127.0.0.1:5173 && node scripts/e2e/desktop-provider-smoke.mjs",
     "evidence:provider-ui": "wait-on --timeout 30000 http-get://127.0.0.1:5173/api/v1/health && uv run python scripts/e2e/seed_task_queue_evidence.py && node scripts/e2e/web-provider-evidence.mjs",
     "evidence:credential-vault": "uv run python scripts/e2e/credential_vault_smoke.py",
+    "evidence:media-contract": "uv run python scripts/e2e/media_contract_smoke.py",
     "evidence:check": "uv run python scripts/check_evidence_hashes.py",
     "test:ts": "pnpm -r --if-present test",
     "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json",

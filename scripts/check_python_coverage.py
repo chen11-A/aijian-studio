@@ -10,6 +10,7 @@ BRANCH_THRESHOLD = 83.5
 CRITICAL_FULL_COVERAGE_MODULES = (
     "services/api/src/aijian_api/credential_vault.py",
     "services/api/src/aijian_api/local_executor.py",
+    "services/api/src/aijian_api/media_contracts.py",
     "services/api/src/aijian_api/provider_connection_repository.py",
     "services/api/src/aijian_api/provider_connection_routes.py",
     "services/api/src/aijian_api/provider_connections.py",

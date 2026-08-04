@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Media Capabilities */
+        get: operations["getMediaCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects": {
         parameters: {
             query?: never;
@@ -236,6 +253,36 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * AudioFrameBoundaryPolicyData
+         * @description Deterministic sequence-frame to working-audio sample conversion policy.
+         */
+        AudioFrameBoundaryPolicyData: {
+            /**
+             * Calculation
+             * @default ABSOLUTE_FRAME_INDEX
+             * @constant
+             */
+            calculation: "ABSOLUTE_FRAME_INDEX";
+            /**
+             * Maximum Json Safe Sample Position
+             * @default 9007199254740991
+             * @constant
+             */
+            maximum_json_safe_sample_position: 9007199254740991;
+            /**
+             * Rounding Mode
+             * @default NEAREST_TIES_UP
+             * @constant
+             */
+            rounding_mode: "NEAREST_TIES_UP";
+            /**
+             * Sample Rate Hz
+             * @default 48000
+             * @constant
+             */
+            sample_rate_hz: 48000;
         };
         /** BooleanStateValueV1 */
         BooleanStateValueV1: {
@@ -811,6 +858,56 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /**
+         * MediaCapabilitiesData
+         * @description Stable Phase 0 editing-time policy, not runtime tool health.
+         */
+        MediaCapabilitiesData: {
+            /** Accepted Source Audio Sample Rates Hz */
+            accepted_source_audio_sample_rates_hz: (44100 | 48000)[];
+            audio_frame_boundary_policy?: components["schemas"]["AudioFrameBoundaryPolicyData"];
+            /**
+             * Contract Version
+             * @default 1
+             * @constant
+             */
+            contract_version: 1;
+            /**
+             * Proxy Mapping Schema Version
+             * @default 1
+             * @constant
+             */
+            proxy_mapping_schema_version: 1;
+            /** Supported Sequence Timebases */
+            supported_sequence_timebases: components["schemas"]["SequenceTimebaseData"][];
+            /**
+             * Timeline Time Representation
+             * @default REDUCED_RATIONAL
+             * @constant
+             */
+            timeline_time_representation: "REDUCED_RATIONAL";
+            /**
+             * Variable Frame Rate Policy
+             * @default CONFORM_TO_CFR_PROXY
+             * @constant
+             */
+            variable_frame_rate_policy: "CONFORM_TO_CFR_PROXY";
+            /**
+             * Working Audio Sample Rate Hz
+             * @default 48000
+             * @constant
+             */
+            working_audio_sample_rate_hz: 48000;
+        };
+        /** MediaCapabilitiesResponse */
+        MediaCapabilitiesResponse: {
+            data: components["schemas"]["MediaCapabilitiesData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** NumberStateValueV1 */
         NumberStateValueV1: {
             /**
@@ -1185,6 +1282,93 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /**
+         * SequenceFrameRateData
+         * @description Frame rate accepted for Phase 0 fixed-rate sequences.
+         */
+        SequenceFrameRateData: {
+            /** Den */
+            den: number;
+            /** Num */
+            num: number;
+        } & ({
+            /** @constant */
+            den: 1001;
+            /** @constant */
+            num: 24000;
+        } | {
+            /** @constant */
+            den: 1;
+            /** @constant */
+            num: 24;
+        } | {
+            /** @constant */
+            den: 1;
+            /** @constant */
+            num: 25;
+        } | {
+            /** @constant */
+            den: 1001;
+            /** @constant */
+            num: 30000;
+        });
+        /**
+         * SequenceTimebaseData
+         * @description Frame timing plus an independent human-readable timecode addressing mode.
+         */
+        SequenceTimebaseData: {
+            frame_rate: components["schemas"]["SequenceFrameRateData"];
+            /**
+             * Timecode Mode
+             * @enum {string}
+             */
+            timecode_mode: "NON_DROP_FRAME" | "DROP_FRAME";
+        } & ({
+            frame_rate: {
+                /** @constant */
+                den: 1001;
+                /** @constant */
+                num: 24000;
+            };
+            /** @constant */
+            timecode_mode: "NON_DROP_FRAME";
+        } | {
+            frame_rate: {
+                /** @constant */
+                den: 1;
+                /** @constant */
+                num: 24;
+            };
+            /** @constant */
+            timecode_mode: "NON_DROP_FRAME";
+        } | {
+            frame_rate: {
+                /** @constant */
+                den: 1;
+                /** @constant */
+                num: 25;
+            };
+            /** @constant */
+            timecode_mode: "NON_DROP_FRAME";
+        } | {
+            frame_rate: {
+                /** @constant */
+                den: 1001;
+                /** @constant */
+                num: 30000;
+            };
+            /** @constant */
+            timecode_mode: "NON_DROP_FRAME";
+        } | {
+            frame_rate: {
+                /** @constant */
+                den: 1001;
+                /** @constant */
+                num: 30000;
+            };
+            /** @constant */
+            timecode_mode: "DROP_FRAME";
+        });
         /** SourceBlockData */
         SourceBlockData: {
             /** Chapter Index */
@@ -1986,6 +2170,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMediaCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaCapabilitiesResponse"];
                 };
             };
             /** @description Sidecar authentication required */

@@ -41,6 +41,7 @@ from aijian_api.credential_vault import (
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
+from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
 from aijian_api.provider_connection_repository import (
     ProviderConnectionConflictError,
     ProviderConnectionNotFoundError,
@@ -403,6 +404,21 @@ def create_app(
     async def health(request: Request) -> HealthResponse:
         return HealthResponse(
             data=HealthData(version=__version__),
+            request_id=request.state.request_id,
+        )
+
+    @app.get(
+        "/api/v1/media/capabilities",
+        operation_id="getMediaCapabilities",
+        response_model=MediaCapabilitiesResponse,
+        responses={
+            401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+            403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+        },
+    )
+    async def media_capabilities(request: Request) -> MediaCapabilitiesResponse:
+        return MediaCapabilitiesResponse(
+            data=MediaCapabilitiesData.phase0(),
             request_id=request.state.request_id,
         )
 

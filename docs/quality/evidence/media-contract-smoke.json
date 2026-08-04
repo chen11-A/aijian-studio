@@ -1,0 +1,68 @@
+{
+  "audioSampleBoundariesAt30000Over1001": {
+    "0": 0,
+    "1": 1602,
+    "2": 3203,
+    "5": 8008,
+    "53946": 86399914
+  },
+  "check": "phase0-media-contract-smoke",
+  "contract": {
+    "accepted_source_audio_sample_rates_hz": [44100, 48000],
+    "audio_frame_boundary_policy": {
+      "calculation": "ABSOLUTE_FRAME_INDEX",
+      "maximum_json_safe_sample_position": 9007199254740991,
+      "rounding_mode": "NEAREST_TIES_UP",
+      "sample_rate_hz": 48000
+    },
+    "contract_version": 1,
+    "proxy_mapping_schema_version": 1,
+    "supported_sequence_timebases": [
+      {
+        "frame_rate": {
+          "den": 1001,
+          "num": 24000
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      {
+        "frame_rate": {
+          "den": 1,
+          "num": 24
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      {
+        "frame_rate": {
+          "den": 1,
+          "num": 25
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      {
+        "frame_rate": {
+          "den": 1001,
+          "num": 30000
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      {
+        "frame_rate": {
+          "den": 1001,
+          "num": 30000
+        },
+        "timecode_mode": "DROP_FRAME"
+      }
+    ],
+    "timeline_time_representation": "REDUCED_RATIONAL",
+    "variable_frame_rate_policy": "CONFORM_TO_CFR_PROXY",
+    "working_audio_sample_rate_hz": 48000
+  },
+  "contractSchemaSha256": "59c82544727a3f14fdbf73987c7425f788b72c77951d6cdffc4a791c15d29020",
+  "endpoint": "/api/v1/media/capabilities",
+  "externalMediaOrNetworkUsed": false,
+  "operationId": "getMediaCapabilities",
+  "passed": true,
+  "proxyMapV1Validated": true,
+  "requestIdPreserved": true
+}

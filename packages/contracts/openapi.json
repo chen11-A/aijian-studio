@@ -76,6 +76,38 @@
         "title": "ArtifactHeadData",
         "type": "object"
       },
+      "AudioFrameBoundaryPolicyData": {
+        "additionalProperties": false,
+        "description": "Deterministic sequence-frame to working-audio sample conversion policy.",
+        "properties": {
+          "calculation": {
+            "const": "ABSOLUTE_FRAME_INDEX",
+            "default": "ABSOLUTE_FRAME_INDEX",
+            "title": "Calculation",
+            "type": "string"
+          },
+          "maximum_json_safe_sample_position": {
+            "const": 9007199254740991,
+            "default": 9007199254740991,
+            "title": "Maximum Json Safe Sample Position",
+            "type": "integer"
+          },
+          "rounding_mode": {
+            "const": "NEAREST_TIES_UP",
+            "default": "NEAREST_TIES_UP",
+            "title": "Rounding Mode",
+            "type": "string"
+          },
+          "sample_rate_hz": {
+            "const": 48000,
+            "default": 48000,
+            "title": "Sample Rate Hz",
+            "type": "integer"
+          }
+        },
+        "title": "AudioFrameBoundaryPolicyData",
+        "type": "object"
+      },
       "BooleanStateValueV1": {
         "additionalProperties": false,
         "properties": {
@@ -2359,6 +2391,88 @@
         "title": "LocationFactV1",
         "type": "object"
       },
+      "MediaCapabilitiesData": {
+        "additionalProperties": false,
+        "description": "Stable Phase 0 editing-time policy, not runtime tool health.",
+        "properties": {
+          "accepted_source_audio_sample_rates_hz": {
+            "items": {
+              "enum": [
+                44100,
+                48000
+              ],
+              "type": "integer"
+            },
+            "title": "Accepted Source Audio Sample Rates Hz",
+            "type": "array"
+          },
+          "audio_frame_boundary_policy": {
+            "$ref": "#/components/schemas/AudioFrameBoundaryPolicyData"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "proxy_mapping_schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Proxy Mapping Schema Version",
+            "type": "integer"
+          },
+          "supported_sequence_timebases": {
+            "items": {
+              "$ref": "#/components/schemas/SequenceTimebaseData"
+            },
+            "title": "Supported Sequence Timebases",
+            "type": "array"
+          },
+          "timeline_time_representation": {
+            "const": "REDUCED_RATIONAL",
+            "default": "REDUCED_RATIONAL",
+            "title": "Timeline Time Representation",
+            "type": "string"
+          },
+          "variable_frame_rate_policy": {
+            "const": "CONFORM_TO_CFR_PROXY",
+            "default": "CONFORM_TO_CFR_PROXY",
+            "title": "Variable Frame Rate Policy",
+            "type": "string"
+          },
+          "working_audio_sample_rate_hz": {
+            "const": 48000,
+            "default": 48000,
+            "title": "Working Audio Sample Rate Hz",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "supported_sequence_timebases",
+          "accepted_source_audio_sample_rates_hz"
+        ],
+        "title": "MediaCapabilitiesData",
+        "type": "object"
+      },
+      "MediaCapabilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MediaCapabilitiesData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "MediaCapabilitiesResponse",
+        "type": "object"
+      },
       "NumberStateValueV1": {
         "additionalProperties": false,
         "properties": {
@@ -3793,6 +3907,289 @@
           "object_entity_id"
         ],
         "title": "RelationshipFactV1",
+        "type": "object"
+      },
+      "SequenceFrameRateData": {
+        "additionalProperties": false,
+        "description": "Frame rate accepted for Phase 0 fixed-rate sequences.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "den": {
+                "const": 1001,
+                "type": "integer"
+              },
+              "num": {
+                "const": 24000,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "num",
+              "den"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "den": {
+                "const": 1,
+                "type": "integer"
+              },
+              "num": {
+                "const": 24,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "num",
+              "den"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "den": {
+                "const": 1,
+                "type": "integer"
+              },
+              "num": {
+                "const": 25,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "num",
+              "den"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "den": {
+                "const": 1001,
+                "type": "integer"
+              },
+              "num": {
+                "const": 30000,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "num",
+              "den"
+            ],
+            "type": "object"
+          }
+        ],
+        "properties": {
+          "den": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 2147483647.0,
+            "title": "Den",
+            "type": "integer"
+          },
+          "num": {
+            "maximum": 9007199254740991.0,
+            "minimum": -9007199254740991.0,
+            "title": "Num",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "title": "SequenceFrameRateData",
+        "type": "object"
+      },
+      "SequenceTimebaseData": {
+        "additionalProperties": false,
+        "description": "Frame timing plus an independent human-readable timecode addressing mode.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frame_rate": {
+                "additionalProperties": false,
+                "properties": {
+                  "den": {
+                    "const": 1001,
+                    "type": "integer"
+                  },
+                  "num": {
+                    "const": 24000,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "type": "object"
+              },
+              "timecode_mode": {
+                "const": "NON_DROP_FRAME",
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame_rate",
+              "timecode_mode"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frame_rate": {
+                "additionalProperties": false,
+                "properties": {
+                  "den": {
+                    "const": 1,
+                    "type": "integer"
+                  },
+                  "num": {
+                    "const": 24,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "type": "object"
+              },
+              "timecode_mode": {
+                "const": "NON_DROP_FRAME",
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame_rate",
+              "timecode_mode"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frame_rate": {
+                "additionalProperties": false,
+                "properties": {
+                  "den": {
+                    "const": 1,
+                    "type": "integer"
+                  },
+                  "num": {
+                    "const": 25,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "type": "object"
+              },
+              "timecode_mode": {
+                "const": "NON_DROP_FRAME",
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame_rate",
+              "timecode_mode"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frame_rate": {
+                "additionalProperties": false,
+                "properties": {
+                  "den": {
+                    "const": 1001,
+                    "type": "integer"
+                  },
+                  "num": {
+                    "const": 30000,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "type": "object"
+              },
+              "timecode_mode": {
+                "const": "NON_DROP_FRAME",
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame_rate",
+              "timecode_mode"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frame_rate": {
+                "additionalProperties": false,
+                "properties": {
+                  "den": {
+                    "const": 1001,
+                    "type": "integer"
+                  },
+                  "num": {
+                    "const": 30000,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "type": "object"
+              },
+              "timecode_mode": {
+                "const": "DROP_FRAME",
+                "type": "string"
+              }
+            },
+            "required": [
+              "frame_rate",
+              "timecode_mode"
+            ],
+            "type": "object"
+          }
+        ],
+        "properties": {
+          "frame_rate": {
+            "$ref": "#/components/schemas/SequenceFrameRateData"
+          },
+          "timecode_mode": {
+            "enum": [
+              "NON_DROP_FRAME",
+              "DROP_FRAME"
+            ],
+            "title": "Timecode Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frame_rate",
+          "timecode_mode"
+        ],
+        "title": "SequenceTimebaseData",
         "type": "object"
       },
       "SourceBlockData": {
@@ -6490,6 +6887,44 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/v1/media/capabilities": {
+      "get": {
+        "operationId": "getMediaCapabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          }
+        },
+        "summary": "Media Capabilities"
       }
     },
     "/api/v1/projects": {

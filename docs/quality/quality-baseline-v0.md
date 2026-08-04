@@ -2,7 +2,10 @@
 
 W4 前由 QA、媒体和影片团队用固定夹具实测并锁定为 v1。这里的数字是首轮工程门槛，不是营销承诺。
 
-已执行的纵切验收见 [Phase 0 故事工坊验收记录](phase0-story-workshop-acceptance.md)。
+已执行的纵切验收：
+
+- [Phase 0 故事工坊验收记录](phase0-story-workshop-acceptance.md)
+- [Phase 0 媒体时间基线验收记录](phase0-media-contract-acceptance.md)
 
 ## 参考环境
 
