@@ -26,7 +26,7 @@
     "typecheck:py": "uv run mypy",
     "test": "pnpm test:ts && pnpm test:py",
     "test:ts": "pnpm -r --if-present test",
-    "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing",
+    "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json",
     "build": "pnpm -r --if-present build"
   },
   "devDependencies": {

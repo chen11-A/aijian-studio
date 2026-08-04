@@ -24,7 +24,7 @@ package = false
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["services/api/tests"]
-pythonpath = ["services/api/src"]
+pythonpath = ["services/api/src", "."]
 
 [tool.coverage.run]
 branch = true
