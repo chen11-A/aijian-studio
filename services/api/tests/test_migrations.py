@@ -94,6 +94,16 @@ def create_current_v2_database(path: Path) -> None:
     assert database_version(path) == 2
 
 
+def create_current_v3_database(path: Path) -> None:
+    def stop_before_v4(version: int, step: int) -> None:
+        if version == 4 and step == 0:
+            raise RuntimeError("stop before v4")
+
+    with pytest.raises(RuntimeError, match="stop before v4"):
+        StudioRepository(path, migration_hook=stop_before_v4)
+    assert database_version(path) == 3
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -106,7 +116,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
     assert database_version(database) == SCHEMA_VERSION
     assert {
         "projects",
@@ -126,6 +136,13 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "gate_waivers",
         "gate_waiver_events",
         "confirmation_challenges",
+        "workflow_definitions",
+        "workflow_runs",
+        "workflow_node_runs",
+        "workflow_attempts",
+        "task_ledger",
+        "workflow_transition_events",
+        "remote_reconciliations",
     } <= tables
 
 
@@ -139,7 +156,7 @@ def test_v1_migration_preserves_projects_sources_and_blocks(tmp_path: Path) -> N
     source = repository.get_source("prj_existing", "src_existing")
     assert source.normalized_text == "第一段"
     assert [block.text for block in source.blocks] == ["第一段"]
-    assert database_version(database) == 3
+    assert database_version(database) == 4
 
 
 def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
@@ -171,7 +188,7 @@ def test_every_v2_ddl_failure_rolls_back_and_can_retry(tmp_path: Path) -> None:
         assert artifact_table is None
 
         StudioRepository(database)
-        assert database_version(database) == 3
+        assert database_version(database) == 4
 
 
 def test_every_v3_ddl_failure_rolls_back_to_v2_and_can_retry(tmp_path: Path) -> None:
@@ -197,7 +214,33 @@ def test_every_v3_ddl_failure_rolls_back_to_v2_and_can_retry(tmp_path: Path) -> 
         assert database_version(database) == 2
 
         StudioRepository(database)
+        assert database_version(database) == 4
+
+
+def test_every_v4_ddl_failure_rolls_back_to_v3_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v4.db"
+    create_current_v3_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 4 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v4-failure-{failed_step}.db"
+        create_current_v3_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 4 and step == target:
+                raise RuntimeError(f"injected v4 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v4 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
         assert database_version(database) == 3
+
+        StudioRepository(database)
+        assert database_version(database) == 4
 
 
 def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:
@@ -267,7 +310,7 @@ def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:
         assert row["actor_id"] == "legacy-unbound"
         assert row["actor_roles_json"] == "[]"
         assert str(row["policy_snapshot_hash"]).startswith("sha256:")
-    assert database_version(database) == 3
+    assert database_version(database) == 4
 
 
 def test_v3_migration_rejects_legacy_cross_artifact_review_links(tmp_path: Path) -> None:

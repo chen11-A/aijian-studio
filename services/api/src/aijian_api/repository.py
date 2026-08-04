@@ -53,8 +53,9 @@ from aijian_api.source_manifest import (
     SourceManifestContentV1,
     SourceManifestDocumentV1,
 )
+from aijian_api.workflow_schema import MIGRATION_4
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -732,6 +733,7 @@ _MIGRATIONS = {
     1: _MIGRATION_1,
     2: _MIGRATION_2 + _IMMUTABILITY_TRIGGERS,
     3: _MIGRATION_3 + _IMMUTABILITY_V3_TRIGGERS,
+    4: MIGRATION_4,
 }
 
 
