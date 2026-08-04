@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Literal
 
 type EventEntityKind = Literal["node", "attempt", "task"]
+type EventActorKind = Literal["system", "worker", "human"]
 
 
 def append_event(
@@ -17,6 +18,7 @@ def append_event(
     reason_code: str,
     created_at: str,
     *,
+    actor_kind: EventActorKind = "system",
     actor_id: str = "local-scheduler",
     lease_generation: int | None = None,
 ) -> None:
@@ -27,7 +29,6 @@ def append_event(
             (entity_kind, entity_id),
         ).fetchone()[0]
     )
-    actor_kind = "worker" if lease_generation is not None else "system"
     connection.execute(
         """
         INSERT INTO workflow_transition_events VALUES (

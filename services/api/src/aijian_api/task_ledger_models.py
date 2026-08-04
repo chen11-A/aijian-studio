@@ -36,6 +36,13 @@ class ClaimedTask:
     node_revision: int
 
 
+@dataclass(frozen=True, slots=True)
+class RecoverySummary:
+    recovered: int
+    requeued: int
+    failed: int
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 

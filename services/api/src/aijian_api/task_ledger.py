@@ -13,14 +13,22 @@ from aijian_api.task_ledger_models import (
     ClaimedTask,
     LeaseLostError,
     QueuedTask,
+    RecoverySummary,
     lease_token,
     new_id,
     parse_datetime,
     timestamp,
     utc_now,
 )
+from aijian_api.task_ledger_recovery import recover_expired_local_tasks
 
-__all__ = ["ClaimedTask", "LeaseLostError", "LocalTaskLedger", "QueuedTask"]
+__all__ = [
+    "ClaimedTask",
+    "LeaseLostError",
+    "LocalTaskLedger",
+    "QueuedTask",
+    "RecoverySummary",
+]
 
 
 class LocalTaskLedger:
@@ -279,6 +287,7 @@ class LocalTaskLedger:
                 "RUNNING",
                 "attempt.started",
                 now_text,
+                actor_kind="worker",
                 actor_id=claim.lease_owner,
                 lease_generation=claim.lease_generation,
             )
@@ -289,6 +298,13 @@ class LocalTaskLedger:
             raise
         finally:
             connection.close()
+
+    def recover_expired_local_tasks(self) -> RecoverySummary:
+        return recover_expired_local_tasks(
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
 
     @staticmethod
     def _validate_lease_request(worker_id: str, lease_duration: timedelta) -> None:
@@ -316,6 +332,7 @@ class LocalTaskLedger:
             "LEASED",
             "task.claimed",
             created_at,
+            actor_kind="worker",
             actor_id=worker_id,
             lease_generation=generation,
         )
@@ -328,6 +345,7 @@ class LocalTaskLedger:
             "LEASED",
             "attempt.claimed",
             created_at,
+            actor_kind="worker",
             actor_id=worker_id,
             lease_generation=generation,
         )
@@ -340,6 +358,7 @@ class LocalTaskLedger:
             "RUNNING",
             "node.claimed",
             created_at,
+            actor_kind="worker",
             actor_id=worker_id,
             lease_generation=generation,
         )

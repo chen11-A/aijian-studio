@@ -1,6 +1,6 @@
 # Phase 0 Task Ledger 与恢复契约
 
-- 状态：F01/F02 契约冻结，F03 实现中
+- 状态：F01/F02 已实现，F03 实现中
 - 范围：本地 SQLite 任务真相、唯一领取、租约、崩溃恢复和远程未知保护
 - 非目标：本阶段不实现 Redis、分布式调度、供应商 SDK 或完整 DAG 编辑器
 
@@ -71,3 +71,11 @@ REMOTE_UNKNOWN / SUCCEEDED / FAILED / CANCEL_REQUESTED / CANCELLED / NOT_SUBMITT
 3. `WAITING_REMOTE` 缺少供应商任务 ID 时拒绝提交状态。
 4. `REMOTE_UNKNOWN` 到任何可运行/提交状态的转换全部拒绝；只有带权威对账证据的状态转换开放。
 5. F03 在 SQLite 上证明并发唯一领取和过期租约恢复，不用进程内互斥锁冒充数据库语义。
+
+## 当前实现证据
+
+- Schema v4 已建立 WorkflowDefinition/Run、NodeRun、Attempt、TaskLedger、transition event 与 remote reconciliation 表；每一步迁移都通过故障注入回滚/重试测试。
+- 两个独立 SQLite 连接并发领取同一任务时，只有一个 `BEGIN IMMEDIATE + UPDATE RETURNING` 事务成功。
+- 心跳和启动提交校验 owner/token/generation/revision；旧 worker 与过期 lease 均被拒绝。
+- 过期本地任务保留失败 Attempt，再创建新 Attempt/Task；尝试耗尽时 Node 明确失败。活跃租约和远程租约不会被本地恢复器重排。
+- 以上 Task Ledger 与恢复模块保持 100% 行/分支覆盖。尚未完成：Atomic output commit、LocalExecutor 子进程、Fake Provider 与六 kill 点 ×100 种子。
