@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "expected_version": "8.1.2",
+  "profiles": [
+    {
+      "profile_id": "windows-x86_64-gyan-full-8.1.2-dev",
+      "ffmpeg_sha256": "ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e",
+      "ffprobe_sha256": "9df3b0b5275e830961df6d94e1f7a71121a7abd5ff708e9fec8a0b6084a55015",
+      "source_url": "https://www.gyan.dev/ffmpeg/builds/",
+      "license_class": "GPL",
+      "spdx_license": "GPL-3.0-or-later",
+      "distribution_status": "DEVELOPMENT_ONLY"
+    }
+  ]
+}

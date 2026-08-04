@@ -28,6 +28,18 @@ components:
     modifications: none; development-only and not distributed
     reviewed_by: Codex
     reviewed_at: 2026-08-04
+  - name: FFmpeg and ffprobe development toolchain
+    source_url: https://www.gyan.dev/ffmpeg/builds/
+    commit_or_version: 8.1.2-full_build-www.gyan.dev
+    paths_imported: No binary imported; exact external executable hashes are recorded in config/media-toolchain-lock.json
+    purpose: Generate and probe synthetic Phase 0 media fixtures and CFR proxies
+    alternatives_considered: Self-built LGPL-only FFmpeg and BtbN LGPL builds; release toolchain remains pending legal and reproducible-build review
+    spdx_license: GPL-3.0-or-later
+    license_file: External build reports --enable-gpl --enable-version3; FFmpeg legal terms at https://ffmpeg.org/legal.html
+    notice_required: false
+    modifications: none; development-only and explicitly prohibited from release distribution
+    reviewed_by: Codex
+    reviewed_at: 2026-08-04
 
 # Required fields for each future component:
 # - name
