@@ -17,7 +17,11 @@ SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
 SOURCE_BLOCK_ID_PATTERN = r"^srcb_[0-9a-f]{32}$"
 ARTIFACT_ID_PATTERN = r"^art_[0-9a-f]{32}$"
 VERSION_ID_PATTERN = r"^ver_[0-9a-f]{32}$"
+FACT_ID_PATTERN = r"^fact_[0-9a-f]{32}$"
+SOURCE_SPAN_ID_PATTERN = r"^spn_[0-9a-f]{32}$"
 CONTENT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
+MAX_STORY_BIBLE_SOURCE_SPANS = 20_000
+MAX_STORY_BIBLE_RESPONSE_BYTES = 16 * 1024 * 1024
 REPORT_ID_PATTERN = r"^rpt_[0-9a-f]{32}$"
 CHALLENGE_ID_PATTERN = r"^chg_[0-9a-f]{32}$"
 SUBMISSION_ID_PATTERN = r"^sub_[0-9a-f]{32}$"
@@ -211,8 +215,11 @@ class SourceManifestVersionData(BaseModel):
 class SourceManifestData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
     head: ArtifactHeadData
     latest_version: SourceManifestVersionData
+    review_version: SourceManifestVersionData | None
+    accepted_version: SourceManifestVersionData | None
 
 
 class SourceManifestResponse(BaseModel):
@@ -220,6 +227,20 @@ class SourceManifestResponse(BaseModel):
 
     data: SourceManifestData
     request_id: UUID
+
+
+class StorySourceSpanData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=SOURCE_SPAN_ID_PATTERN)
+    fact_id: str = Field(pattern=FACT_ID_PATTERN)
+    source_document_id: str = Field(pattern=SOURCE_ID_PATTERN)
+    source_block_id: str = Field(pattern=SOURCE_BLOCK_ID_PATTERN)
+    role: Literal["supports", "contradicts", "context"]
+    start_byte: int = Field(ge=0)
+    end_byte: int = Field(gt=0)
+    claim: str = Field(min_length=1, max_length=1000)
+    quote_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
 
 
 class StoryBibleVersionData(BaseModel):
@@ -230,23 +251,55 @@ class StoryBibleVersionData(BaseModel):
     version_number: int = Field(ge=1)
     schema_version: Literal["1.0.0"]
     content: StoryBibleContentV1
+    source_spans: list[StorySourceSpanData] = Field(max_length=MAX_STORY_BIBLE_SOURCE_SPANS)
     content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
     parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
     change_summary: str
     created_at: datetime
 
 
-class StoryBibleData(BaseModel):
+class StoryBibleVersionSummaryData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    id: str = Field(pattern=VERSION_ID_PATTERN)
+    artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    version_number: int = Field(ge=1)
+    schema_version: Literal["1.0.0"]
+    content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    change_summary: str
+    created_at: datetime
+
+
+class StoryBibleIndexData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
     head: ArtifactHeadData
-    latest_version: StoryBibleVersionData
+    latest_version: StoryBibleVersionSummaryData
+    review_version: StoryBibleVersionSummaryData | None
+    accepted_version: StoryBibleVersionSummaryData | None
 
 
-class StoryBibleResponse(BaseModel):
+class StoryBibleIndexResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    data: StoryBibleData
+    data: StoryBibleIndexData
+    request_id: UUID
+
+
+class StoryBibleVersionReadData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    head: ArtifactHeadData
+    version: StoryBibleVersionData
+
+
+class StoryBibleVersionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryBibleVersionReadData
     request_id: UUID
 
 
@@ -254,7 +307,7 @@ class CreateStoryBibleVersionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: StoryBibleContentDraftV1
-    source_spans: list[StorySourceSpanDraftV1] = Field(max_length=100000)
+    source_spans: list[StorySourceSpanDraftV1] = Field(max_length=MAX_STORY_BIBLE_SOURCE_SPANS)
     parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
     change_summary: str = Field(min_length=1, max_length=1000)
 

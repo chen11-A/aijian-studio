@@ -7,3 +7,7 @@ class PreconditionRequiredError(RuntimeError):
 
 class PreconditionFailedError(RuntimeError):
     pass
+
+
+class StoryBiblePayloadTooLargeError(RuntimeError):
+    pass

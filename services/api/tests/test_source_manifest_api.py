@@ -54,6 +54,7 @@ def create_source_manifest(client: TestClient) -> tuple[str, str, str]:
     assert import_response.status_code == 201
     manifest_response = client.get(f"/api/v1/projects/{project_id}/source-manifest")
     data = manifest_response.json()["data"]
+    assert data["project_id"] == project_id
     return project_id, data["latest_version"]["id"], manifest_response.headers["etag"]
 
 
@@ -126,6 +127,8 @@ def test_g1_source_manifest_submit_signoff_and_decision_are_confirmed_and_versio
     assert submitted.status_code == 200
     assert submitted.headers["etag"] == '"revision-2"'
     assert submitted.json()["data"]["head"]["review_version_id"] == version_id
+    review_read = client.get(f"/api/v1/projects/{project_id}/source-manifest")
+    assert review_read.json()["data"]["review_version"]["id"] == version_id
 
     replayed = client.post(
         f"{base}:submit",
@@ -193,6 +196,10 @@ def test_g1_source_manifest_submit_signoff_and_decision_are_confirmed_and_versio
     assert latest.headers["etag"] == '"revision-5"'
     assert latest.json()["data"]["head"]["accepted_version_id"] == version_id
     assert latest.json()["data"]["head"]["latest_version_id"] != version_id
+    assert latest.json()["data"]["review_version"] is None
+    assert latest.json()["data"]["accepted_version"]["id"] == version_id
+    assert len(latest.json()["data"]["accepted_version"]["content"]["documents"]) == 1
+    assert len(latest.json()["data"]["latest_version"]["content"]["documents"]) == 2
 
 
 def test_public_openapi_and_unprotected_app_exclude_all_gate_capabilities(tmp_path: Path) -> None:

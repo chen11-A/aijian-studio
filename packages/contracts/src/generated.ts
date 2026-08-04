@@ -116,7 +116,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Story Bible */
-        get: operations["getStoryBible"];
+        get: operations["getStoryBibleIndex"];
         put?: never;
         post?: never;
         delete?: never;
@@ -136,6 +136,23 @@ export interface paths {
         put?: never;
         /** Create Story Bible Version */
         post: operations["createStoryBibleVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-bible/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Story Bible Version */
+        get: operations["getStoryBibleVersion"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1176,8 +1193,12 @@ export interface components {
         };
         /** SourceManifestData */
         SourceManifestData: {
+            accepted_version: components["schemas"]["SourceManifestVersionData"] | null;
             head: components["schemas"]["ArtifactHeadData"];
             latest_version: components["schemas"]["SourceManifestVersionData"];
+            /** Project Id */
+            project_id: string;
+            review_version: components["schemas"]["SourceManifestVersionData"] | null;
         };
         /** SourceManifestDocumentV1 */
         SourceManifestDocumentV1: {
@@ -1310,14 +1331,18 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** StoryBibleData */
-        StoryBibleData: {
+        /** StoryBibleIndexData */
+        StoryBibleIndexData: {
+            accepted_version: components["schemas"]["StoryBibleVersionSummaryData"] | null;
             head: components["schemas"]["ArtifactHeadData"];
-            latest_version: components["schemas"]["StoryBibleVersionData"];
+            latest_version: components["schemas"]["StoryBibleVersionSummaryData"];
+            /** Project Id */
+            project_id: string;
+            review_version: components["schemas"]["StoryBibleVersionSummaryData"] | null;
         };
-        /** StoryBibleResponse */
-        StoryBibleResponse: {
-            data: components["schemas"]["StoryBibleData"];
+        /** StoryBibleIndexResponse */
+        StoryBibleIndexResponse: {
+            data: components["schemas"]["StoryBibleIndexData"];
             /**
              * Request Id
              * Format: uuid
@@ -1349,6 +1374,49 @@ export interface components {
             /** Change Summary */
             change_summary: string;
             content: components["schemas"]["StoryBibleContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Source Spans */
+            source_spans: components["schemas"]["StorySourceSpanData"][];
+            /** Version Number */
+            version_number: number;
+        };
+        /** StoryBibleVersionReadData */
+        StoryBibleVersionReadData: {
+            head: components["schemas"]["ArtifactHeadData"];
+            /** Project Id */
+            project_id: string;
+            version: components["schemas"]["StoryBibleVersionData"];
+        };
+        /** StoryBibleVersionResponse */
+        StoryBibleVersionResponse: {
+            data: components["schemas"]["StoryBibleVersionReadData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryBibleVersionSummaryData */
+        StoryBibleVersionSummaryData: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Change Summary */
+            change_summary: string;
             /** Content Hash */
             content_hash: string;
             /**
@@ -1451,6 +1519,30 @@ export interface components {
             scope_type: "full_work" | "selected_range";
             /** Source Manifest Version Id */
             source_manifest_version_id: string;
+        };
+        /** StorySourceSpanData */
+        StorySourceSpanData: {
+            /** Claim */
+            claim: string;
+            /** End Byte */
+            end_byte: number;
+            /** Fact Id */
+            fact_id: string;
+            /** Id */
+            id: string;
+            /** Quote Hash */
+            quote_hash: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "supports" | "contradicts" | "context";
+            /** Source Block Id */
+            source_block_id: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Start Byte */
+            start_byte: number;
         };
         /** StorySourceSpanDraftV1 */
         StorySourceSpanDraftV1: {
@@ -2035,7 +2127,7 @@ export interface operations {
             };
         };
     };
-    getStoryBible: {
+    getStoryBibleIndex: {
         parameters: {
             query?: never;
             header?: never;
@@ -2052,7 +2144,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StoryBibleResponse"];
+                    "application/json": components["schemas"]["StoryBibleIndexResponse"];
                 };
             };
             /** @description Sidecar authentication required */
@@ -2164,6 +2256,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description StoryBible response too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -2175,6 +2276,74 @@ export interface operations {
             };
             /** @description If-Match is required for a revision */
             428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryBibleVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryBibleVersionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or StoryBible version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description StoryBible response too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

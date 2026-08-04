@@ -117,6 +117,29 @@ class ArtifactVersion:
 
 
 @dataclass(frozen=True, slots=True)
+class ArtifactVersionSummary:
+    id: str
+    artifact_id: str
+    version_number: int
+    schema_version: str
+    content_hash: str
+    parent_version_id: str | None
+    change_summary: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactVersionPayloadMetrics:
+    content_json_bytes: int
+    source_span_count: int
+    source_span_claim_bytes: int
+
+    @property
+    def minimum_materialized_json_bytes(self) -> int:
+        return self.content_json_bytes + self.source_span_claim_bytes
+
+
+@dataclass(frozen=True, slots=True)
 class ArtifactHead:
     artifact_id: str
     latest_version_id: str
@@ -163,6 +186,12 @@ class ArtifactVersionRecord:
     head: ArtifactHead
     source_spans: tuple[ArtifactSourceSpan, ...]
     dependencies: tuple[ArtifactDependency, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactRoleIndex:
+    head: ArtifactHead
+    versions: tuple[ArtifactVersionSummary, ...]
 
 
 @dataclass(frozen=True, slots=True)

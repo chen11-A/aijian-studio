@@ -18,10 +18,13 @@ from aijian_api.domain import (
     ArtifactDependency,
     ArtifactDependencyDraft,
     ArtifactHead,
+    ArtifactRoleIndex,
     ArtifactSourceSpan,
     ArtifactSourceSpanDraft,
     ArtifactVersion,
+    ArtifactVersionPayloadMetrics,
     ArtifactVersionRecord,
+    ArtifactVersionSummary,
     ConfirmationChallenge,
     DependencyImpact,
     GateDecision,
@@ -59,6 +62,8 @@ type ArtifactContentResolver = Callable[
     [Callable[[str], str]],
     tuple[dict[str, object], tuple[ArtifactSourceSpanDraft, ...]],
 ]
+type ArtifactRecordValidator = Callable[[ArtifactVersionRecord], None]
+type ArtifactPayloadMetricsValidator = Callable[[ArtifactVersionPayloadMetrics], None]
 
 
 _MIGRATION_1 = (
@@ -1431,6 +1436,7 @@ class StudioRepository:
         dependencies: tuple[ArtifactDependencyDraft, ...] = (),
         required_accepted_upstream_version_id: str | None = None,
         content_resolver: ArtifactContentResolver | None = None,
+        record_validator: ArtifactRecordValidator | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
@@ -1639,6 +1645,14 @@ class StudioRepository:
                 if head_row is None:
                     raise RuntimeError("Artifact head was not persisted")
                 head = self._artifact_head_from_row(head_row)
+                record = ArtifactVersionRecord(
+                    version=version,
+                    head=head,
+                    source_spans=persisted_spans,
+                    dependencies=persisted_dependencies,
+                )
+                if record_validator is not None:
+                    record_validator(record)
                 connection.commit()
             except sqlite3.IntegrityError as error:
                 connection.rollback()
@@ -1647,12 +1661,7 @@ class StudioRepository:
                 connection.rollback()
                 raise
 
-        return ArtifactVersionRecord(
-            version=version,
-            head=head,
-            source_spans=persisted_spans,
-            dependencies=persisted_dependencies,
-        )
+        return record
 
     def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
         with self._connection() as connection:
@@ -1674,38 +1683,107 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         version_id: str,
+        payload_metrics_validator: ArtifactPayloadMetricsValidator | None = None,
     ) -> ArtifactVersionRecord:
         with self._connection() as connection:
-            version_row = connection.execute(
-                """
-                SELECT artifact_versions.*
-                FROM artifact_versions
-                JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
-                WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
-                    AND artifact_versions.version_id = ?
-                """,
-                (project_id, artifact_type, version_id),
-            ).fetchone()
-            if version_row is None:
-                raise ArtifactConflictError("Artifact version was not found")
-            artifact_id = str(version_row["artifact_id"])
-            head_row = connection.execute(
-                "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
-            ).fetchone()
-            span_rows = connection.execute(
-                """
-                SELECT * FROM artifact_source_spans
-                WHERE version_id = ? ORDER BY fact_id, start_byte, span_id
-                """,
-                (version_id,),
-            ).fetchall()
-            dependency_rows = connection.execute(
-                """
-                SELECT * FROM artifact_dependencies
-                WHERE downstream_version_id = ? ORDER BY dependency_id
-                """,
-                (version_id,),
-            ).fetchall()
+            try:
+                connection.execute("BEGIN")
+                if payload_metrics_validator is not None:
+                    payload_metrics_validator(
+                        self._get_artifact_version_payload_metrics_in_connection(
+                            connection,
+                            project_id=project_id,
+                            artifact_type=artifact_type,
+                            version_id=version_id,
+                        )
+                    )
+                record = self._get_artifact_version_in_connection(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return record
+
+    def _get_artifact_version_payload_metrics_in_connection(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+    ) -> ArtifactVersionPayloadMetrics:
+        row = connection.execute(
+            """
+            SELECT
+                length(CAST(artifact_versions.content_json AS BLOB)) AS content_json_bytes,
+                (
+                    SELECT COUNT(*)
+                    FROM artifact_source_spans
+                    WHERE artifact_source_spans.version_id = artifact_versions.version_id
+                ) AS source_span_count,
+                (
+                    SELECT COALESCE(SUM(length(CAST(claim AS BLOB))), 0)
+                    FROM artifact_source_spans
+                    WHERE artifact_source_spans.version_id = artifact_versions.version_id
+                ) AS source_span_claim_bytes
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                AND artifact_versions.version_id = ?
+            """,
+            (project_id, artifact_type, version_id),
+        ).fetchone()
+        if row is None:
+            raise ArtifactConflictError("Artifact version was not found")
+        return ArtifactVersionPayloadMetrics(
+            content_json_bytes=int(row["content_json_bytes"]),
+            source_span_count=int(row["source_span_count"]),
+            source_span_claim_bytes=int(row["source_span_claim_bytes"]),
+        )
+
+    def _get_artifact_version_in_connection(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+    ) -> ArtifactVersionRecord:
+        version_row = connection.execute(
+            """
+            SELECT artifact_versions.*
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                AND artifact_versions.version_id = ?
+            """,
+            (project_id, artifact_type, version_id),
+        ).fetchone()
+        if version_row is None:
+            raise ArtifactConflictError("Artifact version was not found")
+        artifact_id = str(version_row["artifact_id"])
+        head_row = connection.execute(
+            "SELECT * FROM artifact_heads WHERE artifact_id = ?", (artifact_id,)
+        ).fetchone()
+        span_rows = connection.execute(
+            """
+            SELECT * FROM artifact_source_spans
+            WHERE version_id = ? ORDER BY fact_id, start_byte, span_id
+            """,
+            (version_id,),
+        ).fetchall()
+        dependency_rows = connection.execute(
+            """
+            SELECT * FROM artifact_dependencies
+            WHERE downstream_version_id = ? ORDER BY dependency_id
+            """,
+            (version_id,),
+        ).fetchall()
         if head_row is None:
             raise RuntimeError("Artifact head is missing")
         return ArtifactVersionRecord(
@@ -1716,8 +1794,8 @@ class StudioRepository:
         )
 
     def get_latest_artifact(self, project_id: str, artifact_type: str) -> ArtifactVersionRecord:
-        self.get_project(project_id)
         with self._connection() as connection:
+            connection.execute("BEGIN")
             row = connection.execute(
                 """
                 SELECT artifact_heads.latest_version_id
@@ -1727,12 +1805,69 @@ class StudioRepository:
                 """,
                 (project_id, artifact_type),
             ).fetchone()
-        if row is None:
-            raise ArtifactNotFoundError(artifact_type)
-        return self.get_artifact_version(
-            project_id,
-            artifact_type,
-            str(row["latest_version_id"]),
+            if row is None:
+                connection.rollback()
+                self.get_project(project_id)
+                raise ArtifactNotFoundError(artifact_type)
+            self._transaction_step("get_latest_artifact", "head_selected")
+            record = self._get_artifact_version_in_connection(
+                connection,
+                project_id=project_id,
+                artifact_type=artifact_type,
+                version_id=str(row["latest_version_id"]),
+            )
+            connection.commit()
+        return record
+
+    def get_artifact_role_index(self, project_id: str, artifact_type: str) -> ArtifactRoleIndex:
+        """Read role pointers and their lightweight immutable metadata in one snapshot."""
+        with self._connection() as connection:
+            connection.execute("BEGIN")
+            head_row = connection.execute(
+                """
+                SELECT artifact_heads.*
+                FROM artifact_heads
+                JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
+                WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                """,
+                (project_id, artifact_type),
+            ).fetchone()
+            if head_row is None:
+                connection.rollback()
+                self.get_project(project_id)
+                raise ArtifactNotFoundError(artifact_type)
+            head = self._artifact_head_from_row(head_row)
+            self._transaction_step("get_artifact_role_index", "head_selected")
+            version_ids = tuple(
+                dict.fromkeys(
+                    version_id
+                    for version_id in (
+                        head.latest_version_id,
+                        head.review_version_id,
+                        head.accepted_version_id,
+                    )
+                    if version_id is not None
+                )
+            )
+            placeholders = ", ".join("?" for _ in version_ids)
+            rows = connection.execute(
+                f"""
+                SELECT version_id, artifact_id, version_number, schema_version, content_hash,
+                       parent_version_id, change_summary, created_at
+                FROM artifact_versions
+                WHERE artifact_id = ? AND version_id IN ({placeholders})
+                """,
+                (head.artifact_id, *version_ids),
+            ).fetchall()
+            summaries = {
+                str(row["version_id"]): self._artifact_version_summary_from_row(row) for row in rows
+            }
+            if summaries.keys() != set(version_ids):
+                raise ArtifactConflictError("Artifact role version is missing")
+            connection.commit()
+        return ArtifactRoleIndex(
+            head=head,
+            versions=tuple(summaries[version_id] for version_id in version_ids),
         )
 
     def prepare_review_action(
@@ -2650,6 +2785,21 @@ class StudioRepository:
             content_hash=str(row["content_hash"]),
             author_actor_type=cast(ArtifactActorType, row["author_actor_type"]),
             author_actor_id=str(row["author_actor_id"]),
+            parent_version_id=(
+                str(row["parent_version_id"]) if row["parent_version_id"] is not None else None
+            ),
+            change_summary=str(row["change_summary"]),
+            created_at=_datetime(str(row["created_at"])),
+        )
+
+    @staticmethod
+    def _artifact_version_summary_from_row(row: sqlite3.Row) -> ArtifactVersionSummary:
+        return ArtifactVersionSummary(
+            id=str(row["version_id"]),
+            artifact_id=str(row["artifact_id"]),
+            version_number=int(row["version_number"]),
+            schema_version=str(row["schema_version"]),
+            content_hash=str(row["content_hash"]),
             parent_version_id=(
                 str(row["parent_version_id"]) if row["parent_version_id"] is not None else None
             ),

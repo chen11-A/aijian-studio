@@ -994,7 +994,7 @@
             "items": {
               "$ref": "#/components/schemas/StorySourceSpanDraftV1"
             },
-            "maxItems": 100000,
+            "maxItems": 20000,
             "title": "Source Spans",
             "type": "array"
           }
@@ -3903,16 +3903,44 @@
       "SourceManifestData": {
         "additionalProperties": false,
         "properties": {
+          "accepted_version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceManifestVersionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "head": {
             "$ref": "#/components/schemas/ArtifactHeadData"
           },
           "latest_version": {
             "$ref": "#/components/schemas/SourceManifestVersionData"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "review_version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceManifestVersionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
+          "project_id",
           "head",
-          "latest_version"
+          "latest_version",
+          "review_version",
+          "accepted_version"
         ],
         "title": "SourceManifestData",
         "type": "object"
@@ -4547,28 +4575,56 @@
         "title": "StoryBibleContentV1",
         "type": "object"
       },
-      "StoryBibleData": {
+      "StoryBibleIndexData": {
         "additionalProperties": false,
         "properties": {
+          "accepted_version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryBibleVersionSummaryData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "head": {
             "$ref": "#/components/schemas/ArtifactHeadData"
           },
           "latest_version": {
-            "$ref": "#/components/schemas/StoryBibleVersionData"
+            "$ref": "#/components/schemas/StoryBibleVersionSummaryData"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "review_version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryBibleVersionSummaryData"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
+          "project_id",
           "head",
-          "latest_version"
+          "latest_version",
+          "review_version",
+          "accepted_version"
         ],
-        "title": "StoryBibleData",
+        "title": "StoryBibleIndexData",
         "type": "object"
       },
-      "StoryBibleResponse": {
+      "StoryBibleIndexResponse": {
         "additionalProperties": false,
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/StoryBibleData"
+            "$ref": "#/components/schemas/StoryBibleIndexData"
           },
           "request_id": {
             "format": "uuid",
@@ -4580,7 +4636,7 @@
           "data",
           "request_id"
         ],
-        "title": "StoryBibleResponse",
+        "title": "StoryBibleIndexResponse",
         "type": "object"
       },
       "StoryBibleVersionCreatedData": {
@@ -4674,6 +4730,14 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "source_spans": {
+            "items": {
+              "$ref": "#/components/schemas/StorySourceSpanData"
+            },
+            "maxItems": 20000,
+            "title": "Source Spans",
+            "type": "array"
+          },
           "version_number": {
             "minimum": 1.0,
             "title": "Version Number",
@@ -4686,11 +4750,116 @@
           "version_number",
           "schema_version",
           "content",
+          "source_spans",
           "content_hash",
           "change_summary",
           "created_at"
         ],
         "title": "StoryBibleVersionData",
+        "type": "object"
+      },
+      "StoryBibleVersionReadData": {
+        "additionalProperties": false,
+        "properties": {
+          "head": {
+            "$ref": "#/components/schemas/ArtifactHeadData"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/StoryBibleVersionData"
+          }
+        },
+        "required": [
+          "project_id",
+          "head",
+          "version"
+        ],
+        "title": "StoryBibleVersionReadData",
+        "type": "object"
+      },
+      "StoryBibleVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryBibleVersionReadData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryBibleVersionResponse",
+        "type": "object"
+      },
+      "StoryBibleVersionSummaryData": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "change_summary": {
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version_number": {
+            "minimum": 1.0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "artifact_id",
+          "version_number",
+          "schema_version",
+          "content_hash",
+          "change_summary",
+          "created_at"
+        ],
+        "title": "StoryBibleVersionSummaryData",
         "type": "object"
       },
       "StoryEntityDraftV1": {
@@ -4982,6 +5151,74 @@
           "documents"
         ],
         "title": "StorySourceScopeV1",
+        "type": "object"
+      },
+      "StorySourceSpanData": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "fact_id": {
+            "pattern": "^fact_[0-9a-f]{32}$",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^spn_[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "quote_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Quote Hash",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "supports",
+              "contradicts",
+              "context"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_block_id": {
+            "pattern": "^srcb_[0-9a-f]{32}$",
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "fact_id",
+          "source_document_id",
+          "source_block_id",
+          "role",
+          "start_byte",
+          "end_byte",
+          "claim",
+          "quote_hash"
+        ],
+        "title": "StorySourceSpanData",
         "type": "object"
       },
       "StorySourceSpanDraftV1": {
@@ -5984,7 +6221,7 @@
     },
     "/api/v1/projects/{project_id}/story-bible": {
       "get": {
-        "operationId": "getStoryBible",
+        "operationId": "getStoryBibleIndex",
         "parameters": [
           {
             "in": "path",
@@ -6001,7 +6238,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StoryBibleResponse"
+                  "$ref": "#/components/schemas/StoryBibleIndexResponse"
                 }
               }
             },
@@ -6152,6 +6389,16 @@
             },
             "description": "Artifact revision changed"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "StoryBible response too large"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6174,6 +6421,95 @@
           }
         },
         "summary": "Create Story Bible Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-bible/versions/{version_id}": {
+      "get": {
+        "operationId": "getStoryBibleVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ver_[0-9a-f]{32}$",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryBibleVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or StoryBible version not found"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "StoryBible response too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Story Bible Version"
       }
     }
   }

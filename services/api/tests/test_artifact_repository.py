@@ -1,4 +1,5 @@
 import hashlib
+import threading
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -98,6 +99,123 @@ def test_artifact_versions_are_immutable_persistent_and_conditionally_advanced(
             expected_revision=1,
         )
     assert repository.get_artifact_head(project.id, "test_artifact") == second.head
+
+
+def test_latest_artifact_is_one_sqlite_snapshot_while_writer_advances_head(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    writer = create_repository(database)
+    project = create_project(writer)
+    first = writer.create_artifact_version(
+        project_id=project.id,
+        artifact_type="test_artifact",
+        schema_version="1.0.0",
+        content={"title": "读取中的版本"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="初版",
+    )
+    head_selected = threading.Event()
+    writer_finished = threading.Event()
+
+    def pause_after_head(operation: str, step: str) -> None:
+        if (operation, step) == ("get_latest_artifact", "head_selected"):
+            head_selected.set()
+            assert writer_finished.wait(5), "writer did not finish while the read snapshot was open"
+
+    reader = StudioRepository(database, transaction_hook=pause_after_head)
+    records = []
+    read_errors: list[BaseException] = []
+
+    def read_latest() -> None:
+        try:
+            records.append(reader.get_latest_artifact(project.id, "test_artifact"))
+        except BaseException as error:  # pragma: no cover - asserted below for thread handoff
+            read_errors.append(error)
+
+    thread = threading.Thread(target=read_latest)
+    thread.start()
+    assert head_selected.wait(5), "reader did not establish its SQLite snapshot"
+    second = writer.create_artifact_version(
+        project_id=project.id,
+        artifact_type="test_artifact",
+        schema_version="1.0.0",
+        content={"title": "并发写入的新版本"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="并发更新",
+        parent_version_id=first.version.id,
+        expected_revision=first.head.revision,
+    )
+    writer_finished.set()
+    thread.join(5)
+
+    assert not thread.is_alive()
+    assert read_errors == []
+    assert len(records) == 1
+    assert records[0].version.id == first.version.id
+    assert records[0].head.latest_version_id == first.version.id
+    assert writer.get_latest_artifact(project.id, "test_artifact").version.id == second.version.id
+
+
+def test_artifact_role_index_is_one_sqlite_snapshot_while_writer_advances_head(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    writer = create_repository(database)
+    project = create_project(writer)
+    first = writer.create_artifact_version(
+        project_id=project.id,
+        artifact_type="test_artifact",
+        schema_version="1.0.0",
+        content={"title": "读取中的版本"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="初版",
+    )
+    head_selected = threading.Event()
+    writer_finished = threading.Event()
+
+    def pause_after_head(operation: str, step: str) -> None:
+        if (operation, step) == ("get_artifact_role_index", "head_selected"):
+            head_selected.set()
+            assert writer_finished.wait(5), "writer did not finish while the read snapshot was open"
+
+    reader = StudioRepository(database, transaction_hook=pause_after_head)
+    indexes = []
+    read_errors: list[BaseException] = []
+
+    def read_index() -> None:
+        try:
+            indexes.append(reader.get_artifact_role_index(project.id, "test_artifact"))
+        except BaseException as error:  # pragma: no cover - asserted below for thread handoff
+            read_errors.append(error)
+
+    thread = threading.Thread(target=read_index)
+    thread.start()
+    assert head_selected.wait(5), "reader did not establish its SQLite snapshot"
+    second = writer.create_artifact_version(
+        project_id=project.id,
+        artifact_type="test_artifact",
+        schema_version="1.0.0",
+        content={"title": "并发写入的新版本"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="并发更新",
+        parent_version_id=first.version.id,
+        expected_revision=first.head.revision,
+    )
+    writer_finished.set()
+    thread.join(5)
+
+    assert not thread.is_alive()
+    assert read_errors == []
+    assert indexes[0].head.latest_version_id == first.version.id
+    assert [version.id for version in indexes[0].versions] == [first.version.id]
+    current = writer.get_artifact_role_index(project.id, "test_artifact")
+    assert current.head.latest_version_id == second.version.id
+    assert [version.id for version in current.versions] == [second.version.id]
 
 
 def test_source_span_uses_document_absolute_utf8_bytes_and_server_hash(tmp_path: Path) -> None:

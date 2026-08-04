@@ -15,6 +15,7 @@ from aijian_api import __version__
 from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
+    StoryBiblePayloadTooLargeError,
 )
 from aijian_api.contracts import (
     CreateProjectRequest,
@@ -242,6 +243,17 @@ def create_app(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             code="STORY_BIBLE_INVALID",
             message="The StoryBible draft violates the canonical content rules",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(StoryBiblePayloadTooLargeError)
+    async def story_bible_too_large(
+        request: Request, _error: StoryBiblePayloadTooLargeError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            code="STORY_BIBLE_TOO_LARGE",
+            message="The StoryBible version exceeds the local desktop safety limit",
             request_id=request_id(request),
         )
 

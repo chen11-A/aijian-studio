@@ -66,21 +66,40 @@ def _request_id(request: Request) -> UUID:
     return cast(UUID, request.state.request_id)
 
 
-def _source_manifest_data(record: ArtifactVersionRecord) -> SourceManifestData:
+def _source_manifest_version_data(record: ArtifactVersionRecord) -> SourceManifestVersionData:
     version = record.version
+    return SourceManifestVersionData(
+        id=version.id,
+        artifact_id=version.artifact_id,
+        version_number=version.version_number,
+        schema_version="1.0.0",
+        content=SourceManifestContentV1.model_validate(version.content),
+        content_hash=version.content_hash,
+        parent_version_id=version.parent_version_id,
+        change_summary=version.change_summary,
+        created_at=version.created_at,
+    )
+
+
+def _source_manifest_data(
+    project_id: str,
+    repository: StudioRepository,
+    record: ArtifactVersionRecord,
+) -> SourceManifestData:
+    def version_for(version_id: str | None) -> SourceManifestVersionData | None:
+        if version_id is None:
+            return None
+        if version_id == record.version.id:
+            return _source_manifest_version_data(record)
+        historical = repository.get_artifact_version(project_id, "source_manifest", version_id)
+        return _source_manifest_version_data(historical)
+
     return SourceManifestData(
+        project_id=project_id,
         head=ArtifactHeadData.model_validate(record.head),
-        latest_version=SourceManifestVersionData(
-            id=version.id,
-            artifact_id=version.artifact_id,
-            version_number=version.version_number,
-            schema_version="1.0.0",
-            content=SourceManifestContentV1.model_validate(version.content),
-            content_hash=version.content_hash,
-            parent_version_id=version.parent_version_id,
-            change_summary=version.change_summary,
-            created_at=version.created_at,
-        ),
+        latest_version=_source_manifest_version_data(record),
+        review_version=version_for(record.head.review_version_id),
+        accepted_version=version_for(record.head.accepted_version_id),
     )
 
 
@@ -138,10 +157,11 @@ def create_source_manifest_public_router(
         response: Response,
         project_id: str,
     ) -> SourceManifestResponse:
-        record = repository_provider().get_latest_artifact(project_id, "source_manifest")
+        repository = repository_provider()
+        record = repository.get_latest_artifact(project_id, "source_manifest")
         _set_revision_etag(response, record.head.revision)
         return SourceManifestResponse(
-            data=_source_manifest_data(record),
+            data=_source_manifest_data(project_id, repository, record),
             request_id=_request_id(request),
         )
 
