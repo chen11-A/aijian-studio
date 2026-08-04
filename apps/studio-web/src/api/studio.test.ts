@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { createStudioTransport, type HealthResponse, type ProjectData } from "./studio";
+import {
+  createStudioTransport,
+  type HealthResponse,
+  type ProjectData,
+  type SourceManifestResponse,
+  type StoryBibleIndexResponse,
+  type StoryBibleVersionResponse,
+} from "./studio";
 
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
 const health: HealthResponse = {
@@ -18,6 +25,90 @@ const project: ProjectData = {
   created_at: "2026-08-03T03:00:00Z",
   updated_at: "2026-08-03T03:00:00Z",
 };
+const sourceManifest = {
+  data: {
+    project_id: project.id,
+    head: {
+      artifact_id: `art_${"1".repeat(32)}`,
+      latest_version_id: `ver_${"2".repeat(32)}`,
+      review_version_id: `ver_${"2".repeat(32)}`,
+      review_submission_id: `sub_${"3".repeat(32)}`,
+      accepted_version_id: `ver_${"2".repeat(32)}`,
+      revision: 3,
+      review_evidence_revision: 1,
+      updated_at: "2026-08-03T04:00:00Z",
+    },
+    latest_version: {
+      artifact_id: `art_${"1".repeat(32)}`,
+      id: `ver_${"2".repeat(32)}`,
+      parent_version_id: null,
+      version_number: 1,
+      schema_version: "1.0.0",
+      content_hash: `sha256:${"4".repeat(64)}`,
+      change_summary: "冻结小说来源",
+      created_at: "2026-08-03T04:00:00Z",
+      content: { scope_type: "full_work", documents: [] },
+    },
+    review_version: null,
+    accepted_version: null,
+  },
+  request_id: requestId,
+} satisfies SourceManifestResponse;
+const storyBibleVersion = {
+  data: {
+    project_id: project.id,
+    head: {
+      ...sourceManifest.data.head,
+      artifact_id: `art_${"5".repeat(32)}`,
+      latest_version_id: `ver_${"6".repeat(32)}`,
+      review_version_id: null,
+      review_submission_id: null,
+      accepted_version_id: null,
+    },
+    version: {
+      artifact_id: `art_${"5".repeat(32)}`,
+      id: `ver_${"6".repeat(32)}`,
+      parent_version_id: null,
+      version_number: 1,
+      schema_version: "1.0.0",
+      content_hash: `sha256:${"7".repeat(64)}`,
+      change_summary: "建立故事圣经",
+      created_at: "2026-08-03T04:10:00Z",
+      content: {
+        title: "雾城来信",
+        logline: "失忆记者循着一封旧信追查雾城真相。",
+        source_scope: {
+          scope_type: "full_work",
+          source_manifest_version_id: sourceManifest.data.latest_version.id,
+          documents: [],
+        },
+        entities: [],
+        facts: [],
+      },
+      source_spans: [],
+    },
+  },
+  request_id: requestId,
+} satisfies StoryBibleVersionResponse;
+const storyBibleIndex = {
+  data: {
+    project_id: project.id,
+    head: storyBibleVersion.data.head,
+    latest_version: {
+      artifact_id: storyBibleVersion.data.version.artifact_id,
+      id: storyBibleVersion.data.version.id,
+      parent_version_id: storyBibleVersion.data.version.parent_version_id,
+      version_number: storyBibleVersion.data.version.version_number,
+      schema_version: "1.0.0",
+      content_hash: storyBibleVersion.data.version.content_hash,
+      change_summary: storyBibleVersion.data.version.change_summary,
+      created_at: storyBibleVersion.data.version.created_at,
+    },
+    review_version: null,
+    accepted_version: null,
+  },
+  request_id: requestId,
+} satisfies StoryBibleIndexResponse;
 
 afterEach(() => {
   delete window.aijian;
@@ -34,6 +125,9 @@ describe("studio transport", () => {
       listSources: vi.fn(),
       getSource: vi.fn(),
       importTextSource: vi.fn(),
+      getSourceManifest: vi.fn().mockResolvedValue(sourceManifest),
+      getStoryBibleIndex: vi.fn().mockResolvedValue(storyBibleIndex),
+      getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
     };
     window.aijian = bridge;
     const transport = createStudioTransport();
@@ -54,6 +148,9 @@ describe("studio transport", () => {
       media_type: "text/plain",
       content_base64: "5p2l5L+hCg==",
     });
+    await transport.getSourceManifest(project.id);
+    await transport.getStoryBibleIndex(project.id);
+    await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
 
     expect(bridge.health).toHaveBeenCalledOnce();
     expect(bridge.listProjects).toHaveBeenCalledOnce();
@@ -62,6 +159,12 @@ describe("studio transport", () => {
     expect(bridge.listSources).toHaveBeenCalledWith(project.id);
     expect(bridge.getSource).toHaveBeenCalledWith(project.id, `src_${"b".repeat(32)}`);
     expect(bridge.importTextSource).toHaveBeenCalledOnce();
+    expect(bridge.getSourceManifest).toHaveBeenCalledWith(project.id);
+    expect(bridge.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
+    expect(bridge.getStoryBibleVersion).toHaveBeenCalledWith(
+      project.id,
+      storyBibleVersion.data.version.id,
+    );
   });
 
   test("uses versioned same-origin routes in a browser", async () => {
@@ -161,5 +264,59 @@ describe("studio transport", () => {
 
     await expect(transport.getHealth()).rejects.toThrow("status 503");
     await expect(transport.getHealth()).rejects.toThrow("published contract");
+  });
+
+  test("reads optional G1 and G2 artifacts from versioned browser routes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(sourceManifest))
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              code: "STORY_BIBLE_NOT_FOUND",
+              message: "Not found",
+              retryable: false,
+              details: {},
+            },
+            request_id: requestId,
+          },
+          { status: 404 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.getSourceManifest(project.id)).resolves.toEqual(sourceManifest);
+    await expect(transport.getStoryBibleIndex(project.id)).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, `/api/v1/projects/${project.id}/source-manifest`, {
+      headers: { Accept: "application/json" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/v1/projects/${project.id}/story-bible`, {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  test("does not collapse PROJECT_NOT_FOUND into an optional artifact", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              code: "PROJECT_NOT_FOUND",
+              message: "Not found",
+              retryable: false,
+              details: {},
+            },
+            request_id: requestId,
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    const transport = createStudioTransport();
+
+    await expect(transport.getSourceManifest(project.id)).rejects.toThrow("PROJECT_NOT_FOUND");
   });
 });

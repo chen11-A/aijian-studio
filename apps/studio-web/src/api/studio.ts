@@ -8,6 +8,9 @@ export type ProjectListResponse = components["schemas"]["ProjectListResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
 export type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 export type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
+export type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
+export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 
 export interface StudioTransport {
   getHealth(): Promise<HealthResponse>;
@@ -20,6 +23,9 @@ export interface StudioTransport {
     projectId: string,
     input: ImportTextSourceInput,
   ): Promise<SourceDocumentResponse>;
+  getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
+  getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
+  getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
 }
 
 export interface AijianDesktopBridge {
@@ -33,6 +39,9 @@ export interface AijianDesktopBridge {
     projectId: string,
     input: ImportTextSourceInput,
   ): Promise<SourceDocumentResponse>;
+  getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
+  getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
+  getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
 }
 
 declare global {
@@ -72,6 +81,30 @@ function getRequest<T>(path: string): Promise<T> {
   return browserRequest<T>(path, { headers: { Accept: "application/json" } });
 }
 
+function isErrorResponse(value: unknown): value is { error: { code: string } } {
+  if (typeof value !== "object" || value === null) return false;
+  const error = (value as Record<string, unknown>).error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    typeof (error as Record<string, unknown>).code === "string"
+  );
+}
+
+async function getOptionalRequest<T>(path: string, absentCode: string): Promise<T | null> {
+  const response = await fetch(path, { headers: { Accept: "application/json" } });
+  if (response.status === 404) {
+    const payload: unknown = await response.json();
+    if (isErrorResponse(payload) && payload.error.code === absentCode) return null;
+    const errorCode = isErrorResponse(payload) ? payload.error.code : "INVALID_ERROR_RESPONSE";
+    throw new Error(`Studio API request failed with status 404 (${errorCode})`);
+  }
+  if (!response.ok) {
+    throw new Error(`Studio API request failed with status ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
 function postRequest<T>(path: string, payload: unknown): Promise<T> {
   return browserRequest<T>(path, {
     method: "POST",
@@ -91,6 +124,10 @@ export function createStudioTransport(): StudioTransport {
       listSources: (projectId) => bridge.listSources(projectId),
       getSource: (projectId, sourceId) => bridge.getSource(projectId, sourceId),
       importTextSource: (projectId, input) => bridge.importTextSource(projectId, input),
+      getSourceManifest: (projectId) => bridge.getSourceManifest(projectId),
+      getStoryBibleIndex: (projectId) => bridge.getStoryBibleIndex(projectId),
+      getStoryBibleVersion: (projectId, versionId) =>
+        bridge.getStoryBibleVersion(projectId, versionId),
     };
   }
   return {
@@ -104,5 +141,19 @@ export function createStudioTransport(): StudioTransport {
       getRequest<SourceDocumentResponse>(`/api/v1/projects/${projectId}/sources/${sourceId}`),
     importTextSource: (projectId, input) =>
       postRequest<SourceDocumentResponse>(`/api/v1/projects/${projectId}/sources`, input),
+    getSourceManifest: (projectId) =>
+      getOptionalRequest<SourceManifestResponse>(
+        `/api/v1/projects/${projectId}/source-manifest`,
+        "SOURCE_MANIFEST_NOT_FOUND",
+      ),
+    getStoryBibleIndex: (projectId) =>
+      getOptionalRequest<StoryBibleIndexResponse>(
+        `/api/v1/projects/${projectId}/story-bible`,
+        "STORY_BIBLE_NOT_FOUND",
+      ),
+    getStoryBibleVersion: (projectId, versionId) =>
+      getRequest<StoryBibleVersionResponse>(
+        `/api/v1/projects/${projectId}/story-bible/versions/${versionId}`,
+      ),
   };
 }
