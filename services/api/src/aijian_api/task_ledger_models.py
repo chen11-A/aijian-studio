@@ -43,6 +43,17 @@ class RecoverySummary:
     failed: int
 
 
+@dataclass(frozen=True, slots=True)
+class TaskCompletion:
+    task_id: str
+    attempt_id: str
+    node_run_id: str
+    output_version_id: str
+    task_revision: int
+    attempt_revision: int
+    node_revision: int
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 

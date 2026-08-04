@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from aijian_api.repository import StudioRepository
+from aijian_api.task_ledger_completion import complete_local_task
 from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import (
@@ -14,6 +15,7 @@ from aijian_api.task_ledger_models import (
     LeaseLostError,
     QueuedTask,
     RecoverySummary,
+    TaskCompletion,
     lease_token,
     new_id,
     parse_datetime,
@@ -28,6 +30,7 @@ __all__ = [
     "LocalTaskLedger",
     "QueuedTask",
     "RecoverySummary",
+    "TaskCompletion",
 ]
 
 
@@ -301,6 +304,20 @@ class LocalTaskLedger:
 
     def recover_expired_local_tasks(self) -> RecoverySummary:
         return recover_expired_local_tasks(
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def complete_local_task(
+        self,
+        claim: ClaimedTask,
+        *,
+        output_version_id: str,
+    ) -> TaskCompletion:
+        return complete_local_task(
+            claim,
+            output_version_id=output_version_id,
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,

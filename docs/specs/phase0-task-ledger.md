@@ -78,4 +78,5 @@ REMOTE_UNKNOWN / SUCCEEDED / FAILED / CANCEL_REQUESTED / CANCELLED / NOT_SUBMITT
 - 两个独立 SQLite 连接并发领取同一任务时，只有一个 `BEGIN IMMEDIATE + UPDATE RETURNING` 事务成功。
 - 心跳和启动提交校验 owner/token/generation/revision；旧 worker 与过期 lease 均被拒绝。
 - 过期本地任务保留失败 Attempt，再创建新 Attempt/Task；尝试耗尽时 Node 明确失败。活跃租约和远程租约不会被本地恢复器重排。
-- 以上 Task Ledger 与恢复模块保持 100% 行/分支覆盖。尚未完成：Atomic output commit、LocalExecutor 子进程、Fake Provider 与六 kill 点 ×100 种子。
+- 输出 ArtifactVersion 的项目归属、Attempt/Node/Task 成功状态在同一事务校验并绑定；LocalExecutor 已完成单任务领取、启动、处理、完成以及 handler 崩溃后的租约恢复路径。
+- 以上 Task Ledger、恢复、完成和 LocalExecutor 模块保持 100% 行/分支覆盖。尚未完成：独立子进程管理、Fake Provider 与六 kill 点 ×100 种子。
