@@ -9,6 +9,9 @@ type ProjectListResponse = components["schemas"]["ProjectListResponse"];
 type ProjectResponse = components["schemas"]["ProjectResponse"];
 type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
+type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
+type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
@@ -78,6 +81,336 @@ const sourceListResponse: SourceDocumentListResponse = {
   data: [sourceSummary],
   request_id: healthyResponse.request_id,
 };
+const artifactHead = {
+  artifact_id: `art_${"1".repeat(32)}`,
+  latest_version_id: `ver_${"2".repeat(32)}`,
+  review_version_id: null,
+  review_submission_id: null,
+  accepted_version_id: null,
+  revision: 3,
+  review_evidence_revision: 1,
+  updated_at: "2026-08-03T04:00:00Z",
+};
+const sourceManifestResponse: SourceManifestResponse = {
+  data: {
+    project_id: project.id,
+    head: artifactHead,
+    latest_version: {
+      artifact_id: artifactHead.artifact_id,
+      id: artifactHead.latest_version_id,
+      parent_version_id: null,
+      version_number: 1,
+      schema_version: "1.0.0",
+      content_hash: `sha256:${"4".repeat(64)}`,
+      change_summary: "冻结小说来源",
+      created_at: "2026-08-03T04:00:00Z",
+      content: {
+        scope_type: "full_work",
+        exclusions: ["附录"],
+        documents: [
+          {
+            source_document_id: sourceResponse.data.id,
+            filename: sourceResponse.data.filename,
+            media_type: "text/plain",
+            encoding: "utf-8",
+            byte_size: sourceResponse.data.byte_size,
+            chapter_count: sourceResponse.data.chapter_count,
+            raw_sha256: sourceResponse.data.raw_sha256,
+            normalized_sha256: "5".repeat(64),
+            import_order: 0,
+            blocks: sourceResponse.data.blocks.map((block) => ({
+              source_block_id: block.id,
+              ordinal: block.ordinal,
+              kind: block.kind,
+              chapter_index: block.chapter_index,
+              start_byte: block.normalized_start_byte,
+              end_byte: block.normalized_end_byte,
+              content_sha256: block.content_sha256,
+            })),
+          },
+        ],
+      },
+    },
+    review_version: null,
+    accepted_version: null,
+  },
+  request_id: healthyResponse.request_id,
+};
+const storyBibleResponse: StoryBibleVersionResponse = {
+  data: {
+    project_id: project.id,
+    head: {
+      ...artifactHead,
+      artifact_id: `art_${"6".repeat(32)}`,
+      latest_version_id: `ver_${"7".repeat(32)}`,
+      review_version_id: null,
+      review_submission_id: null,
+      accepted_version_id: null,
+    },
+    version: {
+      artifact_id: `art_${"6".repeat(32)}`,
+      id: `ver_${"7".repeat(32)}`,
+      parent_version_id: null,
+      version_number: 1,
+      schema_version: "1.0.0",
+      content_hash: `sha256:${"8".repeat(64)}`,
+      change_summary: "建立故事圣经",
+      created_at: "2026-08-03T04:10:00Z",
+      content: {
+        title: "雾城来信",
+        logline: "失忆记者循着一封旧信追查雾城真相。",
+        source_scope: {
+          scope_type: "full_work",
+          source_manifest_version_id: artifactHead.latest_version_id,
+          exclusions: [],
+          documents: [
+            {
+              source_document_id: sourceResponse.data.id,
+              raw_sha256: sourceResponse.data.raw_sha256,
+              chapter_indices: [1],
+              source_block_ids: [sourceResponse.data.blocks[0]!.id],
+            },
+          ],
+        },
+        entities: [
+          {
+            entity_id: `ent_${"9".repeat(32)}`,
+            kind: "character",
+            name: "林见",
+            aliases: ["记者"],
+          },
+        ],
+        facts: [
+          {
+            fact_id: `fact_${"a".repeat(32)}`,
+            kind: "character_fact",
+            character_id: `ent_${"9".repeat(32)}`,
+            attribute: "职业",
+            value: "记者",
+            importance: "core",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+        ],
+        questions: [
+          {
+            question_id: `qst_${"b".repeat(32)}`,
+            question: "旧信是谁寄出的？",
+            blocking: true,
+            responsible_role: "编剧",
+            scope_type: "artifact",
+            severity: "blocking",
+            status: "open",
+          },
+        ],
+        conflicts: [
+          {
+            conflict_id: `cfl_${"c".repeat(32)}`,
+            conflict_type: "identity",
+            fact_ids: [`fact_${"a".repeat(32)}`],
+            responsible_role: "编剧",
+            severity: "major",
+            status: "unresolved",
+          },
+        ],
+      },
+      source_spans: [
+        {
+          id: `spn_${"d".repeat(32)}`,
+          fact_id: `fact_${"a".repeat(32)}`,
+          source_document_id: sourceResponse.data.id,
+          source_block_id: sourceResponse.data.blocks[0]!.id,
+          role: "supports",
+          start_byte: sourceResponse.data.blocks[0]!.normalized_start_byte,
+          end_byte: sourceResponse.data.blocks[0]!.normalized_end_byte,
+          claim: "林见的职业是记者",
+          quote_hash: `sha256:${"e".repeat(64)}`,
+        },
+      ],
+    },
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const storyBibleIndexResponse: StoryBibleIndexResponse = {
+  data: {
+    project_id: project.id,
+    head: storyBibleResponse.data.head,
+    latest_version: {
+      artifact_id: storyBibleResponse.data.version.artifact_id,
+      id: storyBibleResponse.data.version.id,
+      parent_version_id: storyBibleResponse.data.version.parent_version_id,
+      version_number: storyBibleResponse.data.version.version_number,
+      schema_version: "1.0.0",
+      content_hash: storyBibleResponse.data.version.content_hash,
+      change_summary: storyBibleResponse.data.version.change_summary,
+      created_at: storyBibleResponse.data.version.created_at,
+    },
+    review_version: null,
+    accepted_version: null,
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const comprehensiveStoryBibleResponse: StoryBibleVersionResponse = {
+  ...storyBibleResponse,
+  data: {
+    ...storyBibleResponse.data,
+    head: {
+      ...storyBibleResponse.data.head,
+      review_version_id: `ver_${"9".repeat(32)}`,
+      review_submission_id: `sub_${"a".repeat(32)}`,
+      accepted_version_id: `ver_${"8".repeat(32)}`,
+    },
+    version: {
+      ...storyBibleResponse.data.version,
+      content: {
+        ...storyBibleResponse.data.version.content,
+        facts: [
+          {
+            fact_id: `fact_${"a".repeat(32)}`,
+            kind: "character_fact",
+            character_id: `ent_${"9".repeat(32)}`,
+            attribute: "职业",
+            value: "记者",
+            importance: "core",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+            extraction_confidence_bps: 9_500,
+            viewpoint_entity_id: `ent_${"9".repeat(32)}`,
+            decision_reason: "来源明确",
+            impact_scope: ["人物设定"],
+            supersedes_fact_ids: [`fact_${"1".repeat(32)}`],
+            derived_from_fact_ids: [`fact_${"2".repeat(32)}`],
+            validity: {
+              starts_after_event_fact_id: `fact_${"3".repeat(32)}`,
+              ends_after_event_fact_id: null,
+            },
+          },
+          {
+            fact_id: `fact_${"1".repeat(32)}`,
+            kind: "location_fact",
+            location_id: `ent_${"1".repeat(32)}`,
+            attribute: "天气",
+            value: "多雾",
+            importance: "supporting",
+            canon_status: "confirmed",
+            canon_certainty: "likely",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"2".repeat(32)}`,
+            kind: "organization_fact",
+            organization_id: `ent_${"2".repeat(32)}`,
+            attribute: "职责",
+            value: "管理档案",
+            importance: "supporting",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"4".repeat(32)}`,
+            kind: "relationship_fact",
+            subject_entity_id: `ent_${"9".repeat(32)}`,
+            predicate: "搭档",
+            object_entity_id: `ent_${"4".repeat(32)}`,
+            validity: null,
+            importance: "core",
+            canon_status: "contested",
+            canon_certainty: "ambiguous",
+            origin: "source_interpretation",
+            viewpoint_entity_id: `ent_${"9".repeat(32)}`,
+            source_reliability: "uncertain",
+          },
+          {
+            fact_id: `fact_${"3".repeat(32)}`,
+            kind: "event_fact",
+            participants: [`ent_${"9".repeat(32)}`],
+            location_id: `ent_${"1".repeat(32)}`,
+            source_narrative_order: 2,
+            story_time_order: 1,
+            temporal_relations: [
+              { relation: "before", other_event_fact_id: `fact_${"5".repeat(32)}` },
+            ],
+            caused_by_fact_ids: [`fact_${"2".repeat(32)}`],
+            state_changes: [
+              {
+                entity_id: `ent_${"9".repeat(32)}`,
+                property_key: "condition",
+                before: { kind: "text", value: "平静" },
+                after: { kind: "entity_ref", entity_id: `ent_${"4".repeat(32)}` },
+              },
+              {
+                entity_id: `ent_${"9".repeat(32)}`,
+                property_key: "alive",
+                before: { kind: "boolean", value: true },
+                after: { kind: "number", value: 1 },
+              },
+            ],
+            importance: "core",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"5".repeat(32)}`,
+            kind: "world_rule_fact",
+            rule_scope: "雾城",
+            rule: "雾会干扰记录",
+            exceptions: ["机械钟"],
+            importance: "core",
+            canon_status: "proposed",
+            canon_certainty: "ambiguous",
+            origin: "ai_inference",
+            source_reliability: "not_applicable",
+          },
+          {
+            fact_id: `fact_${"6".repeat(32)}`,
+            kind: "prop_fact",
+            prop_id: `ent_${"6".repeat(32)}`,
+            property_key: "holder",
+            value: null,
+            importance: "detail",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "user_decision",
+            source_reliability: "not_applicable",
+            decision_reason: "导演决定",
+            impact_scope: ["道具连续性"],
+          },
+          {
+            fact_id: `fact_${"7".repeat(32)}`,
+            kind: "costume_fact",
+            costume_id: `ent_${"7".repeat(32)}`,
+            property_key: "appearance",
+            value: { kind: "text", value: "灰色" },
+            validity: {},
+            importance: "detail",
+            canon_status: "rejected",
+            canon_certainty: "intentionally_unreliable",
+            origin: "ai_inference",
+            source_reliability: "unreliable",
+          },
+        ],
+      },
+    },
+  },
+};
+
+function notFoundResponse(code: string) {
+  return {
+    error: { code, message: "Not found", retryable: false, details: {} },
+    request_id: healthyResponse.request_id,
+  };
+}
 
 describe("local API client", () => {
   test("requests health only from the configured loopback origin", async () => {
@@ -128,6 +461,37 @@ describe("local API client", () => {
 
     await expect(client.getHealth()).rejects.toThrow("status 502");
     await expect(client.getHealth()).rejects.toThrow("published contract");
+  });
+
+  test("rejects a declared local API payload above the desktop byte limit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("{}", {
+        headers: { "Content-Length": String(16 * 1024 * 1024 + 1) },
+      }),
+    );
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getHealth()).rejects.toThrow("desktop safety limit");
+  });
+
+  test.each([
+    ["missing", undefined],
+    ["incorrect", "2"],
+  ])("stream-limits a local API payload with %s Content-Length", async (_label, length) => {
+    const chunk = new Uint8Array(8 * 1024 * 1024);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.enqueue(chunk);
+        controller.enqueue(new Uint8Array(1));
+        controller.close();
+      },
+    });
+    const headers = length ? { "Content-Length": length } : undefined;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body, { headers }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getHealth()).rejects.toThrow("desktop safety limit");
   });
 
   test("lists, creates, and fetches projects through authenticated requests", async () => {
@@ -229,11 +593,49 @@ describe("local API client", () => {
     );
   });
 
+  test("rejects source responses that escape the requested project or source", async () => {
+    const otherProjectId = `prj_${"f".repeat(32)}`;
+    const otherSourceId = `src_${"e".repeat(32)}`;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          ...sourceListResponse,
+          data: [{ ...sourceSummary, project_id: otherProjectId }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ...sourceResponse,
+          data: { ...sourceResponse.data, project_id: otherProjectId },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ...sourceResponse,
+          data: { ...sourceResponse.data, id: otherSourceId },
+        }),
+      );
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.listSources(project.id)).rejects.toThrow("published contract");
+    await expect(client.getSource(project.id, sourceResponse.data.id)).rejects.toThrow(
+      "published contract",
+    );
+    await expect(client.getSource(project.id, sourceResponse.data.id)).rejects.toThrow(
+      "published contract",
+    );
+  });
+
   test("rejects malformed renderer inputs before making a local request", async () => {
     const fetchMock = vi.fn();
     const client = createLocalApiClient(fetchMock, session);
 
     await expect(client.getProject("../workspace.sqlite3")).rejects.toThrow("valid project id");
+    await expect(client.listSources("../workspace.sqlite3")).rejects.toThrow("valid project id");
+    await expect(client.getSource("../workspace.sqlite3", sourceResponse.data.id)).rejects.toThrow(
+      "valid project id",
+    );
     await expect(
       client.createProject({
         name: " ",
@@ -249,6 +651,16 @@ describe("local API client", () => {
         content_base64: "not base64",
       }),
     ).rejects.toThrow("valid text source input");
+    await expect(
+      client.importTextSource("../workspace.sqlite3", {
+        filename: "story.txt",
+        media_type: "text/plain",
+        content_base64: "5p2l5L+hCg==",
+      }),
+    ).rejects.toThrow("valid project id");
+    await expect(client.getSourceManifest("../workspace.sqlite3")).rejects.toThrow(
+      "valid project id",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -267,5 +679,289 @@ describe("local API client", () => {
         content_base64: "5p2l5L+hCg==",
       }),
     ).rejects.toThrow("published contract");
+  });
+
+  test("reads G1 and G2 artifacts through constrained public routes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(sourceManifestResponse))
+      .mockResolvedValueOnce(Response.json(storyBibleIndexResponse))
+      .mockResolvedValueOnce(Response.json(storyBibleResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getSourceManifest(project.id)).resolves.toEqual(sourceManifestResponse);
+    await expect(client.getStoryBibleIndex(project.id)).resolves.toEqual(storyBibleIndexResponse);
+    await expect(
+      client.getStoryBibleVersion(project.id, storyBibleResponse.data.version.id),
+    ).resolves.toEqual(storyBibleResponse);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${session.origin}/api/v1/projects/${project.id}/source-manifest`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${session.origin}/api/v1/projects/${project.id}/story-bible`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `${session.origin}/api/v1/projects/${project.id}/story-bible/versions/${storyBibleResponse.data.version.id}`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+  });
+
+  test("accepts every typed fact variant and exact historical story roles", async () => {
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(comprehensiveStoryBibleResponse)),
+      session,
+    );
+
+    await expect(
+      client.getStoryBibleVersion(project.id, comprehensiveStoryBibleResponse.data.version.id),
+    ).resolves.toEqual(comprehensiveStoryBibleResponse);
+  });
+
+  test("represents an artifact not found without weakening other response checks", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(notFoundResponse("SOURCE_MANIFEST_NOT_FOUND"), { status: 404 }),
+      )
+      .mockResolvedValueOnce(Response.json({ data: { head: {} } }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getSourceManifest(project.id)).resolves.toBeNull();
+    await expect(client.getStoryBibleIndex(project.id)).rejects.toThrow("published contract");
+    await expect(client.getStoryBibleIndex("../unsafe")).rejects.toThrow("valid project id");
+    await expect(client.getStoryBibleVersion(project.id, "ver_unsafe")).rejects.toThrow(
+      "valid version id",
+    );
+  });
+
+  test("does not collapse a missing project into an absent child artifact", async () => {
+    const client = createLocalApiClient(
+      vi
+        .fn()
+        .mockResolvedValue(Response.json(notFoundResponse("PROJECT_NOT_FOUND"), { status: 404 })),
+      session,
+    );
+
+    await expect(client.getStoryBibleIndex(project.id)).rejects.toThrow("PROJECT_NOT_FOUND");
+  });
+
+  test("rejects malformed nested artifact records at the desktop trust boundary", async () => {
+    const malformedPayloads: Array<{
+      target: "manifest" | "story_index" | "story_version";
+      payload: unknown;
+    }> = [
+      {
+        target: "manifest",
+        payload: {
+          ...sourceManifestResponse,
+          data: { ...sourceManifestResponse.data, project_id: `prj_${"f".repeat(32)}` },
+        },
+      },
+      {
+        target: "manifest",
+        payload: {
+          ...sourceManifestResponse,
+          data: { ...sourceManifestResponse.data, head: null },
+        },
+      },
+      {
+        target: "manifest",
+        payload: {
+          ...sourceManifestResponse,
+          data: { ...sourceManifestResponse.data, latest_version: null },
+        },
+      },
+      {
+        target: "manifest",
+        payload: {
+          ...sourceManifestResponse,
+          data: {
+            ...sourceManifestResponse.data,
+            latest_version: {
+              ...sourceManifestResponse.data.latest_version,
+              content: { scope_type: "full_work", documents: [null] },
+            },
+          },
+        },
+      },
+      {
+        target: "manifest",
+        payload: {
+          ...sourceManifestResponse,
+          data: {
+            ...sourceManifestResponse.data,
+            latest_version: {
+              ...sourceManifestResponse.data.latest_version,
+              content: {
+                ...sourceManifestResponse.data.latest_version.content,
+                documents: [
+                  {
+                    ...sourceManifestResponse.data.latest_version.content.documents[0],
+                    blocks: [null],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        target: "story_index",
+        payload: {
+          ...storyBibleIndexResponse,
+          data: {
+            ...storyBibleIndexResponse.data,
+            latest_version: {
+              ...storyBibleIndexResponse.data.latest_version,
+              content: { must_not_cross_index_boundary: true },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            confirmation_token: "must-not-cross-renderer-boundary",
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              content: {
+                ...storyBibleResponse.data.version.content,
+                facts: [
+                  {
+                    fact_id: `fact_${"a".repeat(32)}`,
+                    kind: "event_fact",
+                    importance: "core",
+                    canon_status: "confirmed",
+                    canon_certainty: "certain",
+                    origin: "source_explicit_assertion",
+                    source_reliability: "reliable",
+                    source_narrative_order: 0,
+                    story_time_order: 0,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            head: {
+              ...storyBibleResponse.data.head,
+              artifact_id: `art_${"f".repeat(32)}`,
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              content: { ...storyBibleResponse.data.version.content, entities: [null] },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              content: { ...storyBibleResponse.data.version.content, facts: [null] },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              content: { ...storyBibleResponse.data.version.content, questions: [null] },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              content: { ...storyBibleResponse.data.version.content, conflicts: [null] },
+            },
+          },
+        },
+      },
+      {
+        target: "story_version",
+        payload: {
+          ...storyBibleResponse,
+          data: {
+            ...storyBibleResponse.data,
+            version: {
+              ...storyBibleResponse.data.version,
+              source_spans: [null],
+            },
+          },
+        },
+      },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => Response.json(malformedPayloads.shift()?.payload));
+    const client = createLocalApiClient(fetchMock, session);
+
+    for (const record of [...malformedPayloads]) {
+      const request =
+        record.target === "manifest"
+          ? client.getSourceManifest(project.id)
+          : record.target === "story_index"
+            ? client.getStoryBibleIndex(project.id)
+            : client.getStoryBibleVersion(project.id, storyBibleResponse.data.version.id);
+      await expect(request).rejects.toThrow("published contract");
+    }
+  });
+
+  test("does not treat non-404 artifact failures as an absent artifact", async () => {
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
+      session,
+    );
+
+    await expect(client.getSourceManifest(project.id)).rejects.toThrow("status 503");
   });
 });

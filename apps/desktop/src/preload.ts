@@ -8,6 +8,9 @@ type ProjectListResponse = components["schemas"]["ProjectListResponse"];
 type ProjectResponse = components["schemas"]["ProjectResponse"];
 type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
+type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
+type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 
 contextBridge.exposeInMainWorld("aijian", {
   health: (): Promise<HealthResponse> =>
@@ -27,4 +30,23 @@ contextBridge.exposeInMainWorld("aijian", {
     input: ImportTextSourceInput,
   ): Promise<SourceDocumentResponse> =>
     ipcRenderer.invoke("sources:import-text", projectId, input) as Promise<SourceDocumentResponse>,
+  getSourceManifest: (projectId: string): Promise<SourceManifestResponse | null> =>
+    ipcRenderer.invoke(
+      "artifacts:get-source-manifest",
+      projectId,
+    ) as Promise<SourceManifestResponse | null>,
+  getStoryBibleIndex: (projectId: string): Promise<StoryBibleIndexResponse | null> =>
+    ipcRenderer.invoke(
+      "artifacts:get-story-bible-index",
+      projectId,
+    ) as Promise<StoryBibleIndexResponse | null>,
+  getStoryBibleVersion: (
+    projectId: string,
+    versionId: string,
+  ): Promise<StoryBibleVersionResponse> =>
+    ipcRenderer.invoke(
+      "artifacts:get-story-bible-version",
+      projectId,
+      versionId,
+    ) as Promise<StoryBibleVersionResponse>,
 });

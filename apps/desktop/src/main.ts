@@ -95,6 +95,15 @@ ipcMain.handle("sources:get", (event, projectId: string, sourceId: string) =>
 ipcMain.handle("sources:import-text", (event, projectId: string, input: ImportTextSourceInput) =>
   clientFor(event).importTextSource(projectId, input),
 );
+ipcMain.handle("artifacts:get-source-manifest", (event, projectId: string) =>
+  clientFor(event).getSourceManifest(projectId),
+);
+ipcMain.handle("artifacts:get-story-bible-index", (event, projectId: string) =>
+  clientFor(event).getStoryBibleIndex(projectId),
+);
+ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, versionId: string) =>
+  clientFor(event).getStoryBibleVersion(projectId, versionId),
+);
 
 async function startApplication(): Promise<void> {
   await app.whenReady();
