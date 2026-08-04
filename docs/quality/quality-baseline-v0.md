@@ -2,6 +2,8 @@
 
 W4 前由 QA、媒体和影片团队用固定夹具实测并锁定为 v1。这里的数字是首轮工程门槛，不是营销承诺。
 
+已执行的纵切验收见 [Phase 0 故事工坊验收记录](phase0-story-workshop-acceptance.md)。
+
 ## 参考环境
 
 - Windows 11 x64 当前支持版本，标准用户，16 GB RAM，4 核 CPU，集成显卡，无 Node/Python/FFmpeg 开发环境。

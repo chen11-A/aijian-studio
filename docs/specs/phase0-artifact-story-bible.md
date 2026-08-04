@@ -237,18 +237,22 @@ waiver 必须引用 checklist/finding/question/fact/conflict ID，包含责任�
 | `POST` | `/api/v1/projects/{project_id}/story-bible/versions/{version_id}:prepare-decision` | 复用最终报告并生成决策 challenge      |
 | `POST` | `/api/v1/projects/{project_id}/story-bible/versions/{version_id}/decisions`        | 追加唯一 G2 Gate 决定                 |
 
+`GET /story-bible` 是轻量索引：`latest/review/accepted` 只返回版本 ID、版本号、schema、hash、父版本、变更摘要和时间，不重复返回长篇 `content/source_spans`。完整不可变内容只能通过精确的 `/versions/{version_id}` 按需读取；Renderer 按版本 ID 缓存，并在用户切换角色版本时懒加载。Repository 必须在同一读事务中投影 head 与三份摘要，且索引查询不得解析 `content_json`，避免大项目的一致性竞态和三倍正文传输。
+
+Phase 0 单个 StoryBible 最多包含 20,000 个 `source_spans`；完整创建响应和精确版本响应的最终 UTF-8 JSON（包括 envelope、服务端生成 ID、hash、head 与 ID 映射）均不得超过 16 MiB。创建事务必须先构造并测量最终响应，超限时返回 HTTP 413 且完整回滚，不写入 version 或推进 head；历史读取在同一 SQLite 快照中先以 `content_json` UTF-8 字节、span 数量和 claim 字节下界拒绝明显超限版本，避免完整 `fetchall` 后才失败，临界值再由最终 envelope 精确校验。Electron main 在 `JSON.parse` 前以流式字节计数和严格 UTF-8 解码执行相同上限，不能依赖可伪造或缺失的 `Content-Length`；Renderer 只保留最近 3 个完整版本，命中时刷新 LRU 顺序。更大规模的事实和 spans 将在后续阶段改为不可变分页子资源，不能通过提高内存上限绕过。
+
 compare 至少返回实体/事实新增、删除、修改，provenance/canon 状态、证据、决定理由、问题、冲突、finding 与 Gate 变化。普通修订必须声明 `parent_version_id` 且精确等于 current latest；服务端在同一事务同时验证 ETag、parent、稳定 ID 与 lineage，禁止携带当前 ETag 从旧快照静默改挂 latest。显式历史恢复/分支未来使用独立动作并展示丢弃影响，不复用普通保存。所有审阅写操作由服务端统一检查“当前开放 submission + 当前 review head + 当前 revision”，历史或 terminal 版本写入返回 `REVIEW_INVALID`。
 
-稳定错误码：`STORY_BIBLE_NOT_FOUND`、`ARTIFACT_CONFLICT`、`ARTIFACT_DEPENDENCY_INVALID`、`SOURCE_SPAN_INVALID`、`STORY_BIBLE_INVALID`、`GATE_NOT_READY`、`REVIEW_INVALID`、`APPROVAL_INVALID`、`PRECONDITION_REQUIRED`、`PRECONDITION_FAILED`。错误体不得返回小说正文、引文、内部 SQL 或 Python 异常。
+稳定错误码：`STORY_BIBLE_NOT_FOUND`、`STORY_BIBLE_TOO_LARGE`、`ARTIFACT_CONFLICT`、`ARTIFACT_DEPENDENCY_INVALID`、`SOURCE_SPAN_INVALID`、`STORY_BIBLE_INVALID`、`GATE_NOT_READY`、`REVIEW_INVALID`、`APPROVAL_INVALID`、`PRECONDITION_REQUIRED`、`PRECONDITION_FAILED`。错误体不得返回小说正文、引文、内部 SQL 或 Python 异常。
 
-Electron preload 只增加具名 `get/list/create/compare/submit/find/resolve/sign/decideStoryBible` 方法；Renderer 不获得通用 artifact 写入、任意 URL、SQL、数据库路径、端口、令牌或可信 actor 字段。
+Electron preload 只增加具名 `getStoryBibleIndex/getStoryBibleVersion/list/create/compare/submit/find/resolve/sign/decideStoryBible` 方法；Renderer 不获得通用 artifact 写入、任意 URL、SQL、数据库路径、端口、令牌或可信 actor 字段。
 
 ## 8. 专业 UI 验收
 
 故事工作台采用“来源与精确引文 / 结构化故事圣经 / G2 审阅”三栏桌面布局，窄屏改为保持状态可见的分段流程：
 
 - 永久显示项目、G1 输入、latest/review/accepted 版本、hash、Gate 状态和下一步动作。
-- 来源栏支持搜索、上下文预览、精确文本选择和 `supports/contradicts/context` 高亮；宽引用有明确警告。
+- 来源栏支持搜索、上下文预览、精确文本选择和 `supports/contradicts/context` 高亮；从事实证据打开上下文时必须定位并聚焦到引用的精确 SourceBlock，即使目标不在默认首屏块窗口；宽引用有明确警告。
 - 编辑栏按人物、关系、地点、事件、规则、组织、道具、服装分组；常用编辑一到两步完成，高级 provenance/lineage 渐进披露。
 - 审阅栏显示 readiness、结构化冲突/问题/finding、角色签署、自审标记、版本 diff 以及每种决策的确切影响。
 - 保存草稿、送审、替换审阅和 Gate 决策是不同动作；AI 建议绝不伪装为已确认 canon。

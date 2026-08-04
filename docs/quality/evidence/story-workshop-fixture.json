@@ -1,0 +1,696 @@
+{
+  "request_id": "9e049ad6-2b22-4e2d-8d48-e5bd78ee0e11",
+  "expected_evidence_quote": "“旧信在港口被发现。”",
+  "project": {
+    "id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "name": "雾城来信",
+    "aspect_ratio": "9:16",
+    "target_duration_seconds": 90,
+    "source_language": "zh-CN",
+    "status": "active",
+    "revision": 2,
+    "created_at": "2026-08-03T03:00:00Z",
+    "updated_at": "2026-08-03T04:10:00Z"
+  },
+  "sources": [
+    {
+      "id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "filename": "雾城来信.txt",
+      "media_type": "text/plain",
+      "encoding": "utf-8",
+      "byte_size": 83,
+      "raw_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "imported_at": "2026-08-03T03:10:00Z",
+      "chapter_count": 1,
+      "block_count": 2,
+      "blocks": [
+        {
+          "id": "srcb_dddddddddddddddddddddddddddddddd",
+          "ordinal": 0,
+          "kind": "chapter_heading",
+          "chapter_index": 1,
+          "text": "第一章 雨夜",
+          "normalized_start_byte": 0,
+          "normalized_end_byte": 16,
+          "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        {
+          "id": "srcb_ffffffffffffffffffffffffffffffff",
+          "ordinal": 1,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "雨落在霓虹灯下。林见收到一封没有署名的旧信。",
+          "normalized_start_byte": 17,
+          "normalized_end_byte": 83,
+          "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ]
+    },
+    {
+      "id": "src_66666666666666666666666666666666",
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "filename": "港口补遗.txt",
+      "media_type": "text/plain",
+      "encoding": "utf-8",
+      "byte_size": 147,
+      "raw_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "imported_at": "2026-08-03T03:20:00Z",
+      "chapter_count": 1,
+      "block_count": 9,
+      "blocks": [
+        {
+          "id": "srcb_01010101010101010101010101010101",
+          "ordinal": 0,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 1",
+          "normalized_start_byte": 0,
+          "normalized_end_byte": 14,
+          "content_sha256": "0101010101010101010101010101010101010101010101010101010101010101"
+        },
+        {
+          "id": "srcb_02020202020202020202020202020202",
+          "ordinal": 1,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 2",
+          "normalized_start_byte": 15,
+          "normalized_end_byte": 29,
+          "content_sha256": "0202020202020202020202020202020202020202020202020202020202020202"
+        },
+        {
+          "id": "srcb_03030303030303030303030303030303",
+          "ordinal": 2,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 3",
+          "normalized_start_byte": 30,
+          "normalized_end_byte": 44,
+          "content_sha256": "0303030303030303030303030303030303030303030303030303030303030303"
+        },
+        {
+          "id": "srcb_04040404040404040404040404040404",
+          "ordinal": 3,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 4",
+          "normalized_start_byte": 45,
+          "normalized_end_byte": 59,
+          "content_sha256": "0404040404040404040404040404040404040404040404040404040404040404"
+        },
+        {
+          "id": "srcb_05050505050505050505050505050505",
+          "ordinal": 4,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 5",
+          "normalized_start_byte": 60,
+          "normalized_end_byte": 74,
+          "content_sha256": "0505050505050505050505050505050505050505050505050505050505050505"
+        },
+        {
+          "id": "srcb_06060606060606060606060606060606",
+          "ordinal": 5,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 6",
+          "normalized_start_byte": 75,
+          "normalized_end_byte": 89,
+          "content_sha256": "0606060606060606060606060606060606060606060606060606060606060606"
+        },
+        {
+          "id": "srcb_07070707070707070707070707070707",
+          "ordinal": 6,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 7",
+          "normalized_start_byte": 90,
+          "normalized_end_byte": 104,
+          "content_sha256": "0707070707070707070707070707070707070707070707070707070707070707"
+        },
+        {
+          "id": "srcb_08080808080808080808080808080808",
+          "ordinal": 7,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "港口记录 8",
+          "normalized_start_byte": 105,
+          "normalized_end_byte": 119,
+          "content_sha256": "0808080808080808080808080808080808080808080808080808080808080808"
+        },
+        {
+          "id": "srcb_77777777777777777777777777777777",
+          "ordinal": 8,
+          "kind": "paragraph",
+          "chapter_index": 1,
+          "text": "旧信在港口被发现。",
+          "normalized_start_byte": 120,
+          "normalized_end_byte": 147,
+          "content_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        }
+      ]
+    }
+  ],
+  "source_summaries": [
+    {
+      "id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "filename": "雾城来信.txt",
+      "media_type": "text/plain",
+      "encoding": "utf-8",
+      "byte_size": 83,
+      "raw_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "imported_at": "2026-08-03T03:10:00Z",
+      "chapter_count": 1,
+      "block_count": 2
+    },
+    {
+      "id": "src_66666666666666666666666666666666",
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "filename": "港口补遗.txt",
+      "media_type": "text/plain",
+      "encoding": "utf-8",
+      "byte_size": 147,
+      "raw_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "imported_at": "2026-08-03T03:20:00Z",
+      "chapter_count": 1,
+      "block_count": 9
+    }
+  ],
+  "manifest": {
+    "data": {
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "head": {
+        "artifact_id": "art_11111111111111111111111111111111",
+        "latest_version_id": "ver_22222222222222222222222222222222",
+        "review_version_id": null,
+        "review_submission_id": null,
+        "accepted_version_id": "ver_22222222222222222222222222222222",
+        "revision": 3,
+        "review_evidence_revision": 1,
+        "updated_at": "2026-08-03T04:00:00Z"
+      },
+      "latest_version": {
+        "id": "ver_22222222222222222222222222222222",
+        "artifact_id": "art_11111111111111111111111111111111",
+        "version_number": 1,
+        "schema_version": "1.0.0",
+        "content": {
+          "scope_type": "full_work",
+          "documents": [
+            {
+              "source_document_id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "filename": "雾城来信.txt",
+              "media_type": "text/plain",
+              "encoding": "utf-8",
+              "byte_size": 83,
+              "chapter_count": 1,
+              "raw_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "normalized_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "import_order": 1,
+              "blocks": [
+                {
+                  "source_block_id": "srcb_dddddddddddddddddddddddddddddddd",
+                  "ordinal": 0,
+                  "kind": "chapter_heading",
+                  "chapter_index": 1,
+                  "start_byte": 0,
+                  "end_byte": 16,
+                  "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                },
+                {
+                  "source_block_id": "srcb_ffffffffffffffffffffffffffffffff",
+                  "ordinal": 1,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 17,
+                  "end_byte": 83,
+                  "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+                }
+              ]
+            },
+            {
+              "source_document_id": "src_66666666666666666666666666666666",
+              "filename": "港口补遗.txt",
+              "media_type": "text/plain",
+              "encoding": "utf-8",
+              "byte_size": 147,
+              "chapter_count": 1,
+              "raw_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "normalized_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+              "import_order": 2,
+              "blocks": [
+                {
+                  "source_block_id": "srcb_01010101010101010101010101010101",
+                  "ordinal": 0,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 0,
+                  "end_byte": 14,
+                  "content_sha256": "0101010101010101010101010101010101010101010101010101010101010101"
+                },
+                {
+                  "source_block_id": "srcb_02020202020202020202020202020202",
+                  "ordinal": 1,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 15,
+                  "end_byte": 29,
+                  "content_sha256": "0202020202020202020202020202020202020202020202020202020202020202"
+                },
+                {
+                  "source_block_id": "srcb_03030303030303030303030303030303",
+                  "ordinal": 2,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 30,
+                  "end_byte": 44,
+                  "content_sha256": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "source_block_id": "srcb_04040404040404040404040404040404",
+                  "ordinal": 3,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 45,
+                  "end_byte": 59,
+                  "content_sha256": "0404040404040404040404040404040404040404040404040404040404040404"
+                },
+                {
+                  "source_block_id": "srcb_05050505050505050505050505050505",
+                  "ordinal": 4,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 60,
+                  "end_byte": 74,
+                  "content_sha256": "0505050505050505050505050505050505050505050505050505050505050505"
+                },
+                {
+                  "source_block_id": "srcb_06060606060606060606060606060606",
+                  "ordinal": 5,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 75,
+                  "end_byte": 89,
+                  "content_sha256": "0606060606060606060606060606060606060606060606060606060606060606"
+                },
+                {
+                  "source_block_id": "srcb_07070707070707070707070707070707",
+                  "ordinal": 6,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 90,
+                  "end_byte": 104,
+                  "content_sha256": "0707070707070707070707070707070707070707070707070707070707070707"
+                },
+                {
+                  "source_block_id": "srcb_08080808080808080808080808080808",
+                  "ordinal": 7,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 105,
+                  "end_byte": 119,
+                  "content_sha256": "0808080808080808080808080808080808080808080808080808080808080808"
+                },
+
+                {
+                  "source_block_id": "srcb_77777777777777777777777777777777",
+                  "ordinal": 8,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 120,
+                  "end_byte": 147,
+                  "content_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+                }
+              ]
+            }
+          ],
+          "exclusions": []
+        },
+        "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "parent_version_id": null,
+        "change_summary": "冻结小说来源",
+        "created_at": "2026-08-03T04:00:00Z"
+      },
+      "review_version": null,
+      "accepted_version": {
+        "id": "ver_22222222222222222222222222222222",
+        "artifact_id": "art_11111111111111111111111111111111",
+        "version_number": 1,
+        "schema_version": "1.0.0",
+        "content": {
+          "scope_type": "full_work",
+          "documents": [
+            {
+              "source_document_id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "filename": "雾城来信.txt",
+              "media_type": "text/plain",
+              "encoding": "utf-8",
+              "byte_size": 83,
+              "chapter_count": 1,
+              "raw_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "normalized_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+              "import_order": 1,
+              "blocks": [
+                {
+                  "source_block_id": "srcb_dddddddddddddddddddddddddddddddd",
+                  "ordinal": 0,
+                  "kind": "chapter_heading",
+                  "chapter_index": 1,
+                  "start_byte": 0,
+                  "end_byte": 16,
+                  "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+                },
+                {
+                  "source_block_id": "srcb_ffffffffffffffffffffffffffffffff",
+                  "ordinal": 1,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 17,
+                  "end_byte": 83,
+                  "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+                }
+              ]
+            },
+            {
+              "source_document_id": "src_66666666666666666666666666666666",
+              "filename": "港口补遗.txt",
+              "media_type": "text/plain",
+              "encoding": "utf-8",
+              "byte_size": 147,
+              "chapter_count": 1,
+              "raw_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+              "normalized_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+              "import_order": 2,
+              "blocks": [
+                {
+                  "source_block_id": "srcb_01010101010101010101010101010101",
+                  "ordinal": 0,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 0,
+                  "end_byte": 14,
+                  "content_sha256": "0101010101010101010101010101010101010101010101010101010101010101"
+                },
+                {
+                  "source_block_id": "srcb_02020202020202020202020202020202",
+                  "ordinal": 1,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 15,
+                  "end_byte": 29,
+                  "content_sha256": "0202020202020202020202020202020202020202020202020202020202020202"
+                },
+                {
+                  "source_block_id": "srcb_03030303030303030303030303030303",
+                  "ordinal": 2,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 30,
+                  "end_byte": 44,
+                  "content_sha256": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "source_block_id": "srcb_04040404040404040404040404040404",
+                  "ordinal": 3,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 45,
+                  "end_byte": 59,
+                  "content_sha256": "0404040404040404040404040404040404040404040404040404040404040404"
+                },
+                {
+                  "source_block_id": "srcb_05050505050505050505050505050505",
+                  "ordinal": 4,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 60,
+                  "end_byte": 74,
+                  "content_sha256": "0505050505050505050505050505050505050505050505050505050505050505"
+                },
+                {
+                  "source_block_id": "srcb_06060606060606060606060606060606",
+                  "ordinal": 5,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 75,
+                  "end_byte": 89,
+                  "content_sha256": "0606060606060606060606060606060606060606060606060606060606060606"
+                },
+                {
+                  "source_block_id": "srcb_07070707070707070707070707070707",
+                  "ordinal": 6,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 90,
+                  "end_byte": 104,
+                  "content_sha256": "0707070707070707070707070707070707070707070707070707070707070707"
+                },
+                {
+                  "source_block_id": "srcb_08080808080808080808080808080808",
+                  "ordinal": 7,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 105,
+                  "end_byte": 119,
+                  "content_sha256": "0808080808080808080808080808080808080808080808080808080808080808"
+                },
+
+                {
+                  "source_block_id": "srcb_77777777777777777777777777777777",
+                  "ordinal": 8,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 120,
+                  "end_byte": 147,
+                  "content_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+                }
+              ]
+            }
+          ],
+          "exclusions": []
+        },
+        "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "parent_version_id": null,
+        "change_summary": "冻结小说来源",
+        "created_at": "2026-08-03T04:00:00Z"
+      }
+    },
+    "request_id": "9e049ad6-2b22-4e2d-8d48-e5bd78ee0e11"
+  },
+  "story_index": {
+    "data": {
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "head": {
+        "artifact_id": "art_66666666666666666666666666666666",
+        "latest_version_id": "ver_77777777777777777777777777777777",
+        "review_version_id": null,
+        "review_submission_id": null,
+        "accepted_version_id": null,
+        "revision": 2,
+        "review_evidence_revision": 0,
+        "updated_at": "2026-08-03T04:10:00Z"
+      },
+      "latest_version": {
+        "id": "ver_77777777777777777777777777777777",
+        "artifact_id": "art_66666666666666666666666666666666",
+        "version_number": 2,
+        "schema_version": "1.0.0",
+        "content_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "parent_version_id": "ver_55555555555555555555555555555555",
+        "change_summary": "补充人物关系与逐事实证据",
+        "created_at": "2026-08-03T04:10:00Z"
+      },
+      "review_version": null,
+      "accepted_version": null
+    },
+    "request_id": "9e049ad6-2b22-4e2d-8d48-e5bd78ee0e11"
+  },
+  "story_version": {
+    "data": {
+      "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "head": {
+        "artifact_id": "art_66666666666666666666666666666666",
+        "latest_version_id": "ver_77777777777777777777777777777777",
+        "review_version_id": null,
+        "review_submission_id": null,
+        "accepted_version_id": null,
+        "revision": 2,
+        "review_evidence_revision": 0,
+        "updated_at": "2026-08-03T04:10:00Z"
+      },
+      "version": {
+        "id": "ver_77777777777777777777777777777777",
+        "artifact_id": "art_66666666666666666666666666666666",
+        "version_number": 2,
+        "schema_version": "1.0.0",
+        "content": {
+          "title": "雾城来信",
+          "logline": "失忆记者循着一封旧信追查雾城真相。",
+          "source_scope": {
+            "source_manifest_version_id": "ver_22222222222222222222222222222222",
+            "scope_type": "full_work",
+            "documents": [
+              {
+                "source_document_id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "raw_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "source_block_ids": [
+                  "srcb_dddddddddddddddddddddddddddddddd",
+                  "srcb_ffffffffffffffffffffffffffffffff"
+                ],
+                "chapter_indices": [1]
+              },
+              {
+                "source_document_id": "src_66666666666666666666666666666666",
+                "raw_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+                "source_block_ids": ["srcb_77777777777777777777777777777777"],
+                "chapter_indices": [1]
+              }
+            ],
+            "exclusions": []
+          },
+          "entities": [
+            {
+              "entity_id": "ent_99999999999999999999999999999999",
+              "kind": "character",
+              "name": "林见",
+              "aliases": ["记者"]
+            },
+            {
+              "entity_id": "ent_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "kind": "character",
+              "name": "周野",
+              "aliases": []
+            },
+            {
+              "entity_id": "ent_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "kind": "location",
+              "name": "雾城",
+              "aliases": []
+            }
+          ],
+          "facts": [
+            {
+              "fact_id": "fact_dddddddddddddddddddddddddddddddd",
+              "importance": "core",
+              "origin": "source_explicit_assertion",
+              "canon_status": "confirmed",
+              "extraction_confidence_bps": 9800,
+              "canon_certainty": "certain",
+              "viewpoint_entity_id": null,
+              "source_reliability": "reliable",
+              "decision_reason": null,
+              "impact_scope": [],
+              "supersedes_fact_ids": [],
+              "derived_from_fact_ids": [],
+              "kind": "character_fact",
+              "character_id": "ent_99999999999999999999999999999999",
+              "attribute": "职业",
+              "value": "记者",
+              "validity": null
+            },
+            {
+              "fact_id": "fact_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "importance": "core",
+              "origin": "source_interpretation",
+              "canon_status": "contested",
+              "extraction_confidence_bps": 6200,
+              "canon_certainty": "ambiguous",
+              "viewpoint_entity_id": "ent_99999999999999999999999999999999",
+              "source_reliability": "uncertain",
+              "decision_reason": null,
+              "impact_scope": [],
+              "supersedes_fact_ids": [],
+              "derived_from_fact_ids": [],
+              "kind": "relationship_fact",
+              "subject_entity_id": "ent_99999999999999999999999999999999",
+              "predicate": "曾是搭档",
+              "object_entity_id": "ent_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "validity": null
+            },
+            {
+              "fact_id": "fact_33333333333333333333333333333333",
+              "importance": "core",
+              "origin": "source_explicit_assertion",
+              "canon_status": "confirmed",
+              "extraction_confidence_bps": 9400,
+              "canon_certainty": "certain",
+              "viewpoint_entity_id": null,
+              "source_reliability": "reliable",
+              "decision_reason": null,
+              "impact_scope": ["首集事件线"],
+              "supersedes_fact_ids": [],
+              "derived_from_fact_ids": [],
+              "kind": "event_fact",
+              "participants": ["ent_99999999999999999999999999999999"],
+              "location_id": "ent_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_narrative_order": 1,
+              "story_time_order": 1,
+              "temporal_relations": [],
+              "caused_by_fact_ids": [],
+              "state_changes": []
+            }
+          ],
+          "questions": [
+            {
+              "question_id": "qst_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "scope_type": "artifact",
+              "scope_id": null,
+              "question": "旧信是谁寄出的？",
+              "severity": "blocking",
+              "responsible_role": "编剧",
+              "blocking": true,
+              "status": "open",
+              "resolution": null
+            }
+          ],
+          "conflicts": [
+            {
+              "conflict_id": "cfl_ffffffffffffffffffffffffffffffff",
+              "conflict_type": "relationship",
+              "fact_ids": [
+                "fact_dddddddddddddddddddddddddddddddd",
+                "fact_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              ],
+              "severity": "major",
+              "responsible_role": "编剧",
+              "status": "unresolved",
+              "resolution_reason": null,
+              "resolution_fact_id": null
+            }
+          ]
+        },
+        "source_spans": [
+          {
+            "id": "spn_11111111111111111111111111111111",
+            "fact_id": "fact_dddddddddddddddddddddddddddddddd",
+            "source_document_id": "src_66666666666666666666666666666666",
+            "source_block_id": "srcb_77777777777777777777777777777777",
+            "role": "supports",
+            "start_byte": 120,
+            "end_byte": 147,
+            "claim": "旧信在港口被发现。",
+            "quote_hash": "sha256:40ecc019addb3ca633f568698191d75805e4c715b1dfecbc1a11292dec8c8323"
+          },
+          {
+            "id": "spn_33333333333333333333333333333333",
+            "fact_id": "fact_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "source_document_id": "src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_block_id": "srcb_ffffffffffffffffffffffffffffffff",
+            "role": "context",
+            "start_byte": 17,
+            "end_byte": 83,
+            "claim": "两人的旧关系仍需编剧确认。",
+            "quote_hash": "sha256:7b0ac7d7d2eae42672d5864a87ae258fc5dc00e322e8bafede05bdbcb7ef0b22"
+          }
+        ],
+        "content_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "parent_version_id": "ver_55555555555555555555555555555555",
+        "change_summary": "补充人物关系与逐事实证据",
+        "created_at": "2026-08-03T04:10:00Z"
+      }
+    },
+    "request_id": "9e049ad6-2b22-4e2d-8d48-e5bd78ee0e11"
+  }
+}
