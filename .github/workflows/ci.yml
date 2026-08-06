@@ -56,6 +56,18 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Fault injection
+        run: >-
+          uv run pytest
+          services/api/tests/test_fault_injection.py
+          services/api/tests/test_fake_provider.py
+          services/api/tests/test_fake_provider_worker.py
+          services/api/tests/test_local_executor.py
+          services/api/tests/test_task_ledger_recovery.py
+
+      - name: Reproduce fault-injection evidence
+        run: uv run python scripts/fault_injection_evidence.py verify
+
       - name: Reproduce media contract evidence
         run: pnpm evidence:media-contract
 

@@ -1,0 +1,38 @@
+{
+  "afterPersistCrash": {
+    "detectedAsUnknownOutcome": true,
+    "persistedJobsAfterRestartAndRetry": 1,
+    "retryReturnedOriginalJob": true
+  },
+  "beforePersistCrash": {
+    "detected": true,
+    "persistedJobsAfterRestartAndRetry": 1,
+    "persistedJobsBeforeRestart": 0
+  },
+  "controlledError": {
+    "detected": true,
+    "persistedJobs": 0,
+    "processSurvived": true
+  },
+  "deterministicSeed": {
+    "decisionSha256": "3fe04f4cfc5b5d72892b6c087ad754d06fa1fcf5ee646f9383bb3847656b9b30",
+    "occurrences": 100,
+    "seed": 42
+  },
+  "networkListener": false,
+  "processCleanup": {
+    "afterPersistCrashExitCode": 72,
+    "afterPersistRestartExitCode": 0,
+    "beforePersistCrashExitCode": 71,
+    "beforePersistRestartExitCode": 0,
+    "controlledErrorWorkerExitCode": 0
+  },
+  "providerState": "sqlite",
+  "schemaVersion": 1,
+  "scope": {
+    "milestone": "F06",
+    "q03SixProductionKillPointsComplete": false
+  },
+  "status": "PASS",
+  "transport": "stdin-stdout-ndjson"
+}
