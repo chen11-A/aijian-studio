@@ -299,7 +299,12 @@ def _local_snapshot_root() -> Path:
 
 def _is_remote_windows_path(path: Path) -> bool:
     drive = path.drive
-    if drive.startswith("\\\\"):
+    drive_root = f"{drive}\\"
+    if drive.startswith("\\\\?\\"):
+        if not re.fullmatch(r"\\\\\?\\[A-Za-z]:", drive):
+            return True
+        drive_root = f"{drive[4:]}\\"
+    elif drive.startswith("\\\\"):
         return True
     if os.name != "nt" or not drive:
         return False
@@ -307,7 +312,7 @@ def _is_remote_windows_path(path: Path) -> bool:
         import ctypes
 
         get_drive_type = ctypes.windll.kernel32.GetDriveTypeW
-        return int(get_drive_type(f"{drive}\\")) == 4
+        return int(get_drive_type(drive_root)) == 4
     except (AttributeError, OSError, TypeError, ValueError):
         return True
 

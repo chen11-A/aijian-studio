@@ -250,6 +250,12 @@ def test_probe_rejects_windows_unc_before_touching_the_filesystem(
     assert error.value.code is MediaProbeErrorCode.INPUT_NOT_LOCAL
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows extended paths are platform-specific")
+def test_extended_local_drive_path_is_not_classified_as_remote() -> None:
+    assert not media_probe._is_remote_windows_path(Path(r"\\?\C:\media.mkv"))
+    assert media_probe._is_remote_windows_path(Path(r"\\?\UNC\server\share\media.mkv"))
+
+
 def test_probe_rejects_a_same_name_file_replaced_before_the_stable_open(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

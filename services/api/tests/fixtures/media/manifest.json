@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "ffmpeg_profile_id": "windows-x86_64-gyan-full-8.1.2-dev",
+  "fixtures": [
+    {
+      "fixture_id": "cfr-24000-1001-44100",
+      "relative_path": "cfr-24000-1001-44100.mkv",
+      "sha256": "17dca6274b8381d276e60650c60cb28080a78276b0f64e4c8ba7e3a188892820",
+      "media_kind": "CFR",
+      "generation_arguments": [
+        "testsrc2=size=160x90:rate=24000/1001:duration=2",
+        "sine=frequency=440:sample_rate=44100:duration=2",
+        "ffv1",
+        "pcm_s16le",
+        "bitexact"
+      ],
+      "expected": {
+        "frame_rate_num": 24000,
+        "frame_rate_den": 1001,
+        "frame_count": 47,
+        "audio_sample_rate_hz": 44100,
+        "audio_sample_count": 88200,
+        "variable_frame_rate": false,
+        "video_time_base_num": 1,
+        "video_time_base_den": 1000,
+        "video_pts_sha256": "c0618bd8587d263fe2f17e3ead7dd8462c39d2fb41252614cf5b55eb2b9dfcdf"
+      }
+    },
+    {
+      "fixture_id": "cfr-24-48000",
+      "relative_path": "cfr-24-48000.mkv",
+      "sha256": "176e0ddc3543294aa6374b5c7c2150c4ba128f7dad33e43165743d1be94becd2",
+      "media_kind": "CFR",
+      "generation_arguments": [
+        "testsrc2=size=160x90:rate=24:duration=2",
+        "sine=frequency=550:sample_rate=48000:duration=2",
+        "ffv1",
+        "pcm_s16le",
+        "bitexact"
+      ],
+      "expected": {
+        "frame_rate_num": 24,
+        "frame_rate_den": 1,
+        "frame_count": 48,
+        "audio_sample_rate_hz": 48000,
+        "audio_sample_count": 96000,
+        "variable_frame_rate": false,
+        "video_time_base_num": 1,
+        "video_time_base_den": 1000,
+        "video_pts_sha256": "9c6b9f8e87757dd0941cfe52600286e52bc8a80eacad37fdafc69ad4f7a649b3"
+      }
+    },
+    {
+      "fixture_id": "cfr-25-44100",
+      "relative_path": "cfr-25-44100.mkv",
+      "sha256": "c3138a5e390f446883f4a4b537a2ab16d02d7b423f28eae6a6b43bf4d5ef03b3",
+      "media_kind": "CFR",
+      "generation_arguments": [
+        "testsrc2=size=160x90:rate=25:duration=2",
+        "sine=frequency=660:sample_rate=44100:duration=2",
+        "ffv1",
+        "pcm_s16le",
+        "bitexact"
+      ],
+      "expected": {
+        "frame_rate_num": 25,
+        "frame_rate_den": 1,
+        "frame_count": 50,
+        "audio_sample_rate_hz": 44100,
+        "audio_sample_count": 88200,
+        "variable_frame_rate": false,
+        "video_time_base_num": 1,
+        "video_time_base_den": 1000,
+        "video_pts_sha256": "3b85396af017e69486e987f2065eaf10180024640660de20ce88f538e003af6b"
+      }
+    },
+    {
+      "fixture_id": "cfr-30000-1001-48000",
+      "relative_path": "cfr-30000-1001-48000.mkv",
+      "sha256": "40b832cba0e2cea4416f2b33b899cd747934f42a3e46fa86640bfd12095e08cb",
+      "media_kind": "CFR",
+      "generation_arguments": [
+        "testsrc2=size=160x90:rate=30000/1001:duration=2",
+        "sine=frequency=770:sample_rate=48000:duration=2",
+        "ffv1",
+        "pcm_s16le",
+        "bitexact"
+      ],
+      "expected": {
+        "frame_rate_num": 30000,
+        "frame_rate_den": 1001,
+        "frame_count": 59,
+        "audio_sample_rate_hz": 48000,
+        "audio_sample_count": 96000,
+        "variable_frame_rate": false,
+        "video_time_base_num": 1,
+        "video_time_base_den": 1000,
+        "video_pts_sha256": "7ec1e3accca95997a331a32c46d31aac971c8bf2d222abbcd92e7e3070f5f5a8"
+      }
+    },
+    {
+      "fixture_id": "vfr-pattern-44100",
+      "relative_path": "vfr-pattern-44100.mkv",
+      "sha256": "e9c03ac969603b4655d4d27ff10d25e5fa9de68cff3aa1e5853561b5d656b7ce",
+      "media_kind": "VFR",
+      "generation_arguments": [
+        "testsrc2=size=160x90:rate=24:duration=2",
+        "sine=frequency=880:sample_rate=44100:duration=3",
+        "settb=1/1000",
+        "piecewise-setpts-24-12-30",
+        "enc_time_base=1/1000",
+        "ffv1",
+        "pcm_s16le",
+        "bitexact"
+      ],
+      "expected": {
+        "frame_rate_num": 24,
+        "frame_rate_den": 1,
+        "frame_count": 48,
+        "audio_sample_rate_hz": 44100,
+        "audio_sample_count": 111616,
+        "variable_frame_rate": true,
+        "video_time_base_num": 1,
+        "video_time_base_den": 1000,
+        "video_pts_sha256": "2fcbcf7baf4269d6b246f848bf9f0bc142ae824ab67bc79906baa3d6abd40327"
+      }
+    }
+  ]
+}
