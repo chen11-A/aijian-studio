@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source_relative_path": "vfr-pattern-44100.mkv",
+  "source_sha256": "e9c03ac969603b4655d4d27ff10d25e5fa9de68cff3aa1e5853561b5d656b7ce",
+  "proxy_relative_path": "vfr-pattern-25fps-proxy.webm",
+  "proxy_sha256": "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a",
+  "mapping_relative_path": "vfr-pattern-25fps-map-v1.json",
+  "mapping_sha256": "c057c55dfab724479c79ce661ab03ce41a9ac2edb34a1d47bba7cd587b3d18dd",
+  "source_frame_count": 48,
+  "proxy_frame_rate_num": 25,
+  "proxy_frame_rate_den": 1,
+  "proxy_frame_count": 64,
+  "video_width": 160,
+  "video_height": 90,
+  "proxy_audio_sample_rate_hz": 48000,
+  "proxy_audio_sample_count": 121487,
+  "mapping_entry_count": 64,
+  "sampling_rule": "HOLD_LAST_PRESENTED_FRAME_AT_PROXY_FRAME_START"
+}

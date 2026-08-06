@@ -1,0 +1,32 @@
+{
+  "audioSampleCount": 121487,
+  "audioSampleRateHz": 48000,
+  "check": "phase0-vfr-to-cfr-proxy",
+  "deterministicRegeneration": true,
+  "distributionStatus": "DEVELOPMENT_ONLY",
+  "externalMediaOrNetworkUsed": false,
+  "ffmpegSha256": "sha256:ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e",
+  "ffprobeSha256": "sha256:9df3b0b5275e830961df6d94e1f7a71121a7abd5ff708e9fec8a0b6084a55015",
+  "manifestSha256": "sha256:72c50e2dd6313e2d48a66febb9d3f16e97ef3f733b7fac47cf393b1259ee11ee",
+  "mappedFramePixelsMatchSource": true,
+  "mappingCoversEveryProxyFrame": true,
+  "mappingEntryCount": 64,
+  "mappingSha256": "sha256:c057c55dfab724479c79ce661ab03ce41a9ac2edb34a1d47bba7cd587b3d18dd",
+  "nonZeroSourcePtsSmoke": {
+    "mappingFirstSourcePtsTicks": 5000,
+    "passed": true,
+    "proxyFirstPtsTicks": 0,
+    "sourceFirstPtsTicks": 5000
+  },
+  "passed": true,
+  "proxyAssetSha256": "sha256:0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a",
+  "proxyFrameCount": 64,
+  "proxyFrameRate": {
+    "den": 1,
+    "num": 25
+  },
+  "samplingRule": "HOLD_LAST_PRESENTED_FRAME_AT_PROXY_FRAME_START",
+  "sourceAssetSha256": "sha256:e9c03ac969603b4655d4d27ff10d25e5fa9de68cff3aa1e5853561b5d656b7ce",
+  "toolchainProfileId": "windows-x86_64-gyan-full-8.1.2-dev",
+  "toolchainVersion": "8.1.2"
+}
