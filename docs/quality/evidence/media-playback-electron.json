@@ -1,0 +1,23 @@
+{
+  "check": "phase0-electron-proxy-playback",
+  "passed": true,
+  "electronVersion": "43.2.0",
+  "chromiumVersion": "150.0.7871.129",
+  "canPlayReached": true,
+  "playbackAdvanced": true,
+  "seekAndResumePassed": true,
+  "verifiedStableCopyPlayed": true,
+  "postPlaybackHashVerified": true,
+  "playbackAdvanceThresholdSeconds": 0.25,
+  "seekTargetSeconds": 1.2,
+  "seekResumeThresholdSeconds": 1.45,
+  "seekResumeAdvanceThresholdSeconds": 0.25,
+  "durationSeconds": 2.56,
+  "readyStateAtLeastHaveFutureData": true,
+  "mediaNetworkErrorFree": true,
+  "videoWidth": 160,
+  "videoHeight": 90,
+  "postWindowRendererDiagnostics": [],
+  "proxyFixture": "vfr-pattern-25fps-proxy.webm",
+  "proxyAssetSha256": "sha256:0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"
+}
