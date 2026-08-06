@@ -259,13 +259,17 @@ def _open_local_source(path: Path) -> BinaryIO:
         raise
 
 
-def _copy_guarded_snapshot(source: BinaryIO, destination: Path) -> tuple[str, int]:
+def _copy_guarded_snapshot(
+    source: BinaryIO,
+    destination: Path,
+    maximum_bytes: int = MAX_MEDIA_INPUT_BYTES,
+) -> tuple[str, int]:
     digest = hashlib.sha256()
     copied = 0
     with destination.open("xb") as output_stream:
         while chunk := source.read(1024 * 1024):
             copied += len(chunk)
-            if copied > MAX_MEDIA_INPUT_BYTES:
+            if copied > maximum_bytes:
                 raise MediaProbeError(
                     MediaProbeErrorCode.UNSUPPORTED_LAYOUT,
                     "media input exceeds the Phase 0 size limit",

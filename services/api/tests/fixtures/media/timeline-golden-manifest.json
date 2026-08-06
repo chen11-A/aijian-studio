@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "proxy_sha256": "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a",
+  "timeline_sha256": "d130868b80eeec761602ccdbe50acb77c97e037125d4f644585bb94616f20459",
+  "render_plan_sha256": "9180a2c6f0fb94ebc553dc491d3762f69c0cf3cfd1006279ff41bc209aa8000b",
+  "output_sha256": "b208d1d60d41d2f6e72e11be8ff88f4928c7a6765a29ec86f9dc0726d8fb193e",
+  "ntsc_render_plan_sha256": "8ca86a742ac05d907c74ea64128f5c9f0cd2d5dced982ee57fc53eb448cda9b7",
+  "ntsc_output_sha256": "a978457bfe8626a800166b80c187a3bbc71dca768f0353e915498e2c4f861f9e",
+  "selected_source_frames": [
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20,
+    21, 22, 23, 24
+  ],
+  "maximum_mean_absolute_error": 3.0
+}

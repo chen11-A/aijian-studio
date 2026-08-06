@@ -257,6 +257,15 @@ def test_generate_proxy_rejects_snapshot_tampering_during_ffmpeg(
     assert not destination.exists()
 
 
+def test_guarded_snapshot_enforces_a_caller_specific_byte_limit(tmp_path: Path) -> None:
+    source = (tmp_path / "bounded.mkv").resolve()
+    source.write_bytes(media_proxy.MATROSKA_EBML_HEADER + b"too-large")
+
+    with pytest.raises(MediaProxyError, match="size limit"):
+        with guarded_media_snapshot(source, maximum_bytes=4):
+            pytest.fail("oversized source reached the snapshot body")
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows share modes are platform-specific")
 def test_guarded_snapshot_handle_blocks_a_b_a_path_replacement(tmp_path: Path) -> None:
     source = (tmp_path / "source.mkv").resolve()
@@ -312,7 +321,7 @@ def test_generate_proxy_does_not_overwrite_an_existing_destination(tmp_path: Pat
     assert destination.read_bytes() == b"keep-me"
 
 
-@pytest.mark.parametrize("name", ("carrier.mkv:proxy.webm", "CON.webm", "proxy.webm."))
+@pytest.mark.parametrize("name", ("carrier.mkv:proxy.webm", "CON.webm", "COM¹.webm", "proxy.webm."))
 def test_generate_proxy_rejects_unsafe_windows_destination_names(tmp_path: Path, name: str) -> None:
     with pytest.raises(MediaProxyError, match="absolute .webm"):
         generate_cfr_proxy(
@@ -323,7 +332,7 @@ def test_generate_proxy_rejects_unsafe_windows_destination_names(tmp_path: Path,
         )
 
 
-@pytest.mark.parametrize("name", ("carrier.mkv:input.mkv", "NUL.mkv", "source.mkv."))
+@pytest.mark.parametrize("name", ("carrier.mkv:input.mkv", "NUL.mkv", "LPT³.mkv", "source.mkv."))
 def test_generate_proxy_rejects_unsafe_windows_source_names(tmp_path: Path, name: str) -> None:
     with pytest.raises(MediaProxyError, match="unsafe filename"):
         generate_cfr_proxy(

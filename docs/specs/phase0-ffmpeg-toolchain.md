@@ -1,6 +1,6 @@
 # Phase 0 FFmpeg 工具链与黄金媒体规格
 
-状态：Implementing（M02）
+状态：Implemented（M02）
 
 依赖：[Phase 0 媒体时间基线契约](phase0-media-contract.md)
 

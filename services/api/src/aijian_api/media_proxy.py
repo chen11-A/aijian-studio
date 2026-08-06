@@ -39,6 +39,8 @@ WINDOWS_RESERVED_NAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
     | {f"COM{index}" for index in range(1, 10)}
     | {f"LPT{index}" for index in range(1, 10)}
+    | {f"COM{index}" for index in "¹²³"}
+    | {f"LPT{index}" for index in "¹²³"}
 )
 
 
@@ -73,7 +75,11 @@ def _sha256(path: Path, maximum_bytes: int) -> str:
 
 
 @contextmanager
-def guarded_media_snapshot(source: Path) -> Iterator[GuardedMediaSnapshot]:
+def guarded_media_snapshot(
+    source: Path,
+    *,
+    maximum_bytes: int = MAX_MEDIA_INPUT_BYTES,
+) -> Iterator[GuardedMediaSnapshot]:
     """Yield an immutable local copy while holding a stable source handle."""
 
     if not source.is_absolute() or _is_remote_windows_path(source):
@@ -102,13 +108,17 @@ def guarded_media_snapshot(source: Path) -> Iterator[GuardedMediaSnapshot]:
                 or before.st_mtime_ns != resolved_identity.st_mtime_ns
             ):
                 raise MediaProxyError("proxy source changed before snapshot")
-            if before.st_size > MAX_MEDIA_INPUT_BYTES:
+            if maximum_bytes <= 0 or maximum_bytes > MAX_MEDIA_INPUT_BYTES:
+                raise MediaProxyError("proxy snapshot size limit is invalid")
+            if before.st_size > maximum_bytes:
                 raise MediaProxyError("proxy source exceeds the size limit")
             with tempfile.TemporaryDirectory(
                 prefix="aijian-media-proxy-source-", dir=snapshot_root
             ) as temporary:
                 snapshot_path = Path(temporary) / f"input{resolved.suffix}"
-                source_hash, snapshot_size = _copy_guarded_snapshot(source_stream, snapshot_path)
+                source_hash, snapshot_size = _copy_guarded_snapshot(
+                    source_stream, snapshot_path, maximum_bytes
+                )
                 os.chmod(snapshot_path, stat.S_IREAD)
                 after = os.fstat(source_stream.fileno())
                 if (
