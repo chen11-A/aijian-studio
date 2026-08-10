@@ -441,3 +441,410 @@ def test_heartbeat_lease_loss_does_not_wait_for_or_persist_handler_result(
         assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
             0,
         )
+
+
+def test_ready_fake_workflow_can_be_cancelled_idempotently_before_claim(tmp_path: Path) -> None:
+    database, project_id, _, ledger, _, task_id = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+
+    cancelled = ledger.cancel_local_workflow(
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        actor_id="local-user",
+    )
+    replay = ledger.cancel_local_workflow(
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        actor_id="local-user",
+    )
+
+    assert (cancelled.cancelled_tasks, cancelled.cancelled_attempts, cancelled.cancelled_nodes) == (
+        1,
+        1,
+        1,
+    )
+    assert replay.already_cancelled
+    assert not FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database),
+        worker_id="cancelled-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=valid_fake_skill,
+    ).run_once(task_id=task_id)
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("CANCELLED",)
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "CANCELLED",
+        )
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == (
+            "CANCELLED",
+        )
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("CANCELLED",)
+
+
+def test_running_fake_process_is_killed_by_cancellation_and_cannot_write_late_result(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    marker = tmp_path / "cancel-handler-started.txt"
+    previous_marker = os.environ.get("AIJIAN_FAKE_HANDLER_MARKER")
+    os.environ["AIJIAN_FAKE_HANDLER_MARKER"] = str(marker)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="cancel-running-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=50),
+        handler_timeout=timedelta(seconds=5),
+        handler=marker_blocked_fake_skill,
+    )
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            execution = pool.submit(executor.run_once, task_id=task_id)
+            marker_deadline = monotonic() + 3
+            while not marker.exists() and monotonic() < marker_deadline:
+                sleep(0.01)
+            assert marker.exists()
+            ledger.cancel_local_workflow(
+                project_id=project_id,
+                workflow_run_id=workflow_run_id,
+                actor_id="local-user",
+            )
+            with pytest.raises(LeaseLostError, match="stale or expired"):
+                execution.result(timeout=2)
+    finally:
+        if previous_marker is None:
+            os.environ.pop("AIJIAN_FAKE_HANDLER_MARKER", None)
+        else:
+            os.environ["AIJIAN_FAKE_HANDLER_MARKER"] = previous_marker
+    assert not any(child.name == "aijian-fake-agent" for child in active_children())
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
+            0,
+        )
+        events = connection.execute(
+            "SELECT entity_kind, to_status, actor_kind, actor_id FROM workflow_transition_events "
+            "WHERE reason_code = 'cancellation.requested' ORDER BY entity_kind"
+        ).fetchall()
+    assert events == [
+        ("attempt", "CANCELLED", "human", "local-user"),
+        ("node", "CANCELLED", "human", "local-user"),
+        ("task", "CANCELLED", "human", "local-user"),
+    ]
+
+
+def test_proposal_review_can_be_cancelled_without_deleting_immutable_proposal(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="review-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=valid_fake_skill,
+    )
+    assert executor.run_once(task_id=task_id)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+
+    cancelled = ledger.cancel_local_workflow(
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        actor_id="local-user",
+    )
+
+    assert (cancelled.cancelled_tasks, cancelled.cancelled_attempts, cancelled.cancelled_nodes) == (
+        0,
+        1,
+        1,
+    )
+    persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id)
+    assert persisted.proposal == proposal
+
+
+def test_cancellation_rejects_project_mismatch_and_empty_actor_without_writes(
+    tmp_path: Path,
+) -> None:
+    database, _, _, ledger, _, _ = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        before = (
+            connection.execute("SELECT status, cancel_requested_at FROM workflow_runs").fetchone(),
+            connection.execute("SELECT status FROM workflow_node_runs").fetchone(),
+            connection.execute("SELECT status FROM workflow_attempts").fetchone(),
+            connection.execute("SELECT status FROM task_ledger").fetchone(),
+            connection.execute("SELECT COUNT(*) FROM workflow_transition_events").fetchone(),
+        )
+
+    with pytest.raises(LookupError, match="not found"):
+        ledger.cancel_local_workflow(
+            project_id="prj_" + "f" * 32,
+            workflow_run_id=workflow_run_id,
+            actor_id="local-user",
+        )
+    with pytest.raises(ValueError, match="actor"):
+        ledger.cancel_local_workflow(
+            project_id=str(fixture_bundle().attempt.project_id),
+            workflow_run_id=workflow_run_id,
+            actor_id="",
+        )
+
+    with sqlite3.connect(database) as connection:
+        after = (
+            connection.execute("SELECT status, cancel_requested_at FROM workflow_runs").fetchone(),
+            connection.execute("SELECT status FROM workflow_node_runs").fetchone(),
+            connection.execute("SELECT status FROM workflow_attempts").fetchone(),
+            connection.execute("SELECT status FROM task_ledger").fetchone(),
+            connection.execute("SELECT COUNT(*) FROM workflow_transition_events").fetchone(),
+        )
+    assert after == before
+
+
+@pytest.mark.parametrize(
+    ("remote_status", "retry_disposition"),
+    (("REMOTE_UNKNOWN", "REMOTE_UNKNOWN"), ("CANCEL_REQUESTED", None)),
+)
+def test_active_remote_attempt_blocks_local_cancellation_without_partial_state(
+    tmp_path: Path,
+    remote_status: str,
+    retry_disposition: str | None,
+) -> None:
+    database, project_id, _, ledger, _, _ = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        now = NOW.isoformat()
+        connection.execute(
+            """
+            INSERT INTO workflow_node_runs (
+                node_run_id, workflow_run_id, node_key, node_type, contract_version,
+                input_bindings_json, input_hash, idempotency_key, status, attempt_count,
+                max_attempts, revision, created_at, updated_at
+            ) VALUES (?, ?, 'remote.node', 'remote.provider', 1, '{}', ?, ?,
+                      'RECONCILIATION_REQUIRED', 1, 1, 1, ?, ?)
+            """,
+            ("node_" + "e" * 32, workflow_run_id, f"sha256:{'e' * 64}", "remote:idem", now, now),
+        )
+        connection.execute(
+            """
+            INSERT INTO workflow_attempts (
+                attempt_id, node_run_id, attempt_number, execution_mode, status,
+                input_hash, request_fingerprint, retry_disposition,
+                revision, created_at, updated_at
+            ) VALUES (?, ?, 1, 'remote', ?, ?, ?, ?, 1, ?, ?)
+            """,
+            (
+                "att_" + "e" * 32,
+                "node_" + "e" * 32,
+                remote_status,
+                f"sha256:{'e' * 64}",
+                f"sha256:{'d' * 64}",
+                retry_disposition,
+                now,
+                now,
+            ),
+        )
+        before_events = connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events"
+        ).fetchone()
+
+    with pytest.raises(ValueError, match="remote"):
+        ledger.cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=workflow_run_id,
+            actor_id="local-user",
+        )
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("ACTIVE",)
+        assert connection.execute(
+            "SELECT status FROM workflow_attempts WHERE execution_mode = 'local'"
+        ).fetchone() == ("READY",)
+        assert connection.execute(
+            "SELECT status FROM workflow_attempts WHERE execution_mode = 'remote'"
+        ).fetchone() == (remote_status,)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_transition_events").fetchone() == (
+            before_events
+        )
+
+
+def test_terminal_or_empty_active_workflow_is_not_mislabelled_cancelled(tmp_path: Path) -> None:
+    terminal_path = tmp_path / "terminal"
+    terminal_path.mkdir()
+    terminal_db, terminal_project, _, terminal_ledger, _, _ = setup_fake_task(terminal_path)
+    with sqlite3.connect(terminal_db) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        connection.execute("UPDATE workflow_runs SET status = 'SUCCEEDED'")
+    with pytest.raises(ValueError, match="not cancellable"):
+        terminal_ledger.cancel_local_workflow(
+            project_id=terminal_project,
+            workflow_run_id=workflow_run_id,
+            actor_id="local-user",
+        )
+
+    empty_path = tmp_path / "empty"
+    empty_path.mkdir()
+    empty_db, empty_project, _, empty_ledger, _, _ = setup_fake_task(empty_path)
+    with sqlite3.connect(empty_db) as connection:
+        empty_run = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        connection.execute("UPDATE task_ledger SET status = 'COMPLETED'")
+        connection.execute(
+            "UPDATE workflow_attempts SET status = 'FAILED', retry_disposition = 'NON_RETRYABLE'"
+        )
+        connection.execute("UPDATE workflow_node_runs SET status = 'SUCCEEDED'")
+    with pytest.raises(ValueError, match="no cancellable"):
+        empty_ledger.cancel_local_workflow(
+            project_id=empty_project,
+            workflow_run_id=empty_run,
+            actor_id="local-user",
+        )
+    with sqlite3.connect(empty_db) as connection:
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("ACTIVE",)
+
+
+def test_multinode_cancellation_counts_only_active_local_work_and_preserves_terminal_node(
+    tmp_path: Path,
+) -> None:
+    database, project_id, _, ledger, _, _ = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        now = NOW.isoformat()
+        connection.execute(
+            """
+            INSERT INTO workflow_node_runs (
+                node_run_id, workflow_run_id, node_key, node_type, contract_version,
+                input_bindings_json, input_hash, idempotency_key, status, attempt_count,
+                max_attempts, revision, created_at, updated_at
+            ) VALUES (?, ?, 'second.local', 'agent.skill.fake', 1, '{}', ?, ?,
+                      'PENDING', 0, 1, 1, ?, ?)
+            """,
+            ("node_" + "c" * 32, workflow_run_id, f"sha256:{'c' * 64}", "second:idem", now, now),
+        )
+        connection.execute(
+            """
+            INSERT INTO workflow_attempts (
+                attempt_id, node_run_id, attempt_number, execution_mode, status,
+                input_hash, request_fingerprint, revision, created_at, updated_at
+            ) VALUES (?, ?, 1, 'local', 'READY', ?, ?, 1, ?, ?)
+            """,
+            (
+                "att_" + "c" * 32,
+                "node_" + "c" * 32,
+                f"sha256:{'c' * 64}",
+                f"sha256:{'b' * 64}",
+                now,
+                now,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO task_ledger (
+                task_id, attempt_id, task_kind, status, priority, available_at,
+                lease_generation, revision, created_at, updated_at
+            ) VALUES (?, ?, 'local.agent-skill.fake', 'READY', 70, ?, 0, 1, ?, ?)
+            """,
+            ("task_" + "c" * 32, "att_" + "c" * 32, now, now, now),
+        )
+        connection.execute(
+            """
+            INSERT INTO workflow_node_runs (
+                node_run_id, workflow_run_id, node_key, node_type, contract_version,
+                input_bindings_json, input_hash, idempotency_key, status, attempt_count,
+                max_attempts, revision, created_at, updated_at
+            ) VALUES (?, ?, 'done.local', 'local.done', 1, '{}', ?, ?,
+                      'SUCCEEDED', 0, 1, 1, ?, ?)
+            """,
+            ("node_" + "d" * 32, workflow_run_id, f"sha256:{'d' * 64}", "done:idem", now, now),
+        )
+
+    result = ledger.cancel_local_workflow(
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        actor_id="local-user",
+    )
+
+    assert (result.cancelled_tasks, result.cancelled_attempts, result.cancelled_nodes) == (2, 2, 2)
+    with sqlite3.connect(database) as connection:
+        statuses = connection.execute(
+            "SELECT node_key, status FROM workflow_node_runs ORDER BY node_key"
+        ).fetchall()
+        cancellation_events = connection.execute(
+            "SELECT entity_kind, COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'cancellation.requested' GROUP BY entity_kind "
+            "ORDER BY entity_kind"
+        ).fetchall()
+    assert statuses == [
+        ("done.local", "SUCCEEDED"),
+        ("second.local", "CANCELLED"),
+        ("source.extract", "CANCELLED"),
+    ]
+    assert cancellation_events == [("attempt", 2), ("node", 2), ("task", 2)]
+
+
+def test_cancellation_rolls_back_all_state_if_event_creation_fails(tmp_path: Path) -> None:
+    database, project_id, _, _, _, _ = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+        before_events = connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events"
+        ).fetchone()
+    calls = 0
+
+    def failing_id_factory(prefix: str) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("injected cancellation event failure")
+        return f"{prefix}_{calls:032x}"
+
+    ledger = LocalTaskLedger(database, clock=lambda: NOW, id_factory=failing_id_factory)
+    with pytest.raises(RuntimeError, match="event failure"):
+        ledger.cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=workflow_run_id,
+            actor_id="local-user",
+        )
+
+    with sqlite3.connect(database) as connection:
+        run = connection.execute(
+            "SELECT status, cancel_requested_at FROM workflow_runs"
+        ).fetchone()
+        assert run == (
+            "ACTIVE",
+            None,
+        )
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "PENDING",
+        )
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == (
+            "READY",
+        )
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("READY",)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_transition_events").fetchone() == (
+            before_events
+        )

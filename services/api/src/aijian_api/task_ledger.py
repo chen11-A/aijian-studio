@@ -8,6 +8,10 @@ from pathlib import Path
 
 from aijian_api.agent_skill_contracts import AttemptSnapshotV1
 from aijian_api.repository import StudioRepository
+from aijian_api.task_ledger_cancellation import (
+    LocalCancellationResult,
+    cancel_local_workflow,
+)
 from aijian_api.task_ledger_completion import complete_local_task
 from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
 from aijian_api.task_ledger_events import append_event
@@ -30,6 +34,7 @@ from aijian_api.task_ledger_snapshots import read_agent_skill_snapshot
 __all__ = [
     "ClaimedTask",
     "LeaseLostError",
+    "LocalCancellationResult",
     "LocalTaskLedger",
     "QueuedTask",
     "RecoverySummary",
@@ -351,6 +356,22 @@ class LocalTaskLedger:
         return complete_local_proposal_task(
             claim,
             proposal_id=proposal_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def cancel_local_workflow(
+        self,
+        *,
+        project_id: str,
+        workflow_run_id: str,
+        actor_id: str,
+    ) -> LocalCancellationResult:
+        return cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=workflow_run_id,
+            actor_id=actor_id,
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,
