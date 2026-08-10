@@ -11,8 +11,9 @@ import {
   type StoryBibleVersionResponse,
   type StudioTransport,
 } from "./api/studio";
-import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
+import { FakeWorkflowPanel } from "./components/FakeWorkflow/FakeWorkflowPanel";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
+import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { TimelineWorkspace } from "./components/Timeline/TimelineWorkspace";
 import { cacheRecentVersion, touchRecentVersion } from "./story-version-cache";
 
@@ -1942,6 +1943,15 @@ export function App({ transport }: AppProps) {
                       state={importState}
                       onFile={importFile}
                     />
+                    {importState.kind === "success" && (
+                      <FakeWorkflowPanel
+                        project={selectedProject}
+                        sourceFilename={importState.response.data.filename}
+                        startWorkflow={studio.startFakeTimelineWorkflow}
+                        onOpenQueue={() => setActiveWorkspace("queue")}
+                        onOpenTimeline={() => setActiveWorkspace("edit")}
+                      />
+                    )}
                   </>
                 ) : activeWorkspace === "story" ? (
                   <StoryWorkshop

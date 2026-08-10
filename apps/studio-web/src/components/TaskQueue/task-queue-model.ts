@@ -6,6 +6,7 @@ export type QueueState =
   { kind: "loading" } | { kind: "ready"; response: TaskQueueResponse } | { kind: "error" };
 
 export const nodeLabels: Record<string, string> = {
+  "timeline.assemble.fake": "Fake 分镜时间线",
   "story.extract": "故事提取",
   "script.generate": "剧本生成",
   "storyboard.plan": "分镜规划",

@@ -1,0 +1,60 @@
+{
+  "check": "phase0-web-e2e-skeleton-electron",
+  "passed": true,
+  "novelCharacterCount": 25098,
+  "persisted": {
+    "projectId": "prj_34534f080a054f9a81e4467d7ed6fe24",
+    "sourceByteSize": 69748,
+    "sourceCount": 1,
+    "taskSummary": {
+      "total": 1,
+      "attention": 0,
+      "active": 0,
+      "completed": 1
+    },
+    "taskStatus": "SUCCEEDED",
+    "timelineVersionId": "ver_39e355fe943e4796b052448253912858",
+    "timelineRevision": 2,
+    "clipCount": 3,
+    "firstClip": {
+      "schema_version": 1,
+      "clip_id": "fake-shot-01",
+      "asset_id": "fake-asset-01",
+      "source_in_frame": 4,
+      "duration_frames": 40
+    },
+    "bridgeKeys": [
+      "createProject",
+      "createProviderConnection",
+      "deleteProviderConnection",
+      "getProject",
+      "getProjectTimeline",
+      "getSource",
+      "getSourceManifest",
+      "getStoryBibleIndex",
+      "getStoryBibleVersion",
+      "health",
+      "importTextSource",
+      "listProjectTasks",
+      "listProjects",
+      "listProviderConnections",
+      "listSources",
+      "reorderTimelineClip",
+      "replaceTimelineClip",
+      "startFakeTimelineWorkflow",
+      "trimTimelineClip"
+    ],
+    "nodeGlobals": {
+      "process": "undefined",
+      "require": "undefined"
+    }
+  },
+  "viewport": {
+    "innerWidth": 1424,
+    "innerHeight": 881,
+    "scrollWidth": 1409,
+    "clientWidth": 1409
+  },
+  "rendererDiagnostics": [],
+  "screenshot": "web-e2e-skeleton-electron-1440x920.png"
+}

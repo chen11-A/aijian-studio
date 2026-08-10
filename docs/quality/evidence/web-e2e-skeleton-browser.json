@@ -1,0 +1,135 @@
+{
+  "check": "phase0-web-e2e-skeleton-browser",
+  "passed": true,
+  "novelCharacterCount": 27198,
+  "apiResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/health"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/health"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects"
+    },
+    {
+      "method": "POST",
+      "status": 201,
+      "url": "http://127.0.0.1:5173/api/v1/projects"
+    },
+    {
+      "method": "POST",
+      "status": 201,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/workflows/fake-timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline/trim"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/health"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/health"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources/src_7672a47e2cd74d72bbddf1b8d7975ab4"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+    }
+  ],
+  "viewport": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "hasDesktopBridge": false,
+    "hasNodeProcess": false
+  },
+  "diagnostics": [],
+  "screenshot": "web-e2e-skeleton-browser-1440x900.png"
+}

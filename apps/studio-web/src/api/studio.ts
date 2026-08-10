@@ -37,6 +37,7 @@ export interface StudioTransport {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
   reorderTimelineClip(
@@ -69,6 +70,7 @@ export interface AijianDesktopBridge {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
   reorderTimelineClip(
@@ -162,6 +164,13 @@ function postRequest<T>(path: string, payload: unknown): Promise<T> {
   });
 }
 
+function postActionRequest<T>(path: string): Promise<T> {
+  return browserRequest<T>(path, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+}
+
 async function deleteRequest(path: string): Promise<void> {
   const response = await fetch(path, { method: "DELETE", headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`Studio API request failed with status ${response.status}`);
@@ -183,6 +192,7 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      startFakeTimelineWorkflow: (projectId) => bridge.startFakeTimelineWorkflow(projectId),
       getProjectTimeline: (projectId) => bridge.getProjectTimeline(projectId),
       trimTimelineClip: (projectId, input) => bridge.trimTimelineClip(projectId, input),
       reorderTimelineClip: (projectId, input) => bridge.reorderTimelineClip(projectId, input),
@@ -219,6 +229,8 @@ export function createStudioTransport(): StudioTransport {
       ),
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    startFakeTimelineWorkflow: (projectId) =>
+      postActionRequest<TimelineResponse>(`/api/v1/projects/${projectId}/workflows/fake-timeline`),
     getProjectTimeline: (projectId) =>
       getOptionalRequest<TimelineResponse>(
         `/api/v1/projects/${projectId}/timeline`,

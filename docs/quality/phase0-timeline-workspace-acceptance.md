@@ -1,6 +1,6 @@
 # Phase 0 基础时间线工作台验收记录
 
-状态：PASS（UI01 基础时间线子项；UI01 整体仍需统一 `web-e2e-skeleton`）
+状态：PASS（UI01 基础时间线子项；统一 `web-e2e-skeleton` 已另行验收）
 
 对应规格：[基础时间线工作台](../specs/phase0-timeline-workspace.md)
 
@@ -53,9 +53,9 @@
 
 以上文件由 `evidence/SHA256SUMS` 绑定。
 
-## 尚未证明
+## 后续验收边界
 
-- UI01 的统一 `web-e2e-skeleton` 还没有在一次自动化运行中串联“创建项目 → 导入 TXT →
-  任务队列 → 时间线编辑”；因此本记录只关闭基础时间线子项，不把 UI01 整项标记完成。
-- K01 尚未让 Fake 工作流自动建立时间线并从 UI/API 导出 MP4；本次时间线由隔离验收夹具建立。
+- 统一 `web-e2e-skeleton` 已在 Chrome 与 Electron 中串联“创建项目 → 导入 TXT → Fake 任务 →
+  时间线编辑 → 重载持久化”，见[统一纵切验收记录](phase0-web-e2e-skeleton-acceptance.md)；UI01 因此关闭。
+- K01 尚未让 Fake 工作流生成图片、视频和声音文件并从同一 UI/API 流程导出 MP4。
 - 不证明多轨、字幕、转场、调色、混音、撤销栈、真实 Provider 或影片团队审片通过。

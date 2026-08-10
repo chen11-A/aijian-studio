@@ -12,6 +12,7 @@ import type {
   StoryBibleVersionResponse,
   StudioTransport,
   TaskQueueResponse,
+  TimelineResponse,
 } from "./api/studio";
 
 type StoryBibleResponse = StoryBibleVersionResponse;
@@ -81,6 +82,45 @@ const sourceSummary: SourceDocumentListResponse["data"][number] = {
   chapter_count: sourceResponse.data.chapter_count,
   block_count: sourceResponse.data.block_count,
 };
+const fakeTimelineResponse = {
+  data: {
+    project_id: project.id,
+    version_id: `ver_${"0".repeat(32)}`,
+    content_hash: `sha256:${"1".repeat(64)}`,
+    created_at: "2026-08-10T09:00:00Z",
+    total_duration_frames: 50,
+    timeline: {
+      schema_version: 1,
+      timeline_id: "preview-golden",
+      revision: 1,
+      sequence_timebase: {
+        frame_rate: { num: 25, den: 1 },
+        timecode_mode: "NON_DROP_FRAME",
+      },
+      width: 1080,
+      height: 1920,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: "fake-asset-01",
+          source_asset_sha256: `sha256:${"2".repeat(64)}`,
+          source_frame_count: 100,
+          proxy: null,
+        },
+      ],
+      clips: [
+        {
+          schema_version: 1,
+          clip_id: "fake-shot-01",
+          asset_id: "fake-asset-01",
+          source_in_frame: 0,
+          duration_frames: 50,
+        },
+      ],
+    },
+  },
+  request_id: requestId,
+} satisfies TimelineResponse;
 const sourceManifestVersion: SourceManifestResponse["data"]["latest_version"] = {
   artifact_id: `art_${"1".repeat(32)}`,
   id: `ver_${"2".repeat(32)}`,
@@ -398,6 +438,7 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
       },
       request_id: requestId,
     } satisfies TaskQueueResponse),
+    startFakeTimelineWorkflow: vi.fn().mockResolvedValue(fakeTimelineResponse),
     getProjectTimeline: vi.fn().mockResolvedValue(null),
     trimTimelineClip: vi.fn(),
     reorderTimelineClip: vi.fn(),
@@ -429,6 +470,21 @@ test("opens the real project timeline workspace", async () => {
 
   expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
   expect(transport.getProjectTimeline).toHaveBeenCalledWith(project.id);
+});
+
+test("starts a deterministic preview from the restored imported source", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  render(<App transport={transport} />);
+
+  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "生成 Fake 分镜时间线" }));
+
+  expect(await screen.findByRole("status")).toHaveTextContent("1 个镜头");
+  expect(transport.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
 });
 
 test("opens model and API settings without requiring a selected project", async () => {

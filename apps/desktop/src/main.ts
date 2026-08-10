@@ -123,6 +123,9 @@ ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, v
 ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
 );
+ipcMain.handle("workflows:start-fake-timeline", (event, projectId: string) =>
+  clientFor(event).startFakeTimelineWorkflow(projectId),
+);
 ipcMain.handle("timeline:get", (event, projectId: string) =>
   clientFor(event).getProjectTimeline(projectId),
 );

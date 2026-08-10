@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld("aijian", {
     ) as Promise<StoryBibleVersionResponse>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
+  startFakeTimelineWorkflow: (projectId: string): Promise<TimelineResponse> =>
+    ipcRenderer.invoke("workflows:start-fake-timeline", projectId) as Promise<TimelineResponse>,
   getProjectTimeline: (projectId: string): Promise<TimelineResponse | null> =>
     ipcRenderer.invoke("timeline:get", projectId) as Promise<TimelineResponse | null>,
   trimTimelineClip: (projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse> =>

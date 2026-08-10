@@ -124,6 +124,7 @@ try {
     "listSources",
     "reorderTimelineClip",
     "replaceTimelineClip",
+    "startFakeTimelineWorkflow",
     "trimTimelineClip",
   ].sort();
   if (JSON.stringify(bridgeResult.bridgeKeys) !== JSON.stringify(expectedBridgeKeys)) {

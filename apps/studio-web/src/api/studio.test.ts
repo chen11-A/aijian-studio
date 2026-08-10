@@ -8,6 +8,7 @@ import {
   type StoryBibleIndexResponse,
   type StoryBibleVersionResponse,
   type TaskQueueResponse,
+  type TimelineResponse,
 } from "./studio";
 
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
@@ -119,6 +120,45 @@ const taskQueue = {
   request_id: requestId,
 } satisfies TaskQueueResponse;
 const providerConnections = { data: [], request_id: requestId };
+const timeline = {
+  data: {
+    project_id: project.id,
+    version_id: `ver_${"8".repeat(32)}`,
+    content_hash: `sha256:${"9".repeat(64)}`,
+    created_at: "2026-08-10T09:00:00Z",
+    total_duration_frames: 50,
+    timeline: {
+      schema_version: 1,
+      timeline_id: "preview-golden",
+      revision: 1,
+      sequence_timebase: {
+        frame_rate: { num: 25, den: 1 },
+        timecode_mode: "NON_DROP_FRAME",
+      },
+      width: 1080,
+      height: 1920,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: "fake-asset-01",
+          source_asset_sha256: `sha256:${"a".repeat(64)}`,
+          source_frame_count: 100,
+          proxy: null,
+        },
+      ],
+      clips: [
+        {
+          schema_version: 1,
+          clip_id: "fake-shot-01",
+          asset_id: "fake-asset-01",
+          source_in_frame: 0,
+          duration_frames: 50,
+        },
+      ],
+    },
+  },
+  request_id: requestId,
+} satisfies TimelineResponse;
 
 afterEach(() => {
   delete window.aijian;
@@ -139,6 +179,7 @@ describe("studio transport", () => {
       getStoryBibleIndex: vi.fn().mockResolvedValue(storyBibleIndex),
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
       listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
+      startFakeTimelineWorkflow: vi.fn().mockResolvedValue(timeline),
       getProjectTimeline: vi.fn().mockResolvedValue(null),
       trimTimelineClip: vi.fn(),
       reorderTimelineClip: vi.fn(),
@@ -170,6 +211,7 @@ describe("studio transport", () => {
     await transport.getStoryBibleIndex(project.id);
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
     await transport.listProjectTasks(project.id);
+    await transport.startFakeTimelineWorkflow(project.id);
     await transport.listProviderConnections();
     await transport.createProviderConnection({
       provider_kind: "OLLAMA",
@@ -194,6 +236,7 @@ describe("studio transport", () => {
       storyBibleVersion.data.version.id,
     );
     expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
+    expect(bridge.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
     expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
     expect(bridge.createProviderConnection).toHaveBeenCalledOnce();
     expect(bridge.deleteProviderConnection).toHaveBeenCalledOnce();
@@ -208,6 +251,18 @@ describe("studio transport", () => {
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {
       headers: { Accept: "application/json" },
     });
+  });
+
+  test("starts the deterministic timeline workflow through the public browser route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(timeline));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.startFakeTimelineWorkflow(project.id)).resolves.toEqual(timeline);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/projects/${project.id}/workflows/fake-timeline`,
+      { method: "POST", headers: { Accept: "application/json" } },
+    );
   });
 
   test("uses versioned provider connection routes in a browser", async () => {

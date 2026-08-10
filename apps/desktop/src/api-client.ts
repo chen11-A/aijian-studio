@@ -73,6 +73,7 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
   reorderTimelineClip(
@@ -1253,6 +1254,16 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         `/api/v1/projects/${projectId}/tasks`,
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
         { headers },
+      );
+    },
+    async startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/workflows/fake-timeline`,
+        (payload): payload is TimelineResponse => isTimelineResponse(payload, projectId),
+        { method: "POST", headers },
       );
     },
     async getProjectTimeline(projectId: string): Promise<TimelineResponse | null> {

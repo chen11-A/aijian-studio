@@ -1,6 +1,6 @@
 # Phase 0 基础时间线工作台规格
 
-状态：Implementation in progress（UI01 / API01）
+状态：Implemented and accepted（UI01 / API01）；K01 仍在进行
 
 依赖：[基础时间线与导出](phase0-timeline-export.md)、[媒体契约](phase0-media-contract.md)、
 [项目与原文摄取](phase0-project-ingest.md)
@@ -47,6 +47,9 @@
 4. `openapi-drift`、Python/TypeScript 全量测试、构建和 lint 通过。
 5. `web-e2e-skeleton` 在真实浏览器与 Electron 中完成创建项目、进入剪辑台、执行一次编辑，
    截图且控制台无错误。
+
+以上验收均已通过；统一纵切证据见
+[Phase 0 统一 Web/Electron 纵切验收记录](../quality/phase0-web-e2e-skeleton-acceptance.md)。
 
 ## 非目标
 

@@ -1266,6 +1266,7 @@ describe("local API client", () => {
     const client = createLocalApiClient(fetchMock, session);
 
     await expect(client.getProjectTimeline(project.id)).resolves.toEqual(timelineResponse);
+    await expect(client.startFakeTimelineWorkflow(project.id)).resolves.toEqual(timelineResponse);
     await client.trimTimelineClip(project.id, {
       clip_id: "clip-rain",
       new_source_in_frame: 2,
@@ -1286,6 +1287,7 @@ describe("local API client", () => {
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       `${session.origin}/api/v1/projects/${project.id}/timeline`,
+      `${session.origin}/api/v1/projects/${project.id}/workflows/fake-timeline`,
       `${session.origin}/api/v1/projects/${project.id}/timeline/trim`,
       `${session.origin}/api/v1/projects/${project.id}/timeline/reorder`,
       `${session.origin}/api/v1/projects/${project.id}/timeline/replace`,

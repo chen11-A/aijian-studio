@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { TaskQueueItem } from "./task-queue-model";
-import { formatTime, matchesFilter, shortHash, toneFor } from "./task-queue-model";
+import { formatTime, matchesFilter, nodeLabels, shortHash, toneFor } from "./task-queue-model";
 
 function item(nodeStatus: string, attemptStatus: string): TaskQueueItem {
   return {
@@ -11,6 +11,10 @@ function item(nodeStatus: string, attemptStatus: string): TaskQueueItem {
 }
 
 describe("task queue presentation model", () => {
+  test("names the deterministic timeline task in film-team language", () => {
+    expect(nodeLabels["timeline.assemble.fake"]).toBe("Fake 分镜时间线");
+  });
+
   test("maps technical states to stable visual tones", () => {
     expect(toneFor(item("RECONCILIATION_REQUIRED", "READY"))).toBe("attention");
     expect(toneFor(item("RUNNING", "REMOTE_UNKNOWN"))).toBe("attention");
