@@ -46,7 +46,7 @@ D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run 
 
 ### AgentRun / SkillRun / Attempt
 
-- AgentRun：阿健或专业 Agent 的一次可审计委派，引用精确 AgentDefinition。
+- AgentRun：AI 制片协调员或专业 Agent 的一次可审计委派，引用精确 AgentDefinition。
 - SkillRun：一次有界能力执行，引用精确 SkillDefinition、输入版本和 ContextManifest。
 - Attempt：执行快照，固定 `agent_version + skill_version + prompt_version + policy_version + provider_connection_id + model_id + capability_snapshot + input_hash + output_schema_version + idempotency_key`。
 
@@ -54,11 +54,24 @@ D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run 
 
 ## 三层 Agent
 
-| 层   | 角色                                                | 权限边界                                                 |
-| ---- | --------------------------------------------------- | -------------------------------------------------------- |
-| 决策 | 阿健·制片统筹                                       | 拆解、派工、预算、冲突、升级；不写专业产物、不审批       |
-| 执行 | 编剧、导演、美术/连续性、分镜摄影、生成、声音、剪辑 | 运行获准 Skill，提交提案；不直接写数据库或 accepted head |
-| 监督 | 连续性、成本技术 QC、权利发布 QC                    | PASS/FAIL/问题清单；不能静默修改被审产物                 |
+| 层   | 角色                                                | 权限边界                                                                                                      |
+| ---- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 决策 | AI 制片协调员                                       | 理解目标、拆解、派工、预算、风险、阻塞升级和 Gate 建议；不写专业产物、不审批、不直接调用 Provider、不读取密钥 |
+| 执行 | 编剧、导演、美术/连续性、分镜摄影、生成、声音、剪辑 | 运行获准 Skill，提交提案；不直接写数据库或 accepted head                                                      |
+| 监督 | 连续性、成本技术 QC、权利发布 QC                    | PASS/FAIL/问题清单；不能静默修改被审产物                                                                      |
+
+默认岗位的稳定定义如下；显示名未来可由用户自定义，但 `definition_id` 不依赖中文名称，也不随显示名迁移：
+
+| `definition_id`         | 默认显示名       | 层级 |
+| ----------------------- | ---------------- | ---- |
+| `producer_coordinator`  | AI 制片协调员    | 决策 |
+| `screenwriter`          | 编剧 Agent       | 执行 |
+| `continuity_supervisor` | 连续性监督 Agent | 监督 |
+| `director`              | 导演 Agent       | 执行 |
+| `art_asset`             | 美术与资产 Agent | 执行 |
+| `prompt_planner`        | 提示词 Agent     | 执行 |
+| `editor`                | 剪辑 Agent       | 执行 |
+| `quality_control`       | QC Agent         | 监督 |
 
 单用户可兼任人类岗位，但 UI 和审计必须显示“自审”；Agent 永远不能成为具名人类。
 
@@ -76,7 +89,7 @@ UI Intent
   → Dependency invalidation
 ```
 
-只有 Worker 可调用 Provider；Agent 进程无数据库写凭据。自动 QC 失败最多在剩余预算内重试一次，仍失败则升级给阿健/用户。`REMOTE_UNKNOWN` 禁止自动重提。
+只有 Worker 可调用 Provider；Agent 进程无数据库写凭据。自动 QC 失败最多在剩余预算内重试一次，仍失败则升级给 AI 制片协调员/用户。`REMOTE_UNKNOWN` 禁止自动重提。
 
 ## Prompt 三层
 

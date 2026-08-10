@@ -10,42 +10,40 @@ V1 可实施合同见 [Agent/Skill Fake Runtime V1](../specs/agent-skill-runtime
 
 ```mermaid
 flowchart LR
-  Need["用户需求"] --> Ajian["阿健·制片统筹"]
-  Ajian --> Product["产品经理 Agent"]
-  Ajian --> Writer["编剧 Agent"]
-  Ajian --> Director["导演 Agent"]
-  Ajian --> Art["美术/角色一致性 Agent"]
-  Ajian --> Camera["摄影/分镜 Agent"]
-  Ajian --> Sound["声音导演 Agent"]
-  Ajian --> Editor["剪辑 Agent"]
-  Product --> Contract["结构化 ArtifactProposal"]
-  Writer --> Contract
+  Need["用户需求"] --> Coordinator["AI 制片协调员"]
+  Coordinator --> Writer["编剧 Agent"]
+  Coordinator --> Continuity["连续性监督 Agent"]
+  Coordinator --> Director["导演 Agent"]
+  Coordinator --> Art["美术与资产 Agent"]
+  Coordinator --> Prompt["提示词 Agent"]
+  Coordinator --> Editor["剪辑 Agent"]
+  Coordinator --> QC["QC Agent"]
+  Writer --> Contract["结构化 ArtifactProposal"]
+  Continuity --> Contract
   Director --> Contract
   Art --> Contract
-  Camera --> Contract
-  Sound --> Contract
+  Prompt --> Contract
   Editor --> Contract
+  QC --> Contract
   Contract --> Validate["Schema + 规则 + 预算校验"]
   Validate --> Draft["不可变 DRAFT 版本"]
   Draft --> Gate["人工审批 Gate"]
   Gate -->|通过| Commit["提升 accepted_version 指针"]
-  Gate -->|退回| Ajian
+  Gate -->|退回| Coordinator
 ```
 
 ## 角色边界
 
-| 角色          | 输入                                     | 输出                                     | 不允许做的事                       |
-| ------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------- |
-| 阿健·制片统筹 | 用户目标、预算、平台、截止期、各部门状态 | 制作任务书、优先级、冲突清单、Gate 建议  | 直接改剧本或绕过审批发布           |
-| 产品经理      | 需求与操作反馈                           | 用户故事、验收条件、范围变更             | 把电影创作意见当软件缺陷           |
-| 编剧          | 来源锚点、故事圣经、分集卡               | 场景剧本、台词、改编说明                 | 删除来源关系或偷偷改变核心设定     |
-| 导演          | 剧本、风格约束、时长                     | 导演阐述、节奏、表演和镜头意图           | 直接生成供应商专用提示词并锁死模型 |
-| 美术总监      | 角色/场景/道具连续性、导演意图           | 视觉圣经、款式变体、一致性检查           | 覆盖已批准资产而不建新版本         |
-| 摄影/分镜     | 场景、动作、空间和画幅                   | ShotIntent、构图、机位、运动、参考图需求 | 用自然语言代替结构化镜头参数       |
-| 声音导演      | 台词、角色声线、情绪、环境               | 配音计划、音效、音乐/版权信息            | 未经批准克隆真人声音               |
-| 剪辑师        | 已批准镜头、声音、字幕、节奏标记         | TimelineVersion、修改单、导出计划        | 修改上游资产文件本体               |
-| 连续性监督    | 全部已批准版本                           | 冲突报告、阻断或警告                     | 自动“修正”创意决定                 |
-| 法务/发布检查 | 来源、模型、授权、导出目标               | 发布许可清单                             | 用免责声明代替授权证据             |
+| 角色             | 输入                                     | 输出                                    | 不允许做的事                                   |
+| ---------------- | ---------------------------------------- | --------------------------------------- | ---------------------------------------------- |
+| AI 制片协调员    | 用户目标、预算、平台、截止期、各部门状态 | 制作任务书、优先级、冲突清单、Gate 建议 | 写专业产物、审批、直接调用 Provider 或读取密钥 |
+| 编剧 Agent       | 来源锚点、故事圣经、分集卡               | 场景剧本、台词、改编说明                | 删除来源关系或偷偷改变核心设定                 |
+| 连续性监督 Agent | 全部已批准版本                           | 冲突报告、阻断或警告                    | 静默修改被监督产物                             |
+| 导演 Agent       | 剧本、风格约束、时长                     | 导演阐述、节奏、表演、ShotIntent        | 绕过 VisualBible 或直接锁死供应商模型          |
+| 美术与资产 Agent | 角色/场景/道具连续性、导演意图           | 视觉圣经、资产变体、一致性检查          | 覆盖已批准资产而不建新版本                     |
+| 提示词 Agent     | ShotIntent、PromptPlan、能力快照         | 供应商无关提示计划与编译提案            | 修改权威 ShotIntent 或把外部文本升为系统指令   |
+| 剪辑 Agent       | 已批准镜头、声音、字幕、节奏标记         | TimelineVersion 提案、修改单、导出计划  | 修改上游资产文件本体                           |
+| QC Agent         | 候选素材、连续性、技术与权利规则         | PASS/FAIL、问题清单、发布建议           | 静默修复、自动批准或用免责声明代替授权证据     |
 
 ## 从小说到分镜
 
