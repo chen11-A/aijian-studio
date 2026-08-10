@@ -1,6 +1,6 @@
 # Phase 0 生产工作台 P0 壳验收
 
-状态：PASS（C 阶段 P0 Shell）；Agent/Skill Fake Runtime 尚未实现
+状态：PASS（C 阶段 P0 Shell + 2026-08-10 UI 回归修复）；Agent/Skill Fake Runtime 尚未实现
 
 ## 本增量完成
 
@@ -12,11 +12,19 @@
 - 属性检查器展示真实项目元数据；提案区明确说明 Agent Runtime 尚未接入，不伪造提案或审批。
 - 390px 隐藏新建项目、模型设置、来源导入、Fake 生成、导演、生成与复杂剪辑入口，仅保留项目选择、任务查看及尚未开放评论/批准的审阅壳。
 
+## UI 回归修复
+
+- 项目栏与属性检查器折叠后从内容网格中移除，恢复操作集中到同一条 54px 工作台布局栏；1920、1440 和 Electron 下左右按钮同一基线，不覆盖主内容，也不再形成 50px 贯穿全页的空沟槽。
+- 项目名不再拼接到来源空态。普通用户统一看到“来源追踪”，说明文件、章节、段落、引用关系以及原文事实/推断分离；底层仍保留 Source Ledger/SourceSpan 语义。
+- 引入 `--font-meta: 12px`、`--font-ui: 14px` 和 16/20/28px 标题层级；普通业务正文、导航和按钮使用 14px，辅助元数据不低于 12px。弱文字颜色提高为 `#9694a2` / `#b7b5c2`，真实浏览器按 `#13141a` 面板背景计算的关键正文和阶段元数据对比度均不低于 4.5:1。
+- 所有布局恢复按钮与顶栏操作保持至少 44×44；`aria-expanded` 随折叠状态切换。1440px 在 200% 缩放等效的 720 CSS px 重排下无水平溢出且任务按钮仍为 44px。
+
 ## 实机证据
 
 | 运行面   | 视口                           | 结果                                                                                                                                     |
 | -------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Chrome   | 1440×900                       | 完整三栏与阶段条可用；Fake 工作流、任务抽屉和时间线 REV 1→REV 2 成功；`POST /timeline/trim` 返回 200；控制台无错误；无整页横向溢出       |
+| Chrome   | 1920×1080 / 1440×900 回归态    | 项目名“1”；两侧均折叠；恢复按钮同一基线且不少于 44px；布局栏 54px；“来源追踪”正文 14px；无覆盖、空沟槽或横向溢出                         |
 | Chrome   | 980×720                        | 工作区降为可审阅布局；无整页横向溢出                                                                                                     |
 | Chrome   | 390×844                        | 新建、模型设置、导入、Fake 生成、导演、生成和剪辑入口逐项验证为不可见；显示 REVIEW ONLY 状态；无整页横向溢出                             |
 | Electron | 1440×920 外窗（1424×881 内窗） | 三栏桌面壳、任务抽屉与时间线可用；刷新后 REV 2 持久化；preload 白名单精确；Renderer 无 `process`/`require`；控制台无错误；无整页横向溢出 |
@@ -24,10 +32,14 @@
 证据：
 
 - [Chrome 1440×900](evidence/web-e2e-skeleton-browser-1440x900.png)
+- [用户报告的修复前 1920×1080](evidence/production-shell-regression-before-1920x1080.png)
+- [Chrome 修复后 1920×1080](evidence/production-shell-regression-1920x1080.png)
+- [Chrome 修复后 1440×900](evidence/production-shell-regression-1440x900.png)
 - [Chrome 980×720](evidence/production-shell-browser-980x720.png)
 - [Chrome 390×844](evidence/production-shell-browser-390x844.png)
 - [Chrome 结构化结果](evidence/web-e2e-skeleton-browser.json)
 - [Electron 1440×920](evidence/web-e2e-skeleton-electron-1440x920.png)
+- [Electron 修复后工作台 1440×920](evidence/production-shell-regression-electron-1440x920.png)
 - [Electron 结构化结果](evidence/web-e2e-skeleton-electron.json)
 
 以上证据由 `evidence/SHA256SUMS` 绑定。

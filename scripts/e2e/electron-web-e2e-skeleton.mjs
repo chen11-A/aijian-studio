@@ -11,6 +11,10 @@ const repositoryRoot = resolve(scriptDirectory, "../..");
 const developmentRoot = join(repositoryRoot, ".aijian-dev");
 const evidenceRoot = join(repositoryRoot, "docs", "quality", "evidence");
 const screenshotPath = join(evidenceRoot, "web-e2e-skeleton-electron-1440x920.png");
+const regressionScreenshotPath = join(
+  evidenceRoot,
+  "production-shell-regression-electron-1440x920.png",
+);
 const resultPath = join(evidenceRoot, "web-e2e-skeleton-electron.json");
 const electronExecutable = join(
   repositoryRoot,
@@ -104,9 +108,74 @@ try {
 
   await appWindow.getByText("本地工作区服务已连接").waitFor({ timeout: 30_000 });
   await appWindow.getByRole("button", { name: "创建第一个项目" }).click();
-  await appWindow.getByRole("textbox", { name: "项目名称" }).fill("二万字统一纵切验收");
+  await appWindow.getByRole("textbox", { name: "项目名称" }).fill("1");
   await appWindow.getByRole("button", { name: "创建项目" }).click();
-  await appWindow.getByRole("heading", { name: "二万字统一纵切验收", exact: true }).waitFor();
+  await appWindow.getByRole("heading", { name: "1", exact: true }).waitFor();
+  await appWindow.getByRole("button", { name: "收起项目栏" }).click();
+  await appWindow.getByRole("button", { name: "收起属性检查器" }).click();
+  const regressionLayout = await appWindow.evaluate(() => {
+    const rail = globalThis.document.querySelector('[aria-label="展开项目栏"]');
+    const inspector = globalThis.document.querySelector('[aria-label="展开属性检查器"]');
+    const toolbar = globalThis.document.querySelector(".workspace-layout-controls");
+    const stage = globalThis.document.querySelector(".project-stage");
+    const sourceBody = globalThis.document.querySelector(".preview-placeholder p");
+    const stageMeta = globalThis.document.querySelector(".production-stage small");
+    if (!rail || !inspector || !toolbar || !stage || !sourceBody || !stageMeta) return null;
+    const contrastAgainstPanel = (color) => {
+      const channels = color
+        .match(/[0-9.]+/g)
+        ?.slice(0, 3)
+        .map(Number);
+      if (!channels || channels.length !== 3) return 0;
+      const luminance = (values) => {
+        const linear = values.map((channel) => {
+          const normalized = channel / 255;
+          return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+      };
+      const foreground = luminance(channels);
+      const panel = luminance([19, 20, 26]);
+      return (Math.max(foreground, panel) + 0.05) / (Math.min(foreground, panel) + 0.05);
+    };
+    const railRect = rail.getBoundingClientRect();
+    const inspectorRect = inspector.getBoundingClientRect();
+    const toolbarRect = toolbar.getBoundingClientRect();
+    return {
+      scrollWidth: globalThis.document.documentElement.scrollWidth,
+      clientWidth: globalThis.document.documentElement.clientWidth,
+      railButton: [railRect.x, railRect.y, railRect.width, railRect.height],
+      inspectorButton: [
+        inspectorRect.x,
+        inspectorRect.y,
+        inspectorRect.width,
+        inspectorRect.height,
+      ],
+      toolbarBottom: toolbarRect.bottom,
+      stageTop: stage.getBoundingClientRect().top,
+      sourceBodyFontSize: globalThis.getComputedStyle(sourceBody).fontSize,
+      sourceBodyContrast: contrastAgainstPanel(globalThis.getComputedStyle(sourceBody).color),
+      stageMetaFontSize: globalThis.getComputedStyle(stageMeta).fontSize,
+      stageMetaContrast: contrastAgainstPanel(globalThis.getComputedStyle(stageMeta).color),
+    };
+  });
+  if (
+    regressionLayout === null ||
+    regressionLayout.scrollWidth !== regressionLayout.clientWidth ||
+    Math.abs(regressionLayout.railButton[1] - regressionLayout.inspectorButton[1]) > 1 ||
+    regressionLayout.railButton[2] < 44 ||
+    regressionLayout.inspectorButton[2] < 44 ||
+    regressionLayout.stageTop < regressionLayout.toolbarBottom ||
+    regressionLayout.sourceBodyFontSize !== "14px" ||
+    regressionLayout.stageMetaFontSize !== "12px" ||
+    regressionLayout.sourceBodyContrast < 4.5 ||
+    regressionLayout.stageMetaContrast < 4.5
+  ) {
+    throw new Error(`Electron production shell regression: ${JSON.stringify(regressionLayout)}`);
+  }
+  await appWindow.screenshot({ path: regressionScreenshotPath });
+  await appWindow.getByRole("button", { name: "展开项目栏" }).click();
+  await appWindow.getByRole("button", { name: "展开属性检查器" }).click();
 
   await appWindow.getByLabel("选择 TXT 文件").setInputFiles(novelPath);
   await appWindow.getByText("golden-20000.txt", { exact: true }).first().waitFor();
@@ -125,7 +194,7 @@ try {
     .getByRole("navigation", { name: "制作流程" })
     .getByRole("button", { name: "剪辑 · 剪辑台" })
     .click();
-  await appWindow.getByRole("heading", { name: /二万字统一纵切验收 · 主时间线/ }).waitFor();
+  await appWindow.getByRole("heading", { name: /1 · 主时间线/ }).waitFor();
   const timelineHeader = appWindow.locator(".timeline-header");
   await timelineHeader.getByText("REV 1", { exact: true }).waitFor();
   await appWindow.getByRole("option", { name: /fake-shot-01/ }).click();
@@ -136,7 +205,7 @@ try {
 
   await appWindow.reload();
   await appWindow.getByText("本地工作区服务已连接").waitFor({ timeout: 30_000 });
-  await appWindow.getByRole("heading", { name: "二万字统一纵切验收", exact: true }).waitFor();
+  await appWindow.getByRole("heading", { name: "1", exact: true }).waitFor();
   await appWindow.getByRole("button", { name: /任务队列/ }).click();
   const reloadedTaskDrawer = appWindow.getByRole("dialog", { name: "任务中心" });
   await reloadedTaskDrawer.getByText("已完成").first().waitFor();
@@ -149,7 +218,7 @@ try {
 
   const persisted = await appWindow.evaluate(async () => {
     const projects = await globalThis.aijian.listProjects();
-    const project = projects.data.find((item) => item.name === "二万字统一纵切验收");
+    const project = projects.data.find((item) => item.name === "1");
     if (!project) return null;
     const [sources, tasks, timeline] = await Promise.all([
       globalThis.aijian.listSources(project.id),
@@ -239,6 +308,8 @@ try {
     viewport,
     rendererDiagnostics,
     screenshot: "web-e2e-skeleton-electron-1440x920.png",
+    regressionLayout,
+    regressionScreenshot: "production-shell-regression-electron-1440x920.png",
   };
   await writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
   globalThis.process.stdout.write(

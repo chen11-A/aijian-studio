@@ -3,7 +3,7 @@
   "passed": true,
   "novelCharacterCount": 25098,
   "persisted": {
-    "projectId": "prj_01c2d0984f7144afaad441077f3694c9",
+    "projectId": "prj_7da22e3a807a4437929a4216a56b9f4b",
     "sourceByteSize": 69748,
     "sourceCount": 1,
     "taskSummary": {
@@ -13,7 +13,7 @@
       "completed": 1
     },
     "taskStatus": "SUCCEEDED",
-    "timelineVersionId": "ver_05d35ba6a0dd45eb9a85727811c89820",
+    "timelineVersionId": "ver_57d00a592cfd41cd918227d0c93ad0c2",
     "timelineRevision": 2,
     "clipCount": 3,
     "firstClip": {
@@ -56,5 +56,28 @@
     "clientWidth": 1409
   },
   "rendererDiagnostics": [],
-  "screenshot": "web-e2e-skeleton-electron-1440x920.png"
+  "screenshot": "web-e2e-skeleton-electron-1440x920.png",
+  "regressionLayout": {
+    "scrollWidth": 1409,
+    "clientWidth": 1409,
+    "railButton": [
+      271.71875,
+      213.765625,
+      112.828125,
+      44
+    ],
+    "inspectorButton": [
+      1220.453125,
+      213.765625,
+      140.828125,
+      44
+    ],
+    "toolbarBottom": 262.765625,
+    "stageTop": 278.765625,
+    "sourceBodyFontSize": "14px",
+    "sourceBodyContrast": 9.103268410549644,
+    "stageMetaFontSize": "12px",
+    "stageMetaContrast": 9.103268410549644
+  },
+  "regressionScreenshot": "production-shell-regression-electron-1440x920.png"
 }

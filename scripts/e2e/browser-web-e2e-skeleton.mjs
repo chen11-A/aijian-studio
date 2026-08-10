@@ -14,6 +14,8 @@ const runDirectory = resolve(
 );
 const evidenceRoot = join(repositoryRoot, "docs", "quality", "evidence");
 const screenshotPath = join(evidenceRoot, "web-e2e-skeleton-browser-1440x900.png");
+const regression1920Path = join(evidenceRoot, "production-shell-regression-1920x1080.png");
+const regression1440Path = join(evidenceRoot, "production-shell-regression-1440x900.png");
 const reviewScreenshotPath = join(evidenceRoot, "production-shell-browser-980x720.png");
 const mobileScreenshotPath = join(evidenceRoot, "production-shell-browser-390x844.png");
 const resultPath = join(evidenceRoot, "web-e2e-skeleton-browser.json");
@@ -71,6 +73,7 @@ await rm(runDirectory, { recursive: true, force: true });
 await mkdir(runDirectory, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
 const novelPath = join(runDirectory, "browser-golden-20000.txt");
+const invalidNovelPath = join(runDirectory, "browser-invalid.md");
 const paragraph = "夜航列车穿过雾城，周野核对旧信与车票，提醒林见不要遗漏任何来源证据。";
 const novelText = `第一章 夜航\n${Array.from(
   { length: 700 },
@@ -78,6 +81,7 @@ const novelText = `第一章 夜航\n${Array.from(
 ).join("\n")}`;
 if ([...novelText].length < 20_000) throw new Error("Browser novel fixture is too short");
 await writeFile(novelPath, novelText, "utf8");
+await writeFile(invalidNovelPath, "invalid source fixture", "utf8");
 
 let apiProcess;
 let webProcess;
@@ -131,11 +135,139 @@ try {
   await page.goto("http://127.0.0.1:5173", { waitUntil: "networkidle" });
   await page.getByText("本地工作区服务已连接").waitFor();
   await page.getByRole("button", { name: "创建第一个项目" }).click();
-  await page.getByRole("textbox", { name: "项目名称" }).fill("浏览器统一纵切验收");
+  await page.getByRole("textbox", { name: "项目名称" }).fill("1");
   await page.getByRole("button", { name: "创建项目" }).click();
-  await page.getByRole("heading", { name: "浏览器统一纵切验收", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "1", exact: true }).waitFor();
+  await page.getByRole("button", { name: "收起项目栏" }).click();
+  await page.getByRole("button", { name: "收起属性检查器" }).click();
+  await page.getByRole("navigation", { name: "工作台布局" }).waitFor();
+  const inspectShell = async () =>
+    page.evaluate(() => {
+      const rail = globalThis.document.querySelector('[aria-label="展开项目栏"]');
+      const inspector = globalThis.document.querySelector('[aria-label="展开属性检查器"]');
+      const toolbar = globalThis.document.querySelector(".workspace-layout-controls");
+      const stage = globalThis.document.querySelector(".project-stage");
+      const sourceHeading = globalThis.document.querySelector(".preview-placeholder h3");
+      const sourceBody = globalThis.document.querySelector(".preview-placeholder p");
+      const projectBody = globalThis.document.querySelector(".project-hero p");
+      const stageMeta = globalThis.document.querySelector(".production-stage small");
+      if (
+        !rail ||
+        !inspector ||
+        !toolbar ||
+        !stage ||
+        !sourceHeading ||
+        !sourceBody ||
+        !projectBody ||
+        !stageMeta
+      )
+        return null;
+      const contrastAgainstPanel = (color) => {
+        const channels = color
+          .match(/[0-9.]+/g)
+          ?.slice(0, 3)
+          .map(Number);
+        if (!channels || channels.length !== 3) return 0;
+        const luminance = (values) => {
+          const linear = values.map((channel) => {
+            const normalized = channel / 255;
+            return normalized <= 0.04045
+              ? normalized / 12.92
+              : ((normalized + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+        };
+        const foreground = luminance(channels);
+        const panel = luminance([19, 20, 26]);
+        return (Math.max(foreground, panel) + 0.05) / (Math.min(foreground, panel) + 0.05);
+      };
+      const railRect = rail.getBoundingClientRect();
+      const inspectorRect = inspector.getBoundingClientRect();
+      const toolbarRect = toolbar.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      return {
+        viewport: [globalThis.innerWidth, globalThis.innerHeight],
+        documentWidth: globalThis.document.documentElement.scrollWidth,
+        clientWidth: globalThis.document.documentElement.clientWidth,
+        railButton: [railRect.x, railRect.y, railRect.width, railRect.height],
+        inspectorButton: [
+          inspectorRect.x,
+          inspectorRect.y,
+          inspectorRect.width,
+          inspectorRect.height,
+        ],
+        toolbar: [toolbarRect.x, toolbarRect.y, toolbarRect.width, toolbarRect.height],
+        stageTop: stageRect.top,
+        sourceTitle: sourceHeading.textContent,
+        sourceBodyFontSize: globalThis.getComputedStyle(sourceBody).fontSize,
+        projectBodyFontSize: globalThis.getComputedStyle(projectBody).fontSize,
+        sourceBodyColor: globalThis.getComputedStyle(sourceBody).color,
+        sourceBodyContrast: contrastAgainstPanel(globalThis.getComputedStyle(sourceBody).color),
+        stageMetaFontSize: globalThis.getComputedStyle(stageMeta).fontSize,
+        stageMetaContrast: contrastAgainstPanel(globalThis.getComputedStyle(stageMeta).color),
+      };
+    });
+  const regressionLayouts = {};
+  for (const target of [
+    { width: 1920, height: 1080, name: "1920x1080", path: regression1920Path },
+    { width: 1440, height: 900, name: "1440x900", path: regression1440Path },
+  ]) {
+    await page.setViewportSize({ width: target.width, height: target.height });
+    const layout = await inspectShell();
+    if (
+      layout === null ||
+      layout.documentWidth !== layout.clientWidth ||
+      Math.abs(layout.railButton[1] - layout.inspectorButton[1]) > 1 ||
+      layout.railButton[2] < 44 ||
+      layout.railButton[3] < 44 ||
+      layout.inspectorButton[2] < 44 ||
+      layout.inspectorButton[3] < 44 ||
+      layout.stageTop < layout.toolbar[1] + layout.toolbar[3] ||
+      layout.sourceTitle !== "来源追踪" ||
+      layout.sourceBodyFontSize !== "14px" ||
+      layout.projectBodyFontSize !== "14px" ||
+      layout.stageMetaFontSize !== "12px" ||
+      layout.sourceBodyContrast < 4.5 ||
+      layout.stageMetaContrast < 4.5
+    ) {
+      throw new Error(`Production shell regression at ${target.name}: ${JSON.stringify(layout)}`);
+    }
+    regressionLayouts[target.name] = layout;
+    await page.screenshot({ path: target.path, fullPage: true });
+  }
+  await page.getByRole("button", { name: "展开项目栏" }).click();
+  await page.getByRole("button", { name: "展开属性检查器" }).click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const projectCardTypography = await page.locator(".project-card-copy").evaluate((card) => {
+    const title = card.querySelector("strong");
+    const metadata = card.querySelector("small");
+    if (!title || !metadata) return null;
+    return {
+      title: globalThis.getComputedStyle(title).fontSize,
+      metadata: globalThis.getComputedStyle(metadata).fontSize,
+    };
+  });
+  if (projectCardTypography?.title !== "14px" || projectCardTypography.metadata !== "12px") {
+    throw new Error(`Project card typography regression: ${JSON.stringify(projectCardTypography)}`);
+  }
+  await page.getByLabel("选择 TXT 文件").setInputFiles(invalidNovelPath);
+  const importError = page.getByRole("alert");
+  await importError.waitFor();
+  if (
+    (await importError.evaluate((element) => globalThis.getComputedStyle(element).fontSize)) !==
+    "14px"
+  ) {
+    throw new Error("Import error typography dropped below the 14px business-text token");
+  }
   await page.getByLabel("选择 TXT 文件").setInputFiles(novelPath);
   await page.getByText("browser-golden-20000.txt", { exact: true }).first().waitFor();
+  const sourceBodyFontSize = await page
+    .locator(".source-block:not(.chapter_heading) p")
+    .first()
+    .evaluate((element) => globalThis.getComputedStyle(element).fontSize);
+  if (sourceBodyFontSize !== "14px") {
+    throw new Error(`Imported source body typography regression: ${sourceBodyFontSize}`);
+  }
   await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).click();
   await page.getByText("3 个镜头 · REV 1").waitFor();
   await page.getByRole("button", { name: "查看任务记录" }).click();
@@ -204,6 +336,25 @@ try {
   }
   await page.screenshot({ path: reviewScreenshotPath, fullPage: true });
 
+  await page.setViewportSize({ width: 720, height: 450 });
+  const zoom200Equivalent = await page.evaluate(() => ({
+    scrollWidth: globalThis.document.documentElement.scrollWidth,
+    clientWidth: globalThis.document.documentElement.clientWidth,
+    taskButtonHeight:
+      globalThis.document
+        .querySelector('button[aria-label^="打开任务中心"]')
+        ?.getBoundingClientRect().height ?? null,
+  }));
+  if (
+    zoom200Equivalent.scrollWidth !== zoom200Equivalent.clientWidth ||
+    zoom200Equivalent.taskButtonHeight === null ||
+    zoom200Equivalent.taskButtonHeight < 44
+  ) {
+    throw new Error(
+      `Production shell failed the 1440px-at-200%-equivalent reflow check: ${JSON.stringify(zoom200Equivalent)}`,
+    );
+  }
+
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileViewport = await page.evaluate(() => ({
     scrollWidth: globalThis.document.documentElement.scrollWidth,
@@ -242,11 +393,15 @@ try {
     apiResponses,
     viewport,
     reviewViewport,
+    regressionLayouts,
+    zoom200Equivalent,
     mobileViewport,
     mobileVisibility,
     diagnostics,
     screenshot: "web-e2e-skeleton-browser-1440x900.png",
     responsiveScreenshots: [
+      "production-shell-regression-1920x1080.png",
+      "production-shell-regression-1440x900.png",
       "production-shell-browser-980x720.png",
       "production-shell-browser-390x844.png",
     ],

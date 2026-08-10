@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
@@ -550,10 +553,19 @@ test("collapses production context and keeps planned areas honest", async () => 
   render(<App transport={studioTransport([project])} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: "收起项目栏" }));
-  fireEvent.click(screen.getByRole("button", { name: "展开项目栏" }));
-  fireEvent.click(screen.getByRole("button", { name: "收起属性检查器" }));
-  fireEvent.click(screen.getByRole("button", { name: "展开属性检查器" }));
+  const collapseRail = screen.getByRole("button", { name: "收起项目栏" });
+  expect(collapseRail).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(collapseRail);
+  const expandRail = screen.getByRole("button", { name: "展开项目栏" });
+  expect(expandRail).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(expandRail);
+
+  const collapseInspector = screen.getByRole("button", { name: "收起属性检查器" });
+  expect(collapseInspector).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(collapseInspector);
+  const expandInspector = screen.getByRole("button", { name: "展开属性检查器" });
+  expect(expandInspector).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(expandInspector);
 
   for (const [label, heading] of [
     ["导演", "导演工作区尚未实现"],
@@ -564,6 +576,34 @@ test("collapses production context and keeps planned areas honest", async () => 
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^\\d+${label}$`) }));
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
   }
+});
+
+test("uses neutral source-tracing copy for a numeric project name", async () => {
+  render(<App transport={studioTransport([{ ...project, name: "1" }])} />);
+  await screen.findByRole("heading", { name: "1" });
+
+  expect(screen.getByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(
+    screen.getByText("导入原文后，这里会显示文件、章节、段落和引用关系。"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("1 的来源台账")).not.toBeInTheDocument();
+  const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+  expect(styles).toContain("--font-meta: 12px");
+  expect(styles).toContain("--font-ui: 14px");
+  expect(styles).toMatch(/\.preview-placeholder p,[\s\S]*font-size: var\(--font-ui\)/);
+  expect(styles).toMatch(/\.project-card-copy small,[\s\S]*font-size: var\(--font-meta\)/);
+  expect(styles).toMatch(
+    /\.manifest-summary dt,[\s\S]*\.severity,[\s\S]*font-size: var\(--font-meta\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-card-copy strong,[\s\S]*\.source-block p,[\s\S]*font-size: var\(--font-ui\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-hero p,[\s\S]*\.preview-disclaimer,[\s\S]*\.question-scope > button,[\s\S]*\.story-empty-state p,[\s\S]*font-size: var\(--font-ui\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-status,[\s\S]*\.gate-chip,[\s\S]*\.project-dialog label > span,[\s\S]*font-size: var\(--font-meta\)/,
+  );
 });
 
 test("opens model and API settings without requiring a selected project", async () => {

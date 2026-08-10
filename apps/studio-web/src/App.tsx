@@ -428,7 +428,13 @@ function ProjectRail({ projects, selectedId, collapsed, onToggle, onSelect }: Pr
   if (collapsed) {
     return (
       <aside className="project-rail collapsed" aria-label="制作项目">
-        <button type="button" className="rail-toggle" onClick={onToggle} aria-label="展开项目栏">
+        <button
+          type="button"
+          className="rail-toggle"
+          onClick={onToggle}
+          aria-label="展开项目栏"
+          aria-expanded="false"
+        >
           ›
         </button>
       </aside>
@@ -441,7 +447,13 @@ function ProjectRail({ projects, selectedId, collapsed, onToggle, onSelect }: Pr
         <span>制作项目</span>
         <div>
           <b>{String(projects.length).padStart(2, "0")}</b>
-          <button type="button" className="rail-toggle" onClick={onToggle} aria-label="收起项目栏">
+          <button
+            type="button"
+            className="rail-toggle"
+            onClick={onToggle}
+            aria-label="收起项目栏"
+            aria-expanded="true"
+          >
             ‹
           </button>
         </div>
@@ -470,12 +482,11 @@ function ProjectRail({ projects, selectedId, collapsed, onToggle, onSelect }: Pr
 }
 
 interface SourcePanelProps {
-  project: ProjectData;
   state: ImportState;
   onFile(file: File): Promise<void>;
 }
 
-function SourcePanel({ project, state, onFile }: SourcePanelProps) {
+function SourcePanel({ state, onFile }: SourcePanelProps) {
   const acceptDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
@@ -577,8 +588,9 @@ function SourcePanel({ project, state, onFile }: SourcePanelProps) {
         ) : (
           <div className="preview-placeholder">
             <span aria-hidden="true">⌁</span>
-            <h3>{project.name} 的来源台账</h3>
-            <p>导入后将在这里核对章节和段落。AI 拆解必须引用这些来源，不能把推断伪装成原著事实。</p>
+            <h3>来源追踪</h3>
+            <p>导入原文后，这里会显示文件、章节、段落和引用关系。</p>
+            <p>AI 生成内容必须保留原文出处，推断与原文事实分开标记。</p>
           </div>
         )}
       </section>
@@ -2020,17 +2032,49 @@ export function App({ transport }: AppProps) {
               <strong>移动端创作操作已关闭</strong>
               <p>评论与具名批准将在后续 Gate 增量开放；当前请使用桌面端继续导入、生成或剪辑。</p>
             </section>
-            <ProjectRail
-              projects={projects}
-              selectedId={selectedId}
-              collapsed={projectRailCollapsed}
-              onToggle={() => setProjectRailCollapsed((current) => !current)}
-              onSelect={(projectId) => {
-                setSelectedId(projectId);
-                void restoreLatestSource(projectId);
-                if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
-              }}
-            />
+            {(projectRailCollapsed || inspectorCollapsed) && (
+              <nav className="workspace-layout-controls" aria-label="工作台布局">
+                {projectRailCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setProjectRailCollapsed(false)}
+                    aria-label="展开项目栏"
+                    aria-expanded="false"
+                  >
+                    <span aria-hidden="true">›</span>
+                    展开项目栏
+                  </button>
+                ) : (
+                  <span />
+                )}
+                {inspectorCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setInspectorCollapsed(false)}
+                    aria-label="展开属性检查器"
+                    aria-expanded="false"
+                  >
+                    展开属性检查器
+                    <span aria-hidden="true">‹</span>
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </nav>
+            )}
+            {!projectRailCollapsed && (
+              <ProjectRail
+                projects={projects}
+                selectedId={selectedId}
+                collapsed={false}
+                onToggle={() => setProjectRailCollapsed(true)}
+                onSelect={(projectId) => {
+                  setSelectedId(projectId);
+                  void restoreLatestSource(projectId);
+                  if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
+                }}
+              />
+            )}
             {selectedProject && (
               <section className="project-stage">
                 {activeWorkspace === "project" ? (
@@ -2058,11 +2102,7 @@ export function App({ transport }: AppProps) {
                         </div>
                       </dl>
                     </header>
-                    <SourcePanel
-                      project={selectedProject}
-                      state={importState}
-                      onFile={importFile}
-                    />
+                    <SourcePanel state={importState} onFile={importFile} />
                     {importState.kind === "success" && (
                       <FakeWorkflowPanel
                         project={selectedProject}
@@ -2110,11 +2150,11 @@ export function App({ transport }: AppProps) {
                 )}
               </section>
             )}
-            {selectedProject && (
+            {selectedProject && !inspectorCollapsed && (
               <ProjectInspector
                 project={selectedProject}
-                collapsed={inspectorCollapsed}
-                onToggle={() => setInspectorCollapsed((current) => !current)}
+                collapsed={false}
+                onToggle={() => setInspectorCollapsed(true)}
               />
             )}
           </div>

@@ -5,8 +5,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --ink: #f2f1f7;
-  --muted: #9b99a7;
-  --faint: #686774;
+  --muted: #b7b5c2;
+  --faint: #9694a2;
   --line: rgba(255, 255, 255, 0.085);
   --line-strong: rgba(255, 255, 255, 0.15);
   --panel: #13141a;
@@ -16,6 +16,12 @@
   --accent-dim: rgba(139, 124, 255, 0.12);
   --danger: #ff8175;
   --radius: 16px;
+  --font-meta: 12px;
+  --font-ui: 14px;
+  --font-heading-sm: 16px;
+  --font-heading-md: 20px;
+  --font-heading-lg: 28px;
+  --line-body: 1.6;
 }
 
 * {
@@ -150,12 +156,13 @@ button:disabled {
   gap: 9px;
   align-items: center;
   width: 100%;
-  min-height: 43px;
+  min-height: 44px;
   padding: 11px 12px;
   border-radius: 10px;
   color: #9997a4;
   background: transparent;
   text-align: left;
+  white-space: nowrap;
 }
 
 .nav-item > span {
@@ -299,10 +306,10 @@ button:disabled {
 
 .accent-button,
 .secondary-button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 17px;
   border-radius: 9px;
-  font-size: 12px;
+  font-size: var(--font-ui);
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -454,21 +461,65 @@ button:disabled {
 .project-workspace {
   display: grid;
   grid-template-columns: 238px minmax(0, 1fr) 220px;
+  grid-template-areas:
+    "controls controls controls"
+    "rail stage inspector";
   gap: 16px;
+  align-content: start;
   min-height: calc(100vh - 128px);
   margin-top: 20px;
 }
 
 .project-workspace.rail-collapsed {
-  grid-template-columns: 50px minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-areas:
+    "controls controls"
+    "stage inspector";
 }
 
 .project-workspace.inspector-collapsed {
-  grid-template-columns: 238px minmax(0, 1fr) 50px;
+  grid-template-columns: 238px minmax(0, 1fr);
+  grid-template-areas:
+    "controls controls"
+    "rail stage";
 }
 
 .project-workspace.rail-collapsed.inspector-collapsed {
-  grid-template-columns: 50px minmax(0, 1fr) 50px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "controls"
+    "stage";
+}
+
+.workspace-layout-controls {
+  grid-area: controls;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(19, 20, 26, 0.72);
+}
+
+.workspace-layout-controls button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: var(--font-ui);
+}
+
+.workspace-layout-controls button:last-child {
+  justify-self: end;
 }
 
 .project-rail,
@@ -480,7 +531,12 @@ button:disabled {
 }
 
 .project-rail {
+  grid-area: rail;
   padding: 17px 11px;
+}
+
+.project-stage {
+  grid-area: stage;
 }
 
 .project-rail.collapsed {
@@ -2170,6 +2226,144 @@ button:disabled {
   margin-top: 25px;
 }
 
+/* Semantic type scale: metadata remains compact without carrying unreadable business meaning. */
+.brand small,
+.nav-label,
+.eyebrow,
+.nav-item > span,
+.nav-item i,
+.sidebar-footer strong,
+.sidebar-footer small,
+.engine-badge small,
+.rail-heading,
+.project-number,
+.project-card-copy small,
+.project-card time,
+.project-status,
+.step-state,
+.project-hero dt,
+.drop-zone small,
+.source-rules span,
+.document-icon,
+.document-summary p,
+.document-summary code,
+.source-block > span,
+.artifact-version p,
+.artifact-version span,
+.artifact-version code,
+.artifact-version > .version-load-error,
+.column-index,
+.gate-chip,
+.record-count,
+.manifest-summary span,
+.manifest-summary dt,
+.manifest-summary dd,
+.manifest-summary > small,
+.source-version-selector code,
+.source-version-selector span,
+.manifest-document-list button > small,
+.manifest-document-list button > span,
+.manifest-document-list button > code,
+.fact-evidence > header span,
+.source-span-list article footer,
+.source-span-list article code,
+.evidence-source-identity code,
+.evidence-document > span,
+.section-caption,
+.story-logline > span,
+.canon-metrics span,
+.entity-card > span,
+.entity-card small,
+.entity-card code,
+.fact-toolbar label,
+.fact-toolbar span,
+.entity-toolbar label,
+.entity-toolbar span,
+.review-scorecard span,
+.review-list article small,
+.fact-id,
+.fact-reference-list button > span,
+.fact-reference-list button > code,
+.fact-list > article dt,
+.fact-list > article dd,
+.blocking-chip,
+.conflict-status,
+.severity,
+.question-scope > span,
+.story-empty-state .empty-code,
+.dialog-kicker,
+.project-dialog label > span,
+.locked-field > span,
+.mobile-review-notice span {
+  font-size: var(--font-meta);
+  line-height: 1.5;
+}
+
+.engine-badge strong,
+.project-card-copy strong,
+.project-hero p,
+.panel-description,
+.drop-zone strong,
+.import-error,
+.form-error,
+.preview-placeholder p,
+.document-summary strong,
+.story-workshop-header p,
+.artifact-version strong,
+.manifest-summary strong,
+.manifest-summary p,
+.source-version-selector strong,
+.manifest-document-list button > strong,
+.source-block p,
+.source-span-list article > header strong,
+.source-span-list blockquote,
+.evidence-fact-name,
+.evidence-empty,
+.evidence-source-identity strong,
+.evidence-source-identity span,
+.open-source-context,
+.source-span-list article > p,
+.evidence-load-warning,
+.evidence-document small,
+.evidence-document strong,
+.evidence-block span,
+.evidence-block p,
+.preview-disclaimer,
+.readiness-disclaimer,
+.stale-warning strong,
+.stale-warning p,
+.story-logline p,
+.entity-card strong,
+.fact-list > article,
+.fact-list > article > p,
+.fact-reference-list button > strong,
+.fact-details summary,
+.show-more-button,
+.review-list article p,
+.review-list article .resolution-reason,
+.review-list article small,
+.resolution-fact,
+.question-scope > strong,
+.question-scope > button,
+.conflict-facts button,
+.review-clear,
+.review-action-note > span,
+.review-action-note p,
+.story-empty-state p,
+.story-mini-empty p,
+.project-dialog > p,
+.locked-field strong,
+.mobile-review-notice p {
+  font-size: var(--font-ui);
+  line-height: var(--line-body);
+}
+
+.story-column-heading h3,
+.fact-evidence > header h4 {
+  font-size: var(--font-heading-sm);
+  line-height: 1.4;
+}
+
 @media (max-width: 1380px) {
   .story-columns {
     grid-template-columns: minmax(220px, 0.82fr) minmax(320px, 1.18fr);
@@ -2198,12 +2392,32 @@ button:disabled {
 @media (max-width: 1180px) {
   .project-workspace {
     grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-areas:
+      "controls controls"
+      "rail stage"
+      "inspector inspector";
   }
 
-  .project-workspace.rail-collapsed,
-  .project-workspace.inspector-collapsed,
+  .project-workspace.rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "controls"
+      "stage"
+      "inspector";
+  }
+
+  .project-workspace.inspector-collapsed {
+    grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-areas:
+      "controls controls"
+      "rail stage";
+  }
+
   .project-workspace.rail-collapsed.inspector-collapsed {
-    grid-template-columns: 50px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "controls"
+      "stage";
   }
 
   .project-inspector,
@@ -2234,8 +2448,11 @@ button:disabled {
   .sidebar {
     position: static;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 22px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand footer"
+      "nav nav";
+    gap: 12px 22px;
     align-items: center;
     width: 100%;
     height: auto;
@@ -2245,10 +2462,16 @@ button:disabled {
   }
 
   .primary-nav {
+    grid-area: nav;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 4px;
     margin: 0;
+    overflow-x: auto;
+  }
+
+  .brand {
+    grid-area: brand;
   }
 
   .nav-label,
@@ -2262,6 +2485,7 @@ button:disabled {
   }
 
   .sidebar-footer {
+    grid-area: footer;
     padding: 9px 11px;
   }
 
@@ -2271,12 +2495,34 @@ button:disabled {
 
   .project-workspace {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "rail"
+      "stage"
+      "inspector";
   }
 
   .project-workspace.rail-collapsed,
   .project-workspace.inspector-collapsed,
   .project-workspace.rail-collapsed.inspector-collapsed {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "stage";
+  }
+
+  .project-workspace.inspector-collapsed {
+    grid-template-areas:
+      "controls"
+      "rail"
+      "stage";
+  }
+
+  .project-workspace.rail-collapsed {
+    grid-template-areas:
+      "controls"
+      "stage"
+      "inspector";
   }
 
   .project-rail {
@@ -2296,6 +2542,9 @@ button:disabled {
 @media (max-width: 680px) {
   .sidebar {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "nav";
     gap: 13px;
   }
 
@@ -2433,7 +2682,7 @@ button:disabled {
   .conflict-facts button {
     min-height: 44px;
     padding: 10px 12px;
-    font-size: 12px;
+    font-size: var(--font-ui);
   }
 
   .project-dialog {
@@ -2503,15 +2752,15 @@ button:disabled {
 
   .mobile-review-notice span {
     color: var(--accent);
-    font-size: 9px;
+    font-size: var(--font-meta);
     letter-spacing: 0.12em;
   }
 
   .mobile-review-notice p {
     margin: 0;
     color: var(--muted);
-    font-size: 11px;
-    line-height: 1.6;
+    font-size: var(--font-ui);
+    line-height: var(--line-body);
   }
 
   .project-workspace {

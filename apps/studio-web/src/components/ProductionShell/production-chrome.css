@@ -28,7 +28,8 @@
 
 .production-stage > span,
 .production-stage > small {
-  font-size: 8px;
+  font-size: var(--font-meta);
+  line-height: 1.35;
 }
 
 .production-stage > span {
@@ -39,7 +40,7 @@
 .production-stage > strong {
   overflow: hidden;
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--font-ui);
   text-overflow: ellipsis;
 }
 
@@ -63,8 +64,8 @@
 }
 
 .production-next > span {
-  color: var(--faint);
-  font-size: 8px;
+  color: var(--muted);
+  font-size: var(--font-meta);
 }
 
 .production-next button {
@@ -73,11 +74,12 @@
   border-radius: 9px;
   color: white;
   background: var(--accent);
-  font-size: 11px;
+  font-size: var(--font-ui);
   font-weight: 750;
 }
 
 .project-inspector {
+  grid-area: inspector;
   min-width: 0;
   padding: 14px;
   border: 1px solid var(--line);
@@ -98,14 +100,14 @@
 .proposal-empty > span {
   display: block;
   color: var(--faint);
-  font-size: 8px;
+  font-size: var(--font-meta);
   letter-spacing: 0.12em;
 }
 
 .project-inspector header strong {
   display: block;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--font-ui);
 }
 
 .project-inspector header button,
@@ -133,7 +135,7 @@
 .project-inspector dt,
 .project-inspector dd {
   margin: 0;
-  font-size: 9px;
+  font-size: var(--font-meta);
 }
 
 .project-inspector dt {
@@ -149,15 +151,15 @@
 .proposal-empty strong {
   display: block;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: var(--font-ui);
 }
 
 .proposal-empty p,
 .pending-workspace p {
   margin: 7px 0 0;
   color: var(--muted);
-  font-size: 9px;
-  line-height: 1.65;
+  font-size: var(--font-ui);
+  line-height: var(--line-body);
 }
 
 .project-inspector.collapsed {
@@ -177,7 +179,7 @@
 
 .pending-workspace > span {
   color: var(--accent);
-  font-size: 9px;
+  font-size: var(--font-meta);
   letter-spacing: 0.13em;
 }
 

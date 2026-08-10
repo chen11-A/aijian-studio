@@ -69,7 +69,7 @@ export function ProjectInspector({ project, collapsed, onToggle }: ProjectInspec
   if (collapsed) {
     return (
       <aside className="project-inspector collapsed" aria-label="属性检查器">
-        <button type="button" onClick={onToggle} aria-label="展开属性检查器">
+        <button type="button" onClick={onToggle} aria-label="展开属性检查器" aria-expanded="false">
           ‹
         </button>
       </aside>
@@ -83,7 +83,7 @@ export function ProjectInspector({ project, collapsed, onToggle }: ProjectInspec
           <span>INSPECTOR</span>
           <strong>项目属性</strong>
         </div>
-        <button type="button" onClick={onToggle} aria-label="收起属性检查器">
+        <button type="button" onClick={onToggle} aria-label="收起属性检查器" aria-expanded="true">
           ›
         </button>
       </header>

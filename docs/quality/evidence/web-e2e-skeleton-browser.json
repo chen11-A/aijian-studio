@@ -31,42 +31,42 @@
     {
       "method": "POST",
       "status": 201,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/workflows/fake-timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/workflows/fake-timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline/trim"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline/trim"
     },
     {
       "method": "GET",
@@ -91,37 +91,37 @@
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources/src_bc47cd387a534f66b6831255ee567f7e"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources/src_9b92afa812ab406cb96922cc3fac2528"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
     }
   ],
   "viewport": {
@@ -133,6 +133,81 @@
   "reviewViewport": {
     "scrollWidth": 980,
     "clientWidth": 980
+  },
+  "regressionLayouts": {
+    "1920x1080": {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "documentWidth": 1920,
+      "clientWidth": 1920,
+      "railButton": [
+        277,
+        213.765625,
+        112.828125,
+        44
+      ],
+      "inspectorButton": [
+        1726.171875,
+        213.765625,
+        140.828125,
+        44
+      ],
+      "toolbar": [
+        272,
+        208.765625,
+        1600,
+        54
+      ],
+      "stageTop": 278.765625,
+      "sourceTitle": "来源追踪",
+      "sourceBodyFontSize": "14px",
+      "projectBodyFontSize": "14px",
+      "sourceBodyColor": "rgb(183, 181, 194)",
+      "sourceBodyContrast": 9.103268410549644,
+      "stageMetaFontSize": "12px",
+      "stageMetaContrast": 9.103268410549644
+    },
+    "1440x900": {
+      "viewport": [
+        1440,
+        900
+      ],
+      "documentWidth": 1440,
+      "clientWidth": 1440,
+      "railButton": [
+        272.1875,
+        213.765625,
+        112.828125,
+        44
+      ],
+      "inspectorButton": [
+        1250.984375,
+        213.765625,
+        140.828125,
+        44
+      ],
+      "toolbar": [
+        267.1875,
+        208.765625,
+        1129.625,
+        54
+      ],
+      "stageTop": 278.765625,
+      "sourceTitle": "来源追踪",
+      "sourceBodyFontSize": "14px",
+      "projectBodyFontSize": "14px",
+      "sourceBodyColor": "rgb(183, 181, 194)",
+      "sourceBodyContrast": 9.103268410549644,
+      "stageMetaFontSize": "12px",
+      "stageMetaContrast": 9.103268410549644
+    }
+  },
+  "zoom200Equivalent": {
+    "scrollWidth": 720,
+    "clientWidth": 720,
+    "taskButtonHeight": 44
   },
   "mobileViewport": {
     "scrollWidth": 390,
@@ -150,6 +225,8 @@
   "diagnostics": [],
   "screenshot": "web-e2e-skeleton-browser-1440x900.png",
   "responsiveScreenshots": [
+    "production-shell-regression-1920x1080.png",
+    "production-shell-regression-1440x900.png",
     "production-shell-browser-980x720.png",
     "production-shell-browser-390x844.png"
   ]
