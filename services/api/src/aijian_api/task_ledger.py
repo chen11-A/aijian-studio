@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from aijian_api.agent_skill_contracts import AttemptSnapshotV1
 from aijian_api.repository import StudioRepository
 from aijian_api.task_ledger_completion import complete_local_task
 from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
@@ -23,6 +24,7 @@ from aijian_api.task_ledger_models import (
     utc_now,
 )
 from aijian_api.task_ledger_recovery import recover_expired_local_tasks
+from aijian_api.task_ledger_snapshots import read_agent_skill_snapshot
 
 __all__ = [
     "ClaimedTask",
@@ -314,6 +316,17 @@ class LocalTaskLedger:
         except Exception:
             connection.rollback()
             raise
+        finally:
+            connection.close()
+
+    def read_agent_skill_snapshot(self, claim: ClaimedTask) -> AttemptSnapshotV1:
+        connection = self._open()
+        try:
+            return read_agent_skill_snapshot(
+                connection,
+                claim,
+                now_text=timestamp(self._clock()),
+            )
         finally:
             connection.close()
 

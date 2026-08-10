@@ -1,19 +1,15 @@
 """Atomic creation of a local workflow run, attempt, and ledger wake-up."""
 
-import hashlib
 import json
-import re
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 
-from pydantic import ValidationError
-
-from aijian_api.agent_skill_contracts import AttemptSnapshotV1
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import QueuedTask, timestamp
+from aijian_api.task_ledger_snapshots import prepare_agent_skill_snapshot
 from aijian_api.workflow_tasks import NodeRun, TaskAttempt
 
 
@@ -40,22 +36,6 @@ class EnqueueLocalNodeRequest:
     attempt_snapshot: Mapping[str, object] | None = None
 
 
-_AGENT_SKILL_SNAPSHOT_KIND = "agent_skill_v1"
-_SENSITIVE_SNAPSHOT_TOKENS = {
-    "auth",
-    "authorization",
-    "bearer",
-    "cookie",
-    "password",
-    "secret",
-    "token",
-}
-_KEY_PAIR_QUALIFIERS = {"api", "private", "signing"}
-_CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-_NON_ALPHANUMERIC = re.compile(r"[^A-Za-z0-9]+")
-_MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
-
-
 def enqueue_local_node(
     request: EnqueueLocalNodeRequest,
     *,
@@ -70,7 +50,15 @@ def enqueue_local_node(
     node_run_id = id_factory("node")
     attempt_id = id_factory("att")
     task_id = id_factory("task")
-    snapshot = _prepare_snapshot(request, attempt_id=attempt_id)
+    snapshot = prepare_agent_skill_snapshot(
+        kind=request.attempt_snapshot_kind,
+        payload=request.attempt_snapshot,
+        attempt_id=attempt_id,
+        project_id=request.project_id,
+        input_hash=request.node_input_hash,
+        idempotency_key=request.idempotency_key,
+        request_fingerprint=request.request_fingerprint,
+    )
     _validate_request(
         request,
         workflow_run_id=workflow_run_id,
@@ -361,63 +349,6 @@ def _canonical_json(value: Mapping[str, object]) -> str:
 
 def _optional_text(value: object) -> str | None:
     return None if value is None else str(value)
-
-
-def _prepare_snapshot(
-    request: EnqueueLocalNodeRequest,
-    *,
-    attempt_id: str,
-) -> tuple[str, str, str] | None:
-    kind = request.attempt_snapshot_kind
-    payload = request.attempt_snapshot
-    if kind is None and payload is None:
-        return None
-    if kind is None or payload is None:
-        raise ValueError("attempt snapshot kind and payload must be provided together")
-    if kind != _AGENT_SKILL_SNAPSHOT_KIND:
-        raise ValueError("attempt snapshot kind is unsupported")
-    if not payload:
-        raise ValueError("attempt snapshot payload must not be empty")
-    _reject_sensitive_snapshot_fields(payload)
-    if payload.get("project_id") not in (None, request.project_id):
-        raise ValueError("attempt snapshot project does not match the workflow")
-    if payload.get("input_hash") not in (None, request.node_input_hash):
-        raise ValueError("attempt snapshot input hash does not match the node")
-    if payload.get("idempotency_key") not in (None, request.idempotency_key):
-        raise ValueError("attempt snapshot idempotency key does not match the node")
-    if payload.get("attempt_fingerprint") not in (None, request.request_fingerprint):
-        raise ValueError("attempt snapshot fingerprint does not match the attempt")
-    try:
-        validated = AttemptSnapshotV1.model_validate({"attempt_id": attempt_id, **payload})
-    except ValidationError as error:
-        raise ValueError("attempt snapshot failed the closed Agent/Skill contract") from error
-    normalized = validated.model_dump(mode="json")
-    normalized.pop("attempt_id")
-    if normalized != payload:
-        raise ValueError("attempt snapshot differs from its closed Agent/Skill contract")
-    snapshot_json = _canonical_json(normalized)
-    encoded = snapshot_json.encode("utf-8")
-    if len(encoded) > _MAX_SNAPSHOT_BYTES:
-        raise ValueError("attempt snapshot exceeds the size limit")
-    snapshot_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-    return kind, snapshot_json, snapshot_hash
-
-
-def _reject_sensitive_snapshot_fields(value: object) -> None:
-    if isinstance(value, Mapping):
-        for key, child in value.items():
-            separated = _CAMEL_CASE_BOUNDARY.sub("_", str(key).strip())
-            tokens = tuple(
-                token.lower() for token in _NON_ALPHANUMERIC.sub("_", separated).split("_") if token
-            )
-            if set(tokens) & _SENSITIVE_SNAPSHOT_TOKENS or (
-                "key" in tokens and bool(set(tokens) & _KEY_PAIR_QUALIFIERS)
-            ):
-                raise ValueError("attempt snapshot contains a sensitive field")
-            _reject_sensitive_snapshot_fields(child)
-    elif isinstance(value, (list, tuple)):
-        for child in value:
-            _reject_sensitive_snapshot_fields(child)
 
 
 def _validate_request(
