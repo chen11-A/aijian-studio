@@ -172,6 +172,33 @@ class CreatedProposalRunResponse(BaseModel):
     request_id: UUID
 
 
+class CreateProposalRunCancellationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProposalRunCancellationData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cancellation_id: str = Field(pattern=r"^cnl_[0-9a-f]{32}$")
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    run_id: str = Field(pattern=AGENT_RUN_ID_PATTERN)
+    workflow_run_id: str = Field(pattern=WORKFLOW_RUN_ID_PATTERN)
+    agent_run_status: Literal["CANCELLED"]
+    skill_run_status: Literal["CANCELLED"]
+    cancelled_tasks: int = Field(strict=True, ge=0)
+    cancelled_attempts: int = Field(strict=True, ge=0)
+    cancelled_nodes: int = Field(strict=True, ge=0)
+    already_cancelled: bool
+    updated_at: datetime
+
+
+class ProposalRunCancellationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ProposalRunCancellationData
+    request_id: UUID
+
+
 class CreateTimelineRequest(BaseModel):
     """Create the first immutable editing timeline for a project."""
 

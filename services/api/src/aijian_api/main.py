@@ -20,6 +20,7 @@ from aijian_api.application_errors import (
     IdempotencyKeyReusedError,
     PreconditionFailedError,
     PreconditionRequiredError,
+    ProposalRunCancellationConflictError,
     ProposalRunInputRejectedError,
     ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
@@ -86,6 +87,7 @@ from aijian_api.source_manifest_routes import (
 )
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_queue_read import TaskQueueReader
 from aijian_api.task_queue_routes import create_task_queue_router
 from aijian_api.timeline import TimelineEditError
@@ -194,6 +196,9 @@ def create_app(
     def get_task_queue_reader() -> TaskQueueReader:
         return TaskQueueReader(get_repository().database_path)
 
+    def get_task_ledger() -> LocalTaskLedger:
+        return LocalTaskLedger(get_repository().database_path)
+
     def get_agent_run_store() -> AgentRunStore:
         return AgentRunStore(get_repository().database_path)
 
@@ -257,6 +262,17 @@ def create_app(
             status_code=status.HTTP_409_CONFLICT,
             code="IDEMPOTENCY_KEY_REUSED",
             message="Idempotency-Key was reused with different input",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunCancellationConflictError)
+    async def proposal_run_cancellation_conflict(
+        request: Request, _error: ProposalRunCancellationConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROPOSAL_RUN_NOT_CANCELLABLE",
+            message="The proposal run cannot be cancelled in its current state",
             request_id=request_id(request),
         )
 
@@ -667,7 +683,14 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
-        app.include_router(create_proposal_run_write_router(get_source_extract_run_factory))
+        app.include_router(
+            create_proposal_run_write_router(
+                get_source_extract_run_factory,
+                get_agent_run_store,
+                get_task_ledger,
+                trusted_review_actor.subject_id,
+            )
+        )
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
         )

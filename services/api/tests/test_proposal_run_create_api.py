@@ -346,3 +346,166 @@ def test_concurrent_same_key_returns_one_create_and_one_replay(tmp_path: Path) -
     with sqlite3.connect(repository.database_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM agent_runs").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM task_ledger").fetchone()[0] == 1
+
+
+def test_sidecar_cancels_a_local_proposal_run_atomically_and_replays(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    created = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:cancel-ready"},
+    )
+    run_id = created.json()["data"]["run_id"]
+    path = f"/api/v1/projects/{source[0]}/proposal-runs/{run_id}/cancellations"
+    cancellation_headers = {"Idempotency-Key": "cancel:ready"}
+
+    cancelled = client.post(path, json={}, headers=cancellation_headers)
+    replayed = client.post(path, json={}, headers=cancellation_headers)
+    spoofed_actor = client.post(
+        path,
+        json={"actor_id": "renderer"},
+        headers={"Idempotency-Key": "cancel:spoofed-actor"},
+    )
+
+    assert cancelled.status_code == 201
+    assert replayed.status_code == 200
+    assert spoofed_actor.status_code == 422
+    assert cancelled.json()["data"]["agent_run_status"] == "CANCELLED"
+    assert cancelled.json()["data"]["skill_run_status"] == "CANCELLED"
+    assert cancelled.json()["data"]["cancelled_tasks"] == 1
+    assert replayed.json()["data"]["already_cancelled"] is True
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("CANCELLED",)
+        assert connection.execute("SELECT status FROM skill_runs").fetchone() == ("CANCELLED",)
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("CANCELLED",)
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("CANCELLED",)
+        cancellation_actors = connection.execute(
+            "SELECT DISTINCT actor_kind, actor_id FROM workflow_transition_events "
+            "WHERE reason_code = 'cancellation.requested'"
+        ).fetchall()
+        assert cancellation_actors == [("human", "local-user")]
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'cancellation.requested'"
+        ).fetchone() == (3,)
+
+
+def test_cancellation_is_sidecar_only_project_scoped_and_typed(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    created = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:cancel-scope"},
+    ).json()["data"]
+    other = repository.create_project(
+        name="Other",
+        aspect_ratio="9:16",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    )
+    wrong_project = client.post(
+        f"/api/v1/projects/{other.id}/proposal-runs/{created['run_id']}/cancellations",
+        json={},
+        headers={"Idempotency-Key": "cancel:wrong-project"},
+    )
+    malformed = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs/not-a-run/cancellations",
+        json={},
+        headers={"Idempotency-Key": "cancel:malformed"},
+    )
+    missing_key = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs/{created['run_id']}/cancellations",
+        json={},
+    )
+    public = TestClient(create_app(repository=repository))
+    hidden = public.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs/{created['run_id']}/cancellations",
+        json={},
+        headers={"Idempotency-Key": "cancel:hidden"},
+    )
+
+    assert wrong_project.status_code == 404
+    assert wrong_project.json()["error"]["code"] == "PROPOSAL_RUN_NOT_FOUND"
+    assert malformed.status_code == 422
+    assert missing_key.status_code == 422
+    assert hidden.status_code == 404
+    schema = client.app.openapi()
+    path = schema["paths"]["/api/v1/projects/{project_id}/proposal-runs/{run_id}/cancellations"]
+    assert set(path) == {"post"}
+    assert path["post"]["operationId"] == "cancelProposalRun"
+    assert "Idempotency-Key" in str(path["post"]["parameters"])
+
+
+def test_cancellation_rolls_back_ledger_when_agent_state_update_fails(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    created = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:cancel-rollback"},
+    ).json()["data"]
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_cancel_agent_rollback
+            BEFORE UPDATE OF status ON skill_runs
+            WHEN NEW.status = 'CANCELLED'
+            BEGIN
+                SELECT RAISE(ABORT, 'simulated Agent state failure');
+            END
+            """
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="simulated Agent state failure"):
+        client.post(
+            f"/api/v1/projects/{source[0]}/proposal-runs/{created['run_id']}/cancellations",
+            json={},
+            headers={"Idempotency-Key": "cancel:rollback"},
+        )
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("PENDING",)
+        assert connection.execute("SELECT status FROM skill_runs").fetchone() == ("PENDING",)
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("ACTIVE",)
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("READY",)
+
+
+@pytest.mark.parametrize(
+    "updates",
+    (
+        ("UPDATE workflow_runs SET status = 'SUCCEEDED'",),
+        (
+            "UPDATE workflow_attempts SET execution_mode = 'remote', "
+            "status = 'WAITING_REMOTE', provider_job_id = 'remote-job-1'",
+        ),
+        (
+            "UPDATE task_ledger SET status = 'COMPLETED'",
+            "UPDATE workflow_attempts SET status = 'FAILED'",
+            "UPDATE workflow_node_runs SET status = 'FAILED'",
+        ),
+    ),
+)
+def test_proposal_cancellation_maps_terminal_remote_and_empty_work_to_409(
+    tmp_path: Path,
+    updates: tuple[str, ...],
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    created = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:cancel-conflict"},
+    ).json()["data"]
+    with sqlite3.connect(repository.database_path) as connection:
+        for statement in updates:
+            connection.execute(statement)
+
+    response = client.post(
+        f"/api/v1/projects/{source[0]}/proposal-runs/{created['run_id']}/cancellations",
+        json={},
+        headers={"Idempotency-Key": "cancel:conflict"},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PROPOSAL_RUN_NOT_CANCELLABLE"

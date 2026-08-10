@@ -23,3 +23,7 @@ class ProposalRunInputRejectedError(ValueError):
 
 class IdempotencyKeyReusedError(RuntimeError):
     pass
+
+
+class ProposalRunCancellationConflictError(ValueError):
+    pass

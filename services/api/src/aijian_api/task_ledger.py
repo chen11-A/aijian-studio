@@ -377,6 +377,23 @@ class LocalTaskLedger:
             id_factory=self._id_factory,
         )
 
+    def cancel_local_proposal_run(
+        self,
+        *,
+        project_id: str,
+        agent_run_id: str,
+        actor_id: str,
+    ) -> LocalCancellationResult:
+        return cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=None,
+            agent_run_id=agent_run_id,
+            actor_id=actor_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
     def recover_expired_local_tasks(self) -> RecoverySummary:
         return recover_expired_local_tasks(
             connection_factory=self._open,
