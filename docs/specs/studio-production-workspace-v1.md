@@ -1,6 +1,8 @@
 # 规格：Aijian Studio 生产工作台 V1
 
-状态：Proposed（B 阶段规格冻结；尚未实现）
+状态：P0 Shell Implemented（B 阶段规格冻结；Agent/Skill 与完整审阅能力仍未实现）
+
+实现证据见 [Phase 0 生产工作台 P0 壳验收](../quality/phase0-production-shell-acceptance.md)。当前实现只覆盖导航、布局、阶段展示、任务抽屉、设置入口和明确的计划中状态；本规格中的服务端阶段摘要、真实提案卡、评论、具名审批及复杂导演/剪辑能力仍是后续范围。
 
 ## 目标与假设
 

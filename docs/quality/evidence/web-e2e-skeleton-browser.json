@@ -31,42 +31,42 @@
     {
       "method": "POST",
       "status": 201,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/workflows/fake-timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/workflows/fake-timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline/trim"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline/trim"
     },
     {
       "method": "GET",
@@ -91,37 +91,37 @@
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/sources/src_7672a47e2cd74d72bbddf1b8d7975ab4"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/sources/src_bc47cd387a534f66b6831255ee567f7e"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8479c6580c4f43748be674fa22bec9e5/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_42f9b96233894bb183051aabf425cb70/timeline"
     }
   ],
   "viewport": {
@@ -130,6 +130,27 @@
     "hasDesktopBridge": false,
     "hasNodeProcess": false
   },
+  "reviewViewport": {
+    "scrollWidth": 980,
+    "clientWidth": 980
+  },
+  "mobileViewport": {
+    "scrollWidth": 390,
+    "clientWidth": 390
+  },
+  "mobileVisibility": {
+    "director": false,
+    "generate": false,
+    "edit": false,
+    "createProject": false,
+    "settings": false,
+    "importSource": false,
+    "fakeGenerate": false
+  },
   "diagnostics": [],
-  "screenshot": "web-e2e-skeleton-browser-1440x900.png"
+  "screenshot": "web-e2e-skeleton-browser-1440x900.png",
+  "responsiveScreenshots": [
+    "production-shell-browser-980x720.png",
+    "production-shell-browser-390x844.png"
+  ]
 }

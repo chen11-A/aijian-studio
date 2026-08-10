@@ -453,10 +453,22 @@ button:disabled {
 
 .project-workspace {
   display: grid;
-  grid-template-columns: 258px minmax(0, 1fr);
+  grid-template-columns: 238px minmax(0, 1fr) 220px;
   gap: 16px;
   min-height: calc(100vh - 128px);
   margin-top: 20px;
+}
+
+.project-workspace.rail-collapsed {
+  grid-template-columns: 50px minmax(0, 1fr) 220px;
+}
+
+.project-workspace.inspector-collapsed {
+  grid-template-columns: 238px minmax(0, 1fr) 50px;
+}
+
+.project-workspace.rail-collapsed.inspector-collapsed {
+  grid-template-columns: 50px minmax(0, 1fr) 50px;
 }
 
 .project-rail,
@@ -469,6 +481,13 @@ button:disabled {
 
 .project-rail {
   padding: 17px 11px;
+}
+
+.project-rail.collapsed {
+  display: grid;
+  width: 50px;
+  padding: 8px;
+  place-items: start center;
 }
 
 .rail-heading {
@@ -485,6 +504,25 @@ button:disabled {
 .rail-heading b {
   color: var(--accent);
   font-family: Consolas, monospace;
+}
+
+.rail-heading > div {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.rail-toggle {
+  width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mobile-review-notice {
+  display: none;
 }
 
 .project-list {
@@ -2162,6 +2200,18 @@ button:disabled {
     grid-template-columns: 190px minmax(0, 1fr);
   }
 
+  .project-workspace.rail-collapsed,
+  .project-workspace.inspector-collapsed,
+  .project-workspace.rail-collapsed.inspector-collapsed {
+    grid-template-columns: 50px minmax(0, 1fr);
+  }
+
+  .project-inspector,
+  .project-inspector.collapsed {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+
   .source-layout {
     grid-template-columns: 1fr;
   }
@@ -2220,6 +2270,12 @@ button:disabled {
   }
 
   .project-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .project-workspace.rail-collapsed,
+  .project-workspace.inspector-collapsed,
+  .project-workspace.rail-collapsed.inspector-collapsed {
     grid-template-columns: 1fr;
   }
 
@@ -2419,6 +2475,55 @@ button:disabled {
 
   .nav-item > span {
     display: none;
+  }
+
+  .nav-director,
+  .nav-generate,
+  .nav-edit {
+    display: none;
+  }
+
+  .creation-action,
+  .settings-action,
+  .production-next button,
+  .project-stage {
+    display: none;
+  }
+
+  .mobile-review-notice {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    align-self: start;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(19, 20, 26, 0.86);
+  }
+
+  .mobile-review-notice span {
+    color: var(--accent);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+
+  .mobile-review-notice p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .project-workspace {
+    align-content: start;
+  }
+
+  .project-rail {
+    order: 1;
+  }
+
+  .mobile-review-notice {
+    order: 2;
   }
 
   .entity-grid {

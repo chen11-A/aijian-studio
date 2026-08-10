@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,7 +21,45 @@ const electronExecutable = join(
   "dist",
   globalThis.process.platform === "win32" ? "electron.exe" : "electron",
 );
+const appRequire = createRequire(join(repositoryRoot, "apps", "studio-web", "package.json"));
+const viteBin = join(dirname(appRequire.resolve("vite/package.json")), "bin", "vite.js");
 
+async function assertPortIsFree(url, label) {
+  try {
+    await globalThis.fetch(url);
+  } catch {
+    return;
+  }
+  throw new Error(`${label} is already running; the isolated E2E owns its fixed local port`);
+}
+
+async function waitForUrl(url, processHandle, label) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (processHandle.exitCode !== null) {
+      throw new Error(`${label} exited before becoming ready`);
+    }
+    try {
+      const response = await globalThis.fetch(url);
+      if (response.ok) return;
+    } catch {
+      // The local server is still starting.
+    }
+    await new Promise((resolveWait) => globalThis.setTimeout(resolveWait, 100));
+  }
+  throw new Error(`${label} did not become ready`);
+}
+
+async function stopProcess(processHandle) {
+  if (!processHandle || processHandle.exitCode !== null) return;
+  processHandle.kill();
+  await Promise.race([
+    new Promise((resolveClose) => processHandle.once("close", resolveClose)),
+    new Promise((resolveWait) => globalThis.setTimeout(resolveWait, 5_000)),
+  ]);
+  if (processHandle.exitCode === null) processHandle.kill("SIGKILL");
+}
+
+await assertPortIsFree("http://127.0.0.1:5173", "Vite");
 await mkdir(developmentRoot, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
 const profileDirectory = await mkdtemp(join(developmentRoot, "web-e2e-skeleton-profile-"));
@@ -35,8 +75,15 @@ await writeFile(novelPath, novelText, "utf8");
 
 const rendererDiagnostics = [];
 let application;
+let appWindow;
+let webProcess;
 
 try {
+  webProcess = spawn(globalThis.process.execPath, [viteBin, "--host", "127.0.0.1"], {
+    cwd: join(repositoryRoot, "apps", "studio-web"),
+    stdio: "ignore",
+  });
+  await waitForUrl("http://127.0.0.1:5173", webProcess, "Vite");
   application = await electron.launch({
     executablePath: electronExecutable,
     args: [join(repositoryRoot, "apps", "desktop"), `--user-data-dir=${profileDirectory}`],
@@ -47,7 +94,7 @@ try {
     },
     timeout: 30_000,
   });
-  const appWindow = await application.firstWindow({ timeout: 30_000 });
+  appWindow = await application.firstWindow({ timeout: 30_000 });
   appWindow.on("console", (message) => {
     if (message.type() === "error" || message.type() === "warning") {
       rendererDiagnostics.push(`${message.type()}: ${message.text()}`);
@@ -68,26 +115,37 @@ try {
   await appWindow.getByText("3 个镜头 · REV 1").waitFor();
 
   await appWindow.getByRole("button", { name: "查看任务记录" }).click();
-  await appWindow.getByRole("heading", { name: "制作任务总览" }).waitFor();
-  await appWindow.getByText("timeline.assemble.fake").first().waitFor();
-  await appWindow.getByText("已完成").first().waitFor();
+  const taskDrawer = appWindow.getByRole("dialog", { name: "任务中心" });
+  await taskDrawer.getByRole("heading", { name: "制作任务总览" }).waitFor();
+  await taskDrawer.getByText("timeline.assemble.fake").first().waitFor();
+  await taskDrawer.getByText("已完成").first().waitFor();
+  await taskDrawer.getByRole("button", { name: "关闭任务中心" }).click();
 
-  await appWindow.getByRole("button", { name: "剪辑台" }).click();
+  await appWindow
+    .getByRole("navigation", { name: "制作流程" })
+    .getByRole("button", { name: "剪辑 · 剪辑台" })
+    .click();
   await appWindow.getByRole("heading", { name: /二万字统一纵切验收 · 主时间线/ }).waitFor();
-  await appWindow.getByText("REV 1").waitFor();
+  const timelineHeader = appWindow.locator(".timeline-header");
+  await timelineHeader.getByText("REV 1", { exact: true }).waitFor();
   await appWindow.getByRole("option", { name: /fake-shot-01/ }).click();
   await appWindow.getByRole("spinbutton", { name: "源入点（帧）" }).fill("4");
   await appWindow.getByRole("spinbutton", { name: "持续（帧）" }).fill("40");
   await appWindow.getByRole("button", { name: "应用裁剪" }).click();
-  await appWindow.getByText("REV 2").waitFor();
+  await timelineHeader.getByText("REV 2", { exact: true }).waitFor();
 
   await appWindow.reload();
   await appWindow.getByText("本地工作区服务已连接").waitFor({ timeout: 30_000 });
   await appWindow.getByRole("heading", { name: "二万字统一纵切验收", exact: true }).waitFor();
-  await appWindow.getByRole("button", { name: "任务队列" }).click();
-  await appWindow.getByText("已完成").first().waitFor();
-  await appWindow.getByRole("button", { name: "剪辑台" }).click();
-  await appWindow.getByText("REV 2").waitFor();
+  await appWindow.getByRole("button", { name: /任务队列/ }).click();
+  const reloadedTaskDrawer = appWindow.getByRole("dialog", { name: "任务中心" });
+  await reloadedTaskDrawer.getByText("已完成").first().waitFor();
+  await reloadedTaskDrawer.getByRole("button", { name: "关闭任务中心" }).click();
+  await appWindow
+    .getByRole("navigation", { name: "制作流程" })
+    .getByRole("button", { name: "剪辑 · 剪辑台" })
+    .click();
+  await appWindow.locator(".timeline-header").getByText("REV 2", { exact: true }).waitFor();
 
   const persisted = await appWindow.evaluate(async () => {
     const projects = await globalThis.aijian.listProjects();
@@ -186,10 +244,28 @@ try {
   globalThis.process.stdout.write(
     `${JSON.stringify({ ...evidence, screenshotPath, resultPath }, null, 2)}\n`,
   );
+} catch (error) {
+  if (appWindow) {
+    const failureState = await appWindow
+      .evaluate(() => ({
+        bodyText: globalThis.document.body.innerText.slice(0, 2_000),
+        title: globalThis.document.title,
+        url: globalThis.location.href,
+      }))
+      .catch(() => null);
+    globalThis.process.stderr.write(
+      `${JSON.stringify({ failureState, rendererDiagnostics }, null, 2)}\n`,
+    );
+  }
+  throw error;
 } finally {
   try {
     if (application) await application.close();
   } finally {
-    await rm(profileDirectory, { recursive: true, force: true });
+    try {
+      await stopProcess(webProcess);
+    } finally {
+      await rm(profileDirectory, { recursive: true, force: true });
+    }
   }
 }

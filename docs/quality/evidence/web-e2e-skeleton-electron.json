@@ -3,7 +3,7 @@
   "passed": true,
   "novelCharacterCount": 25098,
   "persisted": {
-    "projectId": "prj_34534f080a054f9a81e4467d7ed6fe24",
+    "projectId": "prj_01c2d0984f7144afaad441077f3694c9",
     "sourceByteSize": 69748,
     "sourceCount": 1,
     "taskSummary": {
@@ -13,7 +13,7 @@
       "completed": 1
     },
     "taskStatus": "SUCCEEDED",
-    "timelineVersionId": "ver_39e355fe943e4796b052448253912858",
+    "timelineVersionId": "ver_05d35ba6a0dd45eb9a85727811c89820",
     "timelineRevision": 2,
     "clipCount": 3,
     "firstClip": {

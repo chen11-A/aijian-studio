@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
 import { App } from "./App";
@@ -461,6 +461,61 @@ test("opens the project-scoped production task queue", async () => {
   expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
 });
 
+test("presents the seven production areas and G0-G8 as the desktop shell", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const navigation = screen.getByRole("navigation", { name: "制作流程" });
+  for (const label of ["项目", "故事", "导演", "资产", "生成", "剪辑", "发布"]) {
+    expect(within(navigation).getByRole("button", { name: new RegExp(label) })).toBeInTheDocument();
+  }
+  expect(within(navigation).queryByRole("button", { name: /任务/ })).not.toBeInTheDocument();
+  expect(within(navigation).queryByRole("button", { name: /模型与 API/ })).not.toBeInTheDocument();
+
+  const stages = screen.getByLabelText("G0 至 G8 生产阶段");
+  for (let index = 0; index <= 8; index += 1) {
+    expect(within(stages).getByText(`G${index}`, { exact: true })).toBeInTheDocument();
+  }
+  expect(screen.getAllByRole("button", { name: /下一步/ })).toHaveLength(1);
+});
+
+test("opens production tasks as a global drawer and closes without changing workspace", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const trigger = screen.getByRole("button", { name: /打开任务中心/ });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const drawer = await screen.findByRole("dialog", { name: "任务中心" });
+  expect(within(drawer).getByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
+  const closeButton = within(drawer).getByRole("button", { name: "关闭任务中心" });
+  expect(closeButton).toHaveFocus();
+  expect(document.querySelector("main")).toHaveAttribute("inert");
+  const forwardTab = createEvent.keyDown(document, { key: "Tab" });
+  fireEvent(document, forwardTab);
+  expect(forwardTab.defaultPrevented).toBe(true);
+  expect(closeButton).toHaveFocus();
+  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  fireEvent(document, reverseTab);
+  expect(reverseTab.defaultPrevented).toBe(true);
+  expect(closeButton).toHaveFocus();
+  fireEvent.mouseDown(drawer);
+  expect(screen.getByRole("dialog", { name: "任务中心" })).toBeInTheDocument();
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog", { name: "任务中心" })).not.toBeInTheDocument(),
+  );
+  await waitFor(() => expect(trigger).toHaveFocus());
+  expect(screen.getByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
+
+  fireEvent.click(trigger);
+  const reopened = await screen.findByRole("dialog", { name: "任务中心" });
+  fireEvent.mouseDown(reopened.parentElement as HTMLElement);
+  expect(screen.queryByRole("dialog", { name: "任务中心" })).not.toBeInTheDocument();
+});
+
 test("opens the real project timeline workspace", async () => {
   const transport = studioTransport([project]);
   render(<App transport={transport} />);
@@ -485,6 +540,30 @@ test("starts a deterministic preview from the restored imported source", async (
 
   expect(await screen.findByRole("status")).toHaveTextContent("1 个镜头");
   expect(transport.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
+  fireEvent.click(screen.getByRole("button", { name: "查看任务记录" }));
+  fireEvent.click(await screen.findByRole("button", { name: "关闭任务中心" }));
+  fireEvent.click(screen.getByRole("button", { name: "进入剪辑台" }));
+  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+});
+
+test("collapses production context and keeps planned areas honest", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: "收起项目栏" }));
+  fireEvent.click(screen.getByRole("button", { name: "展开项目栏" }));
+  fireEvent.click(screen.getByRole("button", { name: "收起属性检查器" }));
+  fireEvent.click(screen.getByRole("button", { name: "展开属性检查器" }));
+
+  for (const [label, heading] of [
+    ["导演", "导演工作区尚未实现"],
+    ["资产", "资产工作区尚未实现"],
+    ["生成", "生成工作区尚未实现"],
+    ["发布", "发布工作区尚未实现"],
+  ]) {
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^\\d+${label}$`) }));
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+  }
 });
 
 test("opens model and API settings without requiring a selected project", async () => {

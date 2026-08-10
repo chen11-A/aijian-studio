@@ -14,6 +14,8 @@ const runDirectory = resolve(
 );
 const evidenceRoot = join(repositoryRoot, "docs", "quality", "evidence");
 const screenshotPath = join(evidenceRoot, "web-e2e-skeleton-browser-1440x900.png");
+const reviewScreenshotPath = join(evidenceRoot, "production-shell-browser-980x720.png");
+const mobileScreenshotPath = join(evidenceRoot, "production-shell-browser-390x844.png");
 const resultPath = join(evidenceRoot, "web-e2e-skeleton-browser.json");
 const expectedRoot = `${resolve(repositoryRoot, ".aijian-dev")}\\`;
 if (!`${runDirectory}\\`.toLowerCase().startsWith(expectedRoot.toLowerCase())) {
@@ -138,20 +140,35 @@ try {
   await page.getByText("3 个镜头 · REV 1").waitFor();
   await page.getByRole("button", { name: "查看任务记录" }).click();
   await page.getByText("已完成").first().waitFor();
-  await page.getByRole("button", { name: "剪辑台" }).click();
-  await page.getByText("REV 1").waitFor();
+  await page.getByRole("button", { name: "关闭任务中心" }).click();
+  await page
+    .getByRole("navigation", { name: "制作流程" })
+    .getByRole("button", { name: "剪辑 · 剪辑台" })
+    .click();
+  const timelineHeader = page.locator(".timeline-header");
+  await timelineHeader.getByText("REV 1", { exact: true }).waitFor();
   await page.getByRole("option", { name: /fake-shot-01/ }).click();
   await page.getByRole("spinbutton", { name: "源入点（帧）" }).fill("5");
   await page.getByRole("spinbutton", { name: "持续（帧）" }).fill("39");
+  const trimResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url().endsWith("/timeline/trim"),
+  );
   await page.getByRole("button", { name: "应用裁剪" }).click();
-  await page.getByText("REV 2").waitFor();
+  const trimResponse = await trimResponsePromise;
+  if (!trimResponse.ok()) throw new Error(`Timeline trim failed with ${trimResponse.status()}`);
+  await timelineHeader.getByText("REV 2", { exact: true }).waitFor();
 
   await page.reload({ waitUntil: "networkidle" });
   await page.getByText("本地工作区服务已连接").waitFor();
   await page.getByRole("button", { name: "任务队列" }).click();
   await page.getByText("已完成").first().waitFor();
-  await page.getByRole("button", { name: "剪辑台" }).click();
-  await page.getByText("REV 2").waitFor();
+  await page.getByRole("button", { name: "关闭任务中心" }).click();
+  await page
+    .getByRole("navigation", { name: "制作流程" })
+    .getByRole("button", { name: "剪辑 · 剪辑台" })
+    .click();
+  await page.locator(".timeline-header").getByText("REV 2", { exact: true }).waitFor();
 
   const viewport = await page.evaluate(() => ({
     scrollWidth: globalThis.document.documentElement.scrollWidth,
@@ -173,14 +190,66 @@ try {
   }
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
+  await page
+    .getByRole("navigation", { name: "制作流程" })
+    .getByRole("button", { name: /项目/ })
+    .click();
+  await page.setViewportSize({ width: 980, height: 720 });
+  const reviewViewport = await page.evaluate(() => ({
+    scrollWidth: globalThis.document.documentElement.scrollWidth,
+    clientWidth: globalThis.document.documentElement.clientWidth,
+  }));
+  if (reviewViewport.scrollWidth !== reviewViewport.clientWidth) {
+    throw new Error("Production shell review viewport has horizontal page overflow");
+  }
+  await page.screenshot({ path: reviewScreenshotPath, fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileViewport = await page.evaluate(() => ({
+    scrollWidth: globalThis.document.documentElement.scrollWidth,
+    clientWidth: globalThis.document.documentElement.clientWidth,
+  }));
+  const mobileVisibility = {
+    director: await page
+      .getByRole("navigation", { name: "制作流程" })
+      .getByRole("button", { name: /^\d+导演$/ })
+      .isVisible(),
+    generate: await page
+      .getByRole("navigation", { name: "制作流程" })
+      .getByRole("button", { name: /^\d+生成$/ })
+      .isVisible(),
+    edit: await page
+      .getByRole("navigation", { name: "制作流程" })
+      .getByRole("button", { name: "剪辑 · 剪辑台" })
+      .isVisible(),
+    createProject: await page.getByRole("button", { name: /新建项目/ }).isVisible(),
+    settings: await page.getByRole("button", { name: /打开模型与 API 设置/ }).isVisible(),
+    importSource: await page.getByLabel("选择 TXT 文件").isVisible(),
+    fakeGenerate: await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).isVisible(),
+  };
+  await page.getByRole("region", { name: "移动端审阅模式" }).waitFor();
+  if (
+    mobileViewport.scrollWidth !== mobileViewport.clientWidth ||
+    Object.values(mobileVisibility).some(Boolean)
+  ) {
+    throw new Error("Mobile review shell exposed overflow or a write/edit/generation entry point");
+  }
+  await page.screenshot({ path: mobileScreenshotPath, fullPage: true });
   const evidence = {
     check: "phase0-web-e2e-skeleton-browser",
     passed: true,
     novelCharacterCount: [...novelText].length,
     apiResponses,
     viewport,
+    reviewViewport,
+    mobileViewport,
+    mobileVisibility,
     diagnostics,
     screenshot: "web-e2e-skeleton-browser-1440x900.png",
+    responsiveScreenshots: [
+      "production-shell-browser-980x720.png",
+      "production-shell-browser-390x844.png",
+    ],
   };
   await writeFile(resultPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
   globalThis.process.stdout.write(

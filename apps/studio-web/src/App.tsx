@@ -12,6 +12,11 @@ import {
   type StudioTransport,
 } from "./api/studio";
 import { FakeWorkflowPanel } from "./components/FakeWorkflow/FakeWorkflowPanel";
+import {
+  PendingWorkspace,
+  ProductionStageBar,
+  ProjectInspector,
+} from "./components/ProductionShell/ProductionChrome";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { TimelineWorkspace } from "./components/Timeline/TimelineWorkspace";
@@ -27,7 +32,8 @@ type ImportState =
   | { kind: "loading"; filename: string }
   | { kind: "success"; response: SourceDocumentResponse }
   | { kind: "error"; message: string };
-type WorkspaceView = "project" | "story" | "edit" | "queue" | "settings";
+type WorkspaceView =
+  "project" | "story" | "director" | "assets" | "generate" | "edit" | "publish" | "settings";
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -54,12 +60,12 @@ interface AppProps {
 
 const navigation = [
   { id: "project", label: "项目", index: "01", available: true },
-  { id: "story", label: "故事工坊", index: "02", available: true },
-  { id: "director", label: "分镜导演", index: "03", available: false },
-  { id: "assets", label: "素材中心", index: "04", available: false },
-  { id: "edit", label: "剪辑台", index: "05", available: true },
-  { id: "queue", label: "任务队列", index: "06", available: true },
-  { id: "settings", label: "模型与 API", index: "07", available: true },
+  { id: "story", label: "故事", index: "02", available: true },
+  { id: "director", label: "导演", index: "03", available: true },
+  { id: "assets", label: "资产", index: "04", available: true },
+  { id: "generate", label: "生成", index: "05", available: true },
+  { id: "edit", label: "剪辑", index: "06", available: true },
+  { id: "publish", label: "发布", index: "07", available: true },
 ] as const;
 
 const entityKindLabels = {
@@ -413,15 +419,32 @@ function EmptyWorkspace({ onCreate }: { onCreate(): void }) {
 interface ProjectRailProps {
   projects: ProjectData[];
   selectedId: string | null;
+  collapsed: boolean;
+  onToggle(): void;
   onSelect(projectId: string): void;
 }
 
-function ProjectRail({ projects, selectedId, onSelect }: ProjectRailProps) {
+function ProjectRail({ projects, selectedId, collapsed, onToggle, onSelect }: ProjectRailProps) {
+  if (collapsed) {
+    return (
+      <aside className="project-rail collapsed" aria-label="制作项目">
+        <button type="button" className="rail-toggle" onClick={onToggle} aria-label="展开项目栏">
+          ›
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="project-rail" aria-label="制作项目">
       <div className="rail-heading">
         <span>制作项目</span>
-        <b>{String(projects.length).padStart(2, "0")}</b>
+        <div>
+          <b>{String(projects.length).padStart(2, "0")}</b>
+          <button type="button" className="rail-toggle" onClick={onToggle} aria-label="收起项目栏">
+            ‹
+          </button>
+        </div>
       </div>
       <div className="project-list">
         {projects.map((project, index) => (
@@ -1626,9 +1649,64 @@ export function App({ transport }: AppProps) {
   const [importState, setImportState] = useState<ImportState>({ kind: "idle" });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
   const [storyState, setStoryState] = useState<StoryWorkspaceState>({ kind: "idle" });
+  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+  const [projectRailCollapsed, setProjectRailCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const sourceRequestGeneration = useRef(0);
   const storyRequestGeneration = useRef(0);
+  const taskDrawerRef = useRef<HTMLElement | null>(null);
+  const taskDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const selectedProject = projects.find((project) => project.id === selectedId) ?? null;
+
+  const openTaskDrawer = useCallback(() => {
+    taskDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setTaskDrawerOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!taskDrawerOpen) {
+      const returnTarget = taskDrawerReturnFocusRef.current;
+      if (returnTarget) {
+        globalThis.requestAnimationFrame(() => returnTarget.focus());
+        taskDrawerReturnFocusRef.current = null;
+      }
+      return;
+    }
+
+    const drawer = taskDrawerRef.current;
+    const focusableSelector =
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = () =>
+      drawer
+        ? Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+            (element) => !element.hidden,
+          )
+        : [];
+    focusable()[0]?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setTaskDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const targets = focusable();
+      const first = targets[0];
+      const last = targets.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [taskDrawerOpen]);
 
   const restoreLatestSource = useCallback(
     async (projectId: string) => {
@@ -1782,7 +1860,7 @@ export function App({ transport }: AppProps) {
 
   return (
     <div className="studio-shell">
-      <aside className="sidebar">
+      <aside className="sidebar" inert={taskDrawerOpen ? true : undefined}>
         <a className="brand" href="#top" aria-label="Aijian Studio 首页">
           <span className="brand-mark" aria-hidden="true">
             剪
@@ -1792,31 +1870,31 @@ export function App({ transport }: AppProps) {
             <small>STUDIO</small>
           </span>
         </a>
-        <nav className="primary-nav" aria-label="创作模块">
+        <nav className="primary-nav" aria-label="制作流程">
           <p className="nav-label">工作区</p>
           {navigation.map((item) => {
-            const isWorkspace =
-              item.id === "project" ||
-              item.id === "story" ||
-              item.id === "edit" ||
-              item.id === "queue" ||
-              item.id === "settings";
-            const active = isWorkspace && activeWorkspace === item.id;
-            const enabled =
-              item.available &&
-              ((item.id !== "story" && item.id !== "edit" && item.id !== "queue") ||
-                selectedProject !== null);
+            const active = activeWorkspace === item.id;
+            const enabled = item.available && (item.id === "project" || selectedProject !== null);
             return (
               <button
-                className={`nav-item${active ? " active" : ""}${!item.available ? " unavailable" : ""}`}
+                className={`nav-item nav-${item.id}${active ? " active" : ""}${!item.available ? " unavailable" : ""}`}
                 key={item.id}
                 disabled={!enabled}
                 aria-current={active ? "page" : undefined}
+                aria-label={
+                  item.id === "story"
+                    ? "故事 · 故事工坊"
+                    : item.id === "edit"
+                      ? "剪辑 · 剪辑台"
+                      : undefined
+                }
                 onClick={
-                  !enabled || !isWorkspace
+                  !enabled
                     ? undefined
                     : () => {
                         setActiveWorkspace(item.id);
+                        if (item.id === "edit") setProjectRailCollapsed(true);
+                        if (item.id === "project") setProjectRailCollapsed(false);
                         if (item.id === "story" && selectedProject) {
                           void loadStoryWorkspace(selectedProject.id);
                         }
@@ -1839,26 +1917,49 @@ export function App({ transport }: AppProps) {
         </div>
       </aside>
 
-      <main id="top" className="workspace">
+      <main id="top" className="workspace" inert={taskDrawerOpen ? true : undefined}>
         <header className="topbar">
           <div>
             <span className="eyebrow">CREATOR WORKSPACE</span>
             <h1>
               {activeWorkspace === "project"
-                ? "项目与原文"
+                ? "项目"
                 : activeWorkspace === "story"
-                  ? "故事工坊"
-                  : activeWorkspace === "edit"
-                    ? "剪辑台"
-                    : activeWorkspace === "queue"
-                      ? "任务队列"
-                      : "模型与 API"}
+                  ? "故事"
+                  : activeWorkspace === "director"
+                    ? "导演"
+                    : activeWorkspace === "assets"
+                      ? "资产"
+                      : activeWorkspace === "generate"
+                        ? "生成"
+                        : activeWorkspace === "edit"
+                          ? "剪辑"
+                          : activeWorkspace === "publish"
+                            ? "发布"
+                            : "模型与 API"}
             </h1>
           </div>
           <div className="topbar-actions">
             <EngineBadge connection={connection} />
             <button
-              className="accent-button compact"
+              className="secondary-button compact"
+              type="button"
+              aria-label="打开任务中心，查看任务队列"
+              onClick={openTaskDrawer}
+              disabled={!selectedProject}
+            >
+              任务
+            </button>
+            <button
+              className="secondary-button compact settings-action"
+              type="button"
+              aria-label="打开模型与 API 设置"
+              onClick={() => setActiveWorkspace("settings")}
+            >
+              设置
+            </button>
+            <button
+              className="accent-button compact creation-action"
               onClick={() => setDialogOpen(true)}
               disabled={connection.kind !== "connected"}
             >
@@ -1866,6 +1967,16 @@ export function App({ transport }: AppProps) {
             </button>
           </div>
         </header>
+
+        {selectedProject && activeWorkspace !== "settings" && (
+          <ProductionStageBar
+            sourceReady={importState.kind === "success"}
+            onNext={(workspace) => {
+              setActiveWorkspace(workspace);
+              if (workspace === "story") void loadStoryWorkspace(selectedProject.id);
+            }}
+          />
+        )}
 
         {connection.kind === "error" && (
           <section className="connection-error">
@@ -1901,10 +2012,19 @@ export function App({ transport }: AppProps) {
         )}
 
         {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
-          <div className="project-workspace">
+          <div
+            className={`project-workspace${projectRailCollapsed ? " rail-collapsed" : ""}${inspectorCollapsed ? " inspector-collapsed" : ""}`}
+          >
+            <section className="mobile-review-notice" aria-label="移动端审阅模式">
+              <span>REVIEW ONLY</span>
+              <strong>移动端创作操作已关闭</strong>
+              <p>评论与具名批准将在后续 Gate 增量开放；当前请使用桌面端继续导入、生成或剪辑。</p>
+            </section>
             <ProjectRail
               projects={projects}
               selectedId={selectedId}
+              collapsed={projectRailCollapsed}
+              onToggle={() => setProjectRailCollapsed((current) => !current)}
               onSelect={(projectId) => {
                 setSelectedId(projectId);
                 void restoreLatestSource(projectId);
@@ -1948,8 +2068,11 @@ export function App({ transport }: AppProps) {
                         project={selectedProject}
                         sourceFilename={importState.response.data.filename}
                         startWorkflow={studio.startFakeTimelineWorkflow}
-                        onOpenQueue={() => setActiveWorkspace("queue")}
-                        onOpenTimeline={() => setActiveWorkspace("edit")}
+                        onOpenQueue={openTaskDrawer}
+                        onOpenTimeline={() => {
+                          setProjectRailCollapsed(true);
+                          setActiveWorkspace("edit");
+                        }}
                       />
                     )}
                   </>
@@ -1973,17 +2096,59 @@ export function App({ transport }: AppProps) {
                     replaceClip={studio.replaceTimelineClip}
                   />
                 ) : (
-                  <TaskQueueWorkspace
-                    key={selectedProject.id}
-                    project={selectedProject}
-                    loadTasks={studio.listProjectTasks}
+                  <PendingWorkspace
+                    name={
+                      activeWorkspace === "director"
+                        ? "导演"
+                        : activeWorkspace === "assets"
+                          ? "资产"
+                          : activeWorkspace === "generate"
+                            ? "生成"
+                            : "发布"
+                    }
                   />
                 )}
               </section>
             )}
+            {selectedProject && (
+              <ProjectInspector
+                project={selectedProject}
+                collapsed={inspectorCollapsed}
+                onToggle={() => setInspectorCollapsed((current) => !current)}
+              />
+            )}
           </div>
         )}
       </main>
+
+      {taskDrawerOpen && selectedProject && (
+        <div
+          className="task-drawer-backdrop"
+          role="presentation"
+          onMouseDown={() => setTaskDrawerOpen(false)}
+        >
+          <section
+            className="task-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="任务中心"
+            ref={taskDrawerRef}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="task-drawer-heading">
+              <strong>任务中心 · {selectedProject.name}</strong>
+              <button type="button" onClick={() => setTaskDrawerOpen(false)}>
+                关闭任务中心
+              </button>
+            </header>
+            <TaskQueueWorkspace
+              key={selectedProject.id}
+              project={selectedProject}
+              loadTasks={studio.listProjectTasks}
+            />
+          </section>
+        </div>
+      )}
 
       {dialogOpen && (
         <CreateProjectDialog
