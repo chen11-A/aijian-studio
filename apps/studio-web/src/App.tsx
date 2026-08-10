@@ -13,6 +13,7 @@ import {
 } from "./api/studio";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
+import { TimelineWorkspace } from "./components/Timeline/TimelineWorkspace";
 import { cacheRecentVersion, touchRecentVersion } from "./story-version-cache";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
@@ -25,7 +26,7 @@ type ImportState =
   | { kind: "loading"; filename: string }
   | { kind: "success"; response: SourceDocumentResponse }
   | { kind: "error"; message: string };
-type WorkspaceView = "project" | "story" | "queue" | "settings";
+type WorkspaceView = "project" | "story" | "edit" | "queue" | "settings";
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -55,7 +56,7 @@ const navigation = [
   { id: "story", label: "故事工坊", index: "02", available: true },
   { id: "director", label: "分镜导演", index: "03", available: false },
   { id: "assets", label: "素材中心", index: "04", available: false },
-  { id: "edit", label: "剪辑台", index: "05", available: false },
+  { id: "edit", label: "剪辑台", index: "05", available: true },
   { id: "queue", label: "任务队列", index: "06", available: true },
   { id: "settings", label: "模型与 API", index: "07", available: true },
 ] as const;
@@ -1796,12 +1797,14 @@ export function App({ transport }: AppProps) {
             const isWorkspace =
               item.id === "project" ||
               item.id === "story" ||
+              item.id === "edit" ||
               item.id === "queue" ||
               item.id === "settings";
             const active = isWorkspace && activeWorkspace === item.id;
             const enabled =
               item.available &&
-              ((item.id !== "story" && item.id !== "queue") || selectedProject !== null);
+              ((item.id !== "story" && item.id !== "edit" && item.id !== "queue") ||
+                selectedProject !== null);
             return (
               <button
                 className={`nav-item${active ? " active" : ""}${!item.available ? " unavailable" : ""}`}
@@ -1844,9 +1847,11 @@ export function App({ transport }: AppProps) {
                 ? "项目与原文"
                 : activeWorkspace === "story"
                   ? "故事工坊"
-                  : activeWorkspace === "queue"
-                    ? "任务队列"
-                    : "模型与 API"}
+                  : activeWorkspace === "edit"
+                    ? "剪辑台"
+                    : activeWorkspace === "queue"
+                      ? "任务队列"
+                      : "模型与 API"}
             </h1>
           </div>
           <div className="topbar-actions">
@@ -1947,6 +1952,15 @@ export function App({ transport }: AppProps) {
                     getSource={studio.getSource}
                     getStoryBibleVersion={studio.getStoryBibleVersion}
                     onRetry={() => void loadStoryWorkspace(selectedProject.id)}
+                  />
+                ) : activeWorkspace === "edit" ? (
+                  <TimelineWorkspace
+                    key={selectedProject.id}
+                    project={selectedProject}
+                    loadTimeline={studio.getProjectTimeline}
+                    trimClip={studio.trimTimelineClip}
+                    reorderClip={studio.reorderTimelineClip}
+                    replaceClip={studio.replaceTimelineClip}
                   />
                 ) : (
                   <TaskQueueWorkspace

@@ -398,6 +398,10 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
       },
       request_id: requestId,
     } satisfies TaskQueueResponse),
+    getProjectTimeline: vi.fn().mockResolvedValue(null),
+    trimTimelineClip: vi.fn(),
+    reorderTimelineClip: vi.fn(),
+    replaceTimelineClip: vi.fn(),
     listProviderConnections: vi.fn().mockResolvedValue({ data: [], request_id: requestId }),
     createProviderConnection: vi.fn(),
     deleteProviderConnection: vi.fn(),
@@ -414,6 +418,17 @@ test("opens the project-scoped production task queue", async () => {
   expect(await screen.findByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
   expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
   expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
+});
+
+test("opens the real project timeline workspace", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /剪辑台/ }));
+
+  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+  expect(transport.getProjectTimeline).toHaveBeenCalledWith(project.id);
 });
 
 test("opens model and API settings without requiring a selected project", async () => {

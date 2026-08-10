@@ -22,6 +22,16 @@ import {
 import type { SidecarSession } from "./sidecar-protocol";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import { isTaskQueueResponse, type TaskQueueResponse } from "./task-queue-contract";
+import {
+  isReorderTimelineClipInput,
+  isReplaceTimelineClipInput,
+  isTimelineResponse,
+  isTrimTimelineClipInput,
+  type ReorderTimelineClipInput,
+  type ReplaceTimelineClipInput,
+  type TimelineResponse,
+  type TrimTimelineClipInput,
+} from "./timeline-contract";
 
 export type {
   CreateProviderConnectionInput,
@@ -29,6 +39,12 @@ export type {
   ProviderConnectionResponse,
 } from "./provider-connection-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
+export type {
+  ReorderTimelineClipInput,
+  ReplaceTimelineClipInput,
+  TimelineResponse,
+  TrimTimelineClipInput,
+} from "./timeline-contract";
 
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 export type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
@@ -57,6 +73,16 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
+  trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
+  reorderTimelineClip(
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  replaceTimelineClip(
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -1070,7 +1096,7 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
   async function requestOptionalJson<T>(
     path: string,
     validator: (value: unknown) => value is T,
-    absentCode: "SOURCE_MANIFEST_NOT_FOUND" | "STORY_BIBLE_NOT_FOUND",
+    absentCode: "SOURCE_MANIFEST_NOT_FOUND" | "STORY_BIBLE_NOT_FOUND" | "TIMELINE_NOT_FOUND",
   ): Promise<T | null> {
     const response = await fetcher(`${origin}${path}`, { headers });
     if (response.status === 404) {
@@ -1227,6 +1253,55 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         `/api/v1/projects/${projectId}/tasks`,
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
         { headers },
+      );
+    },
+    async getProjectTimeline(projectId: string): Promise<TimelineResponse | null> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestOptionalJson(
+        `/api/v1/projects/${projectId}/timeline`,
+        (payload): payload is TimelineResponse => isTimelineResponse(payload, projectId),
+        "TIMELINE_NOT_FOUND",
+      );
+    },
+    async trimTimelineClip(
+      projectId: string,
+      input: TrimTimelineClipInput,
+    ): Promise<TimelineResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !isTrimTimelineClipInput(input)) {
+        throw new Error("Local API client requires a valid timeline trim command");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/timeline/trim`,
+        (payload): payload is TimelineResponse => isTimelineResponse(payload, projectId),
+        postInit(input),
+      );
+    },
+    async reorderTimelineClip(
+      projectId: string,
+      input: ReorderTimelineClipInput,
+    ): Promise<TimelineResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !isReorderTimelineClipInput(input)) {
+        throw new Error("Local API client requires a valid timeline reorder command");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/timeline/reorder`,
+        (payload): payload is TimelineResponse => isTimelineResponse(payload, projectId),
+        postInit(input),
+      );
+    },
+    async replaceTimelineClip(
+      projectId: string,
+      input: ReplaceTimelineClipInput,
+    ): Promise<TimelineResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !isReplaceTimelineClipInput(input)) {
+        throw new Error("Local API client requires a valid timeline replace command");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/timeline/replace`,
+        (payload): payload is TimelineResponse => isTimelineResponse(payload, projectId),
+        postInit(input),
       );
     },
     listProviderConnections: () =>

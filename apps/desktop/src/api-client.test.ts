@@ -13,6 +13,7 @@ type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
+type TimelineResponse = components["schemas"]["TimelineResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
@@ -38,6 +39,45 @@ const projectResponse: ProjectResponse = { data: project, request_id: healthyRes
 const projectListResponse: ProjectListResponse = {
   data: [project],
   request_id: healthyResponse.request_id,
+};
+const timelineResponse: TimelineResponse = {
+  request_id: healthyResponse.request_id,
+  data: {
+    project_id: project.id,
+    version_id: `ver_${"9".repeat(32)}`,
+    content_hash: `sha256:${"a".repeat(64)}`,
+    created_at: "2026-08-10T00:00:00Z",
+    total_duration_frames: 48,
+    timeline: {
+      schema_version: 1,
+      timeline_id: "episode-01-main",
+      revision: 1,
+      sequence_timebase: {
+        frame_rate: { num: 24, den: 1 },
+        timecode_mode: "NON_DROP_FRAME",
+      },
+      width: 1080,
+      height: 1920,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: "shot-rain",
+          source_asset_sha256: `sha256:${"a".repeat(64)}`,
+          source_frame_count: 96,
+          proxy: null,
+        },
+      ],
+      clips: [
+        {
+          schema_version: 1,
+          clip_id: "clip-rain",
+          asset_id: "shot-rain",
+          source_in_frame: 0,
+          duration_frames: 48,
+        },
+      ],
+    },
+  },
 };
 const sourceResponse: SourceDocumentResponse = {
   data: {
@@ -1219,6 +1259,69 @@ describe("local API client", () => {
             : client.getStoryBibleVersion(project.id, storyBibleResponse.data.version.id);
       await expect(request).rejects.toThrow("published contract");
     }
+  });
+
+  test("reads and edits a validated project timeline through the sidecar", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json(timelineResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getProjectTimeline(project.id)).resolves.toEqual(timelineResponse);
+    await client.trimTimelineClip(project.id, {
+      clip_id: "clip-rain",
+      new_source_in_frame: 2,
+      new_duration_frames: 40,
+      expected_revision: 1,
+    });
+    await client.reorderTimelineClip(project.id, {
+      clip_id: "clip-rain",
+      new_index: 0,
+      expected_revision: 1,
+    });
+    await client.replaceTimelineClip(project.id, {
+      clip_id: "clip-rain",
+      replacement_asset_id: "shot-rain",
+      replacement_source_in_frame: 4,
+      expected_revision: 1,
+    });
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      `${session.origin}/api/v1/projects/${project.id}/timeline`,
+      `${session.origin}/api/v1/projects/${project.id}/timeline/trim`,
+      `${session.origin}/api/v1/projects/${project.id}/timeline/reorder`,
+      `${session.origin}/api/v1/projects/${project.id}/timeline/replace`,
+    ]);
+  });
+
+  test("returns null only for the typed missing-timeline response", async () => {
+    const client = createLocalApiClient(
+      vi
+        .fn()
+        .mockResolvedValue(Response.json(notFoundResponse("TIMELINE_NOT_FOUND"), { status: 404 })),
+      session,
+    );
+    await expect(client.getProjectTimeline(project.id)).resolves.toBeNull();
+  });
+
+  test("rejects a timeline whose proxy timebase differs from its sequence", async () => {
+    const mismatched = structuredClone(timelineResponse);
+    const asset = mismatched.data.timeline.assets[0];
+    if (asset === undefined) throw new Error("timeline fixture asset is missing");
+    asset.proxy = {
+      schema_version: 1,
+      mapping_schema_version: 1,
+      proxy_asset_sha256: `sha256:${"b".repeat(64)}`,
+      editable_frame_count: 96,
+      sequence_timebase: {
+        frame_rate: { num: 25, den: 1 },
+        timecode_mode: "NON_DROP_FRAME",
+      },
+    };
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(mismatched)),
+      session,
+    );
+
+    await expect(client.getProjectTimeline(project.id)).rejects.toThrow("published contract");
   });
 
   test("does not treat non-404 artifact failures as an absent artifact", async () => {

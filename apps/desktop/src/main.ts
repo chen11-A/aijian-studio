@@ -8,7 +8,11 @@ import {
   type CreateProviderConnectionInput,
   type ImportTextSourceInput,
   type LocalApiClient,
+  type ReorderTimelineClipInput,
+  type ReplaceTimelineClipInput,
+  type TrimTimelineClipInput,
 } from "./api-client";
+import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
 const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173";
@@ -17,6 +21,17 @@ let mainWindow: BrowserWindow | null = null;
 let apiClient: LocalApiClient | null = null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
+
+function configureDevelopmentUserData(): void {
+  const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
+  if (requested === undefined) return;
+  if (app.isPackaged) {
+    throw new Error("E2E user data override is only available to local development");
+  }
+  const allowedRoot = resolve(__dirname, "../../../.aijian-dev");
+  const requestedPath = resolveE2EUserDataDirectory(requested, allowedRoot);
+  if (requestedPath !== null) app.setPath("userData", requestedPath);
+}
 
 function developmentSidecarOptions(): StartSidecarOptions {
   if (app.isPackaged) {
@@ -108,6 +123,18 @@ ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, v
 ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
 );
+ipcMain.handle("timeline:get", (event, projectId: string) =>
+  clientFor(event).getProjectTimeline(projectId),
+);
+ipcMain.handle("timeline:trim", (event, projectId: string, input: TrimTimelineClipInput) =>
+  clientFor(event).trimTimelineClip(projectId, input),
+);
+ipcMain.handle("timeline:reorder", (event, projectId: string, input: ReorderTimelineClipInput) =>
+  clientFor(event).reorderTimelineClip(projectId, input),
+);
+ipcMain.handle("timeline:replace", (event, projectId: string, input: ReplaceTimelineClipInput) =>
+  clientFor(event).replaceTimelineClip(projectId, input),
+);
 ipcMain.handle("providers:list", (event) => clientFor(event).listProviderConnections());
 ipcMain.handle("providers:create", (event, input: CreateProviderConnectionInput) =>
   clientFor(event).createProviderConnection(input),
@@ -117,6 +144,7 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
+  configureDevelopmentUserData();
   await app.whenReady();
   sidecar = await startSidecar(developmentSidecarOptions());
   apiClient = createLocalApiClient(fetch, sidecar.session);

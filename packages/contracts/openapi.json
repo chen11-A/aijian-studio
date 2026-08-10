@@ -1103,6 +1103,58 @@
         "title": "CreateStoryBibleVersionRequest",
         "type": "object"
       },
+      "CreateTimelineRequest": {
+        "additionalProperties": false,
+        "description": "Create the first immutable editing timeline for a project.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineAssetV1"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "clips": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineClipV1"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Clips",
+            "type": "array"
+          },
+          "height": {
+            "const": 1920,
+            "default": 1920,
+            "title": "Height",
+            "type": "integer"
+          },
+          "sequence_timebase": {
+            "$ref": "#/components/schemas/SequenceTimebaseData"
+          },
+          "timeline_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Timeline Id",
+            "type": "string"
+          },
+          "width": {
+            "const": 1080,
+            "default": 1080,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "timeline_id",
+          "sequence_timebase",
+          "assets",
+          "clips"
+        ],
+        "title": "CreateTimelineRequest",
+        "type": "object"
+      },
       "EntityKind": {
         "enum": [
           "character",
@@ -3909,6 +3961,66 @@
         "title": "RelationshipFactV1",
         "type": "object"
       },
+      "ReorderTimelineClipRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clip_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Clip Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "new_index": {
+            "minimum": 0.0,
+            "title": "New Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clip_id",
+          "new_index",
+          "expected_revision"
+        ],
+        "title": "ReorderTimelineClipRequest",
+        "type": "object"
+      },
+      "ReplaceTimelineClipRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clip_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Clip Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "replacement_asset_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Replacement Asset Id",
+            "type": "string"
+          },
+          "replacement_source_in_frame": {
+            "minimum": 0.0,
+            "title": "Replacement Source In Frame",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clip_id",
+          "replacement_asset_id",
+          "replacement_source_in_frame",
+          "expected_revision"
+        ],
+        "title": "ReplaceTimelineClipRequest",
+        "type": "object"
+      },
       "SequenceFrameRateData": {
         "additionalProperties": false,
         "description": "Frame rate accepted for Phase 0 fixed-rate sequences.",
@@ -6541,6 +6653,288 @@
         "title": "TextStateValueV1",
         "type": "object"
       },
+      "TimelineAssetV1": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "proxy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimelineProxyRefV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_asset_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Asset Sha256",
+            "type": "string"
+          },
+          "source_frame_count": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Source Frame Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "asset_id",
+          "source_asset_sha256",
+          "source_frame_count"
+        ],
+        "title": "TimelineAssetV1",
+        "type": "object"
+      },
+      "TimelineClipV1": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "clip_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Clip Id",
+            "type": "string"
+          },
+          "duration_frames": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Duration Frames",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_in_frame": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Source In Frame",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clip_id",
+          "asset_id",
+          "source_in_frame",
+          "duration_frames"
+        ],
+        "title": "TimelineClipV1",
+        "type": "object"
+      },
+      "TimelineData": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "timeline": {
+            "$ref": "#/components/schemas/TimelineVersionV1"
+          },
+          "total_duration_frames": {
+            "exclusiveMinimum": 0.0,
+            "title": "Total Duration Frames",
+            "type": "integer"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "version_id",
+          "content_hash",
+          "created_at",
+          "total_duration_frames",
+          "timeline"
+        ],
+        "title": "TimelineData",
+        "type": "object"
+      },
+      "TimelineProxyRefV1": {
+        "additionalProperties": false,
+        "properties": {
+          "editable_frame_count": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Editable Frame Count",
+            "type": "integer"
+          },
+          "mapping_schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Mapping Schema Version",
+            "type": "integer"
+          },
+          "proxy_asset_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proxy Asset Sha256",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sequence_timebase": {
+            "$ref": "#/components/schemas/SequenceTimebaseData"
+          }
+        },
+        "required": [
+          "proxy_asset_sha256",
+          "editable_frame_count",
+          "sequence_timebase"
+        ],
+        "title": "TimelineProxyRefV1",
+        "type": "object"
+      },
+      "TimelineResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "TimelineResponse",
+        "type": "object"
+      },
+      "TimelineVersionV1": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineAssetV1"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "clips": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineClipV1"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Clips",
+            "type": "array"
+          },
+          "height": {
+            "const": 1920,
+            "default": 1920,
+            "title": "Height",
+            "type": "integer"
+          },
+          "revision": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sequence_timebase": {
+            "$ref": "#/components/schemas/SequenceTimebaseData"
+          },
+          "timeline_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Timeline Id",
+            "type": "string"
+          },
+          "width": {
+            "const": 1080,
+            "default": 1080,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "timeline_id",
+          "revision",
+          "sequence_timebase",
+          "assets",
+          "clips"
+        ],
+        "title": "TimelineVersionV1",
+        "type": "object"
+      },
+      "TrimTimelineClipRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clip_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Clip Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "new_duration_frames": {
+            "exclusiveMinimum": 0.0,
+            "title": "New Duration Frames",
+            "type": "integer"
+          },
+          "new_source_in_frame": {
+            "minimum": 0.0,
+            "title": "New Source In Frame",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clip_id",
+          "new_source_in_frame",
+          "new_duration_frames",
+          "expected_revision"
+        ],
+        "title": "TrimTimelineClipRequest",
+        "type": "object"
+      },
       "WorldRuleFactDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -7783,6 +8177,439 @@
           }
         },
         "summary": "List Project Tasks"
+      }
+    },
+    "/api/v1/projects/{project_id}/timeline": {
+      "get": {
+        "operationId": "getProjectTimeline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or timeline not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Timeline command rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Timeline"
+      },
+      "post": {
+        "operationId": "createProjectTimeline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTimelineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or timeline not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Timeline command rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Create Timeline"
+      }
+    },
+    "/api/v1/projects/{project_id}/timeline/reorder": {
+      "post": {
+        "operationId": "reorderTimelineClip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderTimelineClipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or timeline not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Timeline command rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Reorder"
+      }
+    },
+    "/api/v1/projects/{project_id}/timeline/replace": {
+      "post": {
+        "operationId": "replaceTimelineClip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceTimelineClipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or timeline not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Timeline command rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Replace"
+      }
+    },
+    "/api/v1/projects/{project_id}/timeline/trim": {
+      "post": {
+        "operationId": "trimTimelineClip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrimTimelineClipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or timeline not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Timeline command rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Trim"
       }
     },
     "/api/v1/provider-connections": {

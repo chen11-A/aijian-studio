@@ -71,6 +71,12 @@ from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
 from aijian_api.task_queue_read import TaskQueueReader
 from aijian_api.task_queue_routes import create_task_queue_router
+from aijian_api.timeline import TimelineEditError
+from aijian_api.timeline_routes import (
+    TimelineAlreadyExistsError,
+    TimelineRevisionConflictError,
+    create_timeline_router,
+)
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -198,15 +204,51 @@ def create_app(
 
     @app.exception_handler(ArtifactNotFoundError)
     async def artifact_not_found(request: Request, error: ArtifactNotFoundError) -> JSONResponse:
-        code = (
-            "SOURCE_MANIFEST_NOT_FOUND"
-            if error.artifact_type == "source_manifest"
-            else "STORY_BIBLE_NOT_FOUND"
-        )
+        code = {
+            "source_manifest": "SOURCE_MANIFEST_NOT_FOUND",
+            "story_bible": "STORY_BIBLE_NOT_FOUND",
+            "timeline": "TIMELINE_NOT_FOUND",
+        }.get(error.artifact_type, "ARTIFACT_NOT_FOUND")
         return _error_response(
             status_code=status.HTTP_404_NOT_FOUND,
             code=code,
             message="The requested artifact was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineAlreadyExistsError)
+    async def timeline_already_exists(
+        request: Request, _error: TimelineAlreadyExistsError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_ALREADY_EXISTS",
+            message="The project timeline already exists",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineRevisionConflictError)
+    async def timeline_revision_conflict(
+        request: Request, _error: TimelineRevisionConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_REVISION_CONFLICT",
+            message="The timeline revision has changed",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineEditError)
+    async def timeline_edit_rejected(request: Request, error: TimelineEditError) -> JSONResponse:
+        revision_conflict = str(error) == "timeline revision conflict"
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_REVISION_CONFLICT" if revision_conflict else "TIMELINE_EDIT_REJECTED",
+            message=(
+                "The timeline revision has changed"
+                if revision_conflict
+                else "The timeline edit was rejected"
+            ),
             request_id=request_id(request),
         )
 
@@ -536,6 +578,7 @@ def create_app(
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_task_queue_router(get_task_queue_reader))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
+    app.include_router(create_timeline_router(get_repository))
     if sidecar_security is not None:
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)

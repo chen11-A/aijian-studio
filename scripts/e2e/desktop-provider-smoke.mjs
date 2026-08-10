@@ -36,7 +36,10 @@ const application = await electron.launch({
   executablePath: electronExecutable,
   args: [join(repositoryRoot, "apps", "desktop"), `--user-data-dir=${profileDirectory}`],
   cwd: repositoryRoot,
-  env: globalThis.process.env,
+  env: {
+    ...globalThis.process.env,
+    AIJIAN_E2E_USER_DATA_DIR: profileDirectory,
+  },
   timeout: 30_000,
 });
 
@@ -108,6 +111,7 @@ try {
     "createProject",
     "deleteProviderConnection",
     "getProject",
+    "getProjectTimeline",
     "getSource",
     "getSourceManifest",
     "getStoryBibleVersion",
@@ -118,6 +122,9 @@ try {
     "listProjects",
     "listProviderConnections",
     "listSources",
+    "reorderTimelineClip",
+    "replaceTimelineClip",
+    "trimTimelineClip",
   ].sort();
   if (JSON.stringify(bridgeResult.bridgeKeys) !== JSON.stringify(expectedBridgeKeys)) {
     throw new Error("Electron preload bridge did not match the exact typed-method allowlist");

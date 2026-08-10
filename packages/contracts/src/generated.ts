@@ -193,6 +193,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Timeline */
+        get: operations["getProjectTimeline"];
+        put?: never;
+        /** Create Timeline */
+        post: operations["createProjectTimeline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/timeline/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder */
+        post: operations["reorderTimelineClip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/timeline/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace */
+        post: operations["replaceTimelineClip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/timeline/trim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trim */
+        post: operations["trimTimelineClip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/provider-connections": {
         parameters: {
             query?: never;
@@ -530,6 +599,31 @@ export interface components {
             parent_version_id?: string | null;
             /** Source Spans */
             source_spans: components["schemas"]["StorySourceSpanDraftV1"][];
+        };
+        /**
+         * CreateTimelineRequest
+         * @description Create the first immutable editing timeline for a project.
+         */
+        CreateTimelineRequest: {
+            /** Assets */
+            assets: components["schemas"]["TimelineAssetV1"][];
+            /** Clips */
+            clips: components["schemas"]["TimelineClipV1"][];
+            /**
+             * Height
+             * @default 1920
+             * @constant
+             */
+            height: 1920;
+            sequence_timebase: components["schemas"]["SequenceTimebaseData"];
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * Width
+             * @default 1080
+             * @constant
+             */
+            width: 1080;
         };
         /** @enum {string} */
         EntityKind: "character" | "location" | "organization" | "prop" | "costume";
@@ -1281,6 +1375,26 @@ export interface components {
             validity?: components["schemas"]["EventValidityV1"] | null;
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
+        };
+        /** ReorderTimelineClipRequest */
+        ReorderTimelineClipRequest: {
+            /** Clip Id */
+            clip_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** New Index */
+            new_index: number;
+        };
+        /** ReplaceTimelineClipRequest */
+        ReplaceTimelineClipRequest: {
+            /** Clip Id */
+            clip_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Replacement Asset Id */
+            replacement_asset_id: string;
+            /** Replacement Source In Frame */
+            replacement_source_in_frame: number;
         };
         /**
          * SequenceFrameRateData
@@ -2078,6 +2192,126 @@ export interface components {
             kind: "text";
             /** Value */
             value: string;
+        };
+        /** TimelineAssetV1 */
+        TimelineAssetV1: {
+            /** Asset Id */
+            asset_id: string;
+            proxy?: components["schemas"]["TimelineProxyRefV1"] | null;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Source Asset Sha256 */
+            source_asset_sha256: string;
+            /** Source Frame Count */
+            source_frame_count: number;
+        };
+        /** TimelineClipV1 */
+        TimelineClipV1: {
+            /** Asset Id */
+            asset_id: string;
+            /** Clip Id */
+            clip_id: string;
+            /** Duration Frames */
+            duration_frames: number;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Source In Frame */
+            source_in_frame: number;
+        };
+        /** TimelineData */
+        TimelineData: {
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Id */
+            project_id: string;
+            timeline: components["schemas"]["TimelineVersionV1"];
+            /** Total Duration Frames */
+            total_duration_frames: number;
+            /** Version Id */
+            version_id: string;
+        };
+        /** TimelineProxyRefV1 */
+        TimelineProxyRefV1: {
+            /** Editable Frame Count */
+            editable_frame_count: number;
+            /**
+             * Mapping Schema Version
+             * @default 1
+             * @constant
+             */
+            mapping_schema_version: 1;
+            /** Proxy Asset Sha256 */
+            proxy_asset_sha256: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            sequence_timebase: components["schemas"]["SequenceTimebaseData"];
+        };
+        /** TimelineResponse */
+        TimelineResponse: {
+            data: components["schemas"]["TimelineData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** TimelineVersionV1 */
+        TimelineVersionV1: {
+            /** Assets */
+            assets: components["schemas"]["TimelineAssetV1"][];
+            /** Clips */
+            clips: components["schemas"]["TimelineClipV1"][];
+            /**
+             * Height
+             * @default 1920
+             * @constant
+             */
+            height: 1920;
+            /** Revision */
+            revision: number;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            sequence_timebase: components["schemas"]["SequenceTimebaseData"];
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * Width
+             * @default 1080
+             * @constant
+             */
+            width: 1080;
+        };
+        /** TrimTimelineClipRequest */
+        TrimTimelineClipRequest: {
+            /** Clip Id */
+            clip_id: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** New Duration Frames */
+            new_duration_frames: number;
+            /** New Source In Frame */
+            new_source_in_frame: number;
         };
         /** WorldRuleFactDraftV1 */
         WorldRuleFactDraftV1: {
@@ -2916,6 +3150,357 @@ export interface operations {
             };
             /** @description Project not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProjectTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or timeline not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Timeline command rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createProjectTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTimelineRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or timeline not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Timeline command rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reorderTimelineClip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderTimelineClipRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or timeline not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Timeline command rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceTimelineClip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceTimelineClipRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or timeline not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Timeline command rejected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    trimTimelineClip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrimTimelineClipRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or timeline not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Timeline command rejected */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

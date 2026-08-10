@@ -12,6 +12,10 @@ export type SourceManifestResponse = components["schemas"]["SourceManifestRespon
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type TimelineResponse = components["schemas"]["TimelineResponse"];
+export type TrimTimelineClipInput = components["schemas"]["TrimTimelineClipRequest"];
+export type ReorderTimelineClipInput = components["schemas"]["ReorderTimelineClipRequest"];
+export type ReplaceTimelineClipInput = components["schemas"]["ReplaceTimelineClipRequest"];
 export type CreateProviderConnectionInput =
   components["schemas"]["CreateProviderConnectionRequest"];
 export type ProviderConnectionListResponse =
@@ -33,6 +37,16 @@ export interface StudioTransport {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
+  trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
+  reorderTimelineClip(
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  replaceTimelineClip(
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -55,6 +69,16 @@ export interface AijianDesktopBridge {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
+  trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
+  reorderTimelineClip(
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  replaceTimelineClip(
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -159,6 +183,10 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      getProjectTimeline: (projectId) => bridge.getProjectTimeline(projectId),
+      trimTimelineClip: (projectId, input) => bridge.trimTimelineClip(projectId, input),
+      reorderTimelineClip: (projectId, input) => bridge.reorderTimelineClip(projectId, input),
+      replaceTimelineClip: (projectId, input) => bridge.replaceTimelineClip(projectId, input),
       listProviderConnections: () => bridge.listProviderConnections(),
       createProviderConnection: (input) => bridge.createProviderConnection(input),
       deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
@@ -191,6 +219,17 @@ export function createStudioTransport(): StudioTransport {
       ),
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    getProjectTimeline: (projectId) =>
+      getOptionalRequest<TimelineResponse>(
+        `/api/v1/projects/${projectId}/timeline`,
+        "TIMELINE_NOT_FOUND",
+      ),
+    trimTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/trim`, input),
+    reorderTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/reorder`, input),
+    replaceTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/replace`, input),
     listProviderConnections: () =>
       getRequest<ProviderConnectionListResponse>("/api/v1/provider-connections"),
     createProviderConnection: (input) =>

@@ -8,9 +8,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from aijian_api.media_contracts import SequenceTimebaseData
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
 from aijian_api.story_bible_drafts import StoryBibleContentDraftV1, StorySourceSpanDraftV1
+from aijian_api.timeline import TimelineAssetV1, TimelineClipV1, TimelineVersionV1
 
 PROJECT_ID_PATTERN = r"^prj_[0-9a-f]{32}$"
 SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
@@ -69,6 +71,63 @@ class ErrorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     error: ErrorBody
+    request_id: UUID
+
+
+class CreateTimelineRequest(BaseModel):
+    """Create the first immutable editing timeline for a project."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    timeline_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    sequence_timebase: SequenceTimebaseData
+    width: Literal[1080] = 1080
+    height: Literal[1920] = 1920
+    assets: tuple[TimelineAssetV1, ...] = Field(min_length=1, max_length=10_000)
+    clips: tuple[TimelineClipV1, ...] = Field(min_length=1, max_length=10_000)
+
+
+class TrimTimelineClipRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clip_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    new_source_in_frame: int = Field(strict=True, ge=0)
+    new_duration_frames: int = Field(strict=True, gt=0)
+    expected_revision: int = Field(strict=True, ge=1)
+
+
+class ReorderTimelineClipRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clip_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    new_index: int = Field(strict=True, ge=0)
+    expected_revision: int = Field(strict=True, ge=1)
+
+
+class ReplaceTimelineClipRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clip_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    replacement_asset_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")
+    replacement_source_in_frame: int = Field(strict=True, ge=0)
+    expected_revision: int = Field(strict=True, ge=1)
+
+
+class TimelineData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    created_at: datetime
+    total_duration_frames: int = Field(strict=True, gt=0)
+    timeline: TimelineVersionV1
+
+
+class TimelineResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: TimelineData
     request_id: UUID
 
 

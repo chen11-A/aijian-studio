@@ -12,6 +12,10 @@ type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+type TimelineResponse = components["schemas"]["TimelineResponse"];
+type TrimTimelineClipInput = components["schemas"]["TrimTimelineClipRequest"];
+type ReorderTimelineClipInput = components["schemas"]["ReorderTimelineClipRequest"];
+type ReplaceTimelineClipInput = components["schemas"]["ReplaceTimelineClipRequest"];
 type CreateProviderConnectionInput = components["schemas"]["CreateProviderConnectionRequest"];
 type ProviderConnectionListResponse = components["schemas"]["ProviderConnectionListResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
@@ -55,6 +59,20 @@ contextBridge.exposeInMainWorld("aijian", {
     ) as Promise<StoryBibleVersionResponse>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
+  getProjectTimeline: (projectId: string): Promise<TimelineResponse | null> =>
+    ipcRenderer.invoke("timeline:get", projectId) as Promise<TimelineResponse | null>,
+  trimTimelineClip: (projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse> =>
+    ipcRenderer.invoke("timeline:trim", projectId, input) as Promise<TimelineResponse>,
+  reorderTimelineClip: (
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse> =>
+    ipcRenderer.invoke("timeline:reorder", projectId, input) as Promise<TimelineResponse>,
+  replaceTimelineClip: (
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse> =>
+    ipcRenderer.invoke("timeline:replace", projectId, input) as Promise<TimelineResponse>,
   listProviderConnections: (): Promise<ProviderConnectionListResponse> =>
     ipcRenderer.invoke("providers:list") as Promise<ProviderConnectionListResponse>,
   createProviderConnection: (
