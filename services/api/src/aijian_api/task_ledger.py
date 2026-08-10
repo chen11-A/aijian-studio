@@ -219,10 +219,21 @@ class LocalTaskLedger:
         finally:
             connection.close()
 
-    def heartbeat(self, claim: ClaimedTask, *, lease_duration: timedelta) -> ClaimedTask:
+    def heartbeat(
+        self,
+        claim: ClaimedTask,
+        *,
+        lease_duration: timedelta,
+        lock_timeout: timedelta | None = None,
+    ) -> ClaimedTask:
         self._validate_lease_request(claim.lease_owner, lease_duration)
+        if lock_timeout is not None and lock_timeout <= timedelta(0):
+            raise ValueError("heartbeat lock timeout must be positive")
         connection = self._open()
         try:
+            if lock_timeout is not None:
+                timeout_ms = max(1, int(lock_timeout.total_seconds() * 1000))
+                connection.execute(f"PRAGMA busy_timeout = {timeout_ms}")
             connection.execute("BEGIN IMMEDIATE")
             now = self._clock()
             now_text = timestamp(now)
@@ -258,6 +269,11 @@ class LocalTaskLedger:
                 heartbeat_at=parse_datetime(now_text),
                 task_revision=int(row["revision"]),
             )
+        except sqlite3.OperationalError as error:
+            connection.rollback()
+            if "locked" in str(error).lower():
+                raise LeaseLostError("heartbeat could not renew before its deadline") from error
+            raise
         except Exception:
             connection.rollback()
             raise
