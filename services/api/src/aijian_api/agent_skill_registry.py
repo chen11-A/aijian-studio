@@ -123,6 +123,24 @@ class AgentSkillRegistry:
             )
             self._skills[key] = skill_registration
 
+    def list_agents(self) -> tuple[AgentDefinitionV1, ...]:
+        """Return enabled definitions in deterministic identifier/version order."""
+
+        return tuple(
+            registration.definition
+            for _key, registration in sorted(self._agents.items())
+            if registration.enabled
+        )
+
+    def list_skills(self) -> tuple[SkillDefinitionV1, ...]:
+        """Return enabled definitions in deterministic identifier/version order."""
+
+        return tuple(
+            registration.definition
+            for _key, registration in sorted(self._skills.items())
+            if registration.enabled
+        )
+
     def resolve_agent(
         self,
         definition_id: str,

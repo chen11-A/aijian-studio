@@ -73,6 +73,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Agents */
+        get: operations["listProjectAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Skills */
+        get: operations["listProjectSkills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/source-manifest": {
         parameters: {
             query?: never;
@@ -318,6 +352,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AgentCatalogData */
+        AgentCatalogData: {
+            /** Agents */
+            agents: components["schemas"]["AgentDefinitionV1"][];
+            /** Project Id */
+            project_id: string;
+        };
+        /** AgentCatalogResponse */
+        AgentCatalogResponse: {
+            data: components["schemas"]["AgentCatalogData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** AgentDefinitionV1 */
+        AgentDefinitionV1: {
+            agent_definition_id: components["schemas"]["DefinitionId"];
+            compatibility: components["schemas"]["ContractCompatibilityV1"];
+            /** Context Policy Version */
+            context_policy_version: string;
+            /** Default Policy Version */
+            default_policy_version: string;
+            /** Display Name */
+            display_name: string;
+            /** Forbidden Actions */
+            forbidden_actions: string[];
+            /**
+             * Layer
+             * @enum {string}
+             */
+            layer: "DECISION" | "EXECUTION" | "SUPERVISION";
+            /** Responsibilities */
+            responsibilities: string[];
+            role: components["schemas"]["DefinitionId"];
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Skill Refs */
+            skill_refs: components["schemas"]["DefinitionRefV1"][];
+            /** Version */
+            version: string;
+        };
         /** ArtifactHeadData */
         ArtifactHeadData: {
             /** Accepted Version Id */
@@ -340,6 +421,7 @@ export interface components {
              */
             updated_at: string;
         };
+        ArtifactType: string;
         /**
          * AudioFrameBoundaryPolicyData
          * @description Deterministic sequence-frame to working-audio sample conversion policy.
@@ -379,6 +461,21 @@ export interface components {
             kind: "boolean";
             /** Value */
             value: boolean;
+        };
+        /** BudgetPolicyV1 */
+        BudgetPolicyV1: {
+            /**
+             * Currency
+             * @default USD
+             * @constant
+             */
+            currency: "USD";
+            /** Hard Limit Micros */
+            hard_limit_micros: number;
+            /** Retry Increment Limit Micros */
+            retry_increment_limit_micros: number;
+            /** Soft Limit Micros */
+            soft_limit_micros: number;
         };
         /** @enum {string} */
         CanonCertainty: "certain" | "likely" | "ambiguous" | "intentionally_unreliable";
@@ -475,6 +572,13 @@ export interface components {
              * @enum {string}
              */
             ref_type: "client_key";
+        };
+        /** ContractCompatibilityV1 */
+        ContractCompatibilityV1: {
+            /** Maximum Schema Version */
+            maximum_schema_version: string;
+            /** Minimum Schema Version */
+            minimum_schema_version: string;
         };
         /** CostumeEntityV1 */
         CostumeEntityV1: {
@@ -641,6 +745,13 @@ export interface components {
              * @constant
              */
             width: 1080;
+        };
+        DefinitionId: string;
+        /** DefinitionRefV1 */
+        DefinitionRefV1: {
+            definition_id: components["schemas"]["DefinitionId"];
+            /** Version */
+            version: string;
         };
         /** @enum {string} */
         EntityKind: "character" | "location" | "organization" | "prop" | "costume";
@@ -887,6 +998,7 @@ export interface components {
              */
             media_type: "text/plain";
         };
+        InvalidationEdge: string;
         /** LocationEntityV1 */
         LocationEntityV1: {
             /** Aliases */
@@ -1264,6 +1376,7 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        ProviderCapability: string;
         /** ProviderConnectionData */
         ProviderConnectionData: {
             /** Base Url */
@@ -1500,6 +1613,59 @@ export interface components {
             /** @constant */
             timecode_mode: "DROP_FRAME";
         });
+        /** SkillCatalogData */
+        SkillCatalogData: {
+            /** Project Id */
+            project_id: string;
+            /** Skills */
+            skills: components["schemas"]["SkillDefinitionV1"][];
+        };
+        /** SkillCatalogResponse */
+        SkillCatalogResponse: {
+            data: components["schemas"]["SkillCatalogData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** SkillDefinitionV1 */
+        SkillDefinitionV1: {
+            /** Allowed Provider Capabilities */
+            allowed_provider_capabilities: components["schemas"]["ProviderCapability"][];
+            /** Allowed Tools */
+            allowed_tools: components["schemas"]["DefinitionId"][];
+            budget: components["schemas"]["BudgetPolicyV1"];
+            compatibility: components["schemas"]["ContractCompatibilityV1"];
+            /** Display Name */
+            display_name: string;
+            /** Fixture Refs */
+            fixture_refs: string[];
+            /** Input Schema Ref */
+            input_schema_ref: string;
+            /** Invalidation Edges */
+            invalidation_edges: components["schemas"]["InvalidationEdge"][];
+            /** Max Attempts */
+            max_attempts: number;
+            /** Output Schema Ref */
+            output_schema_ref: string;
+            /** Readable Artifact Types */
+            readable_artifact_types: components["schemas"]["ArtifactType"][];
+            /** Required Gate */
+            required_gate: string;
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            skill_definition_id: components["schemas"]["DefinitionId"];
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            ui_renderer: components["schemas"]["DefinitionId"];
+            /** Version */
+            version: string;
+        };
         /** SourceBlockData */
         SourceBlockData: {
             /** Chapter Index */
@@ -2609,6 +2775,122 @@ export interface operations {
                 };
             };
             /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentCatalogResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectSkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillCatalogResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
             403: {
                 headers: {
                     [name: string]: unknown;

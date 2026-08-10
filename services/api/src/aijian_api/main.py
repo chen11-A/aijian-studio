@@ -12,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
+from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
+from aijian_api.agent_skill_registry import AgentSkillRegistry
 from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
@@ -152,6 +154,7 @@ def create_app(
     repository: StudioRepository | None = None,
     review_actor: TrustedReviewActor | None = None,
     credential_vault: CredentialVault | None = None,
+    agent_skill_registry: AgentSkillRegistry | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
 
@@ -168,6 +171,7 @@ def create_app(
         roles=("writer", "continuity_reviewer", "producer"),
     )
     resolved_credential_vault = credential_vault or SystemCredentialVault()
+    resolved_agent_skill_registry = agent_skill_registry or AgentSkillRegistry(agents=(), skills=())
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -603,6 +607,12 @@ def create_app(
     app.include_router(create_source_manifest_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_task_queue_router(get_task_queue_reader))
+    app.include_router(
+        create_agent_skill_catalog_router(
+            get_repository,
+            lambda: resolved_agent_skill_registry,
+        )
+    )
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))

@@ -1,6 +1,142 @@
 {
   "components": {
     "schemas": {
+      "AgentCatalogData": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/AgentDefinitionV1"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "agents"
+        ],
+        "title": "AgentCatalogData",
+        "type": "object"
+      },
+      "AgentCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentCatalogData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "AgentCatalogResponse",
+        "type": "object"
+      },
+      "AgentDefinitionV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_definition_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/ContractCompatibilityV1"
+          },
+          "context_policy_version": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Context Policy Version",
+            "type": "string"
+          },
+          "default_policy_version": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Default Policy Version",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "forbidden_actions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Forbidden Actions",
+            "type": "array"
+          },
+          "layer": {
+            "enum": [
+              "DECISION",
+              "EXECUTION",
+              "SUPERVISION"
+            ],
+            "title": "Layer",
+            "type": "string"
+          },
+          "responsibilities": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Responsibilities",
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_refs": {
+            "items": {
+              "$ref": "#/components/schemas/DefinitionRefV1"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Skill Refs",
+            "type": "array"
+          },
+          "version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_definition_id",
+          "version",
+          "display_name",
+          "role",
+          "layer",
+          "responsibilities",
+          "forbidden_actions",
+          "skill_refs",
+          "default_policy_version",
+          "context_policy_version",
+          "compatibility"
+        ],
+        "title": "AgentDefinitionV1",
+        "type": "object"
+      },
       "ArtifactHeadData": {
         "additionalProperties": false,
         "properties": {
@@ -76,6 +212,10 @@
         "title": "ArtifactHeadData",
         "type": "object"
       },
+      "ArtifactType": {
+        "pattern": "^[A-Z][A-Za-z0-9]{1,79}$",
+        "type": "string"
+      },
       "AudioFrameBoundaryPolicyData": {
         "additionalProperties": false,
         "description": "Deterministic sequence-frame to working-audio sample conversion policy.",
@@ -126,6 +266,39 @@
           "value"
         ],
         "title": "BooleanStateValueV1",
+        "type": "object"
+      },
+      "BudgetPolicyV1": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "const": "USD",
+            "default": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "hard_limit_micros": {
+            "minimum": 0.0,
+            "title": "Hard Limit Micros",
+            "type": "integer"
+          },
+          "retry_increment_limit_micros": {
+            "minimum": 0.0,
+            "title": "Retry Increment Limit Micros",
+            "type": "integer"
+          },
+          "soft_limit_micros": {
+            "minimum": 0.0,
+            "title": "Soft Limit Micros",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "soft_limit_micros",
+          "hard_limit_micros",
+          "retry_increment_limit_micros"
+        ],
+        "title": "BudgetPolicyV1",
         "type": "object"
       },
       "CanonCertainty": {
@@ -532,6 +705,27 @@
           "client_key"
         ],
         "title": "ClientRefV1",
+        "type": "object"
+      },
+      "ContractCompatibilityV1": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_schema_version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Maximum Schema Version",
+            "type": "string"
+          },
+          "minimum_schema_version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Minimum Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "minimum_schema_version",
+          "maximum_schema_version"
+        ],
+        "title": "ContractCompatibilityV1",
         "type": "object"
       },
       "CostumeEntityV1": {
@@ -1153,6 +1347,29 @@
           "clips"
         ],
         "title": "CreateTimelineRequest",
+        "type": "object"
+      },
+      "DefinitionId": {
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+        "type": "string"
+      },
+      "DefinitionRefV1": {
+        "additionalProperties": false,
+        "properties": {
+          "definition_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition_id",
+          "version"
+        ],
+        "title": "DefinitionRefV1",
         "type": "object"
       },
       "EntityKind": {
@@ -2075,6 +2292,10 @@
         ],
         "title": "ImportTextSourceRequest",
         "type": "object"
+      },
+      "InvalidationEdge": {
+        "pattern": "^[A-Z][A-Za-z0-9]{1,79}->[A-Z][A-Za-z0-9]{1,79}$",
+        "type": "string"
       },
       "LocationEntityV1": {
         "additionalProperties": false,
@@ -3467,6 +3688,10 @@
         "title": "PropFactV1",
         "type": "object"
       },
+      "ProviderCapability": {
+        "pattern": "^[A-Z][A-Z0-9_]{1,79}$",
+        "type": "string"
+      },
       "ProviderConnectionData": {
         "additionalProperties": false,
         "properties": {
@@ -4302,6 +4527,172 @@
           "timecode_mode"
         ],
         "title": "SequenceTimebaseData",
+        "type": "object"
+      },
+      "SkillCatalogData": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillDefinitionV1"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "skills"
+        ],
+        "title": "SkillCatalogData",
+        "type": "object"
+      },
+      "SkillCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SkillCatalogData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "SkillCatalogResponse",
+        "type": "object"
+      },
+      "SkillDefinitionV1": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_provider_capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderCapability"
+            },
+            "maxItems": 32,
+            "title": "Allowed Provider Capabilities",
+            "type": "array"
+          },
+          "allowed_tools": {
+            "items": {
+              "$ref": "#/components/schemas/DefinitionId"
+            },
+            "maxItems": 64,
+            "title": "Allowed Tools",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/BudgetPolicyV1"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/ContractCompatibilityV1"
+          },
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "fixture_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Fixture Refs",
+            "type": "array"
+          },
+          "input_schema_ref": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Input Schema Ref",
+            "type": "string"
+          },
+          "invalidation_edges": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidationEdge"
+            },
+            "maxItems": 64,
+            "title": "Invalidation Edges",
+            "type": "array"
+          },
+          "max_attempts": {
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "output_schema_ref": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Output Schema Ref",
+            "type": "string"
+          },
+          "readable_artifact_types": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactType"
+            },
+            "maxItems": 64,
+            "title": "Readable Artifact Types",
+            "type": "array"
+          },
+          "required_gate": {
+            "pattern": "^G[0-8](?:[A-Z])?$",
+            "title": "Required Gate",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_definition_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "timeout_seconds": {
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "ui_renderer": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skill_definition_id",
+          "version",
+          "display_name",
+          "input_schema_ref",
+          "output_schema_ref",
+          "readable_artifact_types",
+          "allowed_tools",
+          "allowed_provider_capabilities",
+          "budget",
+          "timeout_seconds",
+          "max_attempts",
+          "required_gate",
+          "invalidation_edges",
+          "ui_renderer",
+          "fixture_refs",
+          "compatibility"
+        ],
+        "title": "SkillDefinitionV1",
         "type": "object"
       },
       "SourceBlockData": {
@@ -7492,6 +7883,144 @@
           }
         },
         "summary": "Get Project"
+      }
+    },
+    "/api/v1/projects/{project_id}/agents": {
+      "get": {
+        "operationId": "listProjectAgents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "List Project Agents"
+      }
+    },
+    "/api/v1/projects/{project_id}/skills": {
+      "get": {
+        "operationId": "listProjectSkills",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "List Project Skills"
       }
     },
     "/api/v1/projects/{project_id}/source-manifest": {

@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from aijian_api.agent_skill_contracts import AgentDefinitionV1, SkillDefinitionV1
 from aijian_api.media_contracts import SequenceTimebaseData
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
@@ -71,6 +72,34 @@ class ErrorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     error: ErrorBody
+    request_id: UUID
+
+
+class AgentCatalogData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    agents: tuple[AgentDefinitionV1, ...]
+
+
+class AgentCatalogResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: AgentCatalogData
+    request_id: UUID
+
+
+class SkillCatalogData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    skills: tuple[SkillDefinitionV1, ...]
+
+
+class SkillCatalogResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: SkillCatalogData
     request_id: UUID
 
 
