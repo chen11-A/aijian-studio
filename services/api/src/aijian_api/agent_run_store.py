@@ -19,8 +19,9 @@ from aijian_api.agent_skill_contracts import (
     SkillRunV1,
 )
 from aijian_api.agent_skill_registry import ResolvedDelegation
+from aijian_api.application_errors import ProposalRunNotFoundError
 from aijian_api.repository import StudioRepository
-from aijian_api.task_ledger_models import timestamp, utc_now
+from aijian_api.task_ledger_models import parse_datetime, timestamp, utc_now
 
 type TransactionHook = Callable[[str], None]
 
@@ -36,8 +37,8 @@ class PersistedAgentRunBundle:
     context_manifest: ContextManifestV1
     agent_revision: int
     skill_revision: int
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime
 
 
 def _canonical_json(value: object) -> str:
@@ -197,7 +198,7 @@ class AgentRunStore:
         finally:
             connection.close()
         if persisted is None:
-            raise LookupError("Agent run bundle not found")
+            raise ProposalRunNotFoundError("Agent run bundle not found")
         return persisted
 
 
@@ -332,8 +333,8 @@ def _read_bundle(
         context_manifest=context_manifest,
         agent_revision=int(row["revision"]),
         skill_revision=int(row["skill_revision"]),
-        created_at=str(row["created_at"]),
-        updated_at=str(row["updated_at"]),
+        created_at=parse_datetime(str(row["created_at"])),
+        updated_at=parse_datetime(str(row["updated_at"])),
     )
 
 

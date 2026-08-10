@@ -11,3 +11,7 @@ class PreconditionFailedError(RuntimeError):
 
 class StoryBiblePayloadTooLargeError(RuntimeError):
     pass
+
+
+class ProposalRunNotFoundError(LookupError):
+    pass

@@ -12,11 +12,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
+from aijian_api.agent_run_store import AgentRunStore
 from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
 from aijian_api.agent_skill_registry import AgentSkillRegistry
 from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
+    ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
 )
 from aijian_api.contracts import (
@@ -49,6 +51,7 @@ from aijian_api.fake_timeline_workflow import (
 from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
+from aijian_api.proposal_run_routes import create_proposal_run_router
 from aijian_api.provider_connection_repository import (
     ProviderConnectionConflictError,
     ProviderConnectionNotFoundError,
@@ -184,6 +187,9 @@ def create_app(
     def get_task_queue_reader() -> TaskQueueReader:
         return TaskQueueReader(get_repository().database_path)
 
+    def get_agent_run_store() -> AgentRunStore:
+        return AgentRunStore(get_repository().database_path)
+
     def get_provider_connection_service() -> ProviderConnectionService:
         return ProviderConnectionService(
             ProviderConnectionRepository(get_repository().database_path),
@@ -208,6 +214,17 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="PROJECT_NOT_FOUND",
             message="The requested project or source was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunNotFoundError)
+    async def proposal_run_not_found(
+        request: Request, _error: ProposalRunNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="PROPOSAL_RUN_NOT_FOUND",
+            message="The requested proposal run was not found",
             request_id=request_id(request),
         )
 
@@ -613,6 +630,7 @@ def create_app(
             lambda: resolved_agent_skill_registry,
         )
     )
+    app.include_router(create_proposal_run_router(get_agent_run_store))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))

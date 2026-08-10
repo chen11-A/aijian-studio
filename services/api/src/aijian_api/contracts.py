@@ -8,7 +8,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from aijian_api.agent_skill_contracts import AgentDefinitionV1, SkillDefinitionV1
+from aijian_api.agent_skill_contracts import (
+    AgentDefinitionV1,
+    AgentRunV1,
+    ContextManifestV1,
+    SkillDefinitionV1,
+    SkillRunV1,
+)
 from aijian_api.media_contracts import SequenceTimebaseData
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
@@ -34,6 +40,7 @@ WORKFLOW_RUN_ID_PATTERN = r"^wfr_[0-9a-f]{32}$"
 NODE_RUN_ID_PATTERN = r"^node_[0-9a-f]{32}$"
 ATTEMPT_ID_PATTERN = r"^att_[0-9a-f]{32}$"
 TASK_ID_PATTERN = r"^task_[0-9a-f]{32}$"
+AGENT_RUN_ID_PATTERN = r"^agr_[0-9a-f]{32}$"
 
 
 class HealthData(BaseModel):
@@ -100,6 +107,29 @@ class SkillCatalogResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: SkillCatalogData
+    request_id: UUID
+
+
+class ProposalRunData(BaseModel):
+    """Safe read projection of persisted Agent/Skill run truth."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    run_id: str = Field(pattern=AGENT_RUN_ID_PATTERN)
+    agent_run: AgentRunV1
+    skill_run: SkillRunV1
+    context_manifest: ContextManifestV1
+    agent_revision: int = Field(strict=True, ge=1)
+    skill_revision: int = Field(strict=True, ge=1)
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProposalRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ProposalRunData
     request_id: UUID
 
 

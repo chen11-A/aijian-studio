@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/proposal-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proposal Run */
+        get: operations["getProposalRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/skills": {
         parameters: {
             query?: never;
@@ -399,6 +416,27 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** AgentRunV1 */
+        AgentRunV1: {
+            agent_definition: components["schemas"]["DefinitionRefV1"];
+            /** Agent Run Id */
+            agent_run_id: string;
+            /** Delegated Skill Run Ids */
+            delegated_skill_run_ids: string[];
+            /** Project Id */
+            project_id: string;
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "RUNNING" | "NEEDS_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+        };
         /** ArtifactHeadData */
         ArtifactHeadData: {
             /** Accepted Version Id */
@@ -573,6 +611,46 @@ export interface components {
              */
             ref_type: "client_key";
         };
+        /** @enum {string} */
+        ContextEntryKind: "ROLE_INVARIANTS" | "SKILL_INSTRUCTIONS" | "APPROVED_ARTIFACT" | "SOURCE_SPAN" | "TASK_OUTPUT_SCHEMA";
+        /** ContextManifestEntryV1 */
+        ContextManifestEntryV1: {
+            /** Byte Count */
+            byte_count: number;
+            /** Content Hash */
+            content_hash: string;
+            kind: components["schemas"]["ContextEntryKind"];
+            /** Ref */
+            ref: string;
+            /** Truncation Reason */
+            truncation_reason?: string | null;
+            trust_level: components["schemas"]["ContextTrustLevel"];
+            /** Version */
+            version: string;
+        };
+        /** ContextManifestV1 */
+        ContextManifestV1: {
+            agent_definition: components["schemas"]["DefinitionRefV1"];
+            /** Context Manifest Id */
+            context_manifest_id: string;
+            /** Entries */
+            entries: components["schemas"]["ContextManifestEntryV1"][];
+            /** Manifest Hash */
+            manifest_hash: string;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            skill_definition: components["schemas"]["DefinitionRefV1"];
+            /** Total Byte Count */
+            total_byte_count: number;
+        };
+        /** @enum {string} */
+        ContextTrustLevel: "SYSTEM_INSTRUCTION" | "APPROVED_ARTIFACT" | "UNTRUSTED_CONTENT";
         /** ContractCompatibilityV1 */
         ContractCompatibilityV1: {
             /** Maximum Schema Version */
@@ -1377,6 +1455,42 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /**
+         * ProposalRunData
+         * @description Safe read projection of persisted Agent/Skill run truth.
+         */
+        ProposalRunData: {
+            /** Agent Revision */
+            agent_revision: number;
+            agent_run: components["schemas"]["AgentRunV1"];
+            context_manifest: components["schemas"]["ContextManifestV1"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Id */
+            project_id: string;
+            /** Run Id */
+            run_id: string;
+            /** Skill Revision */
+            skill_revision: number;
+            skill_run: components["schemas"]["SkillRunV1"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProposalRunResponse */
+        ProposalRunResponse: {
+            data: components["schemas"]["ProposalRunData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         ProviderCapability: string;
         /** ProviderConnectionData */
         ProviderConnectionData: {
@@ -1667,6 +1781,31 @@ export interface components {
             ui_renderer: components["schemas"]["DefinitionId"];
             /** Version */
             version: string;
+        };
+        /** SkillRunV1 */
+        SkillRunV1: {
+            /** Agent Run Id */
+            agent_run_id: string;
+            /** Context Manifest Id */
+            context_manifest_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Proposal Id */
+            proposal_id?: string | null;
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            skill_definition: components["schemas"]["DefinitionRefV1"];
+            /** Skill Run Id */
+            skill_run_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "RUNNING" | "NEEDS_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "REMOTE_UNKNOWN";
         };
         /** SourceBlockData */
         SourceBlockData: {
@@ -2844,6 +2983,65 @@ export interface operations {
                 };
             };
             /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProposalRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalRunResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Proposal run not found */
             404: {
                 headers: {
                     [name: string]: unknown;

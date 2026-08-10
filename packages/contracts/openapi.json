@@ -137,6 +137,59 @@
         "title": "AgentDefinitionV1",
         "type": "object"
       },
+      "AgentRunV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "agent_run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "delegated_skill_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Delegated Skill Run Ids",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "NEEDS_REVIEW",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_run_id",
+          "project_id",
+          "agent_definition",
+          "status",
+          "delegated_skill_run_ids"
+        ],
+        "title": "AgentRunV1",
+        "type": "object"
+      },
       "ArtifactHeadData": {
         "additionalProperties": false,
         "properties": {
@@ -709,6 +762,139 @@
         ],
         "title": "ClientRefV1",
         "type": "object"
+      },
+      "ContextEntryKind": {
+        "enum": [
+          "ROLE_INVARIANTS",
+          "SKILL_INSTRUCTIONS",
+          "APPROVED_ARTIFACT",
+          "SOURCE_SPAN",
+          "TASK_OUTPUT_SCHEMA"
+        ],
+        "type": "string"
+      },
+      "ContextManifestEntryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_count": {
+            "maximum": 16777216.0,
+            "minimum": 0.0,
+            "title": "Byte Count",
+            "type": "integer"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ContextEntryKind"
+          },
+          "ref": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string"
+          },
+          "truncation_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Truncation Reason"
+          },
+          "trust_level": {
+            "$ref": "#/components/schemas/ContextTrustLevel"
+          },
+          "version": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref",
+          "version",
+          "content_hash",
+          "trust_level",
+          "byte_count"
+        ],
+        "title": "ContextManifestEntryV1",
+        "type": "object"
+      },
+      "ContextManifestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "context_manifest_id": {
+            "pattern": "^ctx_[0-9a-f]{32}$",
+            "title": "Context Manifest Id",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ContextManifestEntryV1"
+            },
+            "maxItems": 10000,
+            "minItems": 5,
+            "title": "Entries",
+            "type": "array"
+          },
+          "manifest_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Hash",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "total_byte_count": {
+            "maximum": 2097152.0,
+            "minimum": 0.0,
+            "title": "Total Byte Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "context_manifest_id",
+          "project_id",
+          "agent_definition",
+          "skill_definition",
+          "entries",
+          "total_byte_count",
+          "manifest_hash"
+        ],
+        "title": "ContextManifestV1",
+        "type": "object"
+      },
+      "ContextTrustLevel": {
+        "enum": [
+          "SYSTEM_INSTRUCTION",
+          "APPROVED_ARTIFACT",
+          "UNTRUSTED_CONTENT"
+        ],
+        "type": "string"
       },
       "ContractCompatibilityV1": {
         "additionalProperties": false,
@@ -3696,6 +3882,83 @@
         "title": "PropFactV1",
         "type": "object"
       },
+      "ProposalRunData": {
+        "additionalProperties": false,
+        "description": "Safe read projection of persisted Agent/Skill run truth.",
+        "properties": {
+          "agent_revision": {
+            "minimum": 1.0,
+            "title": "Agent Revision",
+            "type": "integer"
+          },
+          "agent_run": {
+            "$ref": "#/components/schemas/AgentRunV1"
+          },
+          "context_manifest": {
+            "$ref": "#/components/schemas/ContextManifestV1"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skill_revision": {
+            "minimum": 1.0,
+            "title": "Skill Revision",
+            "type": "integer"
+          },
+          "skill_run": {
+            "$ref": "#/components/schemas/SkillRunV1"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "run_id",
+          "agent_run",
+          "skill_run",
+          "context_manifest",
+          "agent_revision",
+          "skill_revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProposalRunData",
+        "type": "object"
+      },
+      "ProposalRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProposalRunData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ProposalRunResponse",
+        "type": "object"
+      },
       "ProviderCapability": {
         "pattern": "^[A-Z][A-Z0-9_]{1,79}$",
         "type": "string"
@@ -4706,6 +4969,76 @@
           "compatibility"
         ],
         "title": "SkillDefinitionV1",
+        "type": "object"
+      },
+      "SkillRunV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "context_manifest_id": {
+            "pattern": "^ctx_[0-9a-f]{32}$",
+            "title": "Context Manifest Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "anyOf": [
+              {
+                "pattern": "^prp_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "skill_run_id": {
+            "pattern": "^skr_[0-9a-f]{32}$",
+            "title": "Skill Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "NEEDS_REVIEW",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "REMOTE_UNKNOWN"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skill_run_id",
+          "project_id",
+          "agent_run_id",
+          "skill_definition",
+          "context_manifest_id",
+          "status"
+        ],
+        "title": "SkillRunV1",
         "type": "object"
       },
       "SourceBlockData": {
@@ -7965,6 +8298,86 @@
           }
         },
         "summary": "List Project Agents"
+      }
+    },
+    "/api/v1/projects/{project_id}/proposal-runs/{run_id}": {
+      "get": {
+        "operationId": "getProposalRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^agr_[0-9a-f]{32}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Proposal run not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Proposal Run"
       }
     },
     "/api/v1/projects/{project_id}/skills": {
