@@ -1,8 +1,12 @@
 # 规格：Agent/Skill Fake Runtime V1
 
-状态：D1 Contracts Implemented（B 阶段合同冻结；D2–D5 尚未实现）
+状态：D1–D2 Foundation Implemented（B 阶段合同冻结；D3–D5 尚未实现）
 
-D1 已用封闭 Pydantic/JSON Schema 和固定 UTF-8 fixture 实现 AgentDefinition、SkillDefinition、ContextManifest、ArtifactProposal、AgentRun、SkillRun 与 AttemptSnapshot。ContextManifest 当前失败关闭基线为总计不超过 2 MiB、单个场景 SourceSpan 不超过 64 KiB，并把项目、Agent、Skill、条目与总字节数共同纳入哈希。实现尚未进入 OpenAPI、TypeScript、SQLite、Registry、Context Builder、Validator 或 Worker，不代表 Fake Runtime 已可运行。
+D1 已用封闭 Pydantic/JSON Schema 和固定 UTF-8 fixture 实现 AgentDefinition、SkillDefinition、ContextManifest、ArtifactProposal、AgentRun、SkillRun 与 AttemptSnapshot。ContextManifest 当前失败关闭基线为总计不超过 2 MiB、单个场景 SourceSpan 不超过 64 KiB，并把项目、Agent、Skill、条目与总字节数共同纳入哈希。合同尚未进入 OpenAPI、TypeScript、SQLite、Validator 或 Worker，不代表 Fake Runtime 已可运行。
+
+D2 已实现仅按精确版本解析的内存 Registry，并拒绝未知、禁用、Schema 不兼容、重复版本和未授权委派。Registry 通过不可由 UI/模型输入构造的 `ResolvedDelegation` 把已验证定义交给 Context Builder；生产模块只声明 `ContextLoader` 边界和内部签发钩子，Fake Loader 位于测试代码，不提供公开的高信任正文签发入口。Builder 只接收受控解析后的 `ResolvedContextInputs`，其中同时绑定项目、已批准 ArtifactVersion 和 SourceSpan；Context Builder 按五层固定顺序装配 Fake 内容，正文只存在于进程内带信任标签的 `BuiltContext`，可持久化的 ContextManifest 仅记录受限格式的引用、版本、哈希和字节数。D2 尚未实现裁剪，因此 `truncation_reason` 固定为空，不能由小说正文或外部响应写入。
+
+测试目录中的 Fake Loader 只是 D2 测试替身，不是生产授权源：它的 `accepted` 布尔值不能作为真实审批证据，也不允许复制到生产模块或暴露给 HTTP/UI。D3 必须用 project-scoped 仓储查询核验具名人工 Gate 的 accepted head、不可变 ArtifactVersion 引用、Skill 的可读 Artifact 类型和 SourceSpan 项目归属，再由受控加载器签发上下文；在此之前不得接真实 Provider 或付费 Worker。
 
 ## 目标
 
@@ -113,7 +117,7 @@ D 阶段只实现第一行和第二行的失败关闭；多租户身份仍是后
 ## D 阶段实施任务
 
 1. [完成] 合同和 fixtures（4 文件）：先写 Python/JSON Schema 失败测试；定向入口为 `uv run pytest services/api/tests/test_agent_skill_contracts.py -q`。
-2. Registry 与 Context Builder（≤5 文件）：只装配 Fake 内容，验证顺序、信任级和哈希。
+2. [完成] Registry 与 Context Builder（4 文件）：只装配 Fake 内容，验证精确版本、禁用/兼容/委派、顺序、信任级、字节预算和哈希；定向入口为 `uv run pytest services/api/tests/test_agent_skill_registry_context.py -q`。
 3. Proposal Validator（≤5 文件）：失败关闭并创建不可变 DRAFT。
 4. Fake Agent/Skill Executor（≤5 文件）：接任务账本、取消、租约、恢复、幂等和一次 QC 重试。
 5. 增量 OpenAPI/TS/IPC（每层独立提交）：不破坏既有路由。
