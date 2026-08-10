@@ -181,6 +181,57 @@ def test_executor_runs_one_handler_and_reports_empty_queue(tmp_path: Path) -> No
     assert not executor.run_once()
 
 
+def test_executor_can_claim_only_the_requested_task(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, requested, project_id = setup_execution(database, clock)
+    higher_priority = ledger.enqueue_local_node(
+        project_id=project_id,
+        definition_id="golden-short",
+        definition_version=1,
+        definition_hash=HASH_A,
+        graph={"nodes": ["render.preview"]},
+        workflow_input_hash=HASH_A,
+        node_key="render.preview.alternate",
+        node_type="render.preview",
+        contract_version=1,
+        input_bindings={},
+        node_input_hash=HASH_A,
+        request_fingerprint=HASH_B,
+        idempotency_key="golden-short:render.preview.alternate",
+        max_attempts=2,
+        task_kind="local.execute",
+        priority=100,
+        available_at=clock[0],
+    )
+    observed_tasks: list[str] = []
+
+    def handle(claim: ClaimedTask) -> str:
+        observed_tasks.append(claim.task_id)
+        return create_output(
+            repository,
+            project_id=project_id,
+            producer_attempt_id=claim.attempt_id,
+        )
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-targeted",
+        lease_duration=timedelta(seconds=30),
+        handler=handle,
+    )
+
+    assert executor.run_once(task_id=requested.task_id)
+    assert observed_tasks == [requested.task_id]
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (requested.task_id,)
+        ).fetchone() == ("COMPLETED",)
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (higher_priority.task_id,)
+        ).fetchone() == ("READY",)
+
+
 @pytest.mark.parametrize(
     ("heartbeat_interval", "message"),
     [

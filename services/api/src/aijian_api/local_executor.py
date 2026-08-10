@@ -33,10 +33,11 @@ class LocalExecutor:
         self._handler = handler
         self._heartbeat_interval = resolved_heartbeat_interval
 
-    def run_once(self) -> bool:
+    def run_once(self, *, task_id: str | None = None) -> bool:
         claim = self._ledger.claim_ready_task(
             worker_id=self._worker_id,
             lease_duration=self._lease_duration,
+            task_id=task_id,
         )
         if claim is None:
             return False

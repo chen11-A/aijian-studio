@@ -108,6 +108,7 @@ class LocalTaskLedger:
         *,
         worker_id: str,
         lease_duration: timedelta,
+        task_id: str | None = None,
     ) -> ClaimedTask | None:
         self._validate_lease_request(worker_id, lease_duration)
         now = self._clock()
@@ -134,12 +135,22 @@ class LocalTaskLedger:
                       ON attempt.attempt_id = ledger.attempt_id
                     WHERE ledger.status = 'READY' AND ledger.available_at <= ?
                       AND attempt.execution_mode = 'local' AND attempt.status = 'READY'
+                      AND (? IS NULL OR ledger.task_id = ?)
                     ORDER BY ledger.priority DESC, ledger.created_at, ledger.task_id
                     LIMIT 1
                 ) AND status = 'READY'
                 RETURNING *
                 """,
-                (worker_id, token, expires_text, now_text, now_text, now_text),
+                (
+                    worker_id,
+                    token,
+                    expires_text,
+                    now_text,
+                    now_text,
+                    now_text,
+                    task_id,
+                    task_id,
+                ),
             ).fetchone()
             if task is None:
                 connection.commit()
