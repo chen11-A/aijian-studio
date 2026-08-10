@@ -14,7 +14,17 @@ from aijian_api.agent_skill_contracts import (
     AgentSkillFixtureBundleV1,
     ArtifactProposalV1,
     AttemptSnapshotV1,
+    BudgetPolicyV1,
+    DefinitionRefV1,
+    ProposalCostV1,
+    ProposalQcV1,
     canonical_sha256,
+)
+from aijian_api.agent_skill_registry import (
+    AgentRegistration,
+    AgentSkillRegistry,
+    ResolvedDelegation,
+    SkillRegistration,
 )
 from aijian_api.artifact_proposal_store import (
     ArtifactProposalConflictError,
@@ -36,28 +46,152 @@ def fixture_bundle() -> AgentSkillFixtureBundleV1:
     return AgentSkillFixtureBundleV1.model_validate_json(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
-def valid_fake_skill(snapshot: AttemptSnapshotV1) -> ArtifactProposalV1:
+def resolved_delegation(
+    *,
+    hard_limit_micros: int,
+    retry_increment_limit_micros: int,
+    agent_version: str | None = None,
+) -> ResolvedDelegation:
+    bundle = fixture_bundle()
+    agent = bundle.agent_definition.model_copy(
+        update={"version": agent_version or bundle.agent_definition.version}
+    )
+    skill = bundle.skill_definition.model_copy(
+        update={
+            "budget": BudgetPolicyV1(
+                soft_limit_micros=0,
+                hard_limit_micros=hard_limit_micros,
+                retry_increment_limit_micros=retry_increment_limit_micros,
+            )
+        }
+    )
+    registry = AgentSkillRegistry(
+        agents=(AgentRegistration(agent),),
+        skills=(SkillRegistration(skill),),
+    )
+    return registry.resolve_delegation(
+        DefinitionRefV1(
+            definition_id=agent.agent_definition_id,
+            version=agent.version,
+        ),
+        DefinitionRefV1(
+            definition_id=skill.skill_definition_id,
+            version=skill.version,
+        ),
+    )
+
+
+def valid_fake_skill(snapshot: AttemptSnapshotV1, _invocation: int) -> ArtifactProposalV1:
     return fixture_bundle().artifact_proposal.model_copy(update={"project_id": snapshot.project_id})
 
 
-def invalid_fake_skill(snapshot: AttemptSnapshotV1) -> ArtifactProposalV1:
-    return valid_fake_skill(snapshot).model_copy(update={"target_artifact_type": "Screenplay"})
+def invalid_fake_skill(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
+    return valid_fake_skill(snapshot, invocation).model_copy(
+        update={"target_artifact_type": "Screenplay"}
+    )
 
 
-def permanently_blocked_fake_skill(_snapshot: AttemptSnapshotV1) -> ArtifactProposalV1:
+def permanently_blocked_fake_skill(
+    _snapshot: AttemptSnapshotV1,
+    _invocation: int,
+) -> ArtifactProposalV1:
     while True:
         sleep(1)
 
 
-def marker_blocked_fake_skill(_snapshot: AttemptSnapshotV1) -> ArtifactProposalV1:
+def marker_blocked_fake_skill(
+    _snapshot: AttemptSnapshotV1,
+    _invocation: int,
+) -> ArtifactProposalV1:
     marker = os.environ["AIJIAN_FAKE_HANDLER_MARKER"]
     Path(marker).write_text("started", encoding="utf-8")
     while True:
         sleep(1)
 
 
-def hard_crash_fake_skill(_snapshot: AttemptSnapshotV1) -> ArtifactProposalV1:
+def hard_crash_fake_skill(_snapshot: AttemptSnapshotV1, _invocation: int) -> ArtifactProposalV1:
     os._exit(17)
+
+
+def qc_retry_then_pass(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
+    proposal = valid_fake_skill(snapshot, invocation)
+    if invocation == 0:
+        return proposal.model_copy(
+            update={
+                "cost": ProposalCostV1(estimated_micros=2, actual_micros=2),
+                "qc": (
+                    ProposalQcV1(
+                        check_id="source-span.required",
+                        status="FAIL",
+                        details="first invocation failed",
+                    ),
+                ),
+            }
+        )
+    return proposal.model_copy(
+        update={"cost": ProposalCostV1(estimated_micros=3, actual_micros=3)}
+    )
+
+
+def qc_always_fails(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
+    proposal = valid_fake_skill(snapshot, invocation)
+    return proposal.model_copy(
+        update={
+            "cost": ProposalCostV1(estimated_micros=1, actual_micros=1),
+            "qc": (
+                ProposalQcV1(
+                    check_id="source-span.required",
+                    status="FAIL",
+                    details=f"failed invocation {invocation}",
+                ),
+            ),
+        }
+    )
+
+
+def qc_retry_is_too_expensive(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
+    proposal = valid_fake_skill(snapshot, invocation)
+    return proposal.model_copy(
+        update={
+            "cost": ProposalCostV1(estimated_micros=5, actual_micros=1),
+            "qc": (
+                ProposalQcV1(
+                    check_id="source-span.required",
+                    status="FAIL",
+                    details=f"budget blocked invocation {invocation}",
+                ),
+            ),
+        }
+    )
+
+
+def qc_retry_exceeds_returned_budget(
+    snapshot: AttemptSnapshotV1, invocation: int
+) -> ArtifactProposalV1:
+    proposal = valid_fake_skill(snapshot, invocation)
+    if invocation == 0:
+        return proposal.model_copy(
+            update={
+                "cost": ProposalCostV1(estimated_micros=1, actual_micros=1),
+                "qc": (
+                    ProposalQcV1(
+                        check_id="source-span.required",
+                        status="FAIL",
+                        details="retry requested",
+                    ),
+                ),
+            }
+        )
+    return proposal.model_copy(
+        update={"cost": ProposalCostV1(estimated_micros=20, actual_micros=20)}
+    )
+
+
+def qc_retry_then_blocks(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
+    if invocation == 0:
+        return qc_always_fails(snapshot, invocation)
+    while True:
+        sleep(1)
 
 
 def setup_fake_task(
@@ -119,6 +253,7 @@ def test_fake_executor_persists_proposal_and_enters_human_review_without_draft(
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=valid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
 
     assert executor.run_once(task_id=task_id)
@@ -161,6 +296,7 @@ def test_invalid_fake_proposal_leaves_leased_state_for_crash_recovery(tmp_path: 
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=invalid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
 
     with pytest.raises(ArtifactProposalConflictError, match="frozen attempt"):
@@ -203,6 +339,7 @@ def test_recovered_fake_execution_reuses_existing_proposal_and_enters_review(
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=valid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     assert executor.run_once()
 
@@ -311,6 +448,7 @@ def test_recovered_attempt_cannot_reuse_proposal_after_frozen_snapshot_drift(
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=valid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     with pytest.raises(ValueError, match="snapshot differs"):
         executor.run_once()
@@ -329,6 +467,7 @@ def test_handler_timeout_returns_without_waiting_and_never_persists_late_result(
         heartbeat_interval=timedelta(milliseconds=20),
         handler_timeout=timedelta(milliseconds=80),
         handler=permanently_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     started = monotonic()
     with pytest.raises(FakeSkillTimeoutError, match="timed out"):
@@ -355,6 +494,7 @@ def test_hard_crashed_process_is_normalized_and_cannot_persist(tmp_path: Path) -
         heartbeat_interval=timedelta(milliseconds=20),
         handler_timeout=timedelta(seconds=2),
         handler=hard_crash_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
 
     with pytest.raises(FakeSkillExecutionError, match="without a result"):
@@ -380,6 +520,7 @@ def test_database_lock_cannot_extend_heartbeat_beyond_handler_deadline(tmp_path:
         heartbeat_interval=timedelta(milliseconds=100),
         handler_timeout=timedelta(seconds=2),
         handler=marker_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -431,6 +572,7 @@ def test_heartbeat_lease_loss_does_not_wait_for_or_persist_handler_result(
         heartbeat_interval=timedelta(milliseconds=20),
         handler_timeout=timedelta(seconds=1),
         handler=permanently_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     started = monotonic()
     with pytest.raises(LeaseLostError, match="injected lease loss"):
@@ -474,6 +616,7 @@ def test_ready_fake_workflow_can_be_cancelled_idempotently_before_claim(tmp_path
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=valid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     ).run_once(task_id=task_id)
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("CANCELLED",)
@@ -505,6 +648,7 @@ def test_running_fake_process_is_killed_by_cancellation_and_cannot_write_late_re
         heartbeat_interval=timedelta(milliseconds=50),
         handler_timeout=timedelta(seconds=5),
         handler=marker_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -552,6 +696,7 @@ def test_proposal_review_can_be_cancelled_without_deleting_immutable_proposal(
         lease_duration=timedelta(seconds=30),
         handler_timeout=timedelta(seconds=2),
         handler=valid_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     assert executor.run_once(task_id=task_id)
     with sqlite3.connect(database) as connection:
@@ -848,3 +993,154 @@ def test_cancellation_rolls_back_all_state_if_event_creation_fails(tmp_path: Pat
         assert connection.execute("SELECT COUNT(*) FROM workflow_transition_events").fetchone() == (
             before_events
         )
+
+
+def test_qc_failure_retries_once_within_frozen_skill_budget_then_persists_pass(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="qc-retry-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=qc_retry_then_pass,
+        delegation=resolved_delegation(
+            hard_limit_micros=10, retry_increment_limit_micros=5
+        ),
+    )
+
+    assert executor.run_once(task_id=task_id)
+
+    persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id).proposal
+    assert all(check.status == "PASS" for check in persisted.qc)
+    assert (persisted.cost.estimated_micros, persisted.cost.actual_micros) == (5, 5)
+
+
+def test_second_qc_failure_is_persisted_for_human_escalation_without_third_try(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="qc-fail-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=qc_always_fails,
+        delegation=resolved_delegation(
+            hard_limit_micros=10, retry_increment_limit_micros=5
+        ),
+    )
+
+    assert executor.run_once(task_id=task_id)
+
+    persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id).proposal
+    assert persisted.qc[0].status == "FAIL"
+    assert persisted.qc[0].details == "failed invocation 1"
+    assert persisted.cost.actual_micros == 2
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "NEEDS_REVIEW",
+        )
+
+
+def test_qc_retry_is_skipped_when_frozen_increment_budget_is_insufficient(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="qc-budget-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=qc_retry_is_too_expensive,
+        delegation=resolved_delegation(
+            hard_limit_micros=10, retry_increment_limit_micros=0
+        ),
+    )
+
+    assert executor.run_once(task_id=task_id)
+
+    persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id).proposal
+    assert persisted.qc[0].details == "budget blocked invocation 0"
+    assert persisted.cost.actual_micros == 1
+
+
+def test_retry_cost_over_frozen_increment_and_hard_limit_escalates_for_review(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="qc-over-budget-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=qc_retry_exceeds_returned_budget,
+        delegation=resolved_delegation(
+            hard_limit_micros=10, retry_increment_limit_micros=5
+        ),
+    )
+
+    assert executor.run_once(task_id=task_id)
+
+    persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id).proposal
+    failed_checks = {check.check_id for check in persisted.qc if check.status == "FAIL"}
+    assert failed_checks == {"budget.retry-increment", "budget.hard-limit"}
+    assert persisted.cost.actual_micros == 21
+
+
+def test_definition_version_mismatch_fails_before_starting_handler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database, _, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    marker = tmp_path / "handler-started.txt"
+    monkeypatch.setenv("AIJIAN_FAKE_HANDLER_MARKER", str(marker))
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="mismatched-definition-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=marker_blocked_fake_skill,
+        delegation=resolved_delegation(
+            hard_limit_micros=0,
+            retry_increment_limit_micros=0,
+            agent_version="2.0.0",
+        ),
+    )
+
+    with pytest.raises(PermissionError, match="does not match"):
+        executor.run_once(task_id=task_id)
+
+    assert not marker.exists()
+
+
+def test_second_invocation_uses_shared_deadline_and_leaves_no_child(
+    tmp_path: Path,
+) -> None:
+    database, _, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    before_children = {process.pid for process in active_children()}
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="qc-timeout-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=20),
+        handler_timeout=timedelta(milliseconds=150),
+        handler=qc_retry_then_blocks,
+        delegation=resolved_delegation(
+            hard_limit_micros=10, retry_increment_limit_micros=5
+        ),
+    )
+
+    started = monotonic()
+    with pytest.raises(FakeSkillTimeoutError, match="timed out"):
+        executor.run_once(task_id=task_id)
+
+    assert monotonic() - started < 1
+    assert {process.pid for process in active_children()} == before_children

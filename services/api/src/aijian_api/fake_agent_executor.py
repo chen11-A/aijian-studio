@@ -9,11 +9,17 @@ from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from time import monotonic
 
-from aijian_api.agent_skill_contracts import ArtifactProposalV1, AttemptSnapshotV1
+from aijian_api.agent_skill_contracts import (
+    ArtifactProposalV1,
+    AttemptSnapshotV1,
+    ProposalCostV1,
+    ProposalQcV1,
+)
+from aijian_api.agent_skill_registry import ResolvedDelegation
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
-from aijian_api.task_ledger import LocalTaskLedger
+from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 
-type FakeAgentSkillHandler = Callable[[AttemptSnapshotV1], ArtifactProposalV1]
+type FakeAgentSkillHandler = Callable[[AttemptSnapshotV1, int], ArtifactProposalV1]
 
 
 class FakeSkillTimeoutError(TimeoutError):
@@ -34,6 +40,7 @@ class FakeAgentSkillExecutor:
         lease_duration: timedelta,
         handler_timeout: timedelta,
         handler: FakeAgentSkillHandler,
+        delegation: ResolvedDelegation,
         heartbeat_interval: timedelta | None = None,
     ) -> None:
         resolved_heartbeat_interval = (
@@ -59,6 +66,8 @@ class FakeAgentSkillExecutor:
         self._handler = handler
         self._heartbeat_interval = resolved_heartbeat_interval
         self._handler_timeout = handler_timeout
+        delegation.assert_registry_resolved()
+        self._delegation = delegation
 
     def run_once(self, *, task_id: str | None = None) -> bool:
         claim = self._ledger.claim_ready_task(
@@ -70,11 +79,54 @@ class FakeAgentSkillExecutor:
             return False
         running = self._ledger.mark_attempt_running(claim)
         snapshot = self._ledger.read_agent_skill_snapshot(running)
+        retry_budget = self._retry_budget(snapshot)
+        deadline = monotonic() + self._handler_timeout.total_seconds()
+        proposal, running = self._execute_handler(
+            snapshot,
+            running,
+            invocation_index=0,
+            deadline=deadline,
+        )
+        if _requires_qc_retry(proposal) and _retry_is_budgeted(proposal, retry_budget):
+            retried, running = self._execute_handler(
+                snapshot,
+                running,
+                invocation_index=1,
+                deadline=deadline,
+            )
+            proposal = _with_cumulative_cost(proposal, retried, retry_budget)
+        persisted = self._proposal_store.persist(running, proposal)
+        self._ledger.complete_local_proposal_task(
+            running,
+            proposal_id=persisted.proposal.proposal_id,
+        )
+        return True
+
+    def _retry_budget(self, snapshot: AttemptSnapshotV1) -> tuple[int, int]:
+        agent = self._delegation.agent_definition
+        skill = self._delegation.skill_definition
+        if (
+            snapshot.agent_definition_id != agent.agent_definition_id
+            or snapshot.agent_version != agent.version
+            or snapshot.skill_definition_id != skill.skill_definition_id
+            or snapshot.skill_version != skill.version
+        ):
+            raise PermissionError("Attempt snapshot does not match the resolved delegation")
+        return skill.budget.hard_limit_micros, skill.budget.retry_increment_limit_micros
+
+    def _execute_handler(
+        self,
+        snapshot: AttemptSnapshotV1,
+        running: ClaimedTask,
+        *,
+        invocation_index: int,
+        deadline: float,
+    ) -> tuple[ArtifactProposalV1, ClaimedTask]:
         process_context = get_context("spawn")
         receive, send = process_context.Pipe(duplex=False)
         process = process_context.Process(
             target=_run_isolated_handler,
-            args=(send, self._handler, snapshot),
+            args=(send, self._handler, snapshot, invocation_index),
             name="aijian-fake-agent",
         )
         try:
@@ -84,7 +136,6 @@ class FakeAgentSkillExecutor:
             send.close()
             raise
         send.close()
-        deadline = monotonic() + self._handler_timeout.total_seconds()
         try:
             while True:
                 remaining = deadline - monotonic()
@@ -121,21 +172,17 @@ class FakeAgentSkillExecutor:
         finally:
             receive.close()
             _stop_process(process)
-        persisted = self._proposal_store.persist(running, proposal)
-        self._ledger.complete_local_proposal_task(
-            running,
-            proposal_id=persisted.proposal.proposal_id,
-        )
-        return True
+        return proposal, running
 
 
 def _run_isolated_handler(
     send: Connection,
     handler: FakeAgentSkillHandler,
     snapshot: AttemptSnapshotV1,
+    invocation_index: int,
 ) -> None:
     try:
-        proposal = handler(snapshot)
+        proposal = handler(snapshot, invocation_index)
         send.send(("proposal", proposal.model_dump(mode="json")))
     except BaseException as error:
         send.send(("error", type(error).__name__, str(error)))
@@ -173,3 +220,56 @@ def _stop_process(process: BaseProcess) -> None:
     if process.is_alive():
         process.kill()
         process.join(timeout=1)
+
+
+def _requires_qc_retry(proposal: ArtifactProposalV1) -> bool:
+    return any(check.status != "PASS" for check in proposal.qc)
+
+
+def _retry_is_budgeted(
+    proposal: ArtifactProposalV1,
+    retry_budget: tuple[int, int],
+) -> bool:
+    hard_limit, retry_increment_limit = retry_budget
+    reservation = max(proposal.cost.estimated_micros, proposal.cost.actual_micros)
+    remaining = hard_limit - proposal.cost.actual_micros
+    return remaining >= 0 and reservation <= min(remaining, retry_increment_limit)
+
+
+def _with_cumulative_cost(
+    initial: ArtifactProposalV1,
+    retried: ArtifactProposalV1,
+    retry_budget: tuple[int, int],
+) -> ArtifactProposalV1:
+    hard_limit, retry_increment_limit = retry_budget
+    cumulative_estimated = initial.cost.estimated_micros + retried.cost.estimated_micros
+    cumulative_actual = initial.cost.actual_micros + retried.cost.actual_micros
+    budget_qc: list[ProposalQcV1] = []
+    if (
+        retried.cost.estimated_micros > retry_increment_limit
+        or retried.cost.actual_micros > retry_increment_limit
+    ):
+        budget_qc.append(
+            ProposalQcV1(
+                check_id="budget.retry-increment",
+                status="FAIL",
+                details="retry cost exceeded the frozen Skill retry increment",
+            )
+        )
+    if cumulative_estimated > hard_limit or cumulative_actual > hard_limit:
+        budget_qc.append(
+            ProposalQcV1(
+                check_id="budget.hard-limit",
+                status="FAIL",
+                details="cumulative cost exceeded the frozen Skill hard limit",
+            )
+        )
+    return retried.model_copy(
+        update={
+            "cost": ProposalCostV1(
+                estimated_micros=cumulative_estimated,
+                actual_micros=cumulative_actual,
+            ),
+            "qc": (*retried.qc, *budget_qc),
+        }
+    )
