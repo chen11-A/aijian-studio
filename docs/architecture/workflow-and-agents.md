@@ -1,5 +1,9 @@
 # 确定性工作流与 Agent 联合创作
 
+V1 可实施合同见 [Agent/Skill Fake Runtime V1](../specs/agent-skill-runtime-v1.md)，界面合同见
+[生产工作台 V1](../specs/studio-production-workspace-v1.md)，决策边界见
+[ADR-0005](ADR-0005-agent-skill-proposal-boundary.md)。
+
 ## 基本分工
 
 软件团队负责“机器必须遵守的规则”；电影团队 Agent 负责“在规则内提出创意”。模型输出永远是候选产物，不是数据库命令。
