@@ -23,6 +23,7 @@ from aijian_api.task_ledger_models import (
     timestamp,
     utc_now,
 )
+from aijian_api.task_ledger_proposal_completion import complete_local_proposal_task
 from aijian_api.task_ledger_recovery import recover_expired_local_tasks
 from aijian_api.task_ledger_snapshots import read_agent_skill_snapshot
 
@@ -117,9 +118,6 @@ class LocalTaskLedger:
         task_id: str | None = None,
     ) -> ClaimedTask | None:
         self._validate_lease_request(worker_id, lease_duration)
-        now = self._clock()
-        now_text = timestamp(now)
-        expires_text = timestamp(now + lease_duration)
         token = self._lease_token_factory()
         if not token.strip():
             raise ValueError("lease token must not be empty")
@@ -127,6 +125,9 @@ class LocalTaskLedger:
         connection = self._open()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            now = self._clock()
+            now_text = timestamp(now)
+            expires_text = timestamp(now + lease_duration)
             task = connection.execute(
                 """
                 UPDATE task_ledger
@@ -220,12 +221,12 @@ class LocalTaskLedger:
 
     def heartbeat(self, claim: ClaimedTask, *, lease_duration: timedelta) -> ClaimedTask:
         self._validate_lease_request(claim.lease_owner, lease_duration)
-        now = self._clock()
-        now_text = timestamp(now)
-        expires_text = timestamp(now + lease_duration)
         connection = self._open()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            now = self._clock()
+            now_text = timestamp(now)
+            expires_text = timestamp(now + lease_duration)
             row = connection.execute(
                 """
                 UPDATE task_ledger
@@ -264,10 +265,10 @@ class LocalTaskLedger:
             connection.close()
 
     def mark_attempt_running(self, claim: ClaimedTask) -> ClaimedTask:
-        now_text = timestamp(self._clock())
         connection = self._open()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            now_text = timestamp(self._clock())
             lease = connection.execute(
                 """
                 SELECT 1 FROM task_ledger
@@ -329,6 +330,15 @@ class LocalTaskLedger:
             )
         finally:
             connection.close()
+
+    def complete_local_proposal_task(self, claim: ClaimedTask, *, proposal_id: str) -> str:
+        return complete_local_proposal_task(
+            claim,
+            proposal_id=proposal_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
 
     def recover_expired_local_tasks(self) -> RecoverySummary:
         return recover_expired_local_tasks(

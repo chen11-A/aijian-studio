@@ -141,6 +141,33 @@ def canonical_snapshot_json(value: Mapping[str, object]) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def assert_attempt_snapshot_templates_match(
+    connection: sqlite3.Connection,
+    producer_attempt_id: str,
+    current_attempt_id: str,
+) -> None:
+    rows = connection.execute(
+        """
+        SELECT attempt_id, snapshot_kind, snapshot_json, snapshot_hash
+        FROM workflow_attempt_snapshots
+        WHERE attempt_id IN (?, ?)
+        """,
+        (producer_attempt_id, current_attempt_id),
+    ).fetchall()
+    snapshots = {
+        str(row["attempt_id"]): (
+            str(row["snapshot_kind"]),
+            str(row["snapshot_json"]),
+            str(row["snapshot_hash"]),
+        )
+        for row in rows
+    }
+    producer = snapshots.get(producer_attempt_id)
+    current = snapshots.get(current_attempt_id)
+    if producer is None or current is None or producer != current:
+        raise ValueError("proposal producer snapshot differs from the current attempt")
+
+
 def snapshot_sha256(snapshot_json: str) -> str:
     return f"sha256:{hashlib.sha256(snapshot_json.encode('utf-8')).hexdigest()}"
 

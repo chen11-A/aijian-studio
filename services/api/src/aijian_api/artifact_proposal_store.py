@@ -14,6 +14,7 @@ from aijian_api.agent_skill_contracts import ArtifactProposalV1, canonical_sha25
 from aijian_api.repository import StudioRepository
 from aijian_api.task_ledger_models import ClaimedTask, timestamp, utc_now
 from aijian_api.task_ledger_snapshots import (
+    assert_attempt_snapshot_templates_match,
     canonical_snapshot_json,
     read_agent_skill_snapshot,
 )
@@ -112,7 +113,12 @@ class ArtifactProposalStore:
                 ),
             ).fetchone()
             if existing is not None:
-                persisted = _decode_row(existing)
+                persisted = decode_persisted_proposal_row(existing)
+                assert_attempt_snapshot_templates_match(
+                    connection,
+                    persisted.producer_attempt_id,
+                    claim.attempt_id,
+                )
                 if (
                     persisted.proposal != proposal
                     or persisted.proposal_hash != proposal_hash
@@ -149,7 +155,7 @@ class ArtifactProposalStore:
             if row is None:
                 raise RuntimeError("persisted proposal could not be read back")
             connection.commit()
-            return _decode_row(row)
+            return decode_persisted_proposal_row(row)
         except Exception:
             connection.rollback()
             raise
@@ -167,10 +173,10 @@ class ArtifactProposalStore:
             connection.close()
         if row is None:
             raise LookupError("artifact proposal not found")
-        return _decode_row(row)
+        return decode_persisted_proposal_row(row)
 
 
-def _decode_row(row: sqlite3.Row) -> PersistedArtifactProposal:
+def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal:
     try:
         proposal_json = str(row["proposal_json"])
         payload = json.loads(proposal_json)
