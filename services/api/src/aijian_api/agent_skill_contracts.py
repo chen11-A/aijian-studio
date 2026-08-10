@@ -23,11 +23,14 @@ DEFINITION_ID_PATTERN = r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
 ARTIFACT_TYPE_PATTERN = r"^[A-Z][A-Za-z0-9]{1,79}$"
 PROVIDER_CAPABILITY_PATTERN = r"^[A-Z][A-Z0-9_]{1,79}$"
 INVALIDATION_EDGE_PATTERN = r"^[A-Z][A-Za-z0-9]{1,79}->[A-Z][A-Za-z0-9]{1,79}$"
+MAX_SAFE_JSON_INTEGER = 9_007_199_254_740_991
 
 type DefinitionId = Annotated[str, Field(pattern=DEFINITION_ID_PATTERN)]
 type ArtifactType = Annotated[str, Field(pattern=ARTIFACT_TYPE_PATTERN)]
 type ProviderCapability = Annotated[str, Field(pattern=PROVIDER_CAPABILITY_PATTERN)]
 type InvalidationEdge = Annotated[str, Field(pattern=INVALIDATION_EDGE_PATTERN)]
+type RoleStatement = Annotated[str, Field(min_length=1, max_length=1000)]
+type FixtureRef = Annotated[str, Field(min_length=1, max_length=240)]
 
 
 def canonical_sha256(value: object) -> str:
@@ -59,9 +62,11 @@ class ContractCompatibilityV1(ClosedModel):
 
 class BudgetPolicyV1(ClosedModel):
     currency: Literal["USD"] = "USD"
-    soft_limit_micros: int = Field(strict=True, ge=0)
-    hard_limit_micros: int = Field(strict=True, ge=0)
-    retry_increment_limit_micros: int = Field(strict=True, ge=0)
+    soft_limit_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
+    hard_limit_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
+    retry_increment_limit_micros: int = Field(
+        strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER
+    )
 
     @model_validator(mode="after")
     def validate_limits(self) -> BudgetPolicyV1:
@@ -79,8 +84,8 @@ class AgentDefinitionV1(ClosedModel):
     display_name: str = Field(min_length=1, max_length=80)
     role: DefinitionId
     layer: Literal["DECISION", "EXECUTION", "SUPERVISION"]
-    responsibilities: tuple[str, ...] = Field(min_length=1, max_length=32)
-    forbidden_actions: tuple[str, ...] = Field(min_length=1, max_length=32)
+    responsibilities: tuple[RoleStatement, ...] = Field(min_length=1, max_length=32)
+    forbidden_actions: tuple[RoleStatement, ...] = Field(min_length=1, max_length=32)
     skill_refs: tuple[DefinitionRefV1, ...] = Field(min_length=1, max_length=64)
     default_policy_version: str = Field(min_length=1, max_length=120)
     context_policy_version: str = Field(min_length=1, max_length=120)
@@ -103,7 +108,7 @@ class SkillDefinitionV1(ClosedModel):
     required_gate: str = Field(pattern=r"^G[0-8](?:[A-Z])?$")
     invalidation_edges: tuple[InvalidationEdge, ...] = Field(max_length=64)
     ui_renderer: DefinitionId
-    fixture_refs: tuple[str, ...] = Field(min_length=1, max_length=64)
+    fixture_refs: tuple[FixtureRef, ...] = Field(min_length=1, max_length=64)
     compatibility: ContractCompatibilityV1
 
 

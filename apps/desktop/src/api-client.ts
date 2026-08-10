@@ -1,6 +1,12 @@
 import type { components } from "@aijian/contracts";
 
 import {
+  isAgentCatalogResponse,
+  isSkillCatalogResponse,
+  type AgentCatalogResponse,
+  type SkillCatalogResponse,
+} from "./agent-skill-catalog-contract";
+import {
   hasControlCharacter,
   hasOnlyKeys,
   hasRequestId,
@@ -38,6 +44,7 @@ export type {
   ProviderConnectionListResponse,
   ProviderConnectionResponse,
 } from "./provider-connection-contract";
+export type { AgentCatalogResponse, SkillCatalogResponse } from "./agent-skill-catalog-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
 export type {
   ReorderTimelineClipInput,
@@ -73,6 +80,8 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
+  listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
@@ -1253,6 +1262,26 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
       return requestJson(
         `/api/v1/projects/${projectId}/tasks`,
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
+        { headers },
+      );
+    },
+    async listProjectAgents(projectId: string): Promise<AgentCatalogResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/agents`,
+        (payload): payload is AgentCatalogResponse => isAgentCatalogResponse(payload, projectId),
+        { headers },
+      );
+    },
+    async listProjectSkills(projectId: string): Promise<SkillCatalogResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/skills`,
+        (payload): payload is SkillCatalogResponse => isSkillCatalogResponse(payload, projectId),
         { headers },
       );
     },

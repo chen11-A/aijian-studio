@@ -72,7 +72,7 @@
           },
           "forbidden_actions": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/RoleStatement"
             },
             "maxItems": 32,
             "minItems": 1,
@@ -90,7 +90,7 @@
           },
           "responsibilities": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/RoleStatement"
             },
             "maxItems": 32,
             "minItems": 1,
@@ -278,16 +278,19 @@
             "type": "string"
           },
           "hard_limit_micros": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Hard Limit Micros",
             "type": "integer"
           },
           "retry_increment_limit_micros": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Retry Increment Limit Micros",
             "type": "integer"
           },
           "soft_limit_micros": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Soft Limit Micros",
             "type": "integer"
@@ -2216,6 +2219,11 @@
           "user_decision",
           "ai_inference"
         ],
+        "type": "string"
+      },
+      "FixtureRef": {
+        "maxLength": 240,
+        "minLength": 1,
         "type": "string"
       },
       "HealthData": {
@@ -4246,6 +4254,11 @@
         "title": "ReplaceTimelineClipRequest",
         "type": "object"
       },
+      "RoleStatement": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
       "SequenceFrameRateData": {
         "additionalProperties": false,
         "description": "Frame rate accepted for Phase 0 fixed-rate sequences.",
@@ -4604,7 +4617,7 @@
           },
           "fixture_refs": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/FixtureRef"
             },
             "maxItems": 64,
             "minItems": 1,

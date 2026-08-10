@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 from aijian_api.agent_skill_contracts import (
+    MAX_SAFE_JSON_INTEGER,
+    AgentDefinitionV1,
     AgentSkillFixtureBundleV1,
     ArtifactProposalV1,
     AttemptSnapshotV1,
@@ -185,6 +187,14 @@ def test_budget_timeout_cost_and_claim_evidence_fail_closed() -> None:
                 "retry_increment_limit_micros": 2,
             }
         },
+        {
+            "budget": {
+                "currency": "USD",
+                "soft_limit_micros": 0,
+                "hard_limit_micros": MAX_SAFE_JSON_INTEGER + 1,
+                "retry_increment_limit_micros": 0,
+            }
+        },
         {"timeout_seconds": 0},
         {"timeout_seconds": 86_401},
     ):
@@ -192,6 +202,24 @@ def test_budget_timeout_cost_and_claim_evidence_fail_closed() -> None:
         invalid_skill.update(mutation)
         with pytest.raises(ValidationError):
             SkillDefinitionV1.model_validate(invalid_skill)
+
+    for field in ("responsibilities", "forbidden_actions"):
+        invalid_agent = deepcopy(fixture_data()["agent_definition"])
+        invalid_agent[field] = [""]
+        with pytest.raises(ValidationError):
+            AgentDefinitionV1.model_validate(invalid_agent)
+
+    invalid_fixture_ref = deepcopy(skill)
+    invalid_fixture_ref["fixture_refs"] = [""]
+    with pytest.raises(ValidationError):
+        SkillDefinitionV1.model_validate(invalid_fixture_ref)
+
+    unicode_agent = deepcopy(fixture_data()["agent_definition"])
+    unicode_agent["display_name"] = "😀" * 80
+    AgentDefinitionV1.model_validate(unicode_agent)
+    unicode_agent["display_name"] += "😀"
+    with pytest.raises(ValidationError):
+        AgentDefinitionV1.model_validate(unicode_agent)
 
     float_cost = deepcopy(proposal)
     float_cost["cost"]["actual_micros"] = 0.5

@@ -14,6 +14,8 @@ type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
 type TimelineResponse = components["schemas"]["TimelineResponse"];
+type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
+type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
@@ -354,6 +356,68 @@ const taskQueueResponse: components["schemas"]["TaskQueueResponse"] = {
           status_label: "等待本地执行",
           next_action_label: "等待执行器领取",
           allowed_actions: ["VIEW_DETAILS"],
+        },
+      },
+    ],
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const agentCatalogResponse: AgentCatalogResponse = {
+  data: {
+    project_id: project.id,
+    agents: [
+      {
+        schema_version: "1.0.0",
+        agent_definition_id: "writer.source-analyst",
+        version: "1.0.0",
+        display_name: "Source analyst",
+        role: "writer",
+        layer: "EXECUTION",
+        responsibilities: ["Extract source facts"],
+        forbidden_actions: ["Write ArtifactVersion directly"],
+        skill_refs: [{ definition_id: "source.extract", version: "1.0.0" }],
+        default_policy_version: "policy.local-safe@1.0.0",
+        context_policy_version: "context.progressive@1.0.0",
+        compatibility: {
+          minimum_schema_version: "1.0.0",
+          maximum_schema_version: "1.0.0",
+        },
+      },
+    ],
+  },
+  request_id: healthyResponse.request_id,
+};
+
+const skillCatalogResponse: SkillCatalogResponse = {
+  data: {
+    project_id: project.id,
+    skills: [
+      {
+        schema_version: "1.0.0",
+        skill_definition_id: "source.extract",
+        version: "1.0.0",
+        display_name: "Source extraction",
+        input_schema_ref: "schema://aijian/SourceExtractInput/1.0.0",
+        output_schema_ref: "schema://aijian/SourceExtractionProposal/1.0.0",
+        readable_artifact_types: ["SourceManifest"],
+        allowed_tools: ["source.read"],
+        allowed_provider_capabilities: ["LOCAL_FAKE_TEXT"],
+        budget: {
+          currency: "USD",
+          soft_limit_micros: 0,
+          hard_limit_micros: 0,
+          retry_increment_limit_micros: 0,
+        },
+        timeout_seconds: 30,
+        max_attempts: 2,
+        required_gate: "G1",
+        invalidation_edges: ["SourceManifest->SourceExtraction"],
+        ui_renderer: "proposal.source-extraction",
+        fixture_refs: ["fixture://agent-skill/contracts-v1"],
+        compatibility: {
+          minimum_schema_version: "1.0.0",
+          maximum_schema_version: "1.0.0",
         },
       },
     ],
@@ -849,6 +913,93 @@ describe("local API client", () => {
       session,
     );
     await expect(invalidClient.listProjectTasks(project.id)).rejects.toThrow("published contract");
+  });
+
+  test("reads project-scoped Agent and Skill catalogs through the authenticated client", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(agentCatalogResponse))
+      .mockResolvedValueOnce(Response.json(skillCatalogResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.listProjectAgents(project.id)).resolves.toEqual(agentCatalogResponse);
+    await expect(client.listProjectSkills(project.id)).resolves.toEqual(skillCatalogResponse);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${session.origin}/api/v1/projects/${project.id}/agents`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${session.origin}/api/v1/projects/${project.id}/skills`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+  });
+
+  test("rejects malformed catalog metadata and invalid project ids before transport", async () => {
+    const malformed = structuredClone(agentCatalogResponse) as unknown as Record<string, unknown>;
+    const data = malformed.data as { agents: Array<Record<string, unknown>> };
+    data.agents[0]!.prompt_text = "must not cross the boundary";
+    const malformedClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(malformed)),
+      session,
+    );
+    await expect(malformedClient.listProjectAgents(project.id)).rejects.toThrow(
+      "published contract",
+    );
+
+    const malformedSkill = structuredClone(skillCatalogResponse) as unknown as Record<
+      string,
+      unknown
+    >;
+    const skillData = malformedSkill.data as { skills: Array<Record<string, unknown>> };
+    const skillBudget = skillData.skills[0]!.budget as Record<string, unknown>;
+    skillBudget.api_key = "must not cross the boundary";
+    const malformedSkillClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(malformedSkill)),
+      session,
+    );
+    await expect(malformedSkillClient.listProjectSkills(project.id)).rejects.toThrow(
+      "published contract",
+    );
+
+    const wrongProject = structuredClone(agentCatalogResponse);
+    wrongProject.data.project_id = `prj_${"b".repeat(32)}`;
+    const wrongProjectClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(wrongProject)),
+      session,
+    );
+    await expect(wrongProjectClient.listProjectAgents(project.id)).rejects.toThrow(
+      "published contract",
+    );
+
+    const unsafeBudget = structuredClone(skillCatalogResponse);
+    unsafeBudget.data.skills[0]!.budget.hard_limit_micros = Number.MAX_SAFE_INTEGER + 1;
+    const unsafeBudgetClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(unsafeBudget)),
+      session,
+    );
+    await expect(unsafeBudgetClient.listProjectSkills(project.id)).rejects.toThrow(
+      "published contract",
+    );
+
+    const fetchMock = vi.fn();
+    const client = createLocalApiClient(fetchMock, session);
+    await expect(client.listProjectSkills("../workspace.sqlite3")).rejects.toThrow(
+      "valid project id",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("counts catalog string limits by Unicode code point", async () => {
+    const unicodeCatalog = structuredClone(agentCatalogResponse);
+    unicodeCatalog.data.agents[0]!.display_name = "😀".repeat(80);
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(unicodeCatalog)),
+      session,
+    );
+
+    await expect(client.listProjectAgents(project.id)).resolves.toEqual(unicodeCatalog);
   });
 
   test("validates provider connections across the privileged desktop boundary", async () => {

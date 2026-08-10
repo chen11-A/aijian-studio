@@ -379,14 +379,14 @@ export interface components {
             /** Display Name */
             display_name: string;
             /** Forbidden Actions */
-            forbidden_actions: string[];
+            forbidden_actions: components["schemas"]["RoleStatement"][];
             /**
              * Layer
              * @enum {string}
              */
             layer: "DECISION" | "EXECUTION" | "SUPERVISION";
             /** Responsibilities */
-            responsibilities: string[];
+            responsibilities: components["schemas"]["RoleStatement"][];
             role: components["schemas"]["DefinitionId"];
             /**
              * Schema Version
@@ -953,6 +953,7 @@ export interface components {
         FactImportance: "core" | "supporting" | "detail";
         /** @enum {string} */
         FactOrigin: "source_explicit_assertion" | "source_interpretation" | "user_decision" | "ai_inference";
+        FixtureRef: string;
         /**
          * HealthData
          * @description Stable service identity returned by the health endpoint.
@@ -1526,6 +1527,7 @@ export interface components {
             /** Replacement Source In Frame */
             replacement_source_in_frame: number;
         };
+        RoleStatement: string;
         /**
          * SequenceFrameRateData
          * @description Frame rate accepted for Phase 0 fixed-rate sequences.
@@ -1640,7 +1642,7 @@ export interface components {
             /** Display Name */
             display_name: string;
             /** Fixture Refs */
-            fixture_refs: string[];
+            fixture_refs: components["schemas"]["FixtureRef"][];
             /** Input Schema Ref */
             input_schema_ref: string;
             /** Invalidation Edges */
