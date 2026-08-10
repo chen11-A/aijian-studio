@@ -7,6 +7,7 @@ import secrets
 import sqlite3
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
@@ -66,6 +67,12 @@ type ArtifactContentResolver = Callable[
 ]
 type ArtifactRecordValidator = Callable[[ArtifactVersionRecord], None]
 type ArtifactPayloadMetricsValidator = Callable[[ArtifactVersionPayloadMetrics], None]
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptedArtifactDependencyRequirement:
+    artifact_type: str
+    version_id: str
 
 
 _MIGRATION_1 = (
@@ -1465,6 +1472,7 @@ class StudioRepository:
         expected_revision: int | None = None,
         source_spans: tuple[ArtifactSourceSpanDraft, ...] = (),
         dependencies: tuple[ArtifactDependencyDraft, ...] = (),
+        accepted_dependency_requirements: tuple[AcceptedArtifactDependencyRequirement, ...] = (),
         required_accepted_upstream_version_id: str | None = None,
         content_resolver: ArtifactContentResolver | None = None,
         record_validator: ArtifactRecordValidator | None = None,
@@ -1499,6 +1507,30 @@ class StudioRepository:
                     if producer is None:
                         raise ValueError(
                             "producer attempt must be the running attempt for this project"
+                        )
+
+                dependency_version_ids = {
+                    dependency.upstream_version_id for dependency in dependencies
+                }
+                for requirement in accepted_dependency_requirements:
+                    accepted_dependency = connection.execute(
+                        """
+                        SELECT artifacts.artifact_type, artifact_heads.accepted_version_id
+                        FROM artifact_versions
+                        JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+                        JOIN artifact_heads ON artifact_heads.artifact_id = artifacts.artifact_id
+                        WHERE artifacts.project_id = ? AND artifact_versions.version_id = ?
+                        """,
+                        (project_id, requirement.version_id),
+                    ).fetchone()
+                    if (
+                        accepted_dependency is None
+                        or str(accepted_dependency["artifact_type"]) != requirement.artifact_type
+                        or accepted_dependency["accepted_version_id"] != requirement.version_id
+                        or requirement.version_id not in dependency_version_ids
+                    ):
+                        raise ArtifactDependencyInvalidError(
+                            "Dependency must be the current accepted ArtifactVersion"
                         )
 
                 if artifact_type == "story_bible" and required_accepted_upstream_version_id is None:
