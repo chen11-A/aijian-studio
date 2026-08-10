@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import weakref
 from dataclasses import dataclass, field
 
 from aijian_api.agent_skill_contracts import (
@@ -14,6 +15,9 @@ from aijian_api.agent_skill_contracts import (
 
 _SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _RESOLUTION_SEAL = object()
+_RESOLVED_DELEGATIONS: weakref.WeakValueDictionary[int, ResolvedDelegation] = (
+    weakref.WeakValueDictionary()
+)
 
 
 class DefinitionNotFoundError(LookupError):
@@ -40,7 +44,7 @@ class SkillRegistration:
     enabled: bool = True
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True, weakref_slot=True, init=False)
 class ResolvedDelegation:
     """A delegation that can only be minted after Registry policy checks."""
 
@@ -64,7 +68,10 @@ class ResolvedDelegation:
     def assert_registry_resolved(self) -> None:
         """Reject forged instances even if type checking was bypassed."""
 
-        if self._resolution_seal is not _RESOLUTION_SEAL:
+        if (
+            self._resolution_seal is not _RESOLUTION_SEAL
+            or _RESOLVED_DELEGATIONS.get(id(self)) is not self
+        ):
             raise TypeError("invalid Registry delegation token")
 
 
@@ -207,4 +214,6 @@ class AgentSkillRegistry:
                 f"AgentDefinition {agent_ref.definition_id}@{agent_ref.version} "
                 f"is not allowed to delegate {skill_ref.definition_id}@{skill_ref.version}"
             )
-        return ResolvedDelegation(agent, skill, _seal=_RESOLUTION_SEAL)
+        resolved = ResolvedDelegation(agent, skill, _seal=_RESOLUTION_SEAL)
+        _RESOLVED_DELEGATIONS[id(resolved)] = resolved
+        return resolved

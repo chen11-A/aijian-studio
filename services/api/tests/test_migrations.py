@@ -13,6 +13,12 @@ NOW = datetime(2026, 8, 10, 9, 30, tzinfo=UTC)
 HASH_A = f"sha256:{'a' * 64}"
 HASH_B = f"sha256:{'b' * 64}"
 
+
+def drop_v10_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE skill_runs")
+    connection.execute("DROP TABLE agent_context_manifests")
+    connection.execute("DROP TABLE agent_runs")
+
 V1_SCHEMA = """
 CREATE TABLE projects (
     id TEXT PRIMARY KEY,
@@ -171,7 +177,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-        assert SCHEMA_VERSION == 9
+        assert SCHEMA_VERSION == 10
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -204,6 +210,9 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "provider_connections",
         "workflow_attempt_snapshots",
         "agent_artifact_proposals",
+        "agent_runs",
+        "skill_runs",
+        "agent_context_manifests",
     } <= tables
 
 
@@ -433,6 +442,7 @@ def test_every_v9_ddl_failure_rolls_back_to_v8_and_can_retry(tmp_path: Path) -> 
             source_language="zh-CN",
         )
         with sqlite3.connect(database) as connection:
+            drop_v10_tables(connection)
             for trigger in (
                 "agent_artifact_proposals_immutable_update",
                 "agent_artifact_proposals_immutable_delete",
@@ -467,6 +477,51 @@ def test_every_v9_ddl_failure_rolls_back_to_v8_and_can_retry(tmp_path: Path) -> 
                 "WHERE type = 'table' AND name = 'agent_artifact_proposals'"
             ).fetchone()
         assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v10_ddl_failure_rolls_back_to_v9_and_can_retry(tmp_path: Path) -> None:
+    def create_current_v9_database(database: Path) -> None:
+        StudioRepository(database).create_project(
+            name="V9 Agent run migration",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        with sqlite3.connect(database) as connection:
+            drop_v10_tables(connection)
+            connection.execute("PRAGMA user_version = 9")
+
+    probe = tmp_path / "probe-v10.db"
+    create_current_v9_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 10 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v10-failure-{failed_step}.db"
+        create_current_v9_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 10 and step == target:
+                raise RuntimeError(f"injected v10 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v10 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 9
+        with sqlite3.connect(database) as connection:
+            tables = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+        assert {"agent_runs", "skill_runs", "agent_context_manifests"}.isdisjoint(tables)
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION
@@ -794,6 +849,7 @@ def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
 
     original = enqueue(LocalTaskLedger(database, clock=lambda: clock[0]))
     with sqlite3.connect(database) as connection:
+        drop_v10_tables(connection)
         for trigger in (
             "agent_artifact_proposals_immutable_update",
             "agent_artifact_proposals_immutable_delete",

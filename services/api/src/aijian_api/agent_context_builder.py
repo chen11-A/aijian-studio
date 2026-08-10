@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import weakref
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -22,6 +23,11 @@ _SOURCE_SPAN_REF = re.compile(r"^source:spn_[0-9a-f]{32}$")
 _SOURCE_VERSION = re.compile(r"^source-v[1-9][0-9]*$")
 _SCHEMA_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 _TRUSTED_INPUT_SEAL = object()
+_BUILT_CONTEXT_SEAL = object()
+_RESOLVED_INPUTS: weakref.WeakValueDictionary[int, ResolvedContextInputs] = (
+    weakref.WeakValueDictionary()
+)
+_BUILT_CONTEXTS: weakref.WeakValueDictionary[int, BuiltContext] = weakref.WeakValueDictionary()
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +45,7 @@ class ContextFragment:
             raise ValueError("context fragment content is required")
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True, weakref_slot=True, init=False)
 class ResolvedContextInputs:
     """Trusted layers resolved by a controlled loader, not supplied by UI/model input."""
 
@@ -79,7 +85,10 @@ class ResolvedContextInputs:
         object.__setattr__(self, "_trusted_input_seal", _seal)
 
     def assert_loader_resolved(self) -> None:
-        if self._trusted_input_seal is not _TRUSTED_INPUT_SEAL:
+        if (
+            self._trusted_input_seal is not _TRUSTED_INPUT_SEAL
+            or _RESOLVED_INPUTS.get(id(self)) is not self
+        ):
             raise TypeError("invalid controlled-loader context token")
 
 
@@ -150,7 +159,7 @@ def _mint_resolved_context_inputs(
         for fragment in source_spans
     ):
         raise ValueError("source context requires exact SourceSpan ref and controlled version")
-    return ResolvedContextInputs(
+    resolved = ResolvedContextInputs(
         project_id=project_id,
         agent_ref=agent_ref,
         skill_ref=skill_ref,
@@ -161,6 +170,8 @@ def _mint_resolved_context_inputs(
         task_output_schema=task_output_schema,
         _seal=_TRUSTED_INPUT_SEAL,
     )
+    _RESOLVED_INPUTS[id(resolved)] = resolved
+    return resolved
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,12 +181,33 @@ class BuiltContextLayer:
     fragment: ContextFragment
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, weakref_slot=True, init=False)
 class BuiltContext:
     """Ephemeral assembled content plus its safe-to-persist manifest."""
 
     layers: tuple[BuiltContextLayer, ...]
     manifest: ContextManifestV1
+    _build_seal: object = field(repr=False)
+
+    def __init__(
+        self,
+        *,
+        layers: tuple[BuiltContextLayer, ...],
+        manifest: ContextManifestV1,
+        _seal: object,
+    ) -> None:
+        if _seal is not _BUILT_CONTEXT_SEAL:
+            raise TypeError("BuiltContext must be created by build_context")
+        object.__setattr__(self, "layers", layers)
+        object.__setattr__(self, "manifest", manifest)
+        object.__setattr__(self, "_build_seal", _seal)
+
+    def assert_builder_resolved(self) -> None:
+        if (
+            self._build_seal is not _BUILT_CONTEXT_SEAL
+            or _BUILT_CONTEXTS.get(id(self)) is not self
+        ):
+            raise TypeError("invalid Context Builder token")
 
 
 def _content_hash(content: str) -> str:
@@ -255,7 +287,38 @@ def build_context(
         total_byte_count=total_byte_count,
         manifest_hash=manifest_hash,
     )
-    return BuiltContext(layers=layers, manifest=manifest)
+    built = BuiltContext(layers=layers, manifest=manifest, _seal=_BUILT_CONTEXT_SEAL)
+    _BUILT_CONTEXTS[id(built)] = built
+    return built
+
+
+def validate_built_context(
+    built_context: BuiltContext,
+    *,
+    delegation: ResolvedDelegation,
+) -> None:
+    """Recompute the safe manifest boundary instead of trusting a copied token."""
+
+    built_context.assert_builder_resolved()
+    delegation.assert_registry_resolved()
+    manifest = built_context.manifest
+    agent = delegation.agent_definition
+    skill = delegation.skill_definition
+    expected_agent_ref = DefinitionRefV1(
+        definition_id=agent.agent_definition_id,
+        version=agent.version,
+    )
+    expected_skill_ref = DefinitionRefV1(
+        definition_id=skill.skill_definition_id,
+        version=skill.version,
+    )
+    if (
+        manifest.agent_definition != expected_agent_ref
+        or manifest.skill_definition != expected_skill_ref
+        or len(built_context.layers) != len(manifest.entries)
+        or tuple(_entry(layer) for layer in built_context.layers) != manifest.entries
+    ):
+        raise ValueError("BuiltContext layers do not match its resolved manifest")
 
 
 def build_context_manifest(

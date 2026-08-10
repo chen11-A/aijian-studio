@@ -390,3 +390,154 @@ MIGRATION_9 = (
     END
     """,
 )
+
+
+MIGRATION_10 = (
+    """
+    CREATE TABLE agent_runs (
+        agent_run_id TEXT PRIMARY KEY CHECK (
+            length(agent_run_id) = 36 AND agent_run_id LIKE 'agr_%'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        agent_definition_id TEXT NOT NULL,
+        agent_definition_version TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (
+            status IN ('PENDING', 'RUNNING', 'NEEDS_REVIEW', 'SUCCEEDED',
+                       'FAILED', 'CANCELLED')
+        ),
+        delegated_skill_run_ids_json TEXT NOT NULL CHECK (
+            json_valid(delegated_skill_run_ids_json)
+            AND length(delegated_skill_run_ids_json) <= 1048576
+        ),
+        revision INTEGER NOT NULL CHECK (revision >= 1),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (project_id, agent_run_id)
+    )
+    """,
+    """
+    CREATE TABLE agent_context_manifests (
+        context_manifest_id TEXT PRIMARY KEY CHECK (
+            length(context_manifest_id) = 36 AND context_manifest_id LIKE 'ctx_%'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        agent_definition_id TEXT NOT NULL,
+        agent_definition_version TEXT NOT NULL,
+        skill_definition_id TEXT NOT NULL,
+        skill_definition_version TEXT NOT NULL,
+        manifest_json TEXT NOT NULL CHECK (
+            json_valid(manifest_json) AND length(manifest_json) <= 8388608
+            AND project_id IS json_extract(manifest_json, '$.project_id')
+            AND agent_definition_id IS json_extract(
+                manifest_json, '$.agent_definition.definition_id'
+            )
+            AND agent_definition_version IS json_extract(
+                manifest_json, '$.agent_definition.version'
+            )
+            AND skill_definition_id IS json_extract(
+                manifest_json, '$.skill_definition.definition_id'
+            )
+            AND skill_definition_version IS json_extract(
+                manifest_json, '$.skill_definition.version'
+            )
+        ),
+        manifest_hash TEXT NOT NULL CHECK (
+            length(manifest_hash) = 71 AND manifest_hash LIKE 'sha256:%'
+        ),
+        created_at TEXT NOT NULL,
+        UNIQUE (project_id, context_manifest_id)
+    )
+    """,
+    """
+    CREATE TABLE skill_runs (
+        skill_run_id TEXT PRIMARY KEY CHECK (
+            length(skill_run_id) = 36 AND skill_run_id LIKE 'skr_%'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        agent_run_id TEXT NOT NULL,
+        skill_definition_id TEXT NOT NULL,
+        skill_definition_version TEXT NOT NULL,
+        context_manifest_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (
+            status IN ('PENDING', 'RUNNING', 'NEEDS_REVIEW', 'SUCCEEDED', 'FAILED',
+                       'CANCEL_REQUESTED', 'CANCELLED', 'REMOTE_UNKNOWN')
+        ),
+        proposal_id TEXT,
+        revision INTEGER NOT NULL CHECK (revision >= 1),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (project_id, context_manifest_id),
+        UNIQUE (agent_run_id),
+        FOREIGN KEY (project_id, agent_run_id)
+            REFERENCES agent_runs(project_id, agent_run_id) ON DELETE CASCADE,
+        FOREIGN KEY (project_id, context_manifest_id)
+            REFERENCES agent_context_manifests(project_id, context_manifest_id)
+    )
+    """,
+    """
+    CREATE TRIGGER agent_context_manifests_immutable_update
+    BEFORE UPDATE ON agent_context_manifests
+    BEGIN
+        SELECT RAISE(ABORT, 'agent context manifests are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER agent_context_manifests_immutable_delete
+    BEFORE DELETE ON agent_context_manifests
+    WHEN EXISTS (
+        SELECT 1 FROM projects WHERE id = OLD.project_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'agent context manifests are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER agent_runs_identity_immutable
+    BEFORE UPDATE ON agent_runs
+    WHEN OLD.agent_run_id IS NOT NEW.agent_run_id
+      OR OLD.project_id IS NOT NEW.project_id
+      OR OLD.agent_definition_id IS NOT NEW.agent_definition_id
+      OR OLD.agent_definition_version IS NOT NEW.agent_definition_version
+      OR OLD.delegated_skill_run_ids_json IS NOT NEW.delegated_skill_run_ids_json
+      OR OLD.created_at IS NOT NEW.created_at
+    BEGIN
+        SELECT RAISE(ABORT, 'agent run identity is immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER skill_runs_identity_immutable
+    BEFORE UPDATE ON skill_runs
+    WHEN OLD.skill_run_id IS NOT NEW.skill_run_id
+      OR OLD.project_id IS NOT NEW.project_id
+      OR OLD.agent_run_id IS NOT NEW.agent_run_id
+      OR OLD.skill_definition_id IS NOT NEW.skill_definition_id
+      OR OLD.skill_definition_version IS NOT NEW.skill_definition_version
+      OR OLD.context_manifest_id IS NOT NEW.context_manifest_id
+      OR OLD.created_at IS NOT NEW.created_at
+    BEGIN
+        SELECT RAISE(ABORT, 'skill run identity is immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER skill_runs_chain_consistent_insert
+    BEFORE INSERT ON skill_runs
+    WHEN NOT EXISTS (
+        SELECT 1
+        FROM agent_runs AS agent
+        JOIN agent_context_manifests AS context
+          ON context.project_id = NEW.project_id
+         AND context.context_manifest_id = NEW.context_manifest_id
+        WHERE agent.project_id = NEW.project_id
+          AND agent.agent_run_id = NEW.agent_run_id
+          AND agent.agent_definition_id = context.agent_definition_id
+          AND agent.agent_definition_version = context.agent_definition_version
+          AND NEW.skill_definition_id = context.skill_definition_id
+          AND NEW.skill_definition_version = context.skill_definition_version
+          AND json_array_length(agent.delegated_skill_run_ids_json) = 1
+          AND json_extract(agent.delegated_skill_run_ids_json, '$[0]') = NEW.skill_run_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'skill run chain is inconsistent');
+    END
+    """,
+)
