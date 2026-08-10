@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 SPEC = ROOT / "docs/specs/settings-center-v1.md"
 ADR = ROOT / "docs/architecture/ADR-0006-settings-scope-and-effective-values.md"
