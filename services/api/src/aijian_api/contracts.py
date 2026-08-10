@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from aijian_api.agent_skill_contracts import (
     AgentDefinitionV1,
     AgentRunV1,
+    ArtifactProposalV1,
     AttemptSnapshotV1,
     ContextManifestV1,
     DefinitionRefV1,
@@ -43,6 +44,7 @@ NODE_RUN_ID_PATTERN = r"^node_[0-9a-f]{32}$"
 ATTEMPT_ID_PATTERN = r"^att_[0-9a-f]{32}$"
 TASK_ID_PATTERN = r"^task_[0-9a-f]{32}$"
 AGENT_RUN_ID_PATTERN = r"^agr_[0-9a-f]{32}$"
+PROPOSAL_ID_PATTERN = r"^prp_[0-9a-f]{32}$"
 
 
 class HealthData(BaseModel):
@@ -196,6 +198,24 @@ class ProposalRunCancellationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: ProposalRunCancellationData
+    request_id: UUID
+
+
+class ArtifactProposalData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
+    proposal: ArtifactProposalV1
+    producer_attempt_id: str = Field(pattern=ATTEMPT_ID_PATTERN)
+    proposal_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    created_at: datetime
+
+
+class ArtifactProposalResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ArtifactProposalData
     request_id: UUID
 
 

@@ -27,3 +27,7 @@ class IdempotencyKeyReusedError(RuntimeError):
 
 class ProposalRunCancellationConflictError(ValueError):
     pass
+
+
+class ArtifactProposalNotFoundError(LookupError):
+    pass

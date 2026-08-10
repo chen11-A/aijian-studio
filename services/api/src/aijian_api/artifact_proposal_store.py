@@ -10,13 +10,19 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from aijian_api.agent_skill_contracts import ArtifactProposalV1, canonical_sha256
+from aijian_api.agent_skill_contracts import (
+    ArtifactProposalV1,
+    AttemptSnapshotV1,
+    canonical_sha256,
+)
+from aijian_api.application_errors import ArtifactProposalNotFoundError
 from aijian_api.repository import StudioRepository
-from aijian_api.task_ledger_models import ClaimedTask, timestamp, utc_now
+from aijian_api.task_ledger_models import ClaimedTask, parse_datetime, timestamp, utc_now
 from aijian_api.task_ledger_snapshots import (
     assert_attempt_snapshot_templates_match,
     canonical_snapshot_json,
     read_agent_skill_snapshot,
+    snapshot_sha256,
 )
 
 _SENSITIVE_PROPOSAL_KEY_SUFFIXES = (
@@ -48,7 +54,7 @@ class PersistedArtifactProposal:
     proposal: ArtifactProposalV1
     producer_attempt_id: str
     proposal_hash: str
-    created_at: str
+    created_at: datetime
 
 
 class ArtifactProposalStore:
@@ -99,10 +105,10 @@ class ArtifactProposalStore:
                     "proposal does not match the frozen attempt snapshot"
                 )
             existing = connection.execute(
-                """
-                SELECT * FROM agent_artifact_proposals
-                WHERE proposal_id = ? OR producer_attempt_id = ?
-                   OR (project_id = ? AND producer_skill_run_id = ?)
+                PROPOSAL_TRUTH_SELECT
+                + """
+                WHERE proposal.proposal_id = ? OR proposal.producer_attempt_id = ?
+                   OR (proposal.project_id = ? AND proposal.producer_skill_run_id = ?)
                 LIMIT 1
                 """,
                 (
@@ -146,7 +152,7 @@ class ArtifactProposalStore:
                 ),
             )
             row = connection.execute(
-                "SELECT * FROM agent_artifact_proposals WHERE proposal_id = ?",
+                PROPOSAL_TRUTH_SELECT + " WHERE proposal.proposal_id = ?",
                 (proposal.proposal_id,),
             ).fetchone()
             if row is None:
@@ -163,14 +169,37 @@ class ArtifactProposalStore:
         connection = self._open()
         try:
             row = connection.execute(
-                "SELECT * FROM agent_artifact_proposals WHERE project_id = ? AND proposal_id = ?",
+                PROPOSAL_TRUTH_SELECT
+                + " WHERE proposal.project_id = ? AND proposal.proposal_id = ?",
                 (project_id, proposal_id),
             ).fetchone()
         finally:
             connection.close()
         if row is None:
-            raise LookupError("artifact proposal not found")
+            raise ArtifactProposalNotFoundError("artifact proposal not found")
         return decode_persisted_proposal_row(row)
+
+
+PROPOSAL_TRUTH_SELECT = """
+    SELECT proposal.*,
+           workflow.project_id AS attempt_project_id,
+           attempt.input_hash AS attempt_input_hash,
+           attempt.request_fingerprint AS attempt_request_fingerprint,
+           node.input_hash AS node_input_hash,
+           node.idempotency_key AS node_idempotency_key,
+           snapshot.snapshot_kind,
+           snapshot.snapshot_json,
+           snapshot.snapshot_hash
+    FROM agent_artifact_proposals AS proposal
+    JOIN workflow_attempts AS attempt
+      ON attempt.attempt_id = proposal.producer_attempt_id
+    JOIN workflow_node_runs AS node
+      ON node.node_run_id = attempt.node_run_id
+    JOIN workflow_runs AS workflow
+      ON workflow.workflow_run_id = node.workflow_run_id
+    JOIN workflow_attempt_snapshots AS snapshot
+      ON snapshot.attempt_id = attempt.attempt_id
+"""
 
 
 def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal:
@@ -192,6 +221,31 @@ def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal
             or proposal.target_artifact_type != str(row["target_artifact_type"])
         ):
             raise ValueError("proposal columns do not match the closed contract")
+        snapshot_json = str(row["snapshot_json"])
+        snapshot_payload = json.loads(snapshot_json)
+        if (
+            str(row["snapshot_kind"]) != "agent_skill_v1"
+            or not isinstance(snapshot_payload, dict)
+            or canonical_snapshot_json(snapshot_payload) != snapshot_json
+            or str(row["snapshot_hash"]) != snapshot_sha256(snapshot_json)
+            or "attempt_id" in snapshot_payload
+        ):
+            raise ValueError("proposal producer snapshot failed canonical validation")
+        snapshot = AttemptSnapshotV1.model_validate(
+            {"attempt_id": str(row["producer_attempt_id"]), **snapshot_payload}
+        )
+        if (
+            str(row["attempt_project_id"]) != proposal.project_id
+            or snapshot.project_id != proposal.project_id
+            or snapshot.agent_run_id != proposal.producer_agent_run_id
+            or snapshot.skill_run_id != proposal.producer_skill_run_id
+            or snapshot.output_artifact_type != proposal.target_artifact_type
+            or snapshot.input_hash != str(row["attempt_input_hash"])
+            or snapshot.input_hash != str(row["node_input_hash"])
+            or snapshot.idempotency_key != str(row["node_idempotency_key"])
+            or snapshot.attempt_fingerprint != str(row["attempt_request_fingerprint"])
+        ):
+            raise ValueError("proposal producer Attempt is detached from workflow truth")
     except (json.JSONDecodeError, ValidationError, ValueError) as error:
         raise ArtifactProposalConflictError(
             "persisted proposal failed integrity validation"
@@ -200,7 +254,7 @@ def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal
         proposal=proposal,
         producer_attempt_id=str(row["producer_attempt_id"]),
         proposal_hash=proposal_hash,
-        created_at=str(row["created_at"]),
+        created_at=parse_datetime(str(row["created_at"])),
     )
 
 

@@ -265,6 +265,199 @@
         "title": "ArtifactHeadData",
         "type": "object"
       },
+      "ArtifactProposalData": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "producer_attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Producer Attempt Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ArtifactProposalV1"
+          },
+          "proposal_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Hash",
+            "type": "string"
+          },
+          "proposal_id": {
+            "pattern": "^prp_[0-9a-f]{32}$",
+            "title": "Proposal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "proposal_id",
+          "proposal",
+          "producer_attempt_id",
+          "proposal_hash",
+          "created_at"
+        ],
+        "title": "ArtifactProposalData",
+        "type": "object"
+      },
+      "ArtifactProposalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ArtifactProposalData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ArtifactProposalResponse",
+        "type": "object"
+      },
+      "ArtifactProposalV1": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_losses": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityLossV1"
+            },
+            "maxItems": 100,
+            "title": "Capability Losses",
+            "type": "array"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalClaimV1"
+            },
+            "maxItems": 20000,
+            "title": "Claims",
+            "type": "array"
+          },
+          "confidence_basis_points": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Confidence Basis Points",
+            "type": "integer"
+          },
+          "cost": {
+            "$ref": "#/components/schemas/ProposalCostV1"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalDependencyV1"
+            },
+            "maxItems": 10000,
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "diff": {
+            "items": {
+              "$ref": "#/components/schemas/JsonPatchOperationV1"
+            },
+            "maxItems": 20000,
+            "title": "Diff",
+            "type": "array"
+          },
+          "impacts": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalImpactV1"
+            },
+            "maxItems": 10000,
+            "title": "Impacts",
+            "type": "array"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "payload_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "producer_agent_run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Producer Agent Run Id",
+            "type": "string"
+          },
+          "producer_skill_run_id": {
+            "pattern": "^skr_[0-9a-f]{32}$",
+            "title": "Producer Skill Run Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "pattern": "^prp_[0-9a-f]{32}$",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "qc": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalQcV1"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Qc",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_spans": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalSourceSpanV1"
+            },
+            "maxItems": 20000,
+            "minItems": 1,
+            "title": "Source Spans",
+            "type": "array"
+          },
+          "target_artifact_type": {
+            "$ref": "#/components/schemas/ArtifactType"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "project_id",
+          "target_artifact_type",
+          "payload",
+          "payload_hash",
+          "source_spans",
+          "claims",
+          "diff",
+          "dependencies",
+          "impacts",
+          "cost",
+          "confidence_basis_points",
+          "capability_losses",
+          "qc",
+          "producer_agent_run_id",
+          "producer_skill_run_id"
+        ],
+        "title": "ArtifactProposalV1",
+        "type": "object"
+      },
       "ArtifactType": {
         "pattern": "^[A-Z][A-Za-z0-9]{1,79}$",
         "type": "string"
@@ -374,6 +567,26 @@
           "rejected"
         ],
         "type": "string"
+      },
+      "CapabilityLossV1": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "title": "CapabilityLossV1",
+        "type": "object"
       },
       "CharacterEntityV1": {
         "additionalProperties": false,
@@ -2491,6 +2704,40 @@
         "pattern": "^[A-Z][A-Za-z0-9]{1,79}->[A-Z][A-Za-z0-9]{1,79}$",
         "type": "string"
       },
+      "JsonPatchOperationV1": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "add",
+              "remove",
+              "replace"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^/",
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "op",
+          "path"
+        ],
+        "title": "JsonPatchOperationV1",
+        "type": "object"
+      },
       "LocationEntityV1": {
         "additionalProperties": false,
         "properties": {
@@ -3882,6 +4129,159 @@
         "title": "PropFactV1",
         "type": "object"
       },
+      "ProposalClaimV1": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "pattern": "^clm_[0-9a-f]{32}$",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "invented": {
+            "title": "Invented",
+            "type": "boolean"
+          },
+          "source_span_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Source Span Ids",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "text",
+          "invented",
+          "source_span_ids"
+        ],
+        "title": "ProposalClaimV1",
+        "type": "object"
+      },
+      "ProposalCostV1": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_micros": {
+            "minimum": 0.0,
+            "title": "Actual Micros",
+            "type": "integer"
+          },
+          "currency": {
+            "const": "USD",
+            "default": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "estimated_micros": {
+            "minimum": 0.0,
+            "title": "Estimated Micros",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "estimated_micros",
+          "actual_micros"
+        ],
+        "title": "ProposalCostV1",
+        "type": "object"
+      },
+      "ProposalDependencyV1": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_required": {
+            "const": true,
+            "default": true,
+            "title": "Approval Required",
+            "type": "boolean"
+          },
+          "artifact_type": {
+            "$ref": "#/components/schemas/ArtifactType"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_type",
+          "version_id"
+        ],
+        "title": "ProposalDependencyV1",
+        "type": "object"
+      },
+      "ProposalImpactV1": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "anyOf": [
+              {
+                "pattern": "^art_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          },
+          "artifact_type": {
+            "$ref": "#/components/schemas/ArtifactType"
+          },
+          "impact": {
+            "enum": [
+              "CREATE",
+              "STALE",
+              "INVALIDATE"
+            ],
+            "title": "Impact",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_type",
+          "impact"
+        ],
+        "title": "ProposalImpactV1",
+        "type": "object"
+      },
+      "ProposalQcV1": {
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "details": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Details",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_RUN"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_id",
+          "status",
+          "details"
+        ],
+        "title": "ProposalQcV1",
+        "type": "object"
+      },
       "ProposalRunData": {
         "additionalProperties": false,
         "description": "Safe read projection of persisted Agent/Skill run truth.",
@@ -3957,6 +4357,58 @@
           "request_id"
         ],
         "title": "ProposalRunResponse",
+        "type": "object"
+      },
+      "ProposalSourceSpanV1": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Claim",
+            "type": "string"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "quote_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Quote Hash",
+            "type": "string"
+          },
+          "source_block_id": {
+            "pattern": "^srcb_[0-9a-f]{32}$",
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "source_span_id": {
+            "pattern": "^spn_[0-9a-f]{32}$",
+            "title": "Source Span Id",
+            "type": "string"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_span_id",
+          "source_document_id",
+          "source_block_id",
+          "start_byte",
+          "end_byte",
+          "claim",
+          "quote_hash"
+        ],
+        "title": "ProposalSourceSpanV1",
         "type": "object"
       },
       "ProviderCapability": {
@@ -8378,6 +8830,86 @@
           }
         },
         "summary": "Get Proposal Run"
+      }
+    },
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}": {
+      "get": {
+        "operationId": "getArtifactProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prp_[0-9a-f]{32}$",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact proposal not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Artifact Proposal"
       }
     },
     "/api/v1/projects/{project_id}/skills": {

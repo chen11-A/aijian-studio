@@ -107,6 +107,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Artifact Proposal */
+        get: operations["getArtifactProposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/skills": {
         parameters: {
             query?: never;
@@ -459,6 +476,73 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ArtifactProposalData */
+        ArtifactProposalData: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Producer Attempt Id */
+            producer_attempt_id: string;
+            /** Project Id */
+            project_id: string;
+            proposal: components["schemas"]["ArtifactProposalV1"];
+            /** Proposal Hash */
+            proposal_hash: string;
+            /** Proposal Id */
+            proposal_id: string;
+        };
+        /** ArtifactProposalResponse */
+        ArtifactProposalResponse: {
+            data: components["schemas"]["ArtifactProposalData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ArtifactProposalV1 */
+        ArtifactProposalV1: {
+            /** Capability Losses */
+            capability_losses: components["schemas"]["CapabilityLossV1"][];
+            /** Claims */
+            claims: components["schemas"]["ProposalClaimV1"][];
+            /** Confidence Basis Points */
+            confidence_basis_points: number;
+            cost: components["schemas"]["ProposalCostV1"];
+            /** Dependencies */
+            dependencies: components["schemas"]["ProposalDependencyV1"][];
+            /** Diff */
+            diff: components["schemas"]["JsonPatchOperationV1"][];
+            /** Impacts */
+            impacts: components["schemas"]["ProposalImpactV1"][];
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Payload Hash */
+            payload_hash: string;
+            /** Producer Agent Run Id */
+            producer_agent_run_id: string;
+            /** Producer Skill Run Id */
+            producer_skill_run_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Proposal Id */
+            proposal_id: string;
+            /** Qc */
+            qc: components["schemas"]["ProposalQcV1"][];
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Source Spans */
+            source_spans: components["schemas"]["ProposalSourceSpanV1"][];
+            target_artifact_type: components["schemas"]["ArtifactType"];
+        };
         ArtifactType: string;
         /**
          * AudioFrameBoundaryPolicyData
@@ -519,6 +603,12 @@ export interface components {
         CanonCertainty: "certain" | "likely" | "ambiguous" | "intentionally_unreliable";
         /** @enum {string} */
         CanonStatus: "proposed" | "confirmed" | "contested" | "rejected";
+        /** CapabilityLossV1 */
+        CapabilityLossV1: {
+            code: components["schemas"]["DefinitionId"];
+            /** Description */
+            description: string;
+        };
         /** CharacterEntityV1 */
         CharacterEntityV1: {
             /** Aliases */
@@ -1078,6 +1168,18 @@ export interface components {
             media_type: "text/plain";
         };
         InvalidationEdge: string;
+        /** JsonPatchOperationV1 */
+        JsonPatchOperationV1: {
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "add" | "remove" | "replace";
+            /** Path */
+            path: string;
+            /** Value */
+            value?: unknown | null;
+        };
         /** LocationEntityV1 */
         LocationEntityV1: {
             /** Aliases */
@@ -1455,6 +1557,64 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** ProposalClaimV1 */
+        ProposalClaimV1: {
+            /** Claim Id */
+            claim_id: string;
+            /** Invented */
+            invented: boolean;
+            /** Source Span Ids */
+            source_span_ids: string[];
+            /** Text */
+            text: string;
+        };
+        /** ProposalCostV1 */
+        ProposalCostV1: {
+            /** Actual Micros */
+            actual_micros: number;
+            /**
+             * Currency
+             * @default USD
+             * @constant
+             */
+            currency: "USD";
+            /** Estimated Micros */
+            estimated_micros: number;
+        };
+        /** ProposalDependencyV1 */
+        ProposalDependencyV1: {
+            /**
+             * Approval Required
+             * @default true
+             * @constant
+             */
+            approval_required: true;
+            artifact_type: components["schemas"]["ArtifactType"];
+            /** Version Id */
+            version_id: string;
+        };
+        /** ProposalImpactV1 */
+        ProposalImpactV1: {
+            /** Artifact Id */
+            artifact_id?: string | null;
+            artifact_type: components["schemas"]["ArtifactType"];
+            /**
+             * Impact
+             * @enum {string}
+             */
+            impact: "CREATE" | "STALE" | "INVALIDATE";
+        };
+        /** ProposalQcV1 */
+        ProposalQcV1: {
+            check_id: components["schemas"]["DefinitionId"];
+            /** Details */
+            details: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PASS" | "FAIL" | "NOT_RUN";
+        };
         /**
          * ProposalRunData
          * @description Safe read projection of persisted Agent/Skill run truth.
@@ -1490,6 +1650,23 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** ProposalSourceSpanV1 */
+        ProposalSourceSpanV1: {
+            /** Claim */
+            claim: string;
+            /** End Byte */
+            end_byte: number;
+            /** Quote Hash */
+            quote_hash: string;
+            /** Source Block Id */
+            source_block_id: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Source Span Id */
+            source_span_id: string;
+            /** Start Byte */
+            start_byte: number;
         };
         ProviderCapability: string;
         /** ProviderConnectionData */
@@ -3042,6 +3219,65 @@ export interface operations {
                 };
             };
             /** @description Proposal run not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getArtifactProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactProposalResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Artifact proposal not found */
             404: {
                 headers: {
                     [name: string]: unknown;

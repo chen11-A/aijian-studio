@@ -17,6 +17,7 @@ from aijian_api.agent_skill_builtins import built_in_agent_skill_registry
 from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
 from aijian_api.agent_skill_registry import AgentSkillRegistry
 from aijian_api.application_errors import (
+    ArtifactProposalNotFoundError,
     IdempotencyKeyReusedError,
     PreconditionFailedError,
     PreconditionRequiredError,
@@ -25,6 +26,8 @@ from aijian_api.application_errors import (
     ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
 )
+from aijian_api.artifact_proposal_routes import create_artifact_proposal_router
+from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.contracts import (
     CreateProjectRequest,
     ErrorBody,
@@ -202,6 +205,9 @@ def create_app(
     def get_agent_run_store() -> AgentRunStore:
         return AgentRunStore(get_repository().database_path)
 
+    def get_artifact_proposal_store() -> ArtifactProposalStore:
+        return ArtifactProposalStore(get_repository().database_path)
+
     def get_source_extract_run_factory() -> SourceExtractRunFactory:
         return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
 
@@ -273,6 +279,17 @@ def create_app(
             status_code=status.HTTP_409_CONFLICT,
             code="PROPOSAL_RUN_NOT_CANCELLABLE",
             message="The proposal run cannot be cancelled in its current state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalNotFoundError)
+    async def artifact_proposal_not_found(
+        request: Request, _error: ArtifactProposalNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="ARTIFACT_PROPOSAL_NOT_FOUND",
+            message="The requested ArtifactProposal was not found",
             request_id=request_id(request),
         )
 
@@ -679,6 +696,7 @@ def create_app(
         )
     )
     app.include_router(create_proposal_run_router(get_agent_run_store))
+    app.include_router(create_artifact_proposal_router(get_artifact_proposal_store))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))

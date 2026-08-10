@@ -4,7 +4,10 @@ import sqlite3
 from collections.abc import Callable
 from datetime import datetime
 
-from aijian_api.artifact_proposal_store import decode_persisted_proposal_row
+from aijian_api.artifact_proposal_store import (
+    PROPOSAL_TRUTH_SELECT,
+    decode_persisted_proposal_row,
+)
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import ClaimedTask, LeaseLostError, timestamp
 from aijian_api.task_ledger_snapshots import (
@@ -35,7 +38,7 @@ def complete_local_proposal_task(
             (claim.attempt_id, claim.node_run_id, claim.attempt_revision),
         ).fetchone()
         proposal_row = connection.execute(
-            "SELECT * FROM agent_artifact_proposals WHERE proposal_id = ?",
+            PROPOSAL_TRUTH_SELECT + " WHERE proposal.proposal_id = ?",
             (proposal_id,),
         ).fetchone()
         if attempt is None:
