@@ -15,6 +15,7 @@ HASH_B = f"sha256:{'b' * 64}"
 
 
 def drop_v10_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS proposal_run_enqueue_intents")
     connection.execute("DROP TABLE skill_runs")
     connection.execute("DROP TABLE agent_context_manifests")
     connection.execute("DROP TABLE agent_runs")
@@ -178,7 +179,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-        assert SCHEMA_VERSION == 10
+        assert SCHEMA_VERSION == 11
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -214,6 +215,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "agent_runs",
         "skill_runs",
         "agent_context_manifests",
+        "proposal_run_enqueue_intents",
     } <= tables
 
 
@@ -523,6 +525,49 @@ def test_every_v10_ddl_failure_rolls_back_to_v9_and_can_retry(tmp_path: Path) ->
                 ).fetchall()
             }
         assert {"agent_runs", "skill_runs", "agent_context_manifests"}.isdisjoint(tables)
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v11_ddl_failure_rolls_back_to_v10_and_can_retry(tmp_path: Path) -> None:
+    def create_current_v10_database(database: Path) -> None:
+        StudioRepository(database).create_project(
+            name="V10 proposal run outbox migration",
+            aspect_ratio="9:16",
+            target_duration_seconds=30,
+            source_language="zh-CN",
+        )
+        with sqlite3.connect(database) as connection:
+            connection.execute("DROP TABLE proposal_run_enqueue_intents")
+            connection.execute("PRAGMA user_version = 10")
+
+    probe = tmp_path / "probe-v11.db"
+    create_current_v10_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 11 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v11-failure-{failed_step}.db"
+        create_current_v10_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 11 and step == target:
+                raise RuntimeError(f"injected v11 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v11 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 10
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'proposal_run_enqueue_intents'"
+            ).fetchone()
+        assert table is None
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION

@@ -541,3 +541,41 @@ MIGRATION_10 = (
     END
     """,
 )
+
+
+MIGRATION_11 = (
+    """
+    CREATE TABLE proposal_run_enqueue_intents (
+        agent_run_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        request_hash TEXT NOT NULL CHECK (
+            length(request_hash) = 71 AND request_hash LIKE 'sha256:%'
+        ),
+        intent_json TEXT NOT NULL CHECK (
+            json_valid(intent_json) AND length(intent_json) <= 2097152
+        ),
+        intent_hash TEXT NOT NULL CHECK (
+            length(intent_hash) = 71 AND intent_hash LIKE 'sha256:%'
+        ),
+        created_at TEXT NOT NULL,
+        UNIQUE (project_id, agent_run_id),
+        FOREIGN KEY (project_id, agent_run_id)
+            REFERENCES agent_runs(project_id, agent_run_id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TRIGGER proposal_run_enqueue_intents_immutable_update
+    BEFORE UPDATE ON proposal_run_enqueue_intents
+    BEGIN
+        SELECT RAISE(ABORT, 'proposal run enqueue intents are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER proposal_run_enqueue_intents_immutable_delete
+    BEFORE DELETE ON proposal_run_enqueue_intents
+    WHEN EXISTS (SELECT 1 FROM projects WHERE id = OLD.project_id)
+    BEGIN
+        SELECT RAISE(ABORT, 'proposal run enqueue intents are immutable');
+    END
+    """,
+)

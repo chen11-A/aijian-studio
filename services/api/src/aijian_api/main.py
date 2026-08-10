@@ -13,11 +13,14 @@ from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
 from aijian_api.agent_run_store import AgentRunStore
+from aijian_api.agent_skill_builtins import built_in_agent_skill_registry
 from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
 from aijian_api.agent_skill_registry import AgentSkillRegistry
 from aijian_api.application_errors import (
+    IdempotencyKeyReusedError,
     PreconditionFailedError,
     PreconditionRequiredError,
+    ProposalRunInputRejectedError,
     ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
 )
@@ -51,7 +54,10 @@ from aijian_api.fake_timeline_workflow import (
 from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
-from aijian_api.proposal_run_routes import create_proposal_run_router
+from aijian_api.proposal_run_routes import (
+    create_proposal_run_router,
+    create_proposal_run_write_router,
+)
 from aijian_api.provider_connection_repository import (
     ProviderConnectionConflictError,
     ProviderConnectionNotFoundError,
@@ -73,6 +79,7 @@ from aijian_api.repository import (
     StudioRepository,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
+from aijian_api.source_extract_run_factory import SourceExtractRunFactory
 from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
@@ -174,7 +181,7 @@ def create_app(
         roles=("writer", "continuity_reviewer", "producer"),
     )
     resolved_credential_vault = credential_vault or SystemCredentialVault()
-    resolved_agent_skill_registry = agent_skill_registry or AgentSkillRegistry(agents=(), skills=())
+    resolved_agent_skill_registry = agent_skill_registry or built_in_agent_skill_registry()
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -189,6 +196,9 @@ def create_app(
 
     def get_agent_run_store() -> AgentRunStore:
         return AgentRunStore(get_repository().database_path)
+
+    def get_source_extract_run_factory() -> SourceExtractRunFactory:
+        return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
 
     def get_provider_connection_service() -> ProviderConnectionService:
         return ProviderConnectionService(
@@ -225,6 +235,28 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="PROPOSAL_RUN_NOT_FOUND",
             message="The requested proposal run was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunInputRejectedError)
+    async def proposal_run_input_rejected(
+        request: Request, _error: ProposalRunInputRejectedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROPOSAL_RUN_INPUT_REJECTED",
+            message="The proposal run input was rejected",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(IdempotencyKeyReusedError)
+    async def idempotency_key_reused(
+        request: Request, _error: IdempotencyKeyReusedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="IDEMPOTENCY_KEY_REUSED",
+            message="Idempotency-Key was reused with different input",
             request_id=request_id(request),
         )
 
@@ -635,6 +667,7 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
+        app.include_router(create_proposal_run_write_router(get_source_extract_run_factory))
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
         )

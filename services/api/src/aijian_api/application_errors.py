@@ -15,3 +15,11 @@ class StoryBiblePayloadTooLargeError(RuntimeError):
 
 class ProposalRunNotFoundError(LookupError):
     pass
+
+
+class ProposalRunInputRejectedError(ValueError):
+    pass
+
+
+class IdempotencyKeyReusedError(RuntimeError):
+    pass

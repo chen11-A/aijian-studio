@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +17,7 @@ from aijian_api.agent_skill_contracts import (
     ContextManifestV1,
     DefinitionRefV1,
     SkillRunV1,
+    canonical_sha256,
 )
 from aijian_api.agent_skill_registry import ResolvedDelegation
 from aijian_api.application_errors import ProposalRunNotFoundError
@@ -39,6 +40,23 @@ class PersistedAgentRunBundle:
     skill_revision: int
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PersistedProposalRunEnqueueIntent:
+    project_id: str
+    agent_run_id: str
+    request_hash: str
+    payload: dict[str, object]
+    intent_hash: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PersistedAgentRunWrite:
+    bundle: PersistedAgentRunBundle
+    enqueue_intent: PersistedProposalRunEnqueueIntent | None
+    created: bool
 
 
 def _canonical_json(value: object) -> str:
@@ -79,6 +97,43 @@ class AgentRunStore:
         built_context: BuiltContext,
         delegation: ResolvedDelegation,
     ) -> PersistedAgentRunBundle:
+        return self._persist_pending_bundle(
+            agent_run=agent_run,
+            skill_run=skill_run,
+            built_context=built_context,
+            delegation=delegation,
+            enqueue_intent=None,
+        ).bundle
+
+    def persist_pending_bundle_with_intent(
+        self,
+        *,
+        agent_run: AgentRunV1,
+        skill_run: SkillRunV1,
+        built_context: BuiltContext,
+        delegation: ResolvedDelegation,
+        request_hash: str,
+        intent_payload: Mapping[str, object],
+    ) -> PersistedAgentRunWrite:
+        if not _is_content_hash(request_hash):
+            raise AgentRunBundleConflictError("request hash must be canonical SHA-256")
+        return self._persist_pending_bundle(
+            agent_run=agent_run,
+            skill_run=skill_run,
+            built_context=built_context,
+            delegation=delegation,
+            enqueue_intent=(request_hash, dict(intent_payload)),
+        )
+
+    def _persist_pending_bundle(
+        self,
+        *,
+        agent_run: AgentRunV1,
+        skill_run: SkillRunV1,
+        built_context: BuiltContext,
+        delegation: ResolvedDelegation,
+        enqueue_intent: tuple[str, dict[str, object]] | None,
+    ) -> PersistedAgentRunWrite:
         validate_built_context(built_context, delegation=delegation)
         context_manifest = built_context.manifest
         agent_run, skill_run, context_manifest = _validate_pending_bundle(
@@ -114,8 +169,24 @@ class AgentRunStore:
                     raise AgentRunBundleConflictError(
                         "run bundle reused an immutable identity with different content"
                     )
+                persisted_intent = _read_enqueue_intent(
+                    connection,
+                    agent_run.project_id,
+                    agent_run.agent_run_id,
+                )
+                if enqueue_intent is not None and (
+                    persisted_intent is None
+                    or not _same_enqueue_intent(
+                        persisted_intent,
+                        request_hash=enqueue_intent[0],
+                        payload=enqueue_intent[1],
+                    )
+                ):
+                    raise AgentRunBundleConflictError(
+                        "run bundle reused an immutable enqueue intent with different input"
+                    )
                 connection.commit()
-                return existing
+                return PersistedAgentRunWrite(existing, persisted_intent, created=False)
             now_text = timestamp(self._clock())
             connection.execute(
                 """
@@ -180,11 +251,38 @@ class AgentRunStore:
                     now_text,
                 ),
             )
+            if enqueue_intent is not None:
+                request_hash, intent_payload = enqueue_intent
+                intent_json = _canonical_json(intent_payload)
+                intent_hash = canonical_sha256(intent_payload)
+                connection.execute(
+                    """
+                    INSERT INTO proposal_run_enqueue_intents (
+                        agent_run_id, project_id, request_hash,
+                        intent_json, intent_hash, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        agent_run.agent_run_id,
+                        agent_run.project_id,
+                        request_hash,
+                        intent_json,
+                        intent_hash,
+                        now_text,
+                    ),
+                )
             persisted = _read_bundle(connection, agent_run.project_id, agent_run.agent_run_id)
             if persisted is None:
                 raise RuntimeError("persisted Agent run bundle could not be read back")
+            persisted_intent = _read_enqueue_intent(
+                connection,
+                agent_run.project_id,
+                agent_run.agent_run_id,
+            )
+            if enqueue_intent is not None and persisted_intent is None:
+                raise RuntimeError("persisted Agent run enqueue intent could not be read back")
             connection.commit()
-            return persisted
+            return PersistedAgentRunWrite(persisted, persisted_intent, created=True)
         except Exception:
             connection.rollback()
             raise
@@ -200,6 +298,80 @@ class AgentRunStore:
         if persisted is None:
             raise ProposalRunNotFoundError("Agent run bundle not found")
         return persisted
+
+    def get_with_intent(self, project_id: str, agent_run_id: str) -> PersistedAgentRunWrite:
+        connection = self._open()
+        try:
+            persisted = _read_bundle(connection, project_id, agent_run_id)
+            intent = _read_enqueue_intent(connection, project_id, agent_run_id)
+        finally:
+            connection.close()
+        if persisted is None:
+            raise ProposalRunNotFoundError("Agent run bundle not found")
+        if intent is None:
+            raise AgentRunBundleConflictError("Agent run has no immutable enqueue intent")
+        return PersistedAgentRunWrite(persisted, intent, created=False)
+
+
+def _is_content_hash(value: str) -> bool:
+    return (
+        len(value) == 71
+        and value.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in value.removeprefix("sha256:"))
+    )
+
+
+def _read_enqueue_intent(
+    connection: sqlite3.Connection,
+    project_id: str,
+    agent_run_id: str,
+) -> PersistedProposalRunEnqueueIntent | None:
+    row = connection.execute(
+        """
+        SELECT * FROM proposal_run_enqueue_intents
+        WHERE project_id = ? AND agent_run_id = ?
+        """,
+        (project_id, agent_run_id),
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        intent_json = str(row["intent_json"])
+        payload = json.loads(intent_json)
+        if not isinstance(payload, dict) or _canonical_json(payload) != intent_json:
+            raise ValueError("enqueue intent JSON is not canonical")
+        request_hash = str(row["request_hash"])
+        intent_hash = str(row["intent_hash"])
+        if (
+            not _is_content_hash(request_hash)
+            or intent_hash != canonical_sha256(payload)
+            or str(row["project_id"]) != project_id
+            or str(row["agent_run_id"]) != agent_run_id
+        ):
+            raise ValueError("enqueue intent identity or hash drifted")
+    except (json.JSONDecodeError, TypeError, ValueError) as error:
+        raise AgentRunBundleConflictError("persisted enqueue intent failed validation") from error
+    return PersistedProposalRunEnqueueIntent(
+        project_id=project_id,
+        agent_run_id=agent_run_id,
+        request_hash=request_hash,
+        payload=payload,
+        intent_hash=intent_hash,
+        created_at=parse_datetime(str(row["created_at"])),
+    )
+
+
+def _same_enqueue_intent(
+    persisted: PersistedProposalRunEnqueueIntent,
+    *,
+    request_hash: str,
+    payload: Mapping[str, object],
+) -> bool:
+    return (
+        persisted.request_hash == request_hash
+        and persisted.intent_hash == canonical_sha256(payload)
+        and persisted.payload == dict(payload)
+    )
 
 
 def _validate_pending_bundle(

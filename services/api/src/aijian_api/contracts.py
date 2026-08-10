@@ -11,7 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from aijian_api.agent_skill_contracts import (
     AgentDefinitionV1,
     AgentRunV1,
+    AttemptSnapshotV1,
     ContextManifestV1,
+    DefinitionRefV1,
     SkillDefinitionV1,
     SkillRunV1,
 )
@@ -130,6 +132,43 @@ class ProposalRunResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: ProposalRunData
+    request_id: UUID
+
+
+class CreateProposalRunRequest(BaseModel):
+    """Exact immutable source coordinates for the first provider-free Skill."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_definition: DefinitionRefV1
+    skill_definition: DefinitionRefV1
+    source_manifest_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    source_document_id: str = Field(pattern=SOURCE_ID_PATTERN)
+    source_block_id: str = Field(pattern=SOURCE_BLOCK_ID_PATTERN)
+    start_byte: int = Field(strict=True, ge=0)
+    end_byte: int = Field(strict=True, gt=0)
+
+
+class ProposalRunTaskData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_run_id: str = Field(pattern=WORKFLOW_RUN_ID_PATTERN)
+    node_run_id: str = Field(pattern=NODE_RUN_ID_PATTERN)
+    attempt_id: str = Field(pattern=ATTEMPT_ID_PATTERN)
+    task_id: str = Field(pattern=TASK_ID_PATTERN)
+
+
+class CreatedProposalRunData(ProposalRunData):
+    model_config = ConfigDict(extra="forbid")
+
+    task: ProposalRunTaskData
+    attempt: AttemptSnapshotV1
+
+
+class CreatedProposalRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: CreatedProposalRunData
     request_id: UUID
 
 

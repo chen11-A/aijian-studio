@@ -4,18 +4,24 @@ from collections.abc import Callable
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Request
+from fastapi import APIRouter, Header, Path, Request, Response, status
 
 from aijian_api.agent_run_store import AgentRunStore
 from aijian_api.contracts import (
     AGENT_RUN_ID_PATTERN,
     PROJECT_ID_PATTERN,
+    CreatedProposalRunData,
+    CreatedProposalRunResponse,
+    CreateProposalRunRequest,
     ErrorResponse,
     ProposalRunData,
     ProposalRunResponse,
+    ProposalRunTaskData,
 )
+from aijian_api.source_extract_run_factory import SourceExtractRunFactory
 
 type StoreProvider = Callable[[], AgentRunStore]
+type RunFactoryProvider = Callable[[], SourceExtractRunFactory]
 type ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
 type AgentRunIdPath = Annotated[str, Path(pattern=AGENT_RUN_ID_PATTERN)]
 
@@ -52,6 +58,74 @@ def create_proposal_run_router(store_provider: StoreProvider) -> APIRouter:
                 skill_revision=persisted.skill_revision,
                 created_at=persisted.created_at,
                 updated_at=persisted.updated_at,
+            ),
+            request_id=cast(UUID, request.state.request_id),
+        )
+
+    return router
+
+
+def create_proposal_run_write_router(factory_provider: RunFactoryProvider) -> APIRouter:
+    """Create write routes only when the trusted Sidecar composition enables them."""
+
+    router = APIRouter()
+    errors: dict[int | str, dict[str, Any]] = {
+        401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+        403: {"description": "Local request boundary rejected", "model": ErrorResponse},
+        404: {"description": "Project not found", "model": ErrorResponse},
+        409: {"description": "Run input or idempotency conflict", "model": ErrorResponse},
+        422: {"description": "Request validation failed", "model": ErrorResponse},
+    }
+
+    @router.post(
+        "/api/v1/projects/{project_id}/proposal-runs",
+        operation_id="createProposalRun",
+        response_model=CreatedProposalRunResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses={
+            200: {
+                "description": "Existing idempotent proposal run returned",
+                "model": CreatedProposalRunResponse,
+            },
+            **errors,
+        },
+    )
+    def create_proposal_run(
+        request: Request,
+        response: Response,
+        project_id: ProjectIdPath,
+        payload: CreateProposalRunRequest,
+        idempotency_key: Annotated[
+            str,
+            Header(alias="Idempotency-Key", min_length=1, max_length=240),
+        ],
+    ) -> CreatedProposalRunResponse:
+        result = factory_provider().create(
+            project_id=project_id,
+            payload=payload,
+            idempotency_key=idempotency_key,
+        )
+        if result.replayed:
+            response.status_code = status.HTTP_200_OK
+        persisted = result.persisted
+        return CreatedProposalRunResponse(
+            data=CreatedProposalRunData(
+                project_id=project_id,
+                run_id=persisted.agent_run.agent_run_id,
+                agent_run=persisted.agent_run,
+                skill_run=persisted.skill_run,
+                context_manifest=persisted.context_manifest,
+                agent_revision=persisted.agent_revision,
+                skill_revision=persisted.skill_revision,
+                created_at=persisted.created_at,
+                updated_at=persisted.updated_at,
+                task=ProposalRunTaskData(
+                    workflow_run_id=result.task.workflow_run_id,
+                    node_run_id=result.task.node_run_id,
+                    attempt_id=result.task.attempt_id,
+                    task_id=result.task.task_id,
+                ),
+                attempt=result.attempt,
             ),
             request_id=cast(UUID, request.state.request_id),
         )
