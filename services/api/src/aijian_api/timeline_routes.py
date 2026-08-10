@@ -43,7 +43,11 @@ def _request_id(request: Request) -> UUID:
     return cast(UUID, request.state.request_id)
 
 
-def _response(project_id: str, record: ArtifactVersionRecord, request: Request) -> TimelineResponse:
+def timeline_response(
+    project_id: str,
+    record: ArtifactVersionRecord,
+    request: Request,
+) -> TimelineResponse:
     timeline = TimelineVersionV1.model_validate(record.version.content)
     if timeline.revision != record.head.revision:
         raise RuntimeError("Persisted timeline revision does not match its artifact head")
@@ -99,7 +103,7 @@ def create_timeline_router(repository_provider: RepositoryProvider) -> APIRouter
     def get_timeline(request: Request, response: Response, project_id: str) -> TimelineResponse:
         record = _latest(repository_provider(), project_id)
         response.headers["ETag"] = f'"revision-{record.head.revision}"'
-        return _response(project_id, record, request)
+        return timeline_response(project_id, record, request)
 
     @router.post(
         "/api/v1/projects/{project_id}/timeline",
@@ -144,7 +148,7 @@ def create_timeline_router(repository_provider: RepositoryProvider) -> APIRouter
         except ArtifactConflictError as error:
             raise TimelineAlreadyExistsError from error
         response.headers["ETag"] = '"revision-1"'
-        return _response(project_id, record, request)
+        return timeline_response(project_id, record, request)
 
     @router.post(
         "/api/v1/projects/{project_id}/timeline/trim",
@@ -169,7 +173,7 @@ def create_timeline_router(repository_provider: RepositoryProvider) -> APIRouter
         )
         record = _append(repository, project_id, previous, timeline, "裁剪镜头")
         response.headers["ETag"] = f'"revision-{record.head.revision}"'
-        return _response(project_id, record, request)
+        return timeline_response(project_id, record, request)
 
     @router.post(
         "/api/v1/projects/{project_id}/timeline/reorder",
@@ -193,7 +197,7 @@ def create_timeline_router(repository_provider: RepositoryProvider) -> APIRouter
         )
         record = _append(repository, project_id, previous, timeline, "调整镜头顺序")
         response.headers["ETag"] = f'"revision-{record.head.revision}"'
-        return _response(project_id, record, request)
+        return timeline_response(project_id, record, request)
 
     @router.post(
         "/api/v1/projects/{project_id}/timeline/replace",
@@ -218,6 +222,6 @@ def create_timeline_router(repository_provider: RepositoryProvider) -> APIRouter
         )
         record = _append(repository, project_id, previous, timeline, "替换镜头素材")
         response.headers["ETag"] = f'"revision-{record.head.revision}"'
-        return _response(project_id, record, request)
+        return timeline_response(project_id, record, request)
 
     return router

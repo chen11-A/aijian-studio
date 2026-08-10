@@ -40,6 +40,11 @@ from aijian_api.credential_vault import (
     SystemCredentialVault,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
+from aijian_api.fake_timeline_workflow import (
+    FakeTimelineWorkflowNotReadyError,
+    SourceRequiredError,
+)
+from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
 from aijian_api.provider_connection_repository import (
@@ -249,6 +254,27 @@ def create_app(
                 if revision_conflict
                 else "The timeline edit was rejected"
             ),
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceRequiredError)
+    async def source_required(request: Request, _error: SourceRequiredError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="SOURCE_REQUIRED",
+            message="Import a source before starting the preview workflow",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineWorkflowNotReadyError)
+    async def fake_workflow_not_ready(
+        request: Request,
+        _error: FakeTimelineWorkflowNotReadyError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_WORKFLOW_NOT_READY",
+            message="The preview workflow task is already being processed",
             request_id=request_id(request),
         )
 
@@ -579,6 +605,7 @@ def create_app(
     app.include_router(create_task_queue_router(get_task_queue_reader))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     app.include_router(create_timeline_router(get_repository))
+    app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
