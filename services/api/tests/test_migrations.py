@@ -171,7 +171,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-    assert SCHEMA_VERSION == 8
+        assert SCHEMA_VERSION == 9
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -203,6 +203,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "workflow_enqueue_keys",
         "provider_connections",
         "workflow_attempt_snapshots",
+        "agent_artifact_proposals",
     } <= tables
 
 
@@ -416,6 +417,54 @@ def test_every_v8_ddl_failure_rolls_back_to_v7_and_can_retry(tmp_path: Path) -> 
             table = connection.execute(
                 "SELECT 1 FROM sqlite_master "
                 "WHERE type = 'table' AND name = 'workflow_attempt_snapshots'"
+            ).fetchone()
+        assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v9_ddl_failure_rolls_back_to_v8_and_can_retry(tmp_path: Path) -> None:
+    def create_current_v8_database(database: Path) -> None:
+        StudioRepository(database).create_project(
+            name="V8 proposal migration",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        with sqlite3.connect(database) as connection:
+            for trigger in (
+                "agent_artifact_proposals_immutable_update",
+                "agent_artifact_proposals_immutable_delete",
+            ):
+                connection.execute(f"DROP TRIGGER {trigger}")
+            connection.execute("DROP TABLE agent_artifact_proposals")
+            connection.execute("PRAGMA user_version = 8")
+
+    probe = tmp_path / "probe-v9.db"
+    create_current_v8_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 9 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v9-failure-{failed_step}.db"
+        create_current_v8_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 9 and step == target:
+                raise RuntimeError(f"injected v9 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v9 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 8
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'agent_artifact_proposals'"
             ).fetchone()
         assert table is None
 
@@ -745,6 +794,12 @@ def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
 
     original = enqueue(LocalTaskLedger(database, clock=lambda: clock[0]))
     with sqlite3.connect(database) as connection:
+        for trigger in (
+            "agent_artifact_proposals_immutable_update",
+            "agent_artifact_proposals_immutable_delete",
+        ):
+            connection.execute(f"DROP TRIGGER {trigger}")
+        connection.execute("DROP TABLE agent_artifact_proposals")
         for trigger in (
             "workflow_attempt_snapshot_recovery_copy",
             "workflow_attempt_snapshots_immutable_update",

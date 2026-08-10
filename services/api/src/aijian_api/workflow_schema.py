@@ -346,3 +346,47 @@ MIGRATION_8 = (
     END
     """,
 )
+
+
+MIGRATION_9 = (
+    """
+    CREATE TABLE agent_artifact_proposals (
+        proposal_id TEXT PRIMARY KEY CHECK (
+            length(proposal_id) = 36 AND proposal_id LIKE 'prp_%'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        producer_attempt_id TEXT NOT NULL UNIQUE
+            REFERENCES workflow_attempts(attempt_id) ON DELETE CASCADE,
+        producer_agent_run_id TEXT NOT NULL,
+        producer_skill_run_id TEXT NOT NULL,
+        target_artifact_type TEXT NOT NULL,
+        proposal_json TEXT NOT NULL CHECK (
+            json_valid(proposal_json) AND length(proposal_json) <= 8388608
+        ),
+        proposal_hash TEXT NOT NULL CHECK (
+            length(proposal_hash) = 71 AND proposal_hash LIKE 'sha256:%'
+        ),
+        created_at TEXT NOT NULL,
+        UNIQUE (project_id, producer_skill_run_id)
+    )
+    """,
+    """
+    CREATE TRIGGER agent_artifact_proposals_immutable_update
+    BEFORE UPDATE ON agent_artifact_proposals
+    BEGIN
+        SELECT RAISE(ABORT, 'agent artifact proposals are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER agent_artifact_proposals_immutable_delete
+    BEFORE DELETE ON agent_artifact_proposals
+    WHEN EXISTS (
+        SELECT 1 FROM projects WHERE id = OLD.project_id
+    ) AND EXISTS (
+        SELECT 1 FROM workflow_attempts WHERE attempt_id = OLD.producer_attempt_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'agent artifact proposals are immutable');
+    END
+    """,
+)
