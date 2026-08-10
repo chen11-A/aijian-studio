@@ -1,6 +1,8 @@
 # 规格：Agent/Skill Fake Runtime V1
 
-状态：Proposed（B 阶段合同；D 阶段实施）
+状态：D1 Contracts Implemented（B 阶段合同冻结；D2–D5 尚未实现）
+
+D1 已用封闭 Pydantic/JSON Schema 和固定 UTF-8 fixture 实现 AgentDefinition、SkillDefinition、ContextManifest、ArtifactProposal、AgentRun、SkillRun 与 AttemptSnapshot。ContextManifest 当前失败关闭基线为总计不超过 2 MiB、单个场景 SourceSpan 不超过 64 KiB，并把项目、Agent、Skill、条目与总字节数共同纳入哈希。实现尚未进入 OpenAPI、TypeScript、SQLite、Registry、Context Builder、Validator 或 Worker，不代表 Fake Runtime 已可运行。
 
 ## 目标
 
@@ -110,7 +112,7 @@ D 阶段只实现第一行和第二行的失败关闭；多租户身份仍是后
 
 ## D 阶段实施任务
 
-1. 合同和 fixtures（≤5 文件）：先写 Python/JSON Schema 失败测试。
+1. [完成] 合同和 fixtures（4 文件）：先写 Python/JSON Schema 失败测试；定向入口为 `uv run pytest services/api/tests/test_agent_skill_contracts.py -q`。
 2. Registry 与 Context Builder（≤5 文件）：只装配 Fake 内容，验证顺序、信任级和哈希。
 3. Proposal Validator（≤5 文件）：失败关闭并创建不可变 DRAFT。
 4. Fake Agent/Skill Executor（≤5 文件）：接任务账本、取消、租约、恢复、幂等和一次 QC 重试。

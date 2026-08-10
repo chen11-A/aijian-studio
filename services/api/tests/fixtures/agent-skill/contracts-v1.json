@@ -1,0 +1,225 @@
+{
+  "schema_version": "1.0.0",
+  "agent_definition": {
+    "schema_version": "1.0.0",
+    "agent_definition_id": "writer.source-analyst",
+    "version": "1.0.0",
+    "display_name": "来源分析编剧",
+    "role": "writer",
+    "layer": "EXECUTION",
+    "responsibilities": ["提取来源事实", "提交带证据的结构化提案"],
+    "forbidden_actions": ["直接写入 ArtifactVersion", "代替具名人类审批"],
+    "skill_refs": [
+      {
+        "definition_id": "source.extract",
+        "version": "1.0.0"
+      }
+    ],
+    "default_policy_version": "policy.local-safe@1.0.0",
+    "context_policy_version": "context.progressive-five-layer@1.0.0",
+    "compatibility": {
+      "minimum_schema_version": "1.0.0",
+      "maximum_schema_version": "1.0.0"
+    }
+  },
+  "skill_definition": {
+    "schema_version": "1.0.0",
+    "skill_definition_id": "source.extract",
+    "version": "1.0.0",
+    "display_name": "来源提取",
+    "input_schema_ref": "schema://aijian/SourceExtractInput/1.0.0",
+    "output_schema_ref": "schema://aijian/SourceExtractionProposal/1.0.0",
+    "readable_artifact_types": ["SourceManifest"],
+    "allowed_tools": ["source.read"],
+    "allowed_provider_capabilities": ["LOCAL_FAKE_TEXT"],
+    "budget": {
+      "currency": "USD",
+      "soft_limit_micros": 0,
+      "hard_limit_micros": 0,
+      "retry_increment_limit_micros": 0
+    },
+    "timeout_seconds": 30,
+    "max_attempts": 2,
+    "required_gate": "G1",
+    "invalidation_edges": ["SourceManifest->SourceExtraction"],
+    "ui_renderer": "proposal.source-extraction",
+    "fixture_refs": ["fixture://agent-skill/contracts-v1"],
+    "compatibility": {
+      "minimum_schema_version": "1.0.0",
+      "maximum_schema_version": "1.0.0"
+    }
+  },
+  "context_manifest": {
+    "schema_version": "1.0.0",
+    "context_manifest_id": "ctx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agent_definition": {
+      "definition_id": "writer.source-analyst",
+      "version": "1.0.0"
+    },
+    "skill_definition": {
+      "definition_id": "source.extract",
+      "version": "1.0.0"
+    },
+    "entries": [
+      {
+        "kind": "ROLE_INVARIANTS",
+        "ref": "agent:writer.source-analyst",
+        "version": "1.0.0",
+        "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "trust_level": "SYSTEM_INSTRUCTION",
+        "byte_count": 128,
+        "truncation_reason": null
+      },
+      {
+        "kind": "SKILL_INSTRUCTIONS",
+        "ref": "skill:source.extract",
+        "version": "1.0.0",
+        "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "trust_level": "SYSTEM_INSTRUCTION",
+        "byte_count": 256,
+        "truncation_reason": null
+      },
+      {
+        "kind": "APPROVED_ARTIFACT",
+        "ref": "artifact:SourceManifest/ver_33333333333333333333333333333333",
+        "version": "1.0.0",
+        "content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "trust_level": "APPROVED_ARTIFACT",
+        "byte_count": 512,
+        "truncation_reason": null
+      },
+      {
+        "kind": "SOURCE_SPAN",
+        "ref": "source:spn_44444444444444444444444444444444",
+        "version": "source-v1",
+        "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "trust_level": "UNTRUSTED_CONTENT",
+        "byte_count": 96,
+        "truncation_reason": null
+      },
+      {
+        "kind": "TASK_OUTPUT_SCHEMA",
+        "ref": "schema:SourceExtractionProposal",
+        "version": "1.0.0",
+        "content_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "trust_level": "SYSTEM_INSTRUCTION",
+        "byte_count": 384,
+        "truncation_reason": null
+      }
+    ],
+    "total_byte_count": 1376,
+    "manifest_hash": "sha256:2b98b2bd571599d49097dde9f5af7eca7e4f4c06034c8c56d9197c7338ae5203"
+  },
+  "artifact_proposal": {
+    "schema_version": "1.0.0",
+    "proposal_id": "prp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_artifact_type": "SourceExtraction",
+    "payload": {
+      "summary": "从来源提取可审阅事件"
+    },
+    "payload_hash": "sha256:6b2d017d3148ddc32032d0345d3fa78fc89ffcd92807f07a92a6101c18ac344f",
+    "source_spans": [
+      {
+        "source_span_id": "spn_44444444444444444444444444444444",
+        "source_document_id": "src_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_block_id": "srcb_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "start_byte": 0,
+        "end_byte": 24,
+        "claim": "林见收到一封未署名的信",
+        "quote_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "clm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "text": "林见收到一封未署名的信",
+        "invented": false,
+        "source_span_ids": ["spn_44444444444444444444444444444444"]
+      }
+    ],
+    "diff": [
+      {
+        "op": "add",
+        "path": "/events/0",
+        "value": "收到未署名来信"
+      }
+    ],
+    "dependencies": [
+      {
+        "artifact_type": "SourceManifest",
+        "version_id": "ver_33333333333333333333333333333333",
+        "approval_required": true
+      }
+    ],
+    "impacts": [
+      {
+        "artifact_type": "SourceExtraction",
+        "artifact_id": null,
+        "impact": "CREATE"
+      }
+    ],
+    "cost": {
+      "currency": "USD",
+      "estimated_micros": 0,
+      "actual_micros": 0
+    },
+    "confidence_basis_points": 9000,
+    "capability_losses": [],
+    "qc": [
+      {
+        "check_id": "source-span.required",
+        "status": "PASS",
+        "details": "全部事实声明绑定来源证据"
+      }
+    ],
+    "producer_agent_run_id": "agr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "producer_skill_run_id": "skr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "agent_run": {
+    "schema_version": "1.0.0",
+    "agent_run_id": "agr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agent_definition": {
+      "definition_id": "writer.source-analyst",
+      "version": "1.0.0"
+    },
+    "status": "NEEDS_REVIEW",
+    "delegated_skill_run_ids": ["skr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+  },
+  "skill_run": {
+    "schema_version": "1.0.0",
+    "skill_run_id": "skr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agent_run_id": "agr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "skill_definition": {
+      "definition_id": "source.extract",
+      "version": "1.0.0"
+    },
+    "context_manifest_id": "ctx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "NEEDS_REVIEW",
+    "proposal_id": "prp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "attempt": {
+    "schema_version": "1.0.0",
+    "attempt_id": "att_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agent_run_id": "agr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "skill_run_id": "skr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "output_artifact_type": "SourceExtraction",
+    "agent_definition_id": "writer.source-analyst",
+    "agent_version": "1.0.0",
+    "skill_definition_id": "source.extract",
+    "skill_version": "1.0.0",
+    "prompt_version": "prompt.source-extract@1.0.0",
+    "policy_version": "policy.local-safe@1.0.0",
+    "provider_connection_id": "provider:local-fake",
+    "model_id": "deterministic-fake-v1",
+    "capability_snapshot_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "input_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "output_schema_version": "1.0.0",
+    "idempotency_key": "idem:source-extract:golden-v1",
+    "attempt_fingerprint": "sha256:bd6a8af4dfc3098bdb475f17c63a13f6791cb1f165614c7d4922dd37dd05e854"
+  }
+}
