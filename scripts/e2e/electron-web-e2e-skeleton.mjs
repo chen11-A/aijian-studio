@@ -111,6 +111,13 @@ try {
   await appWindow.getByRole("textbox", { name: "项目名称" }).fill("1");
   await appWindow.getByRole("button", { name: "创建项目" }).click();
   await appWindow.getByRole("heading", { name: "1", exact: true }).waitFor();
+  const modelApiTrigger = appWindow.getByRole("button", {
+    name: "打开模型与 API",
+    exact: true,
+  });
+  if ((await modelApiTrigger.textContent())?.trim() !== "模型与 API") {
+    throw new Error("Electron must expose the Provider-only entry as 模型与 API");
+  }
   await appWindow.getByRole("button", { name: "收起项目栏" }).click();
   await appWindow.getByRole("button", { name: "收起属性检查器" }).click();
   const regressionLayout = await appWindow.evaluate(() => {

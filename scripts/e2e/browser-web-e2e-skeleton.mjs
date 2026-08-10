@@ -138,6 +138,10 @@ try {
   await page.getByRole("textbox", { name: "项目名称" }).fill("1");
   await page.getByRole("button", { name: "创建项目" }).click();
   await page.getByRole("heading", { name: "1", exact: true }).waitFor();
+  const modelApiTrigger = page.getByRole("button", { name: "打开模型与 API", exact: true });
+  if ((await modelApiTrigger.textContent())?.trim() !== "模型与 API") {
+    throw new Error("The Provider-only global entry must be honestly named 模型与 API");
+  }
   await page.getByRole("button", { name: "收起项目栏" }).click();
   await page.getByRole("button", { name: "收起属性检查器" }).click();
   await page.getByRole("navigation", { name: "工作台布局" }).waitFor();
@@ -374,7 +378,9 @@ try {
       .getByRole("button", { name: "剪辑 · 剪辑台" })
       .isVisible(),
     createProject: await page.getByRole("button", { name: /新建项目/ }).isVisible(),
-    settings: await page.getByRole("button", { name: /打开模型与 API 设置/ }).isVisible(),
+    modelAndApi: await page
+      .getByRole("button", { name: "打开模型与 API", exact: true })
+      .isVisible(),
     importSource: await page.getByLabel("选择 TXT 文件").isVisible(),
     fakeGenerate: await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).isVisible(),
   };

@@ -31,42 +31,42 @@
     {
       "method": "POST",
       "status": 201,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/workflows/fake-timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/workflows/fake-timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline/trim"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline/trim"
     },
     {
       "method": "GET",
@@ -91,37 +91,37 @@
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/sources/src_9b92afa812ab406cb96922cc3fac2528"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources/src_ff53ba9865854724823aae313d8629a5"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8ec8bd75228a4b9b91bdefd19a7da9a2/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
     }
   ],
   "viewport": {
@@ -218,7 +218,7 @@
     "generate": false,
     "edit": false,
     "createProject": false,
-    "settings": false,
+    "modelAndApi": false,
     "importSource": false,
     "fakeGenerate": false
   },

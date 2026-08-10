@@ -611,7 +611,9 @@ test("opens model and API settings without requiring a selected project", async 
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "还没有制作项目" });
 
-  fireEvent.click(screen.getByRole("button", { name: /模型与 API/ }));
+  const trigger = screen.getByRole("button", { name: /^打开模型与 API$/ });
+  expect(trigger).toHaveTextContent("模型与 API");
+  fireEvent.click(trigger);
 
   expect(
     await screen.findByRole("heading", { name: "统一模型连接", level: 2 }),

@@ -1965,10 +1965,10 @@ export function App({ transport }: AppProps) {
             <button
               className="secondary-button compact settings-action"
               type="button"
-              aria-label="打开模型与 API 设置"
+              aria-label="打开模型与 API"
               onClick={() => setActiveWorkspace("settings")}
             >
-              设置
+              模型与 API
             </button>
             <button
               className="accent-button compact creation-action"
