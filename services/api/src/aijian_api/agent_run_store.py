@@ -99,17 +99,16 @@ class AgentRunStore:
                 """,
                 (skill_run.skill_run_id, context_manifest.context_manifest_id),
             ).fetchone()
-            if existing is not None or bool(collisions["skill_exists"]) or bool(
-                collisions["context_exists"]
+            if (
+                existing is not None
+                or bool(collisions["skill_exists"])
+                or bool(collisions["context_exists"])
             ):
-                if (
-                    existing is None
-                    or not _same_bundle_identity(
-                        existing,
-                        agent_run,
-                        skill_run,
-                        context_manifest,
-                    )
+                if existing is None or not _same_bundle_identity(
+                    existing,
+                    agent_run,
+                    skill_run,
+                    context_manifest,
                 ):
                     raise AgentRunBundleConflictError(
                         "run bundle reused an immutable identity with different content"
@@ -211,9 +210,7 @@ def _validate_pending_bundle(
     delegation.assert_registry_resolved()
     agent_run = AgentRunV1.model_validate(agent_run.model_dump(mode="json"))
     skill_run = SkillRunV1.model_validate(skill_run.model_dump(mode="json"))
-    context_manifest = ContextManifestV1.model_validate(
-        context_manifest.model_dump(mode="json")
-    )
+    context_manifest = ContextManifestV1.model_validate(context_manifest.model_dump(mode="json"))
     agent_ref = DefinitionRefV1(
         definition_id=delegation.agent_definition.agent_definition_id,
         version=delegation.agent_definition.version,
@@ -298,14 +295,10 @@ def _read_bundle(
             != str(row["context_skill_definition_id"])
             or context_manifest.skill_definition.version
             != str(row["context_skill_definition_version"])
-            or context_manifest.agent_definition.definition_id
-            != str(row["agent_definition_id"])
-            or context_manifest.agent_definition.version
-            != str(row["agent_definition_version"])
-            or context_manifest.skill_definition.definition_id
-            != str(row["skill_definition_id"])
-            or context_manifest.skill_definition.version
-            != str(row["skill_definition_version"])
+            or context_manifest.agent_definition.definition_id != str(row["agent_definition_id"])
+            or context_manifest.agent_definition.version != str(row["agent_definition_version"])
+            or context_manifest.skill_definition.definition_id != str(row["skill_definition_id"])
+            or context_manifest.skill_definition.version != str(row["skill_definition_version"])
             or context_manifest.manifest_hash != str(row["manifest_hash"])
         ):
             raise ValueError("persisted Agent run chain identity drifted")

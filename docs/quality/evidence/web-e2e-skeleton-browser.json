@@ -136,30 +136,12 @@
   },
   "regressionLayouts": {
     "1920x1080": {
-      "viewport": [
-        1920,
-        1080
-      ],
+      "viewport": [1920, 1080],
       "documentWidth": 1920,
       "clientWidth": 1920,
-      "railButton": [
-        277,
-        213.765625,
-        112.828125,
-        44
-      ],
-      "inspectorButton": [
-        1726.171875,
-        213.765625,
-        140.828125,
-        44
-      ],
-      "toolbar": [
-        272,
-        208.765625,
-        1600,
-        54
-      ],
+      "railButton": [277, 213.765625, 112.828125, 44],
+      "inspectorButton": [1726.171875, 213.765625, 140.828125, 44],
+      "toolbar": [272, 208.765625, 1600, 54],
       "stageTop": 278.765625,
       "sourceTitle": "来源追踪",
       "sourceBodyFontSize": "14px",
@@ -170,30 +152,12 @@
       "stageMetaContrast": 9.103268410549644
     },
     "1440x900": {
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "documentWidth": 1440,
       "clientWidth": 1440,
-      "railButton": [
-        272.1875,
-        213.765625,
-        112.828125,
-        44
-      ],
-      "inspectorButton": [
-        1250.984375,
-        213.765625,
-        140.828125,
-        44
-      ],
-      "toolbar": [
-        267.1875,
-        208.765625,
-        1129.625,
-        54
-      ],
+      "railButton": [272.1875, 213.765625, 112.828125, 44],
+      "inspectorButton": [1250.984375, 213.765625, 140.828125, 44],
+      "toolbar": [267.1875, 208.765625, 1129.625, 54],
       "stageTop": 278.765625,
       "sourceTitle": "来源追踪",
       "sourceBodyFontSize": "14px",

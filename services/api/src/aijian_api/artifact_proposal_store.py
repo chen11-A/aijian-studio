@@ -119,10 +119,7 @@ class ArtifactProposalStore:
                     persisted.producer_attempt_id,
                     claim.attempt_id,
                 )
-                if (
-                    persisted.proposal != proposal
-                    or persisted.proposal_hash != proposal_hash
-                ):
+                if persisted.proposal != proposal or persisted.proposal_hash != proposal_hash:
                     raise ArtifactProposalConflictError(
                         "proposal identity was reused with different content"
                     )

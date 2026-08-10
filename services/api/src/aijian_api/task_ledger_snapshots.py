@@ -177,9 +177,7 @@ def reject_sensitive_snapshot_fields(value: object) -> None:
         for key, child in value.items():
             separated = _CAMEL_CASE_BOUNDARY.sub("_", str(key).strip())
             tokens = tuple(
-                token.lower()
-                for token in _NON_ALPHANUMERIC.sub("_", separated).split("_")
-                if token
+                token.lower() for token in _NON_ALPHANUMERIC.sub("_", separated).split("_") if token
             )
             if set(tokens) & _SENSITIVE_SNAPSHOT_TOKENS or (
                 "key" in tokens and bool(set(tokens) & _KEY_PAIR_QUALIFIERS)

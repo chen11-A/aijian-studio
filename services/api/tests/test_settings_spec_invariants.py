@@ -42,9 +42,7 @@ def test_settings_spec_freezes_scopes_and_effective_value_contract() -> None:
         "project_production": "PROJECT",
     }
     for section_id, scope in expected_sections.items():
-        row = next(
-            line for line in text.splitlines() if line.startswith(f"| {section_id}")
-        )
+        row = next(line for line in text.splitlines() if line.startswith(f"| {section_id}"))
         assert f"| {scope}" in row
     assert "SCOPE_SECTION_MISMATCH" in text
 

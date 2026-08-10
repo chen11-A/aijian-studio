@@ -60,18 +60,8 @@
   "regressionLayout": {
     "scrollWidth": 1409,
     "clientWidth": 1409,
-    "railButton": [
-      271.71875,
-      213.765625,
-      112.828125,
-      44
-    ],
-    "inspectorButton": [
-      1220.453125,
-      213.765625,
-      140.828125,
-      44
-    ],
+    "railButton": [271.71875, 213.765625, 112.828125, 44],
+    "inspectorButton": [1220.453125, 213.765625, 140.828125, 44],
     "toolbarBottom": 262.765625,
     "stageTop": 278.765625,
     "sourceBodyFontSize": "14px",

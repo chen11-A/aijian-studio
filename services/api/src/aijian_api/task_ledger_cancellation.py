@@ -120,9 +120,7 @@ def cancel_local_workflow(
                 actor_kind="human",
                 actor_id=actor_id,
                 lease_generation=(
-                    int(task["lease_generation"])
-                    if int(task["lease_generation"]) > 0
-                    else None
+                    int(task["lease_generation"]) if int(task["lease_generation"]) > 0 else None
                 ),
             )
         for attempt in attempts:

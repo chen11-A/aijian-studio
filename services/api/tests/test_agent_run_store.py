@@ -69,9 +69,7 @@ def run_bundle(project_id: str):
         ),
     )
     built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
-    agent_run = fixture.agent_run.model_copy(
-        update={"project_id": project_id, "status": "PENDING"}
-    )
+    agent_run = fixture.agent_run.model_copy(update={"project_id": project_id, "status": "PENDING"})
     skill_run = fixture.skill_run.model_copy(
         update={
             "project_id": project_id,
@@ -84,12 +82,16 @@ def run_bundle(project_id: str):
 
 
 def create_project(database: Path, name: str = "Agent run truth") -> str:
-    return StudioRepository(database).create_project(
-        name=name,
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    return (
+        StudioRepository(database)
+        .create_project(
+            name=name,
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
 
 
 def test_run_bundle_is_atomic_project_scoped_and_exactly_replayable(tmp_path: Path) -> None:
@@ -167,8 +169,7 @@ def test_exact_replay_returns_progressed_state_but_identity_columns_are_immutabl
         )
         with pytest.raises(sqlite3.IntegrityError, match="identity is immutable"):
             connection.execute(
-                "UPDATE agent_runs SET agent_definition_version = '2.0.0' "
-                "WHERE agent_run_id = ?",
+                "UPDATE agent_runs SET agent_definition_version = '2.0.0' WHERE agent_run_id = ?",
                 (agent_run.agent_run_id,),
             )
         connection.rollback()

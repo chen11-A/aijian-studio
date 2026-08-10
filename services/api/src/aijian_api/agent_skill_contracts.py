@@ -64,9 +64,7 @@ class BudgetPolicyV1(ClosedModel):
     currency: Literal["USD"] = "USD"
     soft_limit_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
     hard_limit_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
-    retry_increment_limit_micros: int = Field(
-        strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER
-    )
+    retry_increment_limit_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
 
     @model_validator(mode="after")
     def validate_limits(self) -> BudgetPolicyV1:

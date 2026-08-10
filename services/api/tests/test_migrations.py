@@ -19,6 +19,7 @@ def drop_v10_tables(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE agent_context_manifests")
     connection.execute("DROP TABLE agent_runs")
 
+
 V1_SCHEMA = """
 CREATE TABLE projects (
     id TEXT PRIMARY KEY,
@@ -531,12 +532,16 @@ def test_attempt_snapshot_is_idempotent_immutable_and_recovered_without_drift(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="Agent 快照",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="Agent 快照",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     clock = [NOW]
     ledger = LocalTaskLedger(database, clock=lambda: clock[0])
     fingerprint_payload = {
@@ -642,9 +647,9 @@ def test_attempt_snapshot_is_idempotent_immutable_and_recovered_without_drift(
         assert rows[0]["snapshot_kind"] == "agent_skill_v1"
         assert rows[0]["snapshot_json"] == rows[1]["snapshot_json"]
         assert rows[0]["snapshot_hash"] == rows[1]["snapshot_hash"]
-        expected_hash = "sha256:" + hashlib.sha256(
-            str(rows[0]["snapshot_json"]).encode("utf-8")
-        ).hexdigest()
+        expected_hash = (
+            "sha256:" + hashlib.sha256(str(rows[0]["snapshot_json"]).encode("utf-8")).hexdigest()
+        )
         assert rows[0]["snapshot_hash"] == expected_hash
         with pytest.raises(sqlite3.IntegrityError, match="immutable"):
             connection.execute(
@@ -655,9 +660,7 @@ def test_attempt_snapshot_is_idempotent_immutable_and_recovered_without_drift(
         connection.rollback()
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-        remaining = connection.execute(
-            "SELECT COUNT(*) FROM workflow_attempt_snapshots"
-        ).fetchone()
+        remaining = connection.execute("SELECT COUNT(*) FROM workflow_attempt_snapshots").fetchone()
         assert remaining is not None and remaining[0] == 0
 
 
@@ -680,12 +683,16 @@ def test_attempt_snapshot_rejects_secret_shaped_fields(
     sensitive_key: str,
 ) -> None:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="拒绝密钥",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="拒绝密钥",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     ledger = LocalTaskLedger(database, clock=lambda: NOW)
 
     with pytest.raises(ValueError, match="sensitive"):
@@ -719,12 +726,16 @@ def test_recovery_trigger_does_not_copy_a_nonmatching_or_skipped_snapshot(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="拒绝漂移",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="拒绝漂移",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     ledger = LocalTaskLedger(database, clock=lambda: NOW)
     snapshot = {
         "schema_version": "1.0.0",
@@ -818,12 +829,16 @@ def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="V7 工作流",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="V7 工作流",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     clock = [NOW]
 
     def enqueue(ledger: LocalTaskLedger) -> QueuedTask:
@@ -876,9 +891,9 @@ def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
     clock[0] = NOW + timedelta(seconds=2)
     assert migrated.recover_expired_local_tasks().requeued == 1
     with sqlite3.connect(database) as connection:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM workflow_attempt_snapshots"
-        ).fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempt_snapshots").fetchone() == (
+            0,
+        )
 
 
 def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:

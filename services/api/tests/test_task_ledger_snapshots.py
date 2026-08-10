@@ -68,12 +68,16 @@ def enqueue_agent_skill_task(
 
 def create_ledger(tmp_path: Path) -> tuple[Path, str, list[datetime], LocalTaskLedger]:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="快照读取",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="快照读取",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     clock = [NOW]
     return database, project_id, clock, LocalTaskLedger(database, clock=lambda: clock[0])
 
@@ -123,9 +127,13 @@ def test_snapshot_read_fails_closed_for_stale_lease_and_missing_snapshot(tmp_pat
         ledger.read_agent_skill_snapshot(stale)
 
     database = tmp_path / "legacy.db"
-    legacy_project = StudioRepository(database).create_project(
-        name="旧任务", aspect_ratio="9:16", target_duration_seconds=15, source_language="zh-CN"
-    ).id
+    legacy_project = (
+        StudioRepository(database)
+        .create_project(
+            name="旧任务", aspect_ratio="9:16", target_duration_seconds=15, source_language="zh-CN"
+        )
+        .id
+    )
     legacy = LocalTaskLedger(database, clock=lambda: NOW)
     legacy.enqueue_local_node(
         project_id=legacy_project,

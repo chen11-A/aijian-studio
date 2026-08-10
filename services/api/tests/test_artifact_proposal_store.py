@@ -32,12 +32,16 @@ def setup_claim(
     tmp_path: Path,
 ) -> tuple[Path, str, LocalTaskLedger, ClaimedTask, ArtifactProposalV1]:
     database = tmp_path / "workspace.db"
-    project_id = StudioRepository(database).create_project(
-        name="提案持久化",
-        aspect_ratio="9:16",
-        target_duration_seconds=15,
-        source_language="zh-CN",
-    ).id
+    project_id = (
+        StudioRepository(database)
+        .create_project(
+            name="提案持久化",
+            aspect_ratio="9:16",
+            target_duration_seconds=15,
+            source_language="zh-CN",
+        )
+        .id
+    )
     bundle = fixture_bundle()
     snapshot_fields = bundle.attempt.model_dump(mode="json")
     snapshot_fields["project_id"] = project_id

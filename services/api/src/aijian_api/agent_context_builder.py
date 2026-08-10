@@ -203,10 +203,7 @@ class BuiltContext:
         object.__setattr__(self, "_build_seal", _seal)
 
     def assert_builder_resolved(self) -> None:
-        if (
-            self._build_seal is not _BUILT_CONTEXT_SEAL
-            or _BUILT_CONTEXTS.get(id(self)) is not self
-        ):
+        if self._build_seal is not _BUILT_CONTEXT_SEAL or _BUILT_CONTEXTS.get(id(self)) is not self:
             raise TypeError("invalid Context Builder token")
 
 
