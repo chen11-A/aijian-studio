@@ -1,12 +1,17 @@
 """Atomic creation of a local workflow run, attempt, and ledger wake-up."""
 
+import hashlib
 import json
+import re
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 
+from pydantic import ValidationError
+
+from aijian_api.agent_skill_contracts import AttemptSnapshotV1
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import QueuedTask, timestamp
 from aijian_api.workflow_tasks import NodeRun, TaskAttempt
@@ -31,6 +36,24 @@ class EnqueueLocalNodeRequest:
     task_kind: str
     priority: int
     available_at: datetime
+    attempt_snapshot_kind: str | None = None
+    attempt_snapshot: Mapping[str, object] | None = None
+
+
+_AGENT_SKILL_SNAPSHOT_KIND = "agent_skill_v1"
+_SENSITIVE_SNAPSHOT_TOKENS = {
+    "auth",
+    "authorization",
+    "bearer",
+    "cookie",
+    "password",
+    "secret",
+    "token",
+}
+_KEY_PAIR_QUALIFIERS = {"api", "private", "signing"}
+_CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_NON_ALPHANUMERIC = re.compile(r"[^A-Za-z0-9]+")
+_MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
 
 
 def enqueue_local_node(
@@ -47,6 +70,7 @@ def enqueue_local_node(
     node_run_id = id_factory("node")
     attempt_id = id_factory("att")
     task_id = id_factory("task")
+    snapshot = _prepare_snapshot(request, attempt_id=attempt_id)
     _validate_request(
         request,
         workflow_run_id=workflow_run_id,
@@ -66,6 +90,7 @@ def enqueue_local_node(
                 request,
                 graph_json=graph_json,
                 input_bindings_json=input_bindings_json,
+                snapshot=snapshot,
             )
             connection.commit()
             return QueuedTask(
@@ -148,6 +173,15 @@ def enqueue_local_node(
                 now_text,
             ),
         )
+        if snapshot is not None:
+            connection.execute(
+                """
+                INSERT INTO workflow_attempt_snapshots (
+                    attempt_id, snapshot_kind, snapshot_json, snapshot_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (attempt_id, snapshot[0], snapshot[1], snapshot[2], now_text),
+            )
         connection.execute(
             """
             INSERT INTO task_ledger (
@@ -226,6 +260,17 @@ def _existing_enqueue(
         sqlite3.Row | None,
         connection.execute(
             """
+        WITH latest_attempt AS (
+            SELECT candidate.*
+            FROM workflow_attempts AS candidate
+            JOIN workflow_node_runs AS candidate_node
+              ON candidate_node.node_run_id = candidate.node_run_id
+            JOIN workflow_enqueue_keys AS candidate_key
+              ON candidate_key.node_run_id = candidate_node.node_run_id
+            WHERE candidate_key.project_id = ? AND candidate_key.idempotency_key = ?
+            ORDER BY candidate.attempt_number DESC, candidate.attempt_id DESC
+            LIMIT 1
+        )
         SELECT key.workflow_run_id, key.node_run_id,
                run.definition_id, run.definition_version,
                run.input_hash AS workflow_input_hash,
@@ -234,20 +279,30 @@ def _existing_enqueue(
                node.input_bindings_json, node.input_hash AS node_input_hash,
                node.max_attempts,
                attempt.attempt_id, attempt.request_fingerprint,
-               task.task_id, task.task_kind
+               task.task_id, task.task_kind,
+               snapshot.snapshot_kind, snapshot.snapshot_json, snapshot.snapshot_hash
         FROM workflow_enqueue_keys AS key
         JOIN workflow_runs AS run ON run.workflow_run_id = key.workflow_run_id
         JOIN workflow_definitions AS definition
           ON definition.definition_id = run.definition_id
          AND definition.version = run.definition_version
         JOIN workflow_node_runs AS node ON node.node_run_id = key.node_run_id
-        JOIN workflow_attempts AS attempt ON attempt.node_run_id = node.node_run_id
+        JOIN latest_attempt AS attempt ON attempt.node_run_id = node.node_run_id
         JOIN task_ledger AS task ON task.attempt_id = attempt.attempt_id
+        LEFT JOIN workflow_attempt_snapshots AS snapshot
+          ON snapshot.attempt_id = attempt.attempt_id
         WHERE key.project_id = ? AND key.idempotency_key = ?
-        ORDER BY attempt.attempt_number DESC, task.created_at DESC
+        ORDER BY CASE WHEN task.task_kind = ? THEN 0 ELSE 1 END,
+                 task.created_at DESC, task.task_id DESC
         LIMIT 1
             """,
-            (request.project_id, request.idempotency_key),
+            (
+                request.project_id,
+                request.idempotency_key,
+                request.project_id,
+                request.idempotency_key,
+                request.task_kind,
+            ),
         ).fetchone(),
     )
 
@@ -258,6 +313,7 @@ def _validate_existing_enqueue(
     *,
     graph_json: str,
     input_bindings_json: str,
+    snapshot: tuple[str, str, str] | None,
 ) -> None:
     expected = (
         request.definition_id,
@@ -273,6 +329,9 @@ def _validate_existing_enqueue(
         request.max_attempts,
         request.request_fingerprint,
         request.task_kind,
+        snapshot[0] if snapshot is not None else None,
+        snapshot[1] if snapshot is not None else None,
+        snapshot[2] if snapshot is not None else None,
     )
     persisted = (
         str(existing["definition_id"]),
@@ -288,6 +347,9 @@ def _validate_existing_enqueue(
         int(existing["max_attempts"]),
         str(existing["request_fingerprint"]),
         str(existing["task_kind"]),
+        _optional_text(existing["snapshot_kind"]),
+        _optional_text(existing["snapshot_json"]),
+        _optional_text(existing["snapshot_hash"]),
     )
     if persisted != expected:
         raise ValueError("idempotency key was reused with different workflow input")
@@ -295,6 +357,67 @@ def _validate_existing_enqueue(
 
 def _canonical_json(value: Mapping[str, object]) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _optional_text(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def _prepare_snapshot(
+    request: EnqueueLocalNodeRequest,
+    *,
+    attempt_id: str,
+) -> tuple[str, str, str] | None:
+    kind = request.attempt_snapshot_kind
+    payload = request.attempt_snapshot
+    if kind is None and payload is None:
+        return None
+    if kind is None or payload is None:
+        raise ValueError("attempt snapshot kind and payload must be provided together")
+    if kind != _AGENT_SKILL_SNAPSHOT_KIND:
+        raise ValueError("attempt snapshot kind is unsupported")
+    if not payload:
+        raise ValueError("attempt snapshot payload must not be empty")
+    _reject_sensitive_snapshot_fields(payload)
+    if payload.get("project_id") not in (None, request.project_id):
+        raise ValueError("attempt snapshot project does not match the workflow")
+    if payload.get("input_hash") not in (None, request.node_input_hash):
+        raise ValueError("attempt snapshot input hash does not match the node")
+    if payload.get("idempotency_key") not in (None, request.idempotency_key):
+        raise ValueError("attempt snapshot idempotency key does not match the node")
+    if payload.get("attempt_fingerprint") not in (None, request.request_fingerprint):
+        raise ValueError("attempt snapshot fingerprint does not match the attempt")
+    try:
+        validated = AttemptSnapshotV1.model_validate({"attempt_id": attempt_id, **payload})
+    except ValidationError as error:
+        raise ValueError("attempt snapshot failed the closed Agent/Skill contract") from error
+    normalized = validated.model_dump(mode="json")
+    normalized.pop("attempt_id")
+    if normalized != payload:
+        raise ValueError("attempt snapshot differs from its closed Agent/Skill contract")
+    snapshot_json = _canonical_json(normalized)
+    encoded = snapshot_json.encode("utf-8")
+    if len(encoded) > _MAX_SNAPSHOT_BYTES:
+        raise ValueError("attempt snapshot exceeds the size limit")
+    snapshot_hash = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+    return kind, snapshot_json, snapshot_hash
+
+
+def _reject_sensitive_snapshot_fields(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            separated = _CAMEL_CASE_BOUNDARY.sub("_", str(key).strip())
+            tokens = tuple(
+                token.lower() for token in _NON_ALPHANUMERIC.sub("_", separated).split("_") if token
+            )
+            if set(tokens) & _SENSITIVE_SNAPSHOT_TOKENS or (
+                "key" in tokens and bool(set(tokens) & _KEY_PAIR_QUALIFIERS)
+            ):
+                raise ValueError("attempt snapshot contains a sensitive field")
+            _reject_sensitive_snapshot_fields(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _reject_sensitive_snapshot_fields(child)
 
 
 def _validate_request(

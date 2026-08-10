@@ -1,8 +1,17 @@
+import hashlib
 import sqlite3
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from aijian_api.agent_skill_contracts import canonical_sha256
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
+from aijian_api.task_ledger import LocalTaskLedger, QueuedTask
+
+NOW = datetime(2026, 8, 10, 9, 30, tzinfo=UTC)
+HASH_A = f"sha256:{'a' * 64}"
+HASH_B = f"sha256:{'b' * 64}"
 
 V1_SCHEMA = """
 CREATE TABLE projects (
@@ -134,6 +143,16 @@ def create_current_v6_database(path: Path) -> None:
     assert database_version(path) == 6
 
 
+def create_current_v7_database(path: Path) -> None:
+    def stop_before_v8(version: int, step: int) -> None:
+        if version == 8 and step == 0:
+            raise RuntimeError("stop before v8")
+
+    with pytest.raises(RuntimeError, match="stop before v8"):
+        StudioRepository(path, migration_hook=stop_before_v8)
+    assert database_version(path) == 7
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -152,7 +171,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-    assert SCHEMA_VERSION == 7
+    assert SCHEMA_VERSION == 8
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -183,6 +202,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "remote_reconciliations",
         "workflow_enqueue_keys",
         "provider_connections",
+        "workflow_attempt_snapshots",
     } <= tables
 
 
@@ -369,6 +389,385 @@ def test_every_v7_ddl_failure_rolls_back_to_v6_and_can_retry(tmp_path: Path) -> 
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v8_ddl_failure_rolls_back_to_v7_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v8.db"
+    create_current_v7_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 8 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v8-failure-{failed_step}.db"
+        create_current_v7_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 8 and step == target:
+                raise RuntimeError(f"injected v8 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v8 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 7
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'workflow_attempt_snapshots'"
+            ).fetchone()
+        assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_attempt_snapshot_is_idempotent_immutable_and_recovered_without_drift(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = StudioRepository(database).create_project(
+        name="Agent 快照",
+        aspect_ratio="9:16",
+        target_duration_seconds=15,
+        source_language="zh-CN",
+    ).id
+    clock = [NOW]
+    ledger = LocalTaskLedger(database, clock=lambda: clock[0])
+    fingerprint_payload = {
+        "project_id": project_id,
+        "agent_run_id": "agr_" + "a" * 32,
+        "skill_run_id": "skr_" + "a" * 32,
+        "output_artifact_type": "Screenplay",
+        "agent_definition_id": "screenwriter",
+        "agent_version": "1.0.0",
+        "skill_definition_id": "screenplay.generate",
+        "skill_version": "1.0.0",
+        "prompt_version": "prompt.screenplay@1.0.0",
+        "policy_version": "policy.local-safe@1.0.0",
+        "provider_connection_id": "provider:local-fake",
+        "model_id": "deterministic-fake-v1",
+        "capability_snapshot_hash": HASH_A,
+        "input_hash": HASH_A,
+        "output_schema_version": "1.0.0",
+        "idempotency_key": "idem:screenplay:golden-v1",
+    }
+    attempt_fingerprint = canonical_sha256(fingerprint_payload)
+    snapshot = {
+        "schema_version": "1.0.0",
+        **fingerprint_payload,
+        "attempt_fingerprint": attempt_fingerprint,
+    }
+
+    def enqueue(attempt_snapshot: Mapping[str, object] = snapshot) -> QueuedTask:
+        return ledger.enqueue_local_node(
+            project_id=project_id,
+            definition_id="agent-skill-fake-runtime",
+            definition_version=1,
+            definition_hash=HASH_A,
+            graph={"nodes": ["screenplay.generate"]},
+            workflow_input_hash=HASH_A,
+            node_key="screenplay.generate",
+            node_type="agent.skill.fake",
+            contract_version=1,
+            input_bindings={"context_manifest_id": "ctx_" + "a" * 32},
+            node_input_hash=HASH_A,
+            request_fingerprint=attempt_fingerprint,
+            idempotency_key="idem:screenplay:golden-v1",
+            max_attempts=2,
+            task_kind="local.agent-skill.fake",
+            priority=80,
+            available_at=NOW,
+            attempt_snapshot_kind="agent_skill_v1",
+            attempt_snapshot=attempt_snapshot,
+        )
+
+    queued = enqueue()
+    assert enqueue(dict(reversed(tuple(snapshot.items())))) == queued
+    changed_snapshot = {**snapshot, "model_id": "different-fake-v2"}
+    with pytest.raises(ValueError, match="closed Agent/Skill contract"):
+        enqueue(changed_snapshot)
+    claim = ledger.claim_ready_task(
+        worker_id="snapshot-crash-worker",
+        lease_duration=timedelta(seconds=1),
+    )
+    assert claim is not None
+    clock[0] = NOW + timedelta(seconds=2)
+    assert ledger.recover_expired_local_tasks().requeued == 1
+
+    with sqlite3.connect(database) as connection:
+        latest_attempt = connection.execute(
+            "SELECT attempt_id FROM workflow_attempts "
+            "WHERE node_run_id = ? ORDER BY attempt_number DESC LIMIT 1",
+            (queued.node_run_id,),
+        ).fetchone()
+        assert latest_attempt is not None
+        expected_task = connection.execute(
+            "SELECT task_id FROM task_ledger "
+            "WHERE attempt_id = ? AND task_kind = 'local.agent-skill.fake'",
+            (latest_attempt[0],),
+        ).fetchone()
+        assert expected_task is not None
+        connection.execute(
+            """
+            INSERT INTO task_ledger (
+                task_id, attempt_id, task_kind, status, priority, available_at,
+                lease_generation, revision, created_at, updated_at
+            ) VALUES (?, ?, 'decoy.completed', 'COMPLETED', 100, ?, 0, 1, ?, ?)
+            """,
+            (
+                "task_" + "f" * 32,
+                latest_attempt[0],
+                (NOW + timedelta(minutes=1)).isoformat(),
+                (NOW + timedelta(minutes=1)).isoformat(),
+                (NOW + timedelta(minutes=1)).isoformat(),
+            ),
+        )
+    assert enqueue().task_id == expected_task[0]
+
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            "SELECT attempt.attempt_number, snapshot.* "
+            "FROM workflow_attempt_snapshots AS snapshot "
+            "JOIN workflow_attempts AS attempt ON attempt.attempt_id = snapshot.attempt_id "
+            "ORDER BY attempt.attempt_number"
+        ).fetchall()
+        assert len(rows) == 2
+        assert rows[0]["snapshot_kind"] == "agent_skill_v1"
+        assert rows[0]["snapshot_json"] == rows[1]["snapshot_json"]
+        assert rows[0]["snapshot_hash"] == rows[1]["snapshot_hash"]
+        expected_hash = "sha256:" + hashlib.sha256(
+            str(rows[0]["snapshot_json"]).encode("utf-8")
+        ).hexdigest()
+        assert rows[0]["snapshot_hash"] == expected_hash
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "UPDATE workflow_attempt_snapshots SET snapshot_kind = 'changed' "
+                "WHERE attempt_id = ?",
+                (queued.attempt_id,),
+            )
+        connection.rollback()
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        remaining = connection.execute(
+            "SELECT COUNT(*) FROM workflow_attempt_snapshots"
+        ).fetchone()
+        assert remaining is not None and remaining[0] == 0
+
+
+@pytest.mark.parametrize(
+    "sensitive_key",
+    (
+        "apiKey",
+        "accessToken",
+        "refreshToken",
+        "private_key",
+        "privateKey",
+        "signing-key",
+        "credentials.password",
+        "auth",
+        "bearer",
+    ),
+)
+def test_attempt_snapshot_rejects_secret_shaped_fields(
+    tmp_path: Path,
+    sensitive_key: str,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = StudioRepository(database).create_project(
+        name="拒绝密钥",
+        aspect_ratio="9:16",
+        target_duration_seconds=15,
+        source_language="zh-CN",
+    ).id
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+
+    with pytest.raises(ValueError, match="sensitive"):
+        ledger.enqueue_local_node(
+            project_id=project_id,
+            definition_id="agent-skill-fake-runtime",
+            definition_version=1,
+            definition_hash=HASH_A,
+            graph={"nodes": ["screenplay.generate"]},
+            workflow_input_hash=HASH_A,
+            node_key="screenplay.generate",
+            node_type="agent.skill.fake",
+            contract_version=1,
+            input_bindings={},
+            node_input_hash=HASH_A,
+            request_fingerprint=HASH_B,
+            idempotency_key="idem:secret-rejected",
+            max_attempts=2,
+            task_kind="local.agent-skill.fake",
+            priority=80,
+            available_at=NOW,
+            attempt_snapshot_kind="agent_skill_v1",
+            attempt_snapshot={
+                "credential_ref": "cred_local_fake",
+                "provider": [{sensitive_key: "must-not-persist"}],
+            },
+        )
+
+
+def test_recovery_trigger_does_not_copy_a_nonmatching_or_skipped_snapshot(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = StudioRepository(database).create_project(
+        name="拒绝漂移",
+        aspect_ratio="9:16",
+        target_duration_seconds=15,
+        source_language="zh-CN",
+    ).id
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    snapshot = {
+        "schema_version": "1.0.0",
+        "project_id": project_id,
+        "agent_run_id": "agr_" + "b" * 32,
+        "skill_run_id": "skr_" + "b" * 32,
+        "output_artifact_type": "Screenplay",
+        "agent_definition_id": "screenwriter",
+        "agent_version": "1.0.0",
+        "skill_definition_id": "screenplay.generate",
+        "skill_version": "1.0.0",
+        "prompt_version": "prompt.screenplay@1.0.0",
+        "policy_version": "policy.local-safe@1.0.0",
+        "provider_connection_id": "provider:local-fake",
+        "model_id": "deterministic-fake-v1",
+        "capability_snapshot_hash": HASH_A,
+        "input_hash": HASH_A,
+        "output_schema_version": "1.0.0",
+        "idempotency_key": "idem:no-drift",
+    }
+    snapshot["attempt_fingerprint"] = canonical_sha256(
+        {key: value for key, value in snapshot.items() if key != "schema_version"}
+    )
+    queued = ledger.enqueue_local_node(
+        project_id=project_id,
+        definition_id="agent-skill-fake-runtime",
+        definition_version=1,
+        definition_hash=HASH_A,
+        graph={"nodes": ["screenplay.generate"]},
+        workflow_input_hash=HASH_A,
+        node_key="screenplay.generate",
+        node_type="agent.skill.fake",
+        contract_version=1,
+        input_bindings={},
+        node_input_hash=HASH_A,
+        request_fingerprint=str(snapshot["attempt_fingerprint"]),
+        idempotency_key="idem:no-drift",
+        max_attempts=3,
+        task_kind="local.agent-skill.fake",
+        priority=80,
+        available_at=NOW,
+        attempt_snapshot_kind="agent_skill_v1",
+        attempt_snapshot=snapshot,
+    )
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE workflow_attempts SET status = 'FAILED' WHERE attempt_id = ?",
+            (queued.attempt_id,),
+        )
+        connection.execute(
+            """
+            INSERT INTO workflow_attempts (
+                attempt_id, node_run_id, attempt_number, execution_mode, status,
+                input_hash, request_fingerprint, revision, created_at, updated_at
+            ) VALUES (?, ?, 2, 'local', 'FAILED', ?, ?, 1, ?, ?)
+            """,
+            (
+                "att_" + "c" * 32,
+                queued.node_run_id,
+                HASH_B,
+                HASH_B,
+                NOW.isoformat(),
+                NOW.isoformat(),
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO workflow_attempts (
+                attempt_id, node_run_id, attempt_number, execution_mode, status,
+                input_hash, request_fingerprint, revision, created_at, updated_at
+            ) VALUES (?, ?, 3, 'local', 'READY', ?, ?, 1, ?, ?)
+            """,
+            (
+                "att_" + "d" * 32,
+                queued.node_run_id,
+                HASH_A,
+                str(snapshot["attempt_fingerprint"]),
+                NOW.isoformat(),
+                NOW.isoformat(),
+            ),
+        )
+        copied = connection.execute(
+            "SELECT attempt_id FROM workflow_attempt_snapshots ORDER BY attempt_id"
+        ).fetchall()
+
+    assert copied == [(queued.attempt_id,)]
+
+
+def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = StudioRepository(database).create_project(
+        name="V7 工作流",
+        aspect_ratio="9:16",
+        target_duration_seconds=15,
+        source_language="zh-CN",
+    ).id
+    clock = [NOW]
+
+    def enqueue(ledger: LocalTaskLedger) -> QueuedTask:
+        return ledger.enqueue_local_node(
+            project_id=project_id,
+            definition_id="legacy-local-workflow",
+            definition_version=1,
+            definition_hash=HASH_A,
+            graph={"nodes": ["legacy.local"]},
+            workflow_input_hash=HASH_A,
+            node_key="legacy.local",
+            node_type="legacy.local",
+            contract_version=1,
+            input_bindings={"legacy": True},
+            node_input_hash=HASH_A,
+            request_fingerprint=HASH_B,
+            idempotency_key="legacy:v7:no-snapshot",
+            max_attempts=2,
+            task_kind="legacy.local",
+            priority=50,
+            available_at=NOW,
+        )
+
+    original = enqueue(LocalTaskLedger(database, clock=lambda: clock[0]))
+    with sqlite3.connect(database) as connection:
+        for trigger in (
+            "workflow_attempt_snapshot_recovery_copy",
+            "workflow_attempt_snapshots_immutable_update",
+            "workflow_attempt_snapshots_immutable_delete",
+        ):
+            connection.execute(f"DROP TRIGGER {trigger}")
+        connection.execute("DROP TABLE workflow_attempt_snapshots")
+        connection.execute("PRAGMA user_version = 7")
+
+    StudioRepository(database)
+    migrated = LocalTaskLedger(database, clock=lambda: clock[0])
+    assert enqueue(migrated) == original
+    claim = migrated.claim_ready_task(
+        worker_id="legacy-v7-worker",
+        lease_duration=timedelta(seconds=1),
+    )
+    assert claim is not None
+    clock[0] = NOW + timedelta(seconds=2)
+    assert migrated.recover_expired_local_tasks().requeued == 1
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_attempt_snapshots"
+        ).fetchone() == (0,)
 
 
 def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:

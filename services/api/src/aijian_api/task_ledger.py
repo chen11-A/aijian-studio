@@ -76,6 +76,8 @@ class LocalTaskLedger:
         task_kind: str,
         priority: int,
         available_at: datetime,
+        attempt_snapshot_kind: str | None = None,
+        attempt_snapshot: Mapping[str, object] | None = None,
     ) -> QueuedTask:
         request = EnqueueLocalNodeRequest(
             project_id=project_id,
@@ -95,6 +97,8 @@ class LocalTaskLedger:
             task_kind=task_kind,
             priority=priority,
             available_at=available_at,
+            attempt_snapshot_kind=attempt_snapshot_kind,
+            attempt_snapshot=attempt_snapshot,
         )
         return enqueue_local_node(
             request,

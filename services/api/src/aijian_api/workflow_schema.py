@@ -287,3 +287,62 @@ MIGRATION_6 = (
     WHERE producer_attempt_id IS NOT NULL
     """,
 )
+
+
+MIGRATION_8 = (
+    """
+    CREATE TABLE workflow_attempt_snapshots (
+        attempt_id TEXT PRIMARY KEY REFERENCES workflow_attempts(attempt_id)
+            ON DELETE CASCADE,
+        snapshot_kind TEXT NOT NULL CHECK (
+            length(snapshot_kind) BETWEEN 1 AND 80
+            AND snapshot_kind NOT GLOB '*[^a-z0-9_.-]*'
+        ),
+        snapshot_json TEXT NOT NULL CHECK (
+            json_valid(snapshot_json) AND length(snapshot_json) <= 2097152
+        ),
+        snapshot_hash TEXT NOT NULL CHECK (
+            length(snapshot_hash) = 71 AND snapshot_hash LIKE 'sha256:%'
+        ),
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TRIGGER workflow_attempt_snapshot_recovery_copy
+    AFTER INSERT ON workflow_attempts
+    WHEN NEW.attempt_number > 1
+    BEGIN
+        INSERT INTO workflow_attempt_snapshots (
+            attempt_id, snapshot_kind, snapshot_json, snapshot_hash, created_at
+        )
+        SELECT NEW.attempt_id, snapshot.snapshot_kind, snapshot.snapshot_json,
+               snapshot.snapshot_hash, NEW.created_at
+        FROM workflow_attempt_snapshots AS snapshot
+        JOIN workflow_attempts AS previous
+          ON previous.attempt_id = snapshot.attempt_id
+        WHERE previous.node_run_id = NEW.node_run_id
+          AND previous.attempt_number = NEW.attempt_number - 1
+          AND previous.input_hash = NEW.input_hash
+          AND previous.request_fingerprint = NEW.request_fingerprint
+        LIMIT 1;
+    END
+    """,
+    """
+    CREATE TRIGGER workflow_attempt_snapshots_immutable_update
+    BEFORE UPDATE ON workflow_attempt_snapshots
+    BEGIN
+        SELECT RAISE(ABORT, 'workflow attempt snapshots are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER workflow_attempt_snapshots_immutable_delete
+    BEFORE DELETE ON workflow_attempt_snapshots
+    WHEN EXISTS (
+        SELECT 1 FROM workflow_attempts
+        WHERE attempt_id = OLD.attempt_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'workflow attempt snapshots are immutable');
+    END
+    """,
+)
