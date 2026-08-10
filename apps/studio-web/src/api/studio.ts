@@ -12,6 +12,8 @@ export type SourceManifestResponse = components["schemas"]["SourceManifestRespon
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
+export type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
 export type TrimTimelineClipInput = components["schemas"]["TrimTimelineClipRequest"];
 export type ReorderTimelineClipInput = components["schemas"]["ReorderTimelineClipRequest"];
@@ -37,6 +39,8 @@ export interface StudioTransport {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
+  listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
@@ -70,6 +74,8 @@ export interface AijianDesktopBridge {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
+  listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
   getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
   trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
@@ -192,6 +198,8 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),
+      listProjectSkills: (projectId) => bridge.listProjectSkills(projectId),
       startFakeTimelineWorkflow: (projectId) => bridge.startFakeTimelineWorkflow(projectId),
       getProjectTimeline: (projectId) => bridge.getProjectTimeline(projectId),
       trimTimelineClip: (projectId, input) => bridge.trimTimelineClip(projectId, input),
@@ -229,6 +237,10 @@ export function createStudioTransport(): StudioTransport {
       ),
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    listProjectAgents: (projectId) =>
+      getRequest<AgentCatalogResponse>(`/api/v1/projects/${projectId}/agents`),
+    listProjectSkills: (projectId) =>
+      getRequest<SkillCatalogResponse>(`/api/v1/projects/${projectId}/skills`),
     startFakeTimelineWorkflow: (projectId) =>
       postActionRequest<TimelineResponse>(`/api/v1/projects/${projectId}/workflows/fake-timeline`),
     getProjectTimeline: (projectId) =>

@@ -1,6 +1,8 @@
 import type { components } from "@aijian/contracts";
 import { contextBridge, ipcRenderer } from "electron";
 
+import { createAgentSkillCatalogPreload } from "./agent-skill-catalog-ipc";
+
 type HealthResponse = components["schemas"]["HealthResponse"];
 type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
@@ -59,6 +61,7 @@ contextBridge.exposeInMainWorld("aijian", {
     ) as Promise<StoryBibleVersionResponse>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
+  ...createAgentSkillCatalogPreload((channel, projectId) => ipcRenderer.invoke(channel, projectId)),
   startFakeTimelineWorkflow: (projectId: string): Promise<TimelineResponse> =>
     ipcRenderer.invoke("workflows:start-fake-timeline", projectId) as Promise<TimelineResponse>,
   getProjectTimeline: (projectId: string): Promise<TimelineResponse | null> =>

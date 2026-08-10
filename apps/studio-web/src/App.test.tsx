@@ -441,6 +441,14 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
       },
       request_id: requestId,
     } satisfies TaskQueueResponse),
+    listProjectAgents: vi.fn().mockResolvedValue({
+      data: { project_id: project.id, agents: [] },
+      request_id: requestId,
+    }),
+    listProjectSkills: vi.fn().mockResolvedValue({
+      data: { project_id: project.id, skills: [] },
+      request_id: requestId,
+    }),
     startFakeTimelineWorkflow: vi.fn().mockResolvedValue(fakeTimelineResponse),
     getProjectTimeline: vi.fn().mockResolvedValue(null),
     trimTimelineClip: vi.fn(),

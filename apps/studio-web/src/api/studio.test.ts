@@ -3,8 +3,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   createStudioTransport,
   type HealthResponse,
+  type AgentCatalogResponse,
   type ProjectData,
   type SourceManifestResponse,
+  type SkillCatalogResponse,
   type StoryBibleIndexResponse,
   type StoryBibleVersionResponse,
   type TaskQueueResponse,
@@ -119,6 +121,14 @@ const taskQueue = {
   },
   request_id: requestId,
 } satisfies TaskQueueResponse;
+const agentCatalog = {
+  data: { project_id: project.id, agents: [] },
+  request_id: requestId,
+} satisfies AgentCatalogResponse;
+const skillCatalog = {
+  data: { project_id: project.id, skills: [] },
+  request_id: requestId,
+} satisfies SkillCatalogResponse;
 const providerConnections = { data: [], request_id: requestId };
 const timeline = {
   data: {
@@ -179,6 +189,8 @@ describe("studio transport", () => {
       getStoryBibleIndex: vi.fn().mockResolvedValue(storyBibleIndex),
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
       listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
+      listProjectAgents: vi.fn().mockResolvedValue(agentCatalog),
+      listProjectSkills: vi.fn().mockResolvedValue(skillCatalog),
       startFakeTimelineWorkflow: vi.fn().mockResolvedValue(timeline),
       getProjectTimeline: vi.fn().mockResolvedValue(null),
       trimTimelineClip: vi.fn(),
@@ -211,6 +223,8 @@ describe("studio transport", () => {
     await transport.getStoryBibleIndex(project.id);
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
     await transport.listProjectTasks(project.id);
+    await transport.listProjectAgents(project.id);
+    await transport.listProjectSkills(project.id);
     await transport.startFakeTimelineWorkflow(project.id);
     await transport.listProviderConnections();
     await transport.createProviderConnection({
@@ -236,6 +250,8 @@ describe("studio transport", () => {
       storyBibleVersion.data.version.id,
     );
     expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
+    expect(bridge.listProjectAgents).toHaveBeenCalledWith(project.id);
+    expect(bridge.listProjectSkills).toHaveBeenCalledWith(project.id);
     expect(bridge.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
     expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
     expect(bridge.createProviderConnection).toHaveBeenCalledOnce();
@@ -249,6 +265,24 @@ describe("studio transport", () => {
 
     await expect(transport.listProjectTasks(project.id)).resolves.toEqual(taskQueue);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  test("reads Agent and Skill catalogs from project-scoped browser routes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(agentCatalog))
+      .mockResolvedValueOnce(Response.json(skillCatalog));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.listProjectAgents(project.id)).resolves.toEqual(agentCatalog);
+    await expect(transport.listProjectSkills(project.id)).resolves.toEqual(skillCatalog);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, `/api/v1/projects/${project.id}/agents`, {
+      headers: { Accept: "application/json" },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/v1/projects/${project.id}/skills`, {
       headers: { Accept: "application/json" },
     });
   });

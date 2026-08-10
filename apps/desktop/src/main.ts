@@ -12,6 +12,7 @@ import {
   type ReplaceTimelineClipInput,
   type TrimTimelineClipInput,
 } from "./api-client";
+import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
@@ -122,6 +123,10 @@ ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, v
 );
 ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
+);
+registerAgentSkillCatalogHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
 );
 ipcMain.handle("workflows:start-fake-timeline", (event, projectId: string) =>
   clientFor(event).startFakeTimelineWorkflow(projectId),
