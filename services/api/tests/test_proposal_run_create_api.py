@@ -795,6 +795,62 @@ def test_proposal_acceptance_fails_closed_when_frozen_enqueue_chain_drifts(
         ).fetchone() == (0,)
 
 
+def test_proposal_acceptance_checks_frozen_identity_before_draft_validation(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:combined-review-drift"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-combined-review-drift-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute("DROP TRIGGER proposal_run_enqueue_intents_immutable_delete")
+        connection.execute("DELETE FROM proposal_run_enqueue_intents")
+        connection.execute("DROP TRIGGER agent_artifact_proposals_immutable_update")
+        proposal_json = connection.execute(
+            "SELECT proposal_json FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        proposal = json.loads(proposal_json)
+        proposal["qc"][0]["status"] = "FAIL"
+        updated_json = canonical_snapshot_json(proposal)
+        connection.execute(
+            "UPDATE agent_artifact_proposals SET proposal_json = ?, proposal_hash = ? "
+            "WHERE proposal_id = ?",
+            (updated_json, canonical_sha256(proposal), proposal_id),
+        )
+        connection.commit()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-combined-review-drift"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT"
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+
+
 def test_proposal_acceptance_maps_missing_frozen_schema_to_stable_conflict(
     tmp_path: Path,
 ) -> None:
@@ -1061,6 +1117,7 @@ def test_cancelled_proposal_cannot_later_be_accepted_as_draft(tmp_path: Path) ->
     )
     assert cancelled.status_code == 201
     assert accepted.status_code == 409
+    assert accepted.json()["error"]["code"] == "ARTIFACT_PROPOSAL_VALIDATION_FAILED"
     with sqlite3.connect(repository.database_path) as connection:
         assert connection.execute(
             "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"

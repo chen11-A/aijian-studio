@@ -17,8 +17,6 @@ from aijian_api.agent_proposal_validator import (
 )
 from aijian_api.agent_run_store import (
     AgentRunBundleConflictError,
-    read_agent_run_bundle_in_connection,
-    read_proposal_run_enqueue_intent_in_connection,
 )
 from aijian_api.agent_skill_contracts import canonical_sha256
 from aijian_api.agent_skill_registry import (
@@ -30,6 +28,11 @@ from aijian_api.agent_skill_registry import (
 from aijian_api.application_errors import (
     ArtifactProposalNotFoundError,
     ProposalRunNotFoundError,
+)
+from aijian_api.artifact_proposal_review_truth import (
+    ArtifactProposalReviewConflictError,
+    read_proposal_review_identity,
+    read_reviewable_proposal_truth,
 )
 from aijian_api.artifact_proposal_store import (
     PROPOSAL_TRUTH_SELECT,
@@ -43,10 +46,8 @@ from aijian_api.repository import (
     SourceSpanInvalidError,
     StudioRepository,
 )
-from aijian_api.source_extract_run_factory import SourceExtractEnqueueIntentV1
 from aijian_api.task_ledger_events import EventEntityKind, append_event
 from aijian_api.task_ledger_models import new_id, parse_datetime, timestamp, utc_now
-from aijian_api.task_ledger_snapshots import canonical_snapshot_json
 
 
 class ArtifactProposalAcceptanceConflictError(ValueError):
@@ -152,19 +153,12 @@ class ArtifactProposalAcceptanceService:
                     "ArtifactProposal already has a draft acceptance"
                 )
 
-            run_bundle = read_agent_run_bundle_in_connection(
+            review_identity = read_proposal_review_identity(
                 connection,
-                project_id,
-                proposal.producer_agent_run_id,
+                project_id=project_id,
+                persisted=persisted,
             )
-            enqueue_intent_record = read_proposal_run_enqueue_intent_in_connection(
-                connection,
-                project_id,
-                proposal.producer_agent_run_id,
-            )
-            enqueue_intent = SourceExtractEnqueueIntentV1.model_validate(
-                enqueue_intent_record.payload
-            )
+            run_bundle = review_identity.run_bundle
             delegation = self._agent_skill_registry.resolve_delegation(
                 run_bundle.agent_run.agent_definition,
                 run_bundle.skill_run.skill_definition,
@@ -181,63 +175,12 @@ class ArtifactProposalAcceptanceService:
                 parent_version_id=parent_version_id,
                 expected_revision=expected_head_revision,
             )
-            truth = connection.execute(
-                """
-                SELECT attempt.status AS attempt_status,
-                       attempt.revision AS attempt_revision,
-                       attempt.output_version_id AS attempt_output_version_id,
-                       node.node_run_id, node.status AS node_status,
-                       node.revision AS node_revision,
-                       node.active_attempt_id,
-                       node.output_version_id AS node_output_version_id,
-                       workflow.workflow_run_id, workflow.status AS workflow_status,
-                       workflow.revision AS workflow_revision,
-                       workflow.definition_id, workflow.definition_version,
-                       workflow.input_hash AS workflow_input_hash,
-                       definition.definition_hash, definition.graph_json,
-                       node.node_key, node.node_type, node.contract_version,
-                       node.input_bindings_json, node.input_hash AS current_node_input_hash,
-                       node.idempotency_key AS current_node_idempotency_key,
-                       node.max_attempts,
-                       task.status AS task_status, task.task_kind, task.priority,
-                       COUNT(*) OVER () AS exact_task_count
-                FROM workflow_attempts AS attempt
-                JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
-                JOIN workflow_runs AS workflow
-                  ON workflow.workflow_run_id = node.workflow_run_id
-                JOIN task_ledger AS task
-                  ON task.attempt_id = attempt.attempt_id AND task.task_kind = ?
-                JOIN workflow_definitions AS definition
-                  ON definition.definition_id = workflow.definition_id
-                 AND definition.version = workflow.definition_version
-                WHERE attempt.attempt_id = ? AND workflow.project_id = ?
-                """,
-                (enqueue_intent.task_kind, persisted.producer_attempt_id, project_id),
-            ).fetchone()
-            if (
-                truth is None
-                or str(truth["attempt_status"]) != "RUNNING"
-                or truth["attempt_output_version_id"] is not None
-                or str(truth["node_status"]) != "NEEDS_REVIEW"
-                or str(truth["active_attempt_id"]) != persisted.producer_attempt_id
-                or truth["node_output_version_id"] is not None
-                or str(truth["workflow_status"]) != "ACTIVE"
-                or str(truth["task_status"]) != "COMPLETED"
-                or int(truth["exact_task_count"]) != 1
-            ):
-                raise ArtifactProposalAcceptanceConflictError(
-                    "ArtifactProposal is not in a reviewable workflow state"
-                )
-            _validate_enqueue_intent_chain(
+            review_truth = read_reviewable_proposal_truth(
+                connection,
+                project_id=project_id,
                 proposal_row=proposal_row,
-                truth=truth,
-                intent=enqueue_intent,
-                intent_project_id=enqueue_intent_record.project_id,
-                intent_agent_run_id=enqueue_intent_record.agent_run_id,
-                context_manifest_id=run_bundle.context_manifest.context_manifest_id,
-                producer_attempt_id=persisted.producer_attempt_id,
-                producer_agent_run_id=proposal.producer_agent_run_id,
-                producer_skill_run_id=proposal.producer_skill_run_id,
+                persisted=persisted,
+                identity=review_identity,
             )
 
             record = self._repository._create_artifact_version_in_connection(
@@ -299,7 +242,7 @@ class ArtifactProposalAcceptanceService:
                     now_text,
                     now_text,
                     persisted.producer_attempt_id,
-                    int(truth["attempt_revision"]),
+                    review_truth.attempt_revision,
                 ),
             ).fetchone()
             node = connection.execute(
@@ -314,9 +257,9 @@ class ArtifactProposalAcceptanceService:
                 (
                     record.version.id,
                     now_text,
-                    str(truth["node_run_id"]),
+                    review_truth.node_run_id,
                     persisted.producer_attempt_id,
-                    int(truth["node_revision"]),
+                    review_truth.node_revision,
                 ),
             ).fetchone()
             agent = connection.execute(
@@ -366,14 +309,14 @@ class ArtifactProposalAcceptanceService:
                 """,
                 (
                     now_text,
-                    str(truth["workflow_run_id"]),
-                    int(truth["workflow_revision"]),
-                    str(truth["workflow_run_id"]),
+                    review_truth.workflow_run_id,
+                    review_truth.workflow_revision,
+                    review_truth.workflow_run_id,
                 ),
             )
             events: tuple[tuple[EventEntityKind, str, str], ...] = (
                 ("attempt", persisted.producer_attempt_id, "RUNNING"),
-                ("node", str(truth["node_run_id"]), "NEEDS_REVIEW"),
+                ("node", review_truth.node_run_id, "NEEDS_REVIEW"),
             )
             for entity_kind, entity_id, from_status in events:
                 append_event(
@@ -406,6 +349,9 @@ class ArtifactProposalAcceptanceService:
         ) as error:
             connection.rollback()
             raise ProposalValidationError("ArtifactProposal DRAFT validation failed") from error
+        except ArtifactProposalReviewConflictError as error:
+            connection.rollback()
+            raise ArtifactProposalAcceptanceConflictError(str(error)) from error
         except (
             ArtifactProposalConflictError,
             AgentRunBundleConflictError,
@@ -446,56 +392,3 @@ def _acceptance_from_row(
         accepted_as_draft_at=parse_datetime(str(row["accepted_as_draft_at"])),
         replayed=replayed,
     )
-
-
-def _validate_enqueue_intent_chain(
-    *,
-    proposal_row: sqlite3.Row,
-    truth: sqlite3.Row,
-    intent: SourceExtractEnqueueIntentV1,
-    intent_project_id: str,
-    intent_agent_run_id: str,
-    context_manifest_id: str,
-    producer_attempt_id: str,
-    producer_agent_run_id: str,
-    producer_skill_run_id: str,
-) -> None:
-    try:
-        graph = json.loads(str(truth["graph_json"]))
-        input_bindings = json.loads(str(truth["input_bindings_json"]))
-        snapshot = json.loads(str(proposal_row["snapshot_json"]))
-    except (json.JSONDecodeError, TypeError, ValueError) as error:
-        raise ArtifactProposalAcceptanceConflictError(
-            "ArtifactProposal workflow intent is not canonical"
-        ) from error
-    if (
-        canonical_snapshot_json(graph) != str(truth["graph_json"])
-        or canonical_snapshot_json(input_bindings) != str(truth["input_bindings_json"])
-        or canonical_snapshot_json(snapshot) != str(proposal_row["snapshot_json"])
-        or intent_project_id != intent.project_id
-        or intent_agent_run_id != intent.agent_run_id
-        or intent.project_id != str(proposal_row["project_id"])
-        or intent.agent_run_id != producer_agent_run_id
-        or intent.skill_run_id != producer_skill_run_id
-        or intent.context_manifest_id != context_manifest_id
-        or intent.definition_id != str(truth["definition_id"])
-        or intent.definition_version != int(truth["definition_version"])
-        or intent.definition_hash != str(truth["definition_hash"])
-        or intent.graph != graph
-        or intent.workflow_input_hash != str(truth["workflow_input_hash"])
-        or intent.node_key != str(truth["node_key"])
-        or intent.node_type != str(truth["node_type"])
-        or intent.contract_version != int(truth["contract_version"])
-        or intent.input_bindings != input_bindings
-        or intent.node_input_hash != str(truth["current_node_input_hash"])
-        or intent.request_fingerprint != str(proposal_row["attempt_request_fingerprint"])
-        or intent.execution_idempotency_key != str(truth["current_node_idempotency_key"])
-        or intent.max_attempts != int(truth["max_attempts"])
-        or intent.task_kind != str(truth["task_kind"])
-        or intent.priority != int(truth["priority"])
-        or intent.attempt_snapshot != snapshot
-        or producer_attempt_id != str(proposal_row["producer_attempt_id"])
-    ):
-        raise ArtifactProposalAcceptanceConflictError(
-            "ArtifactProposal is detached from its immutable enqueue intent"
-        )
