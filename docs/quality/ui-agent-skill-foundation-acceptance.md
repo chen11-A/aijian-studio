@@ -1,6 +1,8 @@
 # UI + Agent + Skill 基础验收清单
 
-状态：Planned；用于 C/D 阶段，不代表当前已完成
+状态：In progress；后端 Fake `source.extract` 提案运行、接受和退回已具备，UI/Electron/人工 Gate 联合纵切仍未完成
+
+当前后端证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only 退回事务保存具名意见，将 Attempt/Node/Workflow/Agent/Skill 原子置为不可重试的 `FAILED`，Task 保持 `COMPLETED`，且不创建 ArtifactVersion、不推进 Head/Gate、不调用 Provider。accept/reject/cancel 竞态、崩溃回滚、冻结真相漂移、OpenAPI/TypeScript 和普通 Web 无写路由均有自动化测试。以上只证明后端纵切，不勾选下方仍要求真实 Electron/UI/影片验收的组合项，也不提高 48 周路线图完成度。
 
 ## C：P0 UI 壳
 
