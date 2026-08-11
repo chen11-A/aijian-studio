@@ -112,6 +112,8 @@ UI Intent
 | `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances`  | 验证后接受为不可变 DRAFT        |
 | `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/rejections`   | 原子退回并保存不可变具名意见    |
 
+Electron 创建运行的传输合同只负责安全提交当前内置的 `writer.source-analyst@1.0.0` + `source.extract@1.0.0`。`operation_id` 由 Renderer 的用户意图协调层生成，并映射为固定命名空间的 `Idempotency-Key`；`REMOTE_UNKNOWN` 只能用同一个 `operation_id` 和完全相同的输入重试。当前 transport-only 增量尚未实现 pending-operation journal，因此不保证 Renderer 重载后的自动恢复；未来创建运行 UI 必须在首次 IPC 前原子持久化 `{operation_id, project_id, canonical_input, state: PENDING_SUBMIT}`，收到明确 2xx 或合同有效的 4xx 后才能结束该操作。此处不代表 Worker 已执行、Proposal 已生成或 Gate 已推进。
+
 Gate 继续复用现有 review/submission/approval 语义，不另建“AI 自动批准”接口。
 
 ### 访问面矩阵

@@ -85,9 +85,12 @@ try {
     throw new Error("Electron timeline bridge did not read the seeded immutable version");
   }
   const expectedBridgeKeys = [
+    "acceptArtifactProposalAsDraft",
     "createProject",
     "createProviderConnection",
+    "createProposalRun",
     "deleteProviderConnection",
+    "getArtifactProposal",
     "getProject",
     "getProjectTimeline",
     "getSource",
@@ -96,12 +99,15 @@ try {
     "getStoryBibleVersion",
     "health",
     "importTextSource",
+    "listProjectAgents",
+    "listProjectSkills",
     "listProjectTasks",
     "listProjects",
     "listProviderConnections",
     "listSources",
     "reorderTimelineClip",
     "replaceTimelineClip",
+    "rejectArtifactProposal",
     "startFakeTimelineWorkflow",
     "trimTimelineClip",
   ].sort();

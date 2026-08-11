@@ -14,6 +14,7 @@ import {
 } from "./api-client";
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
+import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
@@ -126,6 +127,10 @@ ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
 );
 registerArtifactProposalHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+);
+registerProposalRunHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
 );

@@ -24,6 +24,13 @@ type ArtifactProposalDecisionResult<TReceipt> =
   | { kind: "SUCCEEDED"; receipt: TReceipt }
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
+type ProposalRunCreateInput = components["schemas"]["CreateProposalRunRequest"];
+type CreatedProposalRunResponse = components["schemas"]["CreatedProposalRunResponse"];
+type ProposalRunCreateCommand = { operation_id: string; input: ProposalRunCreateInput };
+type ProposalRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: CreatedProposalRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -91,6 +98,15 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("proposals:reject", projectId, proposalId, input) as Promise<
       ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>
     >,
+  createProposalRun: (
+    projectId: string,
+    command: ProposalRunCreateCommand,
+  ): Promise<ProposalRunCreateResult> =>
+    ipcRenderer.invoke(
+      "proposal-runs:create",
+      projectId,
+      command,
+    ) as Promise<ProposalRunCreateResult>,
   listProjectAgents: (projectId: string): Promise<AgentCatalogResponse> =>
     ipcRenderer.invoke("agents:list", projectId) as Promise<AgentCatalogResponse>,
   listProjectSkills: (projectId: string): Promise<SkillCatalogResponse> =>

@@ -265,6 +265,7 @@ try {
   const expectedBridgeKeys = [
     "createProject",
     "createProviderConnection",
+    "createProposalRun",
     "deleteProviderConnection",
     "acceptArtifactProposalAsDraft",
     "getArtifactProposal",

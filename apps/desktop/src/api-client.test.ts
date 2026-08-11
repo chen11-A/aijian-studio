@@ -2,6 +2,7 @@ import type { components } from "@aijian/contracts";
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
+import { createdProposalRunResponse, proposalRunCommand } from "./proposal-run-test-fixture";
 
 type HealthResponse = components["schemas"]["HealthResponse"];
 type ProjectData = components["schemas"]["ProjectData"];
@@ -1136,6 +1137,115 @@ describe("local API client", () => {
       `${session.origin}/api/v1/projects/${project.id}/skills`,
       expect.objectContaining({ headers: expect.any(Object) }),
     );
+  });
+
+  test("keeps proposal run operation identity stable for remote-unknown retries", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("connection reset"));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+      kind: "REMOTE_UNKNOWN",
+    });
+    await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+      kind: "REMOTE_UNKNOWN",
+    });
+    const first = fetchMock.mock.calls[0]![1] as RequestInit;
+    const second = fetchMock.mock.calls[1]![1] as RequestInit;
+    expect(new Headers(first.headers).get("Idempotency-Key")).toBe(
+      `proposal-run:create:v1:${proposalRunCommand.operation_id}`,
+    );
+    expect(new Headers(second.headers).get("Idempotency-Key")).toBe(
+      new Headers(first.headers).get("Idempotency-Key"),
+    );
+  });
+
+  test("distinguishes fresh proposal runs from exact server replays", async () => {
+    const receipt = createdProposalRunResponse();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(receipt, { status: 201 }))
+      .mockResolvedValueOnce(Response.json(receipt, { status: 200 }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt,
+      replayed: false,
+    });
+    await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt,
+      replayed: true,
+    });
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).body).toBe(
+      JSON.stringify(proposalRunCommand.input),
+    );
+  });
+
+  test("separates operation identity from otherwise identical run inputs", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("unknown"));
+    const client = createLocalApiClient(fetchMock, session);
+    const secondOperation = {
+      ...proposalRunCommand,
+      operation_id: "87302cb8-71f8-4bb9-856a-162571f1ae6e",
+    };
+    const changedInput = {
+      ...proposalRunCommand,
+      input: { ...proposalRunCommand.input, end_byte: 25 },
+    };
+
+    await client.createProposalRun(project.id, proposalRunCommand);
+    await client.createProposalRun(project.id, changedInput);
+    await client.createProposalRun(project.id, secondOperation);
+    const keys = fetchMock.mock.calls.map((call) =>
+      new Headers((call[1] as RequestInit).headers).get("Idempotency-Key"),
+    );
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).body).toBe(
+      JSON.stringify(changedInput.input),
+    );
+  });
+
+  test("classifies only contract-valid proposal run client failures as definite", async () => {
+    const errorPayload = {
+      error: { code: "PROPOSAL_RUN_CONFLICT", message: "conflict", retryable: false, details: {} },
+      request_id: healthyResponse.request_id,
+    };
+    for (const status of [401, 403, 404, 409, 422]) {
+      const client = createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(errorPayload, { status })),
+        session,
+      );
+      await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+        kind: "DEFINITE_SERVER_ERROR",
+        status,
+        code: "PROPOSAL_RUN_CONFLICT",
+        request_id: healthyResponse.request_id,
+      });
+    }
+    for (const response of [
+      Response.json(errorPayload, { status: 500 }),
+      Response.json({ ...errorPayload, extra: true }, { status: 409 }),
+      Response.json(createdProposalRunResponse(), { status: 202 }),
+    ]) {
+      const client = createLocalApiClient(vi.fn().mockResolvedValue(response), session);
+      await expect(client.createProposalRun(project.id, proposalRunCommand)).resolves.toEqual({
+        kind: "REMOTE_UNKNOWN",
+      });
+    }
+  });
+
+  test("rejects unsupported proposal run commands before HTTP", async () => {
+    const fetchMock = vi.fn();
+    const client = createLocalApiClient(fetchMock, session);
+    await expect(
+      client.createProposalRun(project.id, {
+        ...proposalRunCommand,
+        input: { ...proposalRunCommand.input, end_byte: 0 },
+      }),
+    ).rejects.toThrow("valid proposal run command");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("rejects malformed catalog metadata and invalid project ids before transport", async () => {

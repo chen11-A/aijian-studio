@@ -107,9 +107,12 @@ try {
     throw new Error("Electron IPC did not round-trip the provider connection contract");
   }
   const expectedBridgeKeys = [
+    "acceptArtifactProposalAsDraft",
     "createProviderConnection",
     "createProject",
+    "createProposalRun",
     "deleteProviderConnection",
+    "getArtifactProposal",
     "getProject",
     "getProjectTimeline",
     "getSource",
@@ -118,12 +121,15 @@ try {
     "getStoryBibleIndex",
     "health",
     "importTextSource",
+    "listProjectAgents",
+    "listProjectSkills",
     "listProjectTasks",
     "listProjects",
     "listProviderConnections",
     "listSources",
     "reorderTimelineClip",
     "replaceTimelineClip",
+    "rejectArtifactProposal",
     "startFakeTimelineWorkflow",
     "trimTimelineClip",
   ].sort();

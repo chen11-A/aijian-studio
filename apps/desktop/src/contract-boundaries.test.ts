@@ -29,7 +29,24 @@ describe("privileged contract boundaries", () => {
     );
     expect(preloadSource).toContain('ipcRenderer.invoke("agents:list", projectId)');
     expect(preloadSource).toContain('ipcRenderer.invoke("skills:list", projectId)');
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"proposal-runs:create",\s*projectId,\s*command,?\s*\)/,
+    );
     expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
+  });
+
+  test("registers proposal run creation only through the exact main-process handler", () => {
+    const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
+    expect(mainSource).toContain("registerProposalRunHandlers<IpcMainInvokeEvent>(");
+    expect(mainSource).not.toContain('ipcMain.handle("proposal-runs:create"');
+  });
+
+  test("does not expose proposal run creation through the ordinary Web transport", () => {
+    const studioSource = readFileSync(
+      resolve(process.cwd(), "../studio-web/src/api/studio.ts"),
+      "utf8",
+    );
+    expect(studioSource).not.toContain("createProposalRun");
   });
 
   test("rejects malformed nested health payloads", () => {

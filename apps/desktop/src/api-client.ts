@@ -41,6 +41,13 @@ import {
   type ProviderConnectionListResponse,
   type ProviderConnectionResponse,
 } from "./provider-connection-contract";
+import {
+  isCreatedProposalRunResponse,
+  isProposalRunCreateCommand,
+  proposalRunIdempotencyKey,
+  type ProposalRunCreateCommand,
+  type ProposalRunCreateResult,
+} from "./proposal-run-contract";
 import type { SidecarSession } from "./sidecar-protocol";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import { isTaskQueueResponse, type TaskQueueResponse } from "./task-queue-contract";
@@ -70,6 +77,7 @@ export type {
   ArtifactProposalResponse,
 } from "./artifact-proposal-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
+export type { ProposalRunCreateCommand, ProposalRunCreateResult } from "./proposal-run-contract";
 export type {
   ReorderTimelineClipInput,
   ReplaceTimelineClipInput,
@@ -104,6 +112,10 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  createProposalRun(
+    projectId: string,
+    command: ProposalRunCreateCommand,
+  ): Promise<ProposalRunCreateResult>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   acceptArtifactProposalAsDraft(
     projectId: string,
@@ -1218,6 +1230,56 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
     }
   }
 
+  async function requestProposalRunCreation(
+    projectId: string,
+    command: ProposalRunCreateCommand,
+  ): Promise<ProposalRunCreateResult> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}/api/v1/projects/${projectId}/proposal-runs`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+          "Idempotency-Key": proposalRunIdempotencyKey(command),
+        },
+        body: JSON.stringify(command.input),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+    if (response.status === 200 || response.status === 201) {
+      try {
+        const payload = await readJsonWithLimit(response);
+        return isCreatedProposalRunResponse(payload, projectId, command, response.status === 201)
+          ? { kind: "SUCCEEDED", receipt: payload, replayed: response.status === 200 }
+          : { kind: "REMOTE_UNKNOWN" };
+      } catch {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+    }
+    if (!DEFINITE_DECISION_STATUSES.has(response.status)) return { kind: "REMOTE_UNKNOWN" };
+    try {
+      const payload = await readJsonWithLimit(response);
+      if (
+        !isErrorResponse(payload) ||
+        !hasOnlyKeys(payload, ["error", "request_id"]) ||
+        !hasOnlyKeys(payload.error, ["code", "message", "retryable", "details"])
+      ) {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+      return {
+        kind: "DEFINITE_SERVER_ERROR",
+        status: response.status,
+        code: payload.error.code,
+        request_id: payload.request_id,
+      };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+  }
+
   async function requestOptionalJson<T>(
     path: string,
     validator: (value: unknown) => value is T,
@@ -1379,6 +1441,18 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
         { headers },
       );
+    },
+    async createProposalRun(
+      projectId: string,
+      command: ProposalRunCreateCommand,
+    ): Promise<ProposalRunCreateResult> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!isProposalRunCreateCommand(command)) {
+        throw new Error("Local API client requires a valid proposal run command");
+      }
+      return requestProposalRunCreation(projectId, command);
     },
     async getArtifactProposal(
       projectId: string,
