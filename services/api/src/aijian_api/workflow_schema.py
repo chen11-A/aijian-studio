@@ -579,3 +579,75 @@ MIGRATION_11 = (
     END
     """,
 )
+
+
+MIGRATION_12 = (
+    """
+    CREATE TABLE artifact_proposal_draft_acceptances (
+        acceptance_id TEXT PRIMARY KEY CHECK (
+            length(acceptance_id) = 36 AND acceptance_id LIKE 'pda_%'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        proposal_id TEXT NOT NULL UNIQUE
+            REFERENCES agent_artifact_proposals(proposal_id),
+        client_key_hash TEXT NOT NULL CHECK (
+            length(client_key_hash) = 71 AND client_key_hash LIKE 'sha256:%'
+        ),
+        request_hash TEXT NOT NULL CHECK (
+            length(request_hash) = 71 AND request_hash LIKE 'sha256:%'
+        ),
+        proposal_hash TEXT NOT NULL CHECK (
+            length(proposal_hash) = 71 AND proposal_hash LIKE 'sha256:%'
+        ),
+        draft_version_id TEXT NOT NULL UNIQUE
+            REFERENCES artifact_versions(version_id),
+        actor_id TEXT NOT NULL CHECK (length(actor_id) BETWEEN 1 AND 200),
+        actor_roles_json TEXT NOT NULL CHECK (
+            json_valid(actor_roles_json) AND json_type(actor_roles_json) = 'array'
+        ),
+        accepted_as_draft_at TEXT NOT NULL,
+        UNIQUE (project_id, client_key_hash)
+    )
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_draft_acceptances_chain_insert
+    BEFORE INSERT ON artifact_proposal_draft_acceptances
+    WHEN NOT EXISTS (
+        SELECT 1
+        FROM agent_artifact_proposals AS proposal
+        JOIN artifact_versions AS version
+          ON version.version_id = NEW.draft_version_id
+        JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+        WHERE proposal.proposal_id = NEW.proposal_id
+          AND proposal.project_id = NEW.project_id
+          AND proposal.proposal_hash = NEW.proposal_hash
+          AND artifact.project_id = NEW.project_id
+          AND version.producer_attempt_id = proposal.producer_attempt_id
+          AND version.content_hash = json_extract(proposal.proposal_json, '$.payload_hash')
+          AND version.author_actor_type = 'agent'
+          AND version.author_actor_id = proposal.producer_skill_run_id
+          AND artifact.artifact_type = CASE proposal.target_artifact_type
+              WHEN 'SourceExtraction' THEN 'source_extraction'
+              ELSE '__unsupported_proposal_artifact_type__'
+          END
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal draft acceptance chain is inconsistent');
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_draft_acceptances_immutable_update
+    BEFORE UPDATE ON artifact_proposal_draft_acceptances
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal draft acceptances are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_draft_acceptances_immutable_delete
+    BEFORE DELETE ON artifact_proposal_draft_acceptances
+    WHEN EXISTS (SELECT 1 FROM projects WHERE id = OLD.project_id)
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal draft acceptances are immutable');
+    END
+    """,
+)

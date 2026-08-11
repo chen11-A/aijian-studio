@@ -10,7 +10,7 @@ from aijian_api.agent_proposal_validator import (
     ProposalSchemaRegistry,
     ProposalValidationError,
     ResolvedProposalSchema,
-    accept_proposal_as_draft,
+    prepare_proposal_draft,
 )
 from aijian_api.agent_skill_contracts import (
     AgentRunV1,
@@ -40,6 +40,7 @@ from aijian_api.repository import (
     AcceptedArtifactDependencyRequirement,
     ArtifactConflictError,
     ArtifactDependencyInvalidError,
+    SourceSpanInvalidError,
     StudioRepository,
 )
 from pydantic import BaseModel, ConfigDict
@@ -84,6 +85,51 @@ def repository_at(database: Path) -> StudioRepository:
 
 def fixture_bundle() -> AgentSkillFixtureBundleV1:
     return AgentSkillFixtureBundleV1.model_validate_json(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def accept_proposal_as_draft(
+    *,
+    repository: StudioRepository,
+    proposal: ArtifactProposalV1,
+    agent_run: AgentRunV1,
+    skill_run: SkillRunV1,
+    delegation: ResolvedDelegation,
+    proposal_schema: ResolvedProposalSchema,
+    parent_version_id: str | None = None,
+    expected_revision: int | None = None,
+) -> ArtifactVersionRecord:
+    """Test-only materializer; production acceptance must use the atomic service."""
+
+    prepared = prepare_proposal_draft(
+        proposal=proposal,
+        agent_run=agent_run,
+        skill_run=skill_run,
+        delegation=delegation,
+        proposal_schema=proposal_schema,
+        parent_version_id=parent_version_id,
+        expected_revision=expected_revision,
+    )
+    try:
+        return repository.create_artifact_version(
+            project_id=proposal.project_id,
+            artifact_type=prepared.artifact_type,
+            schema_version=prepared.schema_version,
+            content=prepared.content,
+            author_actor_type="agent",
+            author_actor_id=proposal.producer_skill_run_id,
+            change_summary="test-only prepared Agent proposal DRAFT",
+            parent_version_id=parent_version_id,
+            expected_revision=expected_revision,
+            source_spans=prepared.source_spans,
+            dependencies=prepared.dependencies,
+            accepted_dependency_requirements=prepared.accepted_dependency_requirements,
+            required_accepted_upstream_version_id=(prepared.required_accepted_upstream_version_id),
+            record_validator=prepared.record_validator,
+        )
+    except SourceSpanInvalidError as error:
+        raise ProposalValidationError("proposal SourceSpan is invalid for the project") from error
+    except ArtifactDependencyInvalidError as error:
+        raise ProposalValidationError("proposal dependency is no longer accepted") from error
 
 
 def setup_proposal(
@@ -478,7 +524,7 @@ def test_cross_project_dependency_creates_no_draft(tmp_path: Path) -> None:
         approval_required=True,
     )
 
-    with pytest.raises(ProposalValidationError, match="belong to the project"):
+    with pytest.raises(ProposalValidationError, match="dependency"):
         accept_proposal_as_draft(
             repository=repository,
             proposal=proposal.model_copy(update={"dependencies": (dependency,)}),

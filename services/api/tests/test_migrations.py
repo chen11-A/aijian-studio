@@ -15,6 +15,7 @@ HASH_B = f"sha256:{'b' * 64}"
 
 
 def drop_v10_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS artifact_proposal_draft_acceptances")
     connection.execute("DROP TABLE IF EXISTS proposal_run_enqueue_intents")
     connection.execute("DROP TABLE skill_runs")
     connection.execute("DROP TABLE agent_context_manifests")
@@ -179,7 +180,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-        assert SCHEMA_VERSION == 11
+        assert SCHEMA_VERSION == 12
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -216,6 +217,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "skill_runs",
         "agent_context_manifests",
         "proposal_run_enqueue_intents",
+        "artifact_proposal_draft_acceptances",
     } <= tables
 
 
@@ -539,6 +541,7 @@ def test_every_v11_ddl_failure_rolls_back_to_v10_and_can_retry(tmp_path: Path) -
             source_language="zh-CN",
         )
         with sqlite3.connect(database) as connection:
+            connection.execute("DROP TABLE artifact_proposal_draft_acceptances")
             connection.execute("DROP TABLE proposal_run_enqueue_intents")
             connection.execute("PRAGMA user_version = 10")
 
@@ -566,6 +569,55 @@ def test_every_v11_ddl_failure_rolls_back_to_v10_and_can_retry(tmp_path: Path) -
             table = connection.execute(
                 "SELECT 1 FROM sqlite_master "
                 "WHERE type = 'table' AND name = 'proposal_run_enqueue_intents'"
+            ).fetchone()
+        assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v12_ddl_failure_rolls_back_to_v11_and_can_retry(tmp_path: Path) -> None:
+    def create_current_v11_database(database: Path) -> None:
+        StudioRepository(database).create_project(
+            name="V11 draft acceptance migration",
+            aspect_ratio="9:16",
+            target_duration_seconds=30,
+            source_language="zh-CN",
+        )
+        with sqlite3.connect(database) as connection:
+            for trigger in (
+                "artifact_proposal_draft_acceptances_chain_insert",
+                "artifact_proposal_draft_acceptances_immutable_update",
+                "artifact_proposal_draft_acceptances_immutable_delete",
+            ):
+                connection.execute(f"DROP TRIGGER {trigger}")
+            connection.execute("DROP TABLE artifact_proposal_draft_acceptances")
+            connection.execute("PRAGMA user_version = 11")
+
+    probe = tmp_path / "probe-v12.db"
+    create_current_v11_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 12 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v12-failure-{failed_step}.db"
+        create_current_v11_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 12 and step == target:
+                raise RuntimeError(f"injected v12 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v12 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 11
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'artifact_proposal_draft_acceptances'"
             ).fetchone()
         assert table is None
 

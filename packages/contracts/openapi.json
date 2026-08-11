@@ -308,6 +308,76 @@
         "title": "ArtifactProposalData",
         "type": "object"
       },
+      "ArtifactProposalDraftAcceptanceData": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_id": {
+            "pattern": "^pda_[0-9a-f]{32}$",
+            "title": "Acceptance Id",
+            "type": "string"
+          },
+          "accepted_as_draft_at": {
+            "format": "date-time",
+            "title": "Accepted As Draft At",
+            "type": "string"
+          },
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "draft_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Draft Version Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "pattern": "^prp_[0-9a-f]{32}$",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "acceptance_id",
+          "project_id",
+          "proposal_id",
+          "draft_version_id",
+          "actor_id",
+          "accepted_as_draft_at",
+          "replayed"
+        ],
+        "title": "ArtifactProposalDraftAcceptanceData",
+        "type": "object"
+      },
+      "ArtifactProposalDraftAcceptanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ArtifactProposalDraftAcceptanceData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ArtifactProposalDraftAcceptanceResponse",
+        "type": "object"
+      },
       "ArtifactProposalResponse": {
         "additionalProperties": false,
         "properties": {
@@ -461,6 +531,128 @@
       "ArtifactType": {
         "pattern": "^[A-Z][A-Za-z0-9]{1,79}$",
         "type": "string"
+      },
+      "AttemptSnapshotV1": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_definition_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "agent_run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "agent_version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Agent Version",
+            "type": "string"
+          },
+          "attempt_fingerprint": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Attempt Fingerprint",
+            "type": "string"
+          },
+          "attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "capability_snapshot_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Capability Snapshot Hash",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "model_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "output_artifact_type": {
+            "$ref": "#/components/schemas/ArtifactType"
+          },
+          "output_schema_version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Output Schema Version",
+            "type": "string"
+          },
+          "policy_version": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "prompt_version": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider_connection_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Provider Connection Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_definition_id": {
+            "$ref": "#/components/schemas/DefinitionId"
+          },
+          "skill_run_id": {
+            "pattern": "^skr_[0-9a-f]{32}$",
+            "title": "Skill Run Id",
+            "type": "string"
+          },
+          "skill_version": {
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+            "title": "Skill Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_id",
+          "project_id",
+          "agent_run_id",
+          "skill_run_id",
+          "output_artifact_type",
+          "agent_definition_id",
+          "agent_version",
+          "skill_definition_id",
+          "skill_version",
+          "prompt_version",
+          "policy_version",
+          "provider_connection_id",
+          "model_id",
+          "capability_snapshot_hash",
+          "input_hash",
+          "output_schema_version",
+          "idempotency_key",
+          "attempt_fingerprint"
+        ],
+        "title": "AttemptSnapshotV1",
+        "type": "object"
       },
       "AudioFrameBoundaryPolicyData": {
         "additionalProperties": false,
@@ -1559,6 +1751,37 @@
         "title": "CostumeFactV1",
         "type": "object"
       },
+      "CreateArtifactProposalDraftAcceptanceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_head_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Head Revision"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          }
+        },
+        "title": "CreateArtifactProposalDraftAcceptanceRequest",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1592,6 +1815,60 @@
           "name"
         ],
         "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "CreateProposalRunCancellationRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "CreateProposalRunCancellationRequest",
+        "type": "object"
+      },
+      "CreateProposalRunRequest": {
+        "additionalProperties": false,
+        "description": "Exact immutable source coordinates for the first provider-free Skill.",
+        "properties": {
+          "agent_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "end_byte": {
+            "exclusiveMinimum": 0.0,
+            "title": "End Byte",
+            "type": "integer"
+          },
+          "skill_definition": {
+            "$ref": "#/components/schemas/DefinitionRefV1"
+          },
+          "source_block_id": {
+            "pattern": "^srcb_[0-9a-f]{32}$",
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "source_manifest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Source Manifest Version Id",
+            "type": "string"
+          },
+          "start_byte": {
+            "minimum": 0.0,
+            "title": "Start Byte",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_definition",
+          "skill_definition",
+          "source_manifest_version_id",
+          "source_document_id",
+          "source_block_id",
+          "start_byte",
+          "end_byte"
+        ],
+        "title": "CreateProposalRunRequest",
         "type": "object"
       },
       "CreateProviderConnectionRequest": {
@@ -1749,6 +2026,90 @@
           "clips"
         ],
         "title": "CreateTimelineRequest",
+        "type": "object"
+      },
+      "CreatedProposalRunData": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_revision": {
+            "minimum": 1.0,
+            "title": "Agent Revision",
+            "type": "integer"
+          },
+          "agent_run": {
+            "$ref": "#/components/schemas/AgentRunV1"
+          },
+          "attempt": {
+            "$ref": "#/components/schemas/AttemptSnapshotV1"
+          },
+          "context_manifest": {
+            "$ref": "#/components/schemas/ContextManifestV1"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skill_revision": {
+            "minimum": 1.0,
+            "title": "Skill Revision",
+            "type": "integer"
+          },
+          "skill_run": {
+            "$ref": "#/components/schemas/SkillRunV1"
+          },
+          "task": {
+            "$ref": "#/components/schemas/ProposalRunTaskData"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "run_id",
+          "agent_run",
+          "skill_run",
+          "context_manifest",
+          "agent_revision",
+          "skill_revision",
+          "created_at",
+          "updated_at",
+          "task",
+          "attempt"
+        ],
+        "title": "CreatedProposalRunData",
+        "type": "object"
+      },
+      "CreatedProposalRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CreatedProposalRunData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "CreatedProposalRunResponse",
         "type": "object"
       },
       "DefinitionId": {
@@ -4282,6 +4643,99 @@
         "title": "ProposalQcV1",
         "type": "object"
       },
+      "ProposalRunCancellationData": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_run_status": {
+            "const": "CANCELLED",
+            "title": "Agent Run Status",
+            "type": "string"
+          },
+          "already_cancelled": {
+            "title": "Already Cancelled",
+            "type": "boolean"
+          },
+          "cancellation_id": {
+            "pattern": "^cnl_[0-9a-f]{32}$",
+            "title": "Cancellation Id",
+            "type": "string"
+          },
+          "cancelled_attempts": {
+            "minimum": 0.0,
+            "title": "Cancelled Attempts",
+            "type": "integer"
+          },
+          "cancelled_nodes": {
+            "minimum": 0.0,
+            "title": "Cancelled Nodes",
+            "type": "integer"
+          },
+          "cancelled_tasks": {
+            "minimum": 0.0,
+            "title": "Cancelled Tasks",
+            "type": "integer"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^agr_[0-9a-f]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skill_run_status": {
+            "const": "CANCELLED",
+            "title": "Skill Run Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "workflow_run_id": {
+            "pattern": "^wfr_[0-9a-f]{32}$",
+            "title": "Workflow Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cancellation_id",
+          "project_id",
+          "run_id",
+          "workflow_run_id",
+          "agent_run_status",
+          "skill_run_status",
+          "cancelled_tasks",
+          "cancelled_attempts",
+          "cancelled_nodes",
+          "already_cancelled",
+          "updated_at"
+        ],
+        "title": "ProposalRunCancellationData",
+        "type": "object"
+      },
+      "ProposalRunCancellationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProposalRunCancellationData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ProposalRunCancellationResponse",
+        "type": "object"
+      },
       "ProposalRunData": {
         "additionalProperties": false,
         "description": "Safe read projection of persisted Agent/Skill run truth.",
@@ -4357,6 +4811,39 @@
           "request_id"
         ],
         "title": "ProposalRunResponse",
+        "type": "object"
+      },
+      "ProposalRunTaskData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "node_run_id": {
+            "pattern": "^node_[0-9a-f]{32}$",
+            "title": "Node Run Id",
+            "type": "string"
+          },
+          "task_id": {
+            "pattern": "^task_[0-9a-f]{32}$",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "workflow_run_id": {
+            "pattern": "^wfr_[0-9a-f]{32}$",
+            "title": "Workflow Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_run_id",
+          "node_run_id",
+          "attempt_id",
+          "task_id"
+        ],
+        "title": "ProposalRunTaskData",
         "type": "object"
       },
       "ProposalSourceSpanV1": {
@@ -8752,6 +9239,117 @@
         "summary": "List Project Agents"
       }
     },
+    "/api/v1/projects/{project_id}/proposal-runs": {
+      "post": {
+        "operationId": "createProposalRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 240,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProposalRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedProposalRunResponse"
+                }
+              }
+            },
+            "description": "Existing idempotent proposal run returned"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedProposalRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run input or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Create Proposal Run"
+      }
+    },
     "/api/v1/projects/{project_id}/proposal-runs/{run_id}": {
       "get": {
         "operationId": "getProposalRun",
@@ -8832,6 +9430,127 @@
         "summary": "Get Proposal Run"
       }
     },
+    "/api/v1/projects/{project_id}/proposal-runs/{run_id}/cancellations": {
+      "post": {
+        "operationId": "cancelProposalRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^agr_[0-9a-f]{32}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 240,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProposalRunCancellationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalRunCancellationResponse"
+                }
+              }
+            },
+            "description": "Existing cancellation returned"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalRunCancellationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run input or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Cancel Proposal Run"
+      }
+    },
     "/api/v1/projects/{project_id}/proposals/{proposal_id}": {
       "get": {
         "operationId": "getArtifactProposal",
@@ -8910,6 +9629,128 @@
           }
         },
         "summary": "Get Artifact Proposal"
+      }
+    },
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances": {
+      "post": {
+        "operationId": "acceptArtifactProposalAsDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prp_[0-9a-f]{32}$",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 240,
+              "minLength": 1,
+              "pattern": ".*\\S.*",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateArtifactProposalDraftAcceptanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactProposalDraftAcceptanceResponse"
+                }
+              }
+            },
+            "description": "Exact idempotent replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactProposalDraftAcceptanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact proposal not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Draft acceptance conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Accept Artifact Proposal As Draft"
       }
     },
     "/api/v1/projects/{project_id}/skills": {

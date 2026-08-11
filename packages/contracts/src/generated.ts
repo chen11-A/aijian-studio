@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/proposal-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Proposal Run */
+        post: operations["createProposalRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/proposal-runs/{run_id}": {
         parameters: {
             query?: never;
@@ -107,6 +124,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/proposal-runs/{run_id}/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Proposal Run */
+        post: operations["cancelProposalRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/proposals/{proposal_id}": {
         parameters: {
             query?: never;
@@ -118,6 +152,23 @@ export interface paths {
         get: operations["getArtifactProposal"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Artifact Proposal As Draft */
+        post: operations["acceptArtifactProposalAsDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -493,6 +544,35 @@ export interface components {
             /** Proposal Id */
             proposal_id: string;
         };
+        /** ArtifactProposalDraftAcceptanceData */
+        ArtifactProposalDraftAcceptanceData: {
+            /** Acceptance Id */
+            acceptance_id: string;
+            /**
+             * Accepted As Draft At
+             * Format: date-time
+             */
+            accepted_as_draft_at: string;
+            /** Actor Id */
+            actor_id: string;
+            /** Draft Version Id */
+            draft_version_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Proposal Id */
+            proposal_id: string;
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** ArtifactProposalDraftAcceptanceResponse */
+        ArtifactProposalDraftAcceptanceResponse: {
+            data: components["schemas"]["ArtifactProposalDraftAcceptanceData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** ArtifactProposalResponse */
         ArtifactProposalResponse: {
             data: components["schemas"]["ArtifactProposalData"];
@@ -544,6 +624,48 @@ export interface components {
             target_artifact_type: components["schemas"]["ArtifactType"];
         };
         ArtifactType: string;
+        /** AttemptSnapshotV1 */
+        AttemptSnapshotV1: {
+            agent_definition_id: components["schemas"]["DefinitionId"];
+            /** Agent Run Id */
+            agent_run_id: string;
+            /** Agent Version */
+            agent_version: string;
+            /** Attempt Fingerprint */
+            attempt_fingerprint: string;
+            /** Attempt Id */
+            attempt_id: string;
+            /** Capability Snapshot Hash */
+            capability_snapshot_hash: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Input Hash */
+            input_hash: string;
+            /** Model Id */
+            model_id: string;
+            output_artifact_type: components["schemas"]["ArtifactType"];
+            /** Output Schema Version */
+            output_schema_version: string;
+            /** Policy Version */
+            policy_version: string;
+            /** Project Id */
+            project_id: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Provider Connection Id */
+            provider_connection_id: string;
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+            skill_definition_id: components["schemas"]["DefinitionId"];
+            /** Skill Run Id */
+            skill_run_id: string;
+            /** Skill Version */
+            skill_version: string;
+        };
         /**
          * AudioFrameBoundaryPolicyData
          * @description Deterministic sequence-frame to working-audio sample conversion policy.
@@ -836,6 +958,13 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** CreateArtifactProposalDraftAcceptanceRequest */
+        CreateArtifactProposalDraftAcceptanceRequest: {
+            /** Expected Head Revision */
+            expected_head_revision?: number | null;
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+        };
         /** CreateProjectRequest */
         CreateProjectRequest: {
             /**
@@ -857,6 +986,26 @@ export interface components {
              * @default 90
              */
             target_duration_seconds: number;
+        };
+        /** CreateProposalRunCancellationRequest */
+        CreateProposalRunCancellationRequest: Record<string, never>;
+        /**
+         * CreateProposalRunRequest
+         * @description Exact immutable source coordinates for the first provider-free Skill.
+         */
+        CreateProposalRunRequest: {
+            agent_definition: components["schemas"]["DefinitionRefV1"];
+            /** End Byte */
+            end_byte: number;
+            skill_definition: components["schemas"]["DefinitionRefV1"];
+            /** Source Block Id */
+            source_block_id: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Source Manifest Version Id */
+            source_manifest_version_id: string;
+            /** Start Byte */
+            start_byte: number;
         };
         /** CreateProviderConnectionRequest */
         CreateProviderConnectionRequest: {
@@ -913,6 +1062,41 @@ export interface components {
              * @constant
              */
             width: 1080;
+        };
+        /** CreatedProposalRunData */
+        CreatedProposalRunData: {
+            /** Agent Revision */
+            agent_revision: number;
+            agent_run: components["schemas"]["AgentRunV1"];
+            attempt: components["schemas"]["AttemptSnapshotV1"];
+            context_manifest: components["schemas"]["ContextManifestV1"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Id */
+            project_id: string;
+            /** Run Id */
+            run_id: string;
+            /** Skill Revision */
+            skill_revision: number;
+            skill_run: components["schemas"]["SkillRunV1"];
+            task: components["schemas"]["ProposalRunTaskData"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CreatedProposalRunResponse */
+        CreatedProposalRunResponse: {
+            data: components["schemas"]["CreatedProposalRunData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         DefinitionId: string;
         /** DefinitionRefV1 */
@@ -1615,6 +1799,49 @@ export interface components {
              */
             status: "PASS" | "FAIL" | "NOT_RUN";
         };
+        /** ProposalRunCancellationData */
+        ProposalRunCancellationData: {
+            /**
+             * Agent Run Status
+             * @constant
+             */
+            agent_run_status: "CANCELLED";
+            /** Already Cancelled */
+            already_cancelled: boolean;
+            /** Cancellation Id */
+            cancellation_id: string;
+            /** Cancelled Attempts */
+            cancelled_attempts: number;
+            /** Cancelled Nodes */
+            cancelled_nodes: number;
+            /** Cancelled Tasks */
+            cancelled_tasks: number;
+            /** Project Id */
+            project_id: string;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Skill Run Status
+             * @constant
+             */
+            skill_run_status: "CANCELLED";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Workflow Run Id */
+            workflow_run_id: string;
+        };
+        /** ProposalRunCancellationResponse */
+        ProposalRunCancellationResponse: {
+            data: components["schemas"]["ProposalRunCancellationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /**
          * ProposalRunData
          * @description Safe read projection of persisted Agent/Skill run truth.
@@ -1650,6 +1877,17 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** ProposalRunTaskData */
+        ProposalRunTaskData: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Node Run Id */
+            node_run_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Workflow Run Id */
+            workflow_run_id: string;
         };
         /** ProposalSourceSpanV1 */
         ProposalSourceSpanV1: {
@@ -3179,6 +3417,88 @@ export interface operations {
             };
         };
     };
+    createProposalRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProposalRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing idempotent proposal run returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedProposalRunResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedProposalRunResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Run input or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getProposalRun: {
         parameters: {
             query?: never;
@@ -3238,6 +3558,89 @@ export interface operations {
             };
         };
     };
+    cancelProposalRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProposalRunCancellationRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing cancellation returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalRunCancellationResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalRunCancellationResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Run input or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getArtifactProposal: {
         parameters: {
             query?: never;
@@ -3279,6 +3682,89 @@ export interface operations {
             };
             /** @description Artifact proposal not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acceptArtifactProposalAsDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Exact idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactProposalDraftAcceptanceResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactProposalDraftAcceptanceResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Artifact proposal not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Draft acceptance conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

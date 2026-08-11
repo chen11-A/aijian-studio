@@ -22,10 +22,6 @@ from aijian_api.domain import (
 )
 from aijian_api.repository import (
     AcceptedArtifactDependencyRequirement,
-    ArtifactConflictError,
-    ArtifactDependencyInvalidError,
-    SourceSpanInvalidError,
-    StudioRepository,
 )
 
 _SCHEMA_RESOLUTION_SEAL = object()
@@ -43,6 +39,18 @@ class ProposalSchemaNotFoundError(LookupError):
 class ProposalSchemaRegistration:
     schema_ref: str
     payload_model: type[BaseModel]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedProposalDraft:
+    artifact_type: str
+    schema_version: str
+    content: dict[str, object]
+    source_spans: tuple[ArtifactSourceSpanDraft, ...]
+    dependencies: tuple[ArtifactDependencyDraft, ...]
+    accepted_dependency_requirements: tuple[AcceptedArtifactDependencyRequirement, ...]
+    required_accepted_upstream_version_id: str | None
+    record_validator: Callable[[ArtifactVersionRecord], None]
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -165,8 +173,7 @@ def _validate_policy(proposal: ArtifactProposalV1, delegation: ResolvedDelegatio
         raise ProposalValidationError("proposal dependency versions must be unique")
 
 
-def _resolve_dependencies(
-    repository: StudioRepository,
+def _prepare_dependencies(
     proposal: ArtifactProposalV1,
     delegation: ResolvedDelegation,
 ) -> tuple[ArtifactDependencyDraft, ...]:
@@ -177,19 +184,6 @@ def _resolve_dependencies(
             raise ProposalValidationError(
                 f"SkillDefinition cannot read Artifact type {dependency.artifact_type}"
             )
-        storage_type = _storage_artifact_type(dependency.artifact_type)
-        try:
-            record = repository.get_artifact_version(
-                proposal.project_id,
-                storage_type,
-                dependency.version_id,
-            )
-        except (ArtifactConflictError, LookupError) as error:
-            raise ProposalValidationError(
-                "proposal dependency does not belong to the project"
-            ) from error
-        if record.head.accepted_version_id != dependency.version_id:
-            raise ProposalValidationError("proposal dependency is not the accepted ArtifactVersion")
         resolved.append(
             ArtifactDependencyDraft(
                 upstream_version_id=dependency.version_id,
@@ -198,6 +192,62 @@ def _resolve_dependencies(
             )
         )
     return tuple(resolved)
+
+
+def prepare_proposal_draft(
+    *,
+    proposal: ArtifactProposalV1,
+    agent_run: AgentRunV1,
+    skill_run: SkillRunV1,
+    delegation: ResolvedDelegation,
+    proposal_schema: ResolvedProposalSchema,
+    parent_version_id: str | None = None,
+    expected_revision: int | None = None,
+) -> PreparedProposalDraft:
+    """Validate immutable inputs and prepare one repository-owned DRAFT write."""
+
+    proposal = ArtifactProposalV1.model_validate(proposal.model_dump(mode="json"))
+    agent_run = AgentRunV1.model_validate(agent_run.model_dump(mode="json"))
+    skill_run = SkillRunV1.model_validate(skill_run.model_dump(mode="json"))
+    _validate_run_chain(proposal, agent_run, skill_run, delegation)
+    schema_version = _output_schema_version(proposal, delegation)
+    _validate_policy(proposal, delegation)
+    if (parent_version_id is None) != (expected_revision is None):
+        raise ProposalValidationError(
+            "parent version and expected revision must be provided together"
+        )
+    proposal_schema.validate(
+        expected_schema_ref=delegation.skill_definition.output_schema_ref,
+        payload=proposal.payload,
+    )
+    dependencies = _prepare_dependencies(proposal, delegation)
+    required_source_version = next(
+        (
+            dependency.version_id
+            for dependency in proposal.dependencies
+            if dependency.artifact_type == "SourceManifest"
+        ),
+        None,
+    )
+    artifact_type = _storage_artifact_type(proposal.target_artifact_type)
+    return PreparedProposalDraft(
+        artifact_type=artifact_type,
+        schema_version=schema_version,
+        content=proposal.payload,
+        source_spans=_source_span_drafts(proposal),
+        dependencies=dependencies,
+        accepted_dependency_requirements=tuple(
+            AcceptedArtifactDependencyRequirement(
+                artifact_type=_storage_artifact_type(dependency.artifact_type),
+                version_id=dependency.version_id,
+            )
+            for dependency in proposal.dependencies
+        ),
+        required_accepted_upstream_version_id=(
+            required_source_version if artifact_type == "story_bible" else None
+        ),
+        record_validator=_quote_hash_validator(proposal),
+    )
 
 
 def _source_span_drafts(proposal: ArtifactProposalV1) -> tuple[ArtifactSourceSpanDraft, ...]:
@@ -226,72 +276,3 @@ def _quote_hash_validator(
             raise ProposalValidationError("proposal SourceSpan quote hash does not match source")
 
     return validate
-
-
-def accept_proposal_as_draft(
-    *,
-    repository: StudioRepository,
-    proposal: ArtifactProposalV1,
-    agent_run: AgentRunV1,
-    skill_run: SkillRunV1,
-    delegation: ResolvedDelegation,
-    proposal_schema: ResolvedProposalSchema,
-    parent_version_id: str | None = None,
-    expected_revision: int | None = None,
-) -> ArtifactVersionRecord:
-    """Validate one proposal and append a DRAFT without advancing any Gate head."""
-
-    proposal = ArtifactProposalV1.model_validate(proposal.model_dump(mode="json"))
-    agent_run = AgentRunV1.model_validate(agent_run.model_dump(mode="json"))
-    skill_run = SkillRunV1.model_validate(skill_run.model_dump(mode="json"))
-    _validate_run_chain(proposal, agent_run, skill_run, delegation)
-    schema_version = _output_schema_version(proposal, delegation)
-    _validate_policy(proposal, delegation)
-    if (parent_version_id is None) != (expected_revision is None):
-        raise ProposalValidationError(
-            "parent version and expected revision must be provided together"
-        )
-    proposal_schema.validate(
-        expected_schema_ref=delegation.skill_definition.output_schema_ref,
-        payload=proposal.payload,
-    )
-    dependencies = _resolve_dependencies(repository, proposal, delegation)
-    required_source_version = next(
-        (
-            dependency.version_id
-            for dependency in proposal.dependencies
-            if dependency.artifact_type == "SourceManifest"
-        ),
-        None,
-    )
-    try:
-        return repository.create_artifact_version(
-            project_id=proposal.project_id,
-            artifact_type=_storage_artifact_type(proposal.target_artifact_type),
-            schema_version=schema_version,
-            content=proposal.payload,
-            author_actor_type="agent",
-            author_actor_id=proposal.producer_skill_run_id,
-            change_summary=f"Agent proposal {proposal.proposal_id} accepted as DRAFT",
-            parent_version_id=parent_version_id,
-            expected_revision=expected_revision,
-            source_spans=_source_span_drafts(proposal),
-            dependencies=dependencies,
-            accepted_dependency_requirements=tuple(
-                AcceptedArtifactDependencyRequirement(
-                    artifact_type=_storage_artifact_type(dependency.artifact_type),
-                    version_id=dependency.version_id,
-                )
-                for dependency in proposal.dependencies
-            ),
-            required_accepted_upstream_version_id=(
-                required_source_version
-                if _storage_artifact_type(proposal.target_artifact_type) == "story_bible"
-                else None
-            ),
-            record_validator=_quote_hash_validator(proposal),
-        )
-    except SourceSpanInvalidError as error:
-        raise ProposalValidationError("proposal SourceSpan is invalid for the project") from error
-    except ArtifactDependencyInvalidError as error:
-        raise ProposalValidationError("proposal dependency is no longer accepted") from error

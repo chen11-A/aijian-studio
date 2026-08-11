@@ -12,8 +12,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from aijian_api import __version__
+from aijian_api.agent_proposal_validator import ProposalValidationError
 from aijian_api.agent_run_store import AgentRunStore
-from aijian_api.agent_skill_builtins import built_in_agent_skill_registry
+from aijian_api.agent_skill_builtins import (
+    built_in_agent_skill_registry,
+    built_in_proposal_schema_registry,
+)
 from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
 from aijian_api.agent_skill_registry import AgentSkillRegistry
 from aijian_api.application_errors import (
@@ -26,7 +30,14 @@ from aijian_api.application_errors import (
     ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
 )
-from aijian_api.artifact_proposal_routes import create_artifact_proposal_router
+from aijian_api.artifact_proposal_acceptance import (
+    ArtifactProposalAcceptanceConflictError,
+    ArtifactProposalAcceptanceService,
+)
+from aijian_api.artifact_proposal_routes import (
+    create_artifact_proposal_router,
+    create_artifact_proposal_write_router,
+)
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.contracts import (
     CreateProjectRequest,
@@ -187,6 +198,7 @@ def create_app(
     )
     resolved_credential_vault = credential_vault or SystemCredentialVault()
     resolved_agent_skill_registry = agent_skill_registry or built_in_agent_skill_registry()
+    resolved_proposal_schema_registry = built_in_proposal_schema_registry()
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -207,6 +219,13 @@ def create_app(
 
     def get_artifact_proposal_store() -> ArtifactProposalStore:
         return ArtifactProposalStore(get_repository().database_path)
+
+    def get_artifact_proposal_acceptance_service() -> ArtifactProposalAcceptanceService:
+        return ArtifactProposalAcceptanceService(
+            get_repository(),
+            resolved_agent_skill_registry,
+            resolved_proposal_schema_registry,
+        )
 
     def get_source_extract_run_factory() -> SourceExtractRunFactory:
         return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
@@ -290,6 +309,28 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="ARTIFACT_PROPOSAL_NOT_FOUND",
             message="The requested ArtifactProposal was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalAcceptanceConflictError)
+    async def artifact_proposal_acceptance_conflict(
+        request: Request, _error: ArtifactProposalAcceptanceConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT",
+            message="The ArtifactProposal cannot be accepted as DRAFT",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalValidationError)
+    async def artifact_proposal_validation_failed(
+        request: Request, _error: ProposalValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_VALIDATION_FAILED",
+            message="The ArtifactProposal failed DRAFT validation",
             request_id=request_id(request),
         )
 
@@ -711,6 +752,12 @@ def create_app(
         )
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_artifact_proposal_write_router(
+                get_artifact_proposal_acceptance_service,
+                trusted_review_actor,
+            )
         )
 
     return app

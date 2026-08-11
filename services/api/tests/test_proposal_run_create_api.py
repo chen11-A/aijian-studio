@@ -1,22 +1,37 @@
 import base64
 import hashlib
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from aijian_api.agent_proposal_validator import ProposalSchemaRegistry
+from aijian_api.agent_skill_builtins import (
+    built_in_agent_skill_registry,
+    built_in_proposal_schema_registry,
+)
 from aijian_api.agent_skill_contracts import (
     AgentSkillFixtureBundleV1,
     ProposalDependencyV1,
     ProposalSourceSpanV1,
+    canonical_sha256,
+)
+from aijian_api.artifact_proposal_acceptance import (
+    ArtifactProposalAcceptanceConflictError,
+    ArtifactProposalAcceptanceService,
+    ArtifactProposalDraftAcceptance,
 )
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
+from aijian_api.domain import TrustedReviewActor
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
+from aijian_api.task_ledger_snapshots import canonical_snapshot_json, snapshot_sha256
 from fastapi.testclient import TestClient
+from httpx2 import Response as HttpxResponse
 
 TOKEN = "r" * 43
 HOST = "127.0.0.1:43127"
@@ -400,6 +415,746 @@ def test_proposal_ready_rolls_back_run_node_and_task_on_partial_failure(tmp_path
         assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
             1,
         )
+
+
+def test_sidecar_accepts_reviewable_proposal_as_draft_without_advancing_gate(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:acceptance-run"},
+    )
+    assert created.status_code == 201
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-acceptance-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-source-extraction-v1"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+
+    assert response.status_code == 201
+    data = response.json()["data"]
+    assert data["project_id"] == project_id
+    assert data["proposal_id"] == proposal_id
+    assert data["draft_version_id"].startswith("ver_")
+    assert data["replayed"] is False
+    head = repository.get_artifact_head(project_id, "source_extraction")
+    assert head.latest_version_id == data["draft_version_id"]
+    assert head.review_version_id is None
+    assert head.accepted_version_id is None
+    with sqlite3.connect(repository.database_path) as connection:
+        attempt = connection.execute(
+            "SELECT status, output_version_id FROM workflow_attempts"
+        ).fetchone()
+        node = connection.execute(
+            "SELECT status, output_version_id FROM workflow_node_runs"
+        ).fetchone()
+        task = connection.execute("SELECT status FROM task_ledger").fetchone()
+        agent = connection.execute("SELECT status FROM agent_runs").fetchone()
+        skill = connection.execute("SELECT status FROM skill_runs").fetchone()
+        workflow = connection.execute("SELECT status FROM workflow_runs").fetchone()
+        acceptance_count = connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone()
+    assert attempt == ("SUCCEEDED", data["draft_version_id"])
+    assert node == ("SUCCEEDED", data["draft_version_id"])
+    assert task == ("COMPLETED",)
+    assert agent == ("SUCCEEDED",)
+    assert skill == ("SUCCEEDED",)
+    assert workflow == ("SUCCEEDED",)
+    assert acceptance_count == (1,)
+
+    replay = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-source-extraction-v1"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["data"] == {**data, "replayed": True}
+    cancel_after_acceptance = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs/"
+        f"{created.json()['data']['run_id']}/cancellations",
+        headers={"Idempotency-Key": "cancel-after-draft-acceptance"},
+        json={},
+    )
+    assert cancel_after_acceptance.status_code == 409
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_versions AS version "
+            "JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id "
+            "WHERE artifact.artifact_type = 'source_extraction'"
+        ).fetchone() == (1,)
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute("UPDATE artifact_proposal_draft_acceptances SET actor_id = actor_id")
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute("DELETE FROM artifact_proposal_draft_acceptances")
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                """
+                INSERT INTO artifact_proposal_draft_acceptances VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    f"pda_{'f' * 32}",
+                    project_id,
+                    proposal_id,
+                    f"sha256:{'1' * 64}",
+                    f"sha256:{'2' * 64}",
+                    f"sha256:{'3' * 64}",
+                    data["draft_version_id"],
+                    "local-user",
+                    '["producer"]',
+                    "2026-08-11T00:00:00Z",
+                ),
+            )
+        connection.rollback()
+    operation = client.get("/api/openapi.json").json()["paths"][
+        "/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances"
+    ]["post"]
+    assert operation["operationId"] == "acceptArtifactProposalAsDraft"
+    idempotency_header = next(
+        parameter
+        for parameter in operation["parameters"]
+        if parameter["in"] == "header" and parameter["name"] == "Idempotency-Key"
+    )
+    assert idempotency_header["required"] is True
+    assert {"200", "201", "401", "403", "404", "409", "422"} <= set(operation["responses"])
+
+
+@pytest.mark.parametrize("broken_field", ("content", "author", "type", "attempt", "project"))
+def test_acceptance_chain_trigger_rejects_each_detached_draft_field(
+    tmp_path: Path,
+    broken_field: str,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": f"source-extract:chain-trigger:{broken_field}"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-chain-trigger-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    accepted = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": f"accept-chain-trigger:{broken_field}"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert accepted.status_code == 201
+    draft_version_id = accepted.json()["data"]["draft_version_id"]
+    other_project = repository.create_project(
+        name="Detached acceptance project",
+        aspect_ratio="9:16",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    )
+
+    with sqlite3.connect(repository.database_path) as connection:
+        proposal_hash = connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_immutable_delete")
+        connection.execute(
+            "DELETE FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
+            (proposal_id,),
+        )
+        if broken_field in {"content", "author", "attempt"}:
+            connection.execute("DROP TRIGGER artifact_versions_immutable_update")
+        if broken_field == "content":
+            connection.execute(
+                "UPDATE artifact_versions SET content_hash = ? WHERE version_id = ?",
+                (f"sha256:{'9' * 64}", draft_version_id),
+            )
+        elif broken_field == "author":
+            connection.execute(
+                "UPDATE artifact_versions SET author_actor_id = 'detached-skill' "
+                "WHERE version_id = ?",
+                (draft_version_id,),
+            )
+        elif broken_field == "type":
+            connection.execute(
+                "UPDATE artifacts SET artifact_type = 'detached_type' "
+                "WHERE artifact_id = (SELECT artifact_id FROM artifact_versions "
+                "WHERE version_id = ?)",
+                (draft_version_id,),
+            )
+        elif broken_field == "attempt":
+            connection.execute(
+                "UPDATE artifact_versions SET producer_attempt_id = NULL WHERE version_id = ?",
+                (draft_version_id,),
+            )
+        acceptance_project_id = other_project.id if broken_field == "project" else project_id
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                """
+                INSERT INTO artifact_proposal_draft_acceptances VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    f"pda_{'e' * 32}",
+                    acceptance_project_id,
+                    proposal_id,
+                    f"sha256:{'4' * 64}",
+                    f"sha256:{'5' * 64}",
+                    proposal_hash,
+                    draft_version_id,
+                    "local-user",
+                    '["producer"]',
+                    "2026-08-11T00:00:00Z",
+                ),
+            )
+
+
+def test_proposal_acceptance_rejects_key_drift_second_decision_and_actor_spoof(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:acceptance-conflicts"},
+    )
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-conflict-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    path = f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances"
+    accepted = client.post(
+        path,
+        headers={"Idempotency-Key": "accept-conflict-v1"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert accepted.status_code == 201
+
+    key_drift = client.post(
+        path,
+        headers={"Idempotency-Key": "accept-conflict-v1"},
+        json={
+            "parent_version_id": accepted.json()["data"]["draft_version_id"],
+            "expected_head_revision": 1,
+        },
+    )
+    second_key = client.post(
+        path,
+        headers={"Idempotency-Key": "accept-conflict-v2"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    spoofed = client.post(
+        path,
+        headers={"Idempotency-Key": "accept-spoofed-actor"},
+        json={
+            "parent_version_id": None,
+            "expected_head_revision": None,
+            "actor_id": "attacker",
+        },
+    )
+    missing_key = client.post(
+        path,
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    blank_key = client.post(
+        path,
+        headers={"Idempotency-Key": "   "},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    other_project = repository.create_project(
+        name="Other acceptance scope",
+        aspect_ratio="9:16",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    )
+    cross_project = client.post(
+        f"/api/v1/projects/{other_project.id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-cross-project"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert key_drift.status_code == 409
+    assert second_key.status_code == 409
+    assert spoofed.status_code == 422
+    assert missing_key.status_code == 422
+    assert blank_key.status_code == 422
+    assert cross_project.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "drift",
+    ("missing_intent", "task_kind", "duplicate_task", "snapshot_fingerprint"),
+)
+def test_proposal_acceptance_fails_closed_when_frozen_enqueue_chain_drifts(
+    tmp_path: Path,
+    drift: str,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": f"source-extract:intent-drift:{drift}"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-intent-drift-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        if drift == "missing_intent":
+            connection.execute("DROP TRIGGER proposal_run_enqueue_intents_immutable_delete")
+            connection.execute("DELETE FROM proposal_run_enqueue_intents")
+        elif drift == "task_kind":
+            connection.execute("UPDATE task_ledger SET task_kind = 'local.wrong-kind'")
+        elif drift == "duplicate_task":
+            connection.execute(
+                """
+                INSERT INTO task_ledger (
+                    task_id, attempt_id, task_kind, status, priority, available_at,
+                    lease_owner, lease_token, lease_generation, lease_expires_at,
+                    heartbeat_at, revision, created_at, updated_at
+                )
+                SELECT ?, attempt_id, task_kind, 'COMPLETED', priority, available_at,
+                       NULL, NULL, 0, NULL, NULL, 1, created_at, updated_at
+                FROM task_ledger LIMIT 1
+                """,
+                (f"tsk_{'e' * 32}",),
+            )
+        else:
+            connection.execute("DROP TRIGGER workflow_attempt_snapshots_immutable_update")
+            snapshot_json = connection.execute(
+                "SELECT snapshot_json FROM workflow_attempt_snapshots"
+            ).fetchone()[0]
+            snapshot = json.loads(snapshot_json)
+            snapshot["model_id"] = "self-consistent-but-detached-model"
+            fingerprint_payload = dict(snapshot)
+            fingerprint_payload.pop("attempt_fingerprint")
+            snapshot["attempt_fingerprint"] = canonical_sha256(fingerprint_payload)
+            updated_json = canonical_snapshot_json(snapshot)
+            connection.execute(
+                "UPDATE workflow_attempt_snapshots SET snapshot_json = ?, snapshot_hash = ?",
+                (updated_json, snapshot_sha256(updated_json)),
+            )
+            connection.execute(
+                "UPDATE workflow_attempts SET request_fingerprint = ?",
+                (snapshot["attempt_fingerprint"],),
+            )
+        connection.commit()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": f"accept-intent-drift:{drift}"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert response.status_code == 409
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+
+
+def test_proposal_acceptance_maps_missing_frozen_schema_to_stable_conflict(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:missing-acceptance-schema"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-missing-schema-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    service = ArtifactProposalAcceptanceService(
+        repository,
+        built_in_agent_skill_registry(),
+        ProposalSchemaRegistry(()),
+    )
+
+    with pytest.raises(
+        ArtifactProposalAcceptanceConflictError,
+        match="frozen acceptance truth is unavailable",
+    ):
+        service.accept_as_draft(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key="accept-missing-schema",
+            actor=TrustedReviewActor(subject_id="local-user", roles=("producer",)),
+            parent_version_id=None,
+            expected_head_revision=None,
+        )
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+
+
+def test_proposal_acceptance_revalidates_dependency_head_inside_transaction(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:dependency-head-race"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-dependency-head-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    imported = client.post(
+        f"/api/v1/projects/{project_id}/sources",
+        json={
+            "filename": "new-source.txt",
+            "media_type": "text/plain",
+            "content_base64": base64.b64encode("鏂扮殑宸叉巿鏉冨師鏂囥€?".encode()).decode("ascii"),
+        },
+    )
+    assert imported.status_code == 201
+    manifest = client.get(f"/api/v1/projects/{project_id}/source-manifest")
+    new_manifest_version_id = manifest.json()["data"]["latest_version"]["id"]
+    assert new_manifest_version_id != source[1]
+    approve_manifest(
+        client,
+        project_id=project_id,
+        version_id=new_manifest_version_id,
+        etag=manifest.headers["etag"],
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-after-dependency-head-change"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ARTIFACT_PROPOSAL_VALIDATION_FAILED"
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.accepted_as_draft'"
+        ).fetchone() == (0,)
+
+
+def test_concurrent_exact_proposal_acceptance_creates_one_draft_and_one_audit(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:acceptance-race"},
+    )
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-race-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    service = ArtifactProposalAcceptanceService(
+        repository,
+        built_in_agent_skill_registry(),
+        built_in_proposal_schema_registry(),
+    )
+    actor = TrustedReviewActor(subject_id="local-user", roles=("producer",))
+
+    def accept(_index: int) -> ArtifactProposalDraftAcceptance:
+        return service.accept_as_draft(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key="accept-concurrent-exact-v1",
+            actor=actor,
+            parent_version_id=None,
+            expected_head_revision=None,
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = tuple(executor.map(accept, range(4)))
+
+    assert sum(not result.replayed for result in results) == 1
+    assert len({result.draft_version_id for result in results}) == 1
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (1,)
+
+
+def test_proposal_acceptance_and_cancellation_serialize_to_one_terminal_decision(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:accept-cancel-race"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-decision-race-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    peer = TestClient(
+        client.app,
+        base_url=f"http://{HOST}",
+        client=("127.0.0.1", 50109),
+    )
+    peer.headers.update({"Authorization": f"Bearer {TOKEN}", "Origin": ORIGIN})
+
+    def accept() -> HttpxResponse:
+        return client.post(
+            f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+            headers={"Idempotency-Key": "accept-cancel-race"},
+            json={"parent_version_id": None, "expected_head_revision": None},
+        )
+
+    def cancel() -> HttpxResponse:
+        return peer.post(
+            f"/api/v1/projects/{project_id}/proposal-runs/{created['run_id']}/cancellations",
+            headers={"Idempotency-Key": "cancel-accept-race"},
+            json={},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        accept_future = executor.submit(accept)
+        cancel_future = executor.submit(cancel)
+        accepted_response = accept_future.result()
+        cancelled_response = cancel_future.result()
+
+    assert sorted((accepted_response.status_code, cancelled_response.status_code)) == [201, 409]
+    with sqlite3.connect(repository.database_path) as connection:
+        acceptance_count = connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone()
+        version_count = connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone()
+        agent_status = connection.execute("SELECT status FROM agent_runs").fetchone()
+    if accepted_response.status_code == 201:
+        assert acceptance_count == (1,)
+        assert version_count == (1,)
+        assert agent_status == ("SUCCEEDED",)
+    else:
+        assert acceptance_count == (0,)
+        assert version_count == (0,)
+        assert agent_status == ("CANCELLED",)
+
+
+def test_cancelled_proposal_cannot_later_be_accepted_as_draft(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:cancel-before-accept"},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-cancel-before-accept-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    cancelled = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs/{created['run_id']}/cancellations",
+        headers={"Idempotency-Key": "cancel-before-acceptance"},
+        json={},
+    )
+    accepted = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-after-cancellation"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert cancelled.status_code == 201
+    assert accepted.status_code == 409
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("CANCELLED",)
+
+
+@pytest.mark.parametrize("failure_phase", ("draft_version", "acceptance", "run_statuses", "events"))
+def test_proposal_acceptance_crash_injection_rolls_back_every_phase(
+    tmp_path: Path,
+    failure_phase: str,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": f"source-extract:crash:{failure_phase}"},
+    )
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-crash-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    def fail_at(phase: str) -> None:
+        if phase == failure_phase:
+            raise RuntimeError(f"injected failure at {phase}")
+
+    service = ArtifactProposalAcceptanceService(
+        repository,
+        built_in_agent_skill_registry(),
+        built_in_proposal_schema_registry(),
+        transaction_hook=fail_at,
+    )
+    with pytest.raises(RuntimeError, match="injected failure"):
+        service.accept_as_draft(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key=f"accept-crash-{failure_phase}",
+            actor=TrustedReviewActor(subject_id="local-user", roles=("producer",)),
+            parent_version_id=None,
+            expected_head_revision=None,
+        )
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "NEEDS_REVIEW",
+        )
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("NEEDS_REVIEW",)
+        assert connection.execute("SELECT status FROM skill_runs").fetchone() == ("NEEDS_REVIEW",)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.accepted_as_draft'"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM gate_decisions AS decision "
+            "JOIN artifacts AS artifact ON artifact.artifact_id = decision.artifact_id "
+            "WHERE artifact.artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_heads AS head "
+            "JOIN artifacts AS artifact ON artifact.artifact_id = head.artifact_id "
+            "WHERE artifact.artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+
+
+def test_public_web_composition_does_not_expose_proposal_acceptance(tmp_path: Path) -> None:
+    repository = StudioRepository(tmp_path / "public.db")
+    client = TestClient(create_app(repository=repository))
+
+    response = client.post(
+        f"/api/v1/projects/prj_{'a' * 32}/proposals/prp_{'b' * 32}/acceptances",
+        headers={"Idempotency-Key": "not-available-on-public-web"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+
+    assert response.status_code == 404
 
 
 def test_create_run_fails_closed_without_sidecar_or_exact_accepted_source(tmp_path: Path) -> None:

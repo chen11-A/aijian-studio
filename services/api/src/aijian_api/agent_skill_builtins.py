@@ -1,5 +1,11 @@
 """Version-pinned, provider-free Agent/Skill definitions shipped by Aijian."""
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from aijian_api.agent_proposal_validator import (
+    ProposalSchemaRegistration,
+    ProposalSchemaRegistry,
+)
 from aijian_api.agent_skill_contracts import (
     AgentDefinitionV1,
     BudgetPolicyV1,
@@ -21,6 +27,13 @@ SOURCE_EXTRACT_REF = DefinitionRefV1(
     definition_id="source.extract",
     version="1.0.0",
 )
+
+
+class SourceExtractionPayloadV1(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    summary: str = Field(min_length=1, max_length=10_000)
+
 
 SOURCE_ANALYST = AgentDefinitionV1(
     agent_definition_id=SOURCE_ANALYST_REF.definition_id,
@@ -74,4 +87,15 @@ def built_in_agent_skill_registry() -> AgentSkillRegistry:
     return AgentSkillRegistry(
         agents=(AgentRegistration(SOURCE_ANALYST),),
         skills=(SkillRegistration(SOURCE_EXTRACT),),
+    )
+
+
+def built_in_proposal_schema_registry() -> ProposalSchemaRegistry:
+    return ProposalSchemaRegistry(
+        (
+            ProposalSchemaRegistration(
+                schema_ref=SOURCE_EXTRACT.output_schema_ref,
+                payload_model=SourceExtractionPayloadV1,
+            ),
+        )
     )

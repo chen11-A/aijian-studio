@@ -6,7 +6,7 @@ import json
 import secrets
 import sqlite3
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -63,9 +63,10 @@ from aijian_api.workflow_schema import (
     MIGRATION_9,
     MIGRATION_10,
     MIGRATION_11,
+    MIGRATION_12,
 )
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -757,6 +758,7 @@ _MIGRATIONS = {
     9: MIGRATION_9,
     10: MIGRATION_10,
     11: MIGRATION_11,
+    12: MIGRATION_12,
 }
 
 
@@ -1489,11 +1491,21 @@ class StudioRepository:
         content_resolver: ArtifactContentResolver | None = None,
         record_validator: ArtifactRecordValidator | None = None,
         producer_attempt_id: str | None = None,
+        _transaction_connection: sqlite3.Connection | None = None,
+        _manage_transaction: bool = True,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        if (_transaction_connection is None) != _manage_transaction:
+            raise ValueError("transaction connection and ownership must be provided together")
+        connection_scope = (
+            self._connection()
+            if _transaction_connection is None
+            else nullcontext(_transaction_connection)
+        )
+        with connection_scope as connection:
+            if _manage_transaction:
+                connection.execute("BEGIN IMMEDIATE")
             try:
                 project = connection.execute(
                     "SELECT id FROM projects WHERE id = ?", (project_id,)
@@ -1510,7 +1522,7 @@ class StudioRepository:
                         JOIN workflow_runs AS run
                           ON run.workflow_run_id = node.workflow_run_id
                         WHERE attempt.attempt_id = ? AND attempt.status = 'RUNNING'
-                          AND node.status = 'RUNNING'
+                          AND node.status IN ('RUNNING', 'NEEDS_REVIEW')
                           AND node.active_attempt_id = attempt.attempt_id
                           AND run.project_id = ?
                         """,
@@ -1750,15 +1762,62 @@ class StudioRepository:
                 )
                 if record_validator is not None:
                     record_validator(record)
-                connection.commit()
+                if _manage_transaction:
+                    connection.commit()
             except sqlite3.IntegrityError as error:
-                connection.rollback()
+                if _manage_transaction:
+                    connection.rollback()
                 raise ArtifactConflictError("Artifact transaction violated an invariant") from error
             except Exception:
-                connection.rollback()
+                if _manage_transaction:
+                    connection.rollback()
                 raise
 
         return record
+
+    def _create_artifact_version_in_connection(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_type: str,
+        schema_version: str,
+        content: dict[str, object] | None,
+        author_actor_type: ArtifactActorType,
+        author_actor_id: str,
+        change_summary: str,
+        parent_version_id: str | None = None,
+        expected_revision: int | None = None,
+        source_spans: tuple[ArtifactSourceSpanDraft, ...] = (),
+        dependencies: tuple[ArtifactDependencyDraft, ...] = (),
+        accepted_dependency_requirements: tuple[AcceptedArtifactDependencyRequirement, ...] = (),
+        required_accepted_upstream_version_id: str | None = None,
+        content_resolver: ArtifactContentResolver | None = None,
+        record_validator: ArtifactRecordValidator | None = None,
+        producer_attempt_id: str | None = None,
+    ) -> ArtifactVersionRecord:
+        """Append an ArtifactVersion inside an already-owned transaction."""
+
+        return self.create_artifact_version(
+            project_id=project_id,
+            artifact_type=artifact_type,
+            schema_version=schema_version,
+            content=content,
+            author_actor_type=author_actor_type,
+            author_actor_id=author_actor_id,
+            change_summary=change_summary,
+            parent_version_id=parent_version_id,
+            expected_revision=expected_revision,
+            source_spans=source_spans,
+            dependencies=dependencies,
+            accepted_dependency_requirements=accepted_dependency_requirements,
+            required_accepted_upstream_version_id=required_accepted_upstream_version_id,
+            content_resolver=content_resolver,
+            record_validator=record_validator,
+            producer_attempt_id=producer_attempt_id,
+            _transaction_connection=connection,
+            _manage_transaction=False,
+        )
 
     def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
         with self._connection() as connection:

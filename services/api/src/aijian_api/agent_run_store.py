@@ -361,6 +361,19 @@ def _read_enqueue_intent(
     )
 
 
+def read_proposal_run_enqueue_intent_in_connection(
+    connection: sqlite3.Connection,
+    project_id: str,
+    agent_run_id: str,
+) -> PersistedProposalRunEnqueueIntent:
+    """Read one canonical immutable enqueue intent inside a caller-owned transaction."""
+
+    persisted = _read_enqueue_intent(connection, project_id, agent_run_id)
+    if persisted is None:
+        raise AgentRunBundleConflictError("Agent run has no immutable enqueue intent")
+    return persisted
+
+
 def _same_enqueue_intent(
     persisted: PersistedProposalRunEnqueueIntent,
     *,
@@ -508,6 +521,19 @@ def _read_bundle(
         created_at=parse_datetime(str(row["created_at"])),
         updated_at=parse_datetime(str(row["updated_at"])),
     )
+
+
+def read_agent_run_bundle_in_connection(
+    connection: sqlite3.Connection,
+    project_id: str,
+    agent_run_id: str,
+) -> PersistedAgentRunBundle:
+    """Read and validate one run bundle inside a caller-owned transaction."""
+
+    persisted = _read_bundle(connection, project_id, agent_run_id)
+    if persisted is None:
+        raise ProposalRunNotFoundError("Agent run bundle not found")
+    return persisted
 
 
 def _same_bundle_identity(

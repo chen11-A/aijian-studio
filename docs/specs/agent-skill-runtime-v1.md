@@ -8,7 +8,9 @@ D2 已实现仅按精确版本解析的内存 Registry，并拒绝未知、禁�
 
 测试目录中的 Fake Loader 只是 D2 测试替身，不是生产授权源：它的 `accepted` 布尔值不能作为真实审批证据，也不允许复制到生产模块或暴露给 HTTP/UI。
 
-D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run chain，由版本精确的 `ProposalSchemaRegistry` 签发不可伪造的 Pydantic Schema 解析结果并绑定 Skill `output_schema_ref`，再按预算/QC/可读 Artifact 类型失败关闭。依赖先经 project-scoped 仓储读取，随后全部 required-accepted 依赖在创建 DRAFT 的同一个 `BEGIN IMMEDIATE` 事务内再次核验类型、版本和当前 `accepted_version_id`，消除 accepted head 的时序窗口；同一事务也核验 SourceSpan 项目归属、UTF-8 范围和引用哈希。全部校验通过后只追加不可变 DRAFT，不推进 review/accepted head；Schema、预算、QC、未批准/越权/过期依赖、跨项目 SourceSpan、引用哈希或并发约束失败均回滚。D3 仍不是公开 API，也没有 Fake Executor、Attempt 幂等或 Provider 调用能力。
+D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run chain，由版本精确的 `ProposalSchemaRegistry` 签发不可伪造的 Pydantic Schema 解析结果并绑定 Skill `output_schema_ref`，再按预算/QC/可读 Artifact 类型失败关闭。依赖先经 project-scoped 仓储读取，随后全部 required-accepted 依赖在创建 DRAFT 的同一个 `BEGIN IMMEDIATE` 事务内再次核验类型、版本和当前 `accepted_version_id`，消除 accepted head 的时序窗口；同一事务也核验 SourceSpan 项目归属、UTF-8 范围和引用哈希。全部校验通过后只追加不可变 DRAFT，不推进 review/accepted head；Schema、预算、QC、未批准/越权/过期依赖、跨项目 SourceSpan、引用哈希或并发约束失败均回滚。
+
+当前 Sidecar 已提供项目作用域的提案读取与“接受为 DRAFT”接口。接受事务会重新连接 immutable enqueue intent、AttemptSnapshot、ContextManifest、AgentRun/SkillRun、Task 与 Proposal 真相，只在单个 `BEGIN IMMEDIATE` 内创建 ArtifactVersion、写入不可变接受审计并推进运行终态；相同幂等请求只返回原结果。普通 Web 组合不挂载写路由，接受不会提交人工审阅、写 GateDecision 或推进 `accepted_version_id`。退回、提案卡写交互与人工 Gate 纵切仍未实现，也没有真实 Provider 调用能力。
 
 ## 目标
 
@@ -99,16 +101,16 @@ UI Intent
 
 全部路径带 `project_id`，列表分页，写操作要求 `Idempotency-Key`，响应沿用现有 `request_id` 和结构化错误：
 
-| 方法与路径                                                                        | 语义                            |
-| --------------------------------------------------------------------------------- | ------------------------------- |
-| `GET /api/v1/projects/{project_id}/agents`                                        | 读取兼容的 AgentDefinition 目录 |
-| `GET /api/v1/projects/{project_id}/skills`                                        | 读取兼容的 SkillDefinition 目录 |
-| `POST /api/v1/projects/{project_id}/proposal-runs`                                | 创建 Agent/Skill 提案运行       |
-| `GET /api/v1/projects/{project_id}/proposal-runs/{run_id}`                        | 读取运行、Attempt 和任务引用    |
-| `POST /api/v1/projects/{project_id}/proposal-runs/{run_id}/cancellations`         | 请求取消，资源化记录取消语义    |
-| `GET /api/v1/projects/{project_id}/artifact-proposals/{proposal_id}`              | 读取提案、证据、diff、费用和 QC |
-| `POST /api/v1/projects/{project_id}/artifact-proposals/{proposal_id}/acceptances` | 验证后接受为不可变 DRAFT        |
-| `POST /api/v1/projects/{project_id}/artifact-proposals/{proposal_id}/rejections`  | 退回并保存具名意见              |
+| 方法与路径                                                                | 语义                            |
+| ------------------------------------------------------------------------- | ------------------------------- |
+| `GET /api/v1/projects/{project_id}/agents`                                | 读取兼容的 AgentDefinition 目录 |
+| `GET /api/v1/projects/{project_id}/skills`                                | 读取兼容的 SkillDefinition 目录 |
+| `POST /api/v1/projects/{project_id}/proposal-runs`                        | 创建 Agent/Skill 提案运行       |
+| `GET /api/v1/projects/{project_id}/proposal-runs/{run_id}`                | 读取运行、Attempt 和任务引用    |
+| `POST /api/v1/projects/{project_id}/proposal-runs/{run_id}/cancellations` | 请求取消，资源化记录取消语义    |
+| `GET /api/v1/projects/{project_id}/proposals/{proposal_id}`               | 读取提案、证据、diff、费用和 QC |
+| `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances`  | 验证后接受为不可变 DRAFT        |
+| `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/rejections`   | 退回并保存具名意见（尚未实现）  |
 
 Gate 继续复用现有 review/submission/approval 语义，不另建“AI 自动批准”接口。
 

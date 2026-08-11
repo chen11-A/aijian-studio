@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from aijian_api.agent_skill_contracts import (
     AgentDefinitionV1,
@@ -29,6 +29,7 @@ SOURCE_ID_PATTERN = r"^src_[0-9a-f]{32}$"
 SOURCE_BLOCK_ID_PATTERN = r"^srcb_[0-9a-f]{32}$"
 ARTIFACT_ID_PATTERN = r"^art_[0-9a-f]{32}$"
 VERSION_ID_PATTERN = r"^ver_[0-9a-f]{32}$"
+PROPOSAL_DRAFT_ACCEPTANCE_ID_PATTERN = r"^pda_[0-9a-f]{32}$"
 FACT_ID_PATTERN = r"^fact_[0-9a-f]{32}$"
 SOURCE_SPAN_ID_PATTERN = r"^spn_[0-9a-f]{32}$"
 CONTENT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
@@ -216,6 +217,40 @@ class ArtifactProposalResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: ArtifactProposalData
+    request_id: UUID
+
+
+class CreateArtifactProposalDraftAcceptanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    expected_head_revision: int | None = Field(default=None, strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def require_complete_head_precondition(self) -> "CreateArtifactProposalDraftAcceptanceRequest":
+        if (self.parent_version_id is None) != (self.expected_head_revision is None):
+            raise ValueError(
+                "parent_version_id and expected_head_revision must be provided together"
+            )
+        return self
+
+
+class ArtifactProposalDraftAcceptanceData(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    acceptance_id: str = Field(pattern=PROPOSAL_DRAFT_ACCEPTANCE_ID_PATTERN)
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
+    draft_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    actor_id: str = Field(min_length=1, max_length=200)
+    accepted_as_draft_at: datetime
+    replayed: bool
+
+
+class ArtifactProposalDraftAcceptanceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ArtifactProposalDraftAcceptanceData
     request_id: UUID
 
 
