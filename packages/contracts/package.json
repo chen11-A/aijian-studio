@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/generated.ts",
       "default": "./src/generated.ts"
+    },
+    "./artifact-proposal": {
+      "types": "./src/artifact-proposal.ts",
+      "default": "./src/artifact-proposal.ts"
     }
   },
   "scripts": {

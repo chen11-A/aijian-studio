@@ -4643,6 +4643,7 @@
         "additionalProperties": false,
         "properties": {
           "actual_micros": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Actual Micros",
             "type": "integer"
@@ -4654,6 +4655,7 @@
             "type": "string"
           },
           "estimated_micros": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Estimated Micros",
             "type": "integer"
@@ -4970,6 +4972,7 @@
           },
           "end_byte": {
             "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
             "title": "End Byte",
             "type": "integer"
           },
@@ -4994,6 +4997,7 @@
             "type": "string"
           },
           "start_byte": {
+            "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Start Byte",
             "type": "integer"

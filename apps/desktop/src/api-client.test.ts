@@ -363,6 +363,46 @@ const taskQueueResponse: components["schemas"]["TaskQueueResponse"] = {
   },
   request_id: healthyResponse.request_id,
 };
+const proposalId = `prp_${"6".repeat(32)}`;
+const artifactProposalResponse: components["schemas"]["ArtifactProposalResponse"] = {
+  data: {
+    project_id: project.id,
+    proposal_id: proposalId,
+    producer_attempt_id: `att_${"7".repeat(32)}`,
+    proposal_hash: `sha256:${"8".repeat(64)}`,
+    created_at: "2026-08-11T09:00:00Z",
+    proposal: {
+      schema_version: "1.0.0",
+      proposal_id: proposalId,
+      project_id: project.id,
+      target_artifact_type: "SourceExtraction",
+      payload: { summary: "A source-grounded extraction" },
+      payload_hash: `sha256:${"9".repeat(64)}`,
+      source_spans: [
+        {
+          source_span_id: `spn_${"a".repeat(32)}`,
+          source_document_id: `src_${"b".repeat(32)}`,
+          source_block_id: `srcb_${"c".repeat(32)}`,
+          start_byte: 0,
+          end_byte: 12,
+          claim: "The letter is unsigned.",
+          quote_hash: `sha256:${"d".repeat(64)}`,
+        },
+      ],
+      claims: [],
+      diff: [],
+      dependencies: [],
+      impacts: [],
+      cost: { currency: "USD", estimated_micros: 0, actual_micros: 0 },
+      confidence_basis_points: 9200,
+      capability_losses: [],
+      qc: [{ check_id: "source.evidence", status: "PASS", details: "Evidence bound" }],
+      producer_agent_run_id: `agr_${"e".repeat(32)}`,
+      producer_skill_run_id: `skr_${"f".repeat(32)}`,
+    },
+  },
+  request_id: healthyResponse.request_id,
+};
 
 const agentCatalogResponse: AgentCatalogResponse = {
   data: {
@@ -923,6 +963,32 @@ describe("local API client", () => {
     );
     await expect(invalidProposalClient.listProjectTasks(project.id)).rejects.toThrow(
       "published contract",
+    );
+  });
+
+  test("reads and validates a project-scoped artifact proposal", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(artifactProposalResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.getArtifactProposal(project.id, proposalId)).resolves.toEqual(
+      artifactProposalResponse,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${session.origin}/api/v1/projects/${project.id}/proposals/${proposalId}`,
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+
+    const detached = structuredClone(artifactProposalResponse);
+    detached.data.proposal.project_id = `prj_${"0".repeat(32)}`;
+    const detachedClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(detached)),
+      session,
+    );
+    await expect(detachedClient.getArtifactProposal(project.id, proposalId)).rejects.toThrow(
+      "published contract",
+    );
+    await expect(client.getArtifactProposal(project.id, "not-a-proposal")).rejects.toThrow(
+      "valid proposal id",
     );
   });
 

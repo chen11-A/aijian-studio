@@ -1,6 +1,10 @@
 import type { components } from "@aijian/contracts";
 
 import {
+  isArtifactProposalResponse,
+  type ArtifactProposalResponse,
+} from "./artifact-proposal-contract";
+import {
   isAgentCatalogResponse,
   isSkillCatalogResponse,
   type AgentCatalogResponse,
@@ -45,6 +49,7 @@ export type {
   ProviderConnectionResponse,
 } from "./provider-connection-contract";
 export type { AgentCatalogResponse, SkillCatalogResponse } from "./agent-skill-catalog-contract";
+export type { ArtifactProposalResponse } from "./artifact-proposal-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
 export type {
   ReorderTimelineClipInput,
@@ -80,6 +85,7 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -101,6 +107,7 @@ export interface LocalApiClient {
 }
 
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
+const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
 const SOURCE_ID_PATTERN = /^src_[0-9a-f]{32}$/;
 const SOURCE_BLOCK_ID_PATTERN = /^srcb_[0-9a-f]{32}$/;
 const ARTIFACT_ID_PATTERN = /^art_[0-9a-f]{32}$/;
@@ -1262,6 +1269,23 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
       return requestJson(
         `/api/v1/projects/${projectId}/tasks`,
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
+        { headers },
+      );
+    },
+    async getArtifactProposal(
+      projectId: string,
+      proposalId: string,
+    ): Promise<ArtifactProposalResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!PROPOSAL_ID_PATTERN.test(proposalId)) {
+        throw new Error("Local API client requires a valid proposal id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/proposals/${proposalId}`,
+        (payload): payload is ArtifactProposalResponse =>
+          isArtifactProposalResponse(payload, projectId, proposalId),
         { headers },
       );
     },

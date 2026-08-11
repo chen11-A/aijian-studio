@@ -200,8 +200,8 @@ class ProposalSourceSpanV1(ClosedModel):
     source_span_id: str = Field(pattern=r"^spn_[0-9a-f]{32}$")
     source_document_id: str = Field(pattern=SOURCE_ID_PATTERN)
     source_block_id: str = Field(pattern=SOURCE_BLOCK_ID_PATTERN)
-    start_byte: int = Field(strict=True, ge=0)
-    end_byte: int = Field(strict=True, gt=0)
+    start_byte: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
+    end_byte: int = Field(strict=True, gt=0, le=MAX_SAFE_JSON_INTEGER)
     claim: str = Field(min_length=1, max_length=1000)
     quote_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
 
@@ -233,8 +233,8 @@ class ProposalImpactV1(ClosedModel):
 
 class ProposalCostV1(ClosedModel):
     currency: Literal["USD"] = "USD"
-    estimated_micros: int = Field(strict=True, ge=0)
-    actual_micros: int = Field(strict=True, ge=0)
+    estimated_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
+    actual_micros: int = Field(strict=True, ge=0, le=MAX_SAFE_JSON_INTEGER)
 
 
 class CapabilityLossV1(ClosedModel):

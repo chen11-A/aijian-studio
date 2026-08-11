@@ -226,6 +226,15 @@ def test_budget_timeout_cost_and_claim_evidence_fail_closed() -> None:
     with pytest.raises(ValidationError):
         ArtifactProposalV1.model_validate(float_cost)
 
+    for section, field in (("cost", "actual_micros"), ("source_spans", "end_byte")):
+        unsafe_integer = deepcopy(proposal)
+        if section == "cost":
+            unsafe_integer[section][field] = MAX_SAFE_JSON_INTEGER + 1
+        else:
+            unsafe_integer[section][0][field] = MAX_SAFE_JSON_INTEGER + 1
+        with pytest.raises(ValidationError):
+            ArtifactProposalV1.model_validate(unsafe_integer)
+
     for source_span_ids in ([], [f"spn_{'f' * 32}"]):
         invalid_claim = deepcopy(proposal)
         invalid_claim["claims"][0]["source_span_ids"] = source_span_ids
