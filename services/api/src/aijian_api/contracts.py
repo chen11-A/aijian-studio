@@ -18,6 +18,10 @@ from aijian_api.agent_skill_contracts import (
     SkillDefinitionV1,
     SkillRunV1,
 )
+from aijian_api.artifact_proposal_rejection_input import (
+    ArtifactProposalRejectionReason,
+    normalize_rejection_comment,
+)
 from aijian_api.media_contracts import SequenceTimebaseData
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
@@ -30,6 +34,7 @@ SOURCE_BLOCK_ID_PATTERN = r"^srcb_[0-9a-f]{32}$"
 ARTIFACT_ID_PATTERN = r"^art_[0-9a-f]{32}$"
 VERSION_ID_PATTERN = r"^ver_[0-9a-f]{32}$"
 PROPOSAL_DRAFT_ACCEPTANCE_ID_PATTERN = r"^pda_[0-9a-f]{32}$"
+PROPOSAL_REJECTION_ID_PATTERN = r"^pdr_[0-9a-f]{32}$"
 FACT_ID_PATTERN = r"^fact_[0-9a-f]{32}$"
 SOURCE_SPAN_ID_PATTERN = r"^spn_[0-9a-f]{32}$"
 CONTENT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
@@ -251,6 +256,41 @@ class ArtifactProposalDraftAcceptanceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: ArtifactProposalDraftAcceptanceData
+    request_id: UUID
+
+
+class CreateArtifactProposalRejectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason_code: ArtifactProposalRejectionReason
+    comment: str = Field(strict=True, min_length=1, max_length=4000)
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def normalize_comment(cls, value: object) -> str:
+        if not isinstance(value, str):
+            raise ValueError("comment must be a string")
+        return normalize_rejection_comment(value)
+
+
+class ArtifactProposalRejectionData(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    rejection_id: str = Field(pattern=PROPOSAL_REJECTION_ID_PATTERN)
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    proposal_id: str = Field(pattern=PROPOSAL_ID_PATTERN)
+    proposal_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    reason_code: ArtifactProposalRejectionReason
+    comment: str = Field(min_length=1, max_length=4000)
+    actor_id: str = Field(min_length=1, max_length=200)
+    rejected_at: datetime
+    replayed: bool
+
+
+class ArtifactProposalRejectionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ArtifactProposalRejectionData
     request_id: UUID
 
 

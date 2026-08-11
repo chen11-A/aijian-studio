@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Path, Request, Response, status
 
 from aijian_api.artifact_proposal_acceptance import ArtifactProposalAcceptanceService
+from aijian_api.artifact_proposal_rejection import ArtifactProposalRejectionService
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.contracts import (
     PROJECT_ID_PATTERN,
@@ -14,14 +15,18 @@ from aijian_api.contracts import (
     ArtifactProposalData,
     ArtifactProposalDraftAcceptanceData,
     ArtifactProposalDraftAcceptanceResponse,
+    ArtifactProposalRejectionData,
+    ArtifactProposalRejectionResponse,
     ArtifactProposalResponse,
     CreateArtifactProposalDraftAcceptanceRequest,
+    CreateArtifactProposalRejectionRequest,
     ErrorResponse,
 )
 from aijian_api.domain import TrustedReviewActor
 
 type StoreProvider = Callable[[], ArtifactProposalStore]
 type AcceptanceServiceProvider = Callable[[], ArtifactProposalAcceptanceService]
+type RejectionServiceProvider = Callable[[], ArtifactProposalRejectionService]
 type ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
 type ProposalIdPath = Annotated[str, Path(pattern=PROPOSAL_ID_PATTERN)]
 
@@ -63,7 +68,8 @@ def create_artifact_proposal_router(store_provider: StoreProvider) -> APIRouter:
 
 
 def create_artifact_proposal_write_router(
-    service_provider: AcceptanceServiceProvider,
+    acceptance_service_provider: AcceptanceServiceProvider,
+    rejection_service_provider: RejectionServiceProvider,
     actor: TrustedReviewActor,
 ) -> APIRouter:
     """Expose mutation only from the trusted Sidecar composition root."""
@@ -103,7 +109,7 @@ def create_artifact_proposal_write_router(
             ),
         ],
     ) -> ArtifactProposalDraftAcceptanceResponse:
-        acceptance = service_provider().accept_as_draft(
+        acceptance = acceptance_service_provider().accept_as_draft(
             project_id=project_id,
             proposal_id=proposal_id,
             idempotency_key=idempotency_key,
@@ -115,6 +121,54 @@ def create_artifact_proposal_write_router(
             response.status_code = status.HTTP_200_OK
         return ArtifactProposalDraftAcceptanceResponse(
             data=ArtifactProposalDraftAcceptanceData.model_validate(acceptance),
+            request_id=cast(UUID, request.state.request_id),
+        )
+
+    @router.post(
+        "/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        operation_id="rejectArtifactProposal",
+        response_model=ArtifactProposalRejectionResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses={
+            200: {
+                "description": "Exact idempotent replay",
+                "model": ArtifactProposalRejectionResponse,
+            },
+            401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+            403: {"description": "Local request boundary rejected", "model": ErrorResponse},
+            404: {"description": "Artifact proposal not found", "model": ErrorResponse},
+            409: {"description": "Proposal rejection conflict", "model": ErrorResponse},
+            422: {"description": "Request validation failed", "model": ErrorResponse},
+        },
+    )
+    def reject_artifact_proposal(
+        request: Request,
+        response: Response,
+        payload: CreateArtifactProposalRejectionRequest,
+        project_id: ProjectIdPath,
+        proposal_id: ProposalIdPath,
+        idempotency_key: Annotated[
+            str,
+            Header(
+                alias="Idempotency-Key",
+                min_length=1,
+                max_length=240,
+                pattern=r".*\S.*",
+            ),
+        ],
+    ) -> ArtifactProposalRejectionResponse:
+        rejection = rejection_service_provider().reject(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            reason_code=payload.reason_code,
+            comment=payload.comment,
+        )
+        if rejection.replayed:
+            response.status_code = status.HTTP_200_OK
+        return ArtifactProposalRejectionResponse(
+            data=ArtifactProposalRejectionData.model_validate(rejection),
             request_id=cast(UUID, request.state.request_id),
         )
 

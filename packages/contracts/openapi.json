@@ -378,6 +378,99 @@
         "title": "ArtifactProposalDraftAcceptanceResponse",
         "type": "object"
       },
+      "ArtifactProposalRejectionData": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "comment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Hash",
+            "type": "string"
+          },
+          "proposal_id": {
+            "pattern": "^prp_[0-9a-f]{32}$",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "$ref": "#/components/schemas/ArtifactProposalRejectionReason"
+          },
+          "rejected_at": {
+            "format": "date-time",
+            "title": "Rejected At",
+            "type": "string"
+          },
+          "rejection_id": {
+            "pattern": "^pdr_[0-9a-f]{32}$",
+            "title": "Rejection Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rejection_id",
+          "project_id",
+          "proposal_id",
+          "proposal_hash",
+          "reason_code",
+          "comment",
+          "actor_id",
+          "rejected_at",
+          "replayed"
+        ],
+        "title": "ArtifactProposalRejectionData",
+        "type": "object"
+      },
+      "ArtifactProposalRejectionReason": {
+        "enum": [
+          "SOURCE_EVIDENCE",
+          "CREATIVE_DIRECTION",
+          "CONTINUITY",
+          "TECHNICAL_QUALITY",
+          "RIGHTS_OR_SAFETY",
+          "BUDGET_OR_COST",
+          "OTHER"
+        ],
+        "type": "string"
+      },
+      "ArtifactProposalRejectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ArtifactProposalRejectionData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ArtifactProposalRejectionResponse",
+        "type": "object"
+      },
       "ArtifactProposalResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1780,6 +1873,26 @@
           }
         },
         "title": "CreateArtifactProposalDraftAcceptanceRequest",
+        "type": "object"
+      },
+      "CreateArtifactProposalRejectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "reason_code": {
+            "$ref": "#/components/schemas/ArtifactProposalRejectionReason"
+          }
+        },
+        "required": [
+          "reason_code",
+          "comment"
+        ],
+        "title": "CreateArtifactProposalRejectionRequest",
         "type": "object"
       },
       "CreateProjectRequest": {
@@ -9751,6 +9864,128 @@
           }
         },
         "summary": "Accept Artifact Proposal As Draft"
+      }
+    },
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections": {
+      "post": {
+        "operationId": "rejectArtifactProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prp_[0-9a-f]{32}$",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 240,
+              "minLength": 1,
+              "pattern": ".*\\S.*",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateArtifactProposalRejectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactProposalRejectionResponse"
+                }
+              }
+            },
+            "description": "Exact idempotent replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactProposalRejectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Artifact proposal not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Proposal rejection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Reject Artifact Proposal"
       }
     },
     "/api/v1/projects/{project_id}/skills": {

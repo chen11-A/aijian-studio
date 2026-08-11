@@ -23,6 +23,10 @@ from aijian_api.artifact_proposal_acceptance import (
     ArtifactProposalAcceptanceService,
     ArtifactProposalDraftAcceptance,
 )
+from aijian_api.artifact_proposal_rejection import (
+    ArtifactProposalRejection,
+    ArtifactProposalRejectionService,
+)
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.domain import TrustedReviewActor
 from aijian_api.main import create_app
@@ -721,7 +725,7 @@ def test_proposal_rejection_table_enforces_closed_audit_fields(
 def test_rejection_and_draft_acceptance_are_mutually_exclusive_and_immutable(
     tmp_path: Path,
 ) -> None:
-    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+    client, repository, project_id, proposal_id, created = reviewable_proposal(
         tmp_path,
         key="source-extract:rejection-before-acceptance",
     )
@@ -866,6 +870,569 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
                     "2026-08-11T00:00:00Z",
                 ),
             )
+
+
+def test_sidecar_rejects_reviewable_proposal_without_materializing_artifacts(
+    tmp_path: Path,
+) -> None:
+    client, repository, project_id, proposal_id, created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:reviewer-rejection",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        before = {
+            "artifacts": connection.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0],
+            "versions": connection.execute("SELECT COUNT(*) FROM artifact_versions").fetchone()[0],
+            "heads": connection.execute("SELECT COUNT(*) FROM artifact_heads").fetchone()[0],
+            "gates": connection.execute("SELECT COUNT(*) FROM gate_decisions").fetchone()[0],
+        }
+
+    rejected = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": "reject-proposal-v1"},
+        json={
+            "reason_code": "CREATIVE_DIRECTION",
+            "comment": "  The scene objective needs a clearer dramatic turn.\r\n  ",
+        },
+    )
+
+    assert rejected.status_code == 201
+    data = rejected.json()["data"]
+    assert data == {
+        "rejection_id": data["rejection_id"],
+        "project_id": project_id,
+        "proposal_id": proposal_id,
+        "proposal_hash": data["proposal_hash"],
+        "reason_code": "CREATIVE_DIRECTION",
+        "comment": "The scene objective needs a clearer dramatic turn.",
+        "actor_id": "local-user",
+        "rejected_at": data["rejected_at"],
+        "replayed": False,
+    }
+    assert data["rejection_id"].startswith("pdr_")
+    assert data["proposal_hash"].startswith("sha256:")
+    accept_after_reject = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-after-named-rejection"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    cancel_after_reject = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs/{created['run_id']}/cancellations",
+        headers={"Idempotency-Key": "cancel-after-named-rejection"},
+        json={},
+    )
+    assert accept_after_reject.status_code == 409
+    assert cancel_after_reject.status_code == 409
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT rejection.reason_code, rejection.comment, rejection.actor_id,
+                   rejection.actor_roles_json,
+                   attempt.status AS attempt_status, attempt.retry_disposition,
+                   attempt.error_code, attempt.output_version_id,
+                   node.status AS node_status, node.output_version_id AS node_output_version_id,
+                   workflow.status AS workflow_status, task.status AS task_status,
+                   agent.status AS agent_status, skill.status AS skill_status
+            FROM artifact_proposal_rejections AS rejection
+            JOIN agent_artifact_proposals AS proposal
+              ON proposal.proposal_id = rejection.proposal_id
+            JOIN workflow_attempts AS attempt
+              ON attempt.attempt_id = proposal.producer_attempt_id
+            JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+            JOIN workflow_runs AS workflow ON workflow.workflow_run_id = node.workflow_run_id
+            JOIN task_ledger AS task ON task.attempt_id = attempt.attempt_id
+            JOIN agent_runs AS agent
+              ON agent.agent_run_id = proposal.producer_agent_run_id
+            JOIN skill_runs AS skill
+              ON skill.skill_run_id = proposal.producer_skill_run_id
+            WHERE rejection.proposal_id = ?
+            """,
+            (proposal_id,),
+        ).fetchone()
+        assert row is not None
+        assert dict(row) == {
+            "reason_code": "CREATIVE_DIRECTION",
+            "comment": "The scene objective needs a clearer dramatic turn.",
+            "actor_id": "local-user",
+            "actor_roles_json": '["continuity_reviewer","producer","writer"]',
+            "attempt_status": "FAILED",
+            "retry_disposition": "NON_RETRYABLE",
+            "error_code": "PROPOSAL_REJECTED_BY_REVIEWER",
+            "output_version_id": None,
+            "node_status": "FAILED",
+            "node_output_version_id": None,
+            "workflow_status": "FAILED",
+            "task_status": "COMPLETED",
+            "agent_status": "FAILED",
+            "skill_status": "FAILED",
+        }
+        after = {
+            "artifacts": connection.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0],
+            "versions": connection.execute("SELECT COUNT(*) FROM artifact_versions").fetchone()[0],
+            "heads": connection.execute("SELECT COUNT(*) FROM artifact_heads").fetchone()[0],
+            "gates": connection.execute("SELECT COUNT(*) FROM gate_decisions").fetchone()[0],
+        }
+        assert after == before
+        event_rows = connection.execute(
+            "SELECT entity_kind, from_status, to_status, actor_kind, actor_id, reason_code "
+            "FROM workflow_transition_events WHERE reason_code = 'proposal.rejected' "
+            "ORDER BY entity_kind"
+        ).fetchall()
+        assert [tuple(event) for event in event_rows] == [
+            ("attempt", "RUNNING", "FAILED", "human", "local-user", "proposal.rejected"),
+            (
+                "node",
+                "NEEDS_REVIEW",
+                "FAILED",
+                "human",
+                "local-user",
+                "proposal.rejected",
+            ),
+        ]
+
+
+def test_proposal_rejection_exact_replay_and_conflicts_are_deterministic(tmp_path: Path) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:rejection-idempotency",
+    )
+    path = f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections"
+    payload = {"reason_code": "CONTINUITY", "comment": "Keep wardrobe continuity."}
+
+    first = client.post(
+        path,
+        headers={"Idempotency-Key": "reject-idempotent-v1"},
+        json=payload,
+    )
+    replay = client.post(
+        path,
+        headers={"Idempotency-Key": "reject-idempotent-v1"},
+        json=payload,
+    )
+    drift = client.post(
+        path,
+        headers={"Idempotency-Key": "reject-idempotent-v1"},
+        json={"reason_code": "TECHNICAL_QUALITY", "comment": payload["comment"]},
+    )
+    second_decision = client.post(
+        path,
+        headers={"Idempotency-Key": "reject-idempotent-v2"},
+        json=payload,
+    )
+
+    assert first.status_code == 201
+    assert replay.status_code == 200
+    assert replay.json()["data"] == {**first.json()["data"], "replayed": True}
+    assert drift.status_code == 409
+    assert second_decision.status_code == 409
+    assert drift.json()["error"]["code"] == "ARTIFACT_PROPOSAL_REJECTION_CONFLICT"
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.rejected'"
+        ).fetchone() == (2,)
+
+
+@pytest.mark.parametrize(
+    ("headers", "payload"),
+    (
+        ({}, {"reason_code": "OTHER", "comment": "Needs revision."}),
+        (
+            {"Idempotency-Key": "   "},
+            {"reason_code": "OTHER", "comment": "Needs revision."},
+        ),
+        (
+            {"Idempotency-Key": "reject-invalid-reason"},
+            {"reason_code": "UNDECLARED", "comment": "Needs revision."},
+        ),
+        (
+            {"Idempotency-Key": "reject-empty-comment"},
+            {"reason_code": "OTHER", "comment": " \r\n\t "},
+        ),
+        (
+            {"Idempotency-Key": "reject-control-comment"},
+            {"reason_code": "OTHER", "comment": "bad\x07comment"},
+        ),
+        (
+            {"Idempotency-Key": "reject-spoofed-actor"},
+            {
+                "reason_code": "OTHER",
+                "comment": "Needs revision.",
+                "actor_id": "spoofed-user",
+            },
+        ),
+    ),
+)
+def test_proposal_rejection_rejects_untrusted_or_incomplete_input(
+    tmp_path: Path,
+    headers: dict[str, str],
+    payload: dict[str, str],
+) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:invalid-rejection-input",
+    )
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers=headers,
+        json=payload,
+    )
+    assert response.status_code == 422
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+
+
+def test_proposal_rejection_is_sidecar_only_project_scoped_and_typed(tmp_path: Path) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:rejection-boundary",
+    )
+    other_project = repository.create_project(
+        name="Other rejection project",
+        aspect_ratio="9:16",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    )
+    cross_project = client.post(
+        f"/api/v1/projects/{other_project.id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": "reject-cross-project"},
+        json={"reason_code": "OTHER", "comment": "Needs revision."},
+    )
+    public_client = TestClient(create_app(repository=repository))
+    public_write = public_client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": "reject-from-public-web"},
+        json={"reason_code": "OTHER", "comment": "Needs revision."},
+    )
+
+    assert cross_project.status_code == 404
+    assert public_write.status_code == 404
+    operation = client.get("/api/openapi.json").json()["paths"][
+        "/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections"
+    ]["post"]
+    assert operation["operationId"] == "rejectArtifactProposal"
+    assert {"200", "201", "401", "403", "404", "409", "422"} <= set(operation["responses"])
+    schema_ref = operation["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    request_schema = client.get("/api/openapi.json").json()["components"]["schemas"][
+        schema_ref.rsplit("/", 1)[-1]
+    ]
+    assert set(request_schema["properties"]) == {"reason_code", "comment"}
+
+
+def test_acceptance_or_cancellation_prevents_later_proposal_rejection(tmp_path: Path) -> None:
+    accepted_client, accepted_repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path / "accepted",
+        key="source-extract:accept-before-reject",
+    )
+    accepted = accepted_client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-before-reject"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    reject_after_accept = accepted_client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": "reject-after-accept"},
+        json={"reason_code": "OTHER", "comment": "Too late."},
+    )
+    assert accepted.status_code == 201
+    assert reject_after_accept.status_code == 409
+    with sqlite3.connect(accepted_repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
+
+    cancelled_client, cancelled_repository, project_id, proposal_id, created = reviewable_proposal(
+        tmp_path / "cancelled",
+        key="source-extract:cancel-before-reject",
+    )
+    cancelled = cancelled_client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs/{created['run_id']}/cancellations",
+        headers={"Idempotency-Key": "cancel-before-reject"},
+        json={},
+    )
+    reject_after_cancel = cancelled_client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": "reject-after-cancel"},
+        json={"reason_code": "OTHER", "comment": "Too late."},
+    )
+    assert cancelled.status_code == 201
+    assert reject_after_cancel.status_code == 409
+    with sqlite3.connect(cancelled_repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
+
+
+@pytest.mark.parametrize("failure_phase", ("rejection", "run_statuses", "events"))
+def test_proposal_rejection_crash_injection_rolls_back_every_phase(
+    tmp_path: Path,
+    failure_phase: str,
+) -> None:
+    _client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key=f"source-extract:rejection-crash:{failure_phase}",
+    )
+
+    def fail_at_phase(phase: str) -> None:
+        if phase == failure_phase:
+            raise RuntimeError(f"injected rejection crash at {phase}")
+
+    service = ArtifactProposalRejectionService(
+        repository.database_path,
+        transaction_hook=fail_at_phase,
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        immutable_counts_before = {
+            "artifacts": connection.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0],
+            "versions": connection.execute("SELECT COUNT(*) FROM artifact_versions").fetchone()[0],
+            "heads": connection.execute("SELECT COUNT(*) FROM artifact_heads").fetchone()[0],
+            "gates": connection.execute("SELECT COUNT(*) FROM gate_decisions").fetchone()[0],
+        }
+    with pytest.raises(RuntimeError, match="injected rejection crash"):
+        service.reject(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key=f"reject-crash-{failure_phase}",
+            actor=TrustedReviewActor(subject_id="local-user", roles=("producer",)),
+            reason_code="OTHER",
+            comment="Needs revision.",
+        )
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "NEEDS_REVIEW",
+        )
+        assert connection.execute("SELECT status FROM workflow_runs").fetchone() == ("ACTIVE",)
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("NEEDS_REVIEW",)
+        assert connection.execute("SELECT status FROM skill_runs").fetchone() == ("NEEDS_REVIEW",)
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("COMPLETED",)
+        assert {
+            "artifacts": connection.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0],
+            "versions": connection.execute("SELECT COUNT(*) FROM artifact_versions").fetchone()[0],
+            "heads": connection.execute("SELECT COUNT(*) FROM artifact_heads").fetchone()[0],
+            "gates": connection.execute("SELECT COUNT(*) FROM gate_decisions").fetchone()[0],
+        } == immutable_counts_before
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.rejected'"
+        ).fetchone() == (0,)
+
+
+def test_concurrent_exact_proposal_rejection_creates_one_audit_decision(tmp_path: Path) -> None:
+    _client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:rejection-race",
+    )
+    service = ArtifactProposalRejectionService(repository.database_path)
+    actor = TrustedReviewActor(subject_id="local-user", roles=("producer",))
+
+    def reject(_index: int) -> ArtifactProposalRejection:
+        return service.reject(
+            project_id=project_id,
+            proposal_id=proposal_id,
+            idempotency_key="reject-concurrent-exact-v1",
+            actor=actor,
+            reason_code="TECHNICAL_QUALITY",
+            comment="Image quality is below the review threshold.",
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = tuple(executor.map(reject, range(4)))
+
+    assert sum(not result.replayed for result in results) == 1
+    assert len({result.rejection_id for result in results}) == 1
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (1,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.rejected'"
+        ).fetchone() == (2,)
+
+
+def test_proposal_acceptance_and_rejection_serialize_to_one_terminal_decision(
+    tmp_path: Path,
+) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:accept-reject-race",
+    )
+    peer = TestClient(
+        client.app,
+        base_url=f"http://{HOST}",
+        client=("127.0.0.1", 50111),
+    )
+    peer.headers.update({"Authorization": f"Bearer {TOKEN}", "Origin": ORIGIN})
+
+    def accept() -> HttpxResponse:
+        return client.post(
+            f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+            headers={"Idempotency-Key": "accept-reject-race"},
+            json={"parent_version_id": None, "expected_head_revision": None},
+        )
+
+    def reject() -> HttpxResponse:
+        return peer.post(
+            f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+            headers={"Idempotency-Key": "reject-accept-race"},
+            json={"reason_code": "OTHER", "comment": "Reviewer requested revision."},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        accepted_future = executor.submit(accept)
+        rejected_future = executor.submit(reject)
+        accepted_response = accepted_future.result()
+        rejected_response = rejected_future.result()
+
+    assert sorted((accepted_response.status_code, rejected_response.status_code)) == [201, 409]
+    with sqlite3.connect(repository.database_path) as connection:
+        acceptance_count = connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone()
+        rejection_count = connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone()
+        version_count = connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone()
+        agent_status = connection.execute("SELECT status FROM agent_runs").fetchone()
+    if accepted_response.status_code == 201:
+        assert acceptance_count == (1,)
+        assert rejection_count == (0,)
+        assert version_count == (1,)
+        assert agent_status == ("SUCCEEDED",)
+    else:
+        assert acceptance_count == (0,)
+        assert rejection_count == (1,)
+        assert version_count == (0,)
+        assert agent_status == ("FAILED",)
+
+
+def test_proposal_rejection_and_cancellation_serialize_to_one_terminal_decision(
+    tmp_path: Path,
+) -> None:
+    client, repository, project_id, proposal_id, created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:reject-cancel-race",
+    )
+    peer = TestClient(
+        client.app,
+        base_url=f"http://{HOST}",
+        client=("127.0.0.1", 50112),
+    )
+    peer.headers.update({"Authorization": f"Bearer {TOKEN}", "Origin": ORIGIN})
+
+    def reject() -> HttpxResponse:
+        return client.post(
+            f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+            headers={"Idempotency-Key": "reject-cancel-race"},
+            json={"reason_code": "OTHER", "comment": "Reviewer requested revision."},
+        )
+
+    def cancel() -> HttpxResponse:
+        return peer.post(
+            f"/api/v1/projects/{project_id}/proposal-runs/{created['run_id']}/cancellations",
+            headers={"Idempotency-Key": "cancel-reject-race"},
+            json={},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        rejected_future = executor.submit(reject)
+        cancelled_future = executor.submit(cancel)
+        rejected_response = rejected_future.result()
+        cancelled_response = cancelled_future.result()
+
+    assert sorted((rejected_response.status_code, cancelled_response.status_code)) == [201, 409]
+    with sqlite3.connect(repository.database_path) as connection:
+        rejection_count = connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone()
+        agent_status = connection.execute("SELECT status FROM agent_runs").fetchone()
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+    if rejected_response.status_code == 201:
+        assert rejection_count == (1,)
+        assert agent_status == ("FAILED",)
+    else:
+        assert rejection_count == (0,)
+        assert agent_status == ("CANCELLED",)
+
+
+@pytest.mark.parametrize(
+    "drift",
+    ("missing_intent", "duplicate_task", "snapshot_fingerprint"),
+)
+def test_proposal_rejection_fails_closed_when_frozen_review_truth_drifts(
+    tmp_path: Path,
+    drift: str,
+) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key=f"source-extract:reject-truth-drift:{drift}",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        if drift == "missing_intent":
+            connection.execute("DROP TRIGGER proposal_run_enqueue_intents_immutable_delete")
+            connection.execute("DELETE FROM proposal_run_enqueue_intents")
+        elif drift == "duplicate_task":
+            connection.execute(
+                """
+                INSERT INTO task_ledger (
+                    task_id, attempt_id, task_kind, status, priority, available_at,
+                    lease_owner, lease_token, lease_generation, lease_expires_at,
+                    heartbeat_at, revision, created_at, updated_at
+                )
+                SELECT ?, attempt_id, task_kind, 'COMPLETED', priority, available_at,
+                       NULL, NULL, 0, NULL, NULL, 1, created_at, updated_at
+                FROM task_ledger LIMIT 1
+                """,
+                (f"tsk_{'d' * 32}",),
+            )
+        else:
+            connection.execute("DROP TRIGGER workflow_attempt_snapshots_immutable_update")
+            snapshot_json = connection.execute(
+                "SELECT snapshot_json FROM workflow_attempt_snapshots"
+            ).fetchone()[0]
+            snapshot = json.loads(snapshot_json)
+            snapshot["model_id"] = "self-consistent-but-detached-rejection-model"
+            fingerprint_payload = dict(snapshot)
+            fingerprint_payload.pop("attempt_fingerprint")
+            snapshot["attempt_fingerprint"] = canonical_sha256(fingerprint_payload)
+            updated_json = canonical_snapshot_json(snapshot)
+            connection.execute(
+                "UPDATE workflow_attempt_snapshots SET snapshot_json = ?, snapshot_hash = ?",
+                (updated_json, snapshot_sha256(updated_json)),
+            )
+            connection.execute(
+                "UPDATE workflow_attempts SET request_fingerprint = ?",
+                (snapshot["attempt_fingerprint"],),
+            )
+        connection.commit()
+    response = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections",
+        headers={"Idempotency-Key": f"reject-with-truth-drift:{drift}"},
+        json={"reason_code": "OTHER", "comment": "Reviewer requested revision."},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ARTIFACT_PROPOSAL_REJECTION_CONFLICT"
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("NEEDS_REVIEW",)
 
 
 def test_proposal_acceptance_rejects_key_drift_second_decision_and_actor_spoof(
@@ -1433,17 +2000,25 @@ def test_proposal_acceptance_crash_injection_rolls_back_every_phase(
         ).fetchone() == (0,)
 
 
-def test_public_web_composition_does_not_expose_proposal_acceptance(tmp_path: Path) -> None:
+def test_public_web_composition_does_not_expose_proposal_decision_writes(tmp_path: Path) -> None:
     repository = StudioRepository(tmp_path / "public.db")
     client = TestClient(create_app(repository=repository))
 
-    response = client.post(
+    acceptance = client.post(
         f"/api/v1/projects/prj_{'a' * 32}/proposals/prp_{'b' * 32}/acceptances",
         headers={"Idempotency-Key": "not-available-on-public-web"},
         json={"parent_version_id": None, "expected_head_revision": None},
     )
+    rejection_path = f"/api/v1/projects/prj_{'a' * 32}/proposals/prp_{'b' * 32}/rejections"
+    rejection = client.post(
+        rejection_path,
+        headers={"Idempotency-Key": "not-available-on-public-web"},
+        json={"reason_code": "OTHER", "comment": "Unavailable."},
+    )
 
-    assert response.status_code == 404
+    assert acceptance.status_code == 404
+    assert rejection.status_code == 404
+    assert rejection_path not in client.get("/api/openapi.json").json()["paths"]
 
 
 def test_create_run_fails_closed_without_sidecar_or_exact_accepted_source(tmp_path: Path) -> None:

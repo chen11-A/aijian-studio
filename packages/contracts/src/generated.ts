@@ -175,6 +175,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/proposals/{proposal_id}/rejections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Artifact Proposal */
+        post: operations["rejectArtifactProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/skills": {
         parameters: {
             query?: never;
@@ -573,6 +590,40 @@ export interface components {
              */
             request_id: string;
         };
+        /** ArtifactProposalRejectionData */
+        ArtifactProposalRejectionData: {
+            /** Actor Id */
+            actor_id: string;
+            /** Comment */
+            comment: string;
+            /** Project Id */
+            project_id: string;
+            /** Proposal Hash */
+            proposal_hash: string;
+            /** Proposal Id */
+            proposal_id: string;
+            reason_code: components["schemas"]["ArtifactProposalRejectionReason"];
+            /**
+             * Rejected At
+             * Format: date-time
+             */
+            rejected_at: string;
+            /** Rejection Id */
+            rejection_id: string;
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** @enum {string} */
+        ArtifactProposalRejectionReason: "SOURCE_EVIDENCE" | "CREATIVE_DIRECTION" | "CONTINUITY" | "TECHNICAL_QUALITY" | "RIGHTS_OR_SAFETY" | "BUDGET_OR_COST" | "OTHER";
+        /** ArtifactProposalRejectionResponse */
+        ArtifactProposalRejectionResponse: {
+            data: components["schemas"]["ArtifactProposalRejectionData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** ArtifactProposalResponse */
         ArtifactProposalResponse: {
             data: components["schemas"]["ArtifactProposalData"];
@@ -964,6 +1015,12 @@ export interface components {
             expected_head_revision?: number | null;
             /** Parent Version Id */
             parent_version_id?: string | null;
+        };
+        /** CreateArtifactProposalRejectionRequest */
+        CreateArtifactProposalRejectionRequest: {
+            /** Comment */
+            comment: string;
+            reason_code: components["schemas"]["ArtifactProposalRejectionReason"];
         };
         /** CreateProjectRequest */
         CreateProjectRequest: {
@@ -3764,6 +3821,89 @@ export interface operations {
                 };
             };
             /** @description Draft acceptance conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rejectArtifactProposal: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateArtifactProposalRejectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Exact idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactProposalRejectionResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactProposalRejectionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Artifact proposal not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Proposal rejection conflict */
             409: {
                 headers: {
                     [name: string]: unknown;

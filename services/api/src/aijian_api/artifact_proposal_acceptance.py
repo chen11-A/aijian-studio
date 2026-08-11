@@ -152,6 +152,14 @@ class ArtifactProposalAcceptanceService:
                 raise ArtifactProposalAcceptanceConflictError(
                     "ArtifactProposal already has a draft acceptance"
                 )
+            rejected = connection.execute(
+                "SELECT 1 FROM artifact_proposal_rejections WHERE proposal_id = ?",
+                (proposal_id,),
+            ).fetchone()
+            if rejected is not None:
+                raise ArtifactProposalAcceptanceConflictError(
+                    "ArtifactProposal already has a rejection"
+                )
 
             review_identity = read_proposal_review_identity(
                 connection,

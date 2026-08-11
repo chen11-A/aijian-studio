@@ -34,6 +34,10 @@ from aijian_api.artifact_proposal_acceptance import (
     ArtifactProposalAcceptanceConflictError,
     ArtifactProposalAcceptanceService,
 )
+from aijian_api.artifact_proposal_rejection import (
+    ArtifactProposalRejectionConflictError,
+    ArtifactProposalRejectionService,
+)
 from aijian_api.artifact_proposal_routes import (
     create_artifact_proposal_router,
     create_artifact_proposal_write_router,
@@ -227,6 +231,9 @@ def create_app(
             resolved_proposal_schema_registry,
         )
 
+    def get_artifact_proposal_rejection_service() -> ArtifactProposalRejectionService:
+        return ArtifactProposalRejectionService(get_repository().database_path)
+
     def get_source_extract_run_factory() -> SourceExtractRunFactory:
         return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
 
@@ -320,6 +327,17 @@ def create_app(
             status_code=status.HTTP_409_CONFLICT,
             code="ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT",
             message="The ArtifactProposal cannot be accepted as DRAFT",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalRejectionConflictError)
+    async def artifact_proposal_rejection_conflict(
+        request: Request, _error: ArtifactProposalRejectionConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_REJECTION_CONFLICT",
+            message="The ArtifactProposal cannot be rejected",
             request_id=request_id(request),
         )
 
@@ -756,6 +774,7 @@ def create_app(
         app.include_router(
             create_artifact_proposal_write_router(
                 get_artifact_proposal_acceptance_service,
+                get_artifact_proposal_rejection_service,
                 trusted_review_actor,
             )
         )
