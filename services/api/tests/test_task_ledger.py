@@ -36,6 +36,7 @@ def enqueue(
     priority: int = 50,
     available_at: datetime = NOW,
     node_input_hash: str = HASH_A,
+    task_kind: str = "local.execute",
 ):
     return ledger.enqueue_local_node(
         project_id=project_id,
@@ -52,7 +53,7 @@ def enqueue(
         request_fingerprint=HASH_B,
         idempotency_key=f"golden-short:{node_key}:{HASH_A}",
         max_attempts=2,
-        task_kind="local.execute",
+        task_kind=task_kind,
         priority=priority,
         available_at=available_at,
     )
@@ -116,6 +117,32 @@ def test_two_connections_can_claim_a_task_only_once(tmp_path: Path) -> None:
         )
         assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("LEASED",)
         assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
+
+
+def test_specialized_worker_claims_only_its_exact_task_kind(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    other = enqueue(ledger, project_id, node_key="timeline", priority=100)
+    expected = enqueue(
+        ledger,
+        project_id,
+        node_key="source.extract",
+        priority=10,
+        task_kind="local.agent-skill.fake",
+    )
+
+    claimed = ledger.claim_ready_task(
+        worker_id="source-extract-worker",
+        lease_duration=timedelta(seconds=30),
+        task_kind="local.agent-skill.fake",
+    )
+
+    assert claimed is not None and claimed.task_id == expected.task_id
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (other.task_id,)
+        ).fetchone() == ("READY",)
 
 
 def test_enqueue_is_idempotent_across_two_independent_connections(tmp_path: Path) -> None:

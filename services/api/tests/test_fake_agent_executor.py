@@ -32,6 +32,7 @@ from aijian_api.artifact_proposal_store import (
 from aijian_api.fake_agent_executor import (
     FakeAgentSkillExecutor,
     FakeSkillExecutionError,
+    FakeSkillShutdownRequested,
     FakeSkillTimeoutError,
 )
 from aijian_api.repository import StudioRepository
@@ -82,6 +83,15 @@ def resolved_delegation(
 
 def valid_fake_skill(snapshot: AttemptSnapshotV1, _invocation: int) -> ArtifactProposalV1:
     return fixture_bundle().artifact_proposal.model_copy(update={"project_id": snapshot.project_id})
+
+
+def environment_isolated_fake_skill(
+    snapshot: AttemptSnapshotV1,
+    invocation: int,
+) -> ArtifactProposalV1:
+    if os.environ.get("OPENAI_API_KEY") is not None:
+        raise PermissionError("Fake Skill child received a forbidden credential")
+    return valid_fake_skill(snapshot, invocation)
 
 
 def invalid_fake_skill(snapshot: AttemptSnapshotV1, invocation: int) -> ArtifactProposalV1:
@@ -354,6 +364,26 @@ def test_fake_executor_persists_proposal_and_enters_human_review_without_draft(
     ]
 
 
+def test_subprocess_child_receives_no_parent_api_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database, _, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-cross-worker-boundary")
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="environment-isolation-worker",
+        lease_duration=timedelta(seconds=30),
+        handler_timeout=timedelta(seconds=2),
+        handler=environment_isolated_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+        isolation_backend="subprocess",
+    )
+
+    assert executor.run_once(task_id=task_id)
+
+
 def test_invalid_fake_proposal_leaves_leased_state_for_crash_recovery(tmp_path: Path) -> None:
     database, _, clock, ledger, proposal, task_id = setup_fake_task(tmp_path)
     executor = FakeAgentSkillExecutor(
@@ -380,6 +410,15 @@ def test_invalid_fake_proposal_leaves_leased_state_for_crash_recovery(tmp_path: 
         )
     clock[0] = NOW + timedelta(seconds=31)
     assert ledger.recover_expired_local_tasks().requeued == 1
+    recovered = ledger.claim_ready_task(
+        worker_id="recovered-worker",
+        lease_duration=timedelta(seconds=30),
+        task_kind="local.agent-skill.fake",
+    )
+    assert recovered is not None
+    recovered = ledger.mark_attempt_running(recovered)
+    recovered_snapshot = ledger.read_agent_skill_snapshot(recovered)
+    assert recovered_snapshot.attempt_id == recovered.attempt_id
 
 
 def test_recovery_preserves_existing_proposal_and_enters_review(
@@ -527,6 +566,51 @@ def test_handler_timeout_returns_without_waiting_and_never_persists_late_result(
         assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
     clock[0] = NOW + timedelta(seconds=31)
     assert ledger.recover_expired_local_tasks().requeued == 1
+
+
+@pytest.mark.parametrize("isolation_backend", ("multiprocessing", "subprocess"))
+def test_shutdown_stops_a_blocked_child_without_forging_a_task_terminal_state(
+    tmp_path: Path,
+    isolation_backend: str,
+) -> None:
+    database, _, _, ledger, _, task_id = setup_fake_task(tmp_path)
+    stop = Event()
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database),
+        worker_id="shutdown-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=20),
+        handler_timeout=timedelta(seconds=20),
+        handler=permanently_blocked_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+        stop_requested=stop.is_set,
+        isolation_backend=isolation_backend,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        execution = pool.submit(executor.run_once, task_id=task_id)
+        deadline = monotonic() + 2
+        while monotonic() < deadline:
+            with sqlite3.connect(database) as connection:
+                status = connection.execute("SELECT status FROM workflow_attempts").fetchone()
+            if status == ("RUNNING",):
+                break
+            sleep(0.01)
+        assert status == ("RUNNING",)
+        sleep(0.2)
+        started = monotonic()
+        stop.set()
+        with pytest.raises(FakeSkillShutdownRequested):
+            execution.result(timeout=4)
+    assert monotonic() - started < 4
+    assert not any(child.name == "aijian-fake-agent" for child in active_children())
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("RUNNING",)
+        assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
+            0,
+        )
 
 
 def test_hard_crashed_process_is_normalized_and_cannot_persist(tmp_path: Path) -> None:

@@ -1023,7 +1023,10 @@ class StudioRepository:
         gate_policies: Mapping[str, GatePolicy] | None = None,
         allow_gate_policy_override: bool = False,
         transaction_hook: TransactionHook | None = None,
+        connection_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
+        if connection_timeout <= timedelta(0):
+            raise ValueError("connection timeout must be positive")
         self._database_path = database_path
         self._id_factory = id_factory
         self._clock = clock
@@ -1033,6 +1036,7 @@ class StudioRepository:
             raise ValueError("Gate policy overrides are restricted to explicit test composition")
         self._gate_policies = gate_policies or DEFAULT_GATE_POLICIES
         self._transaction_hook = transaction_hook
+        self._connection_timeout_seconds = connection_timeout.total_seconds()
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -1043,10 +1047,15 @@ class StudioRepository:
         return self._database_path
 
     def _open(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._database_path, timeout=5)
+        connection = sqlite3.connect(
+            self._database_path,
+            timeout=self._connection_timeout_seconds,
+        )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute(
+            f"PRAGMA busy_timeout = {max(1, int(self._connection_timeout_seconds * 1000))}"
+        )
         return connection
 
     @contextmanager

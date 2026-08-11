@@ -5,7 +5,7 @@ import re
 import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -63,16 +63,26 @@ class ArtifactProposalStore:
         database_path: Path,
         *,
         clock: Callable[[], datetime] = utc_now,
+        connection_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
+        if connection_timeout <= timedelta(0):
+            raise ValueError("connection timeout must be positive")
         self._database_path = database_path
         self._clock = clock
-        StudioRepository(database_path)
+        self._connection_timeout_seconds = connection_timeout.total_seconds()
+        StudioRepository(database_path, connection_timeout=connection_timeout)
 
     def _open(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._database_path, timeout=5, isolation_level=None)
+        connection = sqlite3.connect(
+            self._database_path,
+            timeout=self._connection_timeout_seconds,
+            isolation_level=None,
+        )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute(
+            f"PRAGMA busy_timeout = {max(1, int(self._connection_timeout_seconds * 1000))}"
+        )
         return connection
 
     def persist(

@@ -25,6 +25,7 @@ def recover_expired_local_tasks(
     connection_factory: Callable[[], sqlite3.Connection],
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
+    task_kind: str | None = None,
 ) -> RecoverySummary:
     now_text = timestamp(clock())
     recovered = 0
@@ -49,9 +50,10 @@ def recover_expired_local_tasks(
               AND attempt.execution_mode = 'local'
               AND attempt.status IN ('LEASED', 'RUNNING')
               AND node.status = 'RUNNING' AND node.active_attempt_id = attempt.attempt_id
+              AND (? IS NULL OR ledger.task_kind = ?)
             ORDER BY ledger.lease_expires_at, ledger.task_id
             """,
-            (now_text,),
+            (now_text, task_kind, task_kind),
         ).fetchall()
         for row in rows:
             proposal_id = _persisted_proposal_id(connection, row)

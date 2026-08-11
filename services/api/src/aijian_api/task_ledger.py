@@ -54,18 +54,28 @@ class LocalTaskLedger:
         clock: Callable[[], datetime] = utc_now,
         id_factory: Callable[[str], str] = new_id,
         lease_token_factory: Callable[[], str] = lease_token,
+        connection_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
+        if connection_timeout <= timedelta(0):
+            raise ValueError("connection timeout must be positive")
         self._database_path = database_path
         self._clock = clock
         self._id_factory = id_factory
         self._lease_token_factory = lease_token_factory
-        StudioRepository(database_path)
+        self._connection_timeout_seconds = connection_timeout.total_seconds()
+        StudioRepository(database_path, connection_timeout=connection_timeout)
 
     def _open(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._database_path, timeout=5, isolation_level=None)
+        connection = sqlite3.connect(
+            self._database_path,
+            timeout=self._connection_timeout_seconds,
+            isolation_level=None,
+        )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute(
+            f"PRAGMA busy_timeout = {max(1, int(self._connection_timeout_seconds * 1000))}"
+        )
         return connection
 
     def enqueue_local_node(
@@ -125,8 +135,11 @@ class LocalTaskLedger:
         worker_id: str,
         lease_duration: timedelta,
         task_id: str | None = None,
+        task_kind: str | None = None,
     ) -> ClaimedTask | None:
         self._validate_lease_request(worker_id, lease_duration)
+        if task_kind is not None and not task_kind.strip():
+            raise ValueError("task kind must not be empty")
         token = self._lease_token_factory()
         if not token.strip():
             raise ValueError("lease token must not be empty")
@@ -152,6 +165,7 @@ class LocalTaskLedger:
                     WHERE ledger.status = 'READY' AND ledger.available_at <= ?
                       AND attempt.execution_mode = 'local' AND attempt.status = 'READY'
                       AND (? IS NULL OR ledger.task_id = ?)
+                      AND (? IS NULL OR ledger.task_kind = ?)
                     ORDER BY ledger.priority DESC, ledger.created_at, ledger.task_id
                     LIMIT 1
                 ) AND status = 'READY'
@@ -166,6 +180,8 @@ class LocalTaskLedger:
                     now_text,
                     task_id,
                     task_id,
+                    task_kind,
+                    task_kind,
                 ),
             ).fetchone()
             if task is None:
@@ -412,11 +428,18 @@ class LocalTaskLedger:
             id_factory=self._id_factory,
         )
 
-    def recover_expired_local_tasks(self) -> RecoverySummary:
+    def recover_expired_local_tasks(
+        self,
+        *,
+        task_kind: str | None = None,
+    ) -> RecoverySummary:
+        if task_kind is not None and not task_kind.strip():
+            raise ValueError("task kind must not be empty")
         return recover_expired_local_tasks(
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,
+            task_kind=task_kind,
         )
 
     def complete_local_task(

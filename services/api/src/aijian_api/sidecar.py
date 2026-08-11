@@ -7,11 +7,14 @@ import socket
 import sys
 import threading
 from collections.abc import Mapping
+from pathlib import Path
 
 import uvicorn
 
-from aijian_api.main import create_app
+from aijian_api.main import create_app, default_database_path
+from aijian_api.repository import StudioRepository
 from aijian_api.security import SIDECAR_ORIGIN, SidecarSecurity
+from aijian_api.source_extract_worker import LocalFakeSourceExtractWorker
 
 PROTOCOL_VERSION = 1
 SIDECAR_HOST = "127.0.0.1"
@@ -53,39 +56,55 @@ def _stop_when_parent_pipe_closes(server: uvicorn.Server) -> None:
     server.should_exit = True
 
 
+def create_local_fake_worker(database_path: Path) -> LocalFakeSourceExtractWorker:
+    """Build the only explicitly enabled background runtime for the Sidecar."""
+
+    return LocalFakeSourceExtractWorker(database_path)
+
+
 def run() -> None:
     """Start one authenticated API process and supervise its parent pipe."""
 
     listener, port = create_listener()
-    token = create_token()
-    security = SidecarSecurity(
-        token=token,
-        host=f"{SIDECAR_HOST}:{port}",
-        origin=SIDECAR_ORIGIN,
-    )
-    config = uvicorn.Config(
-        app=create_app(sidecar_security=security),
-        host=SIDECAR_HOST,
-        port=port,
-        access_log=False,
-        log_config=None,
-        server_header=False,
-    )
-    server = uvicorn.Server(config)
-    pipe_monitor = threading.Thread(
-        target=_stop_when_parent_pipe_closes,
-        args=(server,),
-        name="sidecar-parent-pipe",
-        daemon=True,
-    )
-    pipe_monitor.start()
-
-    handshake = create_handshake(port=port, token=token, pid=os.getpid())
-    print(json.dumps(handshake, separators=(",", ":"), sort_keys=True), flush=True)
+    worker: LocalFakeSourceExtractWorker | None = None
+    worker_started = False
     try:
+        token = create_token()
+        security = SidecarSecurity(
+            token=token,
+            host=f"{SIDECAR_HOST}:{port}",
+            origin=SIDECAR_ORIGIN,
+        )
+        repository = StudioRepository(default_database_path())
+        worker = create_local_fake_worker(repository.database_path)
+        config = uvicorn.Config(
+            app=create_app(sidecar_security=security, repository=repository),
+            host=SIDECAR_HOST,
+            port=port,
+            access_log=False,
+            log_config=None,
+            server_header=False,
+        )
+        server = uvicorn.Server(config)
+        pipe_monitor = threading.Thread(
+            target=_stop_when_parent_pipe_closes,
+            args=(server,),
+            name="sidecar-parent-pipe",
+            daemon=True,
+        )
+        pipe_monitor.start()
+        worker.start()
+        worker_started = True
+
+        handshake = create_handshake(port=port, token=token, pid=os.getpid())
+        print(json.dumps(handshake, separators=(",", ":"), sort_keys=True), flush=True)
         server.run(sockets=[listener])
     finally:
-        listener.close()
+        try:
+            if worker_started and worker is not None:
+                worker.stop()
+        finally:
+            listener.close()
 
 
 if __name__ == "__main__":  # pragma: no cover - exercised as a subprocess

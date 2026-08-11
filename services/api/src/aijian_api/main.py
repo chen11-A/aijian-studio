@@ -156,7 +156,7 @@ def _apply_security_headers(response: Response, request_id: UUID) -> None:
     response.headers["X-Frame-Options"] = "DENY"
 
 
-def _default_database_path() -> Path:
+def default_database_path() -> Path:
     configured = os.environ.get("AIJIAN_DATA_DIR")
     data_directory = Path(configured) if configured else Path.cwd() / ".aijian-dev"
     return data_directory / "workspace.sqlite3"
@@ -208,7 +208,7 @@ def create_app(
         with repository_lock:
             repository_instance = repository_holder[0]
             if repository_instance is None:
-                repository_instance = StudioRepository(_default_database_path())
+                repository_instance = StudioRepository(default_database_path())
                 repository_holder[0] = repository_instance
             return repository_instance
 

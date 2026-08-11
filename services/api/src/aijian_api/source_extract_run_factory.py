@@ -111,7 +111,7 @@ def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def _source_context(
+def resolve_source_extract_context(
     repository: StudioRepository,
     *,
     project_id: str,
@@ -343,7 +343,7 @@ class SourceExtractRunFactory:
             )
         except (LookupError, PermissionError, ValueError) as error:
             raise ProposalRunInputRejectedError("Agent/Skill definition is unavailable") from error
-        approved_artifact, source_span = _source_context(
+        approved_artifact, source_span = resolve_source_extract_context(
             self._repository,
             project_id=project_id,
             payload=payload,

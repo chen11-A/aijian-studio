@@ -11,7 +11,13 @@ HASH_A = f"sha256:{'a' * 64}"
 HASH_B = f"sha256:{'b' * 64}"
 
 
-def setup_task(database: Path, clock: list[datetime], *, max_attempts: int = 2):
+def setup_task(
+    database: Path,
+    clock: list[datetime],
+    *,
+    max_attempts: int = 2,
+    task_kind: str = "local.execute",
+):
     project = StudioRepository(database).create_project(
         name="黄金短篇",
         aspect_ratio="9:16",
@@ -34,11 +40,41 @@ def setup_task(database: Path, clock: list[datetime], *, max_attempts: int = 2):
         request_fingerprint=HASH_B,
         idempotency_key="golden-short:render.preview",
         max_attempts=max_attempts,
-        task_kind="local.execute",
+        task_kind=task_kind,
         priority=50,
         available_at=clock[0],
     )
     return ledger, queued
+
+
+def test_specialized_recovery_only_changes_its_exact_task_kind(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    other_ledger, other = setup_task(database, clock)
+    fake_ledger, fake = setup_task(
+        database,
+        clock,
+        task_kind="local.agent-skill.fake",
+    )
+    assert other_ledger.claim_ready_task(
+        worker_id="other-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=other.task_id,
+    )
+    assert fake_ledger.claim_ready_task(
+        worker_id="fake-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=fake.task_id,
+    )
+    clock[0] = NOW + timedelta(seconds=31)
+
+    summary = fake_ledger.recover_expired_local_tasks(task_kind="local.agent-skill.fake")
+
+    assert (summary.recovered, summary.requeued) == (1, 1)
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (other.task_id,)
+        ).fetchone() == ("LEASED",)
 
 
 def test_expired_running_attempt_is_failed_and_requeued_with_new_identity(tmp_path: Path) -> None:
