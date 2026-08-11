@@ -537,9 +537,10 @@ def test_sidecar_accepts_reviewable_proposal_as_draft_without_advancing_gate(
     assert skill == ("SUCCEEDED",)
     assert workflow == ("SUCCEEDED",)
     assert acceptance_count == (1,)
-    assert client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0][
-        "proposal_id"
-    ] == proposal_id
+    assert (
+        client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0]["proposal_id"]
+        == proposal_id
+    )
 
     replay = client.post(
         f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
@@ -955,9 +956,10 @@ def test_sidecar_rejects_reviewable_proposal_without_materializing_artifacts(
     )
     assert accept_after_reject.status_code == 409
     assert cancel_after_reject.status_code == 409
-    assert client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0][
-        "proposal_id"
-    ] == proposal_id
+    assert (
+        client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0]["proposal_id"]
+        == proposal_id
+    )
     with sqlite3.connect(repository.database_path) as connection:
         connection.row_factory = sqlite3.Row
         row = connection.execute(
