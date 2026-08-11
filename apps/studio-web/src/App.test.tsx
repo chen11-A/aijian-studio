@@ -146,7 +146,15 @@ const sourceManifestVersion: SourceManifestResponse["data"]["latest_version"] = 
         raw_sha256: sourceResponse.data.raw_sha256,
         normalized_sha256: "5".repeat(64),
         import_order: 1,
-        blocks: [],
+        blocks: sourceResponse.data.blocks.map((block) => ({
+          source_block_id: block.id,
+          ordinal: block.ordinal,
+          kind: block.kind,
+          chapter_index: block.chapter_index,
+          start_byte: block.normalized_start_byte,
+          end_byte: block.normalized_end_byte,
+          content_sha256: block.content_sha256,
+        })),
       },
     ],
   },
@@ -556,6 +564,36 @@ test("starts a deterministic preview from the restored imported source", async (
   fireEvent.click(await screen.findByRole("button", { name: "关闭任务中心" }));
   fireEvent.click(screen.getByRole("button", { name: "进入剪辑台" }));
   expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+});
+
+test("starts the Electron-only source extraction through a recoverable operation", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  const create = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  transport.proposalRuns = { create };
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  render(<App transport={transport} />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "启动来源提取" }));
+
+  expect(await screen.findByText("提交结果未知")).toBeInTheDocument();
+  expect(create).toHaveBeenCalledWith(
+    project.id,
+    expect.objectContaining({
+      operation_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      input: expect.objectContaining({
+        source_manifest_version_id: sourceManifestVersion.id,
+        source_document_id: sourceResponse.data.id,
+        source_block_id: sourceResponse.data.blocks[1]?.id,
+        start_byte: 17,
+        end_byte: 41,
+      }),
+    }),
+  );
 });
 
 test("collapses production context and keeps planned areas honest", async () => {

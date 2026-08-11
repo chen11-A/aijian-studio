@@ -233,6 +233,7 @@ describe("studio transport", () => {
       getArtifactProposal: vi.fn().mockResolvedValue(artifactProposal),
       acceptArtifactProposalAsDraft: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       rejectArtifactProposal: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
+      createProposalRun: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       listProjectAgents: vi.fn().mockResolvedValue(agentCatalog),
       listProjectSkills: vi.fn().mockResolvedValue(skillCatalog),
       startFakeTimelineWorkflow: vi.fn().mockResolvedValue(timeline),
@@ -276,6 +277,18 @@ describe("studio transport", () => {
       reason_code: "SOURCE_EVIDENCE",
       comment: "原文证据不足。",
     });
+    await transport.proposalRuns?.create(project.id, {
+      operation_id: "87302cb8-71f8-4bb9-856a-162571f1ae6e",
+      input: {
+        agent_definition: { definition_id: "writer.source-analyst", version: "1.0.0" },
+        skill_definition: { definition_id: "source.extract", version: "1.0.0" },
+        source_manifest_version_id: sourceManifest.data.latest_version.id,
+        source_document_id: `src_${"b".repeat(32)}`,
+        source_block_id: `srcb_${"c".repeat(32)}`,
+        start_byte: 0,
+        end_byte: 24,
+      },
+    });
     await transport.listProjectAgents(project.id);
     await transport.listProjectSkills(project.id);
     await transport.startFakeTimelineWorkflow(project.id);
@@ -312,6 +325,7 @@ describe("studio transport", () => {
       reason_code: "SOURCE_EVIDENCE",
       comment: "原文证据不足。",
     });
+    expect(bridge.createProposalRun).toHaveBeenCalledOnce();
     expect(bridge.listProjectAgents).toHaveBeenCalledWith(project.id);
     expect(bridge.listProjectSkills).toHaveBeenCalledWith(project.id);
     expect(bridge.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
@@ -326,6 +340,7 @@ describe("studio transport", () => {
     const transport = createStudioTransport();
 
     expect(transport.proposalDecisions).toBeUndefined();
+    expect(transport.proposalRuns).toBeUndefined();
 
     await expect(transport.listProjectTasks(project.id)).resolves.toEqual(taskQueue);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {

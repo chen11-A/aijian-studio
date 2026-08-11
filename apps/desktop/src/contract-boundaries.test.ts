@@ -41,12 +41,13 @@ describe("privileged contract boundaries", () => {
     expect(mainSource).not.toContain('ipcMain.handle("proposal-runs:create"');
   });
 
-  test("does not expose proposal run creation through the ordinary Web transport", () => {
+  test("does not expose proposal run creation through the ordinary Web HTTP transport", () => {
     const studioSource = readFileSync(
       resolve(process.cwd(), "../studio-web/src/api/studio.ts"),
       "utf8",
     );
-    expect(studioSource).not.toContain("createProposalRun");
+    expect(studioSource).toContain("proposalRuns: {");
+    expect(studioSource).not.toContain("/proposal-runs");
   });
 
   test("rejects malformed nested health payloads", () => {

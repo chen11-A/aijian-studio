@@ -18,6 +18,7 @@ import {
   ProjectInspector,
 } from "./components/ProductionShell/ProductionChrome";
 import { ProposalReviewCard } from "./components/ProductionShell/ProposalReviewCard";
+import { SourceExtractRunLauncher } from "./components/ProductionShell/SourceExtractRunLauncher";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { TimelineWorkspace } from "./components/Timeline/TimelineWorkspace";
@@ -2105,16 +2106,26 @@ export function App({ transport }: AppProps) {
                     </header>
                     <SourcePanel state={importState} onFile={importFile} />
                     {importState.kind === "success" && (
-                      <FakeWorkflowPanel
-                        project={selectedProject}
-                        sourceFilename={importState.response.data.filename}
-                        startWorkflow={studio.startFakeTimelineWorkflow}
-                        onOpenQueue={openTaskDrawer}
-                        onOpenTimeline={() => {
-                          setProjectRailCollapsed(true);
-                          setActiveWorkspace("edit");
-                        }}
-                      />
+                      <>
+                        <SourceExtractRunLauncher
+                          key={selectedProject.id}
+                          projectId={selectedProject.id}
+                          source={importState.response}
+                          getManifest={studio.getSourceManifest}
+                          capability={studio.proposalRuns}
+                          onOpenQueue={openTaskDrawer}
+                        />
+                        <FakeWorkflowPanel
+                          project={selectedProject}
+                          sourceFilename={importState.response.data.filename}
+                          startWorkflow={studio.startFakeTimelineWorkflow}
+                          onOpenQueue={openTaskDrawer}
+                          onOpenTimeline={() => {
+                            setProjectRailCollapsed(true);
+                            setActiveWorkspace("edit");
+                          }}
+                        />
+                      </>
                     )}
                   </>
                 ) : activeWorkspace === "story" ? (

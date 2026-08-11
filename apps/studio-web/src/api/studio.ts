@@ -29,6 +29,16 @@ export type ArtifactProposalDecisionResult<TReceipt> =
   | { kind: "SUCCEEDED"; receipt: TReceipt }
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
+export type ProposalRunCreateInput = components["schemas"]["CreateProposalRunRequest"];
+export type CreatedProposalRunResponse = components["schemas"]["CreatedProposalRunResponse"];
+export type ProposalRunCreateCommand = {
+  operation_id: string;
+  input: ProposalRunCreateInput;
+};
+export type ProposalRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: CreatedProposalRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 export type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 export type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -54,6 +64,10 @@ export interface ProposalDecisionCapability {
   ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>>;
 }
 
+export interface ProposalRunCapability {
+  create(projectId: string, command: ProposalRunCreateCommand): Promise<ProposalRunCreateResult>;
+}
+
 export interface StudioTransport {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
@@ -71,6 +85,7 @@ export interface StudioTransport {
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   proposalDecisions?: ProposalDecisionCapability;
+  proposalRuns?: ProposalRunCapability;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -117,6 +132,10 @@ export interface AijianDesktopBridge {
     proposalId: string,
     input: ArtifactProposalRejectionInput,
   ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>>;
+  createProposalRun(
+    projectId: string,
+    command: ProposalRunCreateCommand,
+  ): Promise<ProposalRunCreateResult>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -270,6 +289,9 @@ export function createStudioTransport(): StudioTransport {
           bridge.acceptArtifactProposalAsDraft(projectId, proposalId, input),
         reject: (projectId, proposalId, input) =>
           bridge.rejectArtifactProposal(projectId, proposalId, input),
+      },
+      proposalRuns: {
+        create: (projectId, command) => bridge.createProposalRun(projectId, command),
       },
       listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),
       listProjectSkills: (projectId) => bridge.listProjectSkills(projectId),

@@ -29,44 +29,64 @@
       "url": "http://127.0.0.1:5173/api/v1/projects"
     },
     {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
       "method": "POST",
       "status": 201,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0"
-    },
-    {
-      "method": "POST",
-      "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/workflows/fake-timeline"
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
-    },
-    {
-      "method": "GET",
-      "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa"
     },
     {
       "method": "POST",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline/trim"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/workflows/fake-timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/timeline"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/timeline/trim"
     },
     {
       "method": "GET",
@@ -91,37 +111,47 @@
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/sources/src_ff53ba9865854724823aae313d8629a5"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/sources"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/tasks"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/sources/src_6cdc8ef845974d3a97125a4010125091"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
     },
     {
       "method": "GET",
       "status": 200,
-      "url": "http://127.0.0.1:5173/api/v1/projects/prj_8731f0adfbba46e38afad36a4994eca0/timeline"
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/tasks"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/timeline"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_a68d3e7c80354b6f8cdc341eaffe4ffa/timeline"
     }
   ],
   "viewport": {
@@ -184,7 +214,8 @@
     "createProject": false,
     "modelAndApi": false,
     "importSource": false,
-    "fakeGenerate": false
+    "fakeGenerate": false,
+    "sourceExtract": false
   },
   "diagnostics": [],
   "screenshot": "web-e2e-skeleton-browser-1440x900.png",

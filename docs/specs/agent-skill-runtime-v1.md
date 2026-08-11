@@ -10,7 +10,7 @@ D2 已实现仅按精确版本解析的内存 Registry，并拒绝未知、禁�
 
 D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run chain，由版本精确的 `ProposalSchemaRegistry` 签发不可伪造的 Pydantic Schema 解析结果并绑定 Skill `output_schema_ref`，再按预算/QC/可读 Artifact 类型失败关闭。依赖先经 project-scoped 仓储读取，随后全部 required-accepted 依赖在创建 DRAFT 的同一个 `BEGIN IMMEDIATE` 事务内再次核验类型、版本和当前 `accepted_version_id`，消除 accepted head 的时序窗口；同一事务也核验 SourceSpan 项目归属、UTF-8 范围和引用哈希。全部校验通过后只追加不可变 DRAFT，不推进 review/accepted head；Schema、预算、QC、未批准/越权/过期依赖、跨项目 SourceSpan、引用哈希或并发约束失败均回滚。
 
-当前 Sidecar 已提供项目作用域的提案读取、接受为 DRAFT 与具名退回接口。两类决定都重新连接 immutable enqueue intent、AttemptSnapshot、ContextManifest、AgentRun/SkillRun、精确 Task 与 Proposal 真相，并各自在单个 `BEGIN IMMEDIATE` 事务内保证审计、运行状态和事件零或全。接受只创建不可变 DRAFT，不提交人工审阅、写 GateDecision 或推进 `accepted_version_id`；退回不创建 ArtifactVersion，把当前单节点运行链置为不可重试的 `FAILED`，Task 保持 `COMPLETED`，也不会自动重跑。accept/reject/cancel 由事务和数据库互斥约束保证只能产生一个终局决定；接受或退回的相同幂等请求返回原审计记录，取消则保持状态幂等并通过 `already_cancelled` 表达重复请求。Electron 通过 exact-key IPC 提供 `source.extract` 提案读取、接受和退回，使用确定性幂等身份并区分明确失败与 `REMOTE_UNKNOWN`；普通 Web 没有决定 capability，390px 审阅模式不渲染决定控件。人工 Gate UI、通用提案类型和真实 Provider 调用仍未实现。
+当前 Sidecar 已提供项目作用域的运行创建、提案读取、接受为 DRAFT 与具名退回接口。`LocalFakeSourceExtractWorker` 只领取精确的 `local.agent-skill.fake` 任务，从冻结 enqueue intent、AttemptSnapshot、ContextManifest、Workflow/Node/Task 和已批准 SourceManifest 重建封闭输入；子进程使用环境白名单，不读取 Provider 凭据。完成态停在 `ArtifactProposal + NEEDS_REVIEW`，不创建 ArtifactVersion、GateDecision 或 accepted head。两类决定重新连接相同真相链，并各自在单个 `BEGIN IMMEDIATE` 事务内保证审计、运行状态和事件零或全。接受只创建不可变 DRAFT，不提交人工审阅、写 GateDecision 或推进 `accepted_version_id`；退回不创建 ArtifactVersion，也不会自动重跑。Electron 通过 exact-key IPC 提供创建、读取、接受和退回；Renderer 在首次创建 IPC 前持久化精确 operation，未知结果只能恢复同一操作。普通 Web 没有创建/决定 capability，390px 审阅模式不渲染这些控件。人工 Gate UI、通用提案类型和真实 Provider 调用仍未实现。
 
 ## 目标
 
@@ -112,7 +112,7 @@ UI Intent
 | `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances`  | 验证后接受为不可变 DRAFT        |
 | `POST /api/v1/projects/{project_id}/proposals/{proposal_id}/rejections`   | 原子退回并保存不可变具名意见    |
 
-Electron 创建运行的传输合同只负责安全提交当前内置的 `writer.source-analyst@1.0.0` + `source.extract@1.0.0`。`operation_id` 由 Renderer 的用户意图协调层生成，并映射为固定命名空间的 `Idempotency-Key`；`REMOTE_UNKNOWN` 只能用同一个 `operation_id` 和完全相同的输入重试。当前 transport-only 增量尚未实现 pending-operation journal，因此不保证 Renderer 重载后的自动恢复；未来创建运行 UI 必须在首次 IPC 前原子持久化 `{operation_id, project_id, canonical_input, state: PENDING_SUBMIT}`，收到明确 2xx 或合同有效的 4xx 后才能结束该操作。此处不代表 Worker 已执行、Proposal 已生成或 Gate 已推进。
+Electron 创建运行只安全提交当前内置的 `writer.source-analyst@1.0.0` + `source.extract@1.0.0`。`operation_id` 由 Renderer 的用户意图协调层生成，并映射为固定命名空间的 `Idempotency-Key`；首次 IPC 前原子持久化 `{operation_id, project_id, canonical_input, state: PENDING_SUBMIT}`。`REMOTE_UNKNOWN` 只保留同一个 operation 和完全相同的输入供用户显式恢复；收到明确 2xx 或合同有效的 4xx 后才结束记录。损坏、额外字段、项目或输入漂移均失败关闭且不删除原记录。当前只从已批准 SourceManifest 选择一个不超过 64 KiB 的精确原文块；这不代表整本小说拆解、通用 Worker 或 Gate 已推进。
 
 Gate 继续复用现有 review/submission/approval 语义，不另建“AI 自动批准”接口。
 
@@ -139,7 +139,7 @@ D 阶段只实现第一行和第二行的失败关闭；多租户身份仍是后
 2. [完成] Registry 与 Context Builder（4 文件）：只装配 Fake 内容，验证精确版本、禁用/兼容/委派、顺序、信任级、字节预算和哈希；定向入口为 `uv run pytest services/api/tests/test_agent_skill_registry_context.py -q`。
 3. [完成] Proposal Validator（3 文件）：失败关闭并创建不可变 DRAFT；定向入口为 `uv run pytest services/api/tests/test_agent_proposal_validator.py -q`。
 4. [部分完成：当前 `source.extract` 单节点纵切] Fake Agent/Skill Executor：已接任务账本、取消、租约、恢复、幂等和提案审阅状态；一次 QC 重试、真实 Provider 与通用多节点执行器尚未完成。
-5. [部分完成] 增量 OpenAPI/TS/IPC：项目作用域读取、创建运行、取消、接受与退回已有生成合同且不破坏既有路由；Electron 已实现 exact-key 提案读取与 `source.extract` 决定交互，普通 Web 没有决定 capability，390px 不渲染决定控件；创建运行 UI、人工 Gate 和通用多节点仍未完成。
+5. [部分完成] 增量 OpenAPI/TS/IPC：项目作用域读取、创建运行、取消、接受与退回已有生成合同且不破坏既有路由；Electron 已实现 exact-key 创建、提案读取、持久恢复 journal 与 `source.extract` 决定交互，普通 Web 没有创建/决定 capability，390px 不渲染这些控件；人工 Gate 和通用多节点仍未完成。
 
 ## 验收命令
 

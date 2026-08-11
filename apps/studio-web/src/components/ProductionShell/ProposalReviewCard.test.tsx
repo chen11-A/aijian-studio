@@ -108,7 +108,12 @@ const proposal = {
       impacts: [{ artifact_type: "SourceExtraction", artifact_id: null, impact: "CREATE" }],
       cost: { currency: "USD", estimated_micros: 0, actual_micros: 0 },
       confidence_basis_points: 9000,
-      capability_losses: [],
+      capability_losses: [
+        {
+          code: "local-fake.no-semantic-extraction",
+          description: "本地 Fake 只验证流程，不承担语义提取质量。",
+        },
+      ],
       qc: [{ check_id: "source-span.required", status: "PASS", details: "证据已绑定" }],
       producer_agent_run_id: `agr_${"1".repeat(32)}`,
       producer_skill_run_id: `skr_${"2".repeat(32)}`,
@@ -134,6 +139,9 @@ describe("proposal review card", () => {
     expect(screen.getByText("90%")).toBeInTheDocument();
     expect(screen.getByText("1 条")).toBeInTheDocument();
     expect(screen.getByText("林见收到一封未署名的信")).toBeInTheDocument();
+    expect(screen.getByText("能力降级")).toBeInTheDocument();
+    expect(screen.getByText("local-fake.no-semantic-extraction")).toBeInTheDocument();
+    expect(screen.getByText("本地 Fake 只验证流程，不承担语义提取质量。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "刷新待审提案" }));
     await waitFor(() => expect(listTasks).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("button", { name: /接受|退回/ })).not.toBeInTheDocument();

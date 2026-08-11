@@ -1,8 +1,8 @@
 # UI + Agent + Skill 基础验收清单
 
-状态：In progress；Fake `source.extract` 提案读取及 Electron 接受/退回已具备，启动运行 UI、提案比较与人工 Gate 联合纵切仍未完成
+状态：In progress；Fake `source.extract` 已具备 Electron 启动、后台执行、提案读取与接受/退回，提案比较和人工 Gate 联合纵切仍未完成
 
-当前纵切证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only 决定事务、Electron exact-key IPC 和提案卡共同跑通 `source.extract` 接受/退回。接受只创建 DRAFT 且不推进 review/accepted Head 或 Gate；退回保存具名意见，不创建 ArtifactVersion、不调用 Provider 或自动重跑。accept/reject/cancel 竞态、崩溃回滚、冻结真相漂移、OpenAPI/TypeScript 和普通 Web 无决定 capability 均有持久自动化证据；390px Electron 已实机复验不渲染决定控件，接受/退回双数据库终态已独立实机复验，持久结构化证据待后续补入仓库。影片验收、创建运行 UI、提案比较和人工 Gate 仍未完成，本增量不提高 48 周路线图完成度。
+当前纵切证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only Worker/决定事务、Electron exact-key IPC、持久 operation journal 和提案卡共同跑通 `source.extract`。创建运行只允许内置 Fake 定义，首次 IPC 前保存精确 `operation_id + input`；`REMOTE_UNKNOWN` 只能显式恢复同一操作，明确结果才清理 journal。Worker 生成带 SourceSpan、零费用和显式能力损失的 ArtifactProposal；接受只创建 DRAFT 且不推进 accepted Head 或 Gate。真实 Electron 隔离纵切及数据库不变量见 [结构化结果](evidence/proposal-run-electron-smoke.json) 与 [1440×920 截图](evidence/proposal-run-electron-1440x920.png)。普通 Web 没有创建/决定 capability，390px 不渲染这些控件。影片验收、提案比较和人工 Gate 仍未完成，本增量不提高 48 周路线图完成度。
 
 ## C：P0 UI 壳
 

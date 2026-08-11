@@ -1,0 +1,41 @@
+{
+  "check": "phase0-proposal-run-electron",
+  "passed": true,
+  "seeded": {
+    "project_id": "prj_92343ac2f84d455497247ca49bb31f79",
+    "source_block_id": "srcb_bdc85e1ba3a34b58b313a783bfaba1ee",
+    "source_id": "src_f5794840f6f548a9a70164ba21ef1746",
+    "source_manifest_version_id": "ver_ec0c45ab361340edbffe1af58ed08003"
+  },
+  "reviewTask": {
+    "proposalId": "prp_2d043b2f12435d8c608c55cfa41fa3a3",
+    "taskStatus": "COMPLETED",
+    "nodeStatus": "NEEDS_REVIEW",
+    "attemptStatus": "RUNNING"
+  },
+  "persisted": {
+    "acceptance_count": 1,
+    "accepted_version_id": null,
+    "agent_status": "SUCCEEDED",
+    "attempt_status": "SUCCEEDED",
+    "draft_version_id": "ver_2bcbc87775844a02b8a2b497a9f61908",
+    "gate_decision_count": 0,
+    "latest_version_id": "ver_2bcbc87775844a02b8a2b497a9f61908",
+    "node_status": "SUCCEEDED",
+    "proposal_id": "prp_2d043b2f12435d8c608c55cfa41fa3a3",
+    "skill_status": "SUCCEEDED",
+    "task_status": "COMPLETED",
+    "workflow_status": "SUCCEEDED"
+  },
+  "rendererState": {
+    "viewport": {
+      "innerWidth": 1424,
+      "innerHeight": 881,
+      "scrollWidth": 1409,
+      "clientWidth": 1409
+    },
+    "pendingJournalKeys": []
+  },
+  "rendererDiagnostics": [],
+  "screenshot": "proposal-run-electron-1440x920.png"
+}

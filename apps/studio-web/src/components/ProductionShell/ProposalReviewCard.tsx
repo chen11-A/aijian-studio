@@ -181,6 +181,23 @@ export function ProposalReviewCard({
         </ul>
       </div>
 
+      {proposal.capability_losses.length > 0 && (
+        <div className="proposal-capability-loss" role="note" aria-label="能力降级">
+          <div className="proposal-section-heading">
+            <strong>能力降级</strong>
+            <span>必须显式确认</span>
+          </div>
+          <ul>
+            {proposal.capability_losses.map((loss) => (
+              <li key={loss.code}>
+                <code>{loss.code}</code>
+                <span>{loss.description}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <footer>
         <div>
           <span>预计费用</span>

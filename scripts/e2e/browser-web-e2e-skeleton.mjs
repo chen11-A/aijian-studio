@@ -265,6 +265,9 @@ try {
   }
   await page.getByLabel("选择 TXT 文件").setInputFiles(novelPath);
   await page.getByText("browser-golden-20000.txt", { exact: true }).first().waitFor();
+  if (await page.getByRole("button", { name: "启动来源提取" }).isVisible()) {
+    throw new Error("Ordinary Web exposed the Electron-only proposal run capability");
+  }
   const sourceBodyFontSize = await page
     .locator(".source-block:not(.chapter_heading) p")
     .first()
@@ -383,6 +386,7 @@ try {
       .isVisible(),
     importSource: await page.getByLabel("选择 TXT 文件").isVisible(),
     fakeGenerate: await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).isVisible(),
+    sourceExtract: await page.getByRole("button", { name: "启动来源提取" }).isVisible(),
   };
   await page.getByRole("region", { name: "移动端审阅模式" }).waitFor();
   if (

@@ -1,8 +1,8 @@
 # 规格：Aijian Studio 生产工作台 V1
 
-状态：P0 Shell Implemented（B 阶段规格冻结；Agent/Skill 与完整审阅能力仍未实现）
+状态：P0 Shell Implemented（`source.extract` Electron 纵切已接入；通用 Agent/Skill 与完整审阅仍未实现）
 
-实现证据见 [Phase 0 生产工作台 P0 壳验收](../quality/phase0-production-shell-acceptance.md)。当前实现覆盖导航、布局、阶段展示、任务抽屉、设置入口，以及 `source.extract` 真实提案的只读展示和 Electron 接受/退回；普通 Web 没有决定 capability，390px 不渲染决定控件。服务端阶段摘要、提案比较、评论、人工 Gate、复杂导演/剪辑能力仍是后续范围。
+实现证据见 [Phase 0 生产工作台 P0 壳验收](../quality/phase0-production-shell-acceptance.md)和 [UI + Agent + Skill 基础验收](../quality/ui-agent-skill-foundation-acceptance.md)。当前实现覆盖导航、布局、阶段展示、任务抽屉、设置入口，以及 `source.extract` 的 Electron 创建、后台 Fake 执行、提案展示和接受/退回。创建入口显式说明本地 Fake、零付费调用、能力损失和不自动批准；普通 Web 没有创建/决定 capability，390px 不渲染这些控件。服务端阶段摘要、提案比较、评论、人工 Gate、复杂导演/剪辑能力仍是后续范围。
 
 ## 目标与假设
 
@@ -95,4 +95,4 @@
 
 ## P0 实施切片
 
-已实现工作台壳、可折叠区、紧凑标题、阶段条、唯一下一步、任务抽屉，以及 `source.extract` 提案读取和 Electron 决定纵切，并保持现有 API 兼容。列表/画布、完整时间线交互、创建 Agent 运行与人工 Gate 属于后续独立增量。
+已实现工作台壳、可折叠区、紧凑标题、阶段条、唯一下一步、任务抽屉，以及 `source.extract` 创建运行、可恢复 operation journal、提案读取和 Electron 决定纵切，并保持现有 API 兼容。列表/画布、完整时间线交互和人工 Gate 属于后续独立增量。
