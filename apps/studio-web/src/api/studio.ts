@@ -1,4 +1,8 @@
 import type { components } from "@aijian/contracts";
+import {
+  isArtifactProposalResponse,
+  type ArtifactProposalResponse,
+} from "@aijian/contracts/artifact-proposal";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
@@ -12,6 +16,7 @@ export type SourceManifestResponse = components["schemas"]["SourceManifestRespon
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type { ArtifactProposalResponse } from "@aijian/contracts/artifact-proposal";
 export type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 export type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -39,6 +44,7 @@ export interface StudioTransport {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -74,6 +80,7 @@ export interface AijianDesktopBridge {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -138,6 +145,28 @@ function getRequest<T>(path: string): Promise<T> {
   return browserRequest<T>(path, { headers: { Accept: "application/json" } });
 }
 
+const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
+const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
+
+async function browserArtifactProposal(
+  projectId: string,
+  proposalId: string,
+): Promise<ArtifactProposalResponse> {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  if (!PROPOSAL_ID_PATTERN.test(proposalId)) {
+    throw new Error("Studio transport requires a valid proposal id");
+  }
+  const payload = await getRequest<unknown>(
+    `/api/v1/projects/${projectId}/proposals/${proposalId}`,
+  );
+  if (!isArtifactProposalResponse(payload, projectId, proposalId)) {
+    throw new Error("Artifact proposal response does not match the published contract");
+  }
+  return payload;
+}
+
 function isErrorResponse(value: unknown): value is { error: { code: string } } {
   if (typeof value !== "object" || value === null) return false;
   const error = (value as Record<string, unknown>).error;
@@ -198,6 +227,8 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      getArtifactProposal: (projectId, proposalId) =>
+        bridge.getArtifactProposal(projectId, proposalId),
       listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),
       listProjectSkills: (projectId) => bridge.listProjectSkills(projectId),
       startFakeTimelineWorkflow: (projectId) => bridge.startFakeTimelineWorkflow(projectId),
@@ -237,6 +268,7 @@ export function createStudioTransport(): StudioTransport {
       ),
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    getArtifactProposal: browserArtifactProposal,
     listProjectAgents: (projectId) =>
       getRequest<AgentCatalogResponse>(`/api/v1/projects/${projectId}/agents`),
     listProjectSkills: (projectId) =>

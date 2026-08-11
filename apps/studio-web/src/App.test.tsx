@@ -441,6 +441,7 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
       },
       request_id: requestId,
     } satisfies TaskQueueResponse),
+    getArtifactProposal: vi.fn(),
     listProjectAgents: vi.fn().mockResolvedValue({
       data: { project_id: project.id, agents: [] },
       request_id: requestId,

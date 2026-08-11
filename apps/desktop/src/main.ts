@@ -13,6 +13,7 @@ import {
   type TrimTimelineClipInput,
 } from "./api-client";
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
+import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 
@@ -123,6 +124,10 @@ ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, v
 );
 ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
+);
+registerArtifactProposalHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
 );
 registerAgentSkillCatalogHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
