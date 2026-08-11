@@ -30,6 +30,7 @@ from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 from aijian_api.task_ledger_snapshots import canonical_snapshot_json, snapshot_sha256
+from aijian_api.workflow_schema import MIGRATION_12
 from fastapi.testclient import TestClient
 from httpx2 import Response as HttpxResponse
 
@@ -193,6 +194,32 @@ def persist_valid_source_extraction_proposal(
     )
     persisted = ArtifactProposalStore(repository.database_path).persist(running, proposal)
     return persisted.proposal.proposal_id
+
+
+def reviewable_proposal(
+    tmp_path: Path,
+    *,
+    key: str,
+) -> tuple[TestClient, StudioRepository, str, str, dict[str, object]]:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": key},
+    ).json()["data"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-review-fixture-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+    return client, repository, project_id, proposal_id, created
 
 
 def test_sidecar_creates_one_bounded_fake_run_and_task_for_exact_replay(tmp_path: Path) -> None:
@@ -629,6 +656,211 @@ def test_acceptance_chain_trigger_rejects_each_detached_draft_field(
                     f"sha256:{'5' * 64}",
                     proposal_hash,
                     draft_version_id,
+                    "local-user",
+                    '["producer"]',
+                    "2026-08-11T00:00:00Z",
+                ),
+            )
+
+
+@pytest.mark.parametrize(
+    ("column", "invalid_value"),
+    (
+        ("rejection_id", f"pdrX{'a' * 32}"),
+        ("client_key_hash", "sha256:broken"),
+        ("request_hash", f"sha256:{'g' * 64}"),
+        ("reason_code", "UNDECLARED_REASON"),
+        ("comment", " \t\r\n "),
+        ("comment", " leading whitespace"),
+        ("comment", "embedded\rreturn"),
+        ("comment", "embedded\x07control"),
+        ("actor_id", " \t\r\n "),
+        ("actor_roles_json", '{"role":"producer"}'),
+        ("rejected_at", "not-a-timestamp"),
+    ),
+)
+def test_proposal_rejection_table_enforces_closed_audit_fields(
+    tmp_path: Path,
+    column: str,
+    invalid_value: str,
+) -> None:
+    _client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key=f"source-extract:rejection-field:{column}",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        proposal_hash = connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        values = {
+            "rejection_id": f"pdr_{'a' * 32}",
+            "project_id": project_id,
+            "proposal_id": proposal_id,
+            "client_key_hash": f"sha256:{'b' * 64}",
+            "request_hash": f"sha256:{'c' * 64}",
+            "proposal_hash": proposal_hash,
+            "reason_code": "CREATIVE_DIRECTION",
+            "comment": "Revise the creative direction.",
+            "actor_id": "local-user",
+            "actor_roles_json": '["producer"]',
+            "rejected_at": "2026-08-11T00:00:00Z",
+        }
+        values[column] = invalid_value
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO artifact_proposal_rejections VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                tuple(values.values()),
+            )
+
+
+def test_rejection_and_draft_acceptance_are_mutually_exclusive_and_immutable(
+    tmp_path: Path,
+) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:rejection-before-acceptance",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        proposal_hash = connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        connection.execute(
+            """
+            INSERT INTO artifact_proposal_rejections VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                f"pdr_{'d' * 32}",
+                project_id,
+                proposal_id,
+                f"sha256:{'e' * 64}",
+                f"sha256:{'f' * 64}",
+                proposal_hash,
+                "CREATIVE_DIRECTION",
+                "Revise the creative direction.",
+                "local-user",
+                '["producer"]',
+                "2026-08-11T00:00:00Z",
+            ),
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute("UPDATE artifact_proposal_rejections SET comment = comment")
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute("DELETE FROM artifact_proposal_rejections")
+        connection.rollback()
+
+    accepted = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-after-direct-rejection"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert accepted.status_code == 409
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE artifact_type = 'source_extraction'"
+        ).fetchone() == (0,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (0,)
+
+
+def test_existing_draft_acceptance_blocks_direct_rejection_insert(tmp_path: Path) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:acceptance-before-rejection",
+    )
+    accepted = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-before-direct-rejection"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert accepted.status_code == 201
+    with sqlite3.connect(repository.database_path) as connection:
+        proposal_hash = connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                """
+                INSERT INTO artifact_proposal_rejections VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    f"pdr_{'1' * 32}",
+                    project_id,
+                    proposal_id,
+                    f"sha256:{'2' * 64}",
+                    f"sha256:{'3' * 64}",
+                    proposal_hash,
+                    "TECHNICAL_QUALITY",
+                    "Image quality is below the review threshold.",
+                    "local-user",
+                    '["producer"]',
+                    "2026-08-11T00:00:00Z",
+                ),
+            )
+
+
+def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path: Path) -> None:
+    client, repository, project_id, proposal_id, _created = reviewable_proposal(
+        tmp_path,
+        key="source-extract:v12-acceptance-upgrade",
+    )
+    accepted = client.post(
+        f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
+        headers={"Idempotency-Key": "accept-before-v13-upgrade"},
+        json={"parent_version_id": None, "expected_head_revision": None},
+    )
+    assert accepted.status_code == 201
+
+    with sqlite3.connect(repository.database_path) as connection:
+        acceptance_id = connection.execute(
+            "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        connection.execute("DROP TABLE artifact_proposal_rejections")
+        connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
+        connection.execute(MIGRATION_12[1])
+        connection.execute("PRAGMA user_version = 12")
+
+    StudioRepository(repository.database_path)
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone() == (13,)
+        assert connection.execute(
+            "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone() == (acceptance_id,)
+        proposal_hash = connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (proposal_id,),
+        ).fetchone()[0]
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                """
+                INSERT INTO artifact_proposal_rejections VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                (
+                    f"pdr_{'4' * 32}",
+                    project_id,
+                    proposal_id,
+                    f"sha256:{'5' * 64}",
+                    f"sha256:{'6' * 64}",
+                    proposal_hash,
+                    "CONTINUITY",
+                    "Continuity review requires revision.",
                     "local-user",
                     '["producer"]',
                     "2026-08-11T00:00:00Z",

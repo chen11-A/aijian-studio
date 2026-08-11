@@ -651,3 +651,150 @@ MIGRATION_12 = (
     END
     """,
 )
+
+
+MIGRATION_13 = (
+    """
+    CREATE TABLE artifact_proposal_rejections (
+        rejection_id TEXT PRIMARY KEY CHECK (
+            length(rejection_id) = 36
+            AND substr(rejection_id, 1, 4) = 'pdr_'
+            AND substr(rejection_id, 5) NOT GLOB '*[^0-9a-f]*'
+        ),
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        proposal_id TEXT NOT NULL UNIQUE
+            REFERENCES agent_artifact_proposals(proposal_id),
+        client_key_hash TEXT NOT NULL CHECK (
+            length(client_key_hash) = 71
+            AND substr(client_key_hash, 1, 7) = 'sha256:'
+            AND substr(client_key_hash, 8) NOT GLOB '*[^0-9a-f]*'
+        ),
+        request_hash TEXT NOT NULL CHECK (
+            length(request_hash) = 71
+            AND substr(request_hash, 1, 7) = 'sha256:'
+            AND substr(request_hash, 8) NOT GLOB '*[^0-9a-f]*'
+        ),
+        proposal_hash TEXT NOT NULL CHECK (
+            length(proposal_hash) = 71
+            AND substr(proposal_hash, 1, 7) = 'sha256:'
+            AND substr(proposal_hash, 8) NOT GLOB '*[^0-9a-f]*'
+        ),
+        reason_code TEXT NOT NULL CHECK (reason_code IN (
+            'SOURCE_EVIDENCE', 'CREATIVE_DIRECTION', 'CONTINUITY',
+            'TECHNICAL_QUALITY', 'RIGHTS_OR_SAFETY', 'BUDGET_OR_COST', 'OTHER'
+        )),
+        comment TEXT NOT NULL CHECK (
+            length(comment) BETWEEN 1 AND 4000
+            AND length(CAST(comment AS BLOB)) <= 16384
+            AND comment = trim(comment, char(9) || char(10) || char(13) || ' ')
+            AND instr(comment, char(0)) = 0
+            AND instr(comment, char(1)) = 0
+            AND instr(comment, char(2)) = 0
+            AND instr(comment, char(3)) = 0
+            AND instr(comment, char(4)) = 0
+            AND instr(comment, char(5)) = 0
+            AND instr(comment, char(6)) = 0
+            AND instr(comment, char(7)) = 0
+            AND instr(comment, char(8)) = 0
+            AND instr(comment, char(11)) = 0
+            AND instr(comment, char(12)) = 0
+            AND instr(comment, char(13)) = 0
+            AND instr(comment, char(14)) = 0
+            AND instr(comment, char(15)) = 0
+            AND instr(comment, char(16)) = 0
+            AND instr(comment, char(17)) = 0
+            AND instr(comment, char(18)) = 0
+            AND instr(comment, char(19)) = 0
+            AND instr(comment, char(20)) = 0
+            AND instr(comment, char(21)) = 0
+            AND instr(comment, char(22)) = 0
+            AND instr(comment, char(23)) = 0
+            AND instr(comment, char(24)) = 0
+            AND instr(comment, char(25)) = 0
+            AND instr(comment, char(26)) = 0
+            AND instr(comment, char(27)) = 0
+            AND instr(comment, char(28)) = 0
+            AND instr(comment, char(29)) = 0
+            AND instr(comment, char(30)) = 0
+            AND instr(comment, char(31)) = 0
+            AND instr(comment, char(127)) = 0
+        ),
+        actor_id TEXT NOT NULL CHECK (
+            length(actor_id) BETWEEN 1 AND 200
+            AND length(trim(actor_id, char(9) || char(10) || char(13) || ' ')) > 0
+        ),
+        actor_roles_json TEXT NOT NULL CHECK (
+            json_valid(actor_roles_json) AND json_type(actor_roles_json) = 'array'
+        ),
+        rejected_at TEXT NOT NULL CHECK (
+            length(rejected_at) BETWEEN 20 AND 32
+            AND substr(rejected_at, 11, 1) = 'T'
+            AND substr(rejected_at, -1, 1) = 'Z'
+            AND datetime(rejected_at) IS NOT NULL
+        ),
+        UNIQUE (project_id, client_key_hash)
+    )
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_rejections_chain_insert
+    BEFORE INSERT ON artifact_proposal_rejections
+    WHEN NOT EXISTS (
+        SELECT 1 FROM agent_artifact_proposals AS proposal
+        WHERE proposal.proposal_id = NEW.proposal_id
+          AND proposal.project_id = NEW.project_id
+          AND proposal.proposal_hash = NEW.proposal_hash
+    ) OR EXISTS (
+        SELECT 1 FROM artifact_proposal_draft_acceptances AS acceptance
+        WHERE acceptance.proposal_id = NEW.proposal_id
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal rejection chain is inconsistent');
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_rejections_immutable_update
+    BEFORE UPDATE ON artifact_proposal_rejections
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal rejections are immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER artifact_proposal_rejections_immutable_delete
+    BEFORE DELETE ON artifact_proposal_rejections
+    WHEN EXISTS (SELECT 1 FROM projects WHERE id = OLD.project_id)
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal rejections are immutable');
+    END
+    """,
+    "DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert",
+    """
+    CREATE TRIGGER artifact_proposal_draft_acceptances_chain_insert
+    BEFORE INSERT ON artifact_proposal_draft_acceptances
+    WHEN NOT EXISTS (
+        SELECT 1
+        FROM agent_artifact_proposals AS proposal
+        JOIN artifact_versions AS version
+          ON version.version_id = NEW.draft_version_id
+        JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+        WHERE proposal.proposal_id = NEW.proposal_id
+          AND proposal.project_id = NEW.project_id
+          AND proposal.proposal_hash = NEW.proposal_hash
+          AND artifact.project_id = NEW.project_id
+          AND version.producer_attempt_id = proposal.producer_attempt_id
+          AND version.content_hash = json_extract(proposal.proposal_json, '$.payload_hash')
+          AND version.author_actor_type = 'agent'
+          AND version.author_actor_id = proposal.producer_skill_run_id
+          AND artifact.artifact_type = CASE proposal.target_artifact_type
+              WHEN 'SourceExtraction' THEN 'source_extraction'
+              ELSE '__unsupported_proposal_artifact_type__'
+          END
+          AND NOT EXISTS (
+              SELECT 1 FROM artifact_proposal_rejections AS rejection
+              WHERE rejection.proposal_id = NEW.proposal_id
+          )
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal draft acceptance chain is inconsistent');
+    END
+    """,
+)

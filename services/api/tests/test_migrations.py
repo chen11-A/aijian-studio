@@ -8,6 +8,7 @@ import pytest
 from aijian_api.agent_skill_contracts import canonical_sha256
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.task_ledger import LocalTaskLedger, QueuedTask
+from aijian_api.workflow_schema import MIGRATION_12, MIGRATION_13
 
 NOW = datetime(2026, 8, 10, 9, 30, tzinfo=UTC)
 HASH_A = f"sha256:{'a' * 64}"
@@ -15,6 +16,7 @@ HASH_B = f"sha256:{'b' * 64}"
 
 
 def drop_v10_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS artifact_proposal_rejections")
     connection.execute("DROP TABLE IF EXISTS artifact_proposal_draft_acceptances")
     connection.execute("DROP TABLE IF EXISTS proposal_run_enqueue_intents")
     connection.execute("DROP TABLE skill_runs")
@@ -180,7 +182,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-        assert SCHEMA_VERSION == 12
+        assert SCHEMA_VERSION == 13
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -218,6 +220,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "agent_context_manifests",
         "proposal_run_enqueue_intents",
         "artifact_proposal_draft_acceptances",
+        "artifact_proposal_rejections",
     } <= tables
 
 
@@ -541,6 +544,7 @@ def test_every_v11_ddl_failure_rolls_back_to_v10_and_can_retry(tmp_path: Path) -
             source_language="zh-CN",
         )
         with sqlite3.connect(database) as connection:
+            connection.execute("DROP TABLE artifact_proposal_rejections")
             connection.execute("DROP TABLE artifact_proposal_draft_acceptances")
             connection.execute("DROP TABLE proposal_run_enqueue_intents")
             connection.execute("PRAGMA user_version = 10")
@@ -585,6 +589,7 @@ def test_every_v12_ddl_failure_rolls_back_to_v11_and_can_retry(tmp_path: Path) -
             source_language="zh-CN",
         )
         with sqlite3.connect(database) as connection:
+            connection.execute("DROP TABLE artifact_proposal_rejections")
             for trigger in (
                 "artifact_proposal_draft_acceptances_chain_insert",
                 "artifact_proposal_draft_acceptances_immutable_update",
@@ -623,6 +628,103 @@ def test_every_v12_ddl_failure_rolls_back_to_v11_and_can_retry(tmp_path: Path) -
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v13_ddl_failure_rolls_back_to_v12_and_can_retry(tmp_path: Path) -> None:
+    def create_current_v12_database(database: Path) -> None:
+        StudioRepository(database).create_project(
+            name="V12 proposal rejection migration",
+            aspect_ratio="9:16",
+            target_duration_seconds=30,
+            source_language="zh-CN",
+        )
+        with sqlite3.connect(database) as connection:
+            connection.execute("DROP TABLE artifact_proposal_rejections")
+            connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
+            for statement in MIGRATION_12[1:2]:
+                connection.execute(statement)
+            connection.execute("PRAGMA user_version = 12")
+
+    probe = tmp_path / "probe-v13.db"
+    create_current_v12_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 13 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v13-failure-{failed_step}.db"
+        create_current_v12_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 13 and step == target:
+                raise RuntimeError(f"injected v13 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v13 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 12
+        with sqlite3.connect(database) as connection:
+            assert (
+                connection.execute(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type = 'table' AND name = 'artifact_proposal_rejections'"
+                ).fetchone()
+                is None
+            )
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_v13_rejection_audit_allows_only_parent_project_cascade() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("CREATE TABLE projects (id TEXT PRIMARY KEY)")
+        connection.execute(
+            "CREATE TABLE agent_artifact_proposals ("
+            "proposal_id TEXT PRIMARY KEY, project_id TEXT NOT NULL "
+            "REFERENCES projects(id) ON DELETE CASCADE, proposal_hash TEXT NOT NULL)"
+        )
+        connection.execute(
+            "CREATE TABLE artifact_proposal_draft_acceptances (proposal_id TEXT PRIMARY KEY)"
+        )
+        connection.execute(
+            "CREATE TRIGGER artifact_proposal_draft_acceptances_chain_insert "
+            "BEFORE INSERT ON artifact_proposal_draft_acceptances BEGIN SELECT 1; END"
+        )
+        for statement in MIGRATION_13:
+            connection.execute(statement)
+        connection.execute("INSERT INTO projects VALUES ('project-cascade')")
+        connection.execute(
+            "INSERT INTO agent_artifact_proposals VALUES (?, ?, ?)",
+            ("proposal-cascade", "project-cascade", HASH_A),
+        )
+        connection.execute(
+            """
+            INSERT INTO artifact_proposal_rejections VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                f"pdr_{'7' * 32}",
+                "project-cascade",
+                "proposal-cascade",
+                HASH_B,
+                f"sha256:{'c' * 64}",
+                HASH_A,
+                "OTHER",
+                "Reviewer requested revision.",
+                "local-user",
+                '["producer"]',
+                "2026-08-11T00:00:00Z",
+            ),
+        )
+        connection.execute("DELETE FROM projects WHERE id = 'project-cascade'")
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_rejections"
+        ).fetchone() == (0,)
 
 
 def test_attempt_snapshot_is_idempotent_immutable_and_recovered_without_drift(

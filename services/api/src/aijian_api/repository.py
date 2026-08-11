@@ -64,9 +64,10 @@ from aijian_api.workflow_schema import (
     MIGRATION_10,
     MIGRATION_11,
     MIGRATION_12,
+    MIGRATION_13,
 )
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -759,6 +760,7 @@ _MIGRATIONS = {
     10: MIGRATION_10,
     11: MIGRATION_11,
     12: MIGRATION_12,
+    13: MIGRATION_13,
 }
 
 
