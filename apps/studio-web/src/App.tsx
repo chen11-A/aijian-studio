@@ -17,6 +17,7 @@ import {
   ProductionStageBar,
   ProjectInspector,
 } from "./components/ProductionShell/ProductionChrome";
+import { ProposalReviewCard } from "./components/ProductionShell/ProposalReviewCard";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { TimelineWorkspace } from "./components/Timeline/TimelineWorkspace";
@@ -2154,6 +2155,13 @@ export function App({ transport }: AppProps) {
               <ProjectInspector
                 project={selectedProject}
                 collapsed={false}
+                proposal={
+                  <ProposalReviewCard
+                    projectId={selectedProject.id}
+                    listTasks={studio.listProjectTasks}
+                    getProposal={studio.getArtifactProposal}
+                  />
+                }
                 onToggle={() => setInspectorCollapsed(true)}
               />
             )}

@@ -36,7 +36,7 @@ test("keeps the inspector collapsible without inventing proposal data", () => {
   const view = render(<ProjectInspector project={project} collapsed={false} onToggle={toggle} />);
 
   expect(screen.getByText("REV 3")).toBeInTheDocument();
-  expect(screen.getByText("暂无提案")).toBeInTheDocument();
+  expect(screen.getByText("暂无待审提案")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "收起属性检查器" }));
   expect(toggle).toHaveBeenCalledOnce();
 

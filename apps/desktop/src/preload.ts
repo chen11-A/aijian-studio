@@ -1,9 +1,6 @@
 import type { components } from "@aijian/contracts";
 import { contextBridge, ipcRenderer } from "electron";
 
-import { createAgentSkillCatalogPreload } from "./agent-skill-catalog-ipc";
-import { createArtifactProposalPreload } from "./artifact-proposal-contract";
-
 type HealthResponse = components["schemas"]["HealthResponse"];
 type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
@@ -15,6 +12,9 @@ type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+type ArtifactProposalResponse = components["schemas"]["ArtifactProposalResponse"];
+type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
+type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 type TimelineResponse = components["schemas"]["TimelineResponse"];
 type TrimTimelineClipInput = components["schemas"]["TrimTimelineClipRequest"];
 type ReorderTimelineClipInput = components["schemas"]["ReorderTimelineClipRequest"];
@@ -62,10 +62,12 @@ contextBridge.exposeInMainWorld("aijian", {
     ) as Promise<StoryBibleVersionResponse>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
-  ...createArtifactProposalPreload((channel, projectId, proposalId) =>
-    ipcRenderer.invoke(channel, projectId, proposalId),
-  ),
-  ...createAgentSkillCatalogPreload((channel, projectId) => ipcRenderer.invoke(channel, projectId)),
+  getArtifactProposal: (projectId: string, proposalId: string): Promise<ArtifactProposalResponse> =>
+    ipcRenderer.invoke("proposals:get", projectId, proposalId) as Promise<ArtifactProposalResponse>,
+  listProjectAgents: (projectId: string): Promise<AgentCatalogResponse> =>
+    ipcRenderer.invoke("agents:list", projectId) as Promise<AgentCatalogResponse>,
+  listProjectSkills: (projectId: string): Promise<SkillCatalogResponse> =>
+    ipcRenderer.invoke("skills:list", projectId) as Promise<SkillCatalogResponse>,
   startFakeTimelineWorkflow: (projectId: string): Promise<TimelineResponse> =>
     ipcRenderer.invoke("workflows:start-fake-timeline", projectId) as Promise<TimelineResponse>,
   getProjectTimeline: (projectId: string): Promise<TimelineResponse | null> =>

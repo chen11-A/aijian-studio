@@ -3,7 +3,7 @@
   "passed": true,
   "novelCharacterCount": 25098,
   "persisted": {
-    "projectId": "prj_7320d7401cc34e2ea60f207af428b2cd",
+    "projectId": "prj_b5477edef39d40ccbe117529f8209157",
     "sourceByteSize": 69748,
     "sourceCount": 1,
     "taskSummary": {
@@ -13,7 +13,7 @@
       "completed": 1
     },
     "taskStatus": "SUCCEEDED",
-    "timelineVersionId": "ver_7c0cb98cd3ab4e75b2ef220920d999e7",
+    "timelineVersionId": "ver_e0d05109b5b343c294e9c68923f99bd4",
     "timelineRevision": 2,
     "clipCount": 3,
     "firstClip": {
@@ -27,6 +27,7 @@
       "createProject",
       "createProviderConnection",
       "deleteProviderConnection",
+      "getArtifactProposal",
       "getProject",
       "getProjectTimeline",
       "getSource",
@@ -35,6 +36,8 @@
       "getStoryBibleVersion",
       "health",
       "importTextSource",
+      "listProjectAgents",
+      "listProjectSkills",
       "listProjectTasks",
       "listProjects",
       "listProviderConnections",
@@ -60,8 +63,18 @@
   "regressionLayout": {
     "scrollWidth": 1409,
     "clientWidth": 1409,
-    "railButton": [271.71875, 213.765625, 112.828125, 44],
-    "inspectorButton": [1220.453125, 213.765625, 140.828125, 44],
+    "railButton": [
+      271.71875,
+      213.765625,
+      112.828125,
+      44
+    ],
+    "inspectorButton": [
+      1220.453125,
+      213.765625,
+      140.828125,
+      44
+    ],
     "toolbarBottom": 262.765625,
     "stageTop": 278.765625,
     "sourceBodyFontSize": "14px",

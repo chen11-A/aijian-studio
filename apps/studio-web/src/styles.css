@@ -2775,6 +2775,16 @@ button:disabled {
     order: 2;
   }
 
+  .project-inspector {
+    display: block;
+    order: 3;
+  }
+
+  .project-inspector > header,
+  .project-inspector > dl {
+    display: none;
+  }
+
   .entity-grid {
     grid-template-columns: 1fr;
   }

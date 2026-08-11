@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { ProjectData } from "../../api/studio";
 import "./production-chrome.css";
 
@@ -62,10 +64,16 @@ export function ProductionStageBar({ sourceReady, onNext }: ProductionStageBarPr
 interface ProjectInspectorProps {
   project: ProjectData;
   collapsed: boolean;
+  proposal?: ReactNode;
   onToggle(): void;
 }
 
-export function ProjectInspector({ project, collapsed, onToggle }: ProjectInspectorProps) {
+export function ProjectInspector({
+  project,
+  collapsed,
+  proposal,
+  onToggle,
+}: ProjectInspectorProps) {
   if (collapsed) {
     return (
       <aside className="project-inspector collapsed" aria-label="属性检查器">
@@ -101,11 +109,13 @@ export function ProjectInspector({ project, collapsed, onToggle }: ProjectInspec
           <dd>{project.target_duration_seconds} 秒</dd>
         </div>
       </dl>
-      <section className="proposal-empty" aria-label="AI 提案">
-        <span>AI PROPOSALS</span>
-        <strong>暂无提案</strong>
-        <p>Agent Runtime 接入后，提案会在此显示证据、差异、影响、费用和接受为 DRAFT 操作。</p>
-      </section>
+      {proposal ?? (
+        <section className="proposal-empty" aria-label="AI 提案">
+          <span>AI PROPOSALS</span>
+          <strong>暂无待审提案</strong>
+          <p>Agent 完成任务后，这里会显示证据、变化、影响、费用与质量检查。</p>
+        </section>
+      )}
     </aside>
   );
 }

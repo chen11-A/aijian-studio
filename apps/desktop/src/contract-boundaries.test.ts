@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -14,6 +17,15 @@ const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
 const projectId = `prj_${"1".repeat(32)}`;
 
 describe("privileged contract boundaries", () => {
+  test("keeps the sandboxed preload self-contained", () => {
+    const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
+    expect(preloadSource).not.toMatch(/from\s+["']\.\//);
+    expect(preloadSource).toContain('ipcRenderer.invoke("proposals:get", projectId, proposalId)');
+    expect(preloadSource).toContain('ipcRenderer.invoke("agents:list", projectId)');
+    expect(preloadSource).toContain('ipcRenderer.invoke("skills:list", projectId)');
+    expect(preloadSource).not.toMatch(/proposals:(?:accept|reject)|ipcRenderer\.send/);
+  });
+
   test("rejects malformed nested health payloads", () => {
     expect(isHealthResponse({ data: null, request_id: requestId })).toBe(false);
   });
