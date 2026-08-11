@@ -105,14 +105,25 @@ export function SourceExtractRunLauncher({
   onOpenQueue,
 }: SourceExtractRunLauncherProps) {
   const creationViewport = useCreationViewport();
-  const operationJournal = useMemo(
-    () =>
-      journal ??
-      (typeof window === "undefined"
-        ? null
-        : createProposalRunOperationJournal(window.localStorage)),
-    [journal],
-  );
+  const hasCreationCapability = capability !== undefined;
+  const journalAccess = useMemo(() => {
+    if (!hasCreationCapability || !creationViewport) {
+      return { journal: null, error: false };
+    }
+    try {
+      return {
+        journal:
+          journal ??
+          (typeof window === "undefined"
+            ? null
+            : createProposalRunOperationJournal(window.localStorage)),
+        error: false,
+      };
+    } catch {
+      return { journal: null, error: true };
+    }
+  }, [creationViewport, hasCreationCapability, journal]);
+  const operationJournal = journalAccess.journal;
   const [state, setState] = useState<LauncherState>({ kind: "loading" });
   const generation = useRef(0);
   const inFlight = useRef(false);
@@ -144,14 +155,29 @@ export function SourceExtractRunLauncher({
         setState({ kind: "ready", input: prepared.input, pending: false });
       })
       .catch(() => {
-        if (request === generation.current) setState({ kind: "journal-error" });
+        if (request === generation.current) {
+          setState({
+            kind: "unavailable",
+            message: "无法读取已批准来源，请检查本地服务后重试。",
+          });
+        }
       });
     return () => {
       generation.current += 1;
     };
   }, [capability, creationViewport, getManifest, operationJournal, projectId, source]);
 
-  if (!capability || !creationViewport || !operationJournal) return null;
+  if (!capability || !creationViewport) return null;
+
+  if (journalAccess.error || !operationJournal) {
+    return (
+      <section className="source-extract-launcher creation-action" aria-label="来源提取">
+        <p className="launcher-warning" role="alert">
+          本地操作记录存储不可用，已停止创建任务。请启用本地存储后重试。
+        </p>
+      </section>
+    );
+  }
 
   const submit = async (input: ProposalRunCreateInput) => {
     if (inFlight.current) return;

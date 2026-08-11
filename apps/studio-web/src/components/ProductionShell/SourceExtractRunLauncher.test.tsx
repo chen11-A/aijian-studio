@@ -134,6 +134,127 @@ describe("source extract run launcher", () => {
     expect(getManifest).not.toHaveBeenCalled();
   });
 
+  test("does not access blocked local storage without a visible creation capability", () => {
+    const getManifest = vi.fn().mockResolvedValue(manifest);
+    const storage = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+
+    expect(() =>
+      render(
+        <SourceExtractRunLauncher
+          projectId={projectId}
+          source={source}
+          getManifest={getManifest}
+        />,
+      ),
+    ).not.toThrow();
+    expect(getManifest).not.toHaveBeenCalled();
+    storage.mockRestore();
+
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    const mobileStorage = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+    expect(() =>
+      render(
+        <SourceExtractRunLauncher
+          projectId={projectId}
+          source={source}
+          getManifest={getManifest}
+          capability={{ create: vi.fn() }}
+        />,
+      ),
+    ).not.toThrow();
+    expect(getManifest).not.toHaveBeenCalled();
+    mobileStorage.mockRestore();
+
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    const desktopStorage = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+    render(
+      <SourceExtractRunLauncher
+        projectId={projectId}
+        source={source}
+        getManifest={getManifest}
+        capability={{ create: vi.fn() }}
+      />,
+    );
+    expect(
+      screen.getByText("本地操作记录存储不可用，已停止创建任务。请启用本地存储后重试。"),
+    ).toBeInTheDocument();
+    expect(getManifest).not.toHaveBeenCalled();
+    desktopStorage.mockRestore();
+  });
+
+  test("reports manifest transport failure separately from journal corruption", async () => {
+    render(
+      <SourceExtractRunLauncher
+        projectId={projectId}
+        source={source}
+        getManifest={vi.fn().mockRejectedValue(new Error("sidecar unavailable"))}
+        capability={{ create: vi.fn() }}
+        journal={journal()}
+      />,
+    );
+
+    expect(
+      await screen.findByText("无法读取已批准来源，请检查本地服务后重试。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/本地操作记录无法安全读取/)).not.toBeInTheDocument();
+  });
+
+  test("does not show project A completion after switching to project B", async () => {
+    const otherProjectId = `prj_${"a".repeat(32)}`;
+    let resolveCreate!: (value: { kind: "REMOTE_UNKNOWN" }) => void;
+    const create = vi.fn(
+      () =>
+        new Promise<{ kind: "REMOTE_UNKNOWN" }>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const view = render(
+      <SourceExtractRunLauncher
+        key={projectId}
+        projectId={projectId}
+        source={source}
+        getManifest={vi.fn().mockResolvedValue(manifest)}
+        capability={{ create }}
+        journal={journal()}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "启动来源提取" }));
+    await screen.findByText("正在提交已持久化的操作…");
+
+    const unavailableManifest: SourceManifestResponse = {
+      ...manifest,
+      data: {
+        ...manifest.data,
+        project_id: otherProjectId,
+        head: { ...manifest.data.head, accepted_version_id: null },
+        accepted_version: null,
+      },
+    };
+    view.rerender(
+      <SourceExtractRunLauncher
+        key={otherProjectId}
+        projectId={otherProjectId}
+        source={{ ...source, data: { ...source.data, project_id: otherProjectId } }}
+        getManifest={vi.fn().mockResolvedValue(unavailableManifest)}
+        capability={{ create }}
+        journal={journal()}
+      />,
+    );
+    await screen.findByText(/需要先由具名人员批准来源清单/);
+    resolveCreate({ kind: "REMOTE_UNKNOWN" });
+
+    await waitFor(() => {
+      expect(screen.queryByText("提交结果未知")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/需要先由具名人员批准来源清单/)).toBeInTheDocument();
+  });
+
   test("submits the exact first approved block through the persistent journal", async () => {
     const create = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
     render(

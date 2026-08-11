@@ -174,4 +174,22 @@ describe("proposal run operation journal", () => {
     expect(() => journal.load(projectId)).toThrow("proposal run journal is corrupt");
     expect(localStorage.getItem(key)).not.toBeNull();
   });
+
+  test("keeps project journals isolated when one operation completes", () => {
+    const otherProjectId = `prj_${"a".repeat(32)}`;
+    const journal = createProposalRunOperationJournal(localStorage, {
+      operationId: vi
+        .fn()
+        .mockReturnValueOnce(operationId)
+        .mockReturnValueOnce("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+      now: () => "2026-08-11T10:00:00.000Z",
+    });
+    const first = journal.begin(projectId, input);
+    const second = journal.begin(otherProjectId, input);
+
+    journal.complete(projectId, first.operation_id);
+
+    expect(journal.load(projectId)).toBeNull();
+    expect(journal.load(otherProjectId)).toEqual(second);
+  });
 });
