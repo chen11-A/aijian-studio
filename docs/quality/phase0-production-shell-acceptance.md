@@ -48,7 +48,7 @@
 
 - 阶段状态当前仅由当前项目的来源存在性保守映射，只用于 P0 展示；G2 不会根据前端故事缓存冒充已批准。尚未实现服务端 `stage_summary`、阻塞计数、具名审批人和预计费用合同。
 - 下一步按钮当前进入故事证据审阅，不触发模型调用、付款或 Gate 签署。
-- 后端 Fake Runtime 已能持久化真实 `ArtifactProposal`，并通过 Sidecar-only 接口接受为 DRAFT 或保存具名退回审计；本 P0 工作台尚未读取或展示这些数据，也没有提案比较、评论、Electron 写 IPC、人工 Gate 或移动端具名批准。
+- 后端 Fake Runtime 已能持久化真实 `ArtifactProposal`；工作台可读取并展示来源证据、费用和 QC，Electron 可通过 Sidecar-only exact-key IPC 接受为 DRAFT 或保存具名退回审计。普通 Web 没有决定 capability，390px 不渲染决定控件；提案比较、评论、人工 Gate 和移动端具名批准仍未实现。
 - 尚未实现导演画布、资产实体编辑、完整剪辑器或真实 Provider。后续后端增量继续保持 Sidecar 写与普通 Web 读权限分离，并未改变 CredentialRef 边界。
 - 本增量不提高 48 周路线图的严格完成项计数；UI01 仍为 18/43，K01 仍未完成。
 

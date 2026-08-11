@@ -229,6 +229,129 @@
   line-height: 1.55;
 }
 
+.proposal-decision-actions,
+.proposal-decision-confirm > div,
+.proposal-rejection-form > div {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.proposal-decision-actions button,
+.proposal-decision-confirm button,
+.proposal-rejection-form button,
+.proposal-decision-receipt button,
+.proposal-decision-warning button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: var(--font-ui);
+  font-weight: 700;
+}
+
+.proposal-primary-action {
+  border-color: rgba(139, 111, 255, 0.58) !important;
+  background: var(--accent-dim) !important;
+}
+
+.proposal-reject-action {
+  border-color: rgba(242, 163, 155, 0.4) !important;
+}
+
+.proposal-decision-confirm,
+.proposal-rejection-form,
+.proposal-decision-receipt,
+.proposal-decision-warning {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(8, 9, 13, 0.42);
+}
+
+.proposal-decision-confirm strong,
+.proposal-rejection-form > strong,
+.proposal-decision-receipt strong,
+.proposal-decision-warning strong {
+  color: var(--ink);
+  font-size: var(--font-ui);
+}
+
+.proposal-decision-confirm p,
+.proposal-rejection-form > p,
+.proposal-decision-receipt p,
+.proposal-decision-warning p,
+.proposal-decision-unavailable {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-meta);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.proposal-rejection-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--font-meta);
+}
+
+.proposal-rejection-form select,
+.proposal-rejection-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: #111218;
+  font: inherit;
+}
+
+.proposal-rejection-form select {
+  min-height: 44px;
+  padding: 0 8px;
+}
+
+.proposal-rejection-form textarea {
+  min-height: 108px;
+  padding: 9px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.proposal-field-error {
+  margin: 0;
+  color: #f2a39b;
+  font-size: var(--font-meta);
+  line-height: 1.5;
+}
+
+.proposal-decision-warning {
+  border-color: rgba(242, 163, 155, 0.42);
+}
+
+.proposal-decision-warning small {
+  color: var(--faint);
+  font-size: var(--font-meta);
+  overflow-wrap: anywhere;
+}
+
+.proposal-decision-receipt code {
+  color: var(--ink);
+  font-size: var(--font-meta);
+  overflow-wrap: anywhere;
+}
+
+.proposal-decision-unavailable {
+  margin-top: 10px;
+}
+
 @keyframes proposal-spin {
   to {
     transform: rotate(360deg);

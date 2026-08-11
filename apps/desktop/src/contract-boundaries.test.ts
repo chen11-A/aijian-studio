@@ -21,9 +21,15 @@ describe("privileged contract boundaries", () => {
     const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
     expect(preloadSource).not.toMatch(/from\s+["']\.\//);
     expect(preloadSource).toContain('ipcRenderer.invoke("proposals:get", projectId, proposalId)');
+    expect(preloadSource).toContain(
+      'ipcRenderer.invoke("proposals:accept-as-draft", projectId, proposalId, input)',
+    );
+    expect(preloadSource).toContain(
+      'ipcRenderer.invoke("proposals:reject", projectId, proposalId, input)',
+    );
     expect(preloadSource).toContain('ipcRenderer.invoke("agents:list", projectId)');
     expect(preloadSource).toContain('ipcRenderer.invoke("skills:list", projectId)');
-    expect(preloadSource).not.toMatch(/proposals:(?:accept|reject)|ipcRenderer\.send/);
+    expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
   });
 
   test("rejects malformed nested health payloads", () => {

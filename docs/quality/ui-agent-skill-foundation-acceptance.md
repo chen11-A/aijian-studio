@@ -1,8 +1,8 @@
 # UI + Agent + Skill 基础验收清单
 
-状态：In progress；后端 Fake `source.extract` 提案运行、接受和退回已具备，UI/Electron/人工 Gate 联合纵切仍未完成
+状态：In progress；Fake `source.extract` 提案读取及 Electron 接受/退回已具备，启动运行 UI、提案比较与人工 Gate 联合纵切仍未完成
 
-当前后端证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only 退回事务保存具名意见，将 Attempt/Node/Workflow/Agent/Skill 原子置为不可重试的 `FAILED`，Task 保持 `COMPLETED`，且不创建 ArtifactVersion、不推进 Head/Gate、不调用 Provider。accept/reject/cancel 竞态、崩溃回滚、冻结真相漂移、OpenAPI/TypeScript 和普通 Web 无写路由均有自动化测试。以上只证明后端纵切，不勾选下方仍要求真实 Electron/UI/影片验收的组合项，也不提高 48 周路线图完成度。
+当前纵切证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only 决定事务、Electron exact-key IPC 和提案卡共同跑通 `source.extract` 接受/退回。接受只创建 DRAFT 且不推进 review/accepted Head 或 Gate；退回保存具名意见，不创建 ArtifactVersion、不调用 Provider 或自动重跑。accept/reject/cancel 竞态、崩溃回滚、冻结真相漂移、OpenAPI/TypeScript 和普通 Web 无决定 capability 均有持久自动化证据；390px Electron 已实机复验不渲染决定控件，接受/退回双数据库终态已独立实机复验，持久结构化证据待后续补入仓库。影片验收、创建运行 UI、提案比较和人工 Gate 仍未完成，本增量不提高 48 周路线图完成度。
 
 ## C：P0 UI 壳
 
@@ -12,7 +12,7 @@
 - [ ] 980px 可完整审阅提案、证据、diff 和 Gate。
 - [ ] 390px 只能审片、评论、接受/退回和审批，无法进入复杂画布/时间线。
 - [ ] 提案卡展示 SourceSpan、diff、影响 Artifact、费用、置信度、能力损失和三种操作。
-- [ ] 接受提案的界面明确写“形成 DRAFT”，不把 Agent PASS 显示成人工批准。
+- [x] 接受提案的界面明确写“形成 DRAFT”，不把 Agent PASS 显示成人工批准。
 - [ ] 空、载入、错误、离线、无权限、预算不足和能力降级状态均有真实 fixture。
 - [ ] 现有 API、项目导入、Provider 设置、任务队列和时间线测试无回归。
 
@@ -24,7 +24,7 @@
 - [ ] ContextManifest 严格按五层装配，小说和外部响应不能提升信任级。
 - [ ] Agent 只提交 ArtifactProposal，没有数据库写权限。
 - [ ] 缺 SourceSpan、Schema 非法、预算不足、引用未批准资产时失败关闭。
-- [ ] 接受提案只创建不可变 DRAFT；Gate 继续使用具名人类 review/approval。
+- [x] 接受提案只创建不可变 DRAFT；Gate 继续使用具名人类 review/approval。
 - [ ] 同完整 `attempt_fingerprint` 重复启动不重复计费、不创建冲突版本。
 - [ ] 取消、崩溃恢复、并发领取、租约过期和幂等可证明。
 - [ ] 自动 QC 失败最多重试一次；`REMOTE_UNKNOWN` 永不自动重提。

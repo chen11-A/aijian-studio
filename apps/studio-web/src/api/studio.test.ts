@@ -231,6 +231,8 @@ describe("studio transport", () => {
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
       listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
       getArtifactProposal: vi.fn().mockResolvedValue(artifactProposal),
+      acceptArtifactProposalAsDraft: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
+      rejectArtifactProposal: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       listProjectAgents: vi.fn().mockResolvedValue(agentCatalog),
       listProjectSkills: vi.fn().mockResolvedValue(skillCatalog),
       startFakeTimelineWorkflow: vi.fn().mockResolvedValue(timeline),
@@ -266,6 +268,14 @@ describe("studio transport", () => {
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
     await transport.listProjectTasks(project.id);
     await transport.getArtifactProposal(project.id, proposalId);
+    await transport.proposalDecisions?.acceptAsDraft(project.id, proposalId, {
+      parent_version_id: null,
+      expected_head_revision: null,
+    });
+    await transport.proposalDecisions?.reject(project.id, proposalId, {
+      reason_code: "SOURCE_EVIDENCE",
+      comment: "原文证据不足。",
+    });
     await transport.listProjectAgents(project.id);
     await transport.listProjectSkills(project.id);
     await transport.startFakeTimelineWorkflow(project.id);
@@ -294,6 +304,14 @@ describe("studio transport", () => {
     );
     expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
     expect(bridge.getArtifactProposal).toHaveBeenCalledWith(project.id, proposalId);
+    expect(bridge.acceptArtifactProposalAsDraft).toHaveBeenCalledWith(project.id, proposalId, {
+      parent_version_id: null,
+      expected_head_revision: null,
+    });
+    expect(bridge.rejectArtifactProposal).toHaveBeenCalledWith(project.id, proposalId, {
+      reason_code: "SOURCE_EVIDENCE",
+      comment: "原文证据不足。",
+    });
     expect(bridge.listProjectAgents).toHaveBeenCalledWith(project.id);
     expect(bridge.listProjectSkills).toHaveBeenCalledWith(project.id);
     expect(bridge.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
@@ -306,6 +324,8 @@ describe("studio transport", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(taskQueue));
     vi.stubGlobal("fetch", fetchMock);
     const transport = createStudioTransport();
+
+    expect(transport.proposalDecisions).toBeUndefined();
 
     await expect(transport.listProjectTasks(project.id)).resolves.toEqual(taskQueue);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {

@@ -266,6 +266,7 @@ try {
     "createProject",
     "createProviderConnection",
     "deleteProviderConnection",
+    "acceptArtifactProposalAsDraft",
     "getArtifactProposal",
     "getProject",
     "getProjectTimeline",
@@ -283,6 +284,7 @@ try {
     "listSources",
     "reorderTimelineClip",
     "replaceTimelineClip",
+    "rejectArtifactProposal",
     "startFakeTimelineWorkflow",
     "trimTimelineClip",
   ].sort();

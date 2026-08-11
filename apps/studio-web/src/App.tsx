@@ -2160,6 +2160,7 @@ export function App({ transport }: AppProps) {
                     projectId={selectedProject.id}
                     listTasks={studio.listProjectTasks}
                     getProposal={studio.getArtifactProposal}
+                    decisionCapability={studio.proposalDecisions}
                   />
                 }
                 onToggle={() => setInspectorCollapsed(true)}

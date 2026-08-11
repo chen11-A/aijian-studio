@@ -16,6 +16,9 @@ type ProviderConnectionResponse = components["schemas"]["ProviderConnectionRespo
 type TimelineResponse = components["schemas"]["TimelineResponse"];
 type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
+type ArtifactProposalDraftAcceptanceResponse =
+  components["schemas"]["ArtifactProposalDraftAcceptanceResponse"];
+type ArtifactProposalRejectionResponse = components["schemas"]["ArtifactProposalRejectionResponse"];
 
 const healthyResponse: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
@@ -400,6 +403,32 @@ const artifactProposalResponse: components["schemas"]["ArtifactProposalResponse"
       producer_agent_run_id: `agr_${"e".repeat(32)}`,
       producer_skill_run_id: `skr_${"f".repeat(32)}`,
     },
+  },
+  request_id: healthyResponse.request_id,
+};
+const artifactProposalAcceptanceResponse: ArtifactProposalDraftAcceptanceResponse = {
+  data: {
+    acceptance_id: `pda_${"1".repeat(32)}`,
+    project_id: project.id,
+    proposal_id: proposalId,
+    draft_version_id: `ver_${"2".repeat(32)}`,
+    actor_id: "local-reviewer",
+    accepted_as_draft_at: "2026-08-11T09:05:00Z",
+    replayed: false,
+  },
+  request_id: healthyResponse.request_id,
+};
+const artifactProposalRejectionResponse: ArtifactProposalRejectionResponse = {
+  data: {
+    rejection_id: `pdr_${"3".repeat(32)}`,
+    project_id: project.id,
+    proposal_id: proposalId,
+    proposal_hash: artifactProposalResponse.data.proposal_hash,
+    reason_code: "SOURCE_EVIDENCE",
+    comment: "原文证据不足。",
+    actor_id: "local-reviewer",
+    rejected_at: "2026-08-11T09:06:00Z",
+    replayed: false,
   },
   request_id: healthyResponse.request_id,
 };
@@ -990,6 +1019,102 @@ describe("local API client", () => {
     await expect(client.getArtifactProposal(project.id, "not-a-proposal")).rejects.toThrow(
       "valid proposal id",
     );
+  });
+
+  test("submits deterministic proposal decisions with normalized inputs", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(artifactProposalAcceptanceResponse, { status: 201 }))
+      .mockResolvedValueOnce(Response.json(artifactProposalAcceptanceResponse))
+      .mockResolvedValueOnce(Response.json(artifactProposalRejectionResponse, { status: 201 }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    const acceptanceInput = { parent_version_id: null, expected_head_revision: null };
+    await expect(
+      client.acceptArtifactProposalAsDraft(project.id, proposalId, acceptanceInput),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt: artifactProposalAcceptanceResponse });
+    await client.acceptArtifactProposalAsDraft(project.id, proposalId, acceptanceInput);
+    await expect(
+      client.rejectArtifactProposal(project.id, proposalId, {
+        reason_code: "SOURCE_EVIDENCE",
+        comment: "  原文证据不足。\r\n  ",
+      }),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt: artifactProposalRejectionResponse });
+
+    const firstInit = fetchMock.mock.calls[0]![1] as RequestInit;
+    const secondInit = fetchMock.mock.calls[1]![1] as RequestInit;
+    const thirdInit = fetchMock.mock.calls[2]![1] as RequestInit;
+    expect(new Headers(firstInit.headers).get("Idempotency-Key")).toMatch(
+      /^proposal-accept:sha256:[0-9a-f]{64}$/,
+    );
+    expect(new Headers(secondInit.headers).get("Idempotency-Key")).toBe(
+      new Headers(firstInit.headers).get("Idempotency-Key"),
+    );
+    expect(new Headers(thirdInit.headers).get("Idempotency-Key")).toMatch(
+      /^proposal-reject:sha256:[0-9a-f]{64}$/,
+    );
+    expect(thirdInit.body).toBe(
+      JSON.stringify({ reason_code: "SOURCE_EVIDENCE", comment: "原文证据不足。" }),
+    );
+  });
+
+  test("separates definite decision failures from remote unknown results", async () => {
+    const errorPayload = {
+      error: {
+        code: "ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT",
+        message: "conflict",
+        retryable: false,
+        details: {},
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const definiteClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(errorPayload, { status: 409 })),
+      session,
+    );
+    await expect(
+      definiteClient.acceptArtifactProposalAsDraft(project.id, proposalId, {
+        parent_version_id: null,
+        expected_head_revision: null,
+      }),
+    ).resolves.toEqual({
+      kind: "DEFINITE_SERVER_ERROR",
+      status: 409,
+      code: "ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT",
+      request_id: healthyResponse.request_id,
+    });
+
+    for (const fetcher of [
+      vi.fn().mockRejectedValue(new Error("connection reset")),
+      vi.fn().mockResolvedValue(Response.json({ malformed: true }, { status: 201 })),
+      vi.fn().mockResolvedValue(Response.json(errorPayload, { status: 500 })),
+    ]) {
+      const unknownClient = createLocalApiClient(fetcher, session);
+      await expect(
+        unknownClient.acceptArtifactProposalAsDraft(project.id, proposalId, {
+          parent_version_id: null,
+          expected_head_revision: null,
+        }),
+      ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    }
+  });
+
+  test("rejects malformed proposal decision input before HTTP", async () => {
+    const fetchMock = vi.fn();
+    const client = createLocalApiClient(fetchMock, session);
+    await expect(
+      client.rejectArtifactProposal(project.id, proposalId, {
+        reason_code: "SOURCE_EVIDENCE",
+        comment: "\u0007",
+      }),
+    ).rejects.toThrow("valid proposal rejection input");
+    await expect(
+      client.acceptArtifactProposalAsDraft(project.id, proposalId, {
+        parent_version_id: `ver_${"4".repeat(32)}`,
+        expected_head_revision: null,
+      }),
+    ).rejects.toThrow("valid proposal acceptance input");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("reads project-scoped Agent and Skill catalogs through the authenticated client", async () => {

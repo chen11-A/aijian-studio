@@ -1,6 +1,6 @@
 # 规格：Agent/Skill Fake Runtime V1
 
-状态：D1–D3 Foundation Implemented；D4–D5 部分完成（仅 `source.extract` 后端纵切，Electron IPC、提案卡 UI、通用多节点与一次 QC 重试尚未完成）
+状态：D1–D3 Foundation Implemented；D4–D5 部分完成（仅 `source.extract` 纵切，Electron 提案读取与决定 UI 已实现；通用多节点、人工 Gate UI 与一次 QC 重试尚未完成）
 
 D1 已用封闭 Pydantic/JSON Schema 和固定 UTF-8 fixture 实现 AgentDefinition、SkillDefinition、ContextManifest、ArtifactProposal、AgentRun、SkillRun 与 AttemptSnapshot。ContextManifest 当前失败关闭基线为总计不超过 2 MiB、单个场景 SourceSpan 不超过 64 KiB，并把项目、Agent、Skill、条目与总字节数共同纳入哈希。当前 `source.extract` 单节点纵切已把这些合同接入 SQLite、Validator、Fake Worker、项目作用域 API 和生成的 OpenAPI/TypeScript；这不代表其余 Skill、Electron 写 IPC 或真实 Provider 已完成。
 
@@ -10,7 +10,7 @@ D2 已实现仅按精确版本解析的内存 Registry，并拒绝未知、禁�
 
 D3 已实现 Worker 内部 Proposal Validator：重新验证封闭合同和 run chain，由版本精确的 `ProposalSchemaRegistry` 签发不可伪造的 Pydantic Schema 解析结果并绑定 Skill `output_schema_ref`，再按预算/QC/可读 Artifact 类型失败关闭。依赖先经 project-scoped 仓储读取，随后全部 required-accepted 依赖在创建 DRAFT 的同一个 `BEGIN IMMEDIATE` 事务内再次核验类型、版本和当前 `accepted_version_id`，消除 accepted head 的时序窗口；同一事务也核验 SourceSpan 项目归属、UTF-8 范围和引用哈希。全部校验通过后只追加不可变 DRAFT，不推进 review/accepted head；Schema、预算、QC、未批准/越权/过期依赖、跨项目 SourceSpan、引用哈希或并发约束失败均回滚。
 
-当前 Sidecar 已提供项目作用域的提案读取、接受为 DRAFT 与具名退回接口。两类决定都重新连接 immutable enqueue intent、AttemptSnapshot、ContextManifest、AgentRun/SkillRun、精确 Task 与 Proposal 真相，并各自在单个 `BEGIN IMMEDIATE` 事务内保证审计、运行状态和事件零或全。接受只创建不可变 DRAFT，不提交人工审阅、写 GateDecision 或推进 `accepted_version_id`；退回不创建 ArtifactVersion，把当前单节点运行链置为不可重试的 `FAILED`，Task 保持 `COMPLETED`，也不会自动重跑。accept/reject/cancel 由事务和数据库互斥约束保证只能产生一个终局决定；接受或退回的相同幂等请求返回原审计记录，取消则保持状态幂等并通过 `already_cancelled` 表达重复请求。普通 Web 组合不挂载写路由；提案卡写交互、Electron IPC 与人工 Gate 纵切仍未实现，也没有真实 Provider 调用能力。
+当前 Sidecar 已提供项目作用域的提案读取、接受为 DRAFT 与具名退回接口。两类决定都重新连接 immutable enqueue intent、AttemptSnapshot、ContextManifest、AgentRun/SkillRun、精确 Task 与 Proposal 真相，并各自在单个 `BEGIN IMMEDIATE` 事务内保证审计、运行状态和事件零或全。接受只创建不可变 DRAFT，不提交人工审阅、写 GateDecision 或推进 `accepted_version_id`；退回不创建 ArtifactVersion，把当前单节点运行链置为不可重试的 `FAILED`，Task 保持 `COMPLETED`，也不会自动重跑。accept/reject/cancel 由事务和数据库互斥约束保证只能产生一个终局决定；接受或退回的相同幂等请求返回原审计记录，取消则保持状态幂等并通过 `already_cancelled` 表达重复请求。Electron 通过 exact-key IPC 提供 `source.extract` 提案读取、接受和退回，使用确定性幂等身份并区分明确失败与 `REMOTE_UNKNOWN`；普通 Web 没有决定 capability，390px 审阅模式不渲染决定控件。人工 Gate UI、通用提案类型和真实 Provider 调用仍未实现。
 
 ## 目标
 
@@ -137,7 +137,7 @@ D 阶段只实现第一行和第二行的失败关闭；多租户身份仍是后
 2. [完成] Registry 与 Context Builder（4 文件）：只装配 Fake 内容，验证精确版本、禁用/兼容/委派、顺序、信任级、字节预算和哈希；定向入口为 `uv run pytest services/api/tests/test_agent_skill_registry_context.py -q`。
 3. [完成] Proposal Validator（3 文件）：失败关闭并创建不可变 DRAFT；定向入口为 `uv run pytest services/api/tests/test_agent_proposal_validator.py -q`。
 4. [部分完成：当前 `source.extract` 单节点纵切] Fake Agent/Skill Executor：已接任务账本、取消、租约、恢复、幂等和提案审阅状态；一次 QC 重试、真实 Provider 与通用多节点执行器尚未完成。
-5. [部分完成] 增量 OpenAPI/TS/IPC：项目作用域读取、创建运行、取消、接受与退回已有生成合同且不破坏既有路由；Electron exact-key IPC 与提案卡写交互尚未完成。
+5. [部分完成] 增量 OpenAPI/TS/IPC：项目作用域读取、创建运行、取消、接受与退回已有生成合同且不破坏既有路由；Electron 已实现 exact-key 提案读取与 `source.extract` 决定交互，普通 Web 没有决定 capability，390px 不渲染决定控件；创建运行 UI、人工 Gate 和通用多节点仍未完成。
 
 ## 验收命令
 

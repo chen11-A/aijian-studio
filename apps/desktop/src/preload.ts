@@ -13,6 +13,17 @@ type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
 type ArtifactProposalResponse = components["schemas"]["ArtifactProposalResponse"];
+type ArtifactProposalDraftAcceptanceInput =
+  components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
+type ArtifactProposalDraftAcceptanceResponse =
+  components["schemas"]["ArtifactProposalDraftAcceptanceResponse"];
+type ArtifactProposalRejectionInput =
+  components["schemas"]["CreateArtifactProposalRejectionRequest"];
+type ArtifactProposalRejectionResponse = components["schemas"]["ArtifactProposalRejectionResponse"];
+type ArtifactProposalDecisionResult<TReceipt> =
+  | { kind: "SUCCEEDED"; receipt: TReceipt }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -64,6 +75,22 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
   getArtifactProposal: (projectId: string, proposalId: string): Promise<ArtifactProposalResponse> =>
     ipcRenderer.invoke("proposals:get", projectId, proposalId) as Promise<ArtifactProposalResponse>,
+  acceptArtifactProposalAsDraft: (
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalDraftAcceptanceInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>> =>
+    ipcRenderer.invoke("proposals:accept-as-draft", projectId, proposalId, input) as Promise<
+      ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>
+    >,
+  rejectArtifactProposal: (
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalRejectionInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>> =>
+    ipcRenderer.invoke("proposals:reject", projectId, proposalId, input) as Promise<
+      ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>
+    >,
   listProjectAgents: (projectId: string): Promise<AgentCatalogResponse> =>
     ipcRenderer.invoke("agents:list", projectId) as Promise<AgentCatalogResponse>,
   listProjectSkills: (projectId: string): Promise<SkillCatalogResponse> =>

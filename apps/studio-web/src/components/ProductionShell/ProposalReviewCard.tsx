@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ArtifactProposalResponse, TaskQueueResponse } from "../../api/studio";
+import type {
+  ArtifactProposalResponse,
+  ProposalDecisionCapability,
+  TaskQueueResponse,
+} from "../../api/studio";
+import { ProposalDecisionPanel } from "./ProposalDecisionPanel";
 import "./proposal-review-card.css";
 
 interface ProposalReviewCardProps {
   projectId: string;
   listTasks(projectId: string): Promise<TaskQueueResponse>;
   getProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  decisionCapability?: ProposalDecisionCapability;
 }
 
 type ProposalState =
@@ -39,7 +45,12 @@ function formatCost(estimatedMicros: number, actualMicros: number): string {
   }).format(micros / 1_000_000);
 }
 
-export function ProposalReviewCard({ projectId, listTasks, getProposal }: ProposalReviewCardProps) {
+export function ProposalReviewCard({
+  projectId,
+  listTasks,
+  getProposal,
+  decisionCapability,
+}: ProposalReviewCardProps) {
   const [state, setState] = useState<ProposalState>({ kind: "loading" });
   const requestGeneration = useRef(0);
 
@@ -183,8 +194,17 @@ export function ProposalReviewCard({ projectId, listTasks, getProposal }: Propos
         </div>
       </footer>
 
+      <ProposalDecisionPanel
+        projectId={projectId}
+        proposalId={proposal.proposal_id}
+        targetArtifactType={proposal.target_artifact_type}
+        capability={decisionCapability}
+        onRefresh={() => void load()}
+      />
       <p className="proposal-gate-note">
-        接受与退回将在桌面安全操作接入后开放；AI 不能代替具名人员批准 Gate。
+        {decisionCapability
+          ? "接受只形成不可变 DRAFT；AI 不能代替具名人员批准 Gate。"
+          : "接受与退回仅在桌面安全操作中开放；AI 不能代替具名人员批准 Gate。"}
       </p>
     </section>
   );

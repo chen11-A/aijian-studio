@@ -1,7 +1,19 @@
+import { createHash } from "node:crypto";
+
 import type { components } from "@aijian/contracts";
 
 import {
+  isArtifactProposalDecisionKey,
+  isArtifactProposalDraftAcceptanceInput,
+  isArtifactProposalDraftAcceptanceResponse,
+  isArtifactProposalRejectionInput,
+  isArtifactProposalRejectionResponse,
   isArtifactProposalResponse,
+  type ArtifactProposalDecisionResult,
+  type ArtifactProposalDraftAcceptanceInput,
+  type ArtifactProposalDraftAcceptanceResponse,
+  type ArtifactProposalRejectionInput,
+  type ArtifactProposalRejectionResponse,
   type ArtifactProposalResponse,
 } from "./artifact-proposal-contract";
 import {
@@ -49,7 +61,14 @@ export type {
   ProviderConnectionResponse,
 } from "./provider-connection-contract";
 export type { AgentCatalogResponse, SkillCatalogResponse } from "./agent-skill-catalog-contract";
-export type { ArtifactProposalResponse } from "./artifact-proposal-contract";
+export type {
+  ArtifactProposalDecisionResult,
+  ArtifactProposalDraftAcceptanceInput,
+  ArtifactProposalDraftAcceptanceResponse,
+  ArtifactProposalRejectionInput,
+  ArtifactProposalRejectionResponse,
+  ArtifactProposalResponse,
+} from "./artifact-proposal-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
 export type {
   ReorderTimelineClipInput,
@@ -86,6 +105,16 @@ export interface LocalApiClient {
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  acceptArtifactProposalAsDraft(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalDraftAcceptanceInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>>;
+  rejectArtifactProposal(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalRejectionInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -123,6 +152,37 @@ const CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const MAX_SOURCE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 const MAX_LOCAL_API_JSON_BYTES = 16 * 1024 * 1024;
+const DEFINITE_DECISION_STATUSES = new Set([401, 403, 404, 409, 422]);
+
+function normalizeRejectionInput(
+  input: ArtifactProposalRejectionInput,
+): ArtifactProposalRejectionInput {
+  return {
+    reason_code: input.reason_code,
+    comment: input.comment.normalize("NFC").replace(/\r\n?/g, "\n").trim(),
+  };
+}
+
+function proposalDecisionKey(
+  action: "accept" | "reject",
+  projectId: string,
+  proposalId: string,
+  input: ArtifactProposalDraftAcceptanceInput | ArtifactProposalRejectionInput,
+): string {
+  const requestIdentity = JSON.stringify({
+    version: 1,
+    action,
+    project_id: projectId,
+    proposal_id: proposalId,
+    input,
+  });
+  const digest = createHash("sha256").update(requestIdentity, "utf8").digest("hex");
+  const key = `proposal-${action}:sha256:${digest}`;
+  if (!isArtifactProposalDecisionKey(key)) {
+    throw new Error("Artifact proposal decision key generation failed closed");
+  }
+  return key;
+}
 
 function isProject(value: unknown): boolean {
   if (!isRecord(value)) return false;
@@ -1110,6 +1170,54 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
     return payload;
   }
 
+  async function requestProposalDecision<TReceipt>(
+    path: string,
+    idempotencyKey: string,
+    input: ArtifactProposalDraftAcceptanceInput | ArtifactProposalRejectionInput,
+    validator: (value: unknown) => value is TReceipt,
+  ): Promise<ArtifactProposalDecisionResult<TReceipt>> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}${path}`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+    if (response.ok) {
+      try {
+        const payload = await readJsonWithLimit(response);
+        return validator(payload)
+          ? { kind: "SUCCEEDED", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
+      } catch {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+    }
+    if (!DEFINITE_DECISION_STATUSES.has(response.status)) {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+    try {
+      const payload = await readJsonWithLimit(response);
+      if (!isErrorResponse(payload)) return { kind: "REMOTE_UNKNOWN" };
+      return {
+        kind: "DEFINITE_SERVER_ERROR",
+        status: response.status,
+        code: payload.error.code,
+        request_id: payload.request_id,
+      };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+  }
+
   async function requestOptionalJson<T>(
     path: string,
     validator: (value: unknown) => value is T,
@@ -1287,6 +1395,55 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         (payload): payload is ArtifactProposalResponse =>
           isArtifactProposalResponse(payload, projectId, proposalId),
         { headers },
+      );
+    },
+    async acceptArtifactProposalAsDraft(
+      projectId: string,
+      proposalId: string,
+      input: ArtifactProposalDraftAcceptanceInput,
+    ): Promise<ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!PROPOSAL_ID_PATTERN.test(proposalId)) {
+        throw new Error("Local API client requires a valid proposal id");
+      }
+      if (!isArtifactProposalDraftAcceptanceInput(input)) {
+        throw new Error("Local API client requires a valid proposal acceptance input");
+      }
+      const canonicalInput: ArtifactProposalDraftAcceptanceInput = {
+        parent_version_id: input.parent_version_id ?? null,
+        expected_head_revision: input.expected_head_revision ?? null,
+      };
+      return requestProposalDecision(
+        `/api/v1/projects/${projectId}/proposals/${proposalId}/acceptances`,
+        proposalDecisionKey("accept", projectId, proposalId, canonicalInput),
+        canonicalInput,
+        (payload): payload is ArtifactProposalDraftAcceptanceResponse =>
+          isArtifactProposalDraftAcceptanceResponse(payload, projectId, proposalId),
+      );
+    },
+    async rejectArtifactProposal(
+      projectId: string,
+      proposalId: string,
+      input: ArtifactProposalRejectionInput,
+    ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!PROPOSAL_ID_PATTERN.test(proposalId)) {
+        throw new Error("Local API client requires a valid proposal id");
+      }
+      const canonicalInput = normalizeRejectionInput(input);
+      if (!isArtifactProposalRejectionInput(canonicalInput)) {
+        throw new Error("Local API client requires a valid proposal rejection input");
+      }
+      return requestProposalDecision(
+        `/api/v1/projects/${projectId}/proposals/${proposalId}/rejections`,
+        proposalDecisionKey("reject", projectId, proposalId, canonicalInput),
+        canonicalInput,
+        (payload): payload is ArtifactProposalRejectionResponse =>
+          isArtifactProposalRejectionResponse(payload, projectId, proposalId),
       );
     },
     async listProjectAgents(projectId: string): Promise<AgentCatalogResponse> {

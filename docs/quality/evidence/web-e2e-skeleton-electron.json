@@ -3,7 +3,7 @@
   "passed": true,
   "novelCharacterCount": 25098,
   "persisted": {
-    "projectId": "prj_b5477edef39d40ccbe117529f8209157",
+    "projectId": "prj_762777b8f1ec4fe68a046dac3e6759c2",
     "sourceByteSize": 69748,
     "sourceCount": 1,
     "taskSummary": {
@@ -13,7 +13,7 @@
       "completed": 1
     },
     "taskStatus": "SUCCEEDED",
-    "timelineVersionId": "ver_e0d05109b5b343c294e9c68923f99bd4",
+    "timelineVersionId": "ver_92035befa86c4a5687daef1aab8fc0e6",
     "timelineRevision": 2,
     "clipCount": 3,
     "firstClip": {
@@ -24,6 +24,7 @@
       "duration_frames": 40
     },
     "bridgeKeys": [
+      "acceptArtifactProposalAsDraft",
       "createProject",
       "createProviderConnection",
       "deleteProviderConnection",
@@ -42,6 +43,7 @@
       "listProjects",
       "listProviderConnections",
       "listSources",
+      "rejectArtifactProposal",
       "reorderTimelineClip",
       "replaceTimelineClip",
       "startFakeTimelineWorkflow",
@@ -63,18 +65,8 @@
   "regressionLayout": {
     "scrollWidth": 1409,
     "clientWidth": 1409,
-    "railButton": [
-      271.71875,
-      213.765625,
-      112.828125,
-      44
-    ],
-    "inspectorButton": [
-      1220.453125,
-      213.765625,
-      140.828125,
-      44
-    ],
+    "railButton": [271.71875, 213.765625, 112.828125, 44],
+    "inspectorButton": [1220.453125, 213.765625, 140.828125, 44],
     "toolbarBottom": 262.765625,
     "stageTop": 278.765625,
     "sourceBodyFontSize": "14px",
