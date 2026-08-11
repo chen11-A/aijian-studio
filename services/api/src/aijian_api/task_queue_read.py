@@ -27,6 +27,7 @@ _ACTIVE_ATTEMPTS = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class TaskQueueRecord:
+    proposal_id: str | None
     workflow_run_id: str
     node_run_id: str
     node_key: str
@@ -125,7 +126,8 @@ class TaskQueueReader:
                 raise ProjectNotFoundError(project_id)
             rows = connection.execute(
                 """
-                SELECT run.workflow_run_id,
+                SELECT proposal.proposal_id,
+                       run.workflow_run_id,
                        node.node_run_id, node.node_key, node.node_type,
                        node.status AS node_status, node.input_bindings_json,
                        node.input_hash, node.output_version_id AS node_output_version_id,
@@ -148,6 +150,9 @@ class TaskQueueReader:
                 JOIN workflow_attempts AS attempt
                   ON attempt.node_run_id = node.node_run_id
                 JOIN task_ledger AS task ON task.attempt_id = attempt.attempt_id
+                LEFT JOIN agent_artifact_proposals AS proposal
+                  ON proposal.producer_attempt_id = attempt.attempt_id
+                 AND proposal.project_id = run.project_id
                 WHERE run.project_id = ?
                 ORDER BY
                   CASE WHEN attempt.status IN (
@@ -165,6 +170,7 @@ class TaskQueueReader:
 
 def _record(row: sqlite3.Row) -> TaskQueueRecord:
     return TaskQueueRecord(
+        proposal_id=_optional_text(row["proposal_id"]),
         workflow_run_id=str(row["workflow_run_id"]),
         node_run_id=str(row["node_run_id"]),
         node_key=str(row["node_key"]),

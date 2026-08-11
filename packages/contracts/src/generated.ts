@@ -2937,6 +2937,8 @@ export interface components {
             cost: components["schemas"]["TaskCostData"];
             node: components["schemas"]["TaskNodeData"];
             presentation: components["schemas"]["TaskPresentationData"];
+            /** Proposal Id */
+            proposal_id: string | null;
             task: components["schemas"]["TaskLedgerData"];
         };
         /** TaskQueueResponse */

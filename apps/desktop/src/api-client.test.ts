@@ -303,6 +303,7 @@ const taskQueueResponse: components["schemas"]["TaskQueueResponse"] = {
     summary: { total: 1, attention: 0, active: 1, completed: 0 },
     tasks: [
       {
+        proposal_id: null,
         node: {
           workflow_run_id: `wfr_${"1".repeat(32)}`,
           node_run_id: `node_${"2".repeat(32)}`,
@@ -913,6 +914,16 @@ describe("local API client", () => {
       session,
     );
     await expect(invalidClient.listProjectTasks(project.id)).rejects.toThrow("published contract");
+
+    const invalidProposal = structuredClone(taskQueueResponse);
+    invalidProposal.data.tasks[0]!.proposal_id = "prp_not-canonical";
+    const invalidProposalClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(invalidProposal)),
+      session,
+    );
+    await expect(invalidProposalClient.listProjectTasks(project.id)).rejects.toThrow(
+      "published contract",
+    );
   });
 
   test("reads project-scoped Agent and Skill catalogs through the authenticated client", async () => {

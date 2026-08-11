@@ -8291,11 +8291,24 @@
           "presentation": {
             "$ref": "#/components/schemas/TaskPresentationData"
           },
+          "proposal_id": {
+            "anyOf": [
+              {
+                "pattern": "^prp_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
           "task": {
             "$ref": "#/components/schemas/TaskLedgerData"
           }
         },
         "required": [
+          "proposal_id",
           "node",
           "attempt",
           "task",

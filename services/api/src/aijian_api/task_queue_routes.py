@@ -61,6 +61,7 @@ def create_task_queue_router(reader_provider: TaskQueueReaderProvider) -> APIRou
 def _item(record: TaskQueueRecord) -> TaskQueueItemData:
     status_label, next_action = task_presentation(record)
     return TaskQueueItemData(
+        proposal_id=record.proposal_id,
         node=TaskNodeData(
             workflow_run_id=record.workflow_run_id,
             node_run_id=record.node_run_id,

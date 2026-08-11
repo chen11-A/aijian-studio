@@ -70,6 +70,7 @@ def test_lists_project_tasks_without_exposing_execution_secrets(tmp_path: Path) 
         "completed": 0,
     }
     task = payload["data"]["tasks"][0]
+    assert task["proposal_id"] is None
     assert task["node"] == {
         "workflow_run_id": task["node"]["workflow_run_id"],
         "node_run_id": task["node"]["node_run_id"],
@@ -154,4 +155,10 @@ def test_task_list_openapi_contract_is_public_and_typed(tmp_path: Path) -> None:
     operation = schema["paths"]["/api/v1/projects/{project_id}/tasks"]["get"]
     assert operation["operationId"] == "listProjectTasks"
     assert "TaskQueueResponse" in str(operation["responses"]["200"])
-    assert "TaskQueueItemData" in schema["components"]["schemas"]
+    item_schema = schema["components"]["schemas"]["TaskQueueItemData"]
+    assert "proposal_id" in item_schema["required"]
+    proposal_property = item_schema["properties"]["proposal_id"]
+    assert {item.get("pattern") for item in proposal_property["anyOf"]} == {
+        None,
+        "^prp_[0-9a-f]{32}$",
+    }

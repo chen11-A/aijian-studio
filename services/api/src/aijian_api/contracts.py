@@ -455,6 +455,7 @@ class TaskPresentationData(BaseModel):
 class TaskQueueItemData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    proposal_id: str | None = Field(pattern=PROPOSAL_ID_PATTERN)
     node: TaskNodeData
     attempt: TaskAttemptData
     task: TaskLedgerData

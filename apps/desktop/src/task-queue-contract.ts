@@ -15,6 +15,7 @@ const WORKFLOW_RUN_ID_PATTERN = /^wfr_[0-9a-f]{32}$/;
 const NODE_RUN_ID_PATTERN = /^node_[0-9a-f]{32}$/;
 const ATTEMPT_ID_PATTERN = /^att_[0-9a-f]{32}$/;
 const TASK_ID_PATTERN = /^task_[0-9a-f]{32}$/;
+const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
 const VERSION_ID_PATTERN = /^ver_[0-9a-f]{32}$/;
 const CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
@@ -154,12 +155,13 @@ function isTaskLedger(value: unknown): boolean {
 function isTaskQueueItem(value: unknown): boolean {
   if (
     !isRecord(value) ||
-    !hasOnlyKeys(value, ["node", "attempt", "task", "cost", "presentation"])
+    !hasOnlyKeys(value, ["proposal_id", "node", "attempt", "task", "cost", "presentation"])
   ) {
     return false;
   }
   const { cost, presentation } = value;
   return (
+    isNullableId(value.proposal_id, PROPOSAL_ID_PATTERN) &&
     isTaskNode(value.node) &&
     isTaskAttempt(value.attempt) &&
     isTaskLedger(value.task) &&

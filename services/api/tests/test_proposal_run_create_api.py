@@ -323,6 +323,35 @@ def test_fake_proposal_run_truth_moves_running_to_named_human_review_atomically(
     assert data["skill_run"]["status"] == "NEEDS_REVIEW"
     assert data["skill_run"]["proposal_id"] == proposal_id
 
+    queue = client.get(f"/api/v1/projects/{project_id}/tasks")
+    assert queue.status_code == 200
+    queue_data = queue.json()["data"]
+    assert queue_data["summary"]["total"] == 1
+    assert len(queue_data["tasks"]) == 1
+    assert queue_data["tasks"][0]["proposal_id"] == proposal_id
+
+    reopened = TestClient(create_app(repository=StudioRepository(repository.database_path)))
+    reopened_queue = reopened.get(f"/api/v1/projects/{project_id}/tasks")
+    assert reopened_queue.status_code == 200
+    assert reopened_queue.json()["data"]["tasks"][0]["proposal_id"] == proposal_id
+
+    other_project_id = repository.create_project(
+        name="Detached proposal project",
+        aspect_ratio="9:16",
+        target_duration_seconds=30,
+        source_language="zh-CN",
+    ).id
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute("DROP TRIGGER agent_artifact_proposals_immutable_update")
+        connection.execute(
+            "UPDATE agent_artifact_proposals SET project_id = ? WHERE proposal_id = ?",
+            (other_project_id, proposal_id),
+        )
+    drifted_queue = reopened.get(f"/api/v1/projects/{project_id}/tasks")
+    assert drifted_queue.status_code == 200
+    assert drifted_queue.json()["data"]["tasks"][0]["proposal_id"] is None
+    assert reopened.get(f"/api/v1/projects/{other_project_id}/tasks").json()["data"]["tasks"] == []
+
 
 def test_agent_skill_start_rolls_back_all_run_state_on_partial_failure(tmp_path: Path) -> None:
     client, repository = sidecar_client(tmp_path)
@@ -508,6 +537,9 @@ def test_sidecar_accepts_reviewable_proposal_as_draft_without_advancing_gate(
     assert skill == ("SUCCEEDED",)
     assert workflow == ("SUCCEEDED",)
     assert acceptance_count == (1,)
+    assert client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0][
+        "proposal_id"
+    ] == proposal_id
 
     replay = client.post(
         f"/api/v1/projects/{project_id}/proposals/{proposal_id}/acceptances",
@@ -923,6 +955,9 @@ def test_sidecar_rejects_reviewable_proposal_without_materializing_artifacts(
     )
     assert accept_after_reject.status_code == 409
     assert cancel_after_reject.status_code == 409
+    assert client.get(f"/api/v1/projects/{project_id}/tasks").json()["data"]["tasks"][0][
+        "proposal_id"
+    ] == proposal_id
     with sqlite3.connect(repository.database_path) as connection:
         connection.row_factory = sqlite3.Row
         row = connection.execute(

@@ -10,6 +10,7 @@ NOW = datetime(2026, 8, 4, 9, 30, tzinfo=UTC)
 
 def _record(**changes: object) -> TaskQueueRecord:
     baseline = TaskQueueRecord(
+        proposal_id=None,
         workflow_run_id="run_11111111111111111111111111111111",
         node_run_id="nod_11111111111111111111111111111111",
         node_key="story.extract",

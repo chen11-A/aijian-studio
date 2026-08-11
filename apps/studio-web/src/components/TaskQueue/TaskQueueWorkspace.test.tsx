@@ -22,6 +22,7 @@ const response = {
     summary: { total: 1, attention: 0, active: 1, completed: 0 },
     tasks: [
       {
+        proposal_id: null,
         node: {
           workflow_run_id: `wfr_${"1".repeat(32)}`,
           node_run_id: `node_${"2".repeat(32)}`,
