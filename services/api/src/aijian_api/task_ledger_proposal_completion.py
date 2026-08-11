@@ -8,6 +8,7 @@ from aijian_api.artifact_proposal_store import (
     PROPOSAL_TRUTH_SELECT,
     decode_persisted_proposal_row,
 )
+from aijian_api.task_ledger_agent_runs import mark_agent_skill_run_needs_review
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import ClaimedTask, LeaseLostError, timestamp
 from aijian_api.task_ledger_snapshots import (
@@ -58,6 +59,12 @@ def complete_local_proposal_task(
             or proposal.target_artifact_type != snapshot.output_artifact_type
         ):
             raise ValueError("proposal does not belong to the current attempt snapshot")
+        mark_agent_skill_run_needs_review(
+            connection,
+            snapshot,
+            proposal_id=proposal_id,
+            now_text=now_text,
+        )
         node = connection.execute(
             """
             UPDATE workflow_node_runs

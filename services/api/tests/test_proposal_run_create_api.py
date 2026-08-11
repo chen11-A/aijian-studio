@@ -1,18 +1,27 @@
 import base64
+import hashlib
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from aijian_api.agent_skill_contracts import (
+    AgentSkillFixtureBundleV1,
+    ProposalDependencyV1,
+    ProposalSourceSpanV1,
+)
+from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
-from aijian_api.task_ledger import LocalTaskLedger
+from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 from fastapi.testclient import TestClient
 
 TOKEN = "r" * 43
 HOST = "127.0.0.1:43127"
 ORIGIN = "app://aijian"
+FIXTURE_PATH = Path(__file__).parent / "fixtures" / "agent-skill" / "contracts-v1.json"
 
 
 def sidecar_client(tmp_path: Path) -> tuple[TestClient, StudioRepository]:
@@ -133,6 +142,44 @@ def create_payload(source: tuple[str, str, str, str, int, int]) -> dict[str, obj
     }
 
 
+def persist_valid_source_extraction_proposal(
+    repository: StudioRepository,
+    ledger: LocalTaskLedger,
+    running: ClaimedTask,
+    source: tuple[str, str, str, str, int, int],
+) -> str:
+    project_id, manifest_version_id, document_id, block_id, start_byte, end_byte = source
+    snapshot = ledger.read_agent_skill_snapshot(running)
+    source_document = repository.get_source(project_id, document_id)
+    quote = source_document.normalized_text.encode("utf-8")[start_byte:end_byte]
+    bundle = AgentSkillFixtureBundleV1.model_validate_json(FIXTURE_PATH.read_text(encoding="utf-8"))
+    source_span = ProposalSourceSpanV1(
+        source_span_id=bundle.artifact_proposal.source_spans[0].source_span_id,
+        source_document_id=document_id,
+        source_block_id=block_id,
+        start_byte=start_byte,
+        end_byte=end_byte,
+        claim=bundle.artifact_proposal.source_spans[0].claim,
+        quote_hash=f"sha256:{hashlib.sha256(quote).hexdigest()}",
+    )
+    proposal = bundle.artifact_proposal.model_copy(
+        update={
+            "project_id": project_id,
+            "producer_agent_run_id": snapshot.agent_run_id,
+            "producer_skill_run_id": snapshot.skill_run_id,
+            "source_spans": (source_span,),
+            "dependencies": (
+                ProposalDependencyV1(
+                    artifact_type="SourceManifest",
+                    version_id=manifest_version_id,
+                ),
+            ),
+        }
+    )
+    persisted = ArtifactProposalStore(repository.database_path).persist(running, proposal)
+    return persisted.proposal.proposal_id
+
+
 def test_sidecar_creates_one_bounded_fake_run_and_task_for_exact_replay(tmp_path: Path) -> None:
     client, repository = sidecar_client(tmp_path)
     source = accepted_source(client)
@@ -190,6 +237,169 @@ def test_sidecar_creates_one_bounded_fake_run_and_task_for_exact_replay(tmp_path
     with sqlite3.connect(repository.database_path) as connection:
         with pytest.raises(sqlite3.IntegrityError, match="enqueue intents are immutable"):
             connection.execute("DELETE FROM proposal_run_enqueue_intents")
+
+
+def test_fake_proposal_run_truth_moves_running_to_named_human_review_atomically(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:review-state"},
+    )
+    assert created.status_code == 201
+    task_id = created.json()["data"]["task"]["task_id"]
+    run_id = created.json()["data"]["run_id"]
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-review-state-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=task_id,
+    )
+    assert claim is not None
+
+    running = ledger.mark_attempt_running(claim)
+    running_read = client.get(f"/api/v1/projects/{project_id}/proposal-runs/{run_id}")
+    assert running_read.status_code == 200
+    assert running_read.json()["data"]["agent_run"]["status"] == "RUNNING"
+    assert running_read.json()["data"]["skill_run"]["status"] == "RUNNING"
+
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    review_read = client.get(f"/api/v1/projects/{project_id}/proposal-runs/{run_id}")
+    assert review_read.status_code == 200
+    data = review_read.json()["data"]
+    assert data["agent_run"]["status"] == "NEEDS_REVIEW"
+    assert data["skill_run"]["status"] == "NEEDS_REVIEW"
+    assert data["skill_run"]["proposal_id"] == proposal_id
+
+
+def test_agent_skill_start_rolls_back_all_run_state_on_partial_failure(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:start-rollback"},
+    )
+    assert created.status_code == 201
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-start-rollback-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER inject_skill_start_failure
+            BEFORE UPDATE OF status ON skill_runs
+            WHEN NEW.status = 'RUNNING'
+            BEGIN
+                SELECT RAISE(ABORT, 'injected skill start failure');
+            END
+            """
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="injected skill start failure"):
+        ledger.mark_attempt_running(claim)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("LEASED",)
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("PENDING",)
+        assert connection.execute("SELECT status FROM skill_runs").fetchone() == ("PENDING",)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events WHERE reason_code = 'attempt.started'"
+        ).fetchone() == (0,)
+
+
+def test_agent_skill_start_fails_closed_when_persisted_run_bundle_is_missing(
+    tmp_path: Path,
+) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:missing-run-bundle"},
+    )
+    assert created.status_code == 201
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-missing-bundle-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("DELETE FROM skill_runs")
+
+    with pytest.raises(ValueError, match="detached from the attempt snapshot"):
+        ledger.mark_attempt_running(claim)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("SELECT status FROM workflow_attempts").fetchone() == ("LEASED",)
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("PENDING",)
+
+
+def test_proposal_ready_rolls_back_run_node_and_task_on_partial_failure(tmp_path: Path) -> None:
+    client, repository = sidecar_client(tmp_path)
+    source = accepted_source(client)
+    project_id = source[0]
+    created = client.post(
+        f"/api/v1/projects/{project_id}/proposal-runs",
+        json=create_payload(source),
+        headers={"Idempotency-Key": "source-extract:review-rollback"},
+    )
+    assert created.status_code == 201
+    ledger = LocalTaskLedger(repository.database_path)
+    claim = ledger.claim_ready_task(
+        worker_id="proposal-review-rollback-worker",
+        lease_duration=timedelta(seconds=30),
+        task_id=created.json()["data"]["task"]["task_id"],
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    proposal_id = persist_valid_source_extraction_proposal(repository, ledger, running, source)
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER inject_skill_review_failure
+            BEFORE UPDATE OF status ON skill_runs
+            WHEN NEW.status = 'NEEDS_REVIEW'
+            BEGIN
+                SELECT RAISE(ABORT, 'injected skill review failure');
+            END
+            """
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="injected skill review failure"):
+        ledger.complete_local_proposal_task(running, proposal_id=proposal_id)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        assert connection.execute("SELECT status FROM agent_runs").fetchone() == ("RUNNING",)
+        assert connection.execute("SELECT status, proposal_id FROM skill_runs").fetchone() == (
+            "RUNNING",
+            None,
+        )
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "RUNNING",
+        )
+        assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM workflow_transition_events WHERE reason_code = 'proposal.ready'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
+            1,
+        )
 
 
 def test_create_run_fails_closed_without_sidecar_or_exact_accepted_source(tmp_path: Path) -> None:

@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import sqlite3
@@ -194,6 +193,8 @@ def qc_retry_then_blocks(snapshot: AttemptSnapshotV1, invocation: int) -> Artifa
 
 def setup_fake_task(
     tmp_path: Path,
+    *,
+    max_attempts: int = 2,
 ) -> tuple[Path, str, list[datetime], LocalTaskLedger, ArtifactProposalV1, str]:
     database = tmp_path / "workspace.db"
     project_id = (
@@ -216,6 +217,70 @@ def setup_fake_task(
     }
     fields["attempt_fingerprint"] = canonical_sha256(fingerprint_payload)
     snapshot = AttemptSnapshotV1.model_validate(fields)
+    context_payload = bundle.context_manifest.model_dump(mode="json")
+    context_payload["project_id"] = project_id
+    context_payload["manifest_hash"] = canonical_sha256(
+        {
+            "project_id": project_id,
+            "agent_definition": context_payload["agent_definition"],
+            "skill_definition": context_payload["skill_definition"],
+            "entries": context_payload["entries"],
+            "total_byte_count": context_payload["total_byte_count"],
+        }
+    )
+    now_text = NOW.isoformat().replace("+00:00", "Z")
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO agent_runs VALUES (?, ?, ?, ?, 'PENDING', ?, 1, ?, ?)
+            """,
+            (
+                snapshot.agent_run_id,
+                project_id,
+                snapshot.agent_definition_id,
+                snapshot.agent_version,
+                json.dumps([snapshot.skill_run_id], separators=(",", ":")),
+                now_text,
+                now_text,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO agent_context_manifests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                bundle.context_manifest.context_manifest_id,
+                project_id,
+                snapshot.agent_definition_id,
+                snapshot.agent_version,
+                snapshot.skill_definition_id,
+                snapshot.skill_version,
+                json.dumps(
+                    context_payload,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                context_payload["manifest_hash"],
+                now_text,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO skill_runs VALUES (?, ?, ?, ?, ?, ?, 'PENDING', NULL, 1, ?, ?)
+            """,
+            (
+                snapshot.skill_run_id,
+                project_id,
+                snapshot.agent_run_id,
+                snapshot.skill_definition_id,
+                snapshot.skill_version,
+                bundle.context_manifest.context_manifest_id,
+                now_text,
+                now_text,
+            ),
+        )
     clock = [NOW]
     ledger = LocalTaskLedger(database, clock=lambda: clock[0])
     queued = ledger.enqueue_local_node(
@@ -232,7 +297,7 @@ def setup_fake_task(
         node_input_hash=snapshot.input_hash,
         request_fingerprint=snapshot.attempt_fingerprint,
         idempotency_key=snapshot.idempotency_key,
-        max_attempts=2,
+        max_attempts=max_attempts,
         task_kind="local.agent-skill.fake",
         priority=80,
         available_at=NOW,
@@ -317,7 +382,7 @@ def test_invalid_fake_proposal_leaves_leased_state_for_crash_recovery(tmp_path: 
     assert ledger.recover_expired_local_tasks().requeued == 1
 
 
-def test_recovered_fake_execution_reuses_existing_proposal_and_enters_review(
+def test_recovery_preserves_existing_proposal_and_enters_review(
     tmp_path: Path,
 ) -> None:
     database, _, clock, ledger, proposal, _ = setup_fake_task(tmp_path)
@@ -328,19 +393,9 @@ def test_recovered_fake_execution_reuses_existing_proposal_and_enters_review(
     first_running = ledger.mark_attempt_running(first_claim)
     first = ArtifactProposalStore(database, clock=lambda: clock[0]).persist(first_running, proposal)
     clock[0] = NOW + timedelta(seconds=31)
-    assert ledger.recover_expired_local_tasks().requeued == 1
+    summary = ledger.recover_expired_local_tasks()
 
-    executor = FakeAgentSkillExecutor(
-        ledger,
-        ArtifactProposalStore(database, clock=lambda: clock[0]),
-        worker_id="recovery-worker",
-        lease_duration=timedelta(seconds=30),
-        handler_timeout=timedelta(seconds=2),
-        handler=valid_fake_skill,
-        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
-    )
-    assert executor.run_once()
-
+    assert (summary.recovered, summary.requeued, summary.failed) == (1, 0, 0)
     assert ArtifactProposalStore(database).get(proposal.project_id, proposal.proposal_id) == first
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
@@ -349,6 +404,7 @@ def test_recovered_fake_execution_reuses_existing_proposal_and_enters_review(
         assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
             "NEEDS_REVIEW",
         )
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
 
 
 @pytest.mark.parametrize("operation", ("mark", "heartbeat"))
@@ -389,7 +445,7 @@ def test_lease_operations_fail_if_lock_wait_crosses_expiry(
         blocker.close()
 
 
-def test_recovered_attempt_cannot_reuse_proposal_after_frozen_snapshot_drift(
+def test_recovery_uses_persisted_proposal_without_creating_a_second_attempt(
     tmp_path: Path,
 ) -> None:
     database, _, clock, ledger, proposal, _ = setup_fake_task(tmp_path)
@@ -400,56 +456,47 @@ def test_recovered_attempt_cannot_reuse_proposal_after_frozen_snapshot_drift(
     first_running = ledger.mark_attempt_running(first_claim)
     ArtifactProposalStore(database, clock=lambda: clock[0]).persist(first_running, proposal)
     clock[0] = NOW + timedelta(seconds=31)
-    assert ledger.recover_expired_local_tasks().requeued == 1
+    summary = ledger.recover_expired_local_tasks()
 
     with sqlite3.connect(database) as connection:
-        connection.execute("DROP TRIGGER workflow_attempt_snapshots_immutable_update")
-        latest = connection.execute(
-            "SELECT attempt_id FROM workflow_attempts ORDER BY attempt_number DESC LIMIT 1"
-        ).fetchone()
-        assert latest is not None
-        attempt_id = str(latest[0])
-        row = connection.execute(
-            "SELECT snapshot_json FROM workflow_attempt_snapshots WHERE attempt_id = ?",
-            (attempt_id,),
-        ).fetchone()
-        assert row is not None
-        payload = json.loads(str(row[0]))
-        payload["model_id"] = "different-fake-model-v2"
-        fingerprint_payload = {
-            key: value
-            for key, value in payload.items()
-            if key not in {"schema_version", "attempt_fingerprint"}
-        }
-        payload["attempt_fingerprint"] = canonical_sha256(fingerprint_payload)
-        snapshot_json = json.dumps(
-            payload,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        snapshot_hash = "sha256:" + hashlib.sha256(snapshot_json.encode("utf-8")).hexdigest()
-        connection.execute(
-            "UPDATE workflow_attempt_snapshots SET snapshot_json = ?, snapshot_hash = ? "
-            "WHERE attempt_id = ?",
-            (snapshot_json, snapshot_hash, attempt_id),
-        )
-        connection.execute(
-            "UPDATE workflow_attempts SET request_fingerprint = ? WHERE attempt_id = ?",
-            (payload["attempt_fingerprint"], attempt_id),
-        )
+        attempts = connection.execute("SELECT attempt_id, status FROM workflow_attempts").fetchall()
+        node = connection.execute("SELECT status FROM workflow_node_runs").fetchone()
+        task = connection.execute("SELECT status FROM task_ledger").fetchone()
+        agent = connection.execute("SELECT status FROM agent_runs").fetchone()
+        skill = connection.execute("SELECT status, proposal_id FROM skill_runs").fetchone()
+        events = connection.execute(
+            "SELECT entity_kind, reason_code FROM workflow_transition_events "
+            "WHERE reason_code = 'proposal.ready_recovered' ORDER BY entity_kind"
+        ).fetchall()
+    assert (summary.recovered, summary.requeued, summary.failed) == (1, 0, 0)
+    assert attempts == [(first_running.attempt_id, "RUNNING")]
+    assert node == ("NEEDS_REVIEW",)
+    assert task == ("COMPLETED",)
+    assert agent == ("NEEDS_REVIEW",)
+    assert skill == ("NEEDS_REVIEW", proposal.proposal_id)
+    assert events == [
+        ("node", "proposal.ready_recovered"),
+        ("task", "proposal.ready_recovered"),
+    ]
 
-    executor = FakeAgentSkillExecutor(
-        ledger,
-        ArtifactProposalStore(database, clock=lambda: clock[0]),
-        worker_id="recovery-worker",
-        lease_duration=timedelta(seconds=30),
-        handler_timeout=timedelta(seconds=2),
-        handler=valid_fake_skill,
-        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+
+def test_exhausted_recovery_fails_pending_agent_and_skill_runs(tmp_path: Path) -> None:
+    database, _, clock, ledger, _, _ = setup_fake_task(tmp_path, max_attempts=1)
+    assert ledger.claim_ready_task(
+        worker_id="crashed-before-start", lease_duration=timedelta(seconds=30)
     )
-    with pytest.raises(ValueError, match="snapshot differs"):
-        executor.run_once()
+    clock[0] = NOW + timedelta(seconds=31)
+
+    summary = ledger.recover_expired_local_tasks()
+
+    with sqlite3.connect(database) as connection:
+        node = connection.execute("SELECT status FROM workflow_node_runs").fetchone()
+        agent = connection.execute("SELECT status FROM agent_runs").fetchone()
+        skill = connection.execute("SELECT status FROM skill_runs").fetchone()
+    assert (summary.recovered, summary.failed, summary.requeued) == (1, 1, 0)
+    assert node == ("FAILED",)
+    assert agent == ("FAILED",)
+    assert skill == ("FAILED",)
 
 
 def test_handler_timeout_returns_without_waiting_and_never_persists_late_result(

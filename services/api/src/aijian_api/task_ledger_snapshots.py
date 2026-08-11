@@ -107,6 +107,39 @@ def read_agent_skill_snapshot(
     ).fetchone()
     if row is None:
         raise LeaseLostError("task lease is stale or expired")
+    return _decode_agent_skill_snapshot_row(row, claim.attempt_id)
+
+
+def read_agent_skill_snapshot_for_attempt(
+    connection: sqlite3.Connection,
+    attempt_id: str,
+) -> AttemptSnapshotV1:
+    """Read frozen Agent/Skill truth without requiring a live worker lease."""
+
+    row = connection.execute(
+        """
+        SELECT snapshot.snapshot_kind, snapshot.snapshot_json, snapshot.snapshot_hash,
+               run.project_id, node.input_hash AS node_input_hash,
+               node.idempotency_key, attempt.input_hash AS attempt_input_hash,
+               attempt.request_fingerprint
+        FROM workflow_attempts AS attempt
+        JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+        JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id
+        LEFT JOIN workflow_attempt_snapshots AS snapshot
+          ON snapshot.attempt_id = attempt.attempt_id
+        WHERE attempt.attempt_id = ?
+        """,
+        (attempt_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError("attempt does not exist")
+    return _decode_agent_skill_snapshot_row(row, attempt_id)
+
+
+def _decode_agent_skill_snapshot_row(
+    row: sqlite3.Row,
+    attempt_id: str,
+) -> AttemptSnapshotV1:
     if row["snapshot_kind"] is None:
         raise ValueError("task does not have an Agent/Skill snapshot")
     try:
@@ -123,7 +156,7 @@ def read_agent_skill_snapshot(
         if "attempt_id" in payload:
             raise ValueError("snapshot template must not contain an attempt ID")
         reject_sensitive_snapshot_fields(payload)
-        validated = AttemptSnapshotV1.model_validate({**payload, "attempt_id": claim.attempt_id})
+        validated = AttemptSnapshotV1.model_validate({**payload, "attempt_id": attempt_id})
         if (
             validated.project_id != str(row["project_id"])
             or validated.input_hash != str(row["attempt_input_hash"])

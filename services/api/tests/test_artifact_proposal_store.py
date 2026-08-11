@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -53,6 +54,61 @@ def setup_claim(
     snapshot_fields["attempt_fingerprint"] = canonical_sha256(fingerprint_payload)
     snapshot = AttemptSnapshotV1.model_validate(snapshot_fields)
     snapshot_payload = snapshot.model_dump(mode="json", exclude={"attempt_id"})
+    context_payload = bundle.context_manifest.model_dump(mode="json")
+    context_payload["project_id"] = project_id
+    context_payload["manifest_hash"] = canonical_sha256(
+        {
+            "project_id": project_id,
+            "agent_definition": context_payload["agent_definition"],
+            "skill_definition": context_payload["skill_definition"],
+            "entries": context_payload["entries"],
+            "total_byte_count": context_payload["total_byte_count"],
+        }
+    )
+    now_text = NOW.isoformat().replace("+00:00", "Z")
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            "INSERT INTO agent_runs VALUES (?, ?, ?, ?, 'PENDING', ?, 1, ?, ?)",
+            (
+                snapshot.agent_run_id,
+                project_id,
+                snapshot.agent_definition_id,
+                snapshot.agent_version,
+                json.dumps([snapshot.skill_run_id], separators=(",", ":")),
+                now_text,
+                now_text,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO agent_context_manifests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                bundle.context_manifest.context_manifest_id,
+                project_id,
+                snapshot.agent_definition_id,
+                snapshot.agent_version,
+                snapshot.skill_definition_id,
+                snapshot.skill_version,
+                json.dumps(
+                    context_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                ),
+                context_payload["manifest_hash"],
+                now_text,
+            ),
+        )
+        connection.execute(
+            "INSERT INTO skill_runs VALUES (?, ?, ?, ?, ?, ?, 'PENDING', NULL, 1, ?, ?)",
+            (
+                snapshot.skill_run_id,
+                project_id,
+                snapshot.agent_run_id,
+                snapshot.skill_definition_id,
+                snapshot.skill_version,
+                bundle.context_manifest.context_manifest_id,
+                now_text,
+                now_text,
+            ),
+        )
     ledger = LocalTaskLedger(database, clock=lambda: NOW)
     ledger.enqueue_local_node(
         project_id=project_id,
@@ -79,6 +135,7 @@ def setup_claim(
         worker_id="fake-agent-worker", lease_duration=timedelta(seconds=30)
     )
     assert claim is not None
+    claim = ledger.mark_attempt_running(claim)
     proposal = bundle.artifact_proposal.model_copy(update={"project_id": project_id})
     return database, project_id, ledger, claim, proposal
 
@@ -150,26 +207,22 @@ def test_two_connections_converge_on_one_exact_proposal(tmp_path: Path) -> None:
         )
 
 
-def test_recovered_attempt_reuses_the_exact_immutable_skill_proposal(tmp_path: Path) -> None:
+def test_recovery_preserves_the_exact_immutable_skill_proposal(tmp_path: Path) -> None:
     database, _, _, claim, proposal = setup_claim(tmp_path)
     first = ArtifactProposalStore(database, clock=lambda: NOW).persist(claim, proposal)
     later = NOW + timedelta(seconds=31)
     recovered_ledger = LocalTaskLedger(database, clock=lambda: later)
-    assert recovered_ledger.recover_expired_local_tasks().requeued == 1
-    recovered_claim = recovered_ledger.claim_ready_task(
-        worker_id="recovery-worker", lease_duration=timedelta(seconds=30)
-    )
-    assert recovered_claim is not None and recovered_claim.attempt_id != claim.attempt_id
+    summary = recovered_ledger.recover_expired_local_tasks()
 
-    replay = ArtifactProposalStore(database, clock=lambda: later).persist(
-        recovered_claim,
-        proposal,
-    )
-
-    assert replay == first
+    assert (summary.recovered, summary.requeued, summary.failed) == (1, 0, 0)
+    assert ArtifactProposalStore(database).get(proposal.project_id, proposal.proposal_id) == first
     with sqlite3.connect(database) as connection:
         assert connection.execute("SELECT COUNT(*) FROM agent_artifact_proposals").fetchone() == (
             1,
+        )
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
+        assert connection.execute("SELECT status FROM workflow_node_runs").fetchone() == (
+            "NEEDS_REVIEW",
         )
 
 

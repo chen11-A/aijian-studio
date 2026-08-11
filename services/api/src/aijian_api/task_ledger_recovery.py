@@ -4,8 +4,20 @@ import sqlite3
 from collections.abc import Callable
 from datetime import datetime
 
+from aijian_api.artifact_proposal_store import (
+    PROPOSAL_TRUTH_SELECT,
+    decode_persisted_proposal_row,
+)
+from aijian_api.task_ledger_agent_runs import (
+    mark_agent_skill_run_failed,
+    mark_agent_skill_run_needs_review,
+)
 from aijian_api.task_ledger_events import EventEntityKind, append_event
 from aijian_api.task_ledger_models import LeaseLostError, RecoverySummary, timestamp
+from aijian_api.task_ledger_snapshots import (
+    AGENT_SKILL_SNAPSHOT_KIND,
+    read_agent_skill_snapshot_for_attempt,
+)
 
 
 def recover_expired_local_tasks(
@@ -42,6 +54,17 @@ def recover_expired_local_tasks(
             (now_text,),
         ).fetchall()
         for row in rows:
+            proposal_id = _persisted_proposal_id(connection, row)
+            if proposal_id is not None:
+                _recover_persisted_proposal(
+                    connection,
+                    row,
+                    proposal_id,
+                    now_text,
+                    id_factory,
+                )
+                recovered += 1
+                continue
             output_version_id = _committed_output(connection, row)
             if output_version_id is not None:
                 _complete_committed_output(
@@ -74,6 +97,101 @@ def recover_expired_local_tasks(
         requeued=requeued,
         failed=failed,
     )
+
+
+def _persisted_proposal_id(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+) -> str | None:
+    proposal = connection.execute(
+        "SELECT proposal_id FROM agent_artifact_proposals WHERE producer_attempt_id = ?",
+        (str(row["attempt_id"]),),
+    ).fetchone()
+    return None if proposal is None else str(proposal["proposal_id"])
+
+
+def _recover_persisted_proposal(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+    proposal_id: str,
+    now_text: str,
+    id_factory: Callable[[str], str],
+) -> None:
+    proposal_row = connection.execute(
+        PROPOSAL_TRUTH_SELECT + " WHERE proposal.proposal_id = ?",
+        (proposal_id,),
+    ).fetchone()
+    if proposal_row is None:
+        raise ValueError("persisted proposal disappeared during recovery")
+    persisted = decode_persisted_proposal_row(proposal_row)
+    attempt_id = str(row["attempt_id"])
+    if persisted.producer_attempt_id != attempt_id:
+        raise ValueError("persisted proposal belongs to a different attempt")
+    snapshot = read_agent_skill_snapshot_for_attempt(connection, attempt_id)
+    proposal = persisted.proposal
+    if (
+        proposal.project_id != snapshot.project_id
+        or proposal.producer_agent_run_id != snapshot.agent_run_id
+        or proposal.producer_skill_run_id != snapshot.skill_run_id
+        or proposal.target_artifact_type != snapshot.output_artifact_type
+    ):
+        raise ValueError("persisted proposal is detached from its attempt snapshot")
+    mark_agent_skill_run_needs_review(
+        connection,
+        snapshot,
+        proposal_id=proposal_id,
+        now_text=now_text,
+    )
+    task = connection.execute(
+        """
+        UPDATE task_ledger
+        SET status = 'COMPLETED', revision = revision + 1, updated_at = ?
+        WHERE task_id = ? AND attempt_id = ? AND status = 'LEASED'
+          AND revision = ? AND lease_generation = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            str(row["task_id"]),
+            attempt_id,
+            int(row["revision"]),
+            int(row["lease_generation"]),
+        ),
+    ).fetchone()
+    node = connection.execute(
+        """
+        UPDATE workflow_node_runs
+        SET status = 'NEEDS_REVIEW', revision = revision + 1, updated_at = ?
+        WHERE node_run_id = ? AND status = 'RUNNING'
+          AND active_attempt_id = ? AND revision = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            str(row["node_run_id"]),
+            attempt_id,
+            int(row["node_revision"]),
+        ),
+    ).fetchone()
+    if task is None or node is None:
+        raise LeaseLostError("persisted proposal changed during recovery")
+    recovered_events: tuple[tuple[EventEntityKind, str], ...] = (
+        ("node", str(row["node_run_id"])),
+        ("task", str(row["task_id"])),
+    )
+    for entity_kind, entity_id in recovered_events:
+        append_event(
+            connection,
+            id_factory,
+            entity_kind,
+            entity_id,
+            "RUNNING" if entity_kind == "node" else "LEASED",
+            "NEEDS_REVIEW" if entity_kind == "node" else "COMPLETED",
+            "proposal.ready_recovered",
+            now_text,
+            actor_id="local-recovery",
+            lease_generation=int(row["lease_generation"]),
+        )
 
 
 def _committed_output(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:
@@ -305,6 +423,18 @@ def _fail_node(
     now_text: str,
     id_factory: Callable[[str], str],
 ) -> None:
+    snapshot_row = connection.execute(
+        "SELECT snapshot_kind FROM workflow_attempt_snapshots WHERE attempt_id = ?",
+        (str(row["attempt_id"]),),
+    ).fetchone()
+    if snapshot_row is not None:
+        if str(snapshot_row["snapshot_kind"]) != AGENT_SKILL_SNAPSHOT_KIND:
+            raise ValueError("unsupported attempt snapshot kind")
+        snapshot = read_agent_skill_snapshot_for_attempt(
+            connection,
+            str(row["attempt_id"]),
+        )
+        mark_agent_skill_run_failed(connection, snapshot, now_text=now_text)
     node = connection.execute(
         """
         UPDATE workflow_node_runs

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from aijian_api.agent_skill_contracts import AttemptSnapshotV1
 from aijian_api.repository import StudioRepository
+from aijian_api.task_ledger_agent_runs import mark_agent_skill_run_running
 from aijian_api.task_ledger_cancellation import (
     LocalCancellationResult,
     cancel_local_workflow,
@@ -29,7 +30,10 @@ from aijian_api.task_ledger_models import (
 )
 from aijian_api.task_ledger_proposal_completion import complete_local_proposal_task
 from aijian_api.task_ledger_recovery import recover_expired_local_tasks
-from aijian_api.task_ledger_snapshots import read_agent_skill_snapshot
+from aijian_api.task_ledger_snapshots import (
+    AGENT_SKILL_SNAPSHOT_KIND,
+    read_agent_skill_snapshot,
+)
 
 __all__ = [
     "ClaimedTask",
@@ -320,6 +324,20 @@ class LocalTaskLedger:
             ).fetchone()
             if attempt is None:
                 raise LeaseLostError("attempt revision is stale")
+            running_claim = replace(claim, attempt_revision=int(attempt["revision"]))
+            snapshot_row = connection.execute(
+                "SELECT snapshot_kind FROM workflow_attempt_snapshots WHERE attempt_id = ?",
+                (claim.attempt_id,),
+            ).fetchone()
+            if snapshot_row is not None:
+                if str(snapshot_row["snapshot_kind"]) != AGENT_SKILL_SNAPSHOT_KIND:
+                    raise ValueError("unsupported attempt snapshot kind")
+                snapshot = read_agent_skill_snapshot(
+                    connection,
+                    running_claim,
+                    now_text=now_text,
+                )
+                mark_agent_skill_run_running(connection, snapshot, now_text=now_text)
             append_event(
                 connection,
                 self._id_factory,
@@ -334,7 +352,7 @@ class LocalTaskLedger:
                 lease_generation=claim.lease_generation,
             )
             connection.commit()
-            return replace(claim, attempt_revision=int(attempt["revision"]))
+            return running_claim
         except Exception:
             connection.rollback()
             raise
