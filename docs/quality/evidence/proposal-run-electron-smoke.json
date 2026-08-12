@@ -2,13 +2,59 @@
   "check": "phase0-proposal-run-electron",
   "passed": true,
   "seeded": {
-    "project_id": "prj_92343ac2f84d455497247ca49bb31f79",
-    "source_block_id": "srcb_bdc85e1ba3a34b58b313a783bfaba1ee",
-    "source_id": "src_f5794840f6f548a9a70164ba21ef1746",
-    "source_manifest_version_id": "ver_ec0c45ab361340edbffe1af58ed08003"
+    "project_id": "prj_a2e288da592342149e002648a906e6d3",
+    "source_block_id": "srcb_48f4bbd3358d41f484a020951ac90540",
+    "source_id": "src_06c778ae975647f08d094cc785135381",
+    "source_manifest_version_id": "ver_e5cce687394c4086baa58059ea30dba7"
+  },
+  "firstUnknownState": {
+    "operationId": "70c1ba2a-a429-4f20-9594-e781fe6940eb",
+    "input": {
+      "agent_definition": {
+        "definition_id": "writer.source-analyst",
+        "version": "1.0.0"
+      },
+      "skill_definition": {
+        "definition_id": "source.extract",
+        "version": "1.0.0"
+      },
+      "source_manifest_version_id": "ver_e5cce687394c4086baa58059ea30dba7",
+      "source_document_id": "src_06c778ae975647f08d094cc785135381",
+      "source_block_id": "srcb_48f4bbd3358d41f484a020951ac90540",
+      "start_byte": 17,
+      "end_byte": 104
+    },
+    "createdAt": "2026-08-12T07:03:17.157Z",
+    "pendingJournalKeys": ["aijian.proposal-run.pending.v1:prj_a2e288da592342149e002648a906e6d3"]
+  },
+  "firstCommittedRun": {
+    "taskId": "task_4a1ae58dd19d448ab12a8c7d06ccd256",
+    "attemptId": "att_92e3306939f9455c8740901534547230",
+    "taskStatus": "COMPLETED",
+    "attemptStatus": "RUNNING",
+    "nodeStatus": "NEEDS_REVIEW",
+    "proposalId": "prp_4ff19676f0ece068a0aaf4e656865ca0"
+  },
+  "recoveryState": {
+    "operationId": "70c1ba2a-a429-4f20-9594-e781fe6940eb",
+    "input": {
+      "agent_definition": {
+        "definition_id": "writer.source-analyst",
+        "version": "1.0.0"
+      },
+      "skill_definition": {
+        "definition_id": "source.extract",
+        "version": "1.0.0"
+      },
+      "source_manifest_version_id": "ver_e5cce687394c4086baa58059ea30dba7",
+      "source_document_id": "src_06c778ae975647f08d094cc785135381",
+      "source_block_id": "srcb_48f4bbd3358d41f484a020951ac90540",
+      "start_byte": 17,
+      "end_byte": 104
+    }
   },
   "reviewTask": {
-    "proposalId": "prp_2d043b2f12435d8c608c55cfa41fa3a3",
+    "proposalId": "prp_4ff19676f0ece068a0aaf4e656865ca0",
     "taskStatus": "COMPLETED",
     "nodeStatus": "NEEDS_REVIEW",
     "attemptStatus": "RUNNING"
@@ -17,14 +63,19 @@
     "acceptance_count": 1,
     "accepted_version_id": null,
     "agent_status": "SUCCEEDED",
+    "attempt_count": 1,
     "attempt_status": "SUCCEEDED",
-    "draft_version_id": "ver_2bcbc87775844a02b8a2b497a9f61908",
+    "draft_version_id": "ver_df0069e99ee349b59d3969eacd885a4f",
     "gate_decision_count": 0,
-    "latest_version_id": "ver_2bcbc87775844a02b8a2b497a9f61908",
+    "intent_count": 1,
+    "latest_version_id": "ver_df0069e99ee349b59d3969eacd885a4f",
     "node_status": "SUCCEEDED",
-    "proposal_id": "prp_2d043b2f12435d8c608c55cfa41fa3a3",
+    "proposal_count": 1,
+    "proposal_id": "prp_4ff19676f0ece068a0aaf4e656865ca0",
     "skill_status": "SUCCEEDED",
+    "task_count": 1,
     "task_status": "COMPLETED",
+    "workflow_count": 1,
     "workflow_status": "SUCCEEDED"
   },
   "rendererState": {

@@ -14,6 +14,10 @@ import {
 } from "./api-client";
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
+import {
+  createE2EProposalRunResponseFault,
+  shouldEnableE2EProposalRunResponseFault,
+} from "./e2e-proposal-run-response-fault";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
@@ -25,15 +29,17 @@ let apiClient: LocalApiClient | null = null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
 
-function configureDevelopmentUserData(): void {
+function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
-  if (requested === undefined) return;
+  if (requested === undefined) return false;
   if (app.isPackaged) {
     throw new Error("E2E user data override is only available to local development");
   }
   const allowedRoot = resolve(__dirname, "../../../.aijian-dev");
   const requestedPath = resolveE2EUserDataDirectory(requested, allowedRoot);
-  if (requestedPath !== null) app.setPath("userData", requestedPath);
+  if (requestedPath === null) return false;
+  app.setPath("userData", requestedPath);
+  return true;
 }
 
 function developmentSidecarOptions(): StartSidecarOptions {
@@ -162,10 +168,18 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
-  configureDevelopmentUserData();
+  const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
   await app.whenReady();
   sidecar = await startSidecar(developmentSidecarOptions());
-  apiClient = createLocalApiClient(fetch, sidecar.session);
+  const proposalRunResponseFault = shouldEnableE2EProposalRunResponseFault({
+    isPackaged: app.isPackaged,
+    hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,
+    mode: process.env.AIJIAN_E2E_PROPOSAL_RUN_RESPONSE_FAULT,
+  });
+  apiClient = createLocalApiClient(
+    createE2EProposalRunResponseFault(fetch, proposalRunResponseFault),
+    sidecar.session,
+  );
   mainWindow = createMainWindow();
 
   app.on("activate", () => {

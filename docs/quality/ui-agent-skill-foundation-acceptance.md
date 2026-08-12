@@ -2,7 +2,7 @@
 
 状态：In progress；Fake `source.extract` 已具备 Electron 启动、后台执行、提案读取与接受/退回，提案比较和人工 Gate 联合纵切仍未完成
 
-当前纵切证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only Worker/决定事务、Electron exact-key IPC、持久 operation journal 和提案卡共同跑通 `source.extract`。创建运行只允许内置 Fake 定义，首次 IPC 前保存精确 `operation_id + input`；`REMOTE_UNKNOWN` 只能显式恢复同一操作，明确结果才清理 journal。Worker 生成带 SourceSpan、零费用和显式能力损失的 ArtifactProposal；接受只创建 DRAFT 且不推进 accepted Head 或 Gate。真实 Electron 隔离纵切及数据库不变量见 [结构化结果](evidence/proposal-run-electron-smoke.json) 与 [1440×920 截图](evidence/proposal-run-electron-1440x920.png)。普通 Web 没有创建/决定 capability，390px 不渲染这些控件。影片验收、提案比较和人工 Gate 仍未完成，本增量不提高 48 周路线图完成度。
+当前纵切证据：Migration 12/13 分别建立接受与退回的不可变审计，Migration 13 再把两类决定扩展为双向互斥；Sidecar-only Worker/决定事务、Electron exact-key IPC、持久 operation journal 和提案卡共同跑通 `source.extract`。创建运行只允许内置 Fake 定义，首次 IPC 前保存精确 `operation_id + input`；`REMOTE_UNKNOWN` 只能显式恢复同一操作，明确结果才清理 journal。真实 Electron 故障注入已在 Sidecar 返回 `201` 后丢失首个响应，Renderer 保留未知状态；重启后使用完全相同的 operation/input 获得 `200` replay，最终数据库仍只有一个 Workflow、Attempt、Task、enqueue intent 和 Proposal。Worker 生成带 SourceSpan、零费用和显式能力损失的 ArtifactProposal；接受只创建 DRAFT 且不推进 accepted Head 或 Gate。隔离纵切及数据库不变量见 [结构化结果](evidence/proposal-run-electron-smoke.json) 与 [1440×920 截图](evidence/proposal-run-electron-1440x920.png)。普通 Web 没有创建/决定 capability，390px 不渲染这些控件。真实远程 Provider 的 `REMOTE_UNKNOWN`、影片验收、提案比较和人工 Gate 仍未完成，本增量不提高 48 周路线图完成度。
 
 ## C：P0 UI 壳
 

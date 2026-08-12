@@ -165,8 +165,45 @@ def inspect(database: Path, project_id: str) -> dict[str, object]:
             if acceptance is not None
             else 0
         )
+        counts = {
+            "workflow_count": connection.execute(
+                "SELECT COUNT(*) FROM workflow_runs WHERE project_id = ?", (project_id,)
+            ).fetchone()[0],
+            "attempt_count": connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM workflow_attempts AS attempt
+                JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+                JOIN workflow_runs AS workflow
+                  ON workflow.workflow_run_id = node.workflow_run_id
+                WHERE workflow.project_id = ?
+                """,
+                (project_id,),
+            ).fetchone()[0],
+            "task_count": connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM task_ledger AS task
+                JOIN workflow_attempts AS attempt ON attempt.attempt_id = task.attempt_id
+                JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+                JOIN workflow_runs AS workflow
+                  ON workflow.workflow_run_id = node.workflow_run_id
+                WHERE workflow.project_id = ?
+                """,
+                (project_id,),
+            ).fetchone()[0],
+            "intent_count": connection.execute(
+                "SELECT COUNT(*) FROM proposal_run_enqueue_intents WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()[0],
+            "proposal_count": connection.execute(
+                "SELECT COUNT(*) FROM agent_artifact_proposals WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()[0],
+        }
         return {
             **dict(run),
+            **counts,
             "acceptance_count": 0 if acceptance is None else 1,
             "draft_version_id": None if acceptance is None else acceptance["draft_version_id"],
             "latest_version_id": None if acceptance is None else acceptance["latest_version_id"],

@@ -102,7 +102,11 @@ try {
     executablePath: electronExecutable,
     args: [join(repositoryRoot, "apps", "desktop"), `--user-data-dir=${profileDirectory}`],
     cwd: repositoryRoot,
-    env: { ...globalThis.process.env, AIJIAN_E2E_USER_DATA_DIR: profileDirectory },
+    env: {
+      ...globalThis.process.env,
+      AIJIAN_E2E_USER_DATA_DIR: profileDirectory,
+      AIJIAN_E2E_PROPOSAL_RUN_RESPONSE_FAULT: "after-commit-once",
+    },
     timeout: 30_000,
   });
   appWindow = await application.firstWindow({ timeout: 30_000 });
@@ -117,7 +121,80 @@ try {
   await appWindow.getByRole("heading", { name: "来源提取纵切验收", exact: true }).waitFor();
   await appWindow.getByText("source-extract-evidence.txt", { exact: true }).first().waitFor();
   await appWindow.getByRole("button", { name: "启动来源提取" }).click();
-  await appWindow.getByText("来源提取已进入任务队列").waitFor();
+  await appWindow.getByText("提交结果未知").waitFor();
+
+  const firstUnknownState = await appWindow.evaluate((projectId) => {
+    const key = `aijian.proposal-run.pending.v1:${projectId}`;
+    const raw = globalThis.localStorage.getItem(key);
+    if (raw === null) throw new Error("REMOTE_UNKNOWN did not retain its operation journal");
+    const pending = JSON.parse(raw);
+    return {
+      operationId: pending.operation_id,
+      input: pending.input,
+      createdAt: pending.created_at,
+      pendingJournalKeys: Object.keys(globalThis.localStorage).filter((candidate) =>
+        candidate.startsWith("aijian.proposal-run.pending.v1:"),
+      ),
+    };
+  }, seeded.project_id);
+  const firstCommittedRun = await waitForValue(
+    () =>
+      appWindow.evaluate(async (projectId) => {
+        const response = await globalThis.aijian.listProjectTasks(projectId);
+        const item = response.data.tasks.find(
+          (candidate) => candidate.task.kind === "local.agent-skill.fake",
+        );
+        return item
+          ? {
+              taskId: item.task.task_id,
+              attemptId: item.attempt.attempt_id,
+              taskStatus: item.task.status,
+              attemptStatus: item.attempt.status,
+              nodeStatus: item.node.status,
+              proposalId: item.proposal_id,
+            }
+          : null;
+      }, seeded.project_id),
+    (value) => value?.nodeStatus === "NEEDS_REVIEW" && value.proposalId !== null,
+    "committed proposal run after lost response",
+  );
+
+  await application.close();
+  application = undefined;
+  appWindow = undefined;
+
+  application = await electron.launch({
+    executablePath: electronExecutable,
+    args: [join(repositoryRoot, "apps", "desktop"), `--user-data-dir=${profileDirectory}`],
+    cwd: repositoryRoot,
+    env: { ...globalThis.process.env, AIJIAN_E2E_USER_DATA_DIR: profileDirectory },
+    timeout: 30_000,
+  });
+  appWindow = await application.firstWindow({ timeout: 30_000 });
+  appWindow.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") {
+      rendererDiagnostics.push(`${message.type()}: ${message.text()}`);
+    }
+  });
+  appWindow.on("pageerror", (error) => rendererDiagnostics.push(`pageerror: ${error.message}`));
+  await appWindow.getByText("本地工作区服务已连接").waitFor({ timeout: 30_000 });
+  await appWindow.getByRole("heading", { name: "来源提取纵切验收", exact: true }).waitFor();
+  await appWindow.getByRole("button", { name: "恢复同一操作" }).waitFor();
+  const recoveryState = await appWindow.evaluate((projectId) => {
+    const key = `aijian.proposal-run.pending.v1:${projectId}`;
+    const raw = globalThis.localStorage.getItem(key);
+    if (raw === null) throw new Error("relaunch lost the pending proposal run journal");
+    const pending = JSON.parse(raw);
+    return { operationId: pending.operation_id, input: pending.input };
+  }, seeded.project_id);
+  if (
+    recoveryState.operationId !== firstUnknownState.operationId ||
+    JSON.stringify(recoveryState.input) !== JSON.stringify(firstUnknownState.input)
+  ) {
+    throw new Error("Electron relaunch did not preserve the exact proposal run operation");
+  }
+  await appWindow.getByRole("button", { name: "恢复同一操作" }).click();
+  await appWindow.getByText("已恢复原运行").waitFor();
 
   const reviewTask = await waitForValue(
     () =>
@@ -137,7 +214,6 @@ try {
     "source.extract proposal",
   );
 
-  await appWindow.getByRole("button", { name: "刷新提案" }).click();
   await appWindow.getByRole("heading", { name: "来源提取提案" }).waitFor();
   await appWindow.getByText("local-fake.no-semantic-extraction").waitFor();
   await appWindow.getByRole("button", { name: "接受为 DRAFT" }).click();
@@ -186,6 +262,11 @@ try {
     persisted.agent_status !== "SUCCEEDED" ||
     persisted.skill_status !== "SUCCEEDED" ||
     persisted.proposal_id !== reviewTask.proposalId ||
+    persisted.workflow_count !== 1 ||
+    persisted.attempt_count !== 1 ||
+    persisted.task_count !== 1 ||
+    persisted.intent_count !== 1 ||
+    persisted.proposal_count !== 1 ||
     persisted.acceptance_count !== 1 ||
     persisted.draft_version_id !== persisted.latest_version_id ||
     persisted.accepted_version_id !== null ||
@@ -198,6 +279,9 @@ try {
     check: "phase0-proposal-run-electron",
     passed: true,
     seeded,
+    firstUnknownState,
+    firstCommittedRun,
+    recoveryState,
     reviewTask,
     persisted,
     rendererState,

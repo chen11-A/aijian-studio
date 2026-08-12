@@ -39,6 +39,15 @@ describe("privileged contract boundaries", () => {
     const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
     expect(mainSource).toContain("registerProposalRunHandlers<IpcMainInvokeEvent>(");
     expect(mainSource).not.toContain('ipcMain.handle("proposal-runs:create"');
+    expect(mainSource).toContain(
+      "const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();",
+    );
+    expect(mainSource).toMatch(
+      /shouldEnableE2EProposalRunResponseFault\(\{[\s\S]*isPackaged: app\.isPackaged,[\s\S]*hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,[\s\S]*mode: process\.env\.AIJIAN_E2E_PROPOSAL_RUN_RESPONSE_FAULT,[\s\S]*\}\)/,
+    );
+    expect(mainSource).toContain(
+      "createE2EProposalRunResponseFault(fetch, proposalRunResponseFault)",
+    );
   });
 
   test("does not expose proposal run creation through the ordinary Web HTTP transport", () => {
