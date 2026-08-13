@@ -10,6 +10,7 @@ import stat
 import subprocess
 import tempfile
 import threading
+import time
 from collections.abc import Callable
 from contextlib import ExitStack
 from enum import StrEnum
@@ -101,15 +102,32 @@ def run_ffprobe_command(
     executable: Path,
     arguments: tuple[str, ...],
     timeout: float,
+    *,
+    stop_requested: Callable[[], bool] | None = None,
 ) -> bytes:
     """Execute an already trusted ffprobe path without a shell or stdin."""
 
     command = [str(executable), *arguments]
+    environment = {
+        key: os.environ[key]
+        for key in (
+            "COMSPEC",
+            "PATH",
+            "PATHEXT",
+            "SYSTEMDRIVE",
+            "SYSTEMROOT",
+            "TEMP",
+            "TMP",
+            "WINDIR",
+        )
+        if key in os.environ
+    }
     process = subprocess.Popen(
         command,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        env=environment,
     )
     if process.stdout is None:
         process.kill()
@@ -137,13 +155,40 @@ def run_ffprobe_command(
 
     reader = threading.Thread(target=read_output, name="aijian-ffprobe-output", daemon=True)
     reader.start()
-    try:
-        return_code = process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
-        reader.join(timeout=1.0)
-        raise
+    if stop_requested is None:
+        try:
+            return_code = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            reader.join(timeout=1.0)
+            raise
+    else:
+        deadline = time.monotonic() + timeout
+        try:
+            while process.poll() is None:
+                if stop_requested():
+                    process.terminate()
+                    try:
+                        process.wait(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=0.5)
+                    reader.join(timeout=0.5)
+                    raise OSError("ffprobe was interrupted")
+                if time.monotonic() >= deadline:
+                    process.kill()
+                    process.wait()
+                    reader.join(timeout=1.0)
+                    raise subprocess.TimeoutExpired(command, timeout)
+                time.sleep(0.05)
+            return_code = int(process.returncode)
+        except BaseException:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            reader.join(timeout=1.0)
+            raise
     reader.join(timeout=1.0)
     if reader.is_alive():
         process.kill()

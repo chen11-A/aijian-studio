@@ -16,6 +16,7 @@ from aijian_api.task_ledger_cancellation import (
 from aijian_api.task_ledger_completion import complete_local_task
 from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
 from aijian_api.task_ledger_events import append_event
+from aijian_api.task_ledger_failure import fail_local_task
 from aijian_api.task_ledger_models import (
     ClaimedTask,
     LeaseLostError,
@@ -100,6 +101,7 @@ class LocalTaskLedger:
         available_at: datetime,
         attempt_snapshot_kind: str | None = None,
         attempt_snapshot: Mapping[str, object] | None = None,
+        transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
     ) -> QueuedTask:
         request = EnqueueLocalNodeRequest(
             project_id=project_id,
@@ -127,6 +129,7 @@ class LocalTaskLedger:
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,
+            transaction_validator=transaction_validator,
         )
 
     def claim_ready_task(
@@ -451,6 +454,17 @@ class LocalTaskLedger:
         return complete_local_task(
             claim,
             output_version_id=output_version_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def fail_local_task(self, claim: ClaimedTask, *, error_code: str) -> None:
+        if not error_code.strip():
+            raise ValueError("error code must not be empty")
+        fail_local_task(
+            claim,
+            error_code=error_code,
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,

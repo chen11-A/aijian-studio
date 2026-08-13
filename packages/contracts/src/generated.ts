@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/fake-timeline-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Run */
+        post: operations["createFakeTimelineRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/proposal-runs": {
         parameters: {
             query?: never;
@@ -407,7 +424,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start */
+        /**
+         * Start
+         * @deprecated
+         */
         post: operations["startFakeTimelineWorkflow"];
         delete?: never;
         options?: never;
@@ -1022,6 +1042,13 @@ export interface components {
             comment: string;
             reason_code: components["schemas"]["ArtifactProposalRejectionReason"];
         };
+        /** CreateFakeTimelineRunRequest */
+        CreateFakeTimelineRunRequest: {
+            /** Source Document Id */
+            source_document_id: string;
+            /** Source Manifest Version Id */
+            source_manifest_version_id: string;
+        };
         /** CreateProjectRequest */
         CreateProjectRequest: {
             /**
@@ -1362,6 +1389,55 @@ export interface components {
         FactImportance: "core" | "supporting" | "detail";
         /** @enum {string} */
         FactOrigin: "source_explicit_assertion" | "source_interpretation" | "user_decision" | "ai_inference";
+        /** FakeTimelineRunData */
+        FakeTimelineRunData: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Attempt Status
+             * @enum {string}
+             */
+            attempt_status: "READY" | "LEASED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED";
+            /**
+             * Capability Losses
+             * @default [
+             *       "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+             *       "STATIC_FRAME_NO_MOTION_GENERATION",
+             *       "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY"
+             *     ]
+             */
+            capability_losses: [
+                "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+                "STATIC_FRAME_NO_MOTION_GENERATION",
+                "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY"
+            ];
+            /** Node Run Id */
+            node_run_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Source Manifest Version Id */
+            source_manifest_version_id: string;
+            /** Task Id */
+            task_id: string;
+            /**
+             * Task Status
+             * @enum {string}
+             */
+            task_status: "READY" | "LEASED" | "COMPLETED" | "CANCELLED";
+            /** Workflow Run Id */
+            workflow_run_id: string;
+        };
+        /** FakeTimelineRunResponse */
+        FakeTimelineRunResponse: {
+            data: components["schemas"]["FakeTimelineRunData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         FixtureRef: string;
         /**
          * HealthData
@@ -3467,6 +3543,97 @@ export interface operations {
             };
             /** @description Request validation failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createFakeTimelineRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFakeTimelineRunRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FakeTimelineRunResponse"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FakeTimelineRunResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, source, or manifest not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Run input or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Development media runtime unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

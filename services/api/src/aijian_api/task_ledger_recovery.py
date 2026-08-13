@@ -268,6 +268,19 @@ def _complete_committed_output(
     ).fetchone()
     if task is None or attempt is None or node is None:
         raise LeaseLostError("committed output changed during recovery")
+    connection.execute(
+        """
+        UPDATE workflow_runs
+        SET status = 'SUCCEEDED', revision = revision + 1, updated_at = ?
+        WHERE workflow_run_id = ? AND status = 'ACTIVE'
+          AND NOT EXISTS (
+            SELECT 1 FROM workflow_node_runs
+            WHERE workflow_run_id = ?
+              AND status NOT IN ('SUCCEEDED', 'SUPERSEDED')
+          )
+        """,
+        (now_text, str(row["workflow_run_id"]), str(row["workflow_run_id"])),
+    )
     generation = int(row["lease_generation"])
     events: tuple[tuple[EventEntityKind, str, str, str], ...] = (
         ("task", str(row["task_id"]), "LEASED", "COMPLETED"),
@@ -448,6 +461,16 @@ def _fail_node(
     ).fetchone()
     if node is None:
         raise LeaseLostError("node changed during final lease recovery")
+    workflow = connection.execute(
+        """
+        UPDATE workflow_runs
+        SET status = 'FAILED', revision = revision + 1, updated_at = ?
+        WHERE workflow_run_id = ? AND status = 'ACTIVE'
+        """,
+        (now_text, str(row["workflow_run_id"])),
+    )
+    if workflow.rowcount != 1:
+        raise LeaseLostError("workflow changed during final lease recovery")
     append_event(
         connection,
         id_factory,

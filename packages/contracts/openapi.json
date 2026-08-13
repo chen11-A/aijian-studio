@@ -1895,6 +1895,27 @@
         "title": "CreateArtifactProposalRejectionRequest",
         "type": "object"
       },
+      "CreateFakeTimelineRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "source_manifest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Source Manifest Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_manifest_version_id",
+          "source_document_id"
+        ],
+        "title": "CreateFakeTimelineRunRequest",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3093,6 +3114,126 @@
           "ai_inference"
         ],
         "type": "string"
+      },
+      "FakeTimelineRunData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "attempt_status": {
+            "enum": [
+              "READY",
+              "LEASED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED"
+            ],
+            "title": "Attempt Status",
+            "type": "string"
+          },
+          "capability_losses": {
+            "default": [
+              "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+              "STATIC_FRAME_NO_MOTION_GENERATION",
+              "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY"
+            ],
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "const": "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+                "type": "string"
+              },
+              {
+                "const": "STATIC_FRAME_NO_MOTION_GENERATION",
+                "type": "string"
+              },
+              {
+                "const": "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY",
+                "type": "string"
+              }
+            ],
+            "title": "Capability Losses",
+            "type": "array"
+          },
+          "node_run_id": {
+            "pattern": "^node_[0-9a-f]{32}$",
+            "title": "Node Run Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "source_manifest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Source Manifest Version Id",
+            "type": "string"
+          },
+          "task_id": {
+            "pattern": "^task_[0-9a-f]{32}$",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_status": {
+            "enum": [
+              "READY",
+              "LEASED",
+              "COMPLETED",
+              "CANCELLED"
+            ],
+            "title": "Task Status",
+            "type": "string"
+          },
+          "workflow_run_id": {
+            "pattern": "^wfr_[0-9a-f]{32}$",
+            "title": "Workflow Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "source_manifest_version_id",
+          "source_document_id",
+          "workflow_run_id",
+          "node_run_id",
+          "attempt_id",
+          "task_id",
+          "attempt_status",
+          "task_status"
+        ],
+        "title": "FakeTimelineRunData",
+        "type": "object"
+      },
+      "FakeTimelineRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FakeTimelineRunData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "FakeTimelineRunResponse",
+        "type": "object"
       },
       "FixtureRef": {
         "maxLength": 240,
@@ -9369,6 +9510,127 @@
         "summary": "List Project Agents"
       }
     },
+    "/api/v1/projects/{project_id}/fake-timeline-runs": {
+      "post": {
+        "operationId": "createFakeTimelineRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 240,
+              "minLength": 1,
+              "pattern": "^fake-timeline-run:create:v1:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFakeTimelineRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FakeTimelineRunResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FakeTimelineRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project, source, or manifest not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run input or idempotency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Development media runtime unavailable"
+          }
+        },
+        "summary": "Create Run"
+      }
+    },
     "/api/v1/projects/{project_id}/proposal-runs": {
       "post": {
         "operationId": "createProposalRun",
@@ -11194,6 +11456,7 @@
     },
     "/api/v1/projects/{project_id}/workflows/fake-timeline": {
       "post": {
+        "deprecated": true,
         "operationId": "startFakeTimelineWorkflow",
         "parameters": [
           {

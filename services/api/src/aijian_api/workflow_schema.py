@@ -798,3 +798,12 @@ MIGRATION_13 = (
     END
     """,
 )
+
+
+MIGRATION_14 = (
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS fake_timeline_one_run_per_frozen_input
+    ON workflow_runs(project_id, definition_id, input_hash)
+    WHERE definition_id = 'phase0.fake-timeline-media'
+    """,
+)

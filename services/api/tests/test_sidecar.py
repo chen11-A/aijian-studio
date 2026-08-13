@@ -230,6 +230,66 @@ def test_handshake_output_failure_stops_worker_and_closes_listener(
     assert listener.closed is True
 
 
+def test_timeline_worker_start_failure_does_not_stop_an_unstarted_worker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeListener:
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class SourceWorker:
+        stopped = False
+
+        def start(self) -> None:
+            pass
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    class TimelineWorker:
+        stop_called = False
+
+        def start(self) -> None:
+            raise RuntimeError("timeline start failed")
+
+        def stop(self) -> None:
+            self.stop_called = True
+
+    listener = FakeListener()
+    source_worker = SourceWorker()
+    timeline_worker = TimelineWorker()
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME", "1")
+    monkeypatch.setattr(sidecar, "create_listener", lambda: (listener, 43123))
+    monkeypatch.setattr(sidecar, "create_token", lambda: "z" * 43)
+    monkeypatch.setattr(sidecar, "create_local_fake_worker", lambda _database: source_worker)
+    monkeypatch.setattr(
+        sidecar,
+        "create_local_fake_timeline_runtime",
+        lambda _repository: (object(), timeline_worker),
+    )
+    monkeypatch.setattr(
+        sidecar.uvicorn,
+        "Server",
+        lambda _config: SimpleNamespace(should_exit=False, run=lambda **_kwargs: None),
+    )
+    monkeypatch.setattr(
+        sidecar.threading,
+        "Thread",
+        lambda **_kwargs: SimpleNamespace(start=lambda: None),
+    )
+
+    with pytest.raises(RuntimeError, match="timeline start failed"):
+        sidecar.run()
+
+    assert source_worker.stopped is True
+    assert timeline_worker.stop_called is False
+    assert listener.closed is True
+
+
 def test_real_sidecar_process_starts_and_stops_its_explicit_worker_with_parent_pipe(
     tmp_path: Path,
 ) -> None:

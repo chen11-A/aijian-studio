@@ -57,6 +57,7 @@ function developmentSidecarOptions(): StartSidecarOptions {
     cwd: repositoryRoot,
     env: {
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
+      AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "1",
       PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
     },
   };

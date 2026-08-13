@@ -4,6 +4,9 @@ import json
 import os
 import stat
 import subprocess
+import sys
+import threading
+import time
 from pathlib import Path
 
 import aijian_api.media_probe as media_probe
@@ -614,6 +617,67 @@ def test_default_runner_disables_stdin_and_shell_interpretation(
     assert calls[0][1]["stdin"] is subprocess.DEVNULL
     assert calls[0][1]["stderr"] is subprocess.STDOUT
     assert "shell" not in calls[0][1]
+
+
+def test_default_runner_uses_a_minimal_environment_and_stops_on_request(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-reach-child")
+    calls: list[dict[str, object]] = []
+
+    class BlockingProcess:
+        def __init__(self, _command: list[str], **kwargs: object) -> None:
+            calls.append(kwargs)
+            self.stdout = io.BytesIO(b"")
+            self.returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            return -15 if self.returncode is None else self.returncode
+
+        def terminate(self) -> None:
+            self.returncode = -15
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    monkeypatch.setattr(media_probe.subprocess, "Popen", BlockingProcess)
+
+    with pytest.raises(OSError, match="interrupted"):
+        media_probe.run_ffprobe_command(
+            executable,
+            ("-version",),
+            3.0,
+            stop_requested=lambda: True,
+        )
+
+    environment = calls[0]["env"]
+    assert isinstance(environment, dict)
+    assert "OPENAI_API_KEY" not in environment
+
+
+def test_default_runner_interrupts_a_real_child_process_within_shutdown_budget() -> None:
+    stop = threading.Event()
+    timer = threading.Timer(0.2, stop.set)
+    timer.start()
+    started = time.monotonic()
+    try:
+        with pytest.raises(OSError, match="interrupted"):
+            media_probe.run_ffprobe_command(
+                Path(sys.executable),
+                ("-c", "import time; time.sleep(30)"),
+                20.0,
+                stop_requested=stop.is_set,
+            )
+    finally:
+        timer.cancel()
+    assert time.monotonic() - started < 2.0
 
 
 def test_default_runner_stops_reading_when_combined_output_exceeds_the_limit(

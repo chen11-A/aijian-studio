@@ -21,7 +21,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from aijian_api.agent_skill_contracts import PROJECT_ID_PATTERN
 from aijian_api.media_contracts import CONTENT_HASH_PATTERN, SequenceFrameRateData
-from aijian_api.media_probe import MediaProbeError, _is_remote_windows_path, probe_local_media
+from aijian_api.media_probe import (
+    MediaProbeError,
+    _is_remote_windows_path,
+    probe_local_media,
+    run_ffprobe_command,
+)
 from aijian_api.media_toolchain import (
     MediaToolchain,
     MediaToolchainLockData,
@@ -52,6 +57,16 @@ PROJECT_LOCK_NAME = ".publish.lock"
 PROJECT_LOCK_TIMEOUT_SECONDS = 30.0
 _GENERATION_SLOT = threading.BoundedSemaphore(value=1)
 _LOCKED_CONSTRUCTION_TOKEN = object()
+_MEDIA_PROCESS_ENVIRONMENT_KEYS = (
+    "COMSPEC",
+    "PATH",
+    "PATHEXT",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TEMP",
+    "TMP",
+    "WINDIR",
+)
 
 ContentHash = Annotated[str, Field(pattern=CONTENT_HASH_PATTERN)]
 RelativeMediaPath = Annotated[str, Field(pattern=RELATIVE_MEDIA_PATH_PATTERN)]
@@ -226,6 +241,20 @@ class FakeMediaPackageV1(BaseModel):
         return self
 
 
+class FakeMediaToolchainIdentityV1(BaseModel):
+    """Non-secret generator identity frozen into recoverable workflow input."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    generator_version: Literal["phase0.fake-media.v1"] = "phase0.fake-media.v1"
+    recipe_version: Literal["phase0.fake-media-recipe.v1"] = "phase0.fake-media-recipe.v1"
+    toolchain_profile_id: Annotated[str, Field(min_length=3, max_length=80)]
+    toolchain_version: Annotated[str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
+    ffmpeg_sha256: ContentHash
+    ffprobe_sha256: ContentHash
+    purpose: Literal["DEVELOPMENT_EVIDENCE"] = "DEVELOPMENT_EVIDENCE"
+
+
 @dataclass(frozen=True, slots=True)
 class GeneratedFakeMediaPackage:
     root: Path
@@ -315,12 +344,8 @@ def _safe_workspace_root(workspace_root: Path) -> Path:
         cursor = workspace_root
         while cursor != cursor.parent:
             metadata = cursor.lstat()
-            if cursor.is_symlink() or bool(
-                getattr(metadata, "st_file_attributes", 0) & 0x400
-            ):
-                raise FakeMediaPackageError(
-                    "fake media workspace cannot traverse a reparse point"
-                )
+            if cursor.is_symlink() or bool(getattr(metadata, "st_file_attributes", 0) & 0x400):
+                raise FakeMediaPackageError("fake media workspace cannot traverse a reparse point")
             cursor = cursor.parent
         resolved = workspace_root.resolve(strict=True)
     except (OSError, RuntimeError):
@@ -337,9 +362,7 @@ def _safe_tool_root(tool_root: Path) -> Path:
         cursor = tool_root
         while cursor != cursor.parent:
             metadata = cursor.lstat()
-            if cursor.is_symlink() or bool(
-                getattr(metadata, "st_file_attributes", 0) & 0x400
-            ):
+            if cursor.is_symlink() or bool(getattr(metadata, "st_file_attributes", 0) & 0x400):
                 raise FakeMediaPackageError("media tool root cannot traverse a reparse point")
             cursor = cursor.parent
         resolved = tool_root.resolve(strict=True)
@@ -406,7 +429,11 @@ def _publish_directory(staging_root: Path, final_root: Path) -> None:
 
 
 @contextmanager
-def _project_publish_lock(project_root: Path) -> Iterator[None]:
+def _project_publish_lock(
+    project_root: Path,
+    stop_requested: Callable[[], bool] | None = None,
+) -> Iterator[None]:
+    should_stop = stop_requested or (lambda: False)
     lock_path = project_root / PROJECT_LOCK_NAME
     try:
         if lock_path.exists():
@@ -422,6 +449,8 @@ def _project_publish_lock(project_root: Path) -> Iterator[None]:
                 import msvcrt
 
                 while True:
+                    if should_stop():
+                        raise FakeMediaPackageError("fake media publish lock was interrupted")
                     try:
                         msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                         break
@@ -440,6 +469,8 @@ def _project_publish_lock(project_root: Path) -> Iterator[None]:
                 import fcntl
 
                 while True:
+                    if should_stop():
+                        raise FakeMediaPackageError("fake media publish lock was interrupted")
                     try:
                         fcntl.flock(  # type: ignore[attr-defined]
                             stream.fileno(),
@@ -457,7 +488,8 @@ def _project_publish_lock(project_root: Path) -> Iterator[None]:
                     yield
                 finally:
                     fcntl.flock(  # type: ignore[attr-defined]
-                        stream.fileno(), fcntl.LOCK_UN  # type: ignore[attr-defined]
+                        stream.fileno(),
+                        fcntl.LOCK_UN,  # type: ignore[attr-defined]
                     )
     except FakeMediaPackageError:
         raise
@@ -517,11 +549,7 @@ def _process_is_active(pid: int, process_started_at_ns: int) -> bool:
     if os.name == "nt":
         try:
             identity = _windows_process_identity(pid)
-            return (
-                identity is not None
-                and identity[1]
-                and identity[0] == process_started_at_ns
-            )
+            return identity is not None and identity[1] and identity[0] == process_started_at_ns
         except (AttributeError, OSError, OverflowError):
             return True
     try:
@@ -531,18 +559,14 @@ def _process_is_active(pid: int, process_started_at_ns: int) -> bool:
     except PermissionError:
         return True
     try:
-        start_ticks = _parse_proc_start_ticks(
-            Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
-        )
+        start_ticks = _parse_proc_start_ticks(Path(f"/proc/{pid}/stat").read_text(encoding="ascii"))
         boot_time_seconds = next(
             int(line.split()[1])
             for line in Path("/proc/stat").read_text(encoding="ascii").splitlines()
             if line.startswith("btime ")
         )
         clock_ticks = _clock_ticks_per_second()
-        actual_started_at_ns = int(
-            (boot_time_seconds + start_ticks / clock_ticks) * 1_000_000_000
-        )
+        actual_started_at_ns = int((boot_time_seconds + start_ticks / clock_ticks) * 1_000_000_000)
         return process_started_at_ns == actual_started_at_ns
     except (OSError, UnicodeError, ValueError, StopIteration, IndexError):
         return True
@@ -671,14 +695,10 @@ def _cleanup_stale_staging_in_lock(project_root: Path) -> None:
                         lease = candidate_lease
                 except ValidationError:
                     lease = None
-            if lease is not None and _process_is_active(
-                lease.pid, lease.process_started_at_ns
-            ):
+            if lease is not None and _process_is_active(lease.pid, lease.process_started_at_ns):
                 continue
             if lease is None:
-                age_seconds = max(
-                    0.0, (now - resolved.stat().st_mtime_ns) / 1_000_000_000
-                )
+                age_seconds = max(0.0, (now - resolved.stat().st_mtime_ns) / 1_000_000_000)
                 if age_seconds < STAGING_GRACE_SECONDS:
                     continue
             shutil.rmtree(resolved)
@@ -688,16 +708,38 @@ def _cleanup_stale_staging_in_lock(project_root: Path) -> None:
             raise FakeMediaPackageError("stale fake media staging could not be cleaned") from None
 
 
-def _run_ffmpeg(toolchain: MediaToolchain, arguments: list[str]) -> None:
+def _run_ffmpeg(
+    toolchain: MediaToolchain,
+    arguments: list[str],
+    stop_requested: Callable[[], bool],
+) -> None:
+    process: subprocess.Popen[bytes] | None = None
+    environment = {
+        key: os.environ[key] for key in _MEDIA_PROCESS_ENVIRONMENT_KEYS if key in os.environ
+    }
     try:
-        subprocess.run(
+        process = subprocess.Popen(
             [str(toolchain.ffmpeg_path), *arguments],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=True,
-            timeout=GENERATION_TIMEOUT_SECONDS,
+            env=environment,
         )
+        deadline = time.monotonic() + GENERATION_TIMEOUT_SECONDS
+        while process.poll() is None:
+            if stop_requested() or time.monotonic() >= deadline:
+                process.terminate()
+                try:
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=0.5)
+                raise FakeMediaPackageError("locked FFmpeg generation was interrupted")
+            time.sleep(0.05)
+        if process.returncode != 0:
+            raise FakeMediaPackageError("locked FFmpeg failed to generate Fake media")
+    except FakeMediaPackageError:
+        raise
     except (OSError, subprocess.SubprocessError):
         raise FakeMediaPackageError("locked FFmpeg failed to generate Fake media") from None
 
@@ -719,6 +761,7 @@ def _generate_shot(
     source_sha256: str,
     index: int,
     toolchain: MediaToolchain,
+    stop_requested: Callable[[], bool],
 ) -> FakeShotMediaV1:
     shot_number = f"{index:02d}"
     shot_root = root / f"shot-{shot_number}"
@@ -751,6 +794,7 @@ def _generate_shot(
             "-1",
             str(image),
         ],
+        stop_requested,
     )
     _run_ffmpeg(
         toolchain,
@@ -776,6 +820,7 @@ def _generate_shot(
             "-1",
             str(voice),
         ],
+        stop_requested,
     )
     _run_ffmpeg(
         toolchain,
@@ -826,6 +871,7 @@ def _generate_shot(
             "-1",
             str(video),
         ],
+        stop_requested,
     )
 
     def file_identity(path: Path) -> tuple[str, str, int]:
@@ -888,9 +934,23 @@ def _validate_voice(path: Path) -> None:
         raise FakeMediaPackageError("fake scratch voice is invalid") from None
 
 
-def _validate_video(path: Path, expected_hash: str, toolchain: MediaToolchain) -> None:
+def _validate_video(
+    path: Path,
+    expected_hash: str,
+    toolchain: MediaToolchain,
+    stop_requested: Callable[[], bool],
+) -> None:
     try:
-        probe = probe_local_media(path, toolchain)
+        probe = probe_local_media(
+            path,
+            toolchain,
+            command_runner=lambda executable, arguments, timeout: run_ffprobe_command(
+                executable,
+                arguments,
+                timeout,
+                stop_requested=stop_requested,
+            ),
+        )
     except MediaProbeError:
         raise FakeMediaPackageError("fake preview video is invalid") from None
     if (
@@ -915,13 +975,12 @@ def _verify_package(
     *,
     project_root: Path,
     allow_active_staging_lease: bool = False,
+    stop_requested: Callable[[], bool] = lambda: False,
 ) -> GeneratedFakeMediaPackage:
     manifest_path = root / "manifest.json"
     try:
         resolved_root = _require_plain_path(root, parent=project_root, kind="directory")
-        resolved_manifest = _require_plain_path(
-            manifest_path, parent=resolved_root, kind="file"
-        )
+        resolved_manifest = _require_plain_path(manifest_path, parent=resolved_root, kind="file")
         if resolved_manifest.stat().st_size > MAX_MANIFEST_BYTES:
             raise FakeMediaPackageError("existing fake media package is invalid")
         raw = resolved_manifest.read_bytes()
@@ -940,13 +999,14 @@ def _verify_package(
             )
             lease_raw = lease_path.read_bytes()
             lease = _StagingLeaseV1.model_validate_json(lease_raw)
-            if (
-                lease_raw != _canonical_json(lease.model_dump(mode="json"))
-                or not _process_is_active(lease.pid, lease.process_started_at_ns)
-            ):
+            if lease_raw != _canonical_json(
+                lease.model_dump(mode="json")
+            ) or not _process_is_active(lease.pid, lease.process_started_at_ns):
                 raise FakeMediaPackageError("fake media staging lease is invalid")
             expected_root_names.add(STAGING_LEASE_NAME)
         for shot in manifest.shots:
+            if stop_requested():
+                raise FakeMediaPackageError("fake media package verification was interrupted")
             shot_number = shot.shot_id.removeprefix("fake-shot-")
             shot_root = _require_plain_path(
                 resolved_root / f"shot-{shot_number}",
@@ -970,7 +1030,10 @@ def _verify_package(
             _validate_image(generated.resolve(shot.still_image))
             _validate_voice(generated.resolve(shot.scratch_voice))
             _validate_video(
-                generated.resolve(shot.preview_video), shot.preview_video.sha256, toolchain
+                generated.resolve(shot.preview_video),
+                shot.preview_video.sha256,
+                toolchain,
+                stop_requested,
             )
         if {path.name for path in resolved_root.iterdir()} != expected_root_names:
             raise FakeMediaPackageError("existing fake media package is invalid")
@@ -988,13 +1051,17 @@ class FakeMediaPackageGenerator:
         self,
         workspace_root: Path,
         toolchain: MediaToolchain,
+        lock: MediaToolchainLockData | None = None,
         *,
         _construction_token: object | None = None,
     ) -> None:
         if _construction_token is not _LOCKED_CONSTRUCTION_TOKEN:
             raise FakeMediaPackageError("fake media generator requires a locked tool root")
+        if lock is None:
+            raise FakeMediaPackageError("fake media generator requires a locked toolchain")
         self._workspace_root = _safe_workspace_root(workspace_root)
         self._toolchain = toolchain
+        self._lock = lock
         self._tool_root = toolchain.ffmpeg_path.parent
         self._fault_hook: Callable[[str], None] = lambda _phase: None
 
@@ -1017,11 +1084,36 @@ class FakeMediaPackageGenerator:
         generator = cls(
             workspace_root,
             toolchain,
+            lock,
             _construction_token=_LOCKED_CONSTRUCTION_TOKEN,
         )
         generator._tool_root = resolved_tool_root
         generator._fault_hook = fault_hook or (lambda _phase: None)
         return generator
+
+    @property
+    def identity(self) -> FakeMediaToolchainIdentityV1:
+        """Return the immutable non-secret identity that affects generated bytes."""
+
+        _require_toolchain_unchanged(self._toolchain, self._tool_root)
+        return FakeMediaToolchainIdentityV1(
+            toolchain_profile_id=self._toolchain.profile_id,
+            toolchain_version=self._toolchain.version,
+            ffmpeg_sha256=f"sha256:{self._toolchain.ffmpeg_sha256}",
+            ffprobe_sha256=f"sha256:{self._toolchain.ffprobe_sha256}",
+        )
+
+    @property
+    def workspace_root(self) -> Path:
+        return self._workspace_root
+
+    @property
+    def tool_root(self) -> Path:
+        return self._tool_root
+
+    @property
+    def lock(self) -> MediaToolchainLockData:
+        return self._lock
 
     def materialize(
         self,
@@ -1029,7 +1121,11 @@ class FakeMediaPackageGenerator:
         project_id: str,
         source_document_id: str,
         source_sha256: str,
+        stop_requested: Callable[[], bool] | None = None,
     ) -> GeneratedFakeMediaPackage:
+        should_stop = stop_requested or (lambda: False)
+        if should_stop():
+            raise FakeMediaPackageError("Fake media generation was interrupted")
         _require_toolchain_unchanged(self._toolchain, self._tool_root)
         try:
             frozen_request = FakeMediaPackageRequestV1(
@@ -1076,24 +1172,30 @@ class FakeMediaPackageGenerator:
                 project_root,
             ):
                 _require_internal_directory(internal, self._workspace_root)
-            with _project_publish_lock(project_root):
+            with _project_publish_lock(project_root, should_stop):
                 _cleanup_stale_staging_in_lock(project_root)
             if final_root.exists():
                 result = _verify_package(
-                    final_root, expected, self._toolchain, project_root=project_root
+                    final_root,
+                    expected,
+                    self._toolchain,
+                    project_root=project_root,
+                    stop_requested=should_stop,
                 )
                 _require_toolchain_unchanged(self._toolchain, self._tool_root)
                 return result
             with _GENERATION_SLOT:
                 if final_root.exists():
                     result = _verify_package(
-                        final_root, expected, self._toolchain, project_root=project_root
+                        final_root,
+                        expected,
+                        self._toolchain,
+                        project_root=project_root,
+                        stop_requested=should_stop,
                     )
                     _require_toolchain_unchanged(self._toolchain, self._tool_root)
                     return result
-                with tempfile.TemporaryDirectory(
-                    prefix=STAGING_PREFIX, dir=project_root
-                ) as tmp:
+                with tempfile.TemporaryDirectory(prefix=STAGING_PREFIX, dir=project_root) as tmp:
                     staging_root = Path(tmp)
                     staging_lease = _write_staging_lease(staging_root)
                     shots = tuple(
@@ -1102,6 +1204,7 @@ class FakeMediaPackageGenerator:
                             frozen_request.source_sha256,
                             index,
                             self._toolchain,
+                            should_stop,
                         )
                         for index in range(1, SHOT_COUNT + 1)
                     )
@@ -1128,11 +1231,12 @@ class FakeMediaPackageGenerator:
                         self._toolchain,
                         project_root=project_root,
                         allow_active_staging_lease=True,
+                        stop_requested=should_stop,
                     )
                     _flush_staging_tree(staging_root)
                     self._fault_hook("before_publish")
                     self._fault_hook("lease_still_active")
-                    with _project_publish_lock(project_root):
+                    with _project_publish_lock(project_root, should_stop):
                         publish_lease = _write_publish_lease(project_root, staging_root)
                         staging_lease.unlink()
                         self._fault_hook("after_staging_lease_removed")
@@ -1149,7 +1253,11 @@ class FakeMediaPackageGenerator:
                                     raise
                     self._fault_hook("after_publish")
                     result = _verify_package(
-                        final_root, expected, self._toolchain, project_root=project_root
+                        final_root,
+                        expected,
+                        self._toolchain,
+                        project_root=project_root,
+                        stop_requested=should_stop,
                     )
                     _require_toolchain_unchanged(self._toolchain, self._tool_root)
                     return result

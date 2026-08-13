@@ -1,7 +1,7 @@
 """Shared records and time helpers for the local task ledger."""
 
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -16,6 +16,7 @@ class QueuedTask:
     node_run_id: str
     attempt_id: str
     task_id: str
+    created: bool = field(default=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)

@@ -54,5 +54,5 @@
 ## 非目标
 
 本切片不实现多轨道、转场、字幕、音量包络、调色、拖拽吸附、撤销栈、产品级编码器或
-真实 Provider 生成。K01 将负责把 `phase0-fake-media-package` 的真实 WebM 字节哈希接入 Fake
+真实 Provider 生成。K01 后端已把 `phase0-fake-media-package` 的真实 WebM 字节哈希接入 Fake
 工作流，自动建立 3 镜头/15 秒首版时间线，并调用既有 MP4 导出。

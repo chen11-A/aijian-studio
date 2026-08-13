@@ -182,10 +182,14 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-        assert SCHEMA_VERSION == 13
+        workflow_indexes = {
+            str(row[1]) for row in connection.execute("PRAGMA index_list(workflow_runs)")
+        }
+        assert SCHEMA_VERSION == 14
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
+    assert "fake_timeline_one_run_per_frozen_input" in workflow_indexes
     assert {
         "projects",
         "source_documents",
@@ -676,6 +680,33 @@ def test_every_v13_ddl_failure_rolls_back_to_v12_and_can_retry(tmp_path: Path) -
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION
+
+
+def test_v14_fake_timeline_uniqueness_migration_rolls_back_and_retries(tmp_path: Path) -> None:
+    database = tmp_path / "v14-failure.db"
+    StudioRepository(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP INDEX fake_timeline_one_run_per_frozen_input")
+        connection.execute("PRAGMA user_version = 13")
+
+    def fail_v14(version: int, step: int) -> None:
+        if version == 14 and step == 0:
+            raise RuntimeError("injected v14 failure")
+
+    with pytest.raises(RuntimeError, match="injected v14 failure"):
+        StudioRepository(database, migration_hook=fail_v14)
+    assert database_version(database) == 13
+    with sqlite3.connect(database) as connection:
+        assert (
+            connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' "
+                "AND name = 'fake_timeline_one_run_per_frozen_input'"
+            ).fetchone()
+            is None
+        )
+
+    StudioRepository(database)
+    assert database_version(database) == SCHEMA_VERSION
 
 
 def test_v13_rejection_audit_allows_only_parent_project_cascade() -> None:

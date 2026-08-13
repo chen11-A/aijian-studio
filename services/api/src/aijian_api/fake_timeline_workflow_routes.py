@@ -29,6 +29,7 @@ def create_fake_timeline_workflow_router(
         "/api/v1/projects/{project_id}/workflows/fake-timeline",
         operation_id="startFakeTimelineWorkflow",
         response_model=TimelineResponse,
+        deprecated=True,
         responses=errors,
     )
     def start(request: Request, project_id: str) -> TimelineResponse:

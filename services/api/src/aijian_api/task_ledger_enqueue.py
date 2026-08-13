@@ -42,6 +42,7 @@ def enqueue_local_node(
     connection_factory: Callable[[], sqlite3.Connection],
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
+    transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
 ) -> QueuedTask:
     now = clock()
     graph_json = _canonical_json(request.graph)
@@ -86,7 +87,10 @@ def enqueue_local_node(
                 str(existing["node_run_id"]),
                 str(existing["attempt_id"]),
                 str(existing["task_id"]),
+                created=False,
             )
+        if transaction_validator is not None:
+            transaction_validator(connection)
         connection.execute(
             "INSERT OR IGNORE INTO workflow_definitions VALUES (?, ?, ?, ?, ?)",
             (
@@ -237,7 +241,7 @@ def enqueue_local_node(
         raise
     finally:
         connection.close()
-    return QueuedTask(workflow_run_id, node_run_id, attempt_id, task_id)
+    return QueuedTask(workflow_run_id, node_run_id, attempt_id, task_id, created=True)
 
 
 def _existing_enqueue(

@@ -27,4 +27,4 @@ git diff --check
 
 ## 严格边界
 
-这份证据只覆盖本地媒体包 primitive。Fake Timeline 尚未引用这些真实哈希，API/UI 尚未触发生成，Timeline Workspace 尚未播放这些文件，同一 Electron 流程也尚未导出 MP4。因此 K01 仍为进行中，首个 8 周和 48 周严格计数均不增加。
+这份证据只覆盖本地媒体包 primitive；后续后端接入证据见 `phase0-fake-timeline-run-acceptance.md`。UI 尚未触发该异步运行，Timeline Workspace 尚未从同一 Electron 流程播放并导出这些文件。因此 K01 仍为进行中，首个 8 周和 48 周严格计数均不增加。

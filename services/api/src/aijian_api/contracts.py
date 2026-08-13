@@ -180,6 +180,51 @@ class CreatedProposalRunResponse(BaseModel):
     request_id: UUID
 
 
+class CreateFakeTimelineRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_manifest_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    source_document_id: str = Field(pattern=SOURCE_ID_PATTERN)
+
+
+class FakeTimelineRunData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    source_manifest_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    source_document_id: str = Field(pattern=SOURCE_ID_PATTERN)
+    workflow_run_id: str = Field(pattern=WORKFLOW_RUN_ID_PATTERN)
+    node_run_id: str = Field(pattern=NODE_RUN_ID_PATTERN)
+    attempt_id: str = Field(pattern=ATTEMPT_ID_PATTERN)
+    task_id: str = Field(pattern=TASK_ID_PATTERN)
+    attempt_status: Literal[
+        "READY",
+        "LEASED",
+        "RUNNING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+    ]
+    task_status: Literal["READY", "LEASED", "COMPLETED", "CANCELLED"]
+    capability_losses: tuple[
+        Literal["FAKE_IMAGE_NO_SEMANTIC_GENERATION"],
+        Literal["STATIC_FRAME_NO_MOTION_GENERATION"],
+        Literal["PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY"],
+    ] = (
+        "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+        "STATIC_FRAME_NO_MOTION_GENERATION",
+        "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY",
+    )
+
+
+class FakeTimelineRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: FakeTimelineRunData
+    request_id: UUID
+
+
 class CreateProposalRunCancellationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

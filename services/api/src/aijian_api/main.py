@@ -66,6 +66,13 @@ from aijian_api.credential_vault import (
     SystemCredentialVault,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
+from aijian_api.fake_timeline_run import (
+    FakeTimelineRunConflictError,
+    FakeTimelineRunFactory,
+    FakeTimelineRunInputError,
+    FakeTimelineRuntimeUnavailableError,
+)
+from aijian_api.fake_timeline_run_routes import create_fake_timeline_run_write_router
 from aijian_api.fake_timeline_workflow import (
     FakeTimelineWorkflowNotReadyError,
     SourceRequiredError,
@@ -185,6 +192,7 @@ def create_app(
     review_actor: TrustedReviewActor | None = None,
     credential_vault: CredentialVault | None = None,
     agent_skill_registry: AgentSkillRegistry | None = None,
+    fake_timeline_run_factory: FakeTimelineRunFactory | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
 
@@ -203,6 +211,7 @@ def create_app(
     resolved_credential_vault = credential_vault or SystemCredentialVault()
     resolved_agent_skill_registry = agent_skill_registry or built_in_agent_skill_registry()
     resolved_proposal_schema_registry = built_in_proposal_schema_registry()
+    resolved_fake_timeline_run_factory = fake_timeline_run_factory
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -236,6 +245,11 @@ def create_app(
 
     def get_source_extract_run_factory() -> SourceExtractRunFactory:
         return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
+
+    def get_fake_timeline_run_factory() -> FakeTimelineRunFactory:
+        if resolved_fake_timeline_run_factory is None:
+            raise FakeTimelineRuntimeUnavailableError
+        return resolved_fake_timeline_run_factory
 
     def get_provider_connection_service() -> ProviderConnectionService:
         return ProviderConnectionService(
@@ -418,8 +432,41 @@ def create_app(
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_409_CONFLICT,
-            code="FAKE_WORKFLOW_NOT_READY",
-            message="The preview workflow task is already being processed",
+            code="ASYNC_WORKFLOW_REQUIRED",
+            message="Create the preview through the authenticated asynchronous runtime",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunInputError)
+    async def fake_timeline_run_input_error(
+        request: Request, _error: FakeTimelineRunInputError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_TIMELINE_RUN_INPUT_REJECTED",
+            message="The Fake Timeline run input is not current and accepted",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunConflictError)
+    async def fake_timeline_run_conflict(
+        request: Request, _error: FakeTimelineRunConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_TIMELINE_RUN_CONFLICT",
+            message="The Fake Timeline run conflicts with durable state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRuntimeUnavailableError)
+    async def fake_timeline_runtime_unavailable(
+        request: Request, _error: FakeTimelineRuntimeUnavailableError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="FAKE_TIMELINE_RUNTIME_UNAVAILABLE",
+            message="The development Fake Timeline runtime is unavailable",
             request_id=request_id(request),
         )
 
@@ -760,6 +807,7 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
+        app.include_router(create_fake_timeline_run_write_router(get_fake_timeline_run_factory))
         app.include_router(
             create_proposal_run_write_router(
                 get_source_extract_run_factory,

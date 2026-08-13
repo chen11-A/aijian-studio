@@ -65,9 +65,10 @@ from aijian_api.workflow_schema import (
     MIGRATION_11,
     MIGRATION_12,
     MIGRATION_13,
+    MIGRATION_14,
 )
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -761,6 +762,7 @@ _MIGRATIONS = {
     11: MIGRATION_11,
     12: MIGRATION_12,
     13: MIGRATION_13,
+    14: MIGRATION_14,
 }
 
 
@@ -1103,6 +1105,8 @@ class StudioRepository:
                     connection.rollback()
                     raise
                 version = next_version
+            if version >= 14:
+                self._validate_v14_fake_timeline_index(connection)
 
     @staticmethod
     def _validate_v3_legacy_invariants(connection: sqlite3.Connection) -> None:
@@ -1126,6 +1130,34 @@ class StudioRepository:
             raise RuntimeError(
                 "Cannot migrate workspace to schema v5: duplicate workflow enqueue key"
             )
+
+    @staticmethod
+    def _validate_v14_fake_timeline_index(connection: sqlite3.Connection) -> None:
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' "
+            "AND name = 'fake_timeline_one_run_per_frozen_input'"
+        ).fetchone()
+        columns = tuple(
+            str(index_row[2])
+            for index_row in connection.execute(
+                "PRAGMA index_info(fake_timeline_one_run_per_frozen_input)"
+            ).fetchall()
+        )
+        index_flags = next(
+            (
+                (int(index_row[2]), int(index_row[4]))
+                for index_row in connection.execute("PRAGMA index_list(workflow_runs)")
+                if str(index_row[1]) == "fake_timeline_one_run_per_frozen_input"
+            ),
+            None,
+        )
+        sql = "" if row is None or row["sql"] is None else str(row["sql"])
+        if (
+            columns != ("project_id", "definition_id", "input_hash")
+            or index_flags != (1, 1)
+            or "WHERE definition_id = 'phase0.fake-timeline-media'" not in sql
+        ):
+            raise RuntimeError("Workspace Fake Timeline uniqueness index is invalid")
 
     def create_project(
         self,

@@ -1,19 +1,10 @@
-"""Deterministic local workflow that turns an imported source into an editable preview."""
+"""Deprecated read-compatible endpoint for completed Fake Timeline runs."""
 
-from datetime import UTC, datetime, timedelta
-from hashlib import sha256
+import json
 
-from aijian_api.artifacts import canonical_content_hash
-from aijian_api.domain import ArtifactVersionRecord, SourceDocument
-from aijian_api.local_executor import LocalExecutor
-from aijian_api.media_contracts import SequenceFrameRateData, SequenceTimebaseData
+from aijian_api.domain import ArtifactVersionRecord
 from aijian_api.repository import ArtifactNotFoundError, StudioRepository
-from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
-from aijian_api.timeline import TimelineAssetV1, TimelineClipV1, TimelineVersionV1
 from aijian_api.timeline_routes import TimelineAlreadyExistsError
-
-_GRAPH = {"nodes": ["timeline.assemble.fake"]}
-_DEFINITION_HASH = canonical_content_hash(_GRAPH)
 
 
 class SourceRequiredError(RuntimeError):
@@ -21,120 +12,72 @@ class SourceRequiredError(RuntimeError):
 
 
 class FakeTimelineWorkflowNotReadyError(RuntimeError):
-    """The targeted task exists but is not currently claimable."""
-
-
-def _derived_hash(source_hash: str, index: int) -> str:
-    digest = sha256(f"{source_hash}:fake-asset:{index}".encode()).hexdigest()
-    return f"sha256:{digest}"
-
-
-def _timeline(source: SourceDocument) -> TimelineVersionV1:
-    timebase = SequenceTimebaseData(
-        frame_rate=SequenceFrameRateData(num=25, den=1),
-        timecode_mode="NON_DROP_FRAME",
-    )
-    assets = tuple(
-        TimelineAssetV1(
-            asset_id=f"fake-asset-{index:02d}",
-            source_asset_sha256=_derived_hash(source.raw_sha256, index),
-            source_frame_count=100,
-        )
-        for index in range(1, 4)
-    )
-    clips = tuple(
-        TimelineClipV1(
-            clip_id=f"fake-shot-{index:02d}",
-            asset_id=asset.asset_id,
-            source_in_frame=0,
-            duration_frames=50,
-        )
-        for index, asset in enumerate(assets, start=1)
-    )
-    return TimelineVersionV1(
-        timeline_id=f"preview-{source.id.removeprefix('src_')[:12]}",
-        revision=1,
-        sequence_timebase=timebase,
-        assets=assets,
-        clips=clips,
-    )
-
-
-def _matches_source(record: ArtifactVersionRecord, source: SourceDocument) -> bool:
-    timeline = TimelineVersionV1.model_validate(record.version.content)
-    return timeline.assets[0].source_asset_sha256 == _derived_hash(source.raw_sha256, 1)
+    """Creation moved to the authenticated asynchronous Sidecar command."""
 
 
 def start_fake_timeline_workflow(
     repository: StudioRepository,
     project_id: str,
 ) -> ArtifactVersionRecord:
-    sources = repository.list_sources(project_id)
-    if not sources:
+    """Return a completed Timeline without starting work in the request thread."""
+
+    if not repository.list_sources(project_id):
         raise SourceRequiredError
-    source = repository.get_source(project_id, sources[0].id)
-
     try:
-        existing = repository.get_latest_artifact(project_id, "timeline")
+        record = repository.get_latest_artifact(project_id, "timeline")
     except ArtifactNotFoundError:
-        existing = None
-    if existing is not None:
-        if _matches_source(existing, source):
-            return existing
+        raise FakeTimelineWorkflowNotReadyError from None
+    with repository._connection() as connection:
+        row = connection.execute(
+            """
+            SELECT definition.definition_id, definition.version AS definition_version,
+                   run.status AS run_status, node.node_key, node.node_type,
+                   node.contract_version, node.active_attempt_id,
+                   node.status AS node_status,
+                   node.output_version_id AS node_output_version_id,
+                   node.input_bindings_json, attempt.attempt_id,
+                   attempt.status AS attempt_status,
+                   attempt.output_version_id AS attempt_output_version_id,
+                   task.task_kind, task.status AS task_status,
+                   COUNT(*) OVER (PARTITION BY attempt.attempt_id) AS exact_task_count,
+                   manifest_head.accepted_version_id
+            FROM artifact_versions AS version
+            JOIN workflow_attempts AS attempt
+              ON attempt.attempt_id = version.producer_attempt_id
+            JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+            JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id
+            JOIN workflow_definitions AS definition
+              ON definition.definition_id = run.definition_id
+             AND definition.version = run.definition_version
+            JOIN task_ledger AS task ON task.attempt_id = attempt.attempt_id
+            JOIN artifacts AS manifest_artifact
+              ON manifest_artifact.project_id = run.project_id
+             AND manifest_artifact.artifact_type = 'source_manifest'
+            JOIN artifact_heads AS manifest_head
+              ON manifest_head.artifact_id = manifest_artifact.artifact_id
+            WHERE version.version_id = ? AND run.project_id = ?
+            """,
+            (record.version.id, project_id),
+        ).fetchone()
+    if row is None:
         raise TimelineAlreadyExistsError
-
-    manifest = repository.get_latest_artifact(project_id, "source_manifest")
-    request_fingerprint = canonical_content_hash(
-        {
-            "workflow": "phase0-fake-timeline-v1",
-            "source_id": source.id,
-            "source_hash": source.raw_sha256,
-            "source_manifest_version_id": manifest.version.id,
-        }
-    )
-    ledger = LocalTaskLedger(repository.database_path)
-    queued = ledger.enqueue_local_node(
-        project_id=project_id,
-        definition_id="phase0-fake-timeline",
-        definition_version=1,
-        definition_hash=_DEFINITION_HASH,
-        graph=_GRAPH,
-        workflow_input_hash=manifest.version.content_hash,
-        node_key="timeline.assemble.fake",
-        node_type="timeline.assemble.fake",
-        contract_version=1,
-        input_bindings={
-            "source_document_id": source.id,
-            "source_manifest_version_id": manifest.version.id,
-        },
-        node_input_hash=manifest.version.content_hash,
-        request_fingerprint=request_fingerprint,
-        idempotency_key=f"phase0.fake-timeline:{manifest.version.id}",
-        max_attempts=2,
-        task_kind="local.timeline.assemble.fake",
-        priority=80,
-        available_at=datetime.now(UTC),
-    )
-
-    def create_output(claim: ClaimedTask) -> str:
-        created = repository.create_artifact_version(
-            project_id=project_id,
-            artifact_type="timeline",
-            schema_version="1.0.0",
-            content=_timeline(source).model_dump(mode="python", exclude_computed_fields=True),
-            author_actor_type="agent",
-            author_actor_id="fake-timeline-workflow",
-            change_summary="根据来源生成确定性 Fake 时间线",
-            producer_attempt_id=claim.attempt_id,
-        )
-        return created.version.id
-
-    executor = LocalExecutor(
-        ledger,
-        worker_id="fake-timeline-local-worker",
-        lease_duration=timedelta(seconds=30),
-        handler=create_output,
-    )
-    if not executor.run_once(task_id=queued.task_id):
-        raise FakeTimelineWorkflowNotReadyError
-    return repository.get_latest_artifact(project_id, "timeline")
+    bindings = json.loads(str(row["input_bindings_json"]))
+    if (
+        str(row["definition_id"]) != "phase0.fake-timeline-media"
+        or int(row["definition_version"]) != 1
+        or str(row["run_status"]) != "SUCCEEDED"
+        or str(row["node_key"]) != "timeline.assemble.fake.media"
+        or str(row["node_type"]) != "timeline.assemble.fake.media"
+        or int(row["contract_version"]) != 1
+        or str(row["active_attempt_id"]) != str(row["attempt_id"])
+        or str(row["node_status"]) != "SUCCEEDED"
+        or str(row["attempt_status"]) != "SUCCEEDED"
+        or str(row["task_kind"]) != "local.timeline.assemble.fake.media.v1"
+        or str(row["task_status"]) != "COMPLETED"
+        or int(row["exact_task_count"]) != 1
+        or str(row["node_output_version_id"]) != record.version.id
+        or str(row["attempt_output_version_id"]) != record.version.id
+        or bindings.get("source_manifest_version_id") != row["accepted_version_id"]
+    ):
+        raise TimelineAlreadyExistsError
+    return record

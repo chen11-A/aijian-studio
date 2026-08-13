@@ -873,7 +873,7 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
 
     StudioRepository(repository.database_path)
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone() == (13,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (14,)
         assert connection.execute(
             "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
             (proposal_id,),

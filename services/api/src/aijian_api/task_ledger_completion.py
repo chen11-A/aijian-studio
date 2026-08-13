@@ -112,6 +112,19 @@ def complete_local_task(
         ).fetchone()
         if attempt is None or node is None or task is None:
             raise LeaseLostError("task state changed during completion")
+        connection.execute(
+            """
+            UPDATE workflow_runs
+            SET status = 'SUCCEEDED', revision = revision + 1, updated_at = ?
+            WHERE workflow_run_id = ? AND status = 'ACTIVE'
+              AND NOT EXISTS (
+                SELECT 1 FROM workflow_node_runs
+                WHERE workflow_run_id = ?
+                  AND status NOT IN ('SUCCEEDED', 'SUPERSEDED')
+              )
+            """,
+            (now_text, claim.workflow_run_id, claim.workflow_run_id),
+        )
         _append_completion_events(connection, claim, now_text, id_factory)
         connection.commit()
         return TaskCompletion(

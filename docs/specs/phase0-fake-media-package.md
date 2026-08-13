@@ -1,6 +1,6 @@
 # Phase 0 Fake 媒体包合同
 
-状态：Implemented local primitive；尚未接入 Fake Timeline/API/UI，K01 仍在进行
+状态：Implemented and integrated into the Sidecar backend；尚未接入 UI，K01 仍在进行
 
 ## 目的
 
@@ -55,7 +55,7 @@ K01 的时间线不能继续引用人为派生的“假哈希”：现有导出�
 - 不替换现有 `fake_timeline_workflow` 的派生哈希。
 - 不创建 ArtifactVersion、GateDecision 或 accepted head。
 - 不调用 Provider，不生成语义画面、真实运动、台词语音或角色音色。
-- 不据此把 K01、Sprint 3 或 48 周总进度标记完成。
+- 后端接入见 `phase0-fake-timeline-run.md`；仍不据此把 K01、Sprint 3 或 48 周总进度标记完成。
 
 ## 已知边界
 
