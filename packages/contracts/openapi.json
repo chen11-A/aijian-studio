@@ -2280,6 +2280,7 @@
         "properties": {
           "dependency_path": {
             "items": {
+              "pattern": "^dep_[0-9a-f]{32}$",
               "type": "string"
             },
             "minItems": 1,

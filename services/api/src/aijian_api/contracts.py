@@ -3,7 +3,7 @@
 import base64
 import binascii
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -33,6 +33,7 @@ ATTEMPT_ID_PATTERN = r"^att_[0-9a-f]{32}$"
 TASK_ID_PATTERN = r"^task_[0-9a-f]{32}$"
 OPERATION_ID_PATTERN = r"^invop_[0-9a-f]{32}$"
 IMPACT_ID_PATTERN = r"^invimp_[0-9a-f]{32}$"
+DEPENDENCY_ID_PATTERN = r"^dep_[0-9a-f]{32}$"
 
 
 class HealthData(BaseModel):
@@ -756,7 +757,9 @@ class InvalidationPathImpactData(BaseModel):
 
     impact_id: str = Field(pattern=IMPACT_ID_PATTERN)
     path_ordinal: int = Field(ge=0)
-    dependency_path: list[str] = Field(min_length=1)
+    dependency_path: list[Annotated[str, Field(pattern=DEPENDENCY_ID_PATTERN)]] = Field(
+        min_length=1
+    )
     path_relationships: list[str] = Field(min_length=1)
     path_impacts: list[Literal["blocking", "render_only", "advisory"]] = Field(min_length=1)
     effective_impact: Literal["blocking", "render_only", "advisory"]

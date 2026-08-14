@@ -867,6 +867,27 @@ def test_openapi_includes_invalidation_report_endpoints(tmp_path: Path) -> None:
     ):
         assert name in components
 
+    dependency_path = components["InvalidationPathImpactData"]["properties"]["dependency_path"]
+    assert dependency_path["type"] == "array"
+    assert dependency_path["minItems"] == 1
+    assert dependency_path["items"]["type"] == "string"
+    assert dependency_path["items"]["pattern"] == r"^dep_[0-9a-f]{32}$"
+
+    # Checked-in OpenAPI drives deterministic TypeScript generation.
+    repo_root = Path(__file__).resolve().parents[3]
+    openapi_path = repo_root / "packages" / "contracts" / "openapi.json"
+    generated_ts_path = repo_root / "packages" / "contracts" / "src" / "generated.ts"
+    exported = json.loads(openapi_path.read_text(encoding="utf-8"))
+    exported_items = exported["components"]["schemas"]["InvalidationPathImpactData"]["properties"][
+        "dependency_path"
+    ]["items"]
+    assert exported_items["pattern"] == r"^dep_[0-9a-f]{32}$"
+    generated_ts = generated_ts_path.read_text(encoding="utf-8")
+    assert "InvalidationPathImpactData" in generated_ts
+    assert "dependency_path: string[]" in generated_ts
+    # openapi-typescript keeps string item types; the pattern lives in OpenAPI.
+    assert r"^dep_[0-9a-f]{32}$" in openapi_path.read_text(encoding="utf-8")
+
 
 def test_cross_project_affected_pair_fails_closed_without_identity_leakage(
     tmp_path: Path,
@@ -1133,6 +1154,87 @@ def test_wrong_dependency_id_in_path_fails_closed(tmp_path: Path) -> None:
     detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
     _assert_ledger_corrupt(listed)
     _assert_ledger_corrupt(detail)
+
+
+def test_same_value_malformed_dependency_id_fails_closed(tmp_path: Path) -> None:
+    """Both the dependency row and frozen path agree, but the identity is non-canonical."""
+
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project)
+    impact = impacts[0]
+    real_dependency_id = impact.dependency_path[0]
+    malformed_dependency_id = "not-a-dependency-id"
+
+    with sqlite3.connect(repository.database_path) as connection:
+        # Keep foreign keys enabled: dependency_id is not referenced as a foreign key.
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("DROP TRIGGER IF EXISTS artifact_dependencies_immutable_update")
+        _drop_path_immutability(connection)
+        updated = connection.execute(
+            """
+            UPDATE artifact_dependencies
+            SET dependency_id = ?
+            WHERE dependency_id = ?
+            """,
+            (malformed_dependency_id, real_dependency_id),
+        ).rowcount
+        assert updated == 1
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET dependency_path_json = ?
+            WHERE impact_id = ?
+            """,
+            (
+                json.dumps([malformed_dependency_id], separators=(",", ":")),
+                impact.id,
+            ),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert malformed_dependency_id not in listed.text
+    assert malformed_dependency_id not in detail.text
+    assert real_dependency_id not in listed.text
+    assert real_dependency_id not in detail.text
+
+
+def test_malformed_dependency_endpoint_identity_fails_closed(tmp_path: Path) -> None:
+    """Authoritative dependency endpoint identities must be canonical before use."""
+
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project)
+    impact = impacts[0]
+    dependency_id = impact.dependency_path[0]
+    malformed_artifact_id = "not-an-artifact-id"
+
+    with sqlite3.connect(repository.database_path) as connection:
+        # Endpoint columns are FK-protected; disable FKs only to install this identity fault.
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("DROP TRIGGER IF EXISTS artifact_dependencies_immutable_update")
+        connection.execute(
+            """
+            UPDATE artifact_dependencies
+            SET downstream_artifact_id = ?
+            WHERE dependency_id = ?
+            """,
+            (malformed_artifact_id, dependency_id),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert malformed_artifact_id not in listed.text
+    assert malformed_artifact_id not in detail.text
 
 
 def test_path_relationship_or_impact_metadata_mismatch_fails_closed(tmp_path: Path) -> None:

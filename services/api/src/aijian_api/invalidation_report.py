@@ -25,6 +25,7 @@ from aijian_api.artifact_invalidation_ledger import (
 from aijian_api.contracts import (
     ARTIFACT_ID_PATTERN,
     DECISION_ID_PATTERN,
+    DEPENDENCY_ID_PATTERN,
     IMPACT_ID_PATTERN,
     OPERATION_ID_PATTERN,
     PROJECT_ID_PATTERN,
@@ -45,6 +46,7 @@ _ARTIFACT_ID_RE = re.compile(ARTIFACT_ID_PATTERN)
 _VERSION_ID_RE = re.compile(VERSION_ID_PATTERN)
 _DECISION_ID_RE = re.compile(DECISION_ID_PATTERN)
 _IMPACT_ID_RE = re.compile(IMPACT_ID_PATTERN)
+_DEPENDENCY_ID_RE = re.compile(DEPENDENCY_ID_PATTERN)
 _HEAD_ADVANCING_DECISIONS = frozenset({"approved", "approved_with_waiver"})
 
 
@@ -346,6 +348,9 @@ def _validate_dependency_path_chain(
     expected_downstream_version_id = impact.affected_version_id
 
     for index, dependency_id in enumerate(impact.dependency_path):
+        # Canonical identity must be proven before treating the row as authoritative.
+        if not _DEPENDENCY_ID_RE.fullmatch(dependency_id):
+            raise InvalidationLedgerCorruptError("Invalidation dependency path identity is corrupt")
         row = connection.execute(
             """
             SELECT
@@ -364,6 +369,10 @@ def _validate_dependency_path_chain(
         if row is None:
             raise InvalidationLedgerCorruptError("Invalidation dependency path edge is missing")
 
+        row_dependency_id = str(row["dependency_id"])
+        if row_dependency_id != dependency_id or not _DEPENDENCY_ID_RE.fullmatch(row_dependency_id):
+            raise InvalidationLedgerCorruptError("Invalidation dependency row identity is corrupt")
+
         relationship = str(row["relationship"])
         edge_impact = parse_impact(str(row["impact"]))
         if relationship != impact.path_relationships[index]:
@@ -379,6 +388,16 @@ def _validate_dependency_path_chain(
         downstream_version_id = str(row["downstream_version_id"])
         upstream_artifact_id = str(row["upstream_artifact_id"])
         upstream_version_id = str(row["upstream_version_id"])
+
+        if not (
+            _ARTIFACT_ID_RE.fullmatch(downstream_artifact_id)
+            and _VERSION_ID_RE.fullmatch(downstream_version_id)
+            and _ARTIFACT_ID_RE.fullmatch(upstream_artifact_id)
+            and _VERSION_ID_RE.fullmatch(upstream_version_id)
+        ):
+            raise InvalidationLedgerCorruptError(
+                "Invalidation dependency endpoint identity is corrupt"
+            )
 
         if downstream_artifact_id != expected_downstream_artifact_id:
             raise InvalidationLedgerCorruptError(
