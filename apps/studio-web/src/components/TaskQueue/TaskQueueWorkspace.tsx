@@ -39,10 +39,10 @@ export function TaskQueueWorkspace({ project, loadTasks }: TaskQueueWorkspacePro
     <section className="task-queue-workspace" aria-labelledby="task-queue-title">
       <header className="queue-hero">
         <div>
-          <span className="eyebrow">PRODUCTION CONTROL</span>
+          <span className="eyebrow">制作进度</span>
           <h2 id="task-queue-title">制作任务总览</h2>
           <p>
-            <strong>{project.name}</strong> · 每次尝试、输入版本和恢复状态都保留记录
+            <strong>{project.name}</strong> · 查看正在执行、需要处理和已经完成的制作步骤
           </p>
         </div>
         {state.kind === "ready" && (
@@ -93,7 +93,7 @@ export function TaskQueueWorkspace({ project, loadTasks }: TaskQueueWorkspacePro
         <div className="queue-empty">
           <span aria-hidden="true">◎</span>
           <h3>还没有制作任务</h3>
-          <p>从故事工坊冻结输入后，任务会出现在这里。</p>
+          <p>在故事设定里确认原文后，任务会出现在这里。</p>
         </div>
       )}
 

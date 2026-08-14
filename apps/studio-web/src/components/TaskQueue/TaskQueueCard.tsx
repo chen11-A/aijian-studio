@@ -3,7 +3,7 @@ import { formatTime, nodeLabels, shortHash, toneFor, type TaskQueueItem } from "
 function CostLedger({ cost }: { cost: TaskQueueItem["cost"] }) {
   return (
     <div className="queue-cost-missing" data-ledger-status={cost.status}>
-      <strong>成本账本尚未接入</strong>
+      <strong>费用暂未记录</strong>
       <span>不会把未知费用显示为 ¥0</span>
     </div>
   );
@@ -16,17 +16,16 @@ export function TaskQueueCard({ item }: { item: TaskQueueItem }) {
     <article className={`queue-card tone-${tone}`}>
       <header className="queue-card-header">
         <div>
-          <span className="queue-step">{item.node.node_key}</span>
+          <span className="queue-step">{item.node.upstream_gate ? "等待前一步" : "可执行"}</span>
           <h3>{nodeLabels[item.node.node_type] ?? item.node.node_type}</h3>
           <p>
             {item.node.responsible_role}
-            {item.node.upstream_gate ? ` · 上游 ${item.node.upstream_gate}` : " · 无上游 Gate"}
+            {item.node.upstream_gate ? " · 需要先确认原文" : " · 无前置步骤"}
           </p>
         </div>
         <div className="queue-status" aria-label={`任务状态：${item.presentation.status_label}`}>
           <span aria-hidden="true" />
           <strong>{item.presentation.status_label}</strong>
-          <small>{item.attempt.status}</small>
         </div>
       </header>
 
@@ -53,16 +52,16 @@ export function TaskQueueCard({ item }: { item: TaskQueueItem }) {
 
       <div className="queue-inputs">
         <div>
-          <span>精确输入版本</span>
-          {item.node.input_version_ids.length > 0 ? (
-            item.node.input_version_ids.map((versionId) => <code key={versionId}>{versionId}</code>)
-          ) : (
-            <em>此节点没有 Artifact 版本输入</em>
-          )}
+          <span>所用内容</span>
+          <strong>
+            {item.node.input_version_ids.length > 0
+              ? `${item.node.input_version_ids.length} 份内容`
+              : "这一步还没有内容输入"}
+          </strong>
         </div>
         <div>
-          <span>输入哈希</span>
-          <code title={item.node.input_hash}>{shortHash(item.node.input_hash)}</code>
+          <span>输入摘要</span>
+          <strong>{shortHash(item.node.input_hash)}</strong>
         </div>
       </div>
 
@@ -78,16 +77,32 @@ export function TaskQueueCard({ item }: { item: TaskQueueItem }) {
         <summary>查看技术详情</summary>
         <dl>
           <div>
-            <dt>Workflow Run</dt>
+            <dt>工作流 ID</dt>
             <dd>{item.node.workflow_run_id}</dd>
           </div>
           <div>
-            <dt>Node Run</dt>
+            <dt>步骤 ID</dt>
             <dd>{item.node.node_run_id}</dd>
           </div>
           <div>
-            <dt>Attempt</dt>
+            <dt>尝试 ID</dt>
             <dd>{item.attempt.attempt_id}</dd>
+          </div>
+          <div>
+            <dt>所用版本</dt>
+            <dd>
+              {item.node.input_version_ids.length > 0
+                ? item.node.input_version_ids.join("、")
+                : "无"}
+            </dd>
+          </div>
+          <div>
+            <dt>输入哈希</dt>
+            <dd>{item.node.input_hash}</dd>
+          </div>
+          <div>
+            <dt>内部状态</dt>
+            <dd>{item.attempt.status}</dd>
           </div>
           <div>
             <dt>错误码</dt>

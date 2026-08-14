@@ -17,6 +17,27 @@ import { ProviderSettingsWorkspace } from "./components/ProviderSettings/Provide
 import { StoryWorkshopActions } from "./components/StoryWorkshop/StoryWorkshopActions";
 import { createMockStoryWorkshopAdapter } from "./components/StoryWorkshop/story-workshop-adapter";
 import { cacheRecentVersion, touchRecentVersion } from "./story-version-cache";
+import {
+  ASPECT_OPTIONS,
+  aspectTitle,
+  defaultDurationFor,
+  durationOptionsFor,
+  formatDurationLabel,
+  projectFormatSummary,
+  type ProjectAspectRatio,
+} from "./project-format";
+import {
+  certaintyLabels,
+  conflictStatusLabels,
+  displayLabel,
+  factImportanceLabels,
+  factKindLabel,
+  factOriginLabels,
+  reliabilityLabels,
+  scopeTypeLabels,
+  severityLabels,
+  versionRoleLabel,
+} from "./ui-copy";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 
@@ -55,12 +76,12 @@ interface AppProps {
 
 const navigation = [
   { id: "project", label: "项目", index: "01", available: true },
-  { id: "story", label: "故事工坊", index: "02", available: true },
+  { id: "story", label: "故事设定", index: "02", available: true },
   { id: "director", label: "分镜导演", index: "03", available: false },
   { id: "assets", label: "素材中心", index: "04", available: false },
   { id: "edit", label: "剪辑台", index: "05", available: false },
   { id: "queue", label: "任务队列", index: "06", available: true },
-  { id: "impact", label: "影响报告", index: "07", available: true },
+  { id: "impact", label: "改稿影响", index: "07", available: true },
   { id: "settings", label: "模型与 API", index: "08", available: true },
 ] as const;
 
@@ -201,10 +222,10 @@ function storyFactDetailRows(
   entityNames: Map<string, string>,
 ): Array<[string, string]> {
   const rows: Array<[string, string]> = [
-    ["重要性", fact.importance],
-    ["来源类型", fact.origin],
-    ["正典确定性", fact.canon_certainty],
-    ["来源可靠性", fact.source_reliability],
+    ["重要性", displayLabel(factImportanceLabels, fact.importance)],
+    ["从哪来的", displayLabel(factOriginLabels, fact.origin)],
+    ["确定程度", displayLabel(certaintyLabels, fact.canon_certainty)],
+    ["来源可靠性", displayLabel(reliabilityLabels, fact.source_reliability)],
     [
       "提取置信度",
       fact.extraction_confidence_bps == null
@@ -295,14 +316,14 @@ function EngineBadge({ connection }: { connection: ConnectionState }) {
     <div className={`engine-badge ${connection.kind}`} aria-live="polite">
       <span className="signal" aria-hidden="true" />
       <div>
-        {connection.kind === "loading" && <strong>正在连接创作引擎…</strong>}
+        {connection.kind === "loading" && <strong>正在连接本机服务…</strong>}
         {connection.kind === "connected" && (
           <>
-            <strong>本地工作区服务已连接</strong>
+            <strong>本机服务已连接</strong>
             <small>v{connection.health.data.version}</small>
           </>
         )}
-        {connection.kind === "error" && <strong>创作引擎未连接</strong>}
+        {connection.kind === "error" && <strong>本机服务未连接</strong>}
       </div>
     </div>
   );
@@ -312,12 +333,13 @@ interface CreateProjectDialogProps {
   busy: boolean;
   error: string | null;
   onClose(): void;
-  onCreate(name: string, duration: number): Promise<void>;
+  onCreate(name: string, duration: number, aspectRatio: ProjectAspectRatio): Promise<void>;
 }
 
 function CreateProjectDialog({ busy, error, onClose, onCreate }: CreateProjectDialogProps) {
   const [name, setName] = useState("");
-  const [duration, setDuration] = useState(90);
+  const [aspectRatio, setAspectRatio] = useState<ProjectAspectRatio>("9:16");
+  const [duration, setDuration] = useState(defaultDurationFor("9:16"));
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -327,9 +349,14 @@ function CreateProjectDialog({ busy, error, onClose, onCreate }: CreateProjectDi
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [busy, onClose]);
 
+  const changeAspectRatio = (next: ProjectAspectRatio) => {
+    setAspectRatio(next);
+    setDuration(defaultDurationFor(next));
+  };
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (name.trim()) void onCreate(name.trim(), duration);
+    if (name.trim()) void onCreate(name.trim(), duration, aspectRatio);
   };
 
   return (
@@ -341,9 +368,9 @@ function CreateProjectDialog({ busy, error, onClose, onCreate }: CreateProjectDi
         aria-labelledby="new-project-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="dialog-kicker">NEW PRODUCTION</div>
+        <div className="dialog-kicker">新建制作</div>
         <h2 id="new-project-title">建立制作项目</h2>
-        <p>先确定一个清晰的制作容器，原文、剧本、分镜和素材都会在这里保留版本。</p>
+        <p>先起项目名，再选画幅和单集时长。画幅创建后不能在本页修改，请先选对。</p>
         <form onSubmit={submit}>
           <label>
             <span>项目名称</span>
@@ -351,27 +378,47 @@ function CreateProjectDialog({ busy, error, onClose, onCreate }: CreateProjectDi
               autoFocus
               value={name}
               maxLength={80}
-              placeholder="例如：雾城来信"
+              placeholder="例如：第一集"
               onChange={(event) => setName(event.target.value)}
             />
           </label>
-          <div className="form-grid">
-            <label>
-              <span>单集目标时长</span>
-              <select
-                value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-              >
-                <option value={60}>60 秒</option>
-                <option value={90}>90 秒</option>
-                <option value={120}>120 秒</option>
-              </select>
-            </label>
-            <div className="locked-field">
-              <span>首发画幅</span>
-              <strong>9:16 · 竖屏</strong>
+          <fieldset className="aspect-picker">
+            <legend>作品形态</legend>
+            <div className="aspect-choices">
+              {ASPECT_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={
+                    aspectRatio === option.value ? "aspect-option selected" : "aspect-option"
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="project-aspect-ratio"
+                    value={option.value}
+                    checked={aspectRatio === option.value}
+                    aria-label={option.title}
+                    onChange={() => changeAspectRatio(option.value)}
+                  />
+                  <span className={`aspect-frame ${option.frameClass}`} aria-hidden="true" />
+                  <span className="aspect-option-copy">
+                    <strong>{option.title}</strong>
+                    <small>{option.hint}</small>
+                  </span>
+                </label>
+              ))}
             </div>
-          </div>
+          </fieldset>
+          <label className="duration-field">
+            <span>单集时长</span>
+            <select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
+              {durationOptionsFor(aspectRatio).map((seconds) => (
+                <option key={seconds} value={seconds}>
+                  {formatDurationLabel(seconds)}
+                </option>
+              ))}
+            </select>
+          </label>
           {error && (
             <p className="form-error" role="alert">
               {error}
@@ -395,15 +442,15 @@ function EmptyWorkspace({ onCreate }: { onCreate(): void }) {
   return (
     <section className="empty-workspace">
       <div className="empty-visual" aria-hidden="true">
-        <span>原文</span>
+        <span className="frame-portrait">竖屏</span>
         <i>01</i>
-        <b>→</b>
-        <span>成片</span>
+        <b>或</b>
+        <span className="frame-landscape">横屏</span>
       </div>
       <div>
-        <span className="eyebrow">YOUR FIRST PRODUCTION</span>
+        <span className="eyebrow">第一个项目</span>
         <h2>还没有制作项目</h2>
-        <p>创建项目后导入 UTF-8 TXT 小说。系统会保留原文件指纹，并把章节与段落变成可追溯来源。</p>
+        <p>先建项目，选择画幅和单集时长，再导入 TXT 小说。本机使用，不用注册。</p>
         <button className="accent-button" onClick={onCreate}>
           创建第一个项目
         </button>
@@ -436,9 +483,7 @@ function ProjectRail({ projects, selectedId, onSelect }: ProjectRailProps) {
             <span className="project-number">{String(index + 1).padStart(2, "0")}</span>
             <span className="project-card-copy">
               <strong>{project.name}</strong>
-              <small>
-                {project.aspect_ratio} · {project.target_duration_seconds} 秒
-              </small>
+              <small>{projectFormatSummary(project)}</small>
             </span>
             <time dateTime={project.updated_at}>{formatProjectDate(project.updated_at)}</time>
           </button>
@@ -467,14 +512,12 @@ function SourcePanel({ project, state, onFile }: SourcePanelProps) {
       <section className="source-uploader" aria-labelledby="source-title">
         <div className="panel-heading">
           <div>
-            <span className="eyebrow">G1 · SOURCE INGEST</span>
+            <span className="eyebrow">第 1 步 · 导入原文</span>
             <h3 id="source-title">导入小说原文</h3>
           </div>
           <span className="step-state">当前步骤</span>
         </div>
-        <p className="panel-description">
-          当前仅支持严格 UTF-8 TXT，最大 5 MiB。文件路径不会保存或发送。
-        </p>
+        <p className="panel-description">目前只支持 TXT 文本，最大 5 MiB。不会保存你的文件路径。</p>
         <label
           className={
             state.kind === "loading" || state.kind === "restoring"
@@ -521,9 +564,9 @@ function SourcePanel({ project, state, onFile }: SourcePanelProps) {
           </p>
         )}
         <div className="source-rules">
-          <span>原始 SHA-256</span>
-          <span>UTF-8 字节坐标</span>
-          <span>事务化写入</span>
+          <span>保留原文</span>
+          <span>记录章节</span>
+          <span>可核对来源</span>
         </div>
       </section>
 
@@ -556,8 +599,8 @@ function SourcePanel({ project, state, onFile }: SourcePanelProps) {
         ) : (
           <div className="preview-placeholder">
             <span aria-hidden="true">⌁</span>
-            <h3>{project.name} 的来源台账</h3>
-            <p>导入后将在这里核对章节和段落。AI 拆解必须引用这些来源，不能把推断伪装成原著事实。</p>
+            <h3>{project.name} 的原文</h3>
+            <p>导入后在这里核对章节和段落。后面的拆解都要引用这些原文。</p>
           </div>
         )}
       </section>
@@ -885,21 +928,21 @@ function StoryWorkshop({
     sourceLoadFailures.has(span.source_document_id),
   );
   const sourceGateLabel = sourceLatestIsAccepted
-    ? "G1 来源已验收"
+    ? "原文已确认"
     : sourceAccepted
-      ? "G1 最新草稿未验收"
-      : "G1 待验收";
+      ? "有未确认的新原文"
+      : "原文待确认";
   const reviewLabel = storyStale
-    ? "G2 来源已过期"
+    ? "原文有更新，设定需重审"
     : storySelectedIsAccepted
       ? activeVersionRole === "latest"
-        ? "G2 最新版已验收"
-        : "G2 已验收基线"
+        ? "当前设定已通过"
+        : "已通过的设定"
       : storyBible?.data.head.review_version_id === story?.id
-        ? "G2 审阅中"
+        ? "设定审阅中"
         : storyBible?.data.head.accepted_version_id
-          ? "G2 最新草稿未验收"
-          : "等待 G2 审阅";
+          ? "有未通过的新设定"
+          : "设定待审阅";
 
   const navigateToFact = (factId: string) => {
     const target = factById.get(factId);
@@ -931,7 +974,7 @@ function StoryWorkshop({
       }}
     >
       <header>
-        <span>{fact.kind.replace("_fact", "").toUpperCase()}</span>
+        <span>{factKindLabel(fact.kind)}</span>
         <div className="fact-actions">
           <strong>{factStatusLabels[fact.canon_status]}</strong>
           <button
@@ -946,7 +989,10 @@ function StoryWorkshop({
         </div>
       </header>
       <p>{storyFactDescription(fact, entityNames)}</p>
-      <code className="fact-id">{fact.fact_id}</code>
+      <details className="inline-technical-detail fact-id">
+        <summary>技术详情</summary>
+        <code>{fact.fact_id}</code>
+      </details>
       {storyFactReferenceIds(fact).length > 0 && (
         <div className="fact-reference-list" aria-label="关联事实">
           {storyFactReferenceIds(fact).map(([relation, factId]) => {
@@ -969,7 +1015,7 @@ function StoryWorkshop({
         </div>
       )}
       <details className="fact-details">
-        <summary>完整字段</summary>
+        <summary>详细信息</summary>
         <dl>
           {storyFactDetailRows(fact, entityNames).map(([label, value]) => (
             <div key={label}>
@@ -986,11 +1032,11 @@ function StoryWorkshop({
     <section className="story-workshop" aria-labelledby="story-workshop-title">
       <header className="story-workshop-header">
         <div>
-          <span className="eyebrow">G2 · STORY BIBLE</span>
-          <h2 id="story-workshop-title">故事圣经</h2>
-          <p>{project.name} · 区分最新草稿、审阅版本与下游已验收基线</p>
+          <span className="eyebrow">第 2 步 · 故事设定</span>
+          <h2 id="story-workshop-title">人物与设定</h2>
+          <p>{project.name} · 可查看最新稿、审阅中和已通过的版本</p>
         </div>
-        <div className="artifact-version" aria-label="当前故事圣经版本">
+        <div className="artifact-version" aria-label="当前故事设定版本">
           {storyBible ? (
             <>
               <button
@@ -999,7 +1045,7 @@ function StoryWorkshop({
                 aria-pressed={activeVersionRole === "latest"}
                 onClick={() => setSelectedVersionRole("latest")}
               >
-                <span>LATEST</span>
+                <span>{versionRoleLabel("latest")}</span>
                 <strong>
                   V{String(storyBible?.data.latest_version.version_number).padStart(2, "0")}
                 </strong>
@@ -1012,7 +1058,7 @@ function StoryWorkshop({
                 disabled={!storyBible?.data.review_version}
                 onClick={() => setSelectedVersionRole("review")}
               >
-                <span>REVIEW</span>
+                <span>{versionRoleLabel("review")}</span>
                 <strong>
                   {storyBible?.data.review_version
                     ? `V${String(storyBible.data.review_version.version_number).padStart(2, "0")}`
@@ -1027,7 +1073,7 @@ function StoryWorkshop({
                 disabled={!storyBible?.data.accepted_version}
                 onClick={() => setSelectedVersionRole("accepted")}
               >
-                <span>ACCEPTED</span>
+                <span>{versionRoleLabel("accepted")}</span>
                 <strong>
                   {storyBible?.data.accepted_version
                     ? `V${String(storyBible.data.accepted_version.version_number).padStart(2, "0")}`
@@ -1035,9 +1081,14 @@ function StoryWorkshop({
                 </strong>
                 <code>{shortId(storyBible?.data.accepted_version?.id)}</code>
               </button>
-              <span className="version-role-note">正在查看 {activeVersionRole.toUpperCase()}</span>
+              <span className="version-role-note">
+                正在看：{versionRoleLabel(activeVersionRole)}
+              </span>
               <p>{activeVersionSummary?.change_summary}</p>
-              <code>{activeVersionSummary?.content_hash.slice(0, 17)}…</code>
+              <details className="inline-technical-detail">
+                <summary>技术详情</summary>
+                <code>{activeVersionSummary?.content_hash.slice(0, 17)}…</code>
+              </details>
               {activeVersionSummary && storyVersionLoadFailures.has(activeVersionSummary.id) && (
                 <small className="version-load-error">版本正文读取失败，请重新读取工作台。</small>
               )}
@@ -1069,11 +1120,9 @@ function StoryWorkshop({
           {manifest && (
             <div className="manifest-summary">
               <strong>{sourceManifestVersion?.content.documents.length ?? 0} 份来源文档</strong>
-              <span>
-                REV {manifest.data.head.revision} · V{sourceManifestVersion?.version_number ?? "—"}
-              </span>
+              <span>清单版本 V{sourceManifestVersion?.version_number ?? "—"}</span>
               <p>{sourceManifestVersion?.change_summary}</p>
-              <div className="source-version-selector" aria-label="来源清单版本">
+              <div className="source-version-selector" aria-label="原文版本">
                 {(["latest", "review", "accepted"] as const).map((role) => {
                   const version = sourceVersions[role];
                   return (
@@ -1089,16 +1138,16 @@ function StoryWorkshop({
                         setSelectedSourceBlockId(null);
                       }}
                     >
-                      <span>{role.toUpperCase()}</span>
+                      <span>{versionRoleLabel(role)}</span>
                       <strong>{version ? `V${version.version_number}` : "—"}</strong>
                       <code>{shortId(version?.id)}</code>
                     </button>
                   );
                 })}
               </div>
-              <small>正在查看 {activeSourceRole.toUpperCase()} 来源清单</small>
+              <small>正在看：{versionRoleLabel(activeSourceRole)} 原文清单</small>
               {!sourceLatestIsAccepted && manifest.data.head.accepted_version_id && (
-                <small>下游仍使用 {shortId(manifest.data.head.accepted_version_id)}</small>
+                <small>后面步骤仍使用 {shortId(manifest.data.head.accepted_version_id)}</small>
               )}
               <div className="manifest-document-list" aria-label="来源文档列表">
                 {sourceManifestVersion?.content.documents.map((document) => (
@@ -1127,8 +1176,8 @@ function StoryWorkshop({
           {story && (
             <section className="fact-evidence" aria-labelledby="fact-evidence-title">
               <header>
-                <span>FACT EVIDENCE</span>
-                <h4 id="fact-evidence-title">逐事实证据</h4>
+                <span>原文依据</span>
+                <h4 id="fact-evidence-title">原文依据</h4>
               </header>
               {activeEvidenceFact && activeEvidenceSpans.length > 0 ? (
                 <>
@@ -1156,7 +1205,7 @@ function StoryWorkshop({
                           <header>
                             <strong>{sourceSpanRoleLabels[span.role]}</strong>
                             <code>
-                              字节 {span.start_byte}–{span.end_byte}
+                              原文位置 {span.start_byte}–{span.end_byte}
                             </code>
                           </header>
                           <div className="evidence-source-identity">
@@ -1176,13 +1225,16 @@ function StoryWorkshop({
                             </p>
                           ) : (
                             <p className="evidence-warning" role="alert">
-                              无法从绑定的来源文档恢复该引文，请核对文档、文本块与 UTF-8 字节坐标。
+                              无法从对应原文恢复这段话，请核对文档和段落。
                             </p>
                           )}
                           <p>{span.claim}</p>
                           <footer>
-                            <span>{shortId(span.source_block_id)}</span>
-                            <code>{span.quote_hash.slice(0, 17)}…</code>
+                            <details className="inline-technical-detail">
+                              <summary>技术详情</summary>
+                              <span>{shortId(span.source_block_id)}</span>
+                              <code>{span.quote_hash.slice(0, 17)}…</code>
+                            </details>
                           </footer>
                           <button
                             type="button"
@@ -1206,7 +1258,7 @@ function StoryWorkshop({
                   )}
                 </>
               ) : (
-                <p className="evidence-empty">当前事实没有绑定可核对的精确引文。</p>
+                <p className="evidence-empty">当前这条设定没有可核对的原文摘录。</p>
               )}
             </section>
           )}
@@ -1240,14 +1292,14 @@ function StoryWorkshop({
                 </article>
               ))}
               <p className="preview-disclaimer">
-                下方是当前选择的来源文档上下文；正式审阅以上方逐事实精确引文、字节坐标和引文哈希为准。
+                下面是所选原文的上下文。核对时以上方精确引文为准。
               </p>
             </div>
           ) : (
             state.kind !== "loading" && (
               <div className="story-mini-empty">
                 <span aria-hidden="true">⌁</span>
-                <p>返回“项目”导入原文后，这里会显示可追溯摘录。</p>
+                <p>回到「项目」导入原文后，这里会显示可核对的摘录。</p>
               </div>
             )
           )}
@@ -1257,19 +1309,19 @@ function StoryWorkshop({
           <div className="story-column-heading">
             <div>
               <span className="column-index">02</span>
-              <h3 id="canon-title">结构化正典</h3>
+              <h3 id="canon-title">人物与场景</h3>
             </div>
-            {story && <span className="record-count">{story.content.entities.length} 个实体</span>}
+            {story && <span className="record-count">{story.content.entities.length} 个条目</span>}
           </div>
 
           {state.kind === "loading" && (
-            <div className="column-skeleton tall" aria-label="正在读取故事圣经" />
+            <div className="column-skeleton tall" aria-label="正在读取故事设定" />
           )}
           {state.kind === "error" && (
             <div className="story-empty-state" role="alert">
-              <span className="empty-code">READ ERROR</span>
-              <h3>故事工坊暂时无法读取</h3>
-              <p>本地内容没有被修改。重新读取即可继续。</p>
+              <span className="empty-code">读取失败</span>
+              <h3>故事设定暂时无法读取</h3>
+              <p>本机内容没有被修改。重新读取即可继续。</p>
               <button className="secondary-button" onClick={onRetry}>
                 重新读取
               </button>
@@ -1277,21 +1329,19 @@ function StoryWorkshop({
           )}
           {state.kind === "ready" && !sourceAccepted && (
             <div className="story-empty-state dependency-state">
-              <span className="empty-code">G1 REQUIRED</span>
-              <h3>来源尚未验收</h3>
-              <p>故事圣经必须绑定已验收的来源版本，避免 AI 把推断混入原著事实。</p>
+              <span className="empty-code">先确认原文</span>
+              <h3>原文尚未确认</h3>
+              <p>故事设定必须基于已确认的原文，避免把推断当成原著。</p>
               <button className="secondary-button" disabled>
-                等待 G1 验收
+                等待确认原文
               </button>
             </div>
           )}
           {state.kind === "ready" && sourceAccepted && !storyBible && (
             <div className="story-empty-state">
-              <span className="empty-code">READY TO BREAK DOWN</span>
-              <h3>可以开始拆解小说</h3>
-              <p>
-                G1 已通过。下一纵切会接入模型配置和生成任务，在后台产出人物、关系、事件与未决问题。
-              </p>
+              <span className="empty-code">可以开始</span>
+              <h3>可以开始整理小说</h3>
+              <p>原文已确认。接下来会生成人物、关系和待确认问题。</p>
               <button className="secondary-button" disabled>
                 生成能力开发中
               </button>
@@ -1304,20 +1354,23 @@ function StoryWorkshop({
             <div className="canon-content">
               {storyStale && (
                 <div className="stale-warning" role="alert">
-                  <strong>故事圣经来源已过期</strong>
-                  <p>
-                    本版本基于 {shortId(story.content.source_scope.source_manifest_version_id)}，
-                    当前 G1 accepted 为 {shortId(manifest?.data.head.accepted_version_id)}。
-                    在重基底并重新审阅前，不能把本页内容当作下游正典。
-                  </p>
+                  <strong>故事设定所依据的原文已更新</strong>
+                  <p>这版故事设定依据旧的原文清单。重新整理并审阅前，不要当作已通过的设定。</p>
+                  <details className="inline-technical-detail">
+                    <summary>技术详情</summary>
+                    <code>
+                      依据 {shortId(story.content.source_scope.source_manifest_version_id)}
+                    </code>
+                    <code>当前 {shortId(manifest?.data.head.accepted_version_id)}</code>
+                  </details>
                 </div>
               )}
               <div className="story-logline">
-                <span>LOGLINE</span>
+                <span>故事梗概</span>
                 <h3>{story.content.title}</h3>
                 <p>{story.content.logline}</p>
               </div>
-              <div className="canon-metrics" aria-label="故事圣经统计">
+              <div className="canon-metrics" aria-label="故事设定统计">
                 <div>
                   <strong>{story.content.entities.length}</strong>
                   <span>实体</span>
@@ -1332,12 +1385,12 @@ function StoryWorkshop({
                 </div>
               </div>
               <div className="entity-toolbar">
-                <label htmlFor="entity-search">搜索实体</label>
+                <label htmlFor="entity-search">搜索人物或场景</label>
                 <input
                   id="entity-search"
                   type="search"
                   value={entityQuery}
-                  placeholder="名称、别名、类型或完整 ID…"
+                  placeholder="名称、别名或类型…"
                   onChange={(event) => {
                     setEntityQuery(event.target.value);
                     setEntityLimit(20);
@@ -1364,7 +1417,10 @@ function StoryWorkshop({
                     <span>{entityKindLabels[entity.kind]}</span>
                     <strong>{entity.name}</strong>
                     <small>{entity.aliases?.join(" / ") || "无别名"}</small>
-                    <code>{entity.entity_id}</code>
+                    <details className="inline-technical-detail">
+                      <summary>技术详情</summary>
+                      <code>{entity.entity_id}</code>
+                    </details>
                   </article>
                 ))}
               </div>
@@ -1374,7 +1430,7 @@ function StoryWorkshop({
                   className="show-more-button"
                   onClick={() => setEntityLimit((current) => current + 20)}
                 >
-                  再显示 20 个实体
+                  再显示 20 个条目
                 </button>
               )}
               <div className="fact-toolbar">
@@ -1396,7 +1452,7 @@ function StoryWorkshop({
               </div>
               {effectiveCanonFacts.length > 0 && (
                 <div className="fact-list canon-facts">
-                  <span className="section-caption">有效正典</span>
+                  <span className="section-caption">已确认设定</span>
                   {visibleEffectiveFacts.slice(0, factLimit).map(renderFactCard)}
                 </div>
               )}
@@ -1448,17 +1504,19 @@ function StoryWorkshop({
           {story ? (
             <>
               <div className="review-list">
-                <span className="section-caption">OPEN QUESTIONS</span>
+                <span className="section-caption">待确认问题</span>
                 {openQuestions.length > 0 ? (
                   openQuestions.slice(0, questionLimit).map((question) => (
                     <article key={question.question_id}>
                       <div className="review-record-meta">
-                        <span className={`severity ${question.severity}`}>{question.severity}</span>
-                        {question.blocking && <strong className="blocking-chip">BLOCKING</strong>}
+                        <span className={`severity ${question.severity}`}>
+                          {displayLabel(severityLabels, question.severity)}
+                        </span>
+                        {question.blocking && <strong className="blocking-chip">必须处理</strong>}
                       </div>
                       <p>{question.question}</p>
                       <div className="question-scope">
-                        <span>{question.scope_type}</span>
+                        <span>{displayLabel(scopeTypeLabels, question.scope_type)}</span>
                         {question.scope_id && question.scope_type !== "artifact" ? (
                           <button
                             type="button"
@@ -1498,15 +1556,15 @@ function StoryWorkshop({
                                   ? (sourceDocumentNames.get(question.scope_id) ??
                                     question.scope_id)
                                   : question.scope_id
-                              : "整个制品"}
+                              : "整份设定"}
                           </strong>
                         )}
                       </div>
-                      <small>责任角色 · {question.responsible_role}</small>
+                      <small>由谁处理 · {question.responsible_role}</small>
                     </article>
                   ))
                 ) : (
-                  <p className="review-clear">当前版本没有前端可见的开放问题。</p>
+                  <p className="review-clear">当前没有待确认问题。</p>
                 )}
                 {openQuestions.length > questionLimit && (
                   <button
@@ -1519,14 +1577,16 @@ function StoryWorkshop({
                 )}
               </div>
               <div className="review-list conflict-list">
-                <span className="section-caption">CONFLICT AUDIT</span>
+                <span className="section-caption">互相矛盾</span>
                 {allConflicts.length > 0 ? (
                   allConflicts.slice(0, conflictLimit).map((conflict) => (
                     <article key={conflict.conflict_id}>
                       <div className="review-record-meta">
-                        <span className={`severity ${conflict.severity}`}>{conflict.severity}</span>
+                        <span className={`severity ${conflict.severity}`}>
+                          {displayLabel(severityLabels, conflict.severity)}
+                        </span>
                         <strong className={`conflict-status ${conflict.status}`}>
-                          {conflict.status}
+                          {displayLabel(conflictStatusLabels, conflict.status)}
                         </strong>
                       </div>
                       <p>
@@ -1573,11 +1633,11 @@ function StoryWorkshop({
                             : conflict.resolution_fact_id}
                         </button>
                       )}
-                      <small>责任角色 · {conflict.responsible_role}</small>
+                      <small>由谁处理 · {conflict.responsible_role}</small>
                     </article>
                   ))
                 ) : (
-                  <p className="review-clear">当前版本没有冲突审计记录。</p>
+                  <p className="review-clear">当前没有互相矛盾的记录。</p>
                 )}
                 {allConflicts.length > conflictLimit && (
                   <button
@@ -1589,10 +1649,7 @@ function StoryWorkshop({
                   </button>
                 )}
               </div>
-              <p className="readiness-disclaimer">
-                本页不根据计数推断“可批准”。正式就绪状态必须来自服务端 G2 Readiness Report， 并包含
-                findings、waivers 与必需签署。
-              </p>
+              <p className="readiness-disclaimer">问题数量不等于可以正式通过。</p>
               <StoryWorkshopActions
                 context={{ manifest, story, storyRole: activeVersionRole }}
                 openQuestionIds={openQuestions.map((question) => question.question_id)}
@@ -1601,10 +1658,10 @@ function StoryWorkshop({
               />
               <div className="review-action-note">
                 <span aria-hidden="true">i</span>
-                <p>审批令牌不会暴露给界面。提交与签署能力将在独立受信任流程中接入。</p>
+                <p>正式通过需要单独确认，本页暂不能提交。</p>
               </div>
               <button className="accent-button review-submit" disabled>
-                提交 G2 审阅尚未开放
+                提交审阅尚未开放
               </button>
             </>
           ) : (
@@ -1613,7 +1670,7 @@ function StoryWorkshop({
               <p>
                 {storyBible
                   ? "正在按需读取所选版本的审阅记录。"
-                  : "故事圣经生成后，编剧、导演与连续性审阅结果会汇总在这里。"}
+                  : "故事设定生成后，待确认问题和矛盾会汇总在这里。"}
               </p>
             </div>
           )}
@@ -1729,14 +1786,14 @@ export function App({ transport }: AppProps) {
     void connect();
   }, [connect]);
 
-  const createProject = async (name: string, duration: number) => {
+  const createProject = async (name: string, duration: number, aspectRatio: ProjectAspectRatio) => {
     sourceRequestGeneration.current += 1;
     setCreateBusy(true);
     setCreateError(null);
     try {
       const response = await studio.createProject({
         name,
-        aspect_ratio: "9:16",
+        aspect_ratio: aspectRatio,
         target_duration_seconds: duration,
         source_language: "zh-CN",
       });
@@ -1842,8 +1899,8 @@ export function App({ transport }: AppProps) {
         <div className="sidebar-footer">
           <span className="phase-dot" />
           <div>
-            <strong>LOCAL WORKSPACE</strong>
-            <small>自动保存 · 版本可追溯</small>
+            <strong>本机工作区</strong>
+            <small>本机保存</small>
           </div>
         </div>
       </aside>
@@ -1851,16 +1908,16 @@ export function App({ transport }: AppProps) {
       <main id="top" className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">CREATOR WORKSPACE</span>
+            <span className="eyebrow">工作台</span>
             <h1>
               {activeWorkspace === "project"
                 ? "项目与原文"
                 : activeWorkspace === "story"
-                  ? "故事工坊"
+                  ? "故事设定"
                   : activeWorkspace === "queue"
                     ? "任务队列"
                     : activeWorkspace === "impact"
-                      ? "影响报告"
+                      ? "改稿影响"
                       : "模型与 API"}
             </h1>
           </div>
@@ -1879,9 +1936,9 @@ export function App({ transport }: AppProps) {
         {connection.kind === "error" && (
           <section className="connection-error">
             <div>
-              <span className="eyebrow">ENGINE OFFLINE</span>
-              <h2>创作引擎未连接</h2>
-              <p>本地项目没有被修改。重新连接后可以继续。</p>
+              <span className="eyebrow">本机工作区</span>
+              <h2>本机服务未连接</h2>
+              <p>本机使用，不用注册。项目没有被改动，启动本机服务后即可继续。</p>
             </div>
             <button className="secondary-button" onClick={() => void connect()}>
               重新连接
@@ -1926,20 +1983,18 @@ export function App({ transport }: AppProps) {
                   <>
                     <header className="project-hero">
                       <div>
-                        <span className="project-status">
-                          制作中 · REV {selectedProject.revision}
-                        </span>
+                        <span className="project-status">制作中</span>
                         <h2>{selectedProject.name}</h2>
-                        <p>先冻结可靠来源，再让编剧、导演和提示词工具共同工作。</p>
+                        <p>先导入小说原文，后面的分集和分镜都按这份原文来。</p>
                       </div>
                       <dl>
                         <div>
-                          <dt>画幅</dt>
-                          <dd>{selectedProject.aspect_ratio}</dd>
+                          <dt>形态</dt>
+                          <dd>{aspectTitle(selectedProject.aspect_ratio)}</dd>
                         </div>
                         <div>
                           <dt>单集</dt>
-                          <dd>{selectedProject.target_duration_seconds}s</dd>
+                          <dd>{formatDurationLabel(selectedProject.target_duration_seconds)}</dd>
                         </div>
                         <div>
                           <dt>语言</dt>

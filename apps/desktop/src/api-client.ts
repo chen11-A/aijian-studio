@@ -115,7 +115,7 @@ function isProject(value: unknown): boolean {
     typeof value.id === "string" &&
     PROJECT_ID_PATTERN.test(value.id) &&
     typeof value.name === "string" &&
-    value.aspect_ratio === "9:16" &&
+    ["9:16", "16:9", "4:5", "1:1", "4:3"].includes(String(value.aspect_ratio)) &&
     Number.isInteger(value.target_duration_seconds) &&
     value.source_language === "zh-CN" &&
     (value.status === "active" || value.status === "archived") &&
@@ -978,10 +978,10 @@ function isCreateProjectInput(value: unknown): value is CreateProjectInput {
     value.name.trim().length > 0 &&
     nameLength <= 80 &&
     !hasControlCharacter(value.name) &&
-    value.aspect_ratio === "9:16" &&
+    ["9:16", "16:9", "4:5", "1:1", "4:3"].includes(String(value.aspect_ratio)) &&
     Number.isInteger(value.target_duration_seconds) &&
     Number(value.target_duration_seconds) >= 30 &&
-    Number(value.target_duration_seconds) <= 180 &&
+    Number(value.target_duration_seconds) <= 900 &&
     value.source_language === "zh-CN"
   );
 }

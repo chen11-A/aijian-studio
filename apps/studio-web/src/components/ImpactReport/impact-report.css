@@ -247,6 +247,39 @@
   line-height: 1.45;
 }
 
+.impact-id-block strong,
+.impact-operation-copy {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.impact-operation-copy {
+  color: var(--muted);
+}
+
+.impact-technical-detail {
+  min-width: 0;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.impact-technical-detail summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.impact-technical-detail code {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: #9da494;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 /* Compact unframed key-value grids with dividers (not mini-cards). */
 .impact-counts {
   display: grid;

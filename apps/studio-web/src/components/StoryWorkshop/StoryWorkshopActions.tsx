@@ -102,8 +102,8 @@ export function StoryWorkshopActions({
       decision: targetType === "question" ? "deferred" : "resolved",
       note:
         targetType === "question"
-          ? "本地标记：进入后续编剧复核，不作为 canon。"
-          : "本地标记：需要受信后端写入决议事实后才可关闭。",
+          ? "先记下来，稍后编剧再看，不算正式通过。"
+          : "先记下来，正式关闭需要审阅通过。",
     });
     setMachine(next);
   };
@@ -131,20 +131,19 @@ export function StoryWorkshopActions({
       aria-describedby="story-action-canon-boundary"
     >
       <header>
-        <span className="section-caption">MOCK-FIRST G1/G2</span>
-        <h4 id="story-action-title">可操作草稿流程</h4>
+        <span className="section-caption">本机草稿</span>
+        <h4 id="story-action-title">整理本机草稿</h4>
         <p id="story-action-canon-boundary">
-          LATEST / REVIEW / ACCEPTED 是服务端版本视图；下方只编辑本地草稿。AI 建议和本地处置不会冒充
-          canon。
+          上方三个版本是已保存的稿。下面只改本机草稿，不会当成已通过的设定。
         </p>
       </header>
 
-      <div className="story-stepper" aria-label="G1/G2 动作顺序">
+      <div className="story-stepper" aria-label="操作顺序">
         {[
           ["verify_sources", "核对来源"],
           ["edit_draft", "编辑草稿"],
           ["resolve_review", "处理问题"],
-          ["prepare_g2", "准备提交"],
+          ["prepare_g2", "准备审阅"],
         ].map(([step, label], index) => (
           <span
             key={step}
@@ -177,7 +176,7 @@ export function StoryWorkshopActions({
           })
         }
       >
-        {busyAction === "verify" ? "正在核对来源..." : "核对 G1 accepted 来源"}
+        {busyAction === "verify" ? "正在核对来源..." : "核对已确认的原文"}
       </button>
 
       <form className="story-draft-editor" onSubmit={saveDraft}>
@@ -259,8 +258,8 @@ export function StoryWorkshopActions({
           <dd>{pendingConflicts}</dd>
         </div>
         <div>
-          <dt>本地 ETag</dt>
-          <dd>{machine.etag ?? "无"}</dd>
+          <dt>草稿状态</dt>
+          <dd>{machine.draftSaved ? "已保存" : "未保存"}</dd>
         </div>
       </dl>
 
@@ -275,11 +274,13 @@ export function StoryWorkshopActions({
           })
         }
       >
-        {busyAction === "prepare" ? "正在准备提交包..." : "准备 G2 提交包（受限）"}
+        {busyAction === "prepare" ? "正在准备审阅材料..." : "准备审阅材料（尚未开放）"}
       </button>
-      <small className="trusted-backend-note">
-        缺少受信后端接线时，这里只形成可复验的前端状态，不会真实提交、审批或签署。
-      </small>
+      <details className="inline-technical-detail">
+        <summary>技术详情</summary>
+        <code>{machine.etag ?? "无版本标记"}</code>
+      </details>
+      <small className="trusted-backend-note">现在还不能真正提交或签署，只会留下本机状态。</small>
     </section>
   );
 }

@@ -90,11 +90,12 @@ describe("task queue workspace", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("正在读取制作任务");
     expect(await screen.findByRole("heading", { name: "故事提取" })).toBeInTheDocument();
-    expect(screen.getByText("编剧 · 上游 G1")).toBeInTheDocument();
+    expect(screen.getByText("编剧 · 需要先确认原文")).toBeInTheDocument();
     expect(screen.getByText("正在本地执行")).toBeInTheDocument();
     expect(screen.getByText("尝试 1 / 2")).toBeInTheDocument();
+    expect(screen.getByText("1 份内容")).toBeInTheDocument();
     expect(screen.getByText(`ver_${"3".repeat(32)}`)).toBeInTheDocument();
-    expect(screen.getByText("成本账本尚未接入")).toBeInTheDocument();
+    expect(screen.getByText("费用暂未记录")).toBeInTheDocument();
     expect(screen.getByText("2026/08/04 17:31:00")).toBeInTheDocument();
   });
 
@@ -105,7 +106,7 @@ describe("task queue workspace", () => {
     render(<TaskQueueWorkspace project={project} loadTasks={vi.fn().mockResolvedValue(empty)} />);
 
     expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
-    expect(screen.getByText("从故事工坊冻结输入后，任务会出现在这里。")).toBeInTheDocument();
+    expect(screen.getByText("在故事设定里确认原文后，任务会出现在这里。")).toBeInTheDocument();
   });
 
   test("keeps the project visible and can retry a failed read", async () => {

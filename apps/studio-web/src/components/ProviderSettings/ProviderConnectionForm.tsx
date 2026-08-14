@@ -60,7 +60,7 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
   return (
     <form id="new-provider-connection" className="provider-form" onSubmit={submit}>
       <header>
-        <span className="settings-kicker">NEW CONNECTION</span>
+        <span className="settings-kicker">新建</span>
         <h3>添加模型供应商</h3>
         <p>先连接供应商，再把不同制作步骤分配给具体模型。</p>
       </header>
@@ -92,7 +92,7 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
           />
         </label>
         <label>
-          <span>Base URL</span>
+          <span>接口地址</span>
           <input
             value={baseUrl}
             type="url"
@@ -114,10 +114,10 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
           minLength={preset.keyRequired ? 8 : undefined}
           required={preset.keyRequired}
           autoComplete="off"
-          placeholder={preset.keyRequired ? "只写入系统凭据库，不会再次显示" : "可选"}
+          placeholder={preset.keyRequired ? "只写入本机，不会再次显示" : "可选"}
           onChange={(e) => setApiKey(e.target.value)}
         />
-        <em>密钥不会写入项目数据库、日志或前端缓存。</em>
+        <em>密钥只保存在本机，不会出现在项目或界面里。</em>
       </label>
 
       <fieldset className="model-fields" aria-describedby="provider-model-error">

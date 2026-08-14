@@ -42,6 +42,8 @@ def test_creates_lists_and_gets_a_typed_project(client: TestClient) -> None:
 
     assert str(project["id"]).startswith("prj_")
     assert project["name"] == "雾城来信"
+    assert project["aspect_ratio"] == "9:16"
+    assert project["target_duration_seconds"] == 90
     assert project["status"] == "active"
     assert project["revision"] == 1
 
@@ -52,6 +54,50 @@ def test_creates_lists_and_gets_a_typed_project(client: TestClient) -> None:
     assert listed.json()["data"] == [project]
     assert fetched.status_code == 200
     assert fetched.json()["data"] == project
+
+
+def test_creates_a_landscape_project_with_extended_duration(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "横屏漫剧",
+            "aspect_ratio": "16:9",
+            "target_duration_seconds": 900,
+            "source_language": "zh-CN",
+        },
+    )
+
+    assert response.status_code == 201
+    project = response.json()["data"]
+    assert project["aspect_ratio"] == "16:9"
+    assert project["target_duration_seconds"] == 900
+
+    listed = client.get("/api/v1/projects")
+    fetched = client.get(f"/api/v1/projects/{project['id']}")
+
+    assert listed.status_code == 200
+    assert listed.json()["data"] == [project]
+    assert fetched.status_code == 200
+    assert fetched.json()["data"] == project
+
+
+@pytest.mark.parametrize("aspect_ratio", ["4:5", "1:1", "4:3"])
+def test_creates_projects_in_additional_aspect_ratios(
+    client: TestClient, aspect_ratio: str
+) -> None:
+    response = client.post(
+        "/api/v1/projects",
+        json={
+            "name": f"{aspect_ratio} 项目",
+            "aspect_ratio": aspect_ratio,
+            "target_duration_seconds": 900,
+            "source_language": "zh-CN",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["aspect_ratio"] == aspect_ratio
+    assert response.json()["data"]["target_duration_seconds"] == 900
 
 
 def test_imports_original_bytes_and_returns_traceable_blocks(client: TestClient) -> None:
@@ -176,8 +222,14 @@ def test_returns_stable_safe_errors_for_project_and_source_failures(
         },
         {
             "name": "项目",
-            "aspect_ratio": "16:9",
+            "aspect_ratio": "2:1",
             "target_duration_seconds": 90,
+            "source_language": "zh-CN",
+        },
+        {
+            "name": "项目",
+            "aspect_ratio": "9:16",
+            "target_duration_seconds": 901,
             "source_language": "zh-CN",
         },
         {

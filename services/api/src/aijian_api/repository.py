@@ -42,6 +42,7 @@ from aijian_api.domain import (
     ArtifactVersionPayloadMetrics,
     ArtifactVersionRecord,
     ArtifactVersionSummary,
+    AspectRatio,
     ConfirmationChallenge,
     ConsumptionMode,
     DependencyAssessment,
@@ -1127,7 +1128,7 @@ class StudioRepository:
         self,
         *,
         name: str,
-        aspect_ratio: str,
+        aspect_ratio: AspectRatio,
         target_duration_seconds: int,
         source_language: str,
     ) -> Project:
@@ -3173,7 +3174,7 @@ class StudioRepository:
         return Project(
             id=str(row["id"]),
             name=str(row["name"]),
-            aspect_ratio=str(row["aspect_ratio"]),
+            aspect_ratio=cast(AspectRatio, row["aspect_ratio"]),
             target_duration_seconds=int(row["target_duration_seconds"]),
             source_language=str(row["source_language"]),
             status=cast(ProjectStatus, row["status"]),

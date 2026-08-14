@@ -11,10 +11,7 @@ const browserExecutable =
   globalThis.process.env.AIJIAN_BROWSER_EXECUTABLE ??
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 
-const stylesCss = await readFile(
-  join(repositoryRoot, "apps/studio-web/src/styles.css"),
-  "utf8",
-);
+const stylesCss = await readFile(join(repositoryRoot, "apps/studio-web/src/styles.css"), "utf8");
 const impactCss = await readFile(
   join(repositoryRoot, "apps/studio-web/src/components/ImpactReport/impact-report.css"),
   "utf8",
@@ -44,8 +41,8 @@ const html = `<!doctype html>
         <div class="fixture-label">Empty history</div>
         <section class="impact-report-workspace" aria-labelledby="empty-title">
           <header class="impact-hero">
-            <span class="eyebrow">EVENT-TIME EVIDENCE</span>
-            <h2 id="empty-title">影响报告</h2>
+            <span class="eyebrow">改稿记录</span>
+            <h2 id="empty-title">改稿影响</h2>
             <p><strong>雾城来信</strong> · 记录每一次接受头替换在事件当时冻结的下游影响。这是历史证据，不是当前实时可用性。</p>
             <div class="impact-event-notice" role="note">
               <strong>事件时证据（非实时状态）</strong>
@@ -65,7 +62,7 @@ const html = `<!doctype html>
         <section class="impact-report-workspace">
           <header class="impact-hero">
             <span class="eyebrow">EVENT-TIME EVIDENCE</span>
-            <h2>影响报告</h2>
+            <h2>改稿影响</h2>
             <p><strong>雾城来信</strong> · 历史证据，不是当前实时可用性。</p>
             <div class="impact-event-notice" role="note">
               <strong>事件时证据（非实时状态）</strong>
@@ -111,7 +108,7 @@ const html = `<!doctype html>
         <section class="impact-report-workspace">
           <header class="impact-hero">
             <span class="eyebrow">EVENT-TIME EVIDENCE</span>
-            <h2>影响报告</h2>
+            <h2>改稿影响</h2>
             <p><strong>雾城来信</strong> · 历史证据，不是当前实时可用性。</p>
             <div class="impact-event-notice" role="note">
               <strong>所选事件是冻结快照</strong>
@@ -254,9 +251,9 @@ async function capture(viewport, name) {
   const screenshotPath = join(evidenceDirectory, `${name}.png`);
   await page.screenshot({ path: screenshotPath, fullPage: true });
   const metrics = await page.evaluate(() => {
-    const codes = [...document.querySelectorAll("code")].map((node) => {
+    const codes = [...globalThis.document.querySelectorAll("code")].map((node) => {
       const rect = node.getBoundingClientRect();
-      const styles = getComputedStyle(node);
+      const styles = globalThis.getComputedStyle(node);
       return {
         text: node.textContent ?? "",
         width: rect.width,
@@ -265,45 +262,52 @@ async function capture(viewport, name) {
         clipped: node.scrollWidth > node.clientWidth + 1,
       };
     });
-    const selected = document.querySelector(".impact-operation-card.selected");
-    const selectedStyles = selected ? getComputedStyle(selected) : null;
-    const versionGroup = document.querySelector(".impact-version-card");
-    const versionStyles = versionGroup ? getComputedStyle(versionGroup) : null;
-    const edgeRow = document.querySelector(".impact-chain li");
-    const edgeStyles = edgeRow ? getComputedStyle(edgeRow) : null;
-    const countCell = document.querySelector(".impact-counts div");
-    const countStyles = countCell ? getComputedStyle(countCell) : null;
-    const badges = [...document.querySelectorAll(".impact-badge")].map((node) => node.textContent?.trim());
+    const selected = globalThis.document.querySelector(".impact-operation-card.selected");
+    const selectedStyles = selected ? globalThis.getComputedStyle(selected) : null;
+    const versionGroup = globalThis.document.querySelector(".impact-version-card");
+    const versionStyles = versionGroup ? globalThis.getComputedStyle(versionGroup) : null;
+    const edgeRow = globalThis.document.querySelector(".impact-chain li");
+    const edgeStyles = edgeRow ? globalThis.getComputedStyle(edgeRow) : null;
+    const countCell = globalThis.document.querySelector(".impact-counts div");
+    const countStyles = countCell ? globalThis.getComputedStyle(countCell) : null;
+    const badges = [...globalThis.document.querySelectorAll(".impact-badge")].map((node) =>
+      node.textContent?.trim(),
+    );
     return {
-      innerWidth: window.innerWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      innerWidth: globalThis.innerWidth,
+      scrollWidth: globalThis.document.documentElement.scrollWidth,
+      clientWidth: globalThis.document.documentElement.clientWidth,
+      horizontalOverflow:
+        globalThis.document.documentElement.scrollWidth >
+        globalThis.document.documentElement.clientWidth + 1,
       selectedPresent: Boolean(selected),
-      selectedUsesGradient: Boolean(selectedStyles?.backgroundImage && selectedStyles.backgroundImage !== "none"),
+      selectedUsesGradient: Boolean(
+        selectedStyles?.backgroundImage && selectedStyles.backgroundImage !== "none",
+      ),
       versionGroupFramed: Boolean(
         versionStyles &&
-          versionStyles.borderStyle !== "none" &&
-          versionStyles.borderBottomStyle === "solid" &&
-          Number.parseFloat(versionStyles.borderTopWidth) === 0 &&
-          Number.parseFloat(versionStyles.borderLeftWidth) === 0,
+        versionStyles.borderStyle !== "none" &&
+        versionStyles.borderBottomStyle === "solid" &&
+        Number.parseFloat(versionStyles.borderTopWidth) === 0 &&
+        Number.parseFloat(versionStyles.borderLeftWidth) === 0,
       ),
       edgeRowFramed: Boolean(
         edgeStyles &&
-          Number.parseFloat(edgeStyles.borderLeftWidth) > 0 &&
-          Number.parseFloat(edgeStyles.borderRightWidth) > 0 &&
-          Number.parseFloat(edgeStyles.borderTopWidth) > 0,
+        Number.parseFloat(edgeStyles.borderLeftWidth) > 0 &&
+        Number.parseFloat(edgeStyles.borderRightWidth) > 0 &&
+        Number.parseFloat(edgeStyles.borderTopWidth) > 0,
       ),
       countCellFramed: Boolean(
         countStyles &&
-          Number.parseFloat(countStyles.borderTopWidth) > 0 &&
-          Number.parseFloat(countStyles.borderLeftWidth) > 0 &&
-          Number.parseFloat(countStyles.borderBottomWidth) > 0,
+        Number.parseFloat(countStyles.borderTopWidth) > 0 &&
+        Number.parseFloat(countStyles.borderLeftWidth) > 0 &&
+        Number.parseFloat(countStyles.borderBottomWidth) > 0,
       ),
       badges,
       clippedIds: codes.filter((item) => item.clipped).map((item) => item.text),
-      liveLanguageHits: document.body.innerText.includes("当前实时可用性") &&
-        document.body.innerText.includes("事件时证据"),
+      liveLanguageHits:
+        globalThis.document.body.innerText.includes("当前实时可用性") &&
+        globalThis.document.body.innerText.includes("事件时证据"),
     };
   });
   findings.push({ viewport, name, screenshotPath, metrics });
@@ -319,4 +323,4 @@ const summary = {
   findings,
 };
 await writeFile(join(evidenceDirectory, "summary.json"), JSON.stringify(summary, null, 2), "utf8");
-console.log(JSON.stringify(summary, null, 2));
+globalThis.console.log(JSON.stringify(summary, null, 2));

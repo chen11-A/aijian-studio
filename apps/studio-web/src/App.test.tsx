@@ -451,9 +451,9 @@ test("opens the project-scoped impact report and reloads on project change", asy
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /影响报告/ }));
-  expect(await screen.findByRole("heading", { name: "影响报告", level: 2 })).toBeInTheDocument();
-  expect(await screen.findByText("还没有影响记录")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /改稿影响/ }));
+  expect(await screen.findByRole("heading", { name: "改稿影响", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByText("还没有改稿记录")).toBeInTheDocument();
   expect(transport.listInvalidationOperations).toHaveBeenCalledWith(project.id);
 
   fireEvent.click(screen.getByRole("button", { name: /第二项目/ }));
@@ -469,20 +469,20 @@ test("opens model and API settings without requiring a selected project", async 
 
   fireEvent.click(screen.getByRole("button", { name: /模型与 API/ }));
 
-  expect(
-    await screen.findByRole("heading", { name: "统一模型连接", level: 2 }),
-  ).toBeInTheDocument();
-  expect(screen.getByText("会员与 API 是两套账户体系")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "模型与接口", level: 2 })).toBeInTheDocument();
+  expect(screen.getByText("ChatGPT/Grok 会员不能直接填在这里")).toBeInTheDocument();
   expect(transport.listProviderConnections).toHaveBeenCalledTimes(1);
 });
 
 test("shows a connected, actionable empty workspace", async () => {
   render(<App transport={studioTransport()} />);
 
-  expect(screen.getByText("正在连接创作引擎…")).toBeInTheDocument();
+  expect(screen.getByText("正在连接本机服务…")).toBeInTheDocument();
   expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
+  expect(screen.getByText(/选择画幅/)).toBeInTheDocument();
+  expect(screen.getByText(/不用注册/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "创建第一个项目" })).toBeEnabled();
-  expect(screen.getByText("本地工作区服务已连接")).toBeInTheDocument();
+  expect(screen.getByText("本机服务已连接")).toBeInTheDocument();
 });
 
 test("creates and opens a project from the keyboard-friendly dialog", async () => {
@@ -496,8 +496,73 @@ test("creates and opens a project from the keyboard-friendly dialog", async () =
   fireEvent.click(screen.getByRole("button", { name: "创建项目" }));
 
   await waitFor(() => expect(transport.createProject).toHaveBeenCalledOnce());
+  expect(transport.createProject).toHaveBeenCalledWith(
+    expect.objectContaining({
+      aspect_ratio: "9:16",
+      target_duration_seconds: 90,
+    }),
+  );
   expect(await screen.findByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
+  expect(screen.getByText("竖屏 · 1 分 30 秒")).toBeInTheDocument();
+  expect(screen.getByText("竖屏短剧")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("creates a landscape project with a longer episode target", async () => {
+  const transport = studioTransport();
+  render(<App transport={transport} />);
+  await screen.findByText("还没有制作项目");
+
+  fireEvent.click(screen.getByRole("button", { name: "创建第一个项目" }));
+  expect(screen.getAllByRole("radio").map((el) => el.getAttribute("value"))).toEqual([
+    "9:16",
+    "16:9",
+    "4:5",
+    "1:1",
+    "4:3",
+  ]);
+  expect(screen.getByRole("radio", { name: "竖屏短剧" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "横屏漫剧" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "社媒竖版" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "方形画幅" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "经典画幅" })).toBeInTheDocument();
+  expect(screen.getByLabelText("单集时长")).toHaveValue("90");
+  fireEvent.change(screen.getByRole("textbox", { name: "项目名称" }), {
+    target: { value: "横屏漫剧" },
+  });
+  fireEvent.click(screen.getByRole("radio", { name: "横屏漫剧" }));
+  expect(screen.getByLabelText("单集时长")).toHaveValue("300");
+  fireEvent.click(screen.getByRole("radio", { name: "经典画幅" }));
+  expect(screen.getByLabelText("单集时长")).toHaveValue("300");
+  fireEvent.click(screen.getByRole("radio", { name: "社媒竖版" }));
+  expect(screen.getByLabelText("单集时长")).toHaveValue("90");
+  fireEvent.click(screen.getByRole("radio", { name: "横屏漫剧" }));
+  expect(screen.getByLabelText("单集时长")).toHaveValue("300");
+  for (const label of [
+    "1 分钟",
+    "1 分 30 秒",
+    "2 分钟",
+    "2 分 30 秒",
+    "3 分钟",
+    "4 分钟",
+    "5 分钟",
+    "8 分钟",
+    "10 分钟",
+    "15 分钟",
+  ]) {
+    expect(screen.getByRole("option", { name: label })).toBeInTheDocument();
+  }
+  fireEvent.change(screen.getByLabelText("单集时长"), { target: { value: "900" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建项目" }));
+
+  await waitFor(() => expect(transport.createProject).toHaveBeenCalledOnce());
+  expect(transport.createProject).toHaveBeenCalledWith(
+    expect.objectContaining({
+      name: "横屏漫剧",
+      aspect_ratio: "16:9",
+      target_duration_seconds: 900,
+    }),
+  );
 });
 
 test("imports a TXT file and shows traceable chapter blocks", async () => {
@@ -536,7 +601,8 @@ test("shows a recoverable connection error", async () => {
     .mockResolvedValueOnce(healthyResponse);
   render(<App transport={transport} />);
 
-  expect(await screen.findByRole("heading", { name: "创作引擎未连接" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "本机服务未连接" })).toBeInTheDocument();
+  expect(screen.getByText(/不用注册/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "重新连接" }));
 
   await waitFor(() => expect(transport.getHealth).toHaveBeenCalledTimes(2));
@@ -550,16 +616,21 @@ test("keeps project input when creation fails and supports Escape", async () => 
   await screen.findByText("还没有制作项目");
 
   fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+  expect(screen.getByRole("radio", { name: "竖屏短剧" })).toBeChecked();
+  expect(screen.getByRole("option", { name: "3 分钟" })).toBeInTheDocument();
   fireEvent.change(screen.getByRole("textbox", { name: "项目名称" }), {
     target: { value: "失败后保留" },
   });
-  fireEvent.change(screen.getByLabelText("单集目标时长"), { target: { value: "120" } });
+  fireEvent.change(screen.getByLabelText("单集时长"), { target: { value: "180" } });
   fireEvent.click(screen.getByRole("button", { name: "创建项目" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("已输入内容不会丢失");
   expect(screen.getByRole("textbox", { name: "项目名称" })).toHaveValue("失败后保留");
   expect(transport.createProject).toHaveBeenCalledWith(
-    expect.objectContaining({ target_duration_seconds: 120 }),
+    expect.objectContaining({
+      aspect_ratio: "9:16",
+      target_duration_seconds: 180,
+    }),
   );
   fireEvent.keyDown(window, { key: "Escape" });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -681,16 +752,16 @@ test("opens the professional story workshop and presents source, canon, and revi
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
-  expect(await screen.findByRole("heading", { name: "故事圣经" })).toBeInTheDocument();
-  expect(screen.getByText("G1 来源已验收")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "人物与设定" })).toBeInTheDocument();
+  expect(screen.getByText("原文已确认")).toBeInTheDocument();
   expect(screen.getByText("失忆记者循着一封旧信追查雾城真相。")).toBeInTheDocument();
   expect(screen.getAllByText("林见").length).toBeGreaterThan(0);
   expect(screen.getAllByText("林见 · 职业：记者")).toHaveLength(2);
-  expect(screen.getByRole("heading", { name: "逐事实证据" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "原文依据" })).toBeInTheDocument();
   expect(screen.getByText("林见的职业是记者")).toBeInTheDocument();
-  expect(screen.getByText("字节 17–41")).toBeInTheDocument();
+  expect(screen.getByText("原文位置 17–41")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "查看 林见 · 职业：记者 的来源证据" }));
   expect(screen.getByText("候选 / 争议 / 已拒绝")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "查看 林见 → 曾是搭档 → 周野 的来源证据" }));
@@ -705,7 +776,7 @@ test("opens the professional story workshop and presents source, canon, and revi
   fireEvent.click(within(conflictCard!).getByRole("button", { name: /林见 → 曾是搭档 → 周野/ }));
   expect(screen.getByText("原文叙事序")).toBeInTheDocument();
   expect(screen.getByText("状态变化")).toBeInTheDocument();
-  expect(screen.getByText("等待 G2 审阅")).toBeInTheDocument();
+  expect(screen.getByText("设定待审阅")).toBeInTheDocument();
   expect(transport.getSourceManifest).toHaveBeenCalledWith(project.id);
   expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
   expect(transport.getStoryBibleVersion).toHaveBeenCalledWith(
@@ -745,18 +816,18 @@ test("defaults to the exact review version and can switch accepted and latest ba
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
   expect(await screen.findByRole("heading", { name: "审阅版故事圣经" })).toBeInTheDocument();
-  expect(screen.getByText("正在查看 REVIEW")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /ACCEPTEDV01/ }));
+  expect(screen.getByText("正在看：审阅中")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /已通过V01/ }));
   expect(await screen.findByRole("heading", { name: "验收版故事圣经" })).toBeInTheDocument();
-  expect(screen.getByText("G2 已验收基线")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /LATESTV02/ }));
+  expect(screen.getByText("已通过的设定")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /最新稿V02/ }));
   await waitFor(() =>
     expect(screen.getAllByRole("heading", { name: "雾城来信" }).length).toBeGreaterThan(0),
   );
-  expect(screen.getByText("正在查看 LATEST")).toBeInTheDocument();
+  expect(screen.getByText("正在看：最新稿")).toBeInTheDocument();
 });
 
 test("switches the source preview among the exact G1 latest, review, and accepted versions", async () => {
@@ -808,14 +879,14 @@ test("switches the source preview among the exact G1 latest, review, and accepte
   });
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
-  expect(await screen.findByText("正在查看 ACCEPTED 来源清单")).toBeInTheDocument();
+  expect(await screen.findByText("正在看：已通过 原文清单")).toBeInTheDocument();
   expect(screen.getByText("下游采用的来源基线")).toBeInTheDocument();
-  const selector = screen.getByLabelText("来源清单版本");
-  fireEvent.click(within(selector).getByRole("button", { name: /REVIEWV2/ }));
+  const selector = screen.getByLabelText("原文版本");
+  fireEvent.click(within(selector).getByRole("button", { name: /审阅中V2/ }));
   expect(screen.getByText("正在审阅的来源")).toBeInTheDocument();
-  fireEvent.click(within(selector).getByRole("button", { name: /LATESTV3/ }));
+  fireEvent.click(within(selector).getByRole("button", { name: /最新稿V3/ }));
   expect(screen.getByText("最新来源草稿")).toBeInTheDocument();
 });
 
@@ -932,7 +1003,7 @@ test("loads evidence from the exact referenced document instead of the latest pr
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
   expect(await screen.findByText("“旧信在港口被发现。”")).toBeInTheDocument();
   expect(
@@ -953,7 +1024,7 @@ test("loads evidence from the exact referenced document instead of the latest pr
   expect(screen.queryByText("上下文段落 1")).not.toBeInTheDocument();
   expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id);
   expect(transport.getSource).toHaveBeenCalledWith(project.id, referencedSource.data.id);
-  expect(screen.queryByText(/无法从绑定的来源文档恢复/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/无法从对应原文恢复这段话/)).not.toBeInTheDocument();
 });
 
 test("keeps unreliable confirmed claims out of effective canon and supports fact search", async () => {
@@ -980,10 +1051,10 @@ test("keeps unreliable confirmed claims out of effective canon and supports fact
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  await screen.findByRole("heading", { name: "故事圣经" });
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  await screen.findByRole("heading", { name: "人物与设定" });
 
-  const canonList = screen.getByText("有效正典").closest<HTMLElement>(".fact-list");
+  const canonList = screen.getByText("已确认设定").closest<HTMLElement>(".fact-list");
   const reviewList = screen.getByText("候选 / 争议 / 已拒绝").closest<HTMLElement>(".fact-list");
   expect(canonList).not.toBeNull();
   expect(reviewList).not.toBeNull();
@@ -994,7 +1065,7 @@ test("keeps unreliable confirmed claims out of effective canon and supports fact
   expect(search).toHaveValue("电子记录");
   expect(screen.getByText("雾城区 · 雾会干扰电子记录")).toBeInTheDocument();
   await waitFor(() => {
-    const currentCanon = screen.getByText("有效正典").closest<HTMLElement>(".fact-list");
+    const currentCanon = screen.getByText("已确认设定").closest<HTMLElement>(".fact-list");
     const currentReview = screen
       .getByText("候选 / 争议 / 已拒绝")
       .closest<HTMLElement>(".fact-list");
@@ -1066,13 +1137,13 @@ test("paginates long fact and review queues without silently truncating them", a
   });
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  await screen.findByRole("heading", { name: "故事圣经" });
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  await screen.findByRole("heading", { name: "人物与设定" });
 
   expect(screen.queryByText("长列表角色 21")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "再显示 20 个实体" }));
+  fireEvent.click(screen.getByRole("button", { name: "再显示 20 个条目" }));
   expect(screen.getByText("长列表角色 21")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("搜索实体"), { target: { value: "别名 21" } });
+  fireEvent.change(screen.getByLabelText("搜索人物或场景"), { target: { value: "别名 21" } });
   expect(screen.getByText("长列表角色 21")).toBeInTheDocument();
   expect(screen.queryByText("雾城区 · 长列表规则 21")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "再显示 20 条事实" }));
@@ -1152,11 +1223,11 @@ test("exposes scoped questions, typed fact links, and resolved conflict decision
   });
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  await screen.findByRole("heading", { name: "故事圣经" });
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  await screen.findByRole("heading", { name: "人物与设定" });
 
-  expect(screen.getAllByText("BLOCKING")).toHaveLength(3);
-  expect(screen.getByText("fact")).toBeInTheDocument();
+  expect(screen.getAllByText("必须处理")).toHaveLength(3);
+  expect(screen.getByText("设定")).toBeInTheDocument();
   const relationshipCard = screen
     .getByRole("button", { name: "查看 林见 → 曾是搭档 → 周野 的来源证据" })
     .closest("article");
@@ -1166,7 +1237,7 @@ test("exposes scoped questions, typed fact links, and resolved conflict decision
   });
   fireEvent.click(derivedLink);
   expect(derivedLink).toHaveTextContent(characterFactId);
-  expect(screen.getByText("resolved_by_user_decision")).toBeInTheDocument();
+  expect(screen.getByText("已由人工决定")).toBeInTheDocument();
   expect(screen.getByText("决议依据：用户确认林见是调查记者。")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /决议事实 · 林见 · 职业：记者/ })).toBeEnabled();
   const noEvidenceConflictLink = screen.getByRole("button", {
@@ -1179,7 +1250,7 @@ test("exposes scoped questions, typed fact links, and resolved conflict decision
     .closest("article");
   expect(noEvidenceFactCard).toHaveClass("active");
   expect(noEvidenceFactCard).toHaveFocus();
-  expect(screen.getByText("当前事实没有绑定可核对的精确引文。")).toBeInTheDocument();
+  expect(screen.getByText("当前这条设定没有可核对的原文摘录。")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("搜索事实"), { target: { value: "不存在的事实" } });
   const factQuestion = screen.getByText("旧信是谁寄出的？").closest("article");
   fireEvent.click(within(factQuestion!).getByRole("button", { name: "林见 → 曾是搭档 → 周野" }));
@@ -1208,9 +1279,9 @@ test("marks unavailable evidence explicitly instead of substituting another sour
   vi.mocked(transport.getSource).mockRejectedValue(new Error("source offline"));
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
-  expect(await screen.findByText(/无法从绑定的来源文档恢复该引文/)).toBeInTheDocument();
+  expect(await screen.findByText(/无法从对应原文恢复这段话/)).toBeInTheDocument();
   expect(screen.getByText(/1 份证据文档读取失败/)).toBeInTheDocument();
 });
 
@@ -1226,10 +1297,10 @@ test("shows an honest G1 dependency state instead of a fake story action", async
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
-  expect(await screen.findByRole("heading", { name: "来源尚未验收" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "等待 G1 验收" })).toBeDisabled();
+  expect(await screen.findByRole("heading", { name: "原文尚未确认" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "等待确认原文" })).toBeDisabled();
   expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
 });
 
@@ -1242,11 +1313,11 @@ test("recovers the story workshop after a local read failure", async () => {
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  expect(await screen.findByRole("heading", { name: "故事工坊暂时无法读取" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  expect(await screen.findByRole("heading", { name: "故事设定暂时无法读取" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
 
-  expect(await screen.findByRole("heading", { name: "可以开始拆解小说" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "可以开始整理小说" })).toBeInTheDocument();
   expect(transport.getSourceManifest).toHaveBeenCalledTimes(2);
   expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
 });
@@ -1268,11 +1339,11 @@ test("distinguishes latest drafts from accepted versions and marks stale G1 bind
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
 
-  expect(await screen.findByText("故事圣经来源已过期")).toBeInTheDocument();
-  expect(screen.getByText("G2 来源已过期")).toBeInTheDocument();
-  expect(screen.queryByText("G2 最新版已验收")).not.toBeInTheDocument();
+  expect(await screen.findByText("故事设定所依据的原文已更新")).toBeInTheDocument();
+  expect(screen.getByText("原文有更新，设定需重审")).toBeInTheDocument();
+  expect(screen.queryByText("当前设定已通过")).not.toBeInTheDocument();
 });
 
 test("labels a newer draft separately from the accepted downstream baseline", async () => {
@@ -1307,13 +1378,13 @@ test("labels a newer draft separately from the accepted downstream baseline", as
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  await screen.findByText("正在查看 ACCEPTED");
-  fireEvent.click(screen.getByRole("button", { name: /LATESTV02/ }));
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  await screen.findByText("正在看：已通过");
+  fireEvent.click(screen.getByRole("button", { name: /最新稿V02/ }));
 
-  expect(await screen.findByText("G1 最新草稿未验收")).toBeInTheDocument();
-  expect(screen.getByText("G2 最新草稿未验收")).toBeInTheDocument();
-  expect(screen.getByText(/下游仍使用 ver_eeeeeeee/)).toBeInTheDocument();
+  expect(await screen.findByText("有未确认的新原文")).toBeInTheDocument();
+  expect(screen.getByText("有未通过的新设定")).toBeInTheDocument();
+  expect(screen.getByText(/后面步骤仍使用 ver_eeeeeeee/)).toBeInTheDocument();
 });
 
 test("walks the mock-first G1/G2 draft workflow without pretending to approve", async () => {
@@ -1323,30 +1394,30 @@ test("walks the mock-first G1/G2 draft workflow without pretending to approve", 
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
-  expect(await screen.findByRole("heading", { name: "可操作草稿流程" })).toBeInTheDocument();
-  expect(screen.getByText(/AI 建议和本地处置不会冒充 canon/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事设定/ }));
+  expect(await screen.findByRole("heading", { name: "整理本机草稿" })).toBeInTheDocument();
+  expect(screen.getByText(/不会当成已通过的设定/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "保存本地草稿" })).toBeDisabled();
 
-  fireEvent.click(screen.getByRole("button", { name: "核对 G1 accepted 来源" }));
-  expect(await screen.findByText(/G1 accepted 来源已核对/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "核对已确认的原文" }));
+  expect(await screen.findByText(/已确认的原文已核对/)).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText("草稿标题"), { target: { value: "雾城来信 本地草稿" } });
   fireEvent.change(screen.getByLabelText("编剧备注"), { target: { value: "保留旧信疑问。" } });
   fireEvent.click(screen.getByRole("button", { name: "保存本地草稿" }));
-  expect(await screen.findByText(/草稿已保存到本地 adapter/)).toBeInTheDocument();
+  expect(await screen.findByText(/草稿已保存在本机/)).toBeInTheDocument();
   expect(screen.getByText("待处置问题")).toBeInTheDocument();
   expect(screen.getByText("待处置冲突")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "准备 G2 提交包（受限）" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "准备审阅材料（尚未开放）" })).toBeDisabled();
 
   fireEvent.click(screen.getByRole("button", { name: "处置 1 个开放问题" }));
   expect(await screen.findByText("开放问题已记录本地处置。")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "处置 1 个冲突" }));
   expect(await screen.findByText("冲突已记录本地处置。")).toBeInTheDocument();
 
-  const prepare = screen.getByRole("button", { name: "准备 G2 提交包（受限）" });
+  const prepare = screen.getByRole("button", { name: "准备审阅材料（尚未开放）" });
   expect(prepare).toBeEnabled();
   fireEvent.click(prepare);
-  expect(await screen.findByText(/缺少受信后端接线/)).toBeInTheDocument();
-  expect(screen.getByText(/不会真实提交、审批或签署/)).toBeInTheDocument();
+  expect(await screen.findByText(/还不能正式提交或签署/)).toBeInTheDocument();
+  expect(screen.getByText(/只会留下本机状态/)).toBeInTheDocument();
 });

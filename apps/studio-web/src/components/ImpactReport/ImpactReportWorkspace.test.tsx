@@ -120,6 +120,16 @@ function listResponse(
   };
 }
 
+function operationButtons() {
+  return within(screen.getByRole("list", { name: "改稿记录列表" })).getAllByRole("button");
+}
+
+function openTechnicalDetails() {
+  for (const summary of screen.getAllByText("技术详情")) {
+    fireEvent.click(summary);
+  }
+}
+
 describe("impact report workspace", () => {
   test("covers loading, empty history, and recoverable list error", async () => {
     const listOperations = vi
@@ -135,9 +145,9 @@ describe("impact report workspace", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("正在读取影响历史");
-    expect(await screen.findByText("影响报告暂时无法读取")).toBeInTheDocument();
+    expect(await screen.findByText("改稿影响暂时无法读取")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
-    expect(await screen.findByText("还没有影响记录")).toBeInTheDocument();
+    expect(await screen.findByText("还没有改稿记录")).toBeInTheDocument();
     expect(listOperations).toHaveBeenCalledTimes(2);
   });
 
@@ -154,10 +164,8 @@ describe("impact report workspace", () => {
 
     expect(await screen.findAllByText("无影响")).not.toHaveLength(0);
     expect(getOperation).toHaveBeenCalledWith(project.id, zeroImpactSummary.operation_id);
-    expect(
-      await screen.findByText(/没有独立下游路径，受影响版本数与路径数均为 0/),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/事件时证据|冻结快照/).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/没有需要跟着改的后续内容/)).toBeInTheDocument();
+    expect(screen.getAllByText(/当时的快照|不是现在的状态/).length).toBeGreaterThan(0);
   });
 
   test("keeps multiple versions and paths distinct with full chains and text severity", async () => {
@@ -176,15 +184,16 @@ describe("impact report workspace", () => {
       />,
     );
 
-    expect(await screen.findAllByText(populatedSummary.operation_id)).not.toHaveLength(0);
+    expect(await screen.findAllByText(/影响了 2 个后续版本/)).not.toHaveLength(0);
     expect(getOperation).toHaveBeenCalledWith(project.id, populatedSummary.operation_id);
-    expect(await screen.findByText("阻断 / 仅渲染 / 提示")).toBeInTheDocument();
+    expect(await screen.findByText("必须重做 / 只影响成片 / 提示")).toBeInTheDocument();
     expect(screen.getByText("1 / 1 / 1")).toBeInTheDocument();
 
-    const list = screen.getByRole("list", { name: "失效操作列表" });
-    expect(within(list).getAllByText("阻断").length).toBeGreaterThan(0);
+    const list = screen.getByRole("list", { name: "改稿记录列表" });
+    expect(within(list).getAllByText("必须重做").length).toBeGreaterThan(0);
     expect(within(list).getAllByText("无影响").length).toBeGreaterThan(0);
 
+    openTechnicalDetails();
     expect(screen.getByText(`ver_${"a".repeat(32)}`)).toBeInTheDocument();
     expect(screen.getByText(`ver_${"1".repeat(32)}`)).toBeInTheDocument();
     expect(screen.getByText(`dep_${"c".repeat(32)}`)).toBeInTheDocument();
@@ -193,19 +202,19 @@ describe("impact report workspace", () => {
     expect(screen.getAllByText("关系 derived_from").length).toBeGreaterThan(0);
     expect(screen.getByText("关系 references")).toBeInTheDocument();
     expect(screen.getByText("关系 mentions")).toBeInTheDocument();
-    expect(screen.getAllByText(/路径序号 0/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/路径序号 1/)).toBeInTheDocument();
-    expect(screen.getByText("通用过期（事件时）")).toBeInTheDocument();
-    expect(screen.getByText("通用阻断（事件时）")).toBeInTheDocument();
-    expect(screen.getByText("渲染阻断（事件时）")).toBeInTheDocument();
-    expect(screen.getByText("事件时未触发通用/渲染阻断")).toBeInTheDocument();
+    expect(screen.getAllByText(/影响路径 1/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/影响路径 2/)).toBeInTheDocument();
+    expect(screen.getByText("当时已过期")).toBeInTheDocument();
+    expect(screen.getByText("当时必须重做")).toBeInTheDocument();
+    expect(screen.getByText("当时成片受阻")).toBeInTheDocument();
+    expect(screen.getByText("当时没有必须重做的项")).toBeInTheDocument();
 
     // Textual severity remains distinguishable beyond color classes.
-    expect(screen.getAllByText("阻断").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("仅渲染").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("必须重做").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("只影响成片").length).toBeGreaterThan(0);
     expect(screen.getAllByText("提示").length).toBeGreaterThan(0);
 
-    fireEvent.click(within(list).getByText(zeroImpactSummary.operation_id).closest("button")!);
+    fireEvent.click(operationButtons()[0]!);
     await waitFor(() =>
       expect(getOperation).toHaveBeenCalledWith(project.id, zeroImpactSummary.operation_id),
     );
@@ -261,15 +270,15 @@ describe("impact report workspace", () => {
       />,
     );
 
-    expect(await screen.findAllByText(populatedSummary.operation_id)).not.toHaveLength(0);
+    expect(await screen.findAllByText(/影响了 2 个后续版本/)).not.toHaveLength(0);
     listDeferred.resolve(listResponse([zeroImpactSummary]));
 
     // Select older operation, then switch to newer before the older detail resolves.
-    fireEvent.click(screen.getByText(zeroImpactSummary.operation_id).closest("button")!);
+    fireEvent.click(operationButtons()[0]!);
     await waitFor(() =>
       expect(getOperation).toHaveBeenCalledWith(secondProject.id, zeroImpactSummary.operation_id),
     );
-    fireEvent.click(screen.getByText(populatedSummary.operation_id).closest("button")!);
+    fireEvent.click(operationButtons()[1]!);
     await waitFor(() => {
       expect(screen.getByText("1 / 1 / 1")).toBeInTheDocument();
     });
@@ -295,9 +304,9 @@ describe("impact report workspace", () => {
       />,
     );
 
-    expect(await screen.findByText("事件详情暂时无法读取")).toBeInTheDocument();
+    expect(await screen.findByText("记录详情暂时无法读取")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
-    expect(await screen.findByText(populatedSummary.operation_id)).toBeInTheDocument();
+    expect(await screen.findByText(/影响了 2 个后续版本/)).toBeInTheDocument();
     expect(getOperation).toHaveBeenCalledTimes(2);
   });
 });

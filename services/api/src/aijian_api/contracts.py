@@ -214,8 +214,8 @@ class CreateProjectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=80)
-    aspect_ratio: Literal["9:16"] = "9:16"
-    target_duration_seconds: int = Field(default=90, ge=30, le=180)
+    aspect_ratio: Literal["9:16", "16:9", "4:5", "1:1", "4:3"] = "9:16"
+    target_duration_seconds: int = Field(default=90, ge=30, le=900)
     source_language: Literal["zh-CN"] = "zh-CN"
 
     @field_validator("name", mode="before")
@@ -236,7 +236,7 @@ class ProjectData(BaseModel):
 
     id: str = Field(pattern=PROJECT_ID_PATTERN)
     name: str
-    aspect_ratio: Literal["9:16"]
+    aspect_ratio: Literal["9:16", "16:9", "4:5", "1:1", "4:3"]
     target_duration_seconds: int
     source_language: Literal["zh-CN"]
     status: Literal["active", "archived"]

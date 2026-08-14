@@ -551,9 +551,9 @@ export interface components {
             /**
              * Aspect Ratio
              * @default 9:16
-             * @constant
+             * @enum {string}
              */
-            aspect_ratio: "9:16";
+            aspect_ratio: "9:16" | "16:9" | "4:5" | "1:1" | "4:3";
             /** Name */
             name: string;
             /**
@@ -1199,9 +1199,9 @@ export interface components {
         ProjectData: {
             /**
              * Aspect Ratio
-             * @constant
+             * @enum {string}
              */
-            aspect_ratio: "9:16";
+            aspect_ratio: "9:16" | "16:9" | "4:5" | "1:1" | "4:3";
             /**
              * Created At
              * Format: date-time

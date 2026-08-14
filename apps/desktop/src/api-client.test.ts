@@ -728,6 +728,22 @@ describe("local API client", () => {
       }),
     ).rejects.toThrow("valid project input");
     await expect(
+      client.createProject({
+        name: "项目",
+        aspect_ratio: "2:1" as "9:16",
+        target_duration_seconds: 90,
+        source_language: "zh-CN",
+      }),
+    ).rejects.toThrow("valid project input");
+    await expect(
+      client.createProject({
+        name: "项目",
+        aspect_ratio: "9:16",
+        target_duration_seconds: 901,
+        source_language: "zh-CN",
+      }),
+    ).rejects.toThrow("valid project input");
+    await expect(
       client.importTextSource(project.id, {
         filename: "story.txt",
         media_type: "text/plain",
@@ -745,6 +761,21 @@ describe("local API client", () => {
       "valid project id",
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("accepts landscape project input at the 15-minute ceiling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(projectResponse, { status: 201 }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(
+      client.createProject({
+        name: "横屏漫剧",
+        aspect_ratio: "16:9",
+        target_duration_seconds: 900,
+        source_language: "zh-CN",
+      }),
+    ).resolves.toEqual(projectResponse);
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   test("rejects malformed project and source responses", async () => {
@@ -895,23 +926,27 @@ describe("local API client", () => {
     await expect(guarded.listInvalidationOperations("../workspace.sqlite3")).rejects.toThrow(
       "valid project id",
     );
-    await expect(
-      guarded.getInvalidationOperation(project.id, "invop_not-hex"),
-    ).rejects.toThrow("valid operation id");
+    await expect(guarded.getInvalidationOperation(project.id, "invop_not-hex")).rejects.toThrow(
+      "valid operation id",
+    );
     expect(noFetch).not.toHaveBeenCalled();
 
     const wrongProject = structuredClone(listResponse);
     wrongProject.data.project_id = `prj_${"f".repeat(32)}`;
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(wrongProject)), session)
-        .listInvalidationOperations(project.id),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(wrongProject)),
+        session,
+      ).listInvalidationOperations(project.id),
     ).rejects.toThrow("published contract");
 
     const wrongOperation = structuredClone(detailResponse);
     wrongOperation.data.operation.operation_id = `invop_${"a".repeat(32)}`;
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(wrongOperation)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(wrongOperation)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     const badEnum = structuredClone(detailResponse) as unknown as {
@@ -919,8 +954,10 @@ describe("local API client", () => {
     };
     badEnum.data.operation.strongest_effective_impact = "critical";
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badEnum)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(badEnum)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     const secretShaped = structuredClone(detailResponse) as unknown as {
@@ -928,23 +965,29 @@ describe("local API client", () => {
     };
     secretShaped.data.operation.secret_token = "must-not-cross-ipc";
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(secretShaped)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(secretShaped)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     const badPathShape = structuredClone(detailResponse);
     badPathShape.data.affected_versions[0]!.paths[0]!.dependency_path = [];
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badPathShape)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(badPathShape)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     // Timestamp and semantic guards fail closed with the generic published-contract error.
     const timezoneLess = structuredClone(listResponse);
     timezoneLess.data.operations[0]!.created_at = "2026-08-03T12:00:00";
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(timezoneLess)), session)
-        .listInvalidationOperations(project.id),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(timezoneLess)),
+        session,
+      ).listInvalidationOperations(project.id),
     ).rejects.toThrow("published contract");
 
     const badEffective = structuredClone(detailResponse);
@@ -962,16 +1005,20 @@ describe("local API client", () => {
     ];
     badEffective.data.affected_versions[0]!.paths[0]!.effective_impact = "blocking";
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badEffective)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(badEffective)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     const badGroupFlags = structuredClone(detailResponse);
     badGroupFlags.data.affected_versions[0]!.general_stale = false;
     badGroupFlags.data.affected_versions[0]!.general_blocked = false;
     await expect(
-      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badGroupFlags)), session)
-        .getInvalidationOperation(project.id, operationId),
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(badGroupFlags)),
+        session,
+      ).getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
     const oversized = createLocalApiClient(

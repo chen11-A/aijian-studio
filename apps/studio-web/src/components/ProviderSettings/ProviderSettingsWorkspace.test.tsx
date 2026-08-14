@@ -36,7 +36,7 @@ describe("provider settings workspace", () => {
       />,
     );
     expect(await screen.findByText("还没有模型连接")).toBeInTheDocument();
-    expect(screen.getByText("会员与 API 是两套账户体系")).toBeInTheDocument();
+    expect(screen.getByText("ChatGPT/Grok 会员不能直接填在这里")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新增连接 ↓" })).toHaveAttribute(
       "href",
       "#new-provider-connection",
@@ -129,7 +129,7 @@ describe("provider settings workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
 
     expect(await screen.findByText("OpenAI 主连接")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("系统凭据可能需要清理");
+    expect(screen.getByRole("alert")).toHaveTextContent("本机密钥可能没存好");
   });
 
   test("does not suggest deleting a valid connection after an ordinary conflict", async () => {
@@ -203,9 +203,9 @@ describe("provider settings workspace", () => {
     await screen.findByText("尚未登记模型 ID");
 
     fireEvent.click(screen.getByRole("button", { name: "移除连接" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("同时移除系统凭据");
+    expect(screen.getByRole("alert")).toHaveTextContent("同时删除本机保存的密钥");
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    expect(screen.queryByText("同时移除系统凭据？")).not.toBeInTheDocument();
+    expect(screen.queryByText("同时删除本机保存的密钥？")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "移除连接" }));
     fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
 

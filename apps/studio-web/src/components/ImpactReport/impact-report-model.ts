@@ -4,8 +4,7 @@ import type {
 } from "../../api/studio";
 
 export type ImpactKind = "blocking" | "render_only" | "advisory";
-export type OperationSummary =
-  InvalidationOperationListResponse["data"]["operations"][number];
+export type OperationSummary = InvalidationOperationListResponse["data"]["operations"][number];
 export type OperationDetail = InvalidationOperationDetailResponse["data"];
 export type AffectedVersion = OperationDetail["affected_versions"][number];
 export type PathImpact = AffectedVersion["paths"][number];
@@ -23,8 +22,8 @@ export type ReportDetailState =
 
 export function impactLabel(impact: ImpactKind | null): string {
   if (impact === null) return "无影响";
-  if (impact === "blocking") return "阻断";
-  if (impact === "render_only") return "仅渲染";
+  if (impact === "blocking") return "必须重做";
+  if (impact === "render_only") return "只影响成片";
   return "提示";
 }
 
@@ -72,9 +71,9 @@ export function isZeroImpact(summary: OperationSummary): boolean {
 
 export function eventTimeFlagLabels(group: AffectedVersion): string[] {
   const labels: string[] = [];
-  if (group.general_stale) labels.push("通用过期（事件时）");
-  if (group.general_blocked) labels.push("通用阻断（事件时）");
-  if (group.render_blocked) labels.push("渲染阻断（事件时）");
-  if (labels.length === 0) labels.push("事件时未触发通用/渲染阻断");
+  if (group.general_stale) labels.push("当时已过期");
+  if (group.general_blocked) labels.push("当时必须重做");
+  if (group.render_blocked) labels.push("当时成片受阻");
+  if (labels.length === 0) labels.push("当时没有必须重做的项");
   return labels;
 }

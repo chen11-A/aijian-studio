@@ -967,8 +967,14 @@
         "additionalProperties": false,
         "properties": {
           "aspect_ratio": {
-            "const": "9:16",
             "default": "9:16",
+            "enum": [
+              "9:16",
+              "16:9",
+              "4:5",
+              "1:1",
+              "4:3"
+            ],
             "title": "Aspect Ratio",
             "type": "string"
           },
@@ -986,7 +992,7 @@
           },
           "target_duration_seconds": {
             "default": 90,
-            "maximum": 180.0,
+            "maximum": 900.0,
             "minimum": 30.0,
             "title": "Target Duration Seconds",
             "type": "integer"
@@ -3200,7 +3206,13 @@
         "additionalProperties": false,
         "properties": {
           "aspect_ratio": {
-            "const": "9:16",
+            "enum": [
+              "9:16",
+              "16:9",
+              "4:5",
+              "1:1",
+              "4:3"
+            ],
             "title": "Aspect Ratio",
             "type": "string"
           },

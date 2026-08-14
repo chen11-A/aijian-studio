@@ -62,8 +62,8 @@ export function ProviderSettingsWorkspace(props: ProviderSettingsWorkspaceProps)
         error instanceof Error && error.message.includes("CREDENTIAL_CLEANUP_REQUIRED");
       setSaveError(
         cleanupRequired
-          ? "系统凭据可能需要清理。已显示本次保留的连接，请确认连接 ID 后移除。"
-          : "连接未保存。已重新读取配置，请检查名称、地址和系统凭据库后重试。",
+          ? "本机密钥可能没存好。已留下这条连接，请记下编号后移除重试。"
+          : "连接未保存。请检查名称、地址和密钥后重试。",
       );
       throw error;
     } finally {
@@ -85,32 +85,29 @@ export function ProviderSettingsWorkspace(props: ProviderSettingsWorkspaceProps)
     <section className="provider-settings" aria-labelledby="provider-settings-title">
       <header className="settings-hero">
         <div>
-          <span className="settings-kicker">MODEL INFRASTRUCTURE</span>
-          <h2 id="provider-settings-title">统一模型连接</h2>
-          <p>集中管理文本、图片、视频与配音模型；项目只引用连接 ID，不接触密钥。</p>
+          <span className="settings-kicker">模型连接</span>
+          <h2 id="provider-settings-title">模型与接口</h2>
+          <p>集中管理文本、图片、视频与配音模型；项目只引用连接，不接触密钥。</p>
         </div>
         <div className="settings-security-badge">
           <span aria-hidden="true">◆</span>
           <div>
-            <strong>系统凭据库</strong>
-            <small>密钥单向写入</small>
+            <strong>密钥保存在本机</strong>
+            <small>界面里不会再显示</small>
           </div>
         </div>
       </header>
 
       <aside className="membership-notice">
-        <strong>会员与 API 是两套账户体系</strong>
-        <p>
-          ChatGPT Plus/Pro 和 Grok 会员通常不等于开发者 API
-          额度。这里填写的是供应商开发者控制台签发的 API Key。
-        </p>
+        <strong>ChatGPT/Grok 会员不能直接填在这里</strong>
+        <p>会员通常不等于开发者 API 额度。这里填写的是供应商开发者控制台签发的 API Key。</p>
       </aside>
 
       <div className="settings-grid">
         <section className="connections-panel" aria-labelledby="connections-title">
           <header>
             <div>
-              <span className="settings-kicker">CONNECTIONS</span>
+              <span className="settings-kicker">已保存</span>
               <h3 id="connections-title">已配置连接</h3>
             </div>
             <a className="mobile-add-connection" href="#new-provider-connection">
@@ -151,7 +148,7 @@ export function ProviderSettingsWorkspace(props: ProviderSettingsWorkspaceProps)
                     {connection.credential_status === "CONFIGURED"
                       ? "密钥已配置"
                       : connection.credential_status === "UNAVAILABLE"
-                        ? "凭据库不可用"
+                        ? "本机密钥库不可用"
                         : "无需密钥 / 未配置"}
                   </i>
                 </header>
@@ -173,7 +170,7 @@ export function ProviderSettingsWorkspace(props: ProviderSettingsWorkspaceProps)
                 <footer>
                   {confirmingId === connection.id ? (
                     <div className="remove-confirm" role="alert">
-                      <span>同时移除系统凭据？</span>
+                      <span>同时删除本机保存的密钥？</span>
                       <button onClick={() => void remove(connection.id)}>确认移除</button>
                       <button onClick={() => setConfirmingId(null)}>取消</button>
                     </div>

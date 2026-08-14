@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 type ProjectStatus = Literal["active", "archived"]
+type AspectRatio = Literal["9:16", "16:9", "4:5", "1:1", "4:3"]
 type SourceBlockKind = Literal["chapter_heading", "paragraph"]
 type ArtifactActorType = Literal["human", "agent", "system"]
 type SourceSpanRole = Literal["supports", "contradicts", "context"]
@@ -18,7 +19,7 @@ type GateDecisionValue = Literal["approved", "approved_with_waiver", "rejected"]
 class Project:
     id: str
     name: str
-    aspect_ratio: str
+    aspect_ratio: AspectRatio
     target_duration_seconds: int
     source_language: str
     status: ProjectStatus

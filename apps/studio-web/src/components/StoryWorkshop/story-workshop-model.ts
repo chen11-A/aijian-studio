@@ -95,10 +95,10 @@ export function unavailableReason({
 
 export function unavailableMessage(reason: StoryWorkshopUnavailableReason): string {
   return {
-    missing_story: "故事圣经版本尚未读取，不能创建草稿。",
-    g1_not_accepted: "G1 来源没有 accepted 基线，不能进入 G2 草稿。",
-    stale_g1: "故事圣经绑定的 G1 来源已过期，需要重新生成或重审。",
-    trusted_backend_missing: "缺少受信后端接线，不能提交、签署或写入 canon。",
+    missing_story: "还没有故事设定，不能创建草稿。",
+    g1_not_accepted: "原文还没确认，不能开始改设定。",
+    stale_g1: "故事设定依据的原文已更新，需要重新整理或重审。",
+    trusted_backend_missing: "还不能正式提交或签署，本页只做本机准备。",
   }[reason];
 }
 
@@ -109,7 +109,7 @@ export function updateDraft(machine: StoryWorkshopMachine, patch: Partial<StoryD
     currentStep: "edit_draft" as const,
     draftSaved: false,
     readyPackagePrepared: false,
-    message: "草稿有本地修改，尚未成为 latest、review 或 accepted。",
+    message: "草稿有本机修改，还不是最新稿、审阅中或已通过的版本。",
     draft: { ...machine.draft, ...patch, dirty: true },
   };
 }
@@ -157,7 +157,7 @@ export function mockVerifySources(
       currentStep: "edit_draft",
       status: "ready",
       sourceVerified: true,
-      message: "G1 accepted 来源已核对。本地草稿仍不是 canon。",
+      message: "已确认的原文已核对。本机草稿还不是正式通过的设定。",
     },
   };
 }
@@ -187,7 +187,7 @@ export function mockSaveDraft(
       status: "ready",
       draftSaved: true,
       etag: nextEtag,
-      message: "草稿已保存到本地 adapter，仍未送审、未签署、未写入 canon。",
+      message: "草稿已保存在本机，尚未送审，也还没正式通过。",
       draft: machine.draft
         ? { ...machine.draft, revision: machine.draft.revision + 1, dirty: false }
         : null,
@@ -221,7 +221,11 @@ function conflictResult(machine: StoryWorkshopMachine, code: string): MockAction
     ok: false,
     status: 409,
     code,
-    machine: { ...machine, status: "error", message: "动作顺序不满足当前 G1/G2 流程。" },
+    machine: {
+      ...machine,
+      status: "error",
+      message: "请按「核对原文 → 保存草稿 → 处理问题」的顺序操作。",
+    },
   };
 }
 
@@ -230,6 +234,6 @@ function unavailableResult(machine: StoryWorkshopMachine): MockActionResult {
     ok: false,
     status: 503,
     code: "STORY_WORKSHOP_UNAVAILABLE",
-    machine: { ...machine, status: "error", message: "StoryWorkshop adapter 暂不可用。" },
+    machine: { ...machine, status: "error", message: "故事设定操作暂时不可用。" },
   };
 }

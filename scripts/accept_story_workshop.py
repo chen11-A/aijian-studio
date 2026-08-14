@@ -414,7 +414,7 @@ def main() -> None:
                 failures.append(f"{viewport['viewport']} document has horizontal overflow")
             if metrics["body"][0] != metrics["body"][1]:
                 failures.append(f"{viewport['viewport']} body has horizontal overflow")
-            if "故事工坊" not in metrics["h1"] or "故事圣经" not in metrics["h2"]:
+            if "故事设定" not in metrics["h1"] or "人物与设定" not in metrics["h2"]:
                 failures.append(f"{viewport['viewport']} is missing the story headings")
             if fixture["expected_evidence_quote"] not in metrics["evidence"]:
                 failures.append(f"{viewport['viewport']} did not render the cross-document quote")
@@ -444,7 +444,7 @@ def main() -> None:
                 for target in metrics["reviewTouchTargets"]
             ):
                 failures.append("390x844 review touch targets are smaller than 44px / 12px")
-            if metrics["activeVersion"] != "LATEST":
+            if metrics["activeVersion"] != "最新稿":
                 failures.append(f"{viewport['viewport']} selected the wrong story version")
             if not metrics["disabledReview"]:
                 failures.append(f"{viewport['viewport']} exposed an enabled G2 action")
@@ -483,13 +483,13 @@ def main() -> None:
         accessible_names = {item["name"] for item in accessibility}
         required_names = {
             "创作模块",
-            "故事工坊",
-            "故事圣经",
+            "故事设定",
+            "人物与设定",
             "来源预览",
-            "逐事实证据",
-            "结构化正典",
+            "原文依据",
+            "人物与场景",
             "编剧审阅",
-            "搜索实体",
+            "搜索人物或场景",
             "搜索事实",
         }
         missing_names = sorted(required_names - accessible_names)
@@ -499,11 +499,11 @@ def main() -> None:
             f"{item.get('aria') or ''} {item.get('text') or ''}" for item in focus_order
         ]
         required_focus_fragments = (
-            "故事工坊",
+            "故事设定",
             fixture["sources"][0]["filename"],
             fixture["sources"][1]["filename"],
             f"打开《{fixture['sources'][1]['filename']}》上下文",
-            "搜索实体",
+            "搜索人物或场景",
             "搜索事实",
             "证据 1",
         )

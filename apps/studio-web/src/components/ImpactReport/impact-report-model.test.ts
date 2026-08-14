@@ -27,8 +27,8 @@ const baseSummary = {
 
 describe("impact report model", () => {
   test("labels severity with text and distinct icons", () => {
-    expect(impactLabel("blocking")).toBe("阻断");
-    expect(impactLabel("render_only")).toBe("仅渲染");
+    expect(impactLabel("blocking")).toBe("必须重做");
+    expect(impactLabel("render_only")).toBe("只影响成片");
     expect(impactLabel("advisory")).toBe("提示");
     expect(impactLabel(null)).toBe("无影响");
     expect(impactIcon("blocking")).not.toBe(impactIcon("render_only"));
@@ -68,6 +68,6 @@ describe("impact report model", () => {
         render_blocked: false,
         paths: [],
       }),
-    ).toEqual(["通用过期（事件时）", "通用阻断（事件时）"]);
+    ).toEqual(["当时已过期", "当时必须重做"]);
   });
 });

@@ -431,6 +431,11 @@ button:disabled {
   font-size: 18px;
 }
 
+.empty-visual span.frame-landscape {
+  aspect-ratio: 16 / 9;
+  min-height: 72px;
+}
+
 .empty-visual span:last-child {
   background: var(--accent);
   color: var(--accent-ink);
@@ -611,8 +616,8 @@ button:disabled {
 
 .project-hero dd {
   margin: 6px 0 0;
-  font-family: Consolas, "PingFang SC", monospace;
-  font-size: 12px;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
 }
 
 .source-layout {
@@ -939,6 +944,7 @@ button:disabled {
 
 .artifact-version > p,
 .artifact-version > code,
+.artifact-version > details,
 .artifact-version > .version-role-note {
   grid-column: 1 / -1;
   margin: 0;
@@ -952,6 +958,28 @@ button:disabled {
   grid-column: 1 / -1;
   color: #ff9b8d;
   font-size: 8px;
+}
+
+.inline-technical-detail {
+  min-width: 0;
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.inline-technical-detail summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.inline-technical-detail code {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  color: #7d8378;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0;
 }
 
 .story-columns {
@@ -2209,7 +2237,7 @@ button:disabled {
 }
 
 .project-dialog {
-  width: min(540px, 100%);
+  width: min(600px, 100%);
   padding: 34px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
@@ -2268,6 +2296,120 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin-top: 17px;
+}
+
+.aspect-picker {
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.aspect-picker legend,
+.duration-field {
+  display: block;
+  width: 100%;
+}
+
+.aspect-picker legend {
+  margin-bottom: 8px;
+  color: #a7aba1;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.aspect-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.aspect-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--ink);
+  background: rgba(8, 9, 7, 0.45);
+  cursor: pointer;
+}
+
+.aspect-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.aspect-option.selected,
+.aspect-option:focus-within {
+  border-color: rgba(139, 124, 255, 0.55);
+  background: var(--accent-dim);
+}
+
+.aspect-option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.aspect-frame {
+  justify-self: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: #0e0f14;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.aspect-frame.portrait {
+  width: 18px;
+  height: 32px;
+}
+
+.aspect-frame.landscape {
+  width: 32px;
+  height: 18px;
+}
+
+.aspect-frame.social-portrait {
+  width: 24px;
+  height: 30px;
+}
+
+.aspect-frame.square {
+  width: 27px;
+  height: 27px;
+}
+
+.aspect-frame.classic {
+  width: 32px;
+  height: 24px;
+}
+
+.aspect-option-copy,
+.aspect-option-copy strong,
+.aspect-option-copy small {
+  display: block;
+}
+
+.aspect-option-copy strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.aspect-option-copy small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.duration-field {
   margin-top: 17px;
 }
 
@@ -2537,7 +2679,8 @@ button:disabled {
     padding: 27px 21px;
   }
 
-  .form-grid {
+  .form-grid,
+  .aspect-choices {
     grid-template-columns: 1fr;
   }
 }
