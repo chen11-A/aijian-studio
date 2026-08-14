@@ -9,7 +9,7 @@ Status vocabulary:
 - `BLOCKED`: depends on missing legal, credential, content, environment, or upstream prerequisite.
 - `NOT_STARTED`: no implementation evidence for the backlog item itself.
 
-Counts across the formal 43-item Phase 0 backlog: `DONE 16`, `PARTIAL 13`, `BLOCKED 8`, `NOT_STARTED 6`.
+Counts across the formal 43-item Phase 0 backlog: `DONE 17`, `PARTIAL 13`, `BLOCKED 8`, `NOT_STARTED 5`.
 
 ## Status Table
 
@@ -51,13 +51,13 @@ Counts across the formal 43-item Phase 0 backlog: `DONE 16`, `PARTIAL 13`, `BLOC
 | E02   | PARTIAL     | TXT source import, UTF-8 byte spans, SourceManifest, and Story Bible source spans exist.                                                                                            | Markdown/DOCX import and raw-normalized map acceptance are not complete.                                 |
 | E03   | PARTIAL     | Web source preview, manifest summary, document list, and source span UI exist in `apps/studio-web/src`.                                                                             | Chapter proofreading workflow and 100k-block virtualization acceptance are not proven.                   |
 | F04   | PARTIAL     | SourceManifest G1 prepare/submit/signoff/decision routes and tests exist.                                                                                                           | General Gate/ApprovalDecision/accepted-head contract across artifact types is incomplete.                |
-| F05   | NOT_STARTED | Workflow docs describe typed DAG and invalidation, but no blocking/advisory/render-only invalidation implementation evidence found.                                                 | Depends on F04.                                                                                          |
+| F05   | DONE        | Real-Gate golden fixture + oracle + focused tests; evidence invalidation-golden.json; phase0-invalidation-golden-acceptance.md; CI evidence:invalidation-golden before hash verify. | Technical F05 only; C04 film Canon still blocked on E02/rights-cleared content.                          |
 | F07   | PARTIAL     | `SUBMIT_INTENT`, `SUBMITTING`, `REMOTE_UNKNOWN`, no-auto-retry constraints exist in workflow schema/tasks and tests.                                                                | Budget reservation, provider reconciliation, and accounting state are incomplete.                        |
 | S01   | PARTIAL     | Sidecar Host/Origin/token hardening and media probe validation exist.                                                                                                               | SSRF, Zip Slip, malicious media sandboxing, and fake-key scanner skeleton are incomplete.                |
 | R02   | PARTIAL     | `test_migrations.py` and ADR-0004 cover migration mechanics and read-only refusal policy.                                                                                           | N/N-1/N-2 matrix, snapshots, interrupted migration, and downgrade open behavior are not fully evidenced. |
 | CAS01 | PARTIAL     | `media_proxy.py` and `test_media_proxy.py` include atomic refusal around racing proxy destinations; ADR-0004 specifies temp/hash/atomic rename.                                     | No standalone local CAS module, GC, or `cas-crash` matrix evidence found.                                |
-| Q05   | BLOCKED     | No disk-full/backup-corrupt/update-interrupt/rollback matrix evidence found.                                                                                                        | Depends on F05/R02/CAS01; all are incomplete.                                                            |
-| C04   | BLOCKED     | Story Bible and source spans exist, but no golden Canon change-set or missed-invalidation report found.                                                                             | Depends on E02 and F05.                                                                                  |
+| Q05   | BLOCKED     | No disk-full/backup-corrupt/update-interrupt/rollback matrix evidence found.                                                                                                        | Depends on F05/R02/CAS01; F05 is complete, R02 and CAS01 remain incomplete.                              |
+| C04   | BLOCKED     | Technical F05 invalidation golden is complete, but no rights-cleared film Canon change-set or film-team missed-invalidation acceptance exists.                                      | Still depends on E02 and rights-cleared golden content; F05 is not a C04 substitute.                     |
 
 ## Notable Corrections
 

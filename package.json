@@ -36,6 +36,7 @@
     "fixtures:media-proxy:generate": "uv run python scripts/media_proxy_evidence.py generate",
     "evidence:media-proxy": "uv run python scripts/media_proxy_evidence.py evidence",
     "evidence:media-playback-electron": "node scripts/e2e/electron-media-playback-smoke.mjs",
+    "evidence:invalidation-golden": "uv run python scripts/invalidation_golden.py --output docs/quality/evidence/invalidation-golden.json",
     "evidence:check": "uv run python scripts/check_evidence_hashes.py",
     "test:ts": "pnpm -r --if-present test",
     "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json",

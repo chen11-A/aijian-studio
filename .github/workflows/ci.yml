@@ -59,6 +59,9 @@ jobs:
       - name: Reproduce media contract evidence
         run: pnpm evidence:media-contract
 
+      - name: Reproduce invalidation golden evidence
+        run: pnpm evidence:invalidation-golden
+
       - name: Verify evidence hashes
         run: pnpm evidence:check
 

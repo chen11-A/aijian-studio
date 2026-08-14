@@ -1,0 +1,414 @@
+{
+  "affected_group_count": 7,
+  "control_absent": true,
+  "fixture_id": "t05c-a2-real-gate-invalidation-golden",
+  "human_authored_descendants_unchanged": true,
+  "independent_path_count": 8,
+  "ledger": {
+    "affected_group_count": 7,
+    "affected_groups": [
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 2,
+        "label": "diamond_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking",
+              "blocking"
+            ],
+            "path_labels": [
+              "diamond_v1",
+              "mid_a_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 5,
+            "relationship_sequence": [
+              "derived_from",
+              "derived_from"
+            ]
+          },
+          {
+            "effective_impact": "advisory",
+            "impact_sequence": [
+              "blocking",
+              "advisory"
+            ],
+            "path_labels": [
+              "diamond_v1",
+              "mid_b_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 6,
+            "relationship_sequence": [
+              "derived_from",
+              "references"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "direct_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "direct_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 0,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "human_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "human_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 7,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "mid_a_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "mid_a_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 3,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": false,
+        "general_stale": false,
+        "independent_path_count": 1,
+        "label": "mid_b_v1",
+        "paths": [
+          {
+            "effective_impact": "advisory",
+            "impact_sequence": [
+              "advisory"
+            ],
+            "path_labels": [
+              "mid_b_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 4,
+            "relationship_sequence": [
+              "references"
+            ]
+          }
+        ],
+        "render_blocked": false,
+        "strongest_effective_impact": "advisory"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "mid_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "mid_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 1,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": false,
+        "general_stale": false,
+        "independent_path_count": 1,
+        "label": "mixed_v1",
+        "paths": [
+          {
+            "effective_impact": "render_only",
+            "impact_sequence": [
+              "render_only",
+              "blocking"
+            ],
+            "path_labels": [
+              "mixed_v1",
+              "mid_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 2,
+            "relationship_sequence": [
+              "derived_from",
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "render_only"
+      }
+    ],
+    "human_authored_descendants_unchanged": true,
+    "independent_path_count": 8,
+    "missed_invalidation_count": 0,
+    "missed_invalidations": [],
+    "unexpected_invalidation_count": 0,
+    "unexpected_invalidations": []
+  },
+  "operation_count": 1,
+  "path_direction": "affected_to_changed_root_v1",
+  "report": {
+    "affected_group_count": 7,
+    "affected_groups": [
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 2,
+        "label": "diamond_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking",
+              "blocking"
+            ],
+            "path_labels": [
+              "diamond_v1",
+              "mid_a_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 5,
+            "relationship_sequence": [
+              "derived_from",
+              "derived_from"
+            ]
+          },
+          {
+            "effective_impact": "advisory",
+            "impact_sequence": [
+              "blocking",
+              "advisory"
+            ],
+            "path_labels": [
+              "diamond_v1",
+              "mid_b_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 6,
+            "relationship_sequence": [
+              "derived_from",
+              "references"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "direct_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "direct_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 0,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "human_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "human_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 7,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "mid_a_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "mid_a_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 3,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": false,
+        "general_stale": false,
+        "independent_path_count": 1,
+        "label": "mid_b_v1",
+        "paths": [
+          {
+            "effective_impact": "advisory",
+            "impact_sequence": [
+              "advisory"
+            ],
+            "path_labels": [
+              "mid_b_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 4,
+            "relationship_sequence": [
+              "references"
+            ]
+          }
+        ],
+        "render_blocked": false,
+        "strongest_effective_impact": "advisory"
+      },
+      {
+        "general_blocked": true,
+        "general_stale": true,
+        "independent_path_count": 1,
+        "label": "mid_v1",
+        "paths": [
+          {
+            "effective_impact": "blocking",
+            "impact_sequence": [
+              "blocking"
+            ],
+            "path_labels": [
+              "mid_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 1,
+            "relationship_sequence": [
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "blocking"
+      },
+      {
+        "general_blocked": false,
+        "general_stale": false,
+        "independent_path_count": 1,
+        "label": "mixed_v1",
+        "paths": [
+          {
+            "effective_impact": "render_only",
+            "impact_sequence": [
+              "render_only",
+              "blocking"
+            ],
+            "path_labels": [
+              "mixed_v1",
+              "mid_v1",
+              "root_v1"
+            ],
+            "path_ordinal": 2,
+            "relationship_sequence": [
+              "derived_from",
+              "derived_from"
+            ]
+          }
+        ],
+        "render_blocked": true,
+        "strongest_effective_impact": "render_only"
+      }
+    ],
+    "human_authored_descendants_unchanged": true,
+    "independent_path_count": 8,
+    "missed_invalidation_count": 0,
+    "missed_invalidations": [],
+    "unexpected_invalidation_count": 0,
+    "unexpected_invalidations": []
+  },
+  "schema_version": "t05c-a2.v1"
+}
