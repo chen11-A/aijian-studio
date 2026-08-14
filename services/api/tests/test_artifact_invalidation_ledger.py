@@ -11,6 +11,7 @@ import pytest
 from aijian_api.artifact_invalidation_ledger import (
     is_general_stale,
     projected_effective_impact,
+    record_accepted_head_replacement,
 )
 from aijian_api.domain import (
     ArtifactDependencyDraft,
@@ -289,6 +290,107 @@ def count_rows(database: Path, table: str) -> int:
         row = connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
     assert row is not None
     return int(row[0])
+
+
+def _disable_head_guards(connection: sqlite3.Connection) -> None:
+    connection.execute("PRAGMA foreign_keys = OFF")
+    connection.execute("DROP TRIGGER IF EXISTS artifact_heads_accepted_requires_decision")
+    connection.execute("DROP TRIGGER IF EXISTS artifact_heads_revision_increments_once")
+
+
+def prepare_source_manifest_approval(
+    repository: StudioRepository,
+    project: Project,
+    draft: ArtifactVersionRecord,
+    *,
+    rationale: str,
+):
+    """Submit, sign off, and prepare a producer decision challenge for approval."""
+
+    roles = ("writer", "producer")
+    prepared_submit = repository.prepare_review_action(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        version_id=draft.version.id,
+        action="submit",
+        action_payload={},
+        actor=LOCAL_ACTOR,
+        expected_revision=draft.head.revision,
+    )
+    submitted = repository.submit_artifact_review(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        version_id=draft.version.id,
+        expected_revision=draft.head.revision,
+        challenge_id=prepared_submit.challenge.id,
+        confirmation_token=prepared_submit.confirmation_token,
+        actor=LOCAL_ACTOR,
+    )
+    prepared_signoff = repository.prepare_review_action(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        version_id=draft.version.id,
+        action="signoff",
+        action_payload={"roles": list(roles)},
+        actor=LOCAL_ACTOR,
+        expected_revision=submitted.head.revision,
+    )
+    signed = repository.signoff_artifact_review(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        version_id=draft.version.id,
+        roles=roles,
+        expected_revision=submitted.head.revision,
+        challenge_id=prepared_signoff.challenge.id,
+        confirmation_token=prepared_signoff.confirmation_token,
+        actor=LOCAL_ACTOR,
+    )
+    prepared_decision = repository.prepare_review_action(
+        project_id=project.id,
+        artifact_type="source_manifest",
+        version_id=draft.version.id,
+        action="decision",
+        action_payload={
+            "decision": "approved",
+            "rationale": rationale,
+            "actor_role": "producer",
+        },
+        actor=LOCAL_ACTOR,
+        readiness_report_id=prepared_signoff.report.id,
+        expected_revision=signed.head.revision,
+    )
+    return signed, prepared_decision
+
+
+def assert_approval_fully_rolled_back(
+    repository: StudioRepository,
+    project: Project,
+    *,
+    old_accepted_version_id: str,
+    draft_version_id: str,
+    challenge_id: str,
+    expected_revision: int,
+) -> None:
+    head = repository.get_artifact_head(project.id, "source_manifest")
+    assert head.accepted_version_id == old_accepted_version_id
+    assert head.revision == expected_revision
+    assert repository.list_invalidation_operations(project.id) == ()
+    assert count_rows(repository.database_path, "invalidation_path_impacts") == 0
+    with sqlite3.connect(repository.database_path) as connection:
+        decision = connection.execute(
+            "SELECT 1 FROM gate_decisions WHERE version_id = ?",
+            (draft_version_id,),
+        ).fetchone()
+        challenge = connection.execute(
+            """
+            SELECT consumed_at FROM confirmation_challenges
+            WHERE challenge_id = ?
+            """,
+            (challenge_id,),
+        ).fetchone()
+    assert decision is None
+    assert challenge is not None
+    assert challenge[0] is None
 
 
 def test_head_replacement_writes_one_operation_and_direct_blocking_impact(
@@ -1212,3 +1314,437 @@ def test_operation_and_impact_reads_are_project_scoped_and_deterministic(
         )
     with pytest.raises(ProjectNotFoundError):
         repository.list_invalidation_operations("prj_missing")
+
+
+def test_missing_root_or_downstream_heads_fail_closed_and_roll_back(
+    tmp_path: Path,
+) -> None:
+    """Missing artifact_heads during reverse traversal must fail closed."""
+
+    # Downstream leaf head missing (independent reproduction of the audit defect).
+    repository = create_repository(tmp_path / "missing-downstream-head.db")
+    project = create_project(repository, "缺失下游头")
+    old = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    leaf = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    head_before = repository.get_artifact_head(project.id, "source_manifest")
+    draft = create_version(
+        repository,
+        project,
+        "source_manifest",
+        content={"documents": [{"source_document_id": "src_missing_leaf_head"}]},
+        parent_version_id=old.version.id,
+        expected_revision=head_before.revision,
+        change_summary="root-v2-missing-leaf-head",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            "DELETE FROM artifact_heads WHERE artifact_id = ?",
+            (leaf.version.artifact_id,),
+        )
+        connection.commit()
+
+    signed, prepared = prepare_source_manifest_approval(
+        repository,
+        project,
+        draft,
+        rationale="缺失下游头应失败",
+    )
+    with pytest.raises(ArtifactDependencyInvalidError, match="head is missing"):
+        repository.decide_artifact_gate(
+            project_id=project.id,
+            artifact_type="source_manifest",
+            version_id=draft.version.id,
+            decision="approved",
+            rationale="缺失下游头应失败",
+            expected_revision=signed.head.revision,
+            challenge_id=prepared.challenge.id,
+            confirmation_token=prepared.confirmation_token,
+            actor=LOCAL_ACTOR,
+            actor_role="producer",
+        )
+    assert_approval_fully_rolled_back(
+        repository,
+        project,
+        old_accepted_version_id=old.version.id,
+        draft_version_id=draft.version.id,
+        challenge_id=prepared.challenge.id,
+        expected_revision=signed.head.revision,
+    )
+
+    # Root head missing during reverse collection (after head move is attempted).
+    # Exercise the ledger entrypoint directly so the missing-root case is reachable.
+    repository_root = create_repository(tmp_path / "missing-root-head.db")
+    project_root = create_project(repository_root, "缺失根头")
+    root_v1 = create_and_approve_manifest(
+        repository_root, project_root, change_summary="root-v1-direct"
+    )
+    root_v2 = create_version(
+        repository_root,
+        project_root,
+        "source_manifest",
+        content={"documents": [{"source_document_id": "src_missing_root_head"}]},
+        parent_version_id=root_v1.version.id,
+        expected_revision=repository_root.get_artifact_head(
+            project_root.id, "source_manifest"
+        ).revision,
+        change_summary="root-v2-direct",
+    )
+    accept_custom(
+        repository_root,
+        project_root,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_v1.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository_root.database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        _disable_head_guards(connection)
+        connection.execute(
+            "DELETE FROM artifact_heads WHERE artifact_id = ?",
+            (root_v1.version.artifact_id,),
+        )
+        with pytest.raises(ArtifactDependencyInvalidError, match="head is missing"):
+            record_accepted_head_replacement(
+                connection,
+                project_id=project_root.id,
+                changed_artifact_id=root_v1.version.artifact_id,
+                old_accepted_version_id=root_v1.version.id,
+                new_accepted_version_id=root_v2.version.id,
+                gate_decision_id="gd_missing_root_head",
+                created_at=datetime(2026, 8, 3, 12, 0, tzinfo=UTC),
+                id_factory=deterministic_id_factory(),
+            )
+        connection.rollback()
+    assert repository_root.list_invalidation_operations(project_root.id) == ()
+
+
+def test_corrupt_accepted_pointers_on_traversed_heads_fail_closed_and_roll_back(
+    tmp_path: Path,
+) -> None:
+    """Non-NULL accepted pointers must resolve to in-artifact, in-project versions."""
+
+    # Accepted pointer references a missing version.
+    repository = create_repository(tmp_path / "missing-accepted.db")
+    project = create_project(repository, "缺失验收指针")
+    old = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    leaf = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    head_before = repository.get_artifact_head(project.id, "source_manifest")
+    draft = create_version(
+        repository,
+        project,
+        "source_manifest",
+        content={"documents": [{"source_document_id": "src_missing_accepted"}]},
+        parent_version_id=old.version.id,
+        expected_revision=head_before.revision,
+        change_summary="root-v2-missing-accepted",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = 'ver_deadbeefdeadbeefdeadbeefdeadbeef'
+            WHERE artifact_id = ?
+            """,
+            (leaf.version.artifact_id,),
+        )
+        connection.commit()
+
+    signed, prepared = prepare_source_manifest_approval(
+        repository,
+        project,
+        draft,
+        rationale="缺失验收指针应失败",
+    )
+    with pytest.raises(ArtifactDependencyInvalidError, match="Accepted version is missing"):
+        repository.decide_artifact_gate(
+            project_id=project.id,
+            artifact_type="source_manifest",
+            version_id=draft.version.id,
+            decision="approved",
+            rationale="缺失验收指针应失败",
+            expected_revision=signed.head.revision,
+            challenge_id=prepared.challenge.id,
+            confirmation_token=prepared.confirmation_token,
+            actor=LOCAL_ACTOR,
+            actor_role="producer",
+        )
+    assert_approval_fully_rolled_back(
+        repository,
+        project,
+        old_accepted_version_id=old.version.id,
+        draft_version_id=draft.version.id,
+        challenge_id=prepared.challenge.id,
+        expected_revision=signed.head.revision,
+    )
+
+    # Accepted pointer owned by a different artifact in the same project.
+    repository_b = create_repository(tmp_path / "wrong-owner-accepted.db")
+    project_b = create_project(repository_b, "错误验收归属")
+    old_b = create_and_approve_manifest(repository_b, project_b, change_summary="root-v1")
+    other_b = accept_custom(repository_b, project_b, "other")
+    leaf_b = accept_custom(
+        repository_b,
+        project_b,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old_b.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    head_before_b = repository_b.get_artifact_head(project_b.id, "source_manifest")
+    draft_b = create_version(
+        repository_b,
+        project_b,
+        "source_manifest",
+        content={"documents": [{"source_document_id": "src_wrong_owner"}]},
+        parent_version_id=old_b.version.id,
+        expected_revision=head_before_b.revision,
+        change_summary="root-v2-wrong-owner",
+    )
+    with sqlite3.connect(repository_b.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = ?
+            WHERE artifact_id = ?
+            """,
+            (other_b.version.id, leaf_b.version.artifact_id),
+        )
+        connection.commit()
+
+    signed_b, prepared_b = prepare_source_manifest_approval(
+        repository_b,
+        project_b,
+        draft_b,
+        rationale="跨制品验收指针应失败",
+    )
+    with pytest.raises(
+        ArtifactDependencyInvalidError, match="Accepted version ownership is corrupted"
+    ):
+        repository_b.decide_artifact_gate(
+            project_id=project_b.id,
+            artifact_type="source_manifest",
+            version_id=draft_b.version.id,
+            decision="approved",
+            rationale="跨制品验收指针应失败",
+            expected_revision=signed_b.head.revision,
+            challenge_id=prepared_b.challenge.id,
+            confirmation_token=prepared_b.confirmation_token,
+            actor=LOCAL_ACTOR,
+            actor_role="producer",
+        )
+    assert_approval_fully_rolled_back(
+        repository_b,
+        project_b,
+        old_accepted_version_id=old_b.version.id,
+        draft_version_id=draft_b.version.id,
+        challenge_id=prepared_b.challenge.id,
+        expected_revision=signed_b.head.revision,
+    )
+
+    # Accepted pointer resolves to a version owned by a different project.
+    repository_c = create_repository(tmp_path / "cross-project-accepted.db")
+    project_c = create_project(repository_c, "跨项目验收")
+    foreign = create_project(repository_c, "外项目")
+    old_c = create_and_approve_manifest(repository_c, project_c, change_summary="root-v1")
+    foreign_root = create_version(repository_c, foreign, "foreign_root")
+    leaf_c = accept_custom(
+        repository_c,
+        project_c,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old_c.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    head_before_c = repository_c.get_artifact_head(project_c.id, "source_manifest")
+    draft_c = create_version(
+        repository_c,
+        project_c,
+        "source_manifest",
+        content={"documents": [{"source_document_id": "src_cross_accepted"}]},
+        parent_version_id=old_c.version.id,
+        expected_revision=head_before_c.revision,
+        change_summary="root-v2-cross-accepted",
+    )
+    with sqlite3.connect(repository_c.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = ?
+            WHERE artifact_id = ?
+            """,
+            (foreign_root.version.id, leaf_c.version.artifact_id),
+        )
+        connection.commit()
+
+    signed_c, prepared_c = prepare_source_manifest_approval(
+        repository_c,
+        project_c,
+        draft_c,
+        rationale="跨项目验收指针应失败",
+    )
+    with pytest.raises(
+        ArtifactDependencyInvalidError, match="Accepted version ownership is corrupted"
+    ):
+        repository_c.decide_artifact_gate(
+            project_id=project_c.id,
+            artifact_type="source_manifest",
+            version_id=draft_c.version.id,
+            decision="approved",
+            rationale="跨项目验收指针应失败",
+            expected_revision=signed_c.head.revision,
+            challenge_id=prepared_c.challenge.id,
+            confirmation_token=prepared_c.confirmation_token,
+            actor=LOCAL_ACTOR,
+            actor_role="producer",
+        )
+    assert_approval_fully_rolled_back(
+        repository_c,
+        project_c,
+        old_accepted_version_id=old_c.version.id,
+        draft_version_id=draft_c.version.id,
+        challenge_id=prepared_c.challenge.id,
+        expected_revision=signed_c.head.revision,
+    )
+
+
+def test_null_accepted_head_is_structurally_valid_and_does_not_block_traversal(
+    tmp_path: Path,
+) -> None:
+    repository = create_repository(tmp_path / "null-accepted.db")
+    project = create_project(repository, "空验收头")
+    old = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    leaf = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = NULL
+            WHERE artifact_id = ?
+            """,
+            (leaf.version.artifact_id,),
+        )
+        connection.commit()
+
+    create_and_approve_manifest(
+        repository,
+        project,
+        documents=[{"source_document_id": "src_null_accepted_v2"}],
+        parent=old,
+        change_summary="root-v2",
+    )
+    operations = repository.list_invalidation_operations(project.id)
+    assert len(operations) == 1
+    impacts = repository.list_invalidation_path_impacts(
+        project_id=project.id,
+        operation_id=operations[0].id,
+    )
+    assert len(impacts) == 1
+    assert impacts[0].affected_version_id == leaf.version.id
+    assert impacts[0].effective_impact == "blocking"
+    assert repository.get_artifact_head(project.id, "leaf").accepted_version_id is None
+
+
+def test_historical_downstream_versions_are_recorded_when_head_is_valid(
+    tmp_path: Path,
+) -> None:
+    """Reverse walk records immutable historical versions; head need not match them."""
+
+    repository = create_repository(tmp_path / "historical-downstream.db")
+    project = create_project(repository, "历史下游版本")
+    root_v1 = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    leaf_v1 = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_v1.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+        change_summary="leaf-historical",
+    )
+    # Advance the leaf accepted head to a newer version that does not pin root_v1.
+    leaf_v2 = create_version(
+        repository,
+        project,
+        "leaf",
+        content={"note": "current accepted leaf"},
+        parent_version_id=leaf_v1.version.id,
+        expected_revision=repository.get_artifact_head(project.id, "leaf").revision,
+        change_summary="leaf-current",
+    )
+    force_accept(repository, project, "leaf", leaf_v2.version.id)
+    leaf_head = repository.get_artifact_head(project.id, "leaf")
+    assert leaf_head.accepted_version_id == leaf_v2.version.id
+    assert leaf_head.accepted_version_id != leaf_v1.version.id
+
+    create_and_approve_manifest(
+        repository,
+        project,
+        documents=[{"source_document_id": "src_root_v2_historical"}],
+        parent=root_v1,
+        change_summary="root-v2",
+    )
+    operation = repository.list_invalidation_operations(project.id)[0]
+    impacts = repository.list_invalidation_path_impacts(
+        project_id=project.id,
+        operation_id=operation.id,
+    )
+    by_version = {impact.affected_version_id: impact for impact in impacts}
+    assert leaf_v1.version.id in by_version
+    assert by_version[leaf_v1.version.id].effective_impact == "blocking"
+    # Current accepted leaf is not on the reverse path from root_v1.
+    assert leaf_v2.version.id not in by_version

@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from aijian_api.artifact_invalidation import (
     IMPACT_RANK,
     ArtifactDependencyInvalidError,
+    _require_validated_accepted_version_id,
     effective_path_impact,
     parse_impact,
 )
@@ -240,6 +241,13 @@ def _collect_reverse_path_impacts(
     root_version_id: str,
     root_artifact_id: str,
 ) -> list[_PathImpactDraft]:
+    # Structural integrity for every traversed artifact, including the replaced root.
+    # NULL accepted heads are valid; non-NULL pointers must resolve in-project/in-artifact.
+    _require_validated_accepted_version_id(
+        connection,
+        project_id=project_id,
+        artifact_id=root_artifact_id,
+    )
     drafts: list[_PathImpactDraft] = []
     _walk_reverse(
         connection,
@@ -310,6 +318,14 @@ def _walk_reverse(
             raise ArtifactDependencyInvalidError("Dependency ownership is corrupted")
         if str(downstream["project_id"]) != project_id:
             raise ArtifactDependencyInvalidError("Dependency crosses project boundaries")
+
+        # Head validation is structural integrity only; historical/draft versions may
+        # differ from the current accepted pointer and must still be recorded.
+        _require_validated_accepted_version_id(
+            connection,
+            project_id=project_id,
+            artifact_id=downstream_artifact_id,
+        )
 
         # Path is ordered affected → replaced root (newest reverse edge first).
         next_path_ids = (dependency_id, *path_dependency_ids)
