@@ -1,6 +1,7 @@
-# Phase 0 Execution Status - 2026-08-14
+# Phase 0 Execution Status - 2026-08-15
 
-Audit base: `f460f0ab219b84f8cb81bf6fb1be7000e32f00c9` on branch `codex/oss-status-audit`.
+Audit base: `48c79e57e38b157b746d33bfc2c0eaa620c8340a` on branch `codex/m03a-timeline-core`
+(prior formal audit base `f460f0ab219b84f8cb81bf6fb1be7000e32f00c9` on `codex/oss-status-audit`).
 
 Status vocabulary:
 
@@ -9,7 +10,7 @@ Status vocabulary:
 - `BLOCKED`: depends on missing legal, credential, content, environment, or upstream prerequisite.
 - `NOT_STARTED`: no implementation evidence for the backlog item itself.
 
-Counts across the formal 43-item Phase 0 backlog: `DONE 18`, `PARTIAL 12`, `BLOCKED 8`, `NOT_STARTED 5`.
+Counts across the formal 43-item Phase 0 backlog: `DONE 18`, `PARTIAL 13`, `BLOCKED 8`, `NOT_STARTED 4`.
 
 ## Status Table
 
@@ -40,10 +41,10 @@ Counts across the formal 43-item Phase 0 backlog: `DONE 18`, `PARTIAL 12`, `BLOC
 | U01   | DONE        | `docs/research/oss-baseline-2026-08-14.md` records fixed HEADs, stars, license findings, maintenance, borrowing points, adoption mode, and GitHub star-timeline limits.             | Human legal confirmation still required for ambiguous/commercial licenses.                               |
 | U02   | NOT_STARTED | HyperFrames checkout and license are recorded, but no Aijian render benchmark, output hash, or `hyperframes-spike` evidence exists.                                                 | Depends on M02 and isolated spike plan.                                                                  |
 | R01   | DONE        | `docs/architecture/ADR-0004-recovery-and-migrations.md` plus migration/recovery tests record recovery semantics.                                                                    | Full matrix belongs to R02/Q05.                                                                          |
-| M03   | NOT_STARTED | `docs/specs/phase0-ffmpeg-toolchain.md` explicitly says full timeline commands, CAS, final 1080p export, and proxy persistence are not implemented there.                           | Depends on M01/M02; needs timeline engine and golden export.                                             |
+| M03   | PARTIAL     | M03A domain core: `services/api/src/aijian_api/timeline_core.py`, golden tests `test_timeline_core.py`, research `docs/research/m03a-timeline-core-benchmark.md`, acceptance `docs/quality/phase0-timeline-core-acceptance.md` (immutable timeline, trim/reorder/replace/proxy selection, canonical render plan). No FFmpeg export. | Real 1080p MP4 export + golden media verification remain M03B; CAS/HTTP/UI still out of scope.           |
 | UI01  | PARTIAL     | `apps/studio-web/src/App.tsx` provides project/source/story/queue/settings workspaces; tests cover project/source transport and UI.                                                 | Director/assets/edit/timeline views are disabled or absent; not a full skeleton UI.                      |
 | API01 | DONE        | `scripts/export_openapi.py`, `packages/contracts/openapi.json`, generated TS client, desktop and web API client tests.                                                              | Keep `pnpm contracts:check` as drift gate.                                                               |
-| K01   | NOT_STARTED | No 20k text to fake assets to MP4 walking-skeleton evidence or script was found.                                                                                                    | Depends on F03/F06/M03/UI01/API01; F06 Fake Provider matrix is complete, M03 remains incomplete.         |
+| K01   | NOT_STARTED | No 20k text to fake assets to MP4 walking-skeleton evidence or script was found.                                                                                                    | Depends on F03/F06/M03/UI01/API01; F06 Fake Provider matrix is complete, M03 is PARTIAL (core only; export still M03B). |
 | Q03   | NOT_STARTED | No six kill point by 100-seed matrix evidence found.                                                                                                                                | Depends on K01.                                                                                          |
 | Q04   | BLOCKED     | No clean Win11 Chinese username/long path/Defender installer matrix evidence found.                                                                                                 | Depends on Q02 and K01.                                                                                  |
 | D04   | NOT_STARTED | No tray/quit/remote polling/recovery implementation evidence found.                                                                                                                 | Depends on D01.                                                                                          |
@@ -66,6 +67,7 @@ Counts across the formal 43-item Phase 0 backlog: `DONE 18`, `PARTIAL 12`, `BLOC
 - `U02` remains not started: HyperFrames is license-compatible enough for a spike, not already accepted as a dependency.
 - Live Provider spikes (`P01`, `P02`) are blocked until protected credentials and real usage/cost/failure evidence exist.
 - Content and legal work (`C01`, `C02`, later film reports) cannot be substituted by synthetic test fixtures in the public repo.
+- `M03` advanced from `NOT_STARTED` to `PARTIAL` after M03A (immutable timeline core + render plan + golden tests). It is **not** `DONE`: real 1080p export and golden media verification remain M03B. `K01` stays `NOT_STARTED`.
 
 ## Sources Used
 
