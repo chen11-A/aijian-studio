@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from aijian_api.artifact_invalidation import (
+    ArtifactDependencyInvalidError as ArtifactDependencyInvalidError,
+)
+from aijian_api.artifact_invalidation import (
+    assess_dependencies_on_connection,
+    require_accepted_consumable_on_connection,
+)
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
 from aijian_api.domain import (
     ArtifactActorType,
@@ -26,6 +33,8 @@ from aijian_api.domain import (
     ArtifactVersionRecord,
     ArtifactVersionSummary,
     ConfirmationChallenge,
+    ConsumptionMode,
+    DependencyAssessment,
     DependencyImpact,
     GateDecision,
     GateDecisionResult,
@@ -952,10 +961,6 @@ class ArtifactNotFoundError(LookupError):
         self.artifact_type = artifact_type
 
 
-class ArtifactDependencyInvalidError(RuntimeError):
-    """Raised when a downstream version is not bound to an accepted upstream version."""
-
-
 class SourceSpanInvalidError(ValueError):
     pass
 
@@ -1730,6 +1735,71 @@ class StudioRepository:
         if row is None:
             raise ArtifactConflictError("Artifact was not found")
         return self._artifact_head_from_row(row)
+
+    def assess_artifact_dependencies(
+        self,
+        *,
+        project_id: str,
+        version_id: str,
+        mode: ConsumptionMode,
+    ) -> DependencyAssessment:
+        """Assess pinned upstream versions against current accepted heads in one snapshot."""
+
+        with self._connection() as connection:
+            connection.execute("BEGIN")
+            try:
+                assessment = self._assess_artifact_dependencies_on_connection(
+                    connection,
+                    project_id=project_id,
+                    version_id=version_id,
+                    mode=mode,
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return assessment
+
+    def require_accepted_artifact_consumable(
+        self,
+        *,
+        project_id: str,
+        version_id: str,
+        mode: ConsumptionMode,
+    ) -> DependencyAssessment:
+        """Require the version is the current accepted head and consumable for mode."""
+
+        with self._connection() as connection:
+            connection.execute("BEGIN")
+            try:
+                assessment = require_accepted_consumable_on_connection(
+                    connection,
+                    project_id=project_id,
+                    version_id=version_id,
+                    mode=mode,
+                    transaction_step=self._transaction_step,
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return assessment
+
+    def _assess_artifact_dependencies_on_connection(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        version_id: str,
+        mode: ConsumptionMode,
+    ) -> DependencyAssessment:
+        return assess_dependencies_on_connection(
+            connection,
+            project_id=project_id,
+            version_id=version_id,
+            mode=mode,
+            transaction_step=self._transaction_step,
+        )
 
     def get_artifact_version(
         self,
@@ -2530,12 +2600,10 @@ class StudioRepository:
         for row in blocking_rows:
             accepted_upstream = connection.execute(
                 """
-                SELECT artifacts.artifact_type, artifact_heads.accepted_version_id
+                SELECT artifacts.artifact_type
                 FROM artifact_versions
                 JOIN artifacts
                     ON artifacts.artifact_id = artifact_versions.artifact_id
-                JOIN artifact_heads
-                    ON artifact_heads.artifact_id = artifacts.artifact_id
                 WHERE artifacts.project_id = ?
                     AND artifact_versions.version_id = ?
                 """,
@@ -2544,11 +2612,20 @@ class StudioRepository:
             if (
                 accepted_upstream is None
                 or str(accepted_upstream["artifact_type"]) != "source_manifest"
-                or accepted_upstream["accepted_version_id"] != str(row["upstream_version_id"])
             ):
                 raise ArtifactDependencyInvalidError(
                     "StoryBible requires an exact accepted SourceManifest dependency"
                 )
+        assessment = self._assess_artifact_dependencies_on_connection(
+            connection,
+            project_id=project_id,
+            version_id=version_id,
+            mode="general",
+        )
+        if not assessment.consumable:
+            raise ArtifactDependencyInvalidError(
+                "StoryBible requires an exact accepted SourceManifest dependency"
+            )
 
     def _consume_challenge(
         self,

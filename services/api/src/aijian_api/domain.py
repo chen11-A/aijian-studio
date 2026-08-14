@@ -9,6 +9,7 @@ type SourceBlockKind = Literal["chapter_heading", "paragraph"]
 type ArtifactActorType = Literal["human", "agent", "system"]
 type SourceSpanRole = Literal["supports", "contradicts", "context"]
 type DependencyImpact = Literal["blocking", "advisory", "render_only"]
+type ConsumptionMode = Literal["general", "render"]
 type ReviewAction = Literal["submit", "signoff", "decision"]
 type GateDecisionValue = Literal["approved", "approved_with_waiver", "rejected"]
 
@@ -178,6 +179,31 @@ class ArtifactDependency:
     relationship: str
     impact: DependencyImpact
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DependencyMismatchCause:
+    """One independent mismatch path from an assessed target to a drifted upstream pin."""
+
+    dependency_path: tuple[str, ...]
+    path_relationships: tuple[str, ...]
+    path_impacts: tuple[DependencyImpact, ...]
+    pinned_upstream_version_id: str
+    current_accepted_version_id: str | None
+    effective_impact: DependencyImpact
+
+
+@dataclass(frozen=True, slots=True)
+class DependencyAssessment:
+    """Read-only consumability judgment for one exact artifact version and mode."""
+
+    project_id: str
+    artifact_id: str
+    version_id: str
+    mode: ConsumptionMode
+    causes: tuple[DependencyMismatchCause, ...]
+    stale: bool
+    consumable: bool
 
 
 @dataclass(frozen=True, slots=True)
