@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
@@ -238,7 +239,51 @@ def client_for(repository: StudioRepository) -> TestClient:
 
 def _drop_path_immutability(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TRIGGER IF EXISTS invalidation_path_impacts_immutable_update")
-    connection.execute("PRAGMA foreign_keys = OFF")
+
+
+def _drop_operation_immutability(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TRIGGER IF EXISTS invalidation_operations_immutable_update")
+
+
+def _seed_direct_impact_operation(repository: StudioRepository, project: Project):
+    old = create_and_approve_manifest(repository, project, change_summary="v1")
+    leaf = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=old.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    create_and_approve_manifest(
+        repository,
+        project,
+        documents=[{"source_document_id": "src_v2"}],
+        parent=old,
+        change_summary="v2",
+    )
+    operation = repository.list_invalidation_operations(project.id)[0]
+    impacts = repository.list_invalidation_path_impacts(
+        project_id=project.id,
+        operation_id=operation.id,
+    )
+    return old, leaf, operation, impacts
+
+
+def _assert_ledger_corrupt(response) -> None:
+    assert response.status_code == 409
+    body = response.json()
+    assert body["error"]["code"] == "INVALIDATION_LEDGER_CORRUPT"
+    assert body["error"]["message"] == ("The invalidation ledger data is corrupt or inconsistent")
+    assert body["error"]["details"] == {}
+    assert "sqlite" not in response.text.lower()
+    assert "traceback" not in response.text.lower()
+    assert "validationerror" not in response.text.lower()
+    assert "pydantic" not in response.text.lower()
 
 
 def test_empty_project_returns_valid_empty_list(tmp_path: Path) -> None:
@@ -518,9 +563,9 @@ def test_multiple_paths_and_distinct_versions_of_same_artifact(tmp_path: Path) -
         change_summary="root-v2",
     )
     client = client_for(repository)
-    operation_id = client.get(
-        f"/api/v1/projects/{project.id}/invalidation-operations"
-    ).json()["data"]["operations"][0]["operation_id"]
+    operation_id = client.get(f"/api/v1/projects/{project.id}/invalidation-operations").json()[
+        "data"
+    ]["operations"][0]["operation_id"]
     detail = client.get(
         f"/api/v1/projects/{project.id}/invalidation-operations/{operation_id}"
     ).json()["data"]
@@ -598,12 +643,8 @@ def test_list_and_detail_ordering_is_deterministic(tmp_path: Path) -> None:
         first_list["data"]["operations"][0]["created_at"]
         < first_list["data"]["operations"][1]["created_at"]
     )
-    assert (
-        first_list["data"]["operations"][0]["old_accepted_version_id"] == root_v1.version.id
-    )
-    assert (
-        first_list["data"]["operations"][0]["new_accepted_version_id"] == root_v2.version.id
-    )
+    assert first_list["data"]["operations"][0]["old_accepted_version_id"] == root_v1.version.id
+    assert first_list["data"]["operations"][0]["new_accepted_version_id"] == root_v2.version.id
 
     operation_id = first_list["data"]["operations"][0]["operation_id"]
     detail_a = client.get(
@@ -666,9 +707,7 @@ def test_unknown_project_operation_and_cross_project_errors(tmp_path: Path) -> N
     assert unknown_op.json()["error"]["code"] == "INVALIDATION_OPERATION_NOT_FOUND"
     assert op_b not in unknown_op.text
 
-    cross_project = client.get(
-        f"/api/v1/projects/{project_a.id}/invalidation-operations/{op_b}"
-    )
+    cross_project = client.get(f"/api/v1/projects/{project_a.id}/invalidation-operations/{op_b}")
     assert cross_project.status_code == 404
     assert cross_project.json()["error"]["code"] == "INVALIDATION_OPERATION_NOT_FOUND"
     assert cross_project.json()["error"]["details"] == {}
@@ -728,9 +767,7 @@ def test_corrupt_ledger_path_json_fails_closed(tmp_path: Path) -> None:
     assert "sqlite" not in listed.text.lower()
     assert "Traceback" not in listed.text
 
-    detail = client.get(
-        f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}"
-    )
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
     assert detail.status_code == 409
     assert detail.json()["error"]["code"] == "INVALIDATION_LEDGER_CORRUPT"
     assert "Traceback" not in detail.text
@@ -774,9 +811,7 @@ def test_corrupt_effective_impact_fails_closed(tmp_path: Path) -> None:
         connection.commit()
 
     client = client_for(repository)
-    detail = client.get(
-        f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}"
-    )
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
     assert detail.status_code == 409
     assert detail.json()["error"]["code"] == "INVALIDATION_LEDGER_CORRUPT"
 
@@ -831,3 +866,540 @@ def test_openapi_includes_invalidation_report_endpoints(tmp_path: Path) -> None:
         "InvalidationImpactCountsData",
     ):
         assert name in components
+
+
+def test_cross_project_affected_pair_fails_closed_without_identity_leakage(
+    tmp_path: Path,
+) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project_a = create_project(repository, "项目甲")
+    project_b = create_project(repository, "项目乙")
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project_a)
+    foreign = accept_custom(repository, project_b, "foreign_leaf")
+    impact = impacts[0]
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET affected_artifact_id = ?, affected_version_id = ?
+            WHERE impact_id = ?
+            """,
+            (foreign.version.artifact_id, foreign.version.id, impact.id),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project_a.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project_a.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert foreign.version.artifact_id not in listed.text
+    assert foreign.version.id not in listed.text
+    assert foreign.version.artifact_id not in detail.text
+    assert foreign.version.id not in detail.text
+
+
+def test_cross_artifact_same_project_affected_ownership_fails_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project)
+    other = accept_custom(repository, project, "other_leaf")
+    impact = impacts[0]
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET affected_artifact_id = ?, affected_version_id = ?
+            WHERE impact_id = ?
+            """,
+            (other.version.artifact_id, other.version.id, impact.id),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert other.version.artifact_id not in listed.text
+    assert other.version.id not in listed.text
+    assert other.version.artifact_id not in detail.text
+    assert other.version.id not in detail.text
+
+
+def test_corrupt_operation_changed_artifact_version_ownership_fails_closed(
+    tmp_path: Path,
+) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    project_b = create_project(repository, "项目乙")
+    _old, _leaf, operation, _impacts = _seed_direct_impact_operation(repository, project)
+    foreign = accept_custom(repository, project_b, "foreign_root")
+    foreign_v2 = create_version(
+        repository,
+        project_b,
+        "foreign_root",
+        parent_version_id=foreign.version.id,
+        expected_revision=repository.get_artifact_head(project_b.id, "foreign_root").revision,
+        change_summary="foreign-v2",
+    )
+    force_accept(repository, project_b, "foreign_root", foreign_v2.version.id)
+    client = client_for(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_operation_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_operations
+            SET changed_artifact_id = ?,
+                old_accepted_version_id = ?,
+                new_accepted_version_id = ?
+            WHERE operation_id = ?
+            """,
+            (
+                foreign.version.artifact_id,
+                foreign.version.id,
+                foreign_v2.version.id,
+                operation.id,
+            ),
+        )
+        connection.commit()
+
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert foreign.version.artifact_id not in listed.text
+    assert foreign.version.id not in listed.text
+    assert foreign_v2.version.id not in listed.text
+    assert foreign.version.artifact_id not in detail.text
+    assert foreign.version.id not in detail.text
+    assert foreign_v2.version.id not in detail.text
+
+    repository_same = create_repository(tmp_path / "workspace-same.db")
+    project_same = create_project(repository_same)
+    _old_same, _leaf_same, operation_same, _impacts_same = _seed_direct_impact_operation(
+        repository_same, project_same
+    )
+    other = accept_custom(repository_same, project_same, "other_changed")
+    other_v2 = create_version(
+        repository_same,
+        project_same,
+        "other_changed",
+        parent_version_id=other.version.id,
+        expected_revision=repository_same.get_artifact_head(
+            project_same.id, "other_changed"
+        ).revision,
+        change_summary="other-v2",
+    )
+    force_accept(repository_same, project_same, "other_changed", other_v2.version.id)
+    with sqlite3.connect(repository_same.database_path) as connection:
+        _drop_operation_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_operations
+            SET changed_artifact_id = ?,
+                old_accepted_version_id = ?,
+                new_accepted_version_id = ?
+            WHERE operation_id = ?
+            """,
+            (
+                other.version.artifact_id,
+                other.version.id,
+                other_v2.version.id,
+                operation_same.id,
+            ),
+        )
+        connection.commit()
+
+    client_same = client_for(repository_same)
+    listed_same = client_same.get(f"/api/v1/projects/{project_same.id}/invalidation-operations")
+    detail_same = client_same.get(
+        f"/api/v1/projects/{project_same.id}/invalidation-operations/{operation_same.id}"
+    )
+    _assert_ledger_corrupt(listed_same)
+    _assert_ledger_corrupt(detail_same)
+
+
+def test_corrupt_gate_decision_ownership_fails_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project_a = create_project(repository, "项目甲")
+    project_b = create_project(repository, "项目乙")
+    _old, _leaf, operation, _impacts = _seed_direct_impact_operation(repository, project_a)
+    foreign_manifest = create_and_approve_manifest(
+        repository,
+        project_b,
+        documents=[{"source_document_id": "src_foreign"}],
+        change_summary="foreign-root",
+    )
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        decision_row = connection.execute(
+            """
+            SELECT decision_id
+            FROM gate_decisions
+            WHERE artifact_id = ? AND version_id = ?
+            """,
+            (foreign_manifest.version.artifact_id, foreign_manifest.version.id),
+        ).fetchone()
+        assert decision_row is not None
+        _drop_operation_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_operations
+            SET gate_decision_id = ?
+            WHERE operation_id = ?
+            """,
+            (str(decision_row["decision_id"]), operation.id),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project_a.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project_a.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+    assert foreign_manifest.version.artifact_id not in listed.text
+    assert foreign_manifest.version.id not in listed.text
+    assert foreign_manifest.version.artifact_id not in detail.text
+    assert foreign_manifest.version.id not in detail.text
+
+
+def test_wrong_dependency_id_in_path_fails_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    root = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    mid = accept_custom(
+        repository,
+        project,
+        "mid",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    leaf = accept_custom(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=mid.version.id,
+                relationship="derived_from",
+                impact="render_only",
+            ),
+        ),
+    )
+    create_and_approve_manifest(
+        repository,
+        project,
+        documents=[{"source_document_id": "src_root_v2"}],
+        parent=root,
+        change_summary="root-v2",
+    )
+    operation = repository.list_invalidation_operations(project.id)[0]
+    impacts = repository.list_invalidation_path_impacts(
+        project_id=project.id,
+        operation_id=operation.id,
+    )
+    leaf_impact = next(
+        impact for impact in impacts if impact.affected_version_id == leaf.version.id
+    )
+    mid_impact = next(impact for impact in impacts if impact.affected_version_id == mid.version.id)
+    # Replace the first edge with another real dependency that does not continue the chain.
+    wrong_path = (mid_impact.dependency_path[0], *leaf_impact.dependency_path[1:])
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET dependency_path_json = ?
+            WHERE impact_id = ?
+            """,
+            (json.dumps(list(wrong_path), separators=(",", ":")), leaf_impact.id),
+        )
+        connection.commit()
+
+    client = client_for(repository)
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+
+
+def test_path_relationship_or_impact_metadata_mismatch_fails_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project)
+    impact = impacts[0]
+    client = client_for(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_relationships_json = ?
+            WHERE impact_id = ?
+            """,
+            ('["mentions"]', impact.id),
+        )
+        connection.commit()
+
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+
+    repository_b = create_repository(tmp_path / "workspace-impact-meta.db")
+    project_b = create_project(repository_b)
+    _old_b, _leaf_b, operation_b, impacts_b = _seed_direct_impact_operation(repository_b, project_b)
+    impact_b = impacts_b[0]
+    with sqlite3.connect(repository_b.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_impacts_json = ?, effective_impact = ?
+            WHERE impact_id = ?
+            """,
+            ('["advisory"]', "advisory", impact_b.id),
+        )
+        connection.commit()
+
+    client_b = client_for(repository_b)
+    listed_b = client_b.get(f"/api/v1/projects/{project_b.id}/invalidation-operations")
+    detail_b = client_b.get(
+        f"/api/v1/projects/{project_b.id}/invalidation-operations/{operation_b.id}"
+    )
+    _assert_ledger_corrupt(listed_b)
+    _assert_ledger_corrupt(detail_b)
+
+
+def test_ordinal_gap_or_reorder_fails_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    root = create_and_approve_manifest(repository, project, change_summary="root-v1")
+    accept_custom(
+        repository,
+        project,
+        "leaf_a",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    accept_custom(
+        repository,
+        project,
+        "leaf_b",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root.version.id,
+                relationship="derived_from",
+                impact="advisory",
+            ),
+        ),
+    )
+    create_and_approve_manifest(
+        repository,
+        project,
+        documents=[{"source_document_id": "src_root_v2"}],
+        parent=root,
+        change_summary="root-v2",
+    )
+    operation = repository.list_invalidation_operations(project.id)[0]
+    impacts = repository.list_invalidation_path_impacts(
+        project_id=project.id,
+        operation_id=operation.id,
+    )
+    assert len(impacts) >= 2
+    second = impacts[1]
+    client = client_for(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_ordinal = 2
+            WHERE impact_id = ?
+            """,
+            (second.id,),
+        )
+        connection.commit()
+
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+
+    repository_b = create_repository(tmp_path / "workspace-reorder.db")
+    project_b = create_project(repository_b)
+    root_b = create_and_approve_manifest(repository_b, project_b, change_summary="root-v1")
+    accept_custom(
+        repository_b,
+        project_b,
+        "leaf_a",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_b.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    accept_custom(
+        repository_b,
+        project_b,
+        "leaf_b",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_b.version.id,
+                relationship="derived_from",
+                impact="advisory",
+            ),
+        ),
+    )
+    create_and_approve_manifest(
+        repository_b,
+        project_b,
+        documents=[{"source_document_id": "src_root_v2"}],
+        parent=root_b,
+        change_summary="root-v2",
+    )
+    operation_b = repository_b.list_invalidation_operations(project_b.id)[0]
+    impacts_b = repository_b.list_invalidation_path_impacts(
+        project_id=project_b.id,
+        operation_id=operation_b.id,
+    )
+    first_b, second_b = impacts_b[0], impacts_b[1]
+    with sqlite3.connect(repository_b.database_path) as connection:
+        _drop_path_immutability(connection)
+        # Swap contiguous ordinals so deterministic order no longer matches path_ordinal.
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_ordinal = 100
+            WHERE impact_id = ?
+            """,
+            (first_b.id,),
+        )
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_ordinal = 0
+            WHERE impact_id = ?
+            """,
+            (second_b.id,),
+        )
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET path_ordinal = 1
+            WHERE impact_id = ?
+            """,
+            (first_b.id,),
+        )
+        connection.commit()
+
+    client_b = client_for(repository_b)
+    listed_b = client_b.get(f"/api/v1/projects/{project_b.id}/invalidation-operations")
+    detail_b = client_b.get(
+        f"/api/v1/projects/{project_b.id}/invalidation-operations/{operation_b.id}"
+    )
+    _assert_ledger_corrupt(listed_b)
+    _assert_ledger_corrupt(detail_b)
+
+
+def test_malformed_persisted_ids_or_timestamp_fail_closed(tmp_path: Path) -> None:
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    _old, _leaf, operation, impacts = _seed_direct_impact_operation(repository, project)
+    impact = impacts[0]
+    client = client_for(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        _drop_path_immutability(connection)
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET impact_id = ?
+            WHERE impact_id = ?
+            """,
+            ("not-an-impact-id", impact.id),
+        )
+        connection.commit()
+
+    listed = client.get(f"/api/v1/projects/{project.id}/invalidation-operations")
+    detail = client.get(f"/api/v1/projects/{project.id}/invalidation-operations/{operation.id}")
+    _assert_ledger_corrupt(listed)
+    _assert_ledger_corrupt(detail)
+
+    repository_b = create_repository(tmp_path / "workspace-timestamp.db")
+    project_b = create_project(repository_b)
+    _old_b, _leaf_b, operation_b, _impacts_b = _seed_direct_impact_operation(
+        repository_b, project_b
+    )
+    with sqlite3.connect(repository_b.database_path) as connection:
+        _drop_operation_immutability(connection)
+        connection.execute(
+            """
+            UPDATE invalidation_operations
+            SET created_at = ?
+            WHERE operation_id = ?
+            """,
+            ("not-a-timestamp", operation_b.id),
+        )
+        connection.commit()
+
+    client_b = client_for(repository_b)
+    listed_b = client_b.get(f"/api/v1/projects/{project_b.id}/invalidation-operations")
+    detail_b = client_b.get(
+        f"/api/v1/projects/{project_b.id}/invalidation-operations/{operation_b.id}"
+    )
+    _assert_ledger_corrupt(listed_b)
+    _assert_ledger_corrupt(detail_b)
+
+    repository_c = create_repository(tmp_path / "workspace-op-id.db")
+    project_c = create_project(repository_c)
+    _old_c, _leaf_c, operation_c, _impacts_c = _seed_direct_impact_operation(
+        repository_c, project_c
+    )
+    with sqlite3.connect(repository_c.database_path) as connection:
+        _drop_operation_immutability(connection)
+        _drop_path_immutability(connection)
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute(
+            """
+            UPDATE invalidation_path_impacts
+            SET operation_id = ?
+            WHERE operation_id = ?
+            """,
+            ("bad-operation-id", operation_c.id),
+        )
+        connection.execute(
+            """
+            UPDATE invalidation_operations
+            SET operation_id = ?
+            WHERE operation_id = ?
+            """,
+            ("bad-operation-id", operation_c.id),
+        )
+        connection.commit()
+
+    client_c = client_for(repository_c)
+    listed_c = client_c.get(f"/api/v1/projects/{project_c.id}/invalidation-operations")
+    _assert_ledger_corrupt(listed_c)
