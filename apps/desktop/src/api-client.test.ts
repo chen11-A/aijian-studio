@@ -939,6 +939,41 @@ describe("local API client", () => {
         .getInvalidationOperation(project.id, operationId),
     ).rejects.toThrow("published contract");
 
+    // Timestamp and semantic guards fail closed with the generic published-contract error.
+    const timezoneLess = structuredClone(listResponse);
+    timezoneLess.data.operations[0]!.created_at = "2026-08-03T12:00:00";
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(timezoneLess)), session)
+        .listInvalidationOperations(project.id),
+    ).rejects.toThrow("published contract");
+
+    const badEffective = structuredClone(detailResponse);
+    badEffective.data.affected_versions[0]!.paths[0]!.path_impacts = [
+      "advisory",
+      "blocking",
+    ] as never;
+    badEffective.data.affected_versions[0]!.paths[0]!.dependency_path = [
+      `dep_${"9".repeat(32)}`,
+      `dep_${"a".repeat(32)}`,
+    ];
+    badEffective.data.affected_versions[0]!.paths[0]!.path_relationships = [
+      "references",
+      "derived_from",
+    ];
+    badEffective.data.affected_versions[0]!.paths[0]!.effective_impact = "blocking";
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badEffective)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
+    const badGroupFlags = structuredClone(detailResponse);
+    badGroupFlags.data.affected_versions[0]!.general_stale = false;
+    badGroupFlags.data.affected_versions[0]!.general_blocked = false;
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badGroupFlags)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
     const oversized = createLocalApiClient(
       vi.fn().mockResolvedValue(
         new Response("{}", {

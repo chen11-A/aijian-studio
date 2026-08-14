@@ -147,7 +147,17 @@ const html = `<!doctype html>
             </div>
             <div class="impact-detail">
               <section class="impact-section">
+                <h3>事件摘要</h3>
+                <dl class="impact-summary-grid" aria-label="事件计数摘要">
+                  <div><dt>受影响版本</dt><dd>1</dd></div>
+                  <div><dt>独立路径</dt><dd>2</dd></div>
+                  <div><dt>阻断 / 仅渲染 / 提示</dt><dd>1 / 1 / 0</dd></div>
+                  <div><dt>最强有效影响</dt><dd><span class="impact-badge" data-tone="blocking"><span aria-hidden="true">■</span>阻断</span></dd></div>
+                </dl>
+              </section>
+              <section class="impact-section">
                 <h3>受影响精确版本</h3>
+                <p>不同版本即使属于同一产物也分别列出；路径按 path_ordinal 升序展示。</p>
                 <ul class="impact-version-list">
                   <li class="impact-version-card">
                     <div class="impact-version-header">
@@ -181,6 +191,36 @@ const html = `<!doctype html>
                               <div class="impact-edge-row">
                                 <span>关系 derived_from</span>
                                 <span class="impact-badge" data-tone="blocking"><span aria-hidden="true">■</span>阻断</span>
+                              </div>
+                            </li>
+                          </ol>
+                        </div>
+                      </li>
+                      <li class="impact-path-card">
+                        <div class="impact-path-header">
+                          <div class="impact-id-block">
+                            <span>路径序号 1 · 影响 ID invimp_${"d".repeat(32)}</span>
+                            <code>有效影响：仅渲染</code>
+                          </div>
+                          <span class="impact-badge" data-tone="render"><span aria-hidden="true">▲</span>仅渲染</span>
+                        </div>
+                        <div class="impact-chain">
+                          <strong>依赖 ID 链 · 关系 · 边影响</strong>
+                          <ol>
+                            <li>
+                              <strong>边 1</strong>
+                              <code>dep_${"e".repeat(32)}</code>
+                              <div class="impact-edge-row">
+                                <span>关系 references</span>
+                                <span class="impact-badge" data-tone="advisory"><span aria-hidden="true">◇</span>提示</span>
+                              </div>
+                            </li>
+                            <li>
+                              <strong>边 2</strong>
+                              <code>dep_${"f".repeat(32)}</code>
+                              <div class="impact-edge-row">
+                                <span>关系 derived_from</span>
+                                <span class="impact-badge" data-tone="render"><span aria-hidden="true">▲</span>仅渲染</span>
                               </div>
                             </li>
                           </ol>
@@ -226,6 +266,13 @@ async function capture(viewport, name) {
       };
     });
     const selected = document.querySelector(".impact-operation-card.selected");
+    const selectedStyles = selected ? getComputedStyle(selected) : null;
+    const versionGroup = document.querySelector(".impact-version-card");
+    const versionStyles = versionGroup ? getComputedStyle(versionGroup) : null;
+    const edgeRow = document.querySelector(".impact-chain li");
+    const edgeStyles = edgeRow ? getComputedStyle(edgeRow) : null;
+    const countCell = document.querySelector(".impact-counts div");
+    const countStyles = countCell ? getComputedStyle(countCell) : null;
     const badges = [...document.querySelectorAll(".impact-badge")].map((node) => node.textContent?.trim());
     return {
       innerWidth: window.innerWidth,
@@ -233,6 +280,26 @@ async function capture(viewport, name) {
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       selectedPresent: Boolean(selected),
+      selectedUsesGradient: Boolean(selectedStyles?.backgroundImage && selectedStyles.backgroundImage !== "none"),
+      versionGroupFramed: Boolean(
+        versionStyles &&
+          versionStyles.borderStyle !== "none" &&
+          versionStyles.borderBottomStyle === "solid" &&
+          Number.parseFloat(versionStyles.borderTopWidth) === 0 &&
+          Number.parseFloat(versionStyles.borderLeftWidth) === 0,
+      ),
+      edgeRowFramed: Boolean(
+        edgeStyles &&
+          Number.parseFloat(edgeStyles.borderLeftWidth) > 0 &&
+          Number.parseFloat(edgeStyles.borderRightWidth) > 0 &&
+          Number.parseFloat(edgeStyles.borderTopWidth) > 0,
+      ),
+      countCellFramed: Boolean(
+        countStyles &&
+          Number.parseFloat(countStyles.borderTopWidth) > 0 &&
+          Number.parseFloat(countStyles.borderLeftWidth) > 0 &&
+          Number.parseFloat(countStyles.borderBottomWidth) > 0,
+      ),
       badges,
       clippedIds: codes.filter((item) => item.clipped).map((item) => item.text),
       liveLanguageHits: document.body.innerText.includes("当前实时可用性") &&
