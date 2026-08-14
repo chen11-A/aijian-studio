@@ -12,6 +12,10 @@ type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+type InvalidationOperationListResponse =
+  components["schemas"]["InvalidationOperationListResponse"];
+type InvalidationOperationDetailResponse =
+  components["schemas"]["InvalidationOperationDetailResponse"];
 type CreateProviderConnectionInput = components["schemas"]["CreateProviderConnectionRequest"];
 type ProviderConnectionListResponse = components["schemas"]["ProviderConnectionListResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
@@ -55,6 +59,20 @@ contextBridge.exposeInMainWorld("aijian", {
     ) as Promise<StoryBibleVersionResponse>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
+  listInvalidationOperations: (projectId: string): Promise<InvalidationOperationListResponse> =>
+    ipcRenderer.invoke(
+      "invalidation-operations:list",
+      projectId,
+    ) as Promise<InvalidationOperationListResponse>,
+  getInvalidationOperation: (
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationDetailResponse> =>
+    ipcRenderer.invoke(
+      "invalidation-operations:get",
+      projectId,
+      operationId,
+    ) as Promise<InvalidationOperationDetailResponse>,
   listProviderConnections: (): Promise<ProviderConnectionListResponse> =>
     ipcRenderer.invoke("providers:list") as Promise<ProviderConnectionListResponse>,
   createProviderConnection: (

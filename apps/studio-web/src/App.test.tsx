@@ -12,6 +12,8 @@ import type {
   StoryBibleVersionResponse,
   StudioTransport,
   TaskQueueResponse,
+  InvalidationOperationListResponse,
+  InvalidationOperationDetailResponse,
 } from "./api/studio";
 
 type StoryBibleResponse = StoryBibleVersionResponse;
@@ -398,6 +400,29 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
       },
       request_id: requestId,
     } satisfies TaskQueueResponse),
+    listInvalidationOperations: vi.fn().mockResolvedValue({
+      data: { project_id: project.id, operations: [] },
+      request_id: requestId,
+    } satisfies InvalidationOperationListResponse),
+    getInvalidationOperation: vi.fn().mockResolvedValue({
+      data: {
+        operation: {
+          operation_id: `invop_${"1".repeat(32)}`,
+          project_id: project.id,
+          changed_artifact_id: `art_${"2".repeat(32)}`,
+          old_accepted_version_id: `ver_${"3".repeat(32)}`,
+          new_accepted_version_id: `ver_${"4".repeat(32)}`,
+          gate_decision_id: `dec_${"5".repeat(32)}`,
+          created_at: "2026-08-03T12:00:00Z",
+          affected_version_count: 0,
+          independent_path_count: 0,
+          impact_counts: { blocking: 0, render_only: 0, advisory: 0 },
+          strongest_effective_impact: null,
+        },
+        affected_versions: [],
+      },
+      request_id: requestId,
+    } satisfies InvalidationOperationDetailResponse),
     listProviderConnections: vi.fn().mockResolvedValue({ data: [], request_id: requestId }),
     createProviderConnection: vi.fn(),
     deleteProviderConnection: vi.fn(),
@@ -414,6 +439,27 @@ test("opens the project-scoped production task queue", async () => {
   expect(await screen.findByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
   expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
   expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
+});
+
+test("opens the project-scoped impact report and reloads on project change", async () => {
+  const secondProject = {
+    ...project,
+    id: `prj_${"b".repeat(32)}`,
+    name: "第二项目",
+  };
+  const transport = studioTransport([project, secondProject]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /影响报告/ }));
+  expect(await screen.findByRole("heading", { name: "影响报告", level: 2 })).toBeInTheDocument();
+  expect(await screen.findByText("还没有影响记录")).toBeInTheDocument();
+  expect(transport.listInvalidationOperations).toHaveBeenCalledWith(project.id);
+
+  fireEvent.click(screen.getByRole("button", { name: /第二项目/ }));
+  await waitFor(() =>
+    expect(transport.listInvalidationOperations).toHaveBeenCalledWith(secondProject.id),
+  );
 });
 
 test("opens model and API settings without requiring a selected project", async () => {

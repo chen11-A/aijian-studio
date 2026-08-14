@@ -811,6 +811,148 @@ describe("local API client", () => {
     await expect(invalidClient.listProjectTasks(project.id)).rejects.toThrow("published contract");
   });
 
+  test("reads invalidation impact reports with auth headers and strict guards", async () => {
+    const operationId = `invop_${"1".repeat(32)}`;
+    const listResponse = {
+      data: {
+        project_id: project.id,
+        operations: [
+          {
+            operation_id: operationId,
+            project_id: project.id,
+            changed_artifact_id: `art_${"2".repeat(32)}`,
+            old_accepted_version_id: `ver_${"3".repeat(32)}`,
+            new_accepted_version_id: `ver_${"4".repeat(32)}`,
+            gate_decision_id: `dec_${"5".repeat(32)}`,
+            created_at: "2026-08-03T12:00:00Z",
+            affected_version_count: 1,
+            independent_path_count: 1,
+            impact_counts: { blocking: 1, render_only: 0, advisory: 0 },
+            strongest_effective_impact: "blocking" as const,
+          },
+        ],
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const detailResponse = {
+      data: {
+        operation: listResponse.data.operations[0]!,
+        affected_versions: [
+          {
+            affected_artifact_id: `art_${"6".repeat(32)}`,
+            affected_version_id: `ver_${"7".repeat(32)}`,
+            strongest_effective_impact: "blocking" as const,
+            general_stale: true,
+            general_blocked: true,
+            render_blocked: true,
+            paths: [
+              {
+                impact_id: `invimp_${"8".repeat(32)}`,
+                path_ordinal: 0,
+                dependency_path: [`dep_${"9".repeat(32)}`],
+                path_relationships: ["derived_from"],
+                path_impacts: ["blocking" as const],
+                effective_impact: "blocking" as const,
+              },
+            ],
+          },
+        ],
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(listResponse))
+      .mockResolvedValueOnce(Response.json(detailResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.listInvalidationOperations(project.id)).resolves.toEqual(listResponse);
+    await expect(client.getInvalidationOperation(project.id, operationId)).resolves.toEqual(
+      detailResponse,
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${session.token}`,
+          Accept: "application/json",
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations/${operationId}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${session.token}`,
+        }),
+      }),
+    );
+
+    const noFetch = vi.fn();
+    const guarded = createLocalApiClient(noFetch, session);
+    await expect(guarded.listInvalidationOperations("../workspace.sqlite3")).rejects.toThrow(
+      "valid project id",
+    );
+    await expect(
+      guarded.getInvalidationOperation(project.id, "invop_not-hex"),
+    ).rejects.toThrow("valid operation id");
+    expect(noFetch).not.toHaveBeenCalled();
+
+    const wrongProject = structuredClone(listResponse);
+    wrongProject.data.project_id = `prj_${"f".repeat(32)}`;
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(wrongProject)), session)
+        .listInvalidationOperations(project.id),
+    ).rejects.toThrow("published contract");
+
+    const wrongOperation = structuredClone(detailResponse);
+    wrongOperation.data.operation.operation_id = `invop_${"a".repeat(32)}`;
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(wrongOperation)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
+    const badEnum = structuredClone(detailResponse) as unknown as {
+      data: { operation: { strongest_effective_impact: string } };
+    };
+    badEnum.data.operation.strongest_effective_impact = "critical";
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badEnum)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
+    const secretShaped = structuredClone(detailResponse) as unknown as {
+      data: { operation: Record<string, unknown> };
+    };
+    secretShaped.data.operation.secret_token = "must-not-cross-ipc";
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(secretShaped)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
+    const badPathShape = structuredClone(detailResponse);
+    badPathShape.data.affected_versions[0]!.paths[0]!.dependency_path = [];
+    await expect(
+      createLocalApiClient(vi.fn().mockResolvedValue(Response.json(badPathShape)), session)
+        .getInvalidationOperation(project.id, operationId),
+    ).rejects.toThrow("published contract");
+
+    const oversized = createLocalApiClient(
+      vi.fn().mockResolvedValue(
+        new Response("{}", {
+          status: 200,
+          headers: { "Content-Length": String(17 * 1024 * 1024) },
+        }),
+      ),
+      session,
+    );
+    await expect(oversized.listInvalidationOperations(project.id)).rejects.toThrow(
+      "desktop safety limit",
+    );
+  });
+
   test("validates provider connections across the privileged desktop boundary", async () => {
     const listResponse = {
       data: [providerConnectionResponse.data],

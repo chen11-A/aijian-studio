@@ -19,6 +19,14 @@ import {
   type ProviderConnectionListResponse,
   type ProviderConnectionResponse,
 } from "./provider-connection-contract";
+import {
+  isInvalidationOperationDetailResponse,
+  isInvalidationOperationListResponse,
+  isOperationId,
+  isProjectId,
+  type InvalidationOperationDetailResponse,
+  type InvalidationOperationListResponse,
+} from "./invalidation-report-contract";
 import type { SidecarSession } from "./sidecar-protocol";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import { isTaskQueueResponse, type TaskQueueResponse } from "./task-queue-contract";
@@ -28,6 +36,10 @@ export type {
   ProviderConnectionListResponse,
   ProviderConnectionResponse,
 } from "./provider-connection-contract";
+export type {
+  InvalidationOperationDetailResponse,
+  InvalidationOperationListResponse,
+} from "./invalidation-report-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
 
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
@@ -57,6 +69,11 @@ export interface LocalApiClient {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listInvalidationOperations(projectId: string): Promise<InvalidationOperationListResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationDetailResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -1226,6 +1243,36 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
       return requestJson(
         `/api/v1/projects/${projectId}/tasks`,
         (payload): payload is TaskQueueResponse => isTaskQueueResponse(payload, projectId),
+        { headers },
+      );
+    },
+    async listInvalidationOperations(
+      projectId: string,
+    ): Promise<InvalidationOperationListResponse> {
+      if (!isProjectId(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/invalidation-operations`,
+        (payload): payload is InvalidationOperationListResponse =>
+          isInvalidationOperationListResponse(payload, projectId),
+        { headers },
+      );
+    },
+    async getInvalidationOperation(
+      projectId: string,
+      operationId: string,
+    ): Promise<InvalidationOperationDetailResponse> {
+      if (!isProjectId(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!isOperationId(operationId)) {
+        throw new Error("Local API client requires a valid operation id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
+        (payload): payload is InvalidationOperationDetailResponse =>
+          isInvalidationOperationDetailResponse(payload, projectId, operationId),
         { headers },
       );
     },

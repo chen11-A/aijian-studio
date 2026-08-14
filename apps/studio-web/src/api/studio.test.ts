@@ -8,6 +8,8 @@ import {
   type StoryBibleIndexResponse,
   type StoryBibleVersionResponse,
   type TaskQueueResponse,
+  type InvalidationOperationListResponse,
+  type InvalidationOperationDetailResponse,
 } from "./studio";
 
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
@@ -118,6 +120,29 @@ const taskQueue = {
   },
   request_id: requestId,
 } satisfies TaskQueueResponse;
+const invalidationList = {
+  data: { project_id: project.id, operations: [] },
+  request_id: requestId,
+} satisfies InvalidationOperationListResponse;
+const invalidationDetail = {
+  data: {
+    operation: {
+      operation_id: `invop_${"1".repeat(32)}`,
+      project_id: project.id,
+      changed_artifact_id: `art_${"2".repeat(32)}`,
+      old_accepted_version_id: `ver_${"3".repeat(32)}`,
+      new_accepted_version_id: `ver_${"4".repeat(32)}`,
+      gate_decision_id: `dec_${"5".repeat(32)}`,
+      created_at: "2026-08-03T12:00:00Z",
+      affected_version_count: 0,
+      independent_path_count: 0,
+      impact_counts: { blocking: 0, render_only: 0, advisory: 0 },
+      strongest_effective_impact: null,
+    },
+    affected_versions: [],
+  },
+  request_id: requestId,
+} satisfies InvalidationOperationDetailResponse;
 const providerConnections = { data: [], request_id: requestId };
 
 afterEach(() => {
@@ -139,6 +164,8 @@ describe("studio transport", () => {
       getStoryBibleIndex: vi.fn().mockResolvedValue(storyBibleIndex),
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
       listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
+      listInvalidationOperations: vi.fn().mockResolvedValue(invalidationList),
+      getInvalidationOperation: vi.fn().mockResolvedValue(invalidationDetail),
       listProviderConnections: vi.fn().mockResolvedValue(providerConnections),
       createProviderConnection: vi.fn().mockResolvedValue({}),
       deleteProviderConnection: vi.fn().mockResolvedValue(undefined),
@@ -166,6 +193,11 @@ describe("studio transport", () => {
     await transport.getStoryBibleIndex(project.id);
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
     await transport.listProjectTasks(project.id);
+    await transport.listInvalidationOperations(project.id);
+    await transport.getInvalidationOperation(
+      project.id,
+      invalidationDetail.data.operation.operation_id,
+    );
     await transport.listProviderConnections();
     await transport.createProviderConnection({
       provider_kind: "OLLAMA",
@@ -190,6 +222,11 @@ describe("studio transport", () => {
       storyBibleVersion.data.version.id,
     );
     expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
+    expect(bridge.listInvalidationOperations).toHaveBeenCalledWith(project.id);
+    expect(bridge.getInvalidationOperation).toHaveBeenCalledWith(
+      project.id,
+      invalidationDetail.data.operation.operation_id,
+    );
     expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
     expect(bridge.createProviderConnection).toHaveBeenCalledOnce();
     expect(bridge.deleteProviderConnection).toHaveBeenCalledOnce();
@@ -204,6 +241,35 @@ describe("studio transport", () => {
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {
       headers: { Accept: "application/json" },
     });
+  });
+
+  test("reads invalidation impact report routes from the browser transport", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(invalidationList))
+      .mockResolvedValueOnce(Response.json(invalidationDetail));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.listInvalidationOperations(project.id)).resolves.toEqual(
+      invalidationList,
+    );
+    await expect(
+      transport.getInvalidationOperation(
+        project.id,
+        invalidationDetail.data.operation.operation_id,
+      ),
+    ).resolves.toEqual(invalidationDetail);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/projects/${project.id}/invalidation-operations`,
+      { headers: { Accept: "application/json" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/projects/${project.id}/invalidation-operations/${invalidationDetail.data.operation.operation_id}`,
+      { headers: { Accept: "application/json" } },
+    );
   });
 
   test("uses versioned provider connection routes in a browser", async () => {

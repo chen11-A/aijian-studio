@@ -108,6 +108,14 @@ ipcMain.handle("artifacts:get-story-bible-version", (event, projectId: string, v
 ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
 );
+ipcMain.handle("invalidation-operations:list", (event, projectId: string) =>
+  clientFor(event).listInvalidationOperations(projectId),
+);
+ipcMain.handle(
+  "invalidation-operations:get",
+  (event, projectId: string, operationId: string) =>
+    clientFor(event).getInvalidationOperation(projectId, operationId),
+);
 ipcMain.handle("providers:list", (event) => clientFor(event).listProviderConnections());
 ipcMain.handle("providers:create", (event, input: CreateProviderConnectionInput) =>
   clientFor(event).createProviderConnection(input),

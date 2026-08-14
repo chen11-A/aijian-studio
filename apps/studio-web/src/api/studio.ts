@@ -12,6 +12,10 @@ export type SourceManifestResponse = components["schemas"]["SourceManifestRespon
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type InvalidationOperationListResponse =
+  components["schemas"]["InvalidationOperationListResponse"];
+export type InvalidationOperationDetailResponse =
+  components["schemas"]["InvalidationOperationDetailResponse"];
 export type CreateProviderConnectionInput =
   components["schemas"]["CreateProviderConnectionRequest"];
 export type ProviderConnectionListResponse =
@@ -33,6 +37,11 @@ export interface StudioTransport {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listInvalidationOperations(projectId: string): Promise<InvalidationOperationListResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationDetailResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -55,6 +64,11 @@ export interface AijianDesktopBridge {
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  listInvalidationOperations(projectId: string): Promise<InvalidationOperationListResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationDetailResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -159,6 +173,9 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      listInvalidationOperations: (projectId) => bridge.listInvalidationOperations(projectId),
+      getInvalidationOperation: (projectId, operationId) =>
+        bridge.getInvalidationOperation(projectId, operationId),
       listProviderConnections: () => bridge.listProviderConnections(),
       createProviderConnection: (input) => bridge.createProviderConnection(input),
       deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
@@ -191,6 +208,14 @@ export function createStudioTransport(): StudioTransport {
       ),
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    listInvalidationOperations: (projectId) =>
+      getRequest<InvalidationOperationListResponse>(
+        `/api/v1/projects/${projectId}/invalidation-operations`,
+      ),
+    getInvalidationOperation: (projectId, operationId) =>
+      getRequest<InvalidationOperationDetailResponse>(
+        `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
+      ),
     listProviderConnections: () =>
       getRequest<ProviderConnectionListResponse>("/api/v1/provider-connections"),
     createProviderConnection: (input) =>

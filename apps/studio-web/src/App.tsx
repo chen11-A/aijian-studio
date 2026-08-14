@@ -11,6 +11,7 @@ import {
   type StoryBibleVersionResponse,
   type StudioTransport,
 } from "./api/studio";
+import { ImpactReportWorkspace } from "./components/ImpactReport/ImpactReportWorkspace";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { StoryWorkshopActions } from "./components/StoryWorkshop/StoryWorkshopActions";
@@ -27,7 +28,7 @@ type ImportState =
   | { kind: "loading"; filename: string }
   | { kind: "success"; response: SourceDocumentResponse }
   | { kind: "error"; message: string };
-type WorkspaceView = "project" | "story" | "queue" | "settings";
+type WorkspaceView = "project" | "story" | "queue" | "impact" | "settings";
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -59,7 +60,8 @@ const navigation = [
   { id: "assets", label: "素材中心", index: "04", available: false },
   { id: "edit", label: "剪辑台", index: "05", available: false },
   { id: "queue", label: "任务队列", index: "06", available: true },
-  { id: "settings", label: "模型与 API", index: "07", available: true },
+  { id: "impact", label: "影响报告", index: "07", available: true },
+  { id: "settings", label: "模型与 API", index: "08", available: true },
 ] as const;
 
 const entityKindLabels = {
@@ -1806,11 +1808,13 @@ export function App({ transport }: AppProps) {
               item.id === "project" ||
               item.id === "story" ||
               item.id === "queue" ||
+              item.id === "impact" ||
               item.id === "settings";
             const active = isWorkspace && activeWorkspace === item.id;
             const enabled =
               item.available &&
-              ((item.id !== "story" && item.id !== "queue") || selectedProject !== null);
+              ((item.id !== "story" && item.id !== "queue" && item.id !== "impact") ||
+                selectedProject !== null);
             return (
               <button
                 className={`nav-item${active ? " active" : ""}${!item.available ? " unavailable" : ""}`}
@@ -1855,7 +1859,9 @@ export function App({ transport }: AppProps) {
                   ? "故事工坊"
                   : activeWorkspace === "queue"
                     ? "任务队列"
-                    : "模型与 API"}
+                    : activeWorkspace === "impact"
+                      ? "影响报告"
+                      : "模型与 API"}
             </h1>
           </div>
           <div className="topbar-actions">
@@ -1957,11 +1963,18 @@ export function App({ transport }: AppProps) {
                     getStoryBibleVersion={studio.getStoryBibleVersion}
                     onRetry={() => void loadStoryWorkspace(selectedProject.id)}
                   />
-                ) : (
+                ) : activeWorkspace === "queue" ? (
                   <TaskQueueWorkspace
                     key={selectedProject.id}
                     project={selectedProject}
                     loadTasks={studio.listProjectTasks}
+                  />
+                ) : (
+                  <ImpactReportWorkspace
+                    key={selectedProject.id}
+                    project={selectedProject}
+                    listOperations={studio.listInvalidationOperations}
+                    getOperation={studio.getInvalidationOperation}
                   />
                 )}
               </section>
