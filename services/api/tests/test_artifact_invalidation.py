@@ -836,6 +836,193 @@ def test_assessment_snapshot_is_complete_old_or_new_under_race(tmp_path: Path) -
     assert cause_by_pin(later, root_v1.version.id).current_accepted_version_id == root_v2.version.id
 
 
+def _disable_head_guards(connection: sqlite3.Connection) -> None:
+    connection.execute("PRAGMA foreign_keys = OFF")
+    connection.execute("DROP TRIGGER IF EXISTS artifact_heads_accepted_requires_decision")
+    connection.execute("DROP TRIGGER IF EXISTS artifact_heads_revision_increments_once")
+
+
+def test_missing_or_corrupt_heads_fail_closed(tmp_path: Path) -> None:
+    """Defensive corruption handling for assessed/traversed artifact heads."""
+
+    repository = create_repository(tmp_path / "workspace.db")
+    project = create_project(repository)
+    root = accept_new(repository, project, "root")
+    leaf = accept_new(
+        repository,
+        project,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+
+    # Target artifact_heads row missing.
+    with sqlite3.connect(repository.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            "DELETE FROM artifact_heads WHERE artifact_id = ?",
+            (leaf.version.artifact_id,),
+        )
+        connection.commit()
+    with pytest.raises(ArtifactDependencyInvalidError, match="head is missing"):
+        repository.assess_artifact_dependencies(
+            project_id=project.id,
+            version_id=leaf.version.id,
+            mode="general",
+        )
+    with pytest.raises(ArtifactDependencyInvalidError, match="head is missing"):
+        repository.require_accepted_artifact_consumable(
+            project_id=project.id,
+            version_id=leaf.version.id,
+            mode="general",
+        )
+
+    # Restore target head and corrupt traversed upstream accepted pointer to a
+    # non-existent version id.
+    repository_b = create_repository(tmp_path / "missing-accepted.db")
+    project_b = create_project(repository_b, "缺失验收指针")
+    root_b = accept_new(repository_b, project_b, "root")
+    leaf_b = accept_new(
+        repository_b,
+        project_b,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_b.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository_b.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = 'ver_deadbeefdeadbeefdeadbeefdeadbeef'
+            WHERE artifact_id = ?
+            """,
+            (root_b.version.artifact_id,),
+        )
+        connection.commit()
+    with pytest.raises(ArtifactDependencyInvalidError, match="Accepted version is missing"):
+        repository_b.assess_artifact_dependencies(
+            project_id=project_b.id,
+            version_id=leaf_b.version.id,
+            mode="general",
+        )
+
+    # Accepted pointer exists but is owned by a different artifact.
+    repository_c = create_repository(tmp_path / "wrong-owner.db")
+    project_c = create_project(repository_c, "错误验收归属")
+    root_c = accept_new(repository_c, project_c, "root")
+    other_c = accept_new(repository_c, project_c, "other")
+    leaf_c = accept_new(
+        repository_c,
+        project_c,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_c.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository_c.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = ?
+            WHERE artifact_id = ?
+            """,
+            (other_c.version.id, root_c.version.artifact_id),
+        )
+        connection.commit()
+    with pytest.raises(
+        ArtifactDependencyInvalidError, match="Accepted version ownership is corrupted"
+    ):
+        repository_c.assess_artifact_dependencies(
+            project_id=project_c.id,
+            version_id=leaf_c.version.id,
+            mode="general",
+        )
+
+    # Accepted pointer resolves to a version owned by a different project.
+    repository_d = create_repository(tmp_path / "cross-accepted.db")
+    project_d = create_project(repository_d, "跨项目验收")
+    foreign = create_project(repository_d, "外项目")
+    root_d = accept_new(repository_d, project_d, "root")
+    foreign_root = create_version(repository_d, foreign, "foreign_root")
+    leaf_d = accept_new(
+        repository_d,
+        project_d,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_d.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository_d.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            """
+            UPDATE artifact_heads
+            SET accepted_version_id = ?
+            WHERE artifact_id = ?
+            """,
+            (foreign_root.version.id, root_d.version.artifact_id),
+        )
+        connection.commit()
+    with pytest.raises(
+        ArtifactDependencyInvalidError, match="Accepted version ownership is corrupted"
+    ):
+        repository_d.assess_artifact_dependencies(
+            project_id=project_d.id,
+            version_id=leaf_d.version.id,
+            mode="general",
+        )
+
+    # Missing traversed upstream head row fails closed (not reported as soft mismatch).
+    repository_e = create_repository(tmp_path / "missing-upstream-head.db")
+    project_e = create_project(repository_e, "缺失上游头")
+    root_e = accept_new(repository_e, project_e, "root")
+    leaf_e = accept_new(
+        repository_e,
+        project_e,
+        "leaf",
+        dependencies=(
+            ArtifactDependencyDraft(
+                upstream_version_id=root_e.version.id,
+                relationship="derived_from",
+                impact="blocking",
+            ),
+        ),
+    )
+    with sqlite3.connect(repository_e.database_path) as connection:
+        _disable_head_guards(connection)
+        connection.execute(
+            "DELETE FROM artifact_heads WHERE artifact_id = ?",
+            (root_e.version.artifact_id,),
+        )
+        connection.commit()
+    with pytest.raises(ArtifactDependencyInvalidError, match="head is missing"):
+        repository_e.assess_artifact_dependencies(
+            project_id=project_e.id,
+            version_id=leaf_e.version.id,
+            mode="general",
+        )
+
+
 def test_cross_project_or_corrupted_dependency_ownership_fails_closed(tmp_path: Path) -> None:
     repository = create_repository(tmp_path / "workspace.db")
     project = create_project(repository)

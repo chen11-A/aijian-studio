@@ -75,6 +75,53 @@ def sort_causes(
     )
 
 
+def _require_validated_accepted_version_id(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str,
+    artifact_id: str,
+) -> str | None:
+    """Load an artifact head and fail closed on missing or corrupted accepted pointers.
+
+    NULL accepted heads are valid (treated as mismatch by callers). Non-NULL accepted
+    version IDs must resolve to a version owned by the same artifact and project.
+    """
+
+    head = connection.execute(
+        """
+        SELECT accepted_version_id
+        FROM artifact_heads
+        WHERE artifact_id = ?
+        """,
+        (artifact_id,),
+    ).fetchone()
+    if head is None:
+        raise ArtifactDependencyInvalidError("Artifact head is missing")
+    accepted_raw = head["accepted_version_id"]
+    if accepted_raw is None:
+        return None
+    accepted_version_id = str(accepted_raw)
+    owned = connection.execute(
+        """
+        SELECT
+            artifact_versions.version_id,
+            artifact_versions.artifact_id,
+            artifacts.project_id
+        FROM artifact_versions
+        JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+        WHERE artifact_versions.version_id = ?
+        """,
+        (accepted_version_id,),
+    ).fetchone()
+    if owned is None:
+        raise ArtifactDependencyInvalidError("Accepted version is missing")
+    if str(owned["artifact_id"]) != artifact_id:
+        raise ArtifactDependencyInvalidError("Accepted version ownership is corrupted")
+    if str(owned["project_id"]) != project_id:
+        raise ArtifactDependencyInvalidError("Accepted version ownership is corrupted")
+    return accepted_version_id
+
+
 def assess_dependencies_on_connection(
     connection: sqlite3.Connection,
     *,
@@ -110,6 +157,12 @@ def assess_dependencies_on_connection(
             "Artifact version was not found in the requested project"
         )
     artifact_id = str(target["artifact_id"])
+    # Assessed target head must exist; validate accepted pointer if present.
+    _require_validated_accepted_version_id(
+        connection,
+        project_id=project_id,
+        artifact_id=artifact_id,
+    )
     if transaction_step is not None:
         transaction_step("assess_artifact_dependencies", "target_selected")
 
@@ -151,11 +204,9 @@ def require_accepted_consumable_on_connection(
         """
         SELECT
             artifact_versions.version_id,
-            artifact_versions.artifact_id,
-            artifact_heads.accepted_version_id
+            artifact_versions.artifact_id
         FROM artifact_versions
         JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
-        JOIN artifact_heads ON artifact_heads.artifact_id = artifacts.artifact_id
         WHERE artifact_versions.version_id = ? AND artifacts.project_id = ?
         """,
         (version_id, project_id),
@@ -164,7 +215,12 @@ def require_accepted_consumable_on_connection(
         raise ArtifactDependencyInvalidError(
             "Artifact version was not found in the requested project"
         )
-    if target["accepted_version_id"] != version_id:
+    accepted_version_id = _require_validated_accepted_version_id(
+        connection,
+        project_id=project_id,
+        artifact_id=str(target["artifact_id"]),
+    )
+    if accepted_version_id != version_id:
         raise ArtifactDependencyInvalidError(
             "Only the current accepted artifact version may be consumed"
         )
@@ -225,11 +281,9 @@ def _walk_upstream(
             SELECT
                 artifact_versions.version_id,
                 artifact_versions.artifact_id,
-                artifacts.project_id,
-                artifact_heads.accepted_version_id
+                artifacts.project_id
             FROM artifact_versions
             JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
-            JOIN artifact_heads ON artifact_heads.artifact_id = artifacts.artifact_id
             WHERE artifact_versions.version_id = ?
             """,
             (upstream_version_id,),
@@ -243,8 +297,11 @@ def _walk_upstream(
                 "Dependency crosses project boundaries"
             )
 
-        accepted_raw = upstream["accepted_version_id"]
-        current_accepted = str(accepted_raw) if accepted_raw is not None else None
+        current_accepted = _require_validated_accepted_version_id(
+            connection,
+            project_id=project_id,
+            artifact_id=upstream_artifact_id,
+        )
         next_path_ids = (*path_dependency_ids, dependency_id)
         next_relationships = (*path_relationships, relationship)
         next_impacts = (*path_impacts, impact)
