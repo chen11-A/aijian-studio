@@ -27,6 +27,7 @@ from aijian_api.task_ledger_models import (
     utc_now,
 )
 from aijian_api.task_ledger_recovery import recover_expired_local_tasks
+from aijian_api.workflow_tasks import RetryDisposition
 
 __all__ = [
     "ClaimedTask",
@@ -332,6 +333,7 @@ class LocalTaskLedger:
         claim: ClaimedTask,
         *,
         error_code: str,
+        retry_disposition: RetryDisposition = "SAFE_LOCAL_RETRY",
     ) -> None:
         fail_local_task(
             claim,
@@ -339,6 +341,7 @@ class LocalTaskLedger:
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,
+            retry_disposition=retry_disposition,
         )
 
     def cancel_local_task(self, claim: ClaimedTask) -> None:

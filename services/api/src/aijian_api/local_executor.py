@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from aijian_api.fault_injection import FaultInjector, InjectedProcessCrash, KillPoint
+from aijian_api.provider_runtime import RemoteUnknownProviderError
 from aijian_api.subprocess_supervisor import LocalProcessSupervisor, ThreadedProcessSupervisor
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 
@@ -64,6 +65,13 @@ class LocalExecutor:
             output_version_id = supervisor.run(running, heartbeat)
             self._fault_injector.check(KillPoint.AFTER_HANDLER_OUTPUT)
         except InjectedProcessCrash:
+            raise
+        except RemoteUnknownProviderError:
+            self._ledger.fail_local_task(
+                current_claim,
+                error_code="REMOTE_UNKNOWN",
+                retry_disposition="REMOTE_UNKNOWN",
+            )
             raise
         except Exception as error:
             self._ledger.fail_local_task(current_claim, error_code=type(error).__name__)

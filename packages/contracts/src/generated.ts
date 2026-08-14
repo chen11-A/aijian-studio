@@ -176,6 +176,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/story-extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Story Extract */
+        post: operations["startStoryExtract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-extract/{node_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Story Extract Task */
+        get: operations["getStoryExtractTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/tasks": {
         parameters: {
             query?: never;
@@ -1595,6 +1629,11 @@ export interface components {
             /** Source Document Id */
             source_document_id: string;
         };
+        /** StartStoryExtractRequest */
+        StartStoryExtractRequest: {
+            /** Source Manifest Version Id */
+            source_manifest_version_id?: string | null;
+        };
         /** StateChangeDraftV1 */
         StateChangeDraftV1: {
             /** After */
@@ -1763,6 +1802,48 @@ export interface components {
             kind: components["schemas"]["EntityKind"];
             /** Name */
             name: string;
+        };
+        /** StoryExtractTaskData */
+        StoryExtractTaskData: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Attempt Status
+             * @enum {string}
+             */
+            attempt_status: "READY" | "LEASED" | "RUNNING" | "SUBMIT_INTENT" | "SUBMITTING" | "WAITING_REMOTE" | "REMOTE_UNKNOWN" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "NOT_SUBMITTED";
+            /** Error Code */
+            error_code?: string | null;
+            /** Node Run Id */
+            node_run_id: string;
+            /**
+             * Node Status
+             * @enum {string}
+             */
+            node_status: "BLOCKED" | "PENDING" | "RUNNING" | "RECONCILIATION_REQUIRED" | "NEEDS_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "SUPERSEDED";
+            /** Output Version Id */
+            output_version_id?: string | null;
+            /** Producer Attempt Id */
+            producer_attempt_id?: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Retry Disposition */
+            retry_disposition?: ("SAFE_LOCAL_RETRY" | "PROVIDER_CONFIRMED_NOT_ACCEPTED" | "NON_RETRYABLE" | "REMOTE_UNKNOWN") | null;
+            /** Source Manifest Version Id */
+            source_manifest_version_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Workflow Run Id */
+            workflow_run_id: string;
+        };
+        /** StoryExtractTaskResponse */
+        StoryExtractTaskResponse: {
+            data: components["schemas"]["StoryExtractTaskData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         /** StoryQuestionDraftV1 */
         StoryQuestionDraftV1: {
@@ -2858,6 +2939,136 @@ export interface operations {
             };
             /** @description StoryBible response too large */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    startStoryExtract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartStoryExtractRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryExtractTaskResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Accepted non-stale G1 SourceManifest is required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryExtractTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                node_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryExtractTaskResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or story.extract task not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -33,6 +33,14 @@ class ProviderProtocolError(ProviderRuntimeError):
     """Raised when a provider response cannot be parsed into the runtime contract."""
 
 
+class ProviderRetryableError(ProviderRuntimeError):
+    """Raised when a provider failure may legally re-enter the local retry path."""
+
+
+class RemoteUnknownProviderError(ProviderRuntimeError):
+    """Raised when acceptance is unknown and the attempt must be reconciled."""
+
+
 class _StrictProviderModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 

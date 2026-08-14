@@ -11,6 +11,7 @@ from aijian_api.task_ledger_models import (
     TaskCompletion,
     timestamp,
 )
+from aijian_api.workflow_tasks import RetryDisposition
 
 
 def complete_local_task(
@@ -137,6 +138,7 @@ def fail_local_task(
     connection_factory: Callable[[], sqlite3.Connection],
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
+    retry_disposition: RetryDisposition = "SAFE_LOCAL_RETRY",
 ) -> None:
     now_text = timestamp(clock())
     connection = connection_factory()
@@ -189,10 +191,13 @@ def fail_local_task(
             connection,
             row,
             error_code=error_code,
+            retry_disposition=retry_disposition,
             now_text=now_text,
             id_factory=id_factory,
         )
-        if int(row["attempt_count"]) < int(row["max_attempts"]):
+        if retry_disposition == "REMOTE_UNKNOWN":
+            _quarantine_node(connection, row, now_text, id_factory)
+        elif int(row["attempt_count"]) < int(row["max_attempts"]):
             _create_retry_attempt(connection, row, now_text, id_factory)
         else:
             _fail_node(connection, row, now_text, id_factory)
@@ -428,6 +433,7 @@ def _fail_current_attempt(
     row: sqlite3.Row,
     *,
     error_code: str,
+    retry_disposition: RetryDisposition,
     now_text: str,
     id_factory: Callable[[str], str],
 ) -> None:
@@ -449,12 +455,13 @@ def _fail_current_attempt(
     attempt = connection.execute(
         """
         UPDATE workflow_attempts
-        SET status = 'FAILED', retry_disposition = 'SAFE_LOCAL_RETRY',
+        SET status = 'FAILED', retry_disposition = ?,
             error_code = ?, finished_at = ?, revision = revision + 1, updated_at = ?
         WHERE attempt_id = ? AND status = 'RUNNING' AND revision = ?
         RETURNING revision
         """,
         (
+            retry_disposition,
             error_code,
             now_text,
             now_text,
@@ -465,6 +472,9 @@ def _fail_current_attempt(
     if task is None or attempt is None:
         raise LeaseLostError("task changed during local failure")
     generation = int(row["lease_generation"])
+    reason_code = (
+        "remote.acceptance_unknown" if retry_disposition == "REMOTE_UNKNOWN" else "handler.failed"
+    )
     append_event(
         connection,
         id_factory,
@@ -472,7 +482,7 @@ def _fail_current_attempt(
         str(row["task_id"]),
         "LEASED",
         "COMPLETED",
-        "handler.failed",
+        reason_code,
         now_text,
         actor_kind="worker",
         actor_id=str(row["lease_owner"]),
@@ -485,11 +495,43 @@ def _fail_current_attempt(
         str(row["attempt_id"]),
         "RUNNING",
         "FAILED",
-        "handler.failed",
+        reason_code,
         now_text,
         actor_kind="worker",
         actor_id=str(row["lease_owner"]),
         lease_generation=generation,
+    )
+
+
+def _quarantine_node(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+    now_text: str,
+    id_factory: Callable[[str], str],
+) -> None:
+    node = connection.execute(
+        """
+        UPDATE workflow_node_runs
+        SET status = 'RECONCILIATION_REQUIRED', revision = revision + 1, updated_at = ?
+        WHERE node_run_id = ? AND status = 'RUNNING' AND revision = ?
+        RETURNING revision
+        """,
+        (now_text, str(row["node_run_id"]), int(row["node_revision"])),
+    ).fetchone()
+    if node is None:
+        raise LeaseLostError("node changed during remote unknown quarantine")
+    append_event(
+        connection,
+        id_factory,
+        "node",
+        str(row["node_run_id"]),
+        "RUNNING",
+        "RECONCILIATION_REQUIRED",
+        "remote.acceptance_unknown",
+        now_text,
+        actor_kind="worker",
+        actor_id=str(row["lease_owner"]),
+        lease_generation=int(row["lease_generation"]),
     )
 
 

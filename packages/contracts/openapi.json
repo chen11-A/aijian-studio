@@ -4764,6 +4764,25 @@
         "title": "SourceScopeDocumentV1",
         "type": "object"
       },
+      "StartStoryExtractRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "source_manifest_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Manifest Version Id"
+          }
+        },
+        "title": "StartStoryExtractRequest",
+        "type": "object"
+      },
       "StateChangeDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -5520,6 +5539,158 @@
           "name"
         ],
         "title": "StoryEntityDraftV1",
+        "type": "object"
+      },
+      "StoryExtractTaskData": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "pattern": "^att_[0-9a-f]{32}$",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "attempt_status": {
+            "enum": [
+              "READY",
+              "LEASED",
+              "RUNNING",
+              "SUBMIT_INTENT",
+              "SUBMITTING",
+              "WAITING_REMOTE",
+              "REMOTE_UNKNOWN",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "NOT_SUBMITTED"
+            ],
+            "title": "Attempt Status",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "node_run_id": {
+            "pattern": "^node_[0-9a-f]{32}$",
+            "title": "Node Run Id",
+            "type": "string"
+          },
+          "node_status": {
+            "enum": [
+              "BLOCKED",
+              "PENDING",
+              "RUNNING",
+              "RECONCILIATION_REQUIRED",
+              "NEEDS_REVIEW",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+              "SUPERSEDED"
+            ],
+            "title": "Node Status",
+            "type": "string"
+          },
+          "output_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Version Id"
+          },
+          "producer_attempt_id": {
+            "anyOf": [
+              {
+                "pattern": "^att_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producer Attempt Id"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "retry_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "SAFE_LOCAL_RETRY",
+                  "PROVIDER_CONFIRMED_NOT_ACCEPTED",
+                  "NON_RETRYABLE",
+                  "REMOTE_UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Disposition"
+          },
+          "source_manifest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Source Manifest Version Id",
+            "type": "string"
+          },
+          "task_id": {
+            "pattern": "^task_[0-9a-f]{32}$",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "workflow_run_id": {
+            "pattern": "^wfr_[0-9a-f]{32}$",
+            "title": "Workflow Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "workflow_run_id",
+          "node_run_id",
+          "attempt_id",
+          "task_id",
+          "node_status",
+          "attempt_status",
+          "source_manifest_version_id"
+        ],
+        "title": "StoryExtractTaskData",
+        "type": "object"
+      },
+      "StoryExtractTaskResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryExtractTaskData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryExtractTaskResponse",
         "type": "object"
       },
       "StoryQuestionDraftV1": {
@@ -7714,6 +7885,174 @@
           }
         },
         "summary": "Get Story Bible Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-extract": {
+      "post": {
+        "operationId": "startStoryExtract",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStoryExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryExtractTaskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Accepted non-stale G1 SourceManifest is required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Start Story Extract"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-extract/{node_run_id}": {
+      "get": {
+        "operationId": "getStoryExtractTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "node_run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^node_[0-9a-f]{32}$",
+              "title": "Node Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryExtractTaskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or story.extract task not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Story Extract Task"
       }
     },
     "/api/v1/projects/{project_id}/tasks": {

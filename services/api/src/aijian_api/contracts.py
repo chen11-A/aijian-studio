@@ -641,3 +641,65 @@ class GateDecisionResponse(BaseModel):
 
     data: GateDecisionResultData
     request_id: UUID
+
+
+class StartStoryExtractRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_manifest_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+
+
+class StoryExtractTaskData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    workflow_run_id: str = Field(pattern=WORKFLOW_RUN_ID_PATTERN)
+    node_run_id: str = Field(pattern=NODE_RUN_ID_PATTERN)
+    attempt_id: str = Field(pattern=ATTEMPT_ID_PATTERN)
+    task_id: str = Field(pattern=TASK_ID_PATTERN)
+    node_status: Literal[
+        "BLOCKED",
+        "PENDING",
+        "RUNNING",
+        "RECONCILIATION_REQUIRED",
+        "NEEDS_REVIEW",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+        "SUPERSEDED",
+    ]
+    attempt_status: Literal[
+        "READY",
+        "LEASED",
+        "RUNNING",
+        "SUBMIT_INTENT",
+        "SUBMITTING",
+        "WAITING_REMOTE",
+        "REMOTE_UNKNOWN",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+        "NOT_SUBMITTED",
+    ]
+    retry_disposition: (
+        Literal[
+            "SAFE_LOCAL_RETRY",
+            "PROVIDER_CONFIRMED_NOT_ACCEPTED",
+            "NON_RETRYABLE",
+            "REMOTE_UNKNOWN",
+        ]
+        | None
+    ) = None
+    error_code: str | None = None
+    output_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    source_manifest_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    producer_attempt_id: str | None = Field(default=None, pattern=ATTEMPT_ID_PATTERN)
+
+
+class StoryExtractTaskResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryExtractTaskData
+    request_id: UUID

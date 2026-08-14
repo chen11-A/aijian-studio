@@ -16,6 +16,8 @@ from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
     StoryBiblePayloadTooLargeError,
+    StoryExtractNotFoundError,
+    StoryExtractPrerequisiteError,
 )
 from aijian_api.contracts import (
     CreateProjectRequest,
@@ -69,6 +71,9 @@ from aijian_api.source_manifest_routes import (
 )
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.story_extract import StoryExtractService
+from aijian_api.story_extract_routes import create_story_extract_router
+from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_queue_read import TaskQueueReader
 from aijian_api.task_queue_routes import create_task_queue_router
 
@@ -169,6 +174,10 @@ def create_app(
     def get_task_queue_reader() -> TaskQueueReader:
         return TaskQueueReader(get_repository().database_path)
 
+    def get_story_extract_service() -> StoryExtractService:
+        repository = get_repository()
+        return StoryExtractService(repository, LocalTaskLedger(repository.database_path))
+
     def get_provider_connection_service() -> ProviderConnectionService:
         return ProviderConnectionService(
             ProviderConnectionRepository(get_repository().database_path),
@@ -261,6 +270,30 @@ def create_app(
             status_code=status.HTTP_409_CONFLICT,
             code="ARTIFACT_DEPENDENCY_INVALID",
             message="The required accepted upstream artifact is not available",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(StoryExtractPrerequisiteError)
+    async def story_extract_prerequisite(
+        request: Request,
+        error: StoryExtractPrerequisiteError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code=error.code,
+            message=str(error),
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(StoryExtractNotFoundError)
+    async def story_extract_not_found(
+        request: Request,
+        _error: StoryExtractNotFoundError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="STORY_EXTRACT_NOT_FOUND",
+            message="The requested story.extract task was not found",
             request_id=request_id(request),
         )
 
@@ -534,6 +567,7 @@ def create_app(
 
     app.include_router(create_source_manifest_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
+    app.include_router(create_story_extract_router(get_story_extract_service))
     app.include_router(create_task_queue_router(get_task_queue_reader))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     if sidecar_security is not None:

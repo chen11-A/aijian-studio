@@ -14,6 +14,7 @@ from aijian_api.fault_injection import (
     deterministic_kill_point,
 )
 from aijian_api.local_executor import LocalExecutor
+from aijian_api.provider_runtime import RemoteUnknownProviderError
 from aijian_api.repository import StudioRepository
 from aijian_api.subprocess_supervisor import HeartbeatCallback
 from aijian_api.task_ledger import ClaimedTask, LeaseLostError, LocalTaskLedger, QueuedTask
@@ -26,6 +27,8 @@ HASH_B = f"sha256:{'b' * 64}"
 def setup_execution(
     database: Path,
     clock: list[datetime],
+    *,
+    max_attempts: int = 2,
 ) -> tuple[StudioRepository, LocalTaskLedger, QueuedTask, str]:
     repository = StudioRepository(database, clock=lambda: clock[0])
     project = repository.create_project(
@@ -49,7 +52,7 @@ def setup_execution(
         node_input_hash=HASH_A,
         request_fingerprint=HASH_B,
         idempotency_key="golden-short:render.preview",
-        max_attempts=2,
+        max_attempts=max_attempts,
         task_kind="local.execute",
         priority=50,
         available_at=clock[0],
@@ -278,6 +281,256 @@ def test_executor_crash_is_recovered_without_reusing_attempt_identity(tmp_path: 
     assert attempts[1][1] == "READY"
 
 
+def test_remote_unknown_handler_is_quarantined_without_retry(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+
+    def unknown(_claim: ClaimedTask) -> str:
+        raise RemoteUnknownProviderError("Fake provider injected remote unknown")
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-unknown",
+        lease_duration=timedelta(seconds=30),
+        handler=unknown,
+    )
+
+    with pytest.raises(RemoteUnknownProviderError):
+        executor.run_once()
+
+    with sqlite3.connect(database) as connection:
+        attempts = connection.execute(
+            "SELECT attempt_id, status, retry_disposition, error_code "
+            "FROM workflow_attempts ORDER BY attempt_number"
+        ).fetchall()
+        node = connection.execute(
+            "SELECT status, attempt_count, active_attempt_id FROM workflow_node_runs"
+        ).fetchone()
+        tasks = connection.execute("SELECT COUNT(*) FROM task_ledger").fetchone()
+    assert attempts == [(queued.attempt_id, "FAILED", "REMOTE_UNKNOWN", "REMOTE_UNKNOWN")]
+    assert node == ("RECONCILIATION_REQUIRED", 1, queued.attempt_id)
+    assert tasks == (1,)
+
+
+def test_remote_unknown_quarantine_rolls_back_if_node_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-unknown",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_remote_unknown_node_race
+            AFTER UPDATE OF status ON workflow_attempts
+            WHEN NEW.status = 'FAILED'
+            BEGIN
+                UPDATE workflow_node_runs SET revision = revision + 1
+                WHERE node_run_id = NEW.node_run_id;
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(LeaseLostError, match="remote unknown quarantine"):
+        ledger.fail_local_task(
+            running,
+            error_code="REMOTE_UNKNOWN",
+            retry_disposition="REMOTE_UNKNOWN",
+        )
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued.task_id,),
+        ).fetchone() == ("LEASED",)
+        assert connection.execute(
+            "SELECT status FROM workflow_attempts WHERE attempt_id = ?",
+            (queued.attempt_id,),
+        ).fetchone() == ("RUNNING",)
+
+
+def test_final_failure_rolls_back_if_node_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock, max_attempts=1)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-final-race",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_final_node_race
+            AFTER UPDATE OF status ON workflow_attempts
+            WHEN NEW.status = 'FAILED'
+            BEGIN
+                UPDATE workflow_node_runs SET revision = revision + 1
+                WHERE node_run_id = NEW.node_run_id;
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(LeaseLostError, match="final local failure"):
+        ledger.fail_local_task(running, error_code="ValueError")
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued.task_id,),
+        ).fetchone() == ("LEASED",)
+
+
+def test_handler_failure_exhausts_attempts_and_fails_the_node(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock, max_attempts=1)
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-exhausted",
+        lease_duration=timedelta(seconds=30),
+        handler=lambda _claim: (_ for _ in ()).throw(ValueError("final failure")),
+    )
+
+    with pytest.raises(ValueError, match="final failure"):
+        executor.run_once()
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status, retry_disposition FROM workflow_attempts WHERE attempt_id = ?",
+            (queued.attempt_id,),
+        ).fetchone() == ("FAILED", "SAFE_LOCAL_RETRY")
+        assert connection.execute(
+            "SELECT status FROM workflow_node_runs WHERE node_run_id = ?",
+            (queued.node_run_id,),
+        ).fetchone() == ("FAILED",)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
+
+
+def test_fail_and_cancel_reject_stale_leases(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, _queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-stale",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    clock[0] = NOW + timedelta(seconds=31)
+
+    with pytest.raises(LeaseLostError, match="stale or expired"):
+        ledger.fail_local_task(running, error_code="ValueError")
+    with pytest.raises(LeaseLostError, match="stale or expired"):
+        ledger.cancel_local_task(running)
+
+
+def test_local_retry_rolls_back_if_node_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-retry",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_retry_node_race
+            AFTER UPDATE OF status ON workflow_attempts
+            WHEN NEW.status = 'FAILED'
+            BEGIN
+                UPDATE workflow_node_runs SET revision = revision + 1
+                WHERE node_run_id = NEW.node_run_id;
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(LeaseLostError, match="local retry"):
+        ledger.fail_local_task(running, error_code="ValueError")
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued.task_id,),
+        ).fetchone() == ("LEASED",)
+
+
+def test_fail_current_attempt_rolls_back_if_attempt_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-fail-race",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_fail_attempt_race
+            AFTER UPDATE OF status ON task_ledger
+            WHEN NEW.status = 'COMPLETED'
+            BEGIN
+                UPDATE workflow_attempts SET status = 'CANCELLED'
+                WHERE attempt_id = NEW.attempt_id;
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(LeaseLostError, match="local failure"):
+        ledger.fail_local_task(running, error_code="ValueError")
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued.task_id,),
+        ).fetchone() == ("LEASED",)
+
+
+def test_cancel_rolls_back_if_node_changes(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-cancel-race",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            f"""
+            CREATE TRIGGER test_cancel_node_race
+            AFTER UPDATE OF status ON task_ledger
+            WHEN NEW.status = 'CANCELLED'
+            BEGIN
+                UPDATE workflow_node_runs SET revision = revision + 1
+                WHERE node_run_id = '{queued.node_run_id}';
+            END
+            """
+        )
+        connection.commit()
+
+    with pytest.raises(LeaseLostError, match="cancellation"):
+        ledger.cancel_local_task(running)
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued.task_id,),
+        ).fetchone() == ("LEASED",)
+
+
 def test_handler_failure_is_closed_and_requeued_immediately(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
     clock = [NOW]
@@ -368,6 +621,72 @@ def test_expired_attempt_with_committed_output_is_reconciled_without_regeneratio
             "SELECT status, output_version_id FROM workflow_node_runs WHERE node_run_id = ?",
             (queued.node_run_id,),
         ).fetchone() == ("SUCCEEDED", output_version_id)
+
+
+def test_fail_reconciles_committed_output_and_rolls_back_if_state_changes(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, queued, project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-receipt",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+    create_output(
+        repository,
+        project_id=project_id,
+        producer_attempt_id=running.attempt_id,
+    )
+    ledger.fail_local_task(running, error_code="RuntimeError")
+    with sqlite3.connect(database) as connection:
+        assert (
+            connection.execute(
+                "SELECT status, output_version_id FROM workflow_attempts WHERE attempt_id = ?",
+                (queued.attempt_id,),
+            ).fetchone()[0]
+            == "SUCCEEDED"
+        )
+
+    database_race = tmp_path / "workspace-race.db"
+    clock_race = [NOW]
+    repository_race, ledger_race, queued_race, project_race = setup_execution(
+        database_race,
+        clock_race,
+    )
+    claim_race = ledger_race.claim_ready_task(
+        worker_id="worker-receipt-race",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim_race is not None
+    running_race = ledger_race.mark_attempt_running(claim_race)
+    create_output(
+        repository_race,
+        project_id=project_race,
+        producer_attempt_id=running_race.attempt_id,
+    )
+    with sqlite3.connect(database_race) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER test_fail_receipt_race
+            AFTER UPDATE OF status ON workflow_attempts
+            WHEN NEW.status = 'SUCCEEDED'
+            BEGIN
+                UPDATE workflow_node_runs SET revision = revision + 1
+                WHERE node_run_id = NEW.node_run_id;
+            END
+            """
+        )
+        connection.commit()
+    with pytest.raises(LeaseLostError, match="failure reconciliation"):
+        ledger_race.fail_local_task(running_race, error_code="RuntimeError")
+    with sqlite3.connect(database_race) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?",
+            (queued_race.task_id,),
+        ).fetchone() == ("LEASED",)
 
 
 def test_handler_failure_after_committed_output_completes_without_retry(tmp_path: Path) -> None:
