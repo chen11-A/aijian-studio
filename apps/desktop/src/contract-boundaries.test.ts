@@ -278,6 +278,98 @@ describe("privileged contract boundaries", () => {
     ).toBe(false);
   });
 
+  test("orders list operations by absolute event instant, not lexical timestamp text", () => {
+    // 05:00Z then 12:00+08:00 (= 04:00 UTC) is lexically ascending but absolutely backwards.
+    expect(
+      isInvalidationOperationListResponse(
+        {
+          data: {
+            project_id: projectId,
+            operations: [
+              zeroImpactOperation({
+                operation_id: operationId,
+                created_at: "2026-08-03T05:00:00Z",
+              }),
+              zeroImpactOperation({
+                operation_id: laterOperationId,
+                created_at: "2026-08-03T12:00:00+08:00",
+              }),
+            ],
+          },
+          request_id: requestId,
+        },
+        projectId,
+      ),
+    ).toBe(false);
+
+    // Equivalent instants with different offset spellings break ties on operation_id.
+    expect(
+      isInvalidationOperationListResponse(
+        {
+          data: {
+            project_id: projectId,
+            operations: [
+              zeroImpactOperation({
+                operation_id: operationId,
+                created_at: "2026-08-03T12:00:00Z",
+              }),
+              zeroImpactOperation({
+                operation_id: laterOperationId,
+                created_at: "2026-08-03T20:00:00+08:00",
+              }),
+            ],
+          },
+          request_id: requestId,
+        },
+        projectId,
+      ),
+    ).toBe(true);
+    expect(
+      isInvalidationOperationListResponse(
+        {
+          data: {
+            project_id: projectId,
+            operations: [
+              zeroImpactOperation({
+                operation_id: laterOperationId,
+                created_at: "2026-08-03T12:00:00Z",
+              }),
+              zeroImpactOperation({
+                operation_id: operationId,
+                created_at: "2026-08-03T20:00:00+08:00",
+              }),
+            ],
+          },
+          request_id: requestId,
+        },
+        projectId,
+      ),
+    ).toBe(false);
+
+    // Genuinely ascending pair mixing Z and numeric offset must still pass.
+    expect(
+      isInvalidationOperationListResponse(
+        {
+          data: {
+            project_id: projectId,
+            operations: [
+              zeroImpactOperation({
+                operation_id: operationId,
+                created_at: "2026-08-03T12:00:00+08:00",
+              }),
+              zeroImpactOperation({
+                operation_id: laterOperationId,
+                created_at: "2026-08-03T05:00:00Z",
+              }),
+            ],
+          },
+          request_id: requestId,
+        },
+        projectId,
+      ),
+    ).toBe(true);
+  });
+
   test("rejects incoherent zero/nonzero impact count fields", () => {
     expect(
       isInvalidationOperationListResponse(

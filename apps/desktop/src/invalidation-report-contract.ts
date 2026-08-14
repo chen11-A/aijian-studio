@@ -314,8 +314,11 @@ function isStrictlyAscendingOperationOrder(
     seenIds.add(current.operation_id);
     if (index === 0) continue;
     const previous = operations[index - 1]!;
-    if (previous.created_at < current.created_at) continue;
-    if (previous.created_at === current.created_at && previous.operation_id < current.operation_id) {
+    // Compare absolute instants, not lexical timestamp strings (Z vs numeric offset).
+    const previousMs = Date.parse(previous.created_at);
+    const currentMs = Date.parse(current.created_at);
+    if (previousMs < currentMs) continue;
+    if (previousMs === currentMs && previous.operation_id < current.operation_id) {
       continue;
     }
     return false;
