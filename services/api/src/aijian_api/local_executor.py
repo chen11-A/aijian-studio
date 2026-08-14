@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import timedelta
 
 from aijian_api.fault_injection import FaultInjector, InjectedProcessCrash, KillPoint
-from aijian_api.provider_runtime import RemoteUnknownProviderError
+from aijian_api.provider_runtime import ProviderNonRetryableError, RemoteUnknownProviderError
 from aijian_api.subprocess_supervisor import LocalProcessSupervisor, ThreadedProcessSupervisor
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 
@@ -71,6 +71,13 @@ class LocalExecutor:
                 current_claim,
                 error_code="REMOTE_UNKNOWN",
                 retry_disposition="REMOTE_UNKNOWN",
+            )
+            raise
+        except ProviderNonRetryableError as error:
+            self._ledger.fail_local_task(
+                current_claim,
+                error_code=error.code,
+                retry_disposition="NON_RETRYABLE",
             )
             raise
         except Exception as error:

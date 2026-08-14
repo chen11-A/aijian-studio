@@ -18,6 +18,7 @@ from aijian_api.fake_provider import FakeStoryExtractProvider
 from aijian_api.ingestion import ingest_text_file
 from aijian_api.local_executor import LocalExecutor
 from aijian_api.provider_runtime import (
+    ProviderNonRetryableError,
     ProviderProtocolError,
     RemoteUnknownProviderError,
     TextProviderRequest,
@@ -435,16 +436,17 @@ def test_malformed_provider_result_fails_before_artifact_persistence(tmp_path: P
 
     assert _story_bible_versions(database, project.id) == []
     inspected = service.inspect(project.id, started.node_run_id)
-    assert inspected.node_status == "PENDING"
-    assert inspected.attempt_status == "READY"
-    assert inspected.attempt_id != started.attempt_id
+    assert inspected.node_status == "FAILED"
+    assert inspected.attempt_status == "FAILED"
+    assert inspected.attempt_id == started.attempt_id
+    assert inspected.retry_disposition == "NON_RETRYABLE"
     with _open(database) as connection:
         failed = connection.execute(
             "SELECT status, retry_disposition FROM workflow_attempts WHERE attempt_id = ?",
             (started.attempt_id,),
         ).fetchone()
     assert failed is not None
-    assert tuple(failed) == ("FAILED", "SAFE_LOCAL_RETRY")
+    assert tuple(failed) == ("FAILED", "NON_RETRYABLE")
 
 
 def test_retryable_provider_timeout_follows_legal_local_retry_path(tmp_path: Path) -> None:
@@ -476,6 +478,30 @@ def test_retryable_provider_timeout_follows_legal_local_retry_path(tmp_path: Pat
     assert first is not None
     assert tuple(first) == ("FAILED", "SAFE_LOCAL_RETRY", "ProviderRetryableError")
     assert _story_bible_versions(database, project.id) == []
+
+
+def test_non_retryable_provider_failure_does_not_requeue(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, service = _service(
+        database,
+        clock,
+        provider=FakeStoryExtractProvider(fault="refused"),
+    )
+    project, _source, _accepted = _accepted_source(repository)
+    started = service.start(project.id)
+
+    with pytest.raises(ProviderNonRetryableError, match="refused"):
+        _run_once(service, ledger)
+
+    inspected = service.inspect(project.id, started.node_run_id)
+    assert inspected.node_status == "FAILED"
+    assert inspected.attempt_status == "FAILED"
+    assert inspected.retry_disposition == "NON_RETRYABLE"
+    assert inspected.error_code == "REFUSED"
+    assert _workflow_counts(database, project.id) == (1, 1, 1)
+    assert _story_bible_versions(database, project.id) == []
+    assert not _run_once(service, ledger)
 
 
 def test_remote_unknown_requires_reconciliation_and_cannot_return_to_ready(
@@ -742,7 +768,7 @@ def test_execute_rejects_wrong_task_kind_and_refused_provider(tmp_path: Path) ->
     running = ledger.mark_attempt_running(claim)
     with pytest.raises(ValueError, match="not a story.extract"):
         service.execute_claimed_task(replace(running, task_kind="local.execute"))
-    with pytest.raises(ProviderProtocolError, match="refused"):
+    with pytest.raises(ProviderNonRetryableError, match="refused"):
         service.execute_claimed_task(running)
     assert service.inspect(project.id, started.node_run_id).output_version_id is None
 

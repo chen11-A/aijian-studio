@@ -26,6 +26,7 @@ from aijian_api.domain import (
 from aijian_api.fake_provider import FakeStoryExtractProvider
 from aijian_api.provider_runtime import (
     ProviderFailureResult,
+    ProviderNonRetryableError,
     ProviderProtocolError,
     ProviderRetryableError,
     ProviderSuccessResult,
@@ -190,7 +191,7 @@ class StoryExtractService:
                 raise RemoteUnknownProviderError(result.error.message)
             if result.error.retryable:
                 raise ProviderRetryableError(result.error.message)
-            raise ProviderProtocolError(result.error.message)
+            raise ProviderNonRetryableError(result.error.message, code=result.error.code)
         return self._persist_story_bible(
             claim, context.project_id, accepted.version.id, manifest, result
         )

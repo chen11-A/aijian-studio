@@ -197,6 +197,8 @@ def fail_local_task(
         )
         if retry_disposition == "REMOTE_UNKNOWN":
             _quarantine_node(connection, row, now_text, id_factory)
+        elif retry_disposition == "NON_RETRYABLE":
+            _fail_node(connection, row, now_text, id_factory)
         elif int(row["attempt_count"]) < int(row["max_attempts"]):
             _create_retry_attempt(connection, row, now_text, id_factory)
         else:

@@ -29,7 +29,15 @@ class ProviderRuntimeError(RuntimeError):
     """Base class for provider runtime exceptions before a result can be trusted."""
 
 
-class ProviderProtocolError(ProviderRuntimeError):
+class ProviderNonRetryableError(ProviderRuntimeError):
+    """Raised when repeating the same provider request is not permitted."""
+
+    def __init__(self, message: str, *, code: ProviderErrorCode = "PROTOCOL_ERROR") -> None:
+        super().__init__(message)
+        self.code = code
+
+
+class ProviderProtocolError(ProviderNonRetryableError):
     """Raised when a provider response cannot be parsed into the runtime contract."""
 
 

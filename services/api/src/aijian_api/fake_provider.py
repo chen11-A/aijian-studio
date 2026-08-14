@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import ValidationError
 
 from aijian_api.provider_runtime import (
+    ProviderErrorCode,
     ProviderFailureError,
     ProviderFailureResult,
     ProviderProtocolError,
@@ -76,7 +77,7 @@ def _failure(
     fault: FakeProviderFault,
     usage: TextProviderUsage,
 ) -> ProviderFailureResult:
-    code_by_fault = {
+    code_by_fault: dict[FakeProviderFault, ProviderErrorCode] = {
         "timeout": "TIMEOUT",
         "remote_unknown": "REMOTE_UNKNOWN",
         "refused": "REFUSED",
