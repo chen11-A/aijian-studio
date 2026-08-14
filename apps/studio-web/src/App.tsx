@@ -13,6 +13,8 @@ import {
 } from "./api/studio";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
+import { StoryWorkshopActions } from "./components/StoryWorkshop/StoryWorkshopActions";
+import { createMockStoryWorkshopAdapter } from "./components/StoryWorkshop/story-workshop-adapter";
 import { cacheRecentVersion, touchRecentVersion } from "./story-version-cache";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
@@ -602,6 +604,7 @@ function StoryWorkshop({
   const sourcePreviewRef = useRef<HTMLDivElement | null>(null);
   const sourceBlockRefs = useRef(new Map<string, HTMLElement>());
   const factCardRefs = useRef(new Map<string, HTMLElement>());
+  const storyActionAdapter = useMemo(() => createMockStoryWorkshopAdapter(), []);
   const latestSourceDocument = sourceState.kind === "success" ? sourceState.response.data : null;
   const manifest = state.kind === "ready" ? state.manifest : null;
   const storyBible = state.kind === "ready" ? state.storyBibleIndex : null;
@@ -1588,6 +1591,12 @@ function StoryWorkshop({
                 本页不根据计数推断“可批准”。正式就绪状态必须来自服务端 G2 Readiness Report， 并包含
                 findings、waivers 与必需签署。
               </p>
+              <StoryWorkshopActions
+                context={{ manifest, story, storyRole: activeVersionRole }}
+                openQuestionIds={openQuestions.map((question) => question.question_id)}
+                unresolvedConflictIds={unresolvedConflicts.map((conflict) => conflict.conflict_id)}
+                adapter={storyActionAdapter}
+              />
               <div className="review-action-note">
                 <span aria-hidden="true">i</span>
                 <p>审批令牌不会暴露给界面。提交与签署能力将在独立受信任流程中接入。</p>

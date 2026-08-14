@@ -1269,3 +1269,38 @@ test("labels a newer draft separately from the accepted downstream baseline", as
   expect(screen.getByText("G2 最新草稿未验收")).toBeInTheDocument();
   expect(screen.getByText(/下游仍使用 ver_eeeeeeee/)).toBeInTheDocument();
 });
+
+test("walks the mock-first G1/G2 draft workflow without pretending to approve", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  mockStoryBible(transport);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  expect(await screen.findByRole("heading", { name: "可操作草稿流程" })).toBeInTheDocument();
+  expect(screen.getByText(/AI 建议和本地处置不会冒充 canon/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存本地草稿" })).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "核对 G1 accepted 来源" }));
+  expect(await screen.findByText(/G1 accepted 来源已核对/)).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("草稿标题"), { target: { value: "雾城来信 本地草稿" } });
+  fireEvent.change(screen.getByLabelText("编剧备注"), { target: { value: "保留旧信疑问。" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存本地草稿" }));
+  expect(await screen.findByText(/草稿已保存到本地 adapter/)).toBeInTheDocument();
+  expect(screen.getByText("待处置问题")).toBeInTheDocument();
+  expect(screen.getByText("待处置冲突")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "准备 G2 提交包（受限）" })).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "处置 1 个开放问题" }));
+  expect(await screen.findByText("开放问题已记录本地处置。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "处置 1 个冲突" }));
+  expect(await screen.findByText("冲突已记录本地处置。")).toBeInTheDocument();
+
+  const prepare = screen.getByRole("button", { name: "准备 G2 提交包（受限）" });
+  expect(prepare).toBeEnabled();
+  fireEvent.click(prepare);
+  expect(await screen.findByText(/缺少受信后端接线/)).toBeInTheDocument();
+  expect(screen.getByText(/不会真实提交、审批或签署/)).toBeInTheDocument();
+});
