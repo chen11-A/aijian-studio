@@ -1,0 +1,76 @@
+# Phase 0 Execution Status - 2026-08-14
+
+Audit base: `f460f0ab219b84f8cb81bf6fb1be7000e32f00c9` on branch `codex/oss-status-audit`.
+
+Status vocabulary:
+
+- `DONE`: delivery and acceptance evidence exist in this repository.
+- `PARTIAL`: meaningful implementation or spec evidence exists, but the backlog item is not fully accepted.
+- `BLOCKED`: depends on missing legal, credential, content, environment, or upstream prerequisite.
+- `NOT_STARTED`: no implementation evidence for the backlog item itself.
+
+Counts across the formal 43-item Phase 0 backlog: `DONE 16`, `PARTIAL 13`, `BLOCKED 8`, `NOT_STARTED 6`.
+
+## Status Table
+
+| ID | Status | Repository evidence | Dependency / blocker |
+| --- | --- | --- | --- |
+| A01 | DONE | `package.json` declares Apache-2.0; `README.md` links the public repo policy; `docs/roadmap/phase-0-backlog.md` records the manual Gate. | Product display name remains separate from repo/license gate. |
+| A02 | DONE | `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `pyproject.toml`, `uv.lock`; root `dev` script starts API/web/desktop. | None for Phase 0 bootstrap. |
+| A03 | DONE | `.github/workflows/ci.yml` runs contracts check, lint, typecheck, tests, media evidence, dependency audit, build, and clean-diff verification on Ubuntu and Windows. | Protected CI must stay required in GitHub settings, which is outside repo evidence. |
+| A04 | PARTIAL | ADRs exist under `docs/architecture`; provenance schema exists in `third_party/provenance.yml`; contribution policy exists in `CONTRIBUTING.md`. | `.github` has only `workflows/`; no CODEOWNERS, PR template, or issue template evidence. |
+| B01 | DONE | `packages/contracts/openapi.json`, `packages/contracts/src/generated.ts`, `services/api/src/aijian_api/contracts.py`, and contract tests cover ID/hash/version-style API contracts. | None. |
+| B03 | DONE | `services/api/src/aijian_api/artifacts.py`, `domain.py`, `repository.py`; tests `test_artifacts.py`, `test_artifact_repository.py`, `test_repository.py`. | Later gates and invalidation still build on it. |
+| M01 | DONE | `docs/specs/phase0-media-contract.md`, `services/api/src/aijian_api/media_contracts.py`, `test_media_contracts.py`, and `docs/quality/phase0-media-contract-acceptance.md`. | None for contract baseline. |
+| M02 | DONE | `docs/specs/phase0-ffmpeg-toolchain.md`, `media_toolchain.py`, `media_probe.py`, `media_proxy.py`; media fixture/proxy tests and evidence JSONs under `docs/quality/evidence`. | Release FFmpeg legal/distribution review remains outside M02. |
+| Q01 | PARTIAL | `docs/quality/quality-baseline-v0.md`, `docs/quality/evidence/SHA256SUMS`, media and story acceptance docs. | Baseline is explicitly "规划版"; W4 v1 lock and full fixture coverage are pending. |
+| Q02 | PARTIAL | Electron desktop source and tests exist under `apps/desktop/src`; sidecar lifecycle tests exist. | No Hello Desktop installer/package smoke artifact for clean Win11 standard user. |
+| C01 | BLOCKED | No authorized golden/held-out content fixture or rights evidence found in `docs` or tests. | Requires film team rights package before public repo inclusion. |
+| C02 | BLOCKED | No 50k/150k/300k qualification corpus manifest or human annotation plan found. | Depends on C01 rights evidence and content-team deliverables. |
+| F01 | DONE | `workflow_schema.py`, `workflow_tasks.py`, `test_workflow_schema.py`, `test_workflow_tasks.py`; spec in `docs/specs/phase0-task-ledger.md`. | None. |
+| F02 | DONE | `task_ledger.py`, schema uniqueness/trigger constraints, `test_task_ledger.py`, `test_task_ledger_recovery.py`, and local executor tests cover leases and unique claim. | None. |
+| F03 | DONE | `local_executor.py`, `task_ledger_*` modules, `test_local_executor.py`; task queue read/presentation routes and UI evidence exist. | Remote provider execution is not included here. |
+| F06 | PARTIAL | `test_local_executor.py` injects handler crash; recovery tests cover expired lease and committed output reconciliation. | No complete Fake Provider matrix for 401/429/5xx/remote-media failures. |
+| E01 | DONE | `ingestion.py`, `source_manifest.py`, `source_manifest_routes.py`, `test_ingestion.py`, `test_source_manifest.py`, `test_source_manifest_api.py`; web source import UI exists. | Wider formats are E02. |
+| D01 | DONE | `sidecar.py`, `security.py`, `apps/desktop/src/sidecar-process.ts`, `sidecar-protocol.ts`; matching tests under API and desktop. | Installer behavior remains Q02/Q04. |
+| D02 | DONE | `docs/specs/phase0-secure-sidecar.md`, `test_sidecar_security.py`, `apps/desktop/src/sidecar-origin.ts`, `contract-boundaries.test.ts`. | Broader SSRF/Zip/media security remains S01. |
+| D03 | PARTIAL | `apps/studio-web/src/api/studio.ts`, web transport tests, and desktop API client abstraction exist. | No server HTTPS workspace transport acceptance or auth/RBAC gateway evidence. |
+| P01 | BLOCKED | Provider connection storage/UI exists, but no protected live OpenAI/xAI text spike evidence was found. | Requires real credentials, protected CI/manual evidence, cost/limit logs. |
+| P02 | BLOCKED | Provider schema has media capability slots; no real image/video/TTS async spike evidence was found. | Requires real provider accounts and remote-unknown/cost evidence. |
+| U01 | DONE | `docs/research/oss-baseline-2026-08-14.md` records fixed HEADs, stars, license findings, maintenance, borrowing points, adoption mode, and GitHub star-timeline limits. | Human legal confirmation still required for ambiguous/commercial licenses. |
+| U02 | NOT_STARTED | HyperFrames checkout and license are recorded, but no Aijian render benchmark, output hash, or `hyperframes-spike` evidence exists. | Depends on M02 and isolated spike plan. |
+| R01 | DONE | `docs/architecture/ADR-0004-recovery-and-migrations.md` plus migration/recovery tests record recovery semantics. | Full matrix belongs to R02/Q05. |
+| M03 | NOT_STARTED | `docs/specs/phase0-ffmpeg-toolchain.md` explicitly says full timeline commands, CAS, final 1080p export, and proxy persistence are not implemented there. | Depends on M01/M02; needs timeline engine and golden export. |
+| UI01 | PARTIAL | `apps/studio-web/src/App.tsx` provides project/source/story/queue/settings workspaces; tests cover project/source transport and UI. | Director/assets/edit/timeline views are disabled or absent; not a full skeleton UI. |
+| API01 | DONE | `scripts/export_openapi.py`, `packages/contracts/openapi.json`, generated TS client, desktop and web API client tests. | Keep `pnpm contracts:check` as drift gate. |
+| K01 | NOT_STARTED | No 20k text to fake assets to MP4 walking-skeleton evidence or script was found. | Depends on F03/F06/M03/UI01/API01; M03 and fake provider matrix are incomplete. |
+| Q03 | NOT_STARTED | No six kill point by 100-seed matrix evidence found. | Depends on K01. |
+| Q04 | BLOCKED | No clean Win11 Chinese username/long path/Defender installer matrix evidence found. | Depends on Q02 and K01. |
+| D04 | NOT_STARTED | No tray/quit/remote polling/recovery implementation evidence found. | Depends on D01. |
+| C03 | BLOCKED | No film-skeleton report using only UI/API found. | Depends on K01 and missing golden content. |
+| E02 | PARTIAL | TXT source import, UTF-8 byte spans, SourceManifest, and Story Bible source spans exist. | Markdown/DOCX import and raw-normalized map acceptance are not complete. |
+| E03 | PARTIAL | Web source preview, manifest summary, document list, and source span UI exist in `apps/studio-web/src`. | Chapter proofreading workflow and 100k-block virtualization acceptance are not proven. |
+| F04 | PARTIAL | SourceManifest G1 prepare/submit/signoff/decision routes and tests exist. | General Gate/ApprovalDecision/accepted-head contract across artifact types is incomplete. |
+| F05 | NOT_STARTED | Workflow docs describe typed DAG and invalidation, but no blocking/advisory/render-only invalidation implementation evidence found. | Depends on F04. |
+| F07 | PARTIAL | `SUBMIT_INTENT`, `SUBMITTING`, `REMOTE_UNKNOWN`, no-auto-retry constraints exist in workflow schema/tasks and tests. | Budget reservation, provider reconciliation, and accounting state are incomplete. |
+| S01 | PARTIAL | Sidecar Host/Origin/token hardening and media probe validation exist. | SSRF, Zip Slip, malicious media sandboxing, and fake-key scanner skeleton are incomplete. |
+| R02 | PARTIAL | `test_migrations.py` and ADR-0004 cover migration mechanics and read-only refusal policy. | N/N-1/N-2 matrix, snapshots, interrupted migration, and downgrade open behavior are not fully evidenced. |
+| CAS01 | PARTIAL | `media_proxy.py` and `test_media_proxy.py` include atomic refusal around racing proxy destinations; ADR-0004 specifies temp/hash/atomic rename. | No standalone local CAS module, GC, or `cas-crash` matrix evidence found. |
+| Q05 | BLOCKED | No disk-full/backup-corrupt/update-interrupt/rollback matrix evidence found. | Depends on F05/R02/CAS01; all are incomplete. |
+| C04 | BLOCKED | Story Bible and source spans exist, but no golden Canon change-set or missed-invalidation report found. | Depends on E02 and F05. |
+
+## Notable Corrections
+
+- The formal backlog has 43 items. This audit does not use any informal "about 21 remaining" count.
+- `U01` is now complete as an audit artifact, but it does not authorize code import.
+- `U02` remains not started: HyperFrames is license-compatible enough for a spike, not already accepted as a dependency.
+- Live Provider spikes (`P01`, `P02`) are blocked until protected credentials and real usage/cost/failure evidence exist.
+- Content and legal work (`C01`, `C02`, later film reports) cannot be substituted by synthetic test fixtures in the public repo.
+
+## Sources Used
+
+- Formal backlog: `docs/roadmap/phase-0-backlog.md`.
+- Architecture/spec evidence: `docs/architecture`, `docs/specs`, `docs/security`.
+- Quality evidence: `docs/quality`, especially media/story/provider/task queue acceptance records and evidence hashes.
+- Implementation evidence: `services/api/src/aijian_api`, `services/api/tests`, `apps/desktop/src`, `apps/studio-web/src`, `packages/contracts`.
+- OSS audit: `docs/research/oss-baseline-2026-08-14.md`.
