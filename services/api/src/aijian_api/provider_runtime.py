@@ -22,6 +22,7 @@ type ProviderErrorCode = Literal[
     "AUTH_ERROR",
     "RATE_LIMITED",
     "REMOTE_UNAVAILABLE",
+    "RESULT_EXPIRED",
 ]
 
 # TIMEOUT keeps the pre-T06A public/persisted class-name code for StoryExtractTaskData
@@ -172,6 +173,8 @@ class ProviderFailureError(_StrictProviderModel):
             raise ValueError("REMOTE_UNKNOWN must never be marked retryable")
         if self.code == "AUTH_ERROR" and self.retryable:
             raise ValueError("AUTH_ERROR must never be marked retryable")
+        if self.code == "RESULT_EXPIRED" and self.retryable:
+            raise ValueError("RESULT_EXPIRED must never be marked retryable")
         if self.code == "RATE_LIMITED" and not self.retryable:
             raise ValueError("RATE_LIMITED must be marked retryable")
         if self.code == "REMOTE_UNAVAILABLE" and not self.retryable:
