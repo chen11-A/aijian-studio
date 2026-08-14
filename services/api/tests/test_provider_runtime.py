@@ -5,10 +5,12 @@ from aijian_api.provider_runtime import (
     TEXT_PROVIDER_RESULT_ADAPTER,
     ProviderFailureError,
     ProviderFailureResult,
+    ProviderProtocolError,
     ProviderSuccessResult,
     TextProviderRequest,
     TextProviderSourceBlock,
     TextProviderUsage,
+    validate_story_extract_result,
 )
 from pydantic import ValidationError
 
@@ -100,7 +102,7 @@ def minimal_output_payload() -> dict[str, object]:
                 "source_block_id": "srcb_" + "4" * 32,
                 "role": "supports",
                 "start_byte": 0,
-                "end_byte": 9,
+                "end_byte": len("林岚来到".encode()),
                 "claim": "林岚来到",
             }
         ],
@@ -176,7 +178,7 @@ def test_provider_results_are_discriminated_and_json_serializable() -> None:
             "error": {
                 "code": "REMOTE_UNKNOWN",
                 "message": "Accepted remotely but final status is unknown",
-                "retryable": True,
+                "retryable": False,
             },
             "usage": None,
             "latency_ms": 999,
@@ -197,3 +199,88 @@ def test_failure_error_rejects_unknown_fields() -> None:
                 "unknown": "field",
             }
         )
+
+    with pytest.raises(ValidationError, match="must never be marked retryable"):
+        ProviderFailureError.model_validate(
+            {
+                "code": "REMOTE_UNKNOWN",
+                "message": "Remote acceptance is unknown",
+                "retryable": True,
+            }
+        )
+
+
+def test_story_extract_result_must_match_request_provenance() -> None:
+    request = TextProviderRequest.model_validate(request_payload())
+    payload = {
+        "kind": "success",
+        "request_id": request.request_id,
+        "provider_request_id": "remote-1",
+        "output": minimal_output_payload(),
+        "usage": {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5},
+        "latency_ms": 12,
+    }
+    result = ProviderSuccessResult.model_validate(payload)
+
+    assert validate_story_extract_result(request, result) is result
+
+    wrong_manifest = result.model_copy(
+        update={
+            "output": result.output.model_copy(
+                update={
+                    "content": result.output.content.model_copy(
+                        update={
+                            "source_scope": result.output.content.source_scope.model_copy(
+                                update={"source_manifest_version_id": "ver_" + "f" * 32}
+                            )
+                        }
+                    )
+                }
+            )
+        }
+    )
+    with pytest.raises(ProviderProtocolError, match="different source manifest"):
+        validate_story_extract_result(request, wrong_manifest)
+
+    wrong_request = result.model_copy(update={"request_id": UUID(int=0)})
+    with pytest.raises(ProviderProtocolError, match="request ID"):
+        validate_story_extract_result(request, wrong_request)
+
+
+def test_story_extract_result_rejects_foreign_or_misaligned_source_spans() -> None:
+    request = TextProviderRequest.model_validate(request_payload())
+    result = ProviderSuccessResult.model_validate(
+        {
+            "kind": "success",
+            "request_id": request.request_id,
+            "provider_request_id": "remote-1",
+            "output": minimal_output_payload(),
+            "usage": {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5},
+            "latency_ms": 12,
+        }
+    )
+    span = result.output.source_spans[0]
+
+    foreign_block = result.model_copy(
+        update={
+            "output": result.output.model_copy(
+                update={
+                    "source_spans": [
+                        span.model_copy(update={"source_block_id": "srcb_" + "f" * 32})
+                    ]
+                }
+            )
+        }
+    )
+    with pytest.raises(ProviderProtocolError, match="declared source scope"):
+        validate_story_extract_result(request, foreign_block)
+
+    misaligned = result.model_copy(
+        update={
+            "output": result.output.model_copy(
+                update={"source_spans": [span.model_copy(update={"start_byte": 1})]}
+            )
+        }
+    )
+    with pytest.raises(ProviderProtocolError, match="UTF-8 boundaries"):
+        validate_story_extract_result(request, misaligned)

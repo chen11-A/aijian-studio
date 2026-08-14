@@ -31,7 +31,7 @@ def _toolchain(tmp_path: Path) -> MediaToolchain:
         configuration_flags=("--enable-gpl",),
         license_class="GPL",
         spdx_license="GPL-3.0-or-later",
-        distribution_status="DEVELOPMENT_ONLY",
+        distribution_status="DEV_GPL",
     )
 
 

@@ -7,7 +7,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from aijian_api.story_bible_drafts import StoryBibleContentDraftV1, StorySourceSpanDraftV1
+from aijian_api.story_bible_drafts import (
+    ClientRefV1,
+    LocalRefV1,
+    StoryBibleContentDraftV1,
+    StorySourceSpanDraftV1,
+)
 
 type ProviderErrorCode = Literal[
     "TIMEOUT",
@@ -112,6 +117,12 @@ class ProviderFailureError(_StrictProviderModel):
     provider_request_id: str | None = Field(default=None, min_length=1, max_length=200)
     details: dict[str, str] = Field(default_factory=dict, max_length=20)
 
+    @model_validator(mode="after")
+    def prevent_remote_unknown_resubmission(self) -> ProviderFailureError:
+        if self.code == "REMOTE_UNKNOWN" and self.retryable:
+            raise ValueError("REMOTE_UNKNOWN must never be marked retryable")
+        return self
+
 
 class ProviderSuccessResult(_StrictProviderModel):
     kind: Literal["success"]
@@ -135,3 +146,75 @@ TextProviderResult = Annotated[
     Field(discriminator="kind"),
 ]
 TEXT_PROVIDER_RESULT_ADAPTER: TypeAdapter[TextProviderResult] = TypeAdapter(TextProviderResult)
+
+
+def validate_story_extract_result(
+    request: TextProviderRequest,
+    result: ProviderSuccessResult | ProviderFailureResult,
+) -> ProviderSuccessResult | ProviderFailureResult:
+    """Bind a structurally valid provider result to the exact source request."""
+
+    if result.request_id != request.request_id:
+        raise ProviderProtocolError("Provider result request ID does not match the request")
+    if isinstance(result, ProviderFailureResult):
+        return result
+
+    scope = result.output.content.source_scope
+    if scope.source_manifest_version_id != request.source_manifest_version_id:
+        raise ProviderProtocolError("Provider result references a different source manifest")
+
+    request_documents = {document.source_document_id: document for document in request.documents}
+    scope_documents = {document.source_document_id: document for document in scope.documents}
+    if scope.scope_type == "full_work" and scope_documents.keys() != request_documents.keys():
+        raise ProviderProtocolError("Full-work provider result must cover every request document")
+
+    scoped_blocks: dict[tuple[str, str], TextProviderSourceBlock] = {}
+    for scoped_document in scope.documents:
+        request_document = request_documents.get(scoped_document.source_document_id)
+        if request_document is None:
+            raise ProviderProtocolError("Provider result references an unknown source document")
+        if scoped_document.raw_sha256 != request_document.raw_sha256:
+            raise ProviderProtocolError("Provider result source hash does not match the request")
+
+        request_blocks = {block.source_block_id: block for block in request_document.blocks}
+        scoped_block_ids = set(scoped_document.source_block_ids)
+        if not scoped_block_ids <= request_blocks.keys():
+            raise ProviderProtocolError("Provider result references an unknown source block")
+        if scope.scope_type == "full_work" and scoped_block_ids != request_blocks.keys():
+            raise ProviderProtocolError("Full-work provider result must cover every request block")
+
+        expected_chapters = sorted(
+            {request_blocks[block_id].chapter_index for block_id in scoped_block_ids}
+        )
+        if scoped_document.chapter_indices != expected_chapters:
+            raise ProviderProtocolError("Provider result chapters do not match its source blocks")
+        for block_id in scoped_block_ids:
+            scoped_blocks[(scoped_document.source_document_id, block_id)] = request_blocks[block_id]
+
+    fact_refs = {_local_ref_key(fact.fact_id) for fact in result.output.content.facts}
+    for span in result.output.source_spans:
+        if _local_ref_key(span.fact_id) not in fact_refs:
+            raise ProviderProtocolError("Provider source span references an unknown fact")
+        block = scoped_blocks.get((span.source_document_id, span.source_block_id))
+        if block is None:
+            raise ProviderProtocolError("Provider source span is outside the declared source scope")
+        relative_start = span.start_byte - block.start_byte
+        relative_end = span.end_byte - block.start_byte
+        encoded_text = block.text.encode("utf-8")
+        if not (0 <= relative_start < relative_end <= len(encoded_text)):
+            raise ProviderProtocolError(
+                "Provider source span falls outside the supplied block text"
+            )
+        try:
+            encoded_text[relative_start:relative_end].decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ProviderProtocolError(
+                "Provider source span is not aligned to UTF-8 boundaries"
+            ) from error
+    return result
+
+
+def _local_ref_key(reference: LocalRefV1) -> tuple[str, str]:
+    if isinstance(reference, ClientRefV1):
+        return ("client_key", reference.client_key)
+    return ("permanent_id", reference.permanent_id)

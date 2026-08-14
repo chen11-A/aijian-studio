@@ -148,7 +148,7 @@ def test_generate_proxy_rejects_a_non_webm_destination(tmp_path: Path) -> None:
         configuration_flags=("--enable-gpl",),
         license_class="GPL",
         spdx_license="GPL-3.0-or-later",
-        distribution_status="DEVELOPMENT_ONLY",
+        distribution_status="DEV_GPL",
     )
 
     with pytest.raises(MediaProxyError, match="absolute .webm"):
@@ -218,7 +218,7 @@ def _toolchain_for_proxy_test(tmp_path: Path) -> MediaToolchain:
         configuration_flags=("--enable-gpl",),
         license_class="GPL",
         spdx_license="GPL-3.0-or-later",
-        distribution_status="DEVELOPMENT_ONLY",
+        distribution_status="DEV_GPL",
     )
 
 

@@ -41,7 +41,7 @@ def test_fake_provider_can_return_a_structured_fixture() -> None:
     ("fault", "code", "retryable", "has_usage"),
     [
         ("timeout", "TIMEOUT", True, False),
-        ("remote_unknown", "REMOTE_UNKNOWN", True, False),
+        ("remote_unknown", "REMOTE_UNKNOWN", False, False),
         ("refused", "REFUSED", False, True),
         ("protocol_error", "PROTOCOL_ERROR", False, False),
     ],
@@ -67,6 +67,14 @@ def test_fake_provider_rejects_invalid_fixture_as_protocol_error() -> None:
 
     with pytest.raises(ProviderProtocolError, match="fixture"):
         FakeStoryExtractProvider(fixture=fixture)
+
+
+def test_fake_provider_rejects_fixture_from_another_source_scope() -> None:
+    fixture = minimal_output_payload()
+    fixture["content"]["source_scope"]["source_manifest_version_id"] = "ver_" + "f" * 32  # type: ignore[index]
+
+    with pytest.raises(ProviderProtocolError, match="different source manifest"):
+        FakeStoryExtractProvider(fixture=fixture).invoke_story_extract(request_payload())
 
 
 def test_fake_provider_rejects_unsupported_constructed_operation() -> None:

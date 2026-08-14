@@ -14,7 +14,9 @@ from aijian_api.provider_runtime import (
     ProviderSuccessResult,
     StoryExtractProviderOutput,
     TextProviderRequest,
+    TextProviderSourceBlock,
     TextProviderUsage,
+    validate_story_extract_result,
 )
 
 type FakeProviderFault = Literal[
@@ -51,15 +53,21 @@ class FakeStoryExtractProvider:
             raise ProviderProtocolError("Fake provider only supports story.extract")
         usage = _usage(parsed_request)
         if self._fault is not None:
-            return _failure(parsed_request, self._fault, usage)
+            return validate_story_extract_result(
+                parsed_request,
+                _failure(parsed_request, self._fault, usage),
+            )
         output = self._fixture or _extract_story(parsed_request)
-        return ProviderSuccessResult(
-            kind="success",
-            request_id=parsed_request.request_id,
-            provider_request_id=_provider_request_id(parsed_request),
-            output=output,
-            usage=usage,
-            latency_ms=0,
+        return validate_story_extract_result(
+            parsed_request,
+            ProviderSuccessResult(
+                kind="success",
+                request_id=parsed_request.request_id,
+                provider_request_id=_provider_request_id(parsed_request),
+                output=output,
+                usage=usage,
+                latency_ms=0,
+            ),
         )
 
 
@@ -76,7 +84,7 @@ def _failure(
     }
     retryable_by_fault = {
         "timeout": True,
-        "remote_unknown": True,
+        "remote_unknown": False,
         "refused": False,
         "protocol_error": False,
     }
@@ -103,11 +111,7 @@ def _extract_story(request: TextProviderRequest) -> StoryExtractProviderOutput:
     protagonist = _first_name(text) or "主角"
     location = "故事现场"
     first_claim = _first_claim(text)
-    first_claim_bytes = first_claim.encode("utf-8")
-    start_byte = block.start_byte + block.text.encode("utf-8").find(first_claim_bytes)
-    if start_byte < block.start_byte:
-        start_byte = block.start_byte
-    end_byte = start_byte + len(first_claim_bytes)
+    start_byte, end_byte = _source_span_range(block, first_claim)
 
     content = {
         "title": title,
@@ -214,6 +218,18 @@ def _first_claim(text: str) -> str:
         if stripped:
             return stripped[:120]
     return "空白来源"
+
+
+def _source_span_range(block: TextProviderSourceBlock, claim: str) -> tuple[int, int]:
+    block_start = block.start_byte
+    block_text = block.text
+    encoded_text = block_text.encode()
+    claim_bytes = claim.encode()
+    relative_start = encoded_text.find(claim_bytes)
+    if relative_start >= 0:
+        return block_start + relative_start, block_start + relative_start + len(claim_bytes)
+    first_character_size = len(block_text[0].encode())
+    return block_start, block_start + first_character_size
 
 
 def _usage(request: TextProviderRequest) -> TextProviderUsage:
