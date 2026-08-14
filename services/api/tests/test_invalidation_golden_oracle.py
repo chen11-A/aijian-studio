@@ -240,7 +240,8 @@ def test_wrong_edge_or_effective_impact_fails() -> None:
     try:
         compare_golden_invalidation(_expected_operation(), observed)
     except GoldenInvalidationMismatch as error:
-        assert "path mismatch" in str(error)
+        message = str(error)
+        assert "path mismatch" in message or "effective_impact" in message
     else:
         raise AssertionError("expected GoldenInvalidationMismatch")
 
@@ -361,3 +362,180 @@ def test_human_authored_descendants_unchanged_false_fails() -> None:
         assert "human_authored_descendants_unchanged" in str(error)
     else:
         raise AssertionError("expected GoldenInvalidationMismatch")
+
+
+def test_identical_invalid_arity_or_effective_impact_is_rejected() -> None:
+    # Path labels length must equal edge count + 1; effective_impact must be
+    # the least-severe edge impact (advisory < render_only < blocking).
+    bad_arity = GoldenPathRecord(
+        path_ordinal=0,
+        path_labels=("a",),  # should be two labels for one edge
+        relationship_sequence=("derived_from",),
+        impact_sequence=("advisory",),
+        effective_impact="advisory",
+    )
+    bad_arity_group = GoldenAffectedGroup(
+        label="a",
+        paths=(bad_arity,),
+        strongest_effective_impact="advisory",
+        independent_path_count=1,
+        general_stale=False,
+        general_blocked=False,
+        render_blocked=False,
+    )
+    bad_arity_op = GoldenOperation(
+        affected_groups=(bad_arity_group,),
+        human_authored_descendants_unchanged=True,
+    )
+    try:
+        compare_golden_invalidation(bad_arity_op, bad_arity_op)
+    except GoldenInvalidationMismatch as error:
+        assert "arity" in str(error).lower() or "path label" in str(error).lower()
+    else:
+        raise AssertionError("expected GoldenInvalidationMismatch for path arity")
+
+    bad_effective = GoldenPathRecord(
+        path_ordinal=0,
+        path_labels=("a", "b"),
+        relationship_sequence=("derived_from",),
+        impact_sequence=("advisory",),
+        effective_impact="blocking",  # must be advisory (least severe)
+    )
+    bad_effective_group = GoldenAffectedGroup(
+        label="b",
+        paths=(bad_effective,),
+        strongest_effective_impact="blocking",
+        independent_path_count=1,
+        general_stale=True,
+        general_blocked=True,
+        render_blocked=True,
+    )
+    bad_effective_op = GoldenOperation(
+        affected_groups=(bad_effective_group,),
+        human_authored_descendants_unchanged=True,
+    )
+    try:
+        compare_golden_invalidation(bad_effective_op, bad_effective_op)
+    except GoldenInvalidationMismatch as error:
+        assert "effective_impact" in str(error)
+    else:
+        raise AssertionError("expected GoldenInvalidationMismatch for effective_impact")
+
+
+def test_identical_invalid_count_is_rejected() -> None:
+    path = GoldenPathRecord(
+        path_ordinal=0,
+        path_labels=("a", "b"),
+        relationship_sequence=("derived_from",),
+        impact_sequence=("advisory",),
+        effective_impact="advisory",
+    )
+    # independent_path_count must equal len(paths); audit example used 99.
+    group = GoldenAffectedGroup(
+        label="b",
+        paths=(path,),
+        strongest_effective_impact="advisory",
+        independent_path_count=99,
+        general_stale=False,
+        general_blocked=False,
+        render_blocked=False,
+    )
+    operation = GoldenOperation(
+        affected_groups=(group,),
+        human_authored_descendants_unchanged=True,
+    )
+    try:
+        compare_golden_invalidation(operation, operation)
+    except GoldenInvalidationMismatch as error:
+        assert "independent_path_count" in str(error)
+    else:
+        raise AssertionError("expected GoldenInvalidationMismatch for path count")
+
+
+def test_identical_invalid_strongest_or_flags_is_rejected() -> None:
+    path = GoldenPathRecord(
+        path_ordinal=0,
+        path_labels=("a", "b"),
+        relationship_sequence=("derived_from",),
+        impact_sequence=("advisory",),
+        effective_impact="advisory",
+    )
+    # Audit case: strongest/flags disagree with the sole advisory path.
+    wrong_strongest = GoldenAffectedGroup(
+        label="b",
+        paths=(path,),
+        strongest_effective_impact="blocking",
+        independent_path_count=1,
+        general_stale=True,
+        general_blocked=True,
+        render_blocked=True,
+    )
+    wrong_strongest_op = GoldenOperation(
+        affected_groups=(wrong_strongest,),
+        human_authored_descendants_unchanged=True,
+    )
+    try:
+        compare_golden_invalidation(wrong_strongest_op, wrong_strongest_op)
+    except GoldenInvalidationMismatch as error:
+        message = str(error)
+        assert (
+            "strongest_effective_impact" in message
+            or "general_stale" in message
+            or "general_blocked" in message
+            or "render_blocked" in message
+        )
+    else:
+        raise AssertionError("expected GoldenInvalidationMismatch for strongest/flags")
+
+    # Coherent strongest but incorrect flag derivation.
+    wrong_flags = GoldenAffectedGroup(
+        label="b",
+        paths=(path,),
+        strongest_effective_impact="advisory",
+        independent_path_count=1,
+        general_stale=True,  # must be False when strongest is advisory
+        general_blocked=False,
+        render_blocked=False,
+    )
+    wrong_flags_op = GoldenOperation(
+        affected_groups=(wrong_flags,),
+        human_authored_descendants_unchanged=True,
+    )
+    try:
+        compare_golden_invalidation(wrong_flags_op, wrong_flags_op)
+    except GoldenInvalidationMismatch as error:
+        assert "general_stale" in str(error)
+    else:
+        raise AssertionError("expected GoldenInvalidationMismatch for flags")
+
+
+def test_identical_false_human_immutability_is_rejected() -> None:
+    path = GoldenPathRecord(
+        path_ordinal=0,
+        path_labels=("a", "b"),
+        relationship_sequence=("derived_from",),
+        impact_sequence=("advisory",),
+        effective_impact="advisory",
+    )
+    group = GoldenAffectedGroup(
+        label="b",
+        paths=(path,),
+        strongest_effective_impact="advisory",
+        independent_path_count=1,
+        general_stale=False,
+        general_blocked=False,
+        render_blocked=False,
+    )
+    # Equal on both sides is not enough: golden acceptance requires True.
+    operation = GoldenOperation(
+        affected_groups=(group,),
+        human_authored_descendants_unchanged=False,
+    )
+    try:
+        compare_golden_invalidation(operation, operation)
+    except GoldenInvalidationMismatch as error:
+        assert "human_authored_descendants_unchanged" in str(error)
+    else:
+        raise AssertionError(
+            "expected GoldenInvalidationMismatch for false human immutability"
+        )

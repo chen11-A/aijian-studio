@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
 Impact = Literal["blocking", "render_only", "advisory"]
+
+_VALID_IMPACTS: frozenset[str] = frozenset({"blocking", "render_only", "advisory"})
+# advisory < render_only < blocking: path effective = least severe edge impact.
+_IMPACT_SEVERITY: dict[str, int] = {
+    "advisory": 0,
+    "render_only": 1,
+    "blocking": 2,
+}
 
 
 class GoldenInvalidationMismatch(Exception):
@@ -52,20 +60,8 @@ def compare_golden_invalidation(
     GoldenInvalidationMismatch when any exact-match rule fails.
     """
 
-    _require_unique_group_labels(expected, role="expected")
-    _require_unique_group_labels(observed, role="observed")
-    _require_contiguous_global_ordinals(expected, role="expected")
-    _require_contiguous_global_ordinals(observed, role="observed")
-
-    if (
-        expected.human_authored_descendants_unchanged
-        != observed.human_authored_descendants_unchanged
-    ):
-        raise GoldenInvalidationMismatch(
-            "human_authored_descendants_unchanged mismatch: "
-            f"expected {expected.human_authored_descendants_unchanged!r}, "
-            f"observed {observed.human_authored_descendants_unchanged!r}"
-        )
+    _require_internally_coherent(expected, role="expected")
+    _require_internally_coherent(observed, role="observed")
 
     expected_by_label = {group.label: group for group in expected.affected_groups}
     observed_by_label = {group.label: group for group in observed.affected_groups}
@@ -92,18 +88,31 @@ def serialize_golden_result(result: Mapping[str, Any]) -> bytes:
     return text.encode("utf-8")
 
 
-def _require_unique_group_labels(operation: GoldenOperation, *, role: str) -> None:
+def _require_internally_coherent(operation: GoldenOperation, *, role: str) -> None:
+    """Fail closed when a golden operation is not self-consistent."""
+
+    if not operation.human_authored_descendants_unchanged:
+        raise GoldenInvalidationMismatch(
+            f"{role} human_authored_descendants_unchanged must be true for "
+            "golden acceptance"
+        )
+
     labels = [group.label for group in operation.affected_groups]
     if len(labels) != len(set(labels)):
         raise GoldenInvalidationMismatch(f"{role} affected group labels are not unique")
 
+    for group in operation.affected_groups:
+        _require_coherent_group(group, role=role)
 
-def _require_contiguous_global_ordinals(operation: GoldenOperation, *, role: str) -> None:
     ordinals = [
         path.path_ordinal
         for group in operation.affected_groups
         for path in group.paths
     ]
+    if any(ordinal < 0 for ordinal in ordinals):
+        raise GoldenInvalidationMismatch(
+            f"{role} path ordinals must be non-negative"
+        )
     if len(ordinals) != len(set(ordinals)):
         raise GoldenInvalidationMismatch(
             f"{role} path ordinals must be unique across the operation"
@@ -113,6 +122,115 @@ def _require_contiguous_global_ordinals(operation: GoldenOperation, *, role: str
         raise GoldenInvalidationMismatch(
             f"{role} path ordinals must be contiguous 0..N-1 without gaps or duplicates"
         )
+
+
+def _require_coherent_group(group: GoldenAffectedGroup, *, role: str) -> None:
+    if not group.label:
+        raise GoldenInvalidationMismatch(f"{role} affected group label must be non-empty")
+    if not group.paths:
+        raise GoldenInvalidationMismatch(
+            f"{role} affected group {group.label!r} must have at least one path"
+        )
+    if group.independent_path_count != len(group.paths):
+        raise GoldenInvalidationMismatch(
+            f"{role} independent_path_count for {group.label!r} must equal "
+            f"len(paths) ({len(group.paths)}), got {group.independent_path_count!r}"
+        )
+
+    for path in group.paths:
+        _require_coherent_path(path, group_label=group.label, role=role)
+
+    if group.strongest_effective_impact not in _VALID_IMPACTS:
+        raise GoldenInvalidationMismatch(
+            f"{role} invalid strongest_effective_impact "
+            f"{group.strongest_effective_impact!r} for {group.label!r}; "
+            "expected one of blocking|render_only|advisory"
+        )
+
+    strongest = _strongest_impact(path.effective_impact for path in group.paths)
+    if group.strongest_effective_impact != strongest:
+        raise GoldenInvalidationMismatch(
+            f"{role} strongest_effective_impact for {group.label!r} must be "
+            f"{strongest!r}, got {group.strongest_effective_impact!r}"
+        )
+
+    expect_general = strongest == "blocking"
+    expect_render = strongest in ("blocking", "render_only")
+    if group.general_stale is not expect_general:
+        raise GoldenInvalidationMismatch(
+            f"{role} general_stale for {group.label!r} must be {expect_general!r} "
+            f"when strongest is {strongest!r}, got {group.general_stale!r}"
+        )
+    if group.general_blocked is not expect_general:
+        raise GoldenInvalidationMismatch(
+            f"{role} general_blocked for {group.label!r} must be {expect_general!r} "
+            f"when strongest is {strongest!r}, got {group.general_blocked!r}"
+        )
+    if group.render_blocked is not expect_render:
+        raise GoldenInvalidationMismatch(
+            f"{role} render_blocked for {group.label!r} must be {expect_render!r} "
+            f"when strongest is {strongest!r}, got {group.render_blocked!r}"
+        )
+
+
+def _require_coherent_path(
+    path: GoldenPathRecord,
+    *,
+    group_label: str,
+    role: str,
+) -> None:
+    if path.path_ordinal < 0:
+        raise GoldenInvalidationMismatch(
+            f"{role} path ordinal must be non-negative in group {group_label!r}, "
+            f"got {path.path_ordinal!r}"
+        )
+    if not path.path_labels or any(not label for label in path.path_labels):
+        raise GoldenInvalidationMismatch(
+            f"{role} path labels must be non-empty in group {group_label!r}"
+        )
+    edge_count = len(path.relationship_sequence)
+    if len(path.impact_sequence) != edge_count:
+        raise GoldenInvalidationMismatch(
+            f"{role} relationship/impact sequence length mismatch in group "
+            f"{group_label!r}: relationships={edge_count}, "
+            f"impacts={len(path.impact_sequence)}"
+        )
+    if len(path.path_labels) != edge_count + 1:
+        raise GoldenInvalidationMismatch(
+            f"{role} path label arity mismatch in group {group_label!r}: "
+            f"len(path_labels)={len(path.path_labels)} must equal "
+            f"len(edges)+1={edge_count + 1}"
+        )
+    if not path.impact_sequence:
+        raise GoldenInvalidationMismatch(
+            f"{role} path impact_sequence must be non-empty in group {group_label!r}"
+        )
+    for impact in path.impact_sequence:
+        if impact not in _VALID_IMPACTS:
+            raise GoldenInvalidationMismatch(
+                f"{role} invalid impact {impact!r} in group {group_label!r}; "
+                "expected one of blocking|render_only|advisory"
+            )
+    if path.effective_impact not in _VALID_IMPACTS:
+        raise GoldenInvalidationMismatch(
+            f"{role} invalid effective_impact {path.effective_impact!r} in group "
+            f"{group_label!r}; expected one of blocking|render_only|advisory"
+        )
+    expected_effective = _least_severe_impact(path.impact_sequence)
+    if path.effective_impact != expected_effective:
+        raise GoldenInvalidationMismatch(
+            f"{role} effective_impact mismatch in group {group_label!r}: "
+            f"must be least-severe edge impact {expected_effective!r}, "
+            f"got {path.effective_impact!r}"
+        )
+
+
+def _least_severe_impact(impacts: Iterable[Impact]) -> Impact:
+    return min(impacts, key=lambda impact: _IMPACT_SEVERITY[impact])
+
+
+def _strongest_impact(impacts: Iterable[Impact]) -> Impact:
+    return max(impacts, key=lambda impact: _IMPACT_SEVERITY[impact])
 
 
 def _compare_affected_group(
