@@ -331,3 +331,32 @@ class GateDecision:
 class GateDecisionResult:
     decision: GateDecision
     head: ArtifactHead
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationOperation:
+    """One atomic accepted-head replacement that triggered reverse-path impact recording."""
+
+    id: str
+    project_id: str
+    changed_artifact_id: str
+    old_accepted_version_id: str
+    new_accepted_version_id: str
+    gate_decision_id: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationPathImpact:
+    """One independent reverse dependency path affected by an invalidation operation."""
+
+    id: str
+    operation_id: str
+    project_id: str
+    affected_artifact_id: str
+    affected_version_id: str
+    dependency_path: tuple[str, ...]
+    path_relationships: tuple[str, ...]
+    path_impacts: tuple[DependencyImpact, ...]
+    effective_impact: DependencyImpact
+    path_ordinal: int

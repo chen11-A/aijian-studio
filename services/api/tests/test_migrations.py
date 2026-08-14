@@ -134,6 +134,16 @@ def create_current_v6_database(path: Path) -> None:
     assert database_version(path) == 6
 
 
+def create_current_v7_database(path: Path) -> None:
+    def stop_before_v8(version: int, step: int) -> None:
+        if version == 8 and step == 0:
+            raise RuntimeError("stop before v8")
+
+    with pytest.raises(RuntimeError, match="stop before v8"):
+        StudioRepository(path, migration_hook=stop_before_v8)
+    assert database_version(path) == 7
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -152,7 +162,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(artifact_versions)")
         }
-    assert SCHEMA_VERSION == 7
+    assert SCHEMA_VERSION == 8
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -183,6 +193,8 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "remote_reconciliations",
         "workflow_enqueue_keys",
         "provider_connections",
+        "invalidation_operations",
+        "invalidation_path_impacts",
     } <= tables
 
 
@@ -369,6 +381,186 @@ def test_every_v7_ddl_failure_rolls_back_to_v6_and_can_retry(tmp_path: Path) -> 
 
         StudioRepository(database)
         assert database_version(database) == SCHEMA_VERSION
+
+
+def test_every_v8_ddl_failure_rolls_back_to_v7_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v8.db"
+    create_current_v7_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 8 else None,
+    )
+    assert observed_steps
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v8-failure-{failed_step}.db"
+        create_current_v7_database(database)
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 8 and step == target:
+                raise RuntimeError(f"injected v8 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v8 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 7
+        with sqlite3.connect(database) as connection:
+            table = connection.execute(
+                """
+                SELECT 1 FROM sqlite_master
+                WHERE type = 'table' AND name = 'invalidation_operations'
+                """
+            ).fetchone()
+        assert table is None
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+
+
+def test_v8_ledger_tables_are_append_only(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    StudioRepository(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_ledger', '失效账本', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO artifacts VALUES ('art_ledger', 'prj_ledger', 'source_manifest', ?)",
+            ("2026-08-03T00:00:00Z",),
+        )
+        for version_id, number in (("ver_old", 1), ("ver_new", 2)):
+            connection.execute(
+                """
+                INSERT INTO artifact_versions (
+                    version_id, artifact_id, version_number, schema_version, content_json,
+                    content_hash, author_actor_type, author_actor_id, parent_version_id,
+                    change_summary, created_at
+                ) VALUES (?, 'art_ledger', ?, '1.0.0', '{}', ?, 'human', 'local-user',
+                          NULL, 'v', '2026-08-03T00:00:00Z')
+                """,
+                (version_id, number, f"sha256:{'c' * 64}"),
+            )
+        connection.execute(
+            """
+            INSERT INTO artifact_heads VALUES (
+                'art_ledger', 'ver_new', NULL, NULL, 'ver_new', 1, 0,
+                '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_readiness_reports VALUES (
+                'rpt_ledger', 'art_ledger', 'ver_new', 'G1', NULL,
+                'g1.source-manifest', '1', 1, 0, '{"ready":true}', ?,
+                '2026-08-03T12:05:00Z', '2026-08-03T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'d' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO review_submissions VALUES (
+                'sub_ledger', 'art_ledger', 'ver_new', 'G1', 'rpt_ledger', NULL,
+                'local-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO confirmation_challenges (
+                challenge_id, artifact_id, version_id, gate, action, action_payload_hash,
+                policy_snapshot_hash, actor_id, actor_roles_json, readiness_report_id,
+                challenge_hash, head_revision, review_evidence_revision, expires_at,
+                consumed_at, created_at
+            ) VALUES (
+                'chg_ledger', 'art_ledger', 'ver_new', 'G1', 'decision',
+                'sha256:payload', 'sha256:policy', 'local-user', '[]', 'rpt_ledger',
+                'sha256:token', 1, 0, '2026-08-03T12:05:00Z',
+                '2026-08-03T12:01:00Z', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO role_signoffs VALUES (
+                'sig_writer', 'art_ledger', 'ver_new', 'sub_ledger', 'G1', 'writer',
+                'local-user', 0, 'rpt_ledger', 1, NULL, '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO role_signoffs VALUES (
+                'sig_producer', 'art_ledger', 'ver_new', 'sub_ledger', 'G1', 'producer',
+                'local-user', 0, 'rpt_ledger', 1, NULL, '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_decisions (
+                decision_id, artifact_id, version_id, submission_id, gate, decision,
+                readiness_report_id, actor_id, actor_role, self_review, rationale,
+                decided_at, confirmation_challenge_id, head_revision
+            ) VALUES (
+                'dec_ledger', 'art_ledger', 'ver_new', 'sub_ledger', 'G1', 'approved',
+                'rpt_ledger', 'local-user', 'producer', 1, 'ok',
+                '2026-08-03T12:01:00Z', 'chg_ledger', 1
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO invalidation_operations VALUES (
+                'invop_ledger', 'prj_ledger', 'art_ledger', 'ver_old', 'ver_new',
+                'dec_ledger', '2026-08-03T12:01:00Z'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO invalidation_path_impacts VALUES (
+                'invimp_ledger', 'invop_ledger', 'prj_ledger', 'art_ledger', 'ver_old',
+                '["dep_1"]', '["derived_from"]', '["blocking"]', 'blocking', 0
+            )
+            """
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                """
+                UPDATE invalidation_operations
+                SET new_accepted_version_id = 'ver_old'
+                WHERE operation_id = 'invop_ledger'
+                """
+            )
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "DELETE FROM invalidation_operations WHERE operation_id = 'invop_ledger'"
+            )
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                """
+                UPDATE invalidation_path_impacts
+                SET effective_impact = 'advisory'
+                WHERE impact_id = 'invimp_ledger'
+                """
+            )
+        connection.rollback()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "DELETE FROM invalidation_path_impacts WHERE impact_id = 'invimp_ledger'"
+            )
+        connection.rollback()
 
 
 def test_v2_confirmation_rows_upgrade_to_safe_v3_shape(tmp_path: Path) -> None:

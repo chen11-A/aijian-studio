@@ -19,6 +19,16 @@ from aijian_api.artifact_invalidation import (
     assess_dependencies_on_connection,
     require_accepted_consumable_on_connection,
 )
+from aijian_api.artifact_invalidation_ledger import (
+    InvalidationNotFoundError as InvalidationNotFoundError,
+)
+from aijian_api.artifact_invalidation_ledger import (
+    ProjectMissingError,
+    get_operation_on_connection,
+    list_operations_on_connection,
+    list_path_impacts_on_connection,
+    record_accepted_head_replacement,
+)
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
 from aijian_api.domain import (
     ArtifactActorType,
@@ -40,6 +50,8 @@ from aijian_api.domain import (
     GateDecisionResult,
     GateDecisionValue,
     GateReadinessReport,
+    InvalidationOperation,
+    InvalidationPathImpact,
     PreparedReviewAction,
     Project,
     ProjectStatus,
@@ -57,6 +69,7 @@ from aijian_api.domain import (
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
+from aijian_api.invalidation_schema import MIGRATION_8
 from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
@@ -65,7 +78,7 @@ from aijian_api.source_manifest import (
 )
 from aijian_api.workflow_schema import MIGRATION_4, MIGRATION_5, MIGRATION_6
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -747,6 +760,7 @@ _MIGRATIONS = {
     5: MIGRATION_5,
     6: MIGRATION_6,
     7: MIGRATION_7,
+    8: MIGRATION_8,
 }
 
 
@@ -2513,6 +2527,11 @@ class StudioRepository:
                     ),
                 )
                 self._transaction_step("decide_gate", "decision_inserted")
+                previous_accepted_version_id = (
+                    str(head_row["accepted_version_id"])
+                    if head_row["accepted_version_id"] is not None
+                    else None
+                )
                 accepted_version_id = (
                     version_id
                     if decision in ("approved", "approved_with_waiver")
@@ -2535,6 +2554,18 @@ class StudioRepository:
                 if updated.rowcount != 1:
                     raise ArtifactConflictError("Artifact head revision has changed")
                 self._transaction_step("decide_gate", "head_updated")
+                if decision in ("approved", "approved_with_waiver"):
+                    record_accepted_head_replacement(
+                        connection,
+                        project_id=project_id,
+                        changed_artifact_id=gate_decision.artifact_id,
+                        old_accepted_version_id=previous_accepted_version_id,
+                        new_accepted_version_id=version_id,
+                        gate_decision_id=gate_decision.id,
+                        created_at=now,
+                        id_factory=self._id_factory,
+                        transaction_step=self._transaction_step,
+                    )
                 result_head = self._load_artifact_head(connection, gate_decision.artifact_id)
                 connection.commit()
             except sqlite3.IntegrityError as error:
@@ -2544,6 +2575,45 @@ class StudioRepository:
                 connection.rollback()
                 raise
         return GateDecisionResult(decision=gate_decision, head=result_head)
+
+    def list_invalidation_operations(self, project_id: str) -> tuple[InvalidationOperation, ...]:
+        with self._connection() as connection:
+            try:
+                return list_operations_on_connection(connection, project_id=project_id)
+            except ProjectMissingError as error:
+                raise ProjectNotFoundError("Project was not found") from error
+
+    def get_invalidation_operation(
+        self,
+        *,
+        project_id: str,
+        operation_id: str,
+    ) -> InvalidationOperation:
+        with self._connection() as connection:
+            try:
+                return get_operation_on_connection(
+                    connection,
+                    project_id=project_id,
+                    operation_id=operation_id,
+                )
+            except ProjectMissingError as error:
+                raise ProjectNotFoundError("Project was not found") from error
+
+    def list_invalidation_path_impacts(
+        self,
+        *,
+        project_id: str,
+        operation_id: str,
+    ) -> tuple[InvalidationPathImpact, ...]:
+        with self._connection() as connection:
+            try:
+                return list_path_impacts_on_connection(
+                    connection,
+                    project_id=project_id,
+                    operation_id=operation_id,
+                )
+            except ProjectMissingError as error:
+                raise ProjectNotFoundError("Project was not found") from error
 
     def _review_context(
         self,
