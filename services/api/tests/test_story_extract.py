@@ -20,6 +20,7 @@ from aijian_api.local_executor import LocalExecutor
 from aijian_api.provider_runtime import (
     ProviderNonRetryableError,
     ProviderProtocolError,
+    ProviderRetryableError,
     RemoteUnknownProviderError,
     TextProviderRequest,
     validate_story_extract_result,
@@ -460,8 +461,10 @@ def test_retryable_provider_timeout_follows_legal_local_retry_path(tmp_path: Pat
     project, _source, _accepted = _accepted_source(repository)
     started = service.start(project.id)
 
-    with pytest.raises(RuntimeError, match="timeout"):
+    with pytest.raises(ProviderRetryableError, match="timeout") as raised:
         _run_once(service, ledger)
+    assert raised.value.code == "TIMEOUT"
+    assert raised.value.public_error_code == "ProviderRetryableError"
 
     inspected = service.inspect(project.id, started.node_run_id)
     assert inspected.node_status == "PENDING"
@@ -478,6 +481,85 @@ def test_retryable_provider_timeout_follows_legal_local_retry_path(tmp_path: Pat
     assert first is not None
     assert tuple(first) == ("FAILED", "SAFE_LOCAL_RETRY", "ProviderRetryableError")
     assert _story_bible_versions(database, project.id) == []
+
+
+@pytest.mark.parametrize(
+    ("fault", "error_code", "exception_type", "match"),
+    [
+        ("http_401", "AUTH_ERROR", ProviderNonRetryableError, "http 401"),
+        ("http_429", "RATE_LIMITED", ProviderRetryableError, "http 429"),
+        ("http_500", "REMOTE_UNAVAILABLE", ProviderRetryableError, "http 500"),
+        ("http_502", "REMOTE_UNAVAILABLE", ProviderRetryableError, "http 502"),
+        ("http_503", "REMOTE_UNAVAILABLE", ProviderRetryableError, "http 503"),
+        ("http_504", "REMOTE_UNAVAILABLE", ProviderRetryableError, "http 504"),
+    ],
+)
+def test_http_provider_fault_matrix_persists_workflow_projection(
+    tmp_path: Path,
+    fault: str,
+    error_code: str,
+    exception_type: type[Exception],
+    match: str,
+) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, service = _service(
+        database,
+        clock,
+        provider=FakeStoryExtractProvider(fault=fault),  # type: ignore[arg-type]
+    )
+    project, _source, _accepted = _accepted_source(repository)
+    started = service.start(project.id)
+
+    with pytest.raises(exception_type, match=match) as raised:
+        _run_once(service, ledger)
+    if exception_type is ProviderRetryableError:
+        assert isinstance(raised.value, ProviderRetryableError)
+        assert raised.value.code == error_code
+        assert raised.value.public_error_code == error_code
+        if fault == "http_429":
+            assert raised.value.retry_after_seconds == 2
+    else:
+        assert isinstance(raised.value, ProviderNonRetryableError)
+        assert raised.value.code == error_code
+        assert raised.value.public_error_code == error_code
+
+    inspected = service.inspect(project.id, started.node_run_id)
+    with _open(database) as connection:
+        first = connection.execute(
+            """
+            SELECT status, retry_disposition, error_code
+            FROM workflow_attempts WHERE attempt_id = ?
+            """,
+            (started.attempt_id,),
+        ).fetchone()
+        attempt_count = connection.execute(
+            "SELECT COUNT(*) FROM workflow_attempts AS attempt "
+            "JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id "
+            "JOIN workflow_runs AS run ON run.workflow_run_id = node.workflow_run_id "
+            "WHERE run.project_id = ?",
+            (project.id,),
+        ).fetchone()[0]
+    assert first is not None
+    assert _story_bible_versions(database, project.id) == []
+
+    if error_code == "AUTH_ERROR":
+        assert inspected.node_status == "FAILED"
+        assert inspected.attempt_status == "FAILED"
+        assert inspected.retry_disposition == "NON_RETRYABLE"
+        assert inspected.error_code == "AUTH_ERROR"
+        assert tuple(first) == ("FAILED", "NON_RETRYABLE", "AUTH_ERROR")
+        assert attempt_count == 1
+        assert _workflow_counts(database, project.id) == (1, 1, 1)
+        assert not _run_once(service, ledger)
+        return
+
+    assert inspected.node_status == "PENDING"
+    assert inspected.attempt_status == "READY"
+    assert inspected.retry_disposition is None
+    assert tuple(first) == ("FAILED", "SAFE_LOCAL_RETRY", error_code)
+    assert attempt_count == 2
+    assert _workflow_counts(database, project.id) == (1, 1, 2)
 
 
 def test_non_retryable_provider_failure_does_not_requeue(tmp_path: Path) -> None:

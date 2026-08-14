@@ -14,7 +14,11 @@ from aijian_api.fault_injection import (
     deterministic_kill_point,
 )
 from aijian_api.local_executor import LocalExecutor
-from aijian_api.provider_runtime import RemoteUnknownProviderError
+from aijian_api.provider_runtime import (
+    ProviderNonRetryableError,
+    ProviderRetryableError,
+    RemoteUnknownProviderError,
+)
 from aijian_api.repository import StudioRepository
 from aijian_api.subprocess_supervisor import HeartbeatCallback
 from aijian_api.task_ledger import ClaimedTask, LeaseLostError, LocalTaskLedger, QueuedTask
@@ -311,6 +315,95 @@ def test_remote_unknown_handler_is_quarantined_without_retry(tmp_path: Path) -> 
     assert attempts == [(queued.attempt_id, "FAILED", "REMOTE_UNKNOWN", "REMOTE_UNKNOWN")]
     assert node == ("RECONCILIATION_REQUIRED", 1, queued.attempt_id)
     assert tasks == (1,)
+
+
+@pytest.mark.parametrize(
+    ("error", "retry_disposition", "error_code", "node_status", "attempt_count"),
+    [
+        (
+            ProviderNonRetryableError("Fake provider injected http 401", code="AUTH_ERROR"),
+            "NON_RETRYABLE",
+            "AUTH_ERROR",
+            "FAILED",
+            1,
+        ),
+        (
+            ProviderRetryableError(
+                "Fake provider injected http 429",
+                code="RATE_LIMITED",
+                retry_after_seconds=2,
+            ),
+            "SAFE_LOCAL_RETRY",
+            "RATE_LIMITED",
+            "PENDING",
+            1,
+        ),
+        (
+            ProviderRetryableError(
+                "Fake provider injected http 503",
+                code="REMOTE_UNAVAILABLE",
+            ),
+            "SAFE_LOCAL_RETRY",
+            "REMOTE_UNAVAILABLE",
+            "PENDING",
+            1,
+        ),
+        (
+            ProviderRetryableError(
+                "Fake provider injected timeout",
+                code="TIMEOUT",
+            ),
+            "SAFE_LOCAL_RETRY",
+            "ProviderRetryableError",
+            "PENDING",
+            1,
+        ),
+    ],
+)
+def test_provider_http_fault_exceptions_preserve_error_codes(
+    tmp_path: Path,
+    error: Exception,
+    retry_disposition: str,
+    error_code: str,
+    node_status: str,
+    attempt_count: int,
+) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+
+    def fail(_claim: ClaimedTask) -> str:
+        raise error
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-http-fault",
+        lease_duration=timedelta(seconds=30),
+        handler=fail,
+    )
+
+    with pytest.raises(type(error)):
+        executor.run_once()
+
+    with sqlite3.connect(database) as connection:
+        first = connection.execute(
+            """
+            SELECT attempt_id, status, retry_disposition, error_code
+            FROM workflow_attempts WHERE attempt_id = ?
+            """,
+            (queued.attempt_id,),
+        ).fetchone()
+        node = connection.execute(
+            "SELECT status, attempt_count FROM workflow_node_runs WHERE node_run_id = ?",
+            (queued.node_run_id,),
+        ).fetchone()
+        total_attempts = connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone()[0]
+    assert first == (queued.attempt_id, "FAILED", retry_disposition, error_code)
+    assert node == (node_status, attempt_count)
+    if retry_disposition == "SAFE_LOCAL_RETRY":
+        assert total_attempts == 2
+    else:
+        assert total_attempts == 1
 
 
 def test_remote_unknown_quarantine_rolls_back_if_node_changes(tmp_path: Path) -> None:

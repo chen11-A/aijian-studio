@@ -24,6 +24,18 @@ type ProviderErrorCode = Literal[
     "REMOTE_UNAVAILABLE",
 ]
 
+# TIMEOUT keeps the pre-T06A public/persisted class-name code for StoryExtractTaskData
+# compatibility. HTTP matrix codes and other domain codes pass through unchanged.
+_LEGACY_PUBLIC_RETRYABLE_ERROR_CODE = "ProviderRetryableError"
+
+
+def public_provider_error_code(code: ProviderErrorCode) -> str:
+    """Map typed provider codes to the public/persisted Task Ledger error_code."""
+
+    if code == "TIMEOUT":
+        return _LEGACY_PUBLIC_RETRYABLE_ERROR_CODE
+    return code
+
 
 class ProviderRuntimeError(RuntimeError):
     """Base class for provider runtime exceptions before a result can be trusted."""
@@ -36,6 +48,10 @@ class ProviderNonRetryableError(ProviderRuntimeError):
         super().__init__(message)
         self.code = code
 
+    @property
+    def public_error_code(self) -> str:
+        return public_provider_error_code(self.code)
+
 
 class ProviderProtocolError(ProviderNonRetryableError):
     """Raised when a provider response cannot be parsed into the runtime contract."""
@@ -43,6 +59,21 @@ class ProviderProtocolError(ProviderNonRetryableError):
 
 class ProviderRetryableError(ProviderRuntimeError):
     """Raised when a provider failure may legally re-enter the local retry path."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: ProviderErrorCode,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retry_after_seconds = retry_after_seconds
+
+    @property
+    def public_error_code(self) -> str:
+        return public_provider_error_code(self.code)
 
 
 class RemoteUnknownProviderError(ProviderRuntimeError):
@@ -132,11 +163,21 @@ class ProviderFailureError(_StrictProviderModel):
     retryable: bool
     provider_request_id: str | None = Field(default=None, min_length=1, max_length=200)
     details: dict[str, str] = Field(default_factory=dict, max_length=20)
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    retry_after_seconds: int | None = Field(default=None, ge=0, le=86_400)
 
     @model_validator(mode="after")
-    def prevent_remote_unknown_resubmission(self) -> ProviderFailureError:
+    def validate_failure_classification(self) -> ProviderFailureError:
         if self.code == "REMOTE_UNKNOWN" and self.retryable:
             raise ValueError("REMOTE_UNKNOWN must never be marked retryable")
+        if self.code == "AUTH_ERROR" and self.retryable:
+            raise ValueError("AUTH_ERROR must never be marked retryable")
+        if self.code == "RATE_LIMITED" and not self.retryable:
+            raise ValueError("RATE_LIMITED must be marked retryable")
+        if self.code == "REMOTE_UNAVAILABLE" and not self.retryable:
+            raise ValueError("REMOTE_UNAVAILABLE must be marked retryable")
+        if self.retry_after_seconds is not None and self.code != "RATE_LIMITED":
+            raise ValueError("retry_after_seconds is only valid for RATE_LIMITED")
         return self
 
 

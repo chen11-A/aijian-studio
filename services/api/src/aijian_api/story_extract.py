@@ -190,7 +190,11 @@ class StoryExtractService:
             if result.error.code == "REMOTE_UNKNOWN":
                 raise RemoteUnknownProviderError(result.error.message)
             if result.error.retryable:
-                raise ProviderRetryableError(result.error.message)
+                raise ProviderRetryableError(
+                    result.error.message,
+                    code=result.error.code,
+                    retry_after_seconds=result.error.retry_after_seconds,
+                )
             raise ProviderNonRetryableError(result.error.message, code=result.error.code)
         return self._persist_story_bible(
             claim, context.project_id, accepted.version.id, manifest, result

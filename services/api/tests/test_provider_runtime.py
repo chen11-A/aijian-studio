@@ -5,11 +5,14 @@ from aijian_api.provider_runtime import (
     TEXT_PROVIDER_RESULT_ADAPTER,
     ProviderFailureError,
     ProviderFailureResult,
+    ProviderNonRetryableError,
     ProviderProtocolError,
+    ProviderRetryableError,
     ProviderSuccessResult,
     TextProviderRequest,
     TextProviderSourceBlock,
     TextProviderUsage,
+    public_provider_error_code,
     validate_story_extract_result,
 )
 from pydantic import ValidationError
@@ -208,6 +211,145 @@ def test_failure_error_rejects_unknown_fields() -> None:
                 "retryable": True,
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("payload", "match"),
+    [
+        (
+            {
+                "code": "AUTH_ERROR",
+                "message": "Unauthorized",
+                "retryable": True,
+                "http_status": 401,
+            },
+            "AUTH_ERROR must never be marked retryable",
+        ),
+        (
+            {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests",
+                "retryable": False,
+                "http_status": 429,
+                "retry_after_seconds": 2,
+            },
+            "RATE_LIMITED must be marked retryable",
+        ),
+        (
+            {
+                "code": "REMOTE_UNAVAILABLE",
+                "message": "Upstream unavailable",
+                "retryable": False,
+                "http_status": 503,
+            },
+            "REMOTE_UNAVAILABLE must be marked retryable",
+        ),
+        (
+            {
+                "code": "TIMEOUT",
+                "message": "timed out",
+                "retryable": True,
+                "retry_after_seconds": 2,
+            },
+            "retry_after_seconds is only valid for RATE_LIMITED",
+        ),
+        (
+            {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests",
+                "retryable": True,
+                "http_status": 429,
+                "retry_after_seconds": -1,
+            },
+            "greater than or equal to 0",
+        ),
+        (
+            {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests",
+                "retryable": True,
+                "http_status": 429,
+                "retry_after_seconds": 86_401,
+            },
+            "less than or equal to 86400",
+        ),
+        (
+            {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests",
+                "retryable": True,
+                "http_status": 429,
+                "retry_after_seconds": "soon",
+            },
+            "int_parsing|int_type",
+        ),
+        (
+            {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests",
+                "retryable": True,
+                "http_status": 99,
+            },
+            "greater than or equal to 100",
+        ),
+    ],
+)
+def test_failure_error_rejects_malformed_http_fault_metadata(
+    payload: dict[str, object],
+    match: str,
+) -> None:
+    with pytest.raises(ValidationError, match=match):
+        ProviderFailureError.model_validate(payload)
+
+
+def test_failure_error_accepts_typed_rate_limit_metadata() -> None:
+    error = ProviderFailureError.model_validate(
+        {
+            "code": "RATE_LIMITED",
+            "message": "Too many requests",
+            "retryable": True,
+            "provider_request_id": "fake_abc",
+            "http_status": 429,
+            "retry_after_seconds": 2,
+            "details": {"source": "fake_provider", "http_status": "429"},
+        }
+    )
+
+    assert error.retry_after_seconds == 2
+    assert error.http_status == 429
+    dumped = error.model_dump(mode="json")
+    assert dumped["retry_after_seconds"] == 2
+    assert "retry_after_seconds" in dumped
+
+
+@pytest.mark.parametrize(
+    ("code", "public_code"),
+    [
+        ("TIMEOUT", "ProviderRetryableError"),
+        ("RATE_LIMITED", "RATE_LIMITED"),
+        ("REMOTE_UNAVAILABLE", "REMOTE_UNAVAILABLE"),
+        ("AUTH_ERROR", "AUTH_ERROR"),
+        ("REFUSED", "REFUSED"),
+        ("PROTOCOL_ERROR", "PROTOCOL_ERROR"),
+        ("REMOTE_UNKNOWN", "REMOTE_UNKNOWN"),
+    ],
+)
+def test_public_provider_error_code_preserves_timeout_compatibility(
+    code: str,
+    public_code: str,
+) -> None:
+    assert public_provider_error_code(code) == public_code  # type: ignore[arg-type]
+    if code == "TIMEOUT":
+        error: ProviderRetryableError | ProviderNonRetryableError = ProviderRetryableError(
+            "timeout",
+            code="TIMEOUT",
+        )
+    elif code in {"RATE_LIMITED", "REMOTE_UNAVAILABLE"}:
+        error = ProviderRetryableError("retryable", code=code)  # type: ignore[arg-type]
+    else:
+        error = ProviderNonRetryableError("non-retryable", code=code)  # type: ignore[arg-type]
+    assert error.code == code
+    assert error.public_error_code == public_code
 
 
 def test_story_extract_result_must_match_request_provenance() -> None:

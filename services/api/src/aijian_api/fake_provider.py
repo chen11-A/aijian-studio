@@ -25,7 +25,19 @@ type FakeProviderFault = Literal[
     "remote_unknown",
     "refused",
     "protocol_error",
+    "http_401",
+    "http_429",
+    "http_500",
+    "http_502",
+    "http_503",
+    "http_504",
 ]
+
+# Deterministic Retry-After for injected 429; bounded by ProviderFailureError.
+FAKE_HTTP_429_RETRY_AFTER_SECONDS = 2
+
+# Stable sentinel for leak regressions; never copy into results, logs, or messages.
+FAKE_PROVIDER_SECRET_SENTINEL = "sk-fake-provider-sentinel-do-not-leak"
 
 
 class FakeStoryExtractProvider:
@@ -82,13 +94,42 @@ def _failure(
         "remote_unknown": "REMOTE_UNKNOWN",
         "refused": "REFUSED",
         "protocol_error": "PROTOCOL_ERROR",
+        "http_401": "AUTH_ERROR",
+        "http_429": "RATE_LIMITED",
+        "http_500": "REMOTE_UNAVAILABLE",
+        "http_502": "REMOTE_UNAVAILABLE",
+        "http_503": "REMOTE_UNAVAILABLE",
+        "http_504": "REMOTE_UNAVAILABLE",
     }
     retryable_by_fault = {
         "timeout": True,
         "remote_unknown": False,
         "refused": False,
         "protocol_error": False,
+        "http_401": False,
+        "http_429": True,
+        "http_500": True,
+        "http_502": True,
+        "http_503": True,
+        "http_504": True,
     }
+    http_status_by_fault: dict[FakeProviderFault, int | None] = {
+        "timeout": None,
+        "remote_unknown": None,
+        "refused": None,
+        "protocol_error": None,
+        "http_401": 401,
+        "http_429": 429,
+        "http_500": 500,
+        "http_502": 502,
+        "http_503": 503,
+        "http_504": 504,
+    }
+    http_status = http_status_by_fault[fault]
+    retry_after_seconds = FAKE_HTTP_429_RETRY_AFTER_SECONDS if fault == "http_429" else None
+    details = {"source": "fake_provider"}
+    if http_status is not None:
+        details["http_status"] = str(http_status)
     return ProviderFailureResult(
         kind="failure",
         request_id=request.request_id,
@@ -97,7 +138,9 @@ def _failure(
             message=f"Fake provider injected {fault.replace('_', ' ')}",
             retryable=retryable_by_fault[fault],
             provider_request_id=_provider_request_id(request),
-            details={"source": "fake_provider"},
+            details=details,
+            http_status=http_status,
+            retry_after_seconds=retry_after_seconds,
         ),
         usage=usage if fault == "refused" else None,
         latency_ms=0,
