@@ -9,7 +9,7 @@
 3. 每个 prepare/action 要求 `If-Match: "revision-{n}"`；成功响应返回当前成功 head 的 `ETag`。
 4. 复用仓库审阅状态机：一次 submission、三次 `writer`/`continuity_reviewer`/`producer` 签署、一次 `producer` 终裁；批准后只推进 StoryBible accepted head 并清除 review head。
 5. 每次 G2 prepare/action 都校验 blocking G1 仍是当前 accepted SourceManifest；G1 在 prepare 与 action 之间推进则整笔回滚，challenge 不消费。
-6. `g2.story-bible` 对可证明的规范内容拒绝未解决 blocking question、未解决 core conflict，以及未处置的 core/supporting `ai_inference`。
+6. `g2.story-bible` v2 对非规范内容失败关闭，并拒绝未处置的 core fact、未解决 blocking question、未解决 core conflict，以及未处置的 core/supporting `ai_inference`；策略快照变化会使旧 challenge/report 失效。
 
 ## 证据
 

@@ -73,23 +73,6 @@ def create_reviewable_artifact(
         target_duration_seconds=90,
         source_language="zh-CN",
     )
-    if content is None:
-        content = (
-            {
-                "title": "雾城",
-                "logline": "她循着一封无名信追查旧车站的秘密。",
-                "entities": [{"kind": "character", "name": "林岚"}],
-                "facts": [
-                    {
-                        "importance": "core",
-                        "canon_status": "confirmed",
-                        "kind": "event_fact",
-                    }
-                ],
-            }
-            if ready
-            else {"title": "", "logline": "", "entities": [], "facts": []}
-        )
     source_manifest = repository.create_artifact_version(
         project_id=project.id,
         artifact_type="source_manifest",
@@ -100,6 +83,15 @@ def create_reviewable_artifact(
         change_summary="来源基线",
     )
     approve_artifact(repository, project, source_manifest, "source_manifest")
+    if content is None:
+        from test_story_bible import valid_story_bible_payload
+
+        story_content = valid_story_bible_payload()
+        story_content["source_scope"]["source_manifest_version_id"] = source_manifest.version.id
+        if not ready:
+            story_content["title"] = ""
+            story_content["logline"] = ""
+        content = story_content
     dependency = ArtifactDependencyDraft(
         upstream_version_id=source_manifest.version.id,
         relationship="derived_from",
@@ -1066,7 +1058,19 @@ def test_g2_readiness_rejects_blocking_questions_core_conflicts_and_unreviewed_i
     clock = MutableClock()
     repository = create_review_repository(tmp_path / "workspace.db", clock)
     policy = DEFAULT_GATE_POLICIES["story_bible"]
+    assert policy.policy_version == "2"
     assert policy.evaluate(valid_story_bible_payload())["ready"] is True
+
+    invalid_schema_report = policy.evaluate(
+        {
+            "title": "雾城",
+            "logline": "她循着一封无名信追查旧车站的秘密。",
+            "entities": [{"kind": "character", "name": "林岚"}],
+            "facts": [{"importance": "core", "canon_status": "confirmed"}],
+        }
+    )
+    assert invalid_schema_report["ready"] is False
+    assert invalid_schema_report["blocking"] == ["invalid_story_bible_schema"]
 
     blocking_question = valid_story_bible_payload()
     blocking_question["questions"] = [
@@ -1123,7 +1127,52 @@ def test_g2_readiness_rejects_blocking_questions_core_conflicts_and_unreviewed_i
     assert inference_report["ready"] is False
     assert "unreviewed_ai_inference" in inference_report["blocking"]
 
-    for content in (blocking_question, unresolved_conflict, unreviewed_inference):
+    undisposed_core = valid_story_bible_payload()
+    undisposed_core["facts"].append(
+        {
+            **fact_base(
+                identifier("fact", "4"),
+                importance="core",
+                canon_status="contested",
+            ),
+            "kind": "character_fact",
+            "character_id": identifier("ent", "1"),
+            "attribute": "尚待确认的身份",
+            "value": "记者",
+            "validity": None,
+        }
+    )
+    undisposed_report = policy.evaluate(undisposed_core)
+    assert undisposed_report["ready"] is False
+    assert "undisposed_core_fact" in undisposed_report["blocking"]
+
+    contested_inference = valid_story_bible_payload()
+    contested_inference["facts"].append(
+        {
+            **fact_base(
+                identifier("fact", "4"),
+                importance="supporting",
+                origin="ai_inference",
+                canon_status="contested",
+            ),
+            "kind": "character_fact",
+            "character_id": identifier("ent", "1"),
+            "attribute": "推测职业",
+            "value": "记者",
+            "validity": None,
+        }
+    )
+    contested_inference_report = policy.evaluate(contested_inference)
+    assert contested_inference_report["ready"] is False
+    assert "unreviewed_ai_inference" in contested_inference_report["blocking"]
+
+    for content in (
+        blocking_question,
+        unresolved_conflict,
+        unreviewed_inference,
+        undisposed_core,
+        contested_inference,
+    ):
         project, artifact = create_reviewable_artifact(repository, content=content)
         with pytest.raises(GateNotReadyError):
             repository.prepare_review_action(

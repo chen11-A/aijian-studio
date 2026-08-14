@@ -61,9 +61,9 @@ def _parse_story_bible(content: dict[str, object]) -> StoryBibleContentV1 | None
 
 def _story_bible_readiness(content: dict[str, object]) -> dict[str, object]:
     story = _parse_story_bible(content)
-    if story is not None:
-        return _typed_story_bible_readiness(story)
-    return _untyped_story_bible_readiness(content)
+    if story is None:
+        return {"ready": False, "blocking": ["invalid_story_bible_schema"]}
+    return _typed_story_bible_readiness(story)
 
 
 def _typed_story_bible_readiness(story: StoryBibleContentV1) -> dict[str, object]:
@@ -74,10 +74,11 @@ def _typed_story_bible_readiness(story: StoryBibleContentV1) -> dict[str, object
         blocking.append("missing_logline")
     if not any(entity.kind == "character" for entity in story.entities):
         blocking.append("missing_core_character")
-    if not any(
-        fact.importance == "core" and fact.canon_status == "confirmed" for fact in story.facts
-    ):
+    core_facts = [fact for fact in story.facts if fact.importance == "core"]
+    if not any(fact.canon_status == "confirmed" for fact in core_facts):
         blocking.append("missing_confirmed_core_fact")
+    if any(fact.canon_status not in {"confirmed", "rejected"} for fact in core_facts):
+        blocking.append("undisposed_core_fact")
     if any(question.blocking and question.status == "open" for question in story.questions):
         blocking.append("unresolved_blocking_question")
     facts_by_id = {fact.fact_id: fact for fact in story.facts}
@@ -88,67 +89,6 @@ def _typed_story_bible_readiness(story: StoryBibleContentV1) -> dict[str, object
     ):
         blocking.append("unresolved_core_conflict")
     if any(_unreviewed_core_or_supporting_inference(fact) for fact in story.facts):
-        blocking.append("unreviewed_ai_inference")
-    return {"ready": not blocking, "blocking": blocking}
-
-
-def _untyped_story_bible_readiness(content: dict[str, object]) -> dict[str, object]:
-    blocking: list[str] = []
-    if not isinstance(content.get("title"), str) or not str(content["title"]).strip():
-        blocking.append("missing_title")
-    if not isinstance(content.get("logline"), str) or not str(content["logline"]).strip():
-        blocking.append("missing_logline")
-    entities = content.get("entities")
-    if not isinstance(entities, list) or not any(
-        isinstance(entity, dict) and entity.get("kind") == "character" for entity in entities
-    ):
-        blocking.append("missing_core_character")
-    facts = content.get("facts")
-    fact_importance: dict[str, str] = {}
-    unreviewed_inference = False
-    if isinstance(facts, list):
-        confirmed_core_fact = False
-        for fact in facts:
-            if not isinstance(fact, dict):
-                continue
-            fact_id = fact.get("fact_id")
-            importance = fact.get("importance")
-            if isinstance(fact_id, str) and isinstance(importance, str):
-                fact_importance[fact_id] = importance
-            if importance == "core" and fact.get("canon_status") == "confirmed":
-                confirmed_core_fact = True
-            if (
-                fact.get("origin") == "ai_inference"
-                and importance in {"core", "supporting"}
-                and fact.get("canon_status") == "proposed"
-            ):
-                unreviewed_inference = True
-        if not confirmed_core_fact:
-            blocking.append("missing_confirmed_core_fact")
-    else:
-        blocking.append("missing_confirmed_core_fact")
-    questions = content.get("questions")
-    if isinstance(questions, list) and any(
-        isinstance(question, dict)
-        and question.get("blocking") is True
-        and question.get("status") == "open"
-        for question in questions
-    ):
-        blocking.append("unresolved_blocking_question")
-    conflicts = content.get("conflicts")
-    if isinstance(conflicts, list) and any(
-        isinstance(conflict, dict)
-        and conflict.get("status") == "unresolved"
-        and isinstance(conflict.get("fact_ids"), list)
-        and any(
-            fact_importance.get(fact_id) == "core"
-            for fact_id in conflict["fact_ids"]
-            if isinstance(fact_id, str)
-        )
-        for conflict in conflicts
-    ):
-        blocking.append("unresolved_core_conflict")
-    if unreviewed_inference:
         blocking.append("unreviewed_ai_inference")
     return {"ready": not blocking, "blocking": blocking}
 
@@ -166,7 +106,7 @@ def _unreviewed_core_or_supporting_inference(fact: StoryFactV1) -> bool:
     return (
         fact.origin == "ai_inference"
         and fact.importance in {"core", "supporting"}
-        and fact.canon_status == "proposed"
+        and fact.canon_status not in {"confirmed", "rejected"}
     )
 
 
@@ -196,8 +136,8 @@ DEFAULT_GATE_POLICIES: Mapping[str, GatePolicy] = {
         artifact_type="story_bible",
         gate="G2",
         policy_code="g2.story-bible",
-        policy_version="1",
-        readiness_contract_hash=canonical_content_hash({"contract": "story-bible-readiness-v1"}),
+        policy_version="2",
+        readiness_contract_hash=canonical_content_hash({"contract": "story-bible-readiness-v2"}),
         required_roles=("writer", "continuity_reviewer", "producer"),
         decision_roles=("producer",),
         submit_roles=("writer", "producer"),

@@ -2,16 +2,18 @@
 
 import re
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Header, Request, Response
+from fastapi import APIRouter, Header, Path, Request, Response
 
 from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
 )
 from aijian_api.contracts import (
+    PROJECT_ID_PATTERN,
+    VERSION_ID_PATTERN,
     ArtifactHeadData,
     ConfirmationChallengeData,
     ConfirmationRequest,
@@ -41,6 +43,8 @@ from aijian_api.domain import (
 from aijian_api.repository import StudioRepository
 
 type RepositoryProvider = Callable[[], StudioRepository]
+type ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
+type VersionIdPath = Annotated[str, Path(pattern=VERSION_ID_PATTERN)]
 
 G2_SIGNOFF_ROLES = ("writer", "continuity_reviewer", "producer")
 G2_DECISION_ROLE = "producer"
@@ -114,8 +118,8 @@ def create_story_bible_internal_router(
     def prepare_submit(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         _payload: EmptyActionRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> PreparedReviewActionResponse:
@@ -142,8 +146,8 @@ def create_story_bible_internal_router(
     def submit(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         payload: ConfirmationRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> ReviewSubmissionResponse:
@@ -169,8 +173,8 @@ def create_story_bible_internal_router(
     def prepare_signoff(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         _payload: EmptyActionRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> PreparedReviewActionResponse:
@@ -197,8 +201,8 @@ def create_story_bible_internal_router(
     def signoff(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         payload: ConfirmationRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> ReviewSignoffResponse:
@@ -225,8 +229,8 @@ def create_story_bible_internal_router(
     def prepare_decision(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         payload: PrepareGateDecisionRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> PreparedReviewActionResponse:
@@ -258,8 +262,8 @@ def create_story_bible_internal_router(
     def decide(
         request: Request,
         response: Response,
-        project_id: str,
-        version_id: str,
+        project_id: ProjectIdPath,
+        version_id: VersionIdPath,
         payload: GateDecisionRequest,
         if_match: str | None = Header(default=None, alias="If-Match"),
     ) -> GateDecisionResponse:

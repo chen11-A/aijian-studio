@@ -159,6 +159,29 @@ def test_internal_g2_routes_absent_without_sidecar_and_authenticated_when_enable
 
 
 @pytest.mark.parametrize(
+    ("project_id", "version_id"),
+    [
+        ("project", "ver_" + "1" * 32),
+        ("prj_" + "1" * 32, "version"),
+    ],
+)
+def test_g2_route_rejects_malformed_resource_ids(
+    tmp_path: Path,
+    project_id: str,
+    version_id: str,
+) -> None:
+    client = protected_client(StudioRepository(tmp_path / "workspace.db"))
+
+    response = client.post(
+        f"{g2_base(project_id, version_id)}:prepare-submit",
+        headers={"If-Match": '"revision-1"'},
+        json={},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
     "path_suffix",
     [
         ":prepare-submit",
