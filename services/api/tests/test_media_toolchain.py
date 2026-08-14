@@ -9,6 +9,7 @@ from aijian_api.media_toolchain import (
     MediaToolchainError,
     MediaToolchainErrorCode,
     MediaToolchainLockData,
+    assert_media_toolchain_release_packaging_allowed,
     discover_media_toolchain,
     load_media_toolchain_lock,
 )
@@ -33,7 +34,7 @@ def _lock_for(
     ffprobe: Path,
     *,
     license_class: str = "GPL",
-    distribution_status: str = "DEVELOPMENT_ONLY",
+    distribution_status: str = "DEV_GPL",
 ) -> MediaToolchainLockData:
     return MediaToolchainLockData.model_validate(
         {
@@ -82,7 +83,7 @@ def test_repository_lock_identifies_the_current_development_profile() -> None:
     assert lock.expected_version == "8.1.2"
     assert lock.profiles[0].profile_id == "windows-x86_64-gyan-full-8.1.2-dev"
     assert lock.profiles[0].license_class == "GPL"
-    assert lock.profiles[0].distribution_status == "DEVELOPMENT_ONLY"
+    assert lock.profiles[0].distribution_status == "DEV_GPL"
 
 
 def test_discovery_accepts_only_the_exact_locked_tool_pair(tmp_path: Path) -> None:
@@ -100,7 +101,7 @@ def test_discovery_accepts_only_the_exact_locked_tool_pair(tmp_path: Path) -> No
     assert toolchain.ffmpeg_path == ffmpeg.resolve()
     assert toolchain.ffprobe_path == ffprobe.resolve()
     assert toolchain.license_class == "GPL"
-    assert toolchain.distribution_status == "DEVELOPMENT_ONLY"
+    assert toolchain.distribution_status == "DEV_GPL"
     assert "--enable-gpl" in toolchain.configuration_flags
 
 
@@ -256,7 +257,7 @@ def test_discovery_rejects_a_license_profile_mismatch(tmp_path: Path) -> None:
         ffmpeg,
         ffprobe,
         license_class="LGPL",
-        distribution_status="RELEASE_REVIEW_REQUIRED",
+        distribution_status="RELEASE_LGPL_REVIEWED",
     )
 
     with pytest.raises(MediaToolchainError) as error:
@@ -272,11 +273,11 @@ def test_discovery_rejects_a_license_profile_mismatch(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("license_class", "distribution_status", "configuration"),
     [
-        ("LGPL", "RELEASE_REVIEW_REQUIRED", "--disable-gpl --enable-libvpx"),
-        ("NONFREE", "DEVELOPMENT_ONLY", "--enable-gpl --enable-nonfree"),
+        ("LGPL", "RELEASE_LGPL_REVIEWED", "--disable-gpl --enable-libvpx"),
+        ("GPL", "DEV_GPL", "--enable-gpl --enable-version3"),
     ],
 )
-def test_discovery_classifies_lgpl_and_nonfree_profiles(
+def test_discovery_classifies_development_and_release_profiles(
     tmp_path: Path,
     license_class: str,
     distribution_status: str,
@@ -426,9 +427,41 @@ def test_lock_rejects_duplicate_profiles_and_gpl_release_claims(tmp_path: Path) 
         MediaToolchainLockData.model_validate(valid)
 
     invalid_release = _lock_for(ffmpeg, ffprobe).model_dump(mode="json")
-    invalid_release["profiles"][0]["distribution_status"] = "RELEASE_REVIEW_REQUIRED"
-    with pytest.raises(ValidationError, match="GPL and nonfree profiles are development-only"):
+    invalid_release["profiles"][0]["distribution_status"] = "RELEASE_LGPL_REVIEWED"
+    with pytest.raises(ValidationError, match="release-reviewed profiles must be LGPL builds"):
         MediaToolchainLockData.model_validate(invalid_release)
+
+
+def test_release_packaging_defaults_to_denied_for_the_current_dev_gpl_profile(
+    tmp_path: Path,
+) -> None:
+    ffmpeg, ffprobe = _write_fake_tools(tmp_path / "bin")
+    dev_toolchain = discover_media_toolchain(
+        _lock_for(ffmpeg, ffprobe),
+        explicit_root=ffmpeg.parent,
+        version_reader=_version_reader(),
+    )
+
+    with pytest.raises(MediaToolchainError) as error:
+        assert_media_toolchain_release_packaging_allowed(dev_toolchain)
+
+    assert error.value.code is MediaToolchainErrorCode.RELEASE_PACKAGING_BLOCKED
+
+
+def test_release_packaging_requires_a_reviewed_lgpl_profile(tmp_path: Path) -> None:
+    ffmpeg, ffprobe = _write_fake_tools(tmp_path / "bin")
+    release_toolchain = discover_media_toolchain(
+        _lock_for(
+            ffmpeg,
+            ffprobe,
+            license_class="LGPL",
+            distribution_status="RELEASE_LGPL_REVIEWED",
+        ),
+        explicit_root=ffmpeg.parent,
+        version_reader=_version_reader(configuration="--disable-gpl --enable-libvpx"),
+    )
+
+    assert_media_toolchain_release_packaging_allowed(release_toolchain)
 
 
 def test_lock_loader_rejects_oversized_or_invalid_json(tmp_path: Path) -> None:

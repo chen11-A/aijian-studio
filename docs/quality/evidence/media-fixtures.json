@@ -1,6 +1,6 @@
 {
   "check": "phase0-golden-media-fixtures",
-  "distributionStatus": "DEVELOPMENT_ONLY",
+  "distributionStatus": "DEV_GPL",
   "externalMediaOrNetworkUsed": false,
   "ffmpegSha256": "sha256:ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e",
   "ffprobeSha256": "sha256:9df3b0b5275e830961df6d94e1f7a71121a7abd5ff708e9fec8a0b6084a55015",

@@ -36,6 +36,7 @@ class MediaToolchainErrorCode(StrEnum):
     CONFIGURATION_MISMATCH = "CONFIGURATION_MISMATCH"
     LICENSE_MISMATCH = "LICENSE_MISMATCH"
     LOCK_INVALID = "LOCK_INVALID"
+    RELEASE_PACKAGING_BLOCKED = "RELEASE_PACKAGING_BLOCKED"
 
 
 class MediaToolchainError(RuntimeError):
@@ -55,12 +56,14 @@ class MediaToolchainProfileData(BaseModel):
     source_url: Annotated[str, Field(pattern=r"^https://[^\s]+$")]
     license_class: Literal["LGPL", "GPL", "NONFREE"]
     spdx_license: Annotated[str, Field(min_length=3, max_length=80)]
-    distribution_status: Literal["DEVELOPMENT_ONLY", "RELEASE_REVIEW_REQUIRED"]
+    distribution_status: Literal["DEV_GPL", "RELEASE_LGPL_REVIEWED"]
 
     @model_validator(mode="after")
-    def prevent_gpl_or_nonfree_release_claims(self) -> Self:
-        if self.license_class != "LGPL" and self.distribution_status != "DEVELOPMENT_ONLY":
-            raise ValueError("GPL and nonfree profiles are development-only")
+    def separate_development_and_release_semantics(self) -> Self:
+        if self.distribution_status == "DEV_GPL" and self.license_class != "GPL":
+            raise ValueError("DEV_GPL profiles must be GPL development builds")
+        if self.distribution_status == "RELEASE_LGPL_REVIEWED" and self.license_class != "LGPL":
+            raise ValueError("release-reviewed profiles must be LGPL builds")
         return self
 
 
@@ -91,7 +94,7 @@ class MediaToolchain:
     configuration_flags: tuple[str, ...]
     license_class: Literal["LGPL", "GPL", "NONFREE"]
     spdx_license: str
-    distribution_status: Literal["DEVELOPMENT_ONLY", "RELEASE_REVIEW_REQUIRED"]
+    distribution_status: Literal["DEV_GPL", "RELEASE_LGPL_REVIEWED"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,3 +327,16 @@ def discover_media_toolchain(
         spdx_license=profile.spdx_license,
         distribution_status=profile.distribution_status,
     )
+
+
+def assert_media_toolchain_release_packaging_allowed(toolchain: MediaToolchain) -> None:
+    """Default-deny release packaging unless an LGPL profile has completed review."""
+
+    if (
+        toolchain.license_class != "LGPL"
+        or toolchain.distribution_status != "RELEASE_LGPL_REVIEWED"
+    ):
+        raise MediaToolchainError(
+            MediaToolchainErrorCode.RELEASE_PACKAGING_BLOCKED,
+            "media toolchain cannot be bundled in a release without LGPL review evidence",
+        )

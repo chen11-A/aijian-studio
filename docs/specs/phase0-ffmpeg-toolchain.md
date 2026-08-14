@@ -14,7 +14,8 @@ M02 把“机器上可能装了 FFmpeg”升级为可审计、可重复、默认
 
 ## 已确认假设
 
-- M02 基线锁定 FFmpeg/ffprobe `8.1.2`。FFmpeg 官方下载页将其列为 8.1 分支当前稳定版：
+- M02 仓库可重复基线锁定 FFmpeg/ffprobe `8.1.2`。该版本只作为本仓库锁文件和证据的可重复基线，
+  不声明为今天的 FFmpeg 当前稳定版。历史下载来源记录为：
   <https://ffmpeg.org/download.html>。
 - 本机 Gyan full build 启用了 `--enable-gpl --enable-version3`。它只用于开发和证据生成，
   不进入安装包，也不获得“可随 Apache-2.0 应用分发”的状态。
@@ -30,7 +31,7 @@ M02 把“机器上可能装了 FFmpeg”升级为可审计、可重复、默认
 
 - profile ID、FFmpeg 基础版本、`ffmpeg`/`ffprobe` SHA-256；
 - 构建来源、configure 许可分类和发行状态；
-- `DEVELOPMENT_ONLY` 或 `RELEASE_REVIEW_REQUIRED`，没有自动 `RELEASE_APPROVED` 状态。
+- `DEV_GPL` 或未来 `RELEASE_LGPL_REVIEWED`，没有自动 `RELEASE_APPROVED` 状态。
 
 发现流程：
 

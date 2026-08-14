@@ -9,7 +9,7 @@
       "source_url": "https://www.gyan.dev/ffmpeg/builds/",
       "license_class": "GPL",
       "spdx_license": "GPL-3.0-or-later",
-      "distribution_status": "DEVELOPMENT_ONLY"
+      "distribution_status": "DEV_GPL"
     }
   ]
 }
