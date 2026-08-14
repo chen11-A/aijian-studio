@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -6,8 +7,15 @@ from threading import Event
 from time import sleep
 
 import pytest
+from aijian_api.fault_injection import (
+    FaultInjector,
+    InjectedProcessCrash,
+    KillPoint,
+    deterministic_kill_point,
+)
 from aijian_api.local_executor import LocalExecutor
 from aijian_api.repository import StudioRepository
+from aijian_api.subprocess_supervisor import HeartbeatCallback
 from aijian_api.task_ledger import ClaimedTask, LeaseLostError, LocalTaskLedger, QueuedTask
 
 NOW = datetime(2026, 8, 4, 9, 30, tzinfo=UTC)
@@ -248,16 +256,14 @@ def test_executor_crash_is_recovered_without_reusing_attempt_identity(tmp_path: 
     clock = [NOW]
     _repository, ledger, queued, _project_id = setup_execution(database, clock)
 
-    def crash(_claim: ClaimedTask) -> str:
-        raise RuntimeError("injected worker crash")
-
     executor = LocalExecutor(
         ledger,
         worker_id="worker-crash",
         lease_duration=timedelta(seconds=30),
-        handler=crash,
+        handler=lambda _claim: "ver_unused",
+        fault_injector=FaultInjector(KillPoint.AFTER_MARK_RUNNING),
     )
-    with pytest.raises(RuntimeError, match="injected worker crash"):
+    with pytest.raises(InjectedProcessCrash, match="after_mark_running"):
         executor.run_once()
 
     clock[0] = NOW + timedelta(seconds=31)
@@ -270,6 +276,64 @@ def test_executor_crash_is_recovered_without_reusing_attempt_identity(tmp_path: 
     assert attempts[0] == (queued.attempt_id, "FAILED")
     assert attempts[1][0] != queued.attempt_id
     assert attempts[1][1] == "READY"
+
+
+def test_handler_failure_is_closed_and_requeued_immediately(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+
+    def fail(_claim: ClaimedTask) -> str:
+        raise ValueError("handler rejected input")
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-fail",
+        lease_duration=timedelta(seconds=30),
+        handler=fail,
+    )
+
+    with pytest.raises(ValueError, match="handler rejected input"):
+        executor.run_once()
+
+    with sqlite3.connect(database) as connection:
+        attempts = connection.execute(
+            "SELECT attempt_id, status, retry_disposition, error_code "
+            "FROM workflow_attempts ORDER BY attempt_number"
+        ).fetchall()
+        node = connection.execute(
+            "SELECT status, attempt_count, active_attempt_id FROM workflow_node_runs"
+        ).fetchone()
+    assert attempts[0] == (queued.attempt_id, "FAILED", "SAFE_LOCAL_RETRY", "ValueError")
+    assert attempts[1][1:] == ("READY", None, None)
+    assert node == ("PENDING", 1, None)
+
+
+def test_cancelled_local_claim_is_terminal_and_fenced(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    _repository, ledger, queued, _project_id = setup_execution(database, clock)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-cancel",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    running = ledger.mark_attempt_running(claim)
+
+    ledger.cancel_local_task(running)
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (queued.task_id,)
+        ).fetchone() == ("CANCELLED",)
+        assert connection.execute(
+            "SELECT status FROM workflow_attempts WHERE attempt_id = ?", (queued.attempt_id,)
+        ).fetchone() == ("CANCELLED",)
+        assert connection.execute(
+            "SELECT status FROM workflow_node_runs WHERE node_run_id = ?", (queued.node_run_id,)
+        ).fetchone() == ("CANCELLED",)
+    with pytest.raises(LeaseLostError):
+        ledger.heartbeat(running, lease_duration=timedelta(seconds=30))
 
 
 def test_expired_attempt_with_committed_output_is_reconciled_without_regeneration(
@@ -306,6 +370,40 @@ def test_expired_attempt_with_committed_output_is_reconciled_without_regeneratio
         ).fetchone() == ("SUCCEEDED", output_version_id)
 
 
+def test_handler_failure_after_committed_output_completes_without_retry(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, queued, project_id = setup_execution(database, clock)
+
+    def commit_then_fail(claim: ClaimedTask) -> str:
+        create_output(
+            repository,
+            project_id=project_id,
+            producer_attempt_id=claim.attempt_id,
+        )
+        raise RuntimeError("lost after artifact commit")
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-output",
+        lease_duration=timedelta(seconds=30),
+        handler=commit_then_fail,
+    )
+
+    with pytest.raises(RuntimeError, match="lost after artifact"):
+        executor.run_once()
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
+        assert (
+            connection.execute(
+                "SELECT status, output_version_id FROM workflow_attempts WHERE attempt_id = ?",
+                (queued.attempt_id,),
+            ).fetchone()[0]
+            == "SUCCEEDED"
+        )
+
+
 def test_executor_heartbeats_while_a_long_handler_is_running(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
     repository, ledger, _queued, project_id = setup_execution(
@@ -339,3 +437,121 @@ def test_executor_heartbeats_while_a_long_handler_is_running(tmp_path: Path) -> 
         assert summary.recovered == 0
         release.set()
         assert execution.result(timeout=2)
+
+
+@pytest.mark.parametrize("kill_point", tuple(KillPoint))
+def test_injected_kill_points_have_deterministic_recovery(
+    tmp_path: Path,
+    kill_point: KillPoint,
+) -> None:
+    database = tmp_path / f"workspace-{kill_point.value}.db"
+    clock = [NOW]
+    repository, ledger, queued, project_id = setup_execution(database, clock)
+
+    def handle(claim: ClaimedTask) -> str:
+        return create_output(
+            repository,
+            project_id=project_id,
+            producer_attempt_id=claim.attempt_id,
+        )
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-kill",
+        lease_duration=timedelta(seconds=30),
+        handler=handle,
+        fault_injector=FaultInjector(kill_point),
+    )
+
+    with pytest.raises(InjectedProcessCrash):
+        executor.run_once()
+
+    clock[0] = NOW + timedelta(seconds=31)
+    summary = ledger.recover_expired_local_tasks()
+    with sqlite3.connect(database) as connection:
+        attempts = connection.execute(
+            "SELECT status FROM workflow_attempts ORDER BY attempt_number"
+        ).fetchall()
+        node_status = connection.execute(
+            "SELECT status FROM workflow_node_runs WHERE node_run_id = ?",
+            (queued.node_run_id,),
+        ).fetchone()[0]
+
+    if kill_point in {
+        KillPoint.AFTER_HANDLER_OUTPUT,
+        KillPoint.BEFORE_COMPLETION,
+    }:
+        assert (summary.recovered, summary.succeeded, summary.requeued) == (1, 1, 0)
+        assert attempts == [("SUCCEEDED",)]
+        assert node_status == "SUCCEEDED"
+    elif kill_point == KillPoint.AFTER_COMPLETION:
+        assert summary.recovered == 0
+        assert attempts == [("SUCCEEDED",)]
+        assert node_status == "SUCCEEDED"
+    else:
+        assert (summary.recovered, summary.requeued) == (1, 1)
+        assert attempts == [("FAILED",), ("READY",)]
+        assert node_status == "PENDING"
+
+
+def test_fixed_seed_fault_gate_uses_a_stable_kill_point(tmp_path: Path) -> None:
+    kill_point = deterministic_kill_point(603)
+    assert kill_point in set(KillPoint)
+
+    database = tmp_path / "workspace.db"
+    clock = [NOW]
+    repository, ledger, _queued, project_id = setup_execution(database, clock)
+
+    class ProcessDouble:
+        def run(self, claim: ClaimedTask, heartbeat: HeartbeatCallback) -> str:
+            heartbeat(claim)
+            return create_output(
+                repository,
+                project_id=project_id,
+                producer_attempt_id=claim.attempt_id,
+            )
+
+    executor = LocalExecutor(
+        ledger,
+        worker_id="worker-seed",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(seconds=5),
+        handler=lambda _claim: "ver_unused",
+        supervisor=ProcessDouble(),
+        fault_injector=FaultInjector(kill_point),
+    )
+
+    with pytest.raises(InjectedProcessCrash):
+        executor.run_once()
+
+
+def test_fault_injection_x100_seed_skeleton(tmp_path: Path) -> None:
+    if os.environ.get("AIJIAN_FAULT_X100") != "1":
+        pytest.skip("set AIJIAN_FAULT_X100=1 to run the full fault-injection seed sweep")
+    for seed in range(100):
+        kill_point = deterministic_kill_point(seed)
+        database = tmp_path / f"workspace-{seed}.db"
+        clock = [NOW]
+        repository, ledger, _queued, project_id = setup_execution(database, clock)
+
+        def handle(
+            claim: ClaimedTask,
+            *,
+            repository: StudioRepository = repository,
+            project_id: str = project_id,
+        ) -> str:
+            return create_output(
+                repository,
+                project_id=project_id,
+                producer_attempt_id=claim.attempt_id,
+            )
+
+        executor = LocalExecutor(
+            ledger,
+            worker_id=f"worker-seed-{seed}",
+            lease_duration=timedelta(seconds=30),
+            handler=handle,
+            fault_injector=FaultInjector(kill_point),
+        )
+        with pytest.raises(InjectedProcessCrash):
+            executor.run_once()

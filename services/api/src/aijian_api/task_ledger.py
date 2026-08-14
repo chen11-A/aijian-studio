@@ -7,7 +7,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from aijian_api.repository import StudioRepository
-from aijian_api.task_ledger_completion import complete_local_task
+from aijian_api.task_ledger_completion import (
+    cancel_local_task,
+    complete_local_task,
+    fail_local_task,
+)
 from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import (
@@ -318,6 +322,28 @@ class LocalTaskLedger:
         return complete_local_task(
             claim,
             output_version_id=output_version_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def fail_local_task(
+        self,
+        claim: ClaimedTask,
+        *,
+        error_code: str,
+    ) -> None:
+        fail_local_task(
+            claim,
+            error_code=error_code,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def cancel_local_task(self, claim: ClaimedTask) -> None:
+        cancel_local_task(
+            claim,
             connection_factory=self._open,
             clock=self._clock,
             id_factory=self._id_factory,

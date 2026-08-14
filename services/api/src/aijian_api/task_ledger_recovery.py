@@ -62,6 +62,8 @@ def recover_expired_local_tasks(
             else:
                 _fail_node(connection, row, now_text, id_factory)
                 failed += 1
+        remote_unknown = _quarantine_expired_remote_submissions(connection, now_text, id_factory)
+        recovered += remote_unknown
         connection.commit()
     except Exception:
         connection.rollback()
@@ -73,7 +75,129 @@ def recover_expired_local_tasks(
         succeeded=succeeded,
         requeued=requeued,
         failed=failed,
+        remote_unknown=remote_unknown,
     )
+
+
+def _quarantine_expired_remote_submissions(
+    connection: sqlite3.Connection,
+    now_text: str,
+    id_factory: Callable[[str], str],
+) -> int:
+    rows = connection.execute(
+        """
+        SELECT ledger.*, attempt.node_run_id, attempt.status AS attempt_status,
+               attempt.revision AS attempt_revision,
+               node.status AS node_status, node.revision AS node_revision
+        FROM task_ledger AS ledger
+        JOIN workflow_attempts AS attempt ON attempt.attempt_id = ledger.attempt_id
+        JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+        WHERE ledger.status = 'LEASED' AND ledger.lease_expires_at <= ?
+          AND attempt.execution_mode = 'remote'
+          AND attempt.status IN ('SUBMITTING', 'CANCEL_REQUESTED')
+          AND node.status = 'RUNNING' AND node.active_attempt_id = attempt.attempt_id
+        ORDER BY ledger.lease_expires_at, ledger.task_id
+        """,
+        (now_text,),
+    ).fetchall()
+    for row in rows:
+        _quarantine_remote_submission(connection, row, now_text, id_factory)
+    return len(rows)
+
+
+def _quarantine_remote_submission(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row,
+    now_text: str,
+    id_factory: Callable[[str], str],
+) -> None:
+    task = connection.execute(
+        """
+        UPDATE task_ledger
+        SET status = 'COMPLETED', revision = revision + 1, updated_at = ?
+        WHERE task_id = ? AND status = 'LEASED' AND revision = ?
+          AND lease_generation = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            str(row["task_id"]),
+            int(row["revision"]),
+            int(row["lease_generation"]),
+        ),
+    ).fetchone()
+    attempt = connection.execute(
+        """
+        UPDATE workflow_attempts
+        SET status = 'REMOTE_UNKNOWN', retry_disposition = 'REMOTE_UNKNOWN',
+            error_code = 'REMOTE_ACCEPTANCE_UNKNOWN', finished_at = ?,
+            revision = revision + 1, updated_at = ?
+        WHERE attempt_id = ? AND status = ? AND revision = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            now_text,
+            str(row["attempt_id"]),
+            str(row["attempt_status"]),
+            int(row["attempt_revision"]),
+        ),
+    ).fetchone()
+    node = connection.execute(
+        """
+        UPDATE workflow_node_runs
+        SET status = 'RECONCILIATION_REQUIRED',
+            revision = revision + 1, updated_at = ?
+        WHERE node_run_id = ? AND status = 'RUNNING'
+          AND active_attempt_id = ? AND revision = ?
+        RETURNING revision
+        """,
+        (
+            now_text,
+            str(row["node_run_id"]),
+            str(row["attempt_id"]),
+            int(row["node_revision"]),
+        ),
+    ).fetchone()
+    if task is None or attempt is None or node is None:
+        raise LeaseLostError("remote submission changed during quarantine")
+    generation = int(row["lease_generation"])
+    events: tuple[tuple[EventEntityKind, str, str, str, str], ...] = (
+        (
+            "task",
+            str(row["task_id"]),
+            "LEASED",
+            "COMPLETED",
+            "remote.acceptance_unknown",
+        ),
+        (
+            "attempt",
+            str(row["attempt_id"]),
+            str(row["attempt_status"]),
+            "REMOTE_UNKNOWN",
+            "remote.acceptance_unknown",
+        ),
+        (
+            "node",
+            str(row["node_run_id"]),
+            "RUNNING",
+            "RECONCILIATION_REQUIRED",
+            "remote.acceptance_unknown",
+        ),
+    )
+    for entity_kind, entity_id, from_status, to_status, reason_code in events:
+        append_event(
+            connection,
+            id_factory,
+            entity_kind,
+            entity_id,
+            from_status,
+            to_status,
+            reason_code,
+            now_text,
+            actor_id="local-recovery",
+            lease_generation=generation,
+        )
 
 
 def _committed_output(connection: sqlite3.Connection, row: sqlite3.Row) -> str | None:

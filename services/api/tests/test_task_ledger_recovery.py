@@ -107,7 +107,7 @@ def test_expired_final_attempt_fails_node_without_requeue(tmp_path: Path) -> Non
         assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
 
 
-def test_active_or_remote_leases_are_never_requeued_by_local_recovery(tmp_path: Path) -> None:
+def test_active_lease_is_not_requeued_by_local_recovery(tmp_path: Path) -> None:
     active_database = tmp_path / "active.db"
     active_clock = [NOW]
     active_ledger, _queued = setup_task(active_database, active_clock)
@@ -118,6 +118,8 @@ def test_active_or_remote_leases_are_never_requeued_by_local_recovery(tmp_path: 
     active_clock[0] = NOW + timedelta(seconds=10)
     assert active_ledger.recover_expired_local_tasks().recovered == 0
 
+
+def test_expired_remote_submission_is_quarantined_remote_unknown(tmp_path: Path) -> None:
     remote_database = tmp_path / "remote.db"
     remote_clock = [NOW]
     remote_ledger, remote = setup_task(remote_database, remote_clock)
@@ -153,11 +155,22 @@ def test_active_or_remote_leases_are_never_requeued_by_local_recovery(tmp_path: 
         connection.commit()
 
     remote_clock[0] = NOW + timedelta(seconds=1)
-    assert remote_ledger.recover_expired_local_tasks().recovered == 0
+    summary = remote_ledger.recover_expired_local_tasks()
+
+    assert (summary.recovered, summary.remote_unknown, summary.requeued) == (1, 1, 0)
     with sqlite3.connect(remote_database) as connection:
         assert connection.execute(
-            "SELECT status FROM workflow_attempts WHERE attempt_id = ?", (remote.attempt_id,)
-        ).fetchone() == ("SUBMITTING",)
+            "SELECT status, retry_disposition FROM workflow_attempts WHERE attempt_id = ?",
+            (remote.attempt_id,),
+        ).fetchone() == ("REMOTE_UNKNOWN", "REMOTE_UNKNOWN")
+        assert connection.execute(
+            "SELECT status FROM workflow_node_runs WHERE node_run_id = ?",
+            (remote.node_run_id,),
+        ).fetchone() == ("RECONCILIATION_REQUIRED",)
+        assert connection.execute("SELECT COUNT(*) FROM workflow_attempts").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (remote.task_id,)
+        ).fetchone() == ("COMPLETED",)
 
 
 def test_recovery_rolls_back_if_attempt_changes_inside_transaction(tmp_path: Path) -> None:

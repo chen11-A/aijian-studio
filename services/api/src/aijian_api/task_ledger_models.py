@@ -42,6 +42,7 @@ class RecoverySummary:
     succeeded: int
     requeued: int
     failed: int
+    remote_unknown: int = 0
 
 
 @dataclass(frozen=True, slots=True)
