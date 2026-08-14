@@ -1954,6 +1954,12 @@ class StudioRepository:
                 )
                 if int(head_row["revision"]) != expected_revision:
                     raise ArtifactConflictError("Artifact head revision has changed")
+                self._require_current_blocking_g1(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
                 if (
                     action in ("signoff", "decision")
                     and not policy.allow_self_review
@@ -2123,6 +2129,12 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                self._require_current_blocking_g1(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
                 report = self._consume_challenge(
                     connection,
                     challenge_id=challenge_id,
@@ -2217,6 +2229,12 @@ class StudioRepository:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                self._require_current_blocking_g1(
                     connection,
                     project_id=project_id,
                     artifact_type=artifact_type,
@@ -2333,6 +2351,12 @@ class StudioRepository:
             connection.execute("BEGIN IMMEDIATE")
             try:
                 version_row, head_row = self._review_context(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=artifact_type,
+                    version_id=version_id,
+                )
+                self._require_current_blocking_g1(
                     connection,
                     project_id=project_id,
                     artifact_type=artifact_type,
@@ -2478,6 +2502,53 @@ class StudioRepository:
         if head_row is None:
             raise ReviewInvalidError("Artifact head was not found")
         return version_row, head_row
+
+    def _require_current_blocking_g1(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        artifact_type: str,
+        version_id: str,
+    ) -> None:
+        if artifact_type != "story_bible":
+            return
+        blocking_rows = connection.execute(
+            """
+            SELECT upstream_version_id
+            FROM artifact_dependencies
+            WHERE downstream_version_id = ?
+                AND relationship = 'derived_from'
+                AND impact = 'blocking'
+            """,
+            (version_id,),
+        ).fetchall()
+        if not blocking_rows:
+            raise ArtifactDependencyInvalidError(
+                "StoryBible requires an exact accepted SourceManifest dependency"
+            )
+        for row in blocking_rows:
+            accepted_upstream = connection.execute(
+                """
+                SELECT artifacts.artifact_type, artifact_heads.accepted_version_id
+                FROM artifact_versions
+                JOIN artifacts
+                    ON artifacts.artifact_id = artifact_versions.artifact_id
+                JOIN artifact_heads
+                    ON artifact_heads.artifact_id = artifacts.artifact_id
+                WHERE artifacts.project_id = ?
+                    AND artifact_versions.version_id = ?
+                """,
+                (project_id, str(row["upstream_version_id"])),
+            ).fetchone()
+            if (
+                accepted_upstream is None
+                or str(accepted_upstream["artifact_type"]) != "source_manifest"
+                or accepted_upstream["accepted_version_id"] != str(row["upstream_version_id"])
+            ):
+                raise ArtifactDependencyInvalidError(
+                    "StoryBible requires an exact accepted SourceManifest dependency"
+                )
 
     def _consume_challenge(
         self,

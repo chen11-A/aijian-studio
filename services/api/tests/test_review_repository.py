@@ -12,6 +12,7 @@ from aijian_api.domain import (
     TrustedReviewActor,
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
+from aijian_api.ingestion import ingest_text_file
 from aijian_api.repository import (
     ArtifactDependencyInvalidError,
     GateNotReadyError,
@@ -60,29 +61,35 @@ def create_review_repository(database: Path, clock: MutableClock) -> StudioRepos
     )
 
 
-def create_reviewable_artifact(repository: StudioRepository, *, ready: bool = True):
+def create_reviewable_artifact(
+    repository: StudioRepository,
+    *,
+    ready: bool = True,
+    content: dict[str, object] | None = None,
+):
     project = repository.create_project(
         name="雾城来信",
         aspect_ratio="9:16",
         target_duration_seconds=90,
         source_language="zh-CN",
     )
-    content: dict[str, object] = (
-        {
-            "title": "雾城",
-            "logline": "她循着一封无名信追查旧车站的秘密。",
-            "entities": [{"kind": "character", "name": "林岚"}],
-            "facts": [
-                {
-                    "importance": "core",
-                    "canon_status": "confirmed",
-                    "kind": "event_fact",
-                }
-            ],
-        }
-        if ready
-        else {"title": "", "logline": "", "entities": [], "facts": []}
-    )
+    if content is None:
+        content = (
+            {
+                "title": "雾城",
+                "logline": "她循着一封无名信追查旧车站的秘密。",
+                "entities": [{"kind": "character", "name": "林岚"}],
+                "facts": [
+                    {
+                        "importance": "core",
+                        "canon_status": "confirmed",
+                        "kind": "event_fact",
+                    }
+                ],
+            }
+            if ready
+            else {"title": "", "logline": "", "entities": [], "facts": []}
+        )
     source_manifest = repository.create_artifact_version(
         project_id=project.id,
         artifact_type="source_manifest",
@@ -1014,3 +1021,175 @@ def test_review_failure_injection_rolls_back_challenge_rows_and_heads(tmp_path: 
         actor_role="producer",
     )
     assert approved.head.accepted_version_id == artifact.version.id
+
+
+def _challenge_consumed(database: Path, challenge_id: str) -> bool:
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            "SELECT consumed_at FROM confirmation_challenges WHERE challenge_id = ?",
+            (challenge_id,),
+        ).fetchone()
+    return row is not None and row[0] is not None
+
+
+def _review_row_counts(database: Path, version_id: str) -> tuple[int, int, int]:
+    with sqlite3.connect(database) as connection:
+        submissions = connection.execute(
+            "SELECT COUNT(*) FROM review_submissions WHERE version_id = ?",
+            (version_id,),
+        ).fetchone()[0]
+        signoffs = connection.execute(
+            "SELECT COUNT(*) FROM role_signoffs WHERE version_id = ?",
+            (version_id,),
+        ).fetchone()[0]
+        decisions = connection.execute(
+            "SELECT COUNT(*) FROM gate_decisions WHERE version_id = ?",
+            (version_id,),
+        ).fetchone()[0]
+    return int(submissions), int(signoffs), int(decisions)
+
+
+def _advance_accepted_source_manifest(repository: StudioRepository, project: Project):
+    repository.import_source(
+        project.id,
+        ingest_text_file(filename="第二章.txt", content="第二章\n旧站重逢".encode()),
+    )
+    latest = repository.get_latest_artifact(project.id, "source_manifest")
+    return approve_artifact(repository, project, latest, "source_manifest")
+
+
+def test_g2_readiness_rejects_blocking_questions_core_conflicts_and_unreviewed_inference(
+    tmp_path: Path,
+) -> None:
+    from test_story_bible import fact_base, identifier, valid_story_bible_payload
+
+    clock = MutableClock()
+    repository = create_review_repository(tmp_path / "workspace.db", clock)
+    policy = DEFAULT_GATE_POLICIES["story_bible"]
+    assert policy.evaluate(valid_story_bible_payload())["ready"] is True
+
+    blocking_question = valid_story_bible_payload()
+    blocking_question["questions"] = [
+        {
+            "question_id": identifier("qst", "1"),
+            "scope_type": "artifact",
+            "scope_id": None,
+            "question": "关键身份尚未确认",
+            "severity": "blocking",
+            "responsible_role": "writer",
+            "blocking": True,
+            "status": "open",
+            "resolution": None,
+        }
+    ]
+    question_report = policy.evaluate(blocking_question)
+    assert question_report["ready"] is False
+    assert "unresolved_blocking_question" in question_report["blocking"]
+
+    unresolved_conflict = valid_story_bible_payload()
+    unresolved_conflict["conflicts"] = [
+        {
+            "conflict_id": identifier("cfl", "1"),
+            "conflict_type": "identity",
+            "fact_ids": [identifier("fact", "1"), identifier("fact", "2")],
+            "severity": "major",
+            "responsible_role": "writer",
+            "status": "unresolved",
+            "resolution_reason": None,
+            "resolution_fact_id": None,
+        }
+    ]
+    conflict_report = policy.evaluate(unresolved_conflict)
+    assert conflict_report["ready"] is False
+    assert "unresolved_core_conflict" in conflict_report["blocking"]
+
+    unreviewed_inference = valid_story_bible_payload()
+    unreviewed_inference["facts"].append(
+        {
+            **fact_base(
+                identifier("fact", "4"),
+                importance="supporting",
+                origin="ai_inference",
+                canon_status="proposed",
+            ),
+            "kind": "character_fact",
+            "character_id": identifier("ent", "1"),
+            "attribute": "推测职业",
+            "value": "记者",
+            "validity": None,
+        }
+    )
+    inference_report = policy.evaluate(unreviewed_inference)
+    assert inference_report["ready"] is False
+    assert "unreviewed_ai_inference" in inference_report["blocking"]
+
+    for content in (blocking_question, unresolved_conflict, unreviewed_inference):
+        project, artifact = create_reviewable_artifact(repository, content=content)
+        with pytest.raises(GateNotReadyError):
+            repository.prepare_review_action(
+                project_id=project.id,
+                artifact_type="story_bible",
+                version_id=artifact.version.id,
+                action="submit",
+                action_payload={},
+                actor=LOCAL_ACTOR,
+                expected_revision=artifact.head.revision,
+            )
+        assert repository.get_artifact_head(project.id, "story_bible") == artifact.head
+
+
+def test_g2_prepare_and_action_require_current_accepted_g1(tmp_path: Path) -> None:
+    clock = MutableClock()
+    database = tmp_path / "workspace.db"
+    repository = create_review_repository(database, clock)
+    project, artifact = create_reviewable_artifact(repository)
+    _advance_accepted_source_manifest(repository, project)
+    story_head = repository.get_artifact_head(project.id, "story_bible")
+
+    with pytest.raises(ArtifactDependencyInvalidError):
+        repository.prepare_review_action(
+            project_id=project.id,
+            artifact_type="story_bible",
+            version_id=artifact.version.id,
+            action="submit",
+            action_payload={},
+            actor=LOCAL_ACTOR,
+            expected_revision=story_head.revision,
+        )
+    assert repository.get_artifact_head(project.id, "story_bible") == story_head
+    assert _review_row_counts(database, artifact.version.id) == (0, 0, 0)
+
+
+def test_g2_g1_advance_after_prepare_rolls_back_unconsumed_challenge(tmp_path: Path) -> None:
+    clock = MutableClock()
+    database = tmp_path / "workspace.db"
+    repository = create_review_repository(database, clock)
+    project, artifact = create_reviewable_artifact(repository)
+    prepared = repository.prepare_review_action(
+        project_id=project.id,
+        artifact_type="story_bible",
+        version_id=artifact.version.id,
+        action="submit",
+        action_payload={},
+        actor=LOCAL_ACTOR,
+        expected_revision=artifact.head.revision,
+    )
+    _advance_accepted_source_manifest(repository, project)
+
+    with pytest.raises(ArtifactDependencyInvalidError):
+        repository.submit_artifact_review(
+            project_id=project.id,
+            artifact_type="story_bible",
+            version_id=artifact.version.id,
+            expected_revision=artifact.head.revision,
+            challenge_id=prepared.challenge.id,
+            confirmation_token=prepared.confirmation_token,
+            actor=LOCAL_ACTOR,
+        )
+
+    head = repository.get_artifact_head(project.id, "story_bible")
+    assert head == artifact.head
+    assert head.review_version_id is None
+    assert head.accepted_version_id is None
+    assert _challenge_consumed(database, prepared.challenge.id) is False
+    assert _review_row_counts(database, artifact.version.id) == (0, 0, 0)

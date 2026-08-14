@@ -70,6 +70,7 @@ from aijian_api.source_manifest_routes import (
     create_source_manifest_public_router,
 )
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
+from aijian_api.story_bible_review_routes import create_story_bible_internal_router
 from aijian_api.story_bible_routes import create_story_bible_public_router
 from aijian_api.story_extract import StoryExtractService
 from aijian_api.story_extract_routes import create_story_extract_router
@@ -574,6 +575,7 @@ def create_app(
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
         )
+        app.include_router(create_story_bible_internal_router(get_repository, trusted_review_actor))
 
     return app
 
