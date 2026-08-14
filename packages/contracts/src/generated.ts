@@ -73,6 +73,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/invalidation-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Invalidation Operations */
+        get: operations["listProjectInvalidationOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/invalidation-operations/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project Invalidation Operation */
+        get: operations["getProjectInvalidationOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/source-manifest": {
         parameters: {
             query?: never;
@@ -809,6 +843,123 @@ export interface components {
              * @constant
              */
             media_type: "text/plain";
+        };
+        /**
+         * InvalidationAffectedVersionData
+         * @description Event-time projection for one affected exact artifact version.
+         */
+        InvalidationAffectedVersionData: {
+            /** Affected Artifact Id */
+            affected_artifact_id: string;
+            /** Affected Version Id */
+            affected_version_id: string;
+            /** General Blocked */
+            general_blocked: boolean;
+            /** General Stale */
+            general_stale: boolean;
+            /** Paths */
+            paths: components["schemas"]["InvalidationPathImpactData"][];
+            /** Render Blocked */
+            render_blocked: boolean;
+            /**
+             * Strongest Effective Impact
+             * @enum {string}
+             */
+            strongest_effective_impact: "blocking" | "render_only" | "advisory";
+        };
+        /**
+         * InvalidationImpactCountsData
+         * @description Independent path counts by event-time effective impact.
+         */
+        InvalidationImpactCountsData: {
+            /** Advisory */
+            advisory: number;
+            /** Blocking */
+            blocking: number;
+            /** Render Only */
+            render_only: number;
+        };
+        /** InvalidationOperationDetailData */
+        InvalidationOperationDetailData: {
+            /** Affected Versions */
+            affected_versions: components["schemas"]["InvalidationAffectedVersionData"][];
+            operation: components["schemas"]["InvalidationOperationSummaryData"];
+        };
+        /** InvalidationOperationDetailResponse */
+        InvalidationOperationDetailResponse: {
+            data: components["schemas"]["InvalidationOperationDetailData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** InvalidationOperationListData */
+        InvalidationOperationListData: {
+            /** Operations */
+            operations: components["schemas"]["InvalidationOperationSummaryData"][];
+            /** Project Id */
+            project_id: string;
+        };
+        /** InvalidationOperationListResponse */
+        InvalidationOperationListResponse: {
+            data: components["schemas"]["InvalidationOperationListData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /**
+         * InvalidationOperationSummaryData
+         * @description Project-scoped summary of one durable accepted-head replacement.
+         */
+        InvalidationOperationSummaryData: {
+            /** Affected Version Count */
+            affected_version_count: number;
+            /** Changed Artifact Id */
+            changed_artifact_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Gate Decision Id */
+            gate_decision_id: string;
+            impact_counts: components["schemas"]["InvalidationImpactCountsData"];
+            /** Independent Path Count */
+            independent_path_count: number;
+            /** New Accepted Version Id */
+            new_accepted_version_id: string;
+            /** Old Accepted Version Id */
+            old_accepted_version_id: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Project Id */
+            project_id: string;
+            /** Strongest Effective Impact */
+            strongest_effective_impact: ("blocking" | "render_only" | "advisory") | null;
+        };
+        /**
+         * InvalidationPathImpactData
+         * @description One independent reverse dependency path frozen at event time.
+         */
+        InvalidationPathImpactData: {
+            /** Dependency Path */
+            dependency_path: string[];
+            /**
+             * Effective Impact
+             * @enum {string}
+             */
+            effective_impact: "blocking" | "render_only" | "advisory";
+            /** Impact Id */
+            impact_id: string;
+            /** Path Impacts */
+            path_impacts: ("blocking" | "render_only" | "advisory")[];
+            /** Path Ordinal */
+            path_ordinal: number;
+            /** Path Relationships */
+            path_relationships: string[];
         };
         /** LocationEntityV1 */
         LocationEntityV1: {
@@ -2449,6 +2600,141 @@ export interface operations {
             };
             /** @description Project not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectInvalidationOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidationOperationListResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or invalidation operation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalidation ledger data is corrupt */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProjectInvalidationOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvalidationOperationDetailResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or invalidation operation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalidation ledger data is corrupt */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

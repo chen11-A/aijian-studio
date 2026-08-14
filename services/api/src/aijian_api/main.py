@@ -43,6 +43,8 @@ from aijian_api.credential_vault import (
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
+from aijian_api.invalidation_report import InvalidationLedgerCorruptError
+from aijian_api.invalidation_report_routes import create_invalidation_report_router
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
 from aijian_api.provider_connection_repository import (
     ProviderConnectionConflictError,
@@ -58,6 +60,7 @@ from aijian_api.repository import (
     ArtifactDependencyInvalidError,
     ArtifactNotFoundError,
     GateNotReadyError,
+    InvalidationNotFoundError,
     ProjectNotFoundError,
     ReviewInvalidError,
     SourceAlreadyImportedError,
@@ -217,6 +220,30 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code=code,
             message="The requested artifact was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationNotFoundError)
+    async def invalidation_not_found(
+        request: Request,
+        _error: InvalidationNotFoundError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="INVALIDATION_OPERATION_NOT_FOUND",
+            message="The requested invalidation operation was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationLedgerCorruptError)
+    async def invalidation_ledger_corrupt(
+        request: Request,
+        _error: InvalidationLedgerCorruptError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="INVALIDATION_LEDGER_CORRUPT",
+            message="The invalidation ledger data is corrupt or inconsistent",
             request_id=request_id(request),
         )
 
@@ -570,6 +597,7 @@ def create_app(
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_story_extract_router(get_story_extract_service))
     app.include_router(create_task_queue_router(get_task_queue_reader))
+    app.include_router(create_invalidation_report_router(get_repository))
     app.include_router(create_provider_connection_router(get_provider_connection_service))
     if sidecar_security is not None:
         app.include_router(

@@ -51,6 +51,8 @@ from aijian_api.domain import (
     GateDecisionValue,
     GateReadinessReport,
     InvalidationOperation,
+    InvalidationOperationReport,
+    InvalidationOperationSummary,
     InvalidationPathImpact,
     PreparedReviewAction,
     Project,
@@ -69,6 +71,13 @@ from aijian_api.domain import (
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
+from aijian_api.invalidation_report import (
+    InvalidationLedgerCorruptError as InvalidationLedgerCorruptError,
+)
+from aijian_api.invalidation_report import (
+    get_operation_report_on_connection,
+    list_operation_summaries_on_connection,
+)
 from aijian_api.invalidation_schema import MIGRATION_8
 from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.source_manifest import (
@@ -2608,6 +2617,35 @@ class StudioRepository:
         with self._connection() as connection:
             try:
                 return list_path_impacts_on_connection(
+                    connection,
+                    project_id=project_id,
+                    operation_id=operation_id,
+                )
+            except ProjectMissingError as error:
+                raise ProjectNotFoundError("Project was not found") from error
+
+    def list_invalidation_operation_summaries(
+        self,
+        project_id: str,
+    ) -> tuple[InvalidationOperationSummary, ...]:
+        with self._connection() as connection:
+            try:
+                return list_operation_summaries_on_connection(
+                    connection,
+                    project_id=project_id,
+                )
+            except ProjectMissingError as error:
+                raise ProjectNotFoundError("Project was not found") from error
+
+    def get_invalidation_operation_report(
+        self,
+        *,
+        project_id: str,
+        operation_id: str,
+    ) -> InvalidationOperationReport:
+        with self._connection() as connection:
+            try:
+                return get_operation_report_on_connection(
                     connection,
                     project_id=project_id,
                     operation_id=operation_id,

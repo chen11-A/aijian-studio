@@ -31,6 +31,8 @@ WORKFLOW_RUN_ID_PATTERN = r"^wfr_[0-9a-f]{32}$"
 NODE_RUN_ID_PATTERN = r"^node_[0-9a-f]{32}$"
 ATTEMPT_ID_PATTERN = r"^att_[0-9a-f]{32}$"
 TASK_ID_PATTERN = r"^task_[0-9a-f]{32}$"
+OPERATION_ID_PATTERN = r"^invop_[0-9a-f]{32}$"
+IMPACT_ID_PATTERN = r"^invimp_[0-9a-f]{32}$"
 
 
 class HealthData(BaseModel):
@@ -702,4 +704,87 @@ class StoryExtractTaskResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: StoryExtractTaskData
+    request_id: UUID
+
+
+class InvalidationImpactCountsData(BaseModel):
+    """Independent path counts by event-time effective impact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    blocking: int = Field(ge=0)
+    render_only: int = Field(ge=0)
+    advisory: int = Field(ge=0)
+
+
+class InvalidationOperationSummaryData(BaseModel):
+    """Project-scoped summary of one durable accepted-head replacement."""
+
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    operation_id: str = Field(pattern=OPERATION_ID_PATTERN)
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    changed_artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    old_accepted_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    new_accepted_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    gate_decision_id: str = Field(pattern=DECISION_ID_PATTERN)
+    created_at: datetime
+    affected_version_count: int = Field(ge=0)
+    independent_path_count: int = Field(ge=0)
+    impact_counts: InvalidationImpactCountsData
+    strongest_effective_impact: Literal["blocking", "render_only", "advisory"] | None
+
+
+class InvalidationOperationListData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    operations: list[InvalidationOperationSummaryData]
+
+
+class InvalidationOperationListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: InvalidationOperationListData
+    request_id: UUID
+
+
+class InvalidationPathImpactData(BaseModel):
+    """One independent reverse dependency path frozen at event time."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    impact_id: str = Field(pattern=IMPACT_ID_PATTERN)
+    path_ordinal: int = Field(ge=0)
+    dependency_path: list[str] = Field(min_length=1)
+    path_relationships: list[str] = Field(min_length=1)
+    path_impacts: list[Literal["blocking", "render_only", "advisory"]] = Field(min_length=1)
+    effective_impact: Literal["blocking", "render_only", "advisory"]
+
+
+class InvalidationAffectedVersionData(BaseModel):
+    """Event-time projection for one affected exact artifact version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    affected_artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    affected_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    strongest_effective_impact: Literal["blocking", "render_only", "advisory"]
+    general_stale: bool
+    general_blocked: bool
+    render_blocked: bool
+    paths: list[InvalidationPathImpactData]
+
+
+class InvalidationOperationDetailData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operation: InvalidationOperationSummaryData
+    affected_versions: list[InvalidationAffectedVersionData]
+
+
+class InvalidationOperationDetailResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: InvalidationOperationDetailData
     request_id: UUID

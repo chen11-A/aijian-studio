@@ -2024,6 +2024,320 @@
         "title": "ImportTextSourceRequest",
         "type": "object"
       },
+      "InvalidationAffectedVersionData": {
+        "additionalProperties": false,
+        "description": "Event-time projection for one affected exact artifact version.",
+        "properties": {
+          "affected_artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Affected Artifact Id",
+            "type": "string"
+          },
+          "affected_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Affected Version Id",
+            "type": "string"
+          },
+          "general_blocked": {
+            "title": "General Blocked",
+            "type": "boolean"
+          },
+          "general_stale": {
+            "title": "General Stale",
+            "type": "boolean"
+          },
+          "paths": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidationPathImpactData"
+            },
+            "title": "Paths",
+            "type": "array"
+          },
+          "render_blocked": {
+            "title": "Render Blocked",
+            "type": "boolean"
+          },
+          "strongest_effective_impact": {
+            "enum": [
+              "blocking",
+              "render_only",
+              "advisory"
+            ],
+            "title": "Strongest Effective Impact",
+            "type": "string"
+          }
+        },
+        "required": [
+          "affected_artifact_id",
+          "affected_version_id",
+          "strongest_effective_impact",
+          "general_stale",
+          "general_blocked",
+          "render_blocked",
+          "paths"
+        ],
+        "title": "InvalidationAffectedVersionData",
+        "type": "object"
+      },
+      "InvalidationImpactCountsData": {
+        "additionalProperties": false,
+        "description": "Independent path counts by event-time effective impact.",
+        "properties": {
+          "advisory": {
+            "minimum": 0.0,
+            "title": "Advisory",
+            "type": "integer"
+          },
+          "blocking": {
+            "minimum": 0.0,
+            "title": "Blocking",
+            "type": "integer"
+          },
+          "render_only": {
+            "minimum": 0.0,
+            "title": "Render Only",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "blocking",
+          "render_only",
+          "advisory"
+        ],
+        "title": "InvalidationImpactCountsData",
+        "type": "object"
+      },
+      "InvalidationOperationDetailData": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_versions": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidationAffectedVersionData"
+            },
+            "title": "Affected Versions",
+            "type": "array"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/InvalidationOperationSummaryData"
+          }
+        },
+        "required": [
+          "operation",
+          "affected_versions"
+        ],
+        "title": "InvalidationOperationDetailData",
+        "type": "object"
+      },
+      "InvalidationOperationDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/InvalidationOperationDetailData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "InvalidationOperationDetailResponse",
+        "type": "object"
+      },
+      "InvalidationOperationListData": {
+        "additionalProperties": false,
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidationOperationSummaryData"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "operations"
+        ],
+        "title": "InvalidationOperationListData",
+        "type": "object"
+      },
+      "InvalidationOperationListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/InvalidationOperationListData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "InvalidationOperationListResponse",
+        "type": "object"
+      },
+      "InvalidationOperationSummaryData": {
+        "additionalProperties": false,
+        "description": "Project-scoped summary of one durable accepted-head replacement.",
+        "properties": {
+          "affected_version_count": {
+            "minimum": 0.0,
+            "title": "Affected Version Count",
+            "type": "integer"
+          },
+          "changed_artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Changed Artifact Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "gate_decision_id": {
+            "pattern": "^dec_[0-9a-f]{32}$",
+            "title": "Gate Decision Id",
+            "type": "string"
+          },
+          "impact_counts": {
+            "$ref": "#/components/schemas/InvalidationImpactCountsData"
+          },
+          "independent_path_count": {
+            "minimum": 0.0,
+            "title": "Independent Path Count",
+            "type": "integer"
+          },
+          "new_accepted_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "New Accepted Version Id",
+            "type": "string"
+          },
+          "old_accepted_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Old Accepted Version Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "pattern": "^invop_[0-9a-f]{32}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "strongest_effective_impact": {
+            "anyOf": [
+              {
+                "enum": [
+                  "blocking",
+                  "render_only",
+                  "advisory"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strongest Effective Impact"
+          }
+        },
+        "required": [
+          "operation_id",
+          "project_id",
+          "changed_artifact_id",
+          "old_accepted_version_id",
+          "new_accepted_version_id",
+          "gate_decision_id",
+          "created_at",
+          "affected_version_count",
+          "independent_path_count",
+          "impact_counts",
+          "strongest_effective_impact"
+        ],
+        "title": "InvalidationOperationSummaryData",
+        "type": "object"
+      },
+      "InvalidationPathImpactData": {
+        "additionalProperties": false,
+        "description": "One independent reverse dependency path frozen at event time.",
+        "properties": {
+          "dependency_path": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Dependency Path",
+            "type": "array"
+          },
+          "effective_impact": {
+            "enum": [
+              "blocking",
+              "render_only",
+              "advisory"
+            ],
+            "title": "Effective Impact",
+            "type": "string"
+          },
+          "impact_id": {
+            "pattern": "^invimp_[0-9a-f]{32}$",
+            "title": "Impact Id",
+            "type": "string"
+          },
+          "path_impacts": {
+            "items": {
+              "enum": [
+                "blocking",
+                "render_only",
+                "advisory"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Path Impacts",
+            "type": "array"
+          },
+          "path_ordinal": {
+            "minimum": 0.0,
+            "title": "Path Ordinal",
+            "type": "integer"
+          },
+          "path_relationships": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Path Relationships",
+            "type": "array"
+          }
+        },
+        "required": [
+          "impact_id",
+          "path_ordinal",
+          "dependency_path",
+          "path_relationships",
+          "path_impacts",
+          "effective_impact"
+        ],
+        "title": "InvalidationPathImpactData",
+        "type": "object"
+      },
       "LocationEntityV1": {
         "additionalProperties": false,
         "properties": {
@@ -7269,6 +7583,173 @@
           }
         },
         "summary": "Get Project"
+      }
+    },
+    "/api/v1/projects/{project_id}/invalidation-operations": {
+      "get": {
+        "operationId": "listProjectInvalidationOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidationOperationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or invalidation operation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalidation ledger data is corrupt"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "List Project Invalidation Operations"
+      }
+    },
+    "/api/v1/projects/{project_id}/invalidation-operations/{operation_id}": {
+      "get": {
+        "operationId": "getProjectInvalidationOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidationOperationDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or invalidation operation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalidation ledger data is corrupt"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Project Invalidation Operation"
       }
     },
     "/api/v1/projects/{project_id}/source-manifest": {

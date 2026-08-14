@@ -360,3 +360,50 @@ class InvalidationPathImpact:
     path_impacts: tuple[DependencyImpact, ...]
     effective_impact: DependencyImpact
     path_ordinal: int
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationImpactCounts:
+    """Path counts by effective impact for one invalidation operation."""
+
+    blocking: int
+    render_only: int
+    advisory: int
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationOperationSummary:
+    """Project-scoped list projection of one durable invalidation operation."""
+
+    operation_id: str
+    project_id: str
+    changed_artifact_id: str
+    old_accepted_version_id: str
+    new_accepted_version_id: str
+    gate_decision_id: str
+    created_at: datetime
+    affected_version_count: int
+    independent_path_count: int
+    impact_counts: InvalidationImpactCounts
+    strongest_effective_impact: DependencyImpact | None
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationAffectedVersionReport:
+    """Event-time projection for one affected exact version under an operation."""
+
+    affected_artifact_id: str
+    affected_version_id: str
+    strongest_effective_impact: DependencyImpact
+    general_stale: bool
+    general_blocked: bool
+    render_blocked: bool
+    paths: tuple[InvalidationPathImpact, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationOperationReport:
+    """Detail projection: one operation plus grouped independent path impacts."""
+
+    operation: InvalidationOperationSummary
+    affected_versions: tuple[InvalidationAffectedVersionReport, ...]
