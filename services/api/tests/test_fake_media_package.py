@@ -62,8 +62,7 @@ def _request_payload() -> dict[str, object]:
         "source_sha256": SOURCE_HASH,
         "frame_rate": {"num": 25, "den": 1},
         "shots": [
-            {"shot_id": f"fake-shot-{index:02d}", "duration_frames": 125}
-            for index in range(1, 4)
+            {"shot_id": f"fake-shot-{index:02d}", "duration_frames": 125} for index in range(1, 4)
         ],
     }
 
@@ -100,9 +99,7 @@ def _child_crash(workspace: str, phase: str) -> None:
     )
 
 
-def _child_pause_before_publish(
-    workspace: str, phase: str, reached, release, result_queue
-) -> None:
+def _child_pause_before_publish(workspace: str, phase: str, reached, release, result_queue) -> None:
     def fault_hook(current_phase: str) -> None:
         if current_phase == phase:
             reached.set()
@@ -308,9 +305,7 @@ def test_process_crash_recovers_to_one_complete_package(
 
 
 @pytest.mark.parametrize("phase", ["lease_still_active", "after_staging_lease_removed"])
-def test_late_process_does_not_delete_an_active_staging_lease(
-    tmp_path: Path, phase: str
-) -> None:
+def test_late_process_does_not_delete_an_active_staging_lease(tmp_path: Path, phase: str) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     context = multiprocessing.get_context("spawn")
@@ -332,11 +327,7 @@ def test_late_process_does_not_delete_an_active_staging_lease(
             source_sha256=SOURCE_HASH,
         )
         time.sleep(0.2)
-        assert list(
-            (workspace / "fake-media" / "v1" / PROJECT_ID).glob(
-                ".aijian-fake-media-*"
-            )
-        )
+        assert list((workspace / "fake-media" / "v1" / PROJECT_ID).glob(".aijian-fake-media-*"))
         release.set()
         second = second_future.result(timeout=120)
     first.join(timeout=120)
