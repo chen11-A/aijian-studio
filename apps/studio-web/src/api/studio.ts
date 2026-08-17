@@ -39,6 +39,16 @@ export type ProposalRunCreateResult =
   | { kind: "SUCCEEDED"; receipt: CreatedProposalRunResponse; replayed: boolean }
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
+export type FakeTimelineRunCreateInput = components["schemas"]["CreateFakeTimelineRunRequest"];
+export type FakeTimelineRunResponse = components["schemas"]["FakeTimelineRunResponse"];
+export type FakeTimelineRunCreateCommand = {
+  operation_id: string;
+  input: FakeTimelineRunCreateInput;
+};
+export type FakeTimelineRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: FakeTimelineRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 export type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 export type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 export type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -68,6 +78,13 @@ export interface ProposalRunCapability {
   create(projectId: string, command: ProposalRunCreateCommand): Promise<ProposalRunCreateResult>;
 }
 
+export interface FakeTimelineRunCapability {
+  create(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
+}
+
 export interface StudioTransport {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
@@ -86,6 +103,7 @@ export interface StudioTransport {
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   proposalDecisions?: ProposalDecisionCapability;
   proposalRuns?: ProposalRunCapability;
+  fakeTimelineRuns?: FakeTimelineRunCapability;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;

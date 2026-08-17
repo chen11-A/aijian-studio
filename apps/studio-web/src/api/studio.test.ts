@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   createStudioTransport,
+  type AijianDesktopBridge,
   type HealthResponse,
   type AgentCatalogResponse,
   type ArtifactProposalResponse,
@@ -247,6 +248,7 @@ describe("studio transport", () => {
     };
     window.aijian = bridge;
     const transport = createStudioTransport();
+    expect(transport.fakeTimelineRuns).toBeUndefined();
 
     await transport.getHealth();
     await transport.listProjects();
@@ -341,6 +343,7 @@ describe("studio transport", () => {
 
     expect(transport.proposalDecisions).toBeUndefined();
     expect(transport.proposalRuns).toBeUndefined();
+    expect(transport.fakeTimelineRuns).toBeUndefined();
 
     await expect(transport.listProjectTasks(project.id)).resolves.toEqual(taskQueue);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/projects/${project.id}/tasks`, {
@@ -621,5 +624,54 @@ describe("studio transport", () => {
     const transport = createStudioTransport();
 
     await expect(transport.getSourceManifest(project.id)).rejects.toThrow("PROJECT_NOT_FOUND");
+  });
+
+  test("does not expose Fake Timeline run creation on browser or current Desktop adapter", async () => {
+    type UnexpectedDesktopKey = Extract<
+      keyof AijianDesktopBridge,
+      "createFakeTimelineRun" | "fakeTimelineRuns"
+    >;
+    const desktopHasNoCreateKey: [UnexpectedDesktopKey] extends [never] ? true : false = true;
+    expect(desktopHasNoCreateKey).toBe(true);
+
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(health));
+    vi.stubGlobal("fetch", fetchMock);
+    const browserTransport = createStudioTransport();
+    expect(browserTransport.fakeTimelineRuns).toBeUndefined();
+    await browserTransport.getHealth();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/fake-timeline-runs"))).toBe(
+      false,
+    );
+
+    window.aijian = {
+      health: vi.fn().mockResolvedValue(health),
+      listProjects: vi.fn(),
+      createProject: vi.fn(),
+      getProject: vi.fn(),
+      listSources: vi.fn(),
+      getSource: vi.fn(),
+      importTextSource: vi.fn(),
+      getSourceManifest: vi.fn(),
+      getStoryBibleIndex: vi.fn(),
+      getStoryBibleVersion: vi.fn(),
+      listProjectTasks: vi.fn(),
+      getArtifactProposal: vi.fn(),
+      acceptArtifactProposalAsDraft: vi.fn(),
+      rejectArtifactProposal: vi.fn(),
+      createProposalRun: vi.fn(),
+      listProjectAgents: vi.fn(),
+      listProjectSkills: vi.fn(),
+      startFakeTimelineWorkflow: vi.fn(),
+      getProjectTimeline: vi.fn(),
+      trimTimelineClip: vi.fn(),
+      reorderTimelineClip: vi.fn(),
+      replaceTimelineClip: vi.fn(),
+      listProviderConnections: vi.fn(),
+      createProviderConnection: vi.fn(),
+      deleteProviderConnection: vi.fn(),
+    };
+    const desktopTransport = createStudioTransport();
+    expect(desktopTransport.fakeTimelineRuns).toBeUndefined();
+    expect(window.aijian).not.toHaveProperty("createFakeTimelineRun");
   });
 });
