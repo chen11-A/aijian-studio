@@ -31,6 +31,13 @@ type ProposalRunCreateResult =
   | { kind: "SUCCEEDED"; receipt: CreatedProposalRunResponse; replayed: boolean }
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
+type FakeTimelineRunCreateInput = components["schemas"]["CreateFakeTimelineRunRequest"];
+type FakeTimelineRunResponse = components["schemas"]["FakeTimelineRunResponse"];
+type FakeTimelineRunCreateCommand = { operation_id: string; input: FakeTimelineRunCreateInput };
+type FakeTimelineRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: FakeTimelineRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
 type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
 type TimelineResponse = components["schemas"]["TimelineResponse"];
@@ -107,6 +114,15 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       command,
     ) as Promise<ProposalRunCreateResult>,
+  createFakeTimelineRun: (
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult> =>
+    ipcRenderer.invoke(
+      "fake-timeline-runs:create",
+      projectId,
+      command,
+    ) as Promise<FakeTimelineRunCreateResult>,
   listProjectAgents: (projectId: string): Promise<AgentCatalogResponse> =>
     ipcRenderer.invoke("agents:list", projectId) as Promise<AgentCatalogResponse>,
   listProjectSkills: (projectId: string): Promise<SkillCatalogResponse> =>

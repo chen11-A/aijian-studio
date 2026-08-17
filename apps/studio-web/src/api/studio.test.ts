@@ -235,6 +235,7 @@ describe("studio transport", () => {
       acceptArtifactProposalAsDraft: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       rejectArtifactProposal: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       createProposalRun: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
+      createFakeTimelineRun: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       listProjectAgents: vi.fn().mockResolvedValue(agentCatalog),
       listProjectSkills: vi.fn().mockResolvedValue(skillCatalog),
       startFakeTimelineWorkflow: vi.fn().mockResolvedValue(timeline),
@@ -248,7 +249,7 @@ describe("studio transport", () => {
     };
     window.aijian = bridge;
     const transport = createStudioTransport();
-    expect(transport.fakeTimelineRuns).toBeUndefined();
+    expect(transport.fakeTimelineRuns).toBeDefined();
 
     await transport.getHealth();
     await transport.listProjects();
@@ -291,6 +292,13 @@ describe("studio transport", () => {
         end_byte: 24,
       },
     });
+    await transport.fakeTimelineRuns?.create(project.id, {
+      operation_id: "7e0df32e-299a-4bb7-b77e-b85f20c41d61",
+      input: {
+        source_manifest_version_id: sourceManifest.data.latest_version.id,
+        source_document_id: `src_${"b".repeat(32)}`,
+      },
+    });
     await transport.listProjectAgents(project.id);
     await transport.listProjectSkills(project.id);
     await transport.startFakeTimelineWorkflow(project.id);
@@ -328,6 +336,7 @@ describe("studio transport", () => {
       comment: "原文证据不足。",
     });
     expect(bridge.createProposalRun).toHaveBeenCalledOnce();
+    expect(bridge.createFakeTimelineRun).toHaveBeenCalledOnce();
     expect(bridge.listProjectAgents).toHaveBeenCalledWith(project.id);
     expect(bridge.listProjectSkills).toHaveBeenCalledWith(project.id);
     expect(bridge.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
@@ -626,14 +635,7 @@ describe("studio transport", () => {
     await expect(transport.getSourceManifest(project.id)).rejects.toThrow("PROJECT_NOT_FOUND");
   });
 
-  test("does not expose Fake Timeline run creation on browser or current Desktop adapter", async () => {
-    type UnexpectedDesktopKey = Extract<
-      keyof AijianDesktopBridge,
-      "createFakeTimelineRun" | "fakeTimelineRuns"
-    >;
-    const desktopHasNoCreateKey: [UnexpectedDesktopKey] extends [never] ? true : false = true;
-    expect(desktopHasNoCreateKey).toBe(true);
-
+  test("exposes Fake Timeline run creation only when the Electron bridge method exists", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(health));
     vi.stubGlobal("fetch", fetchMock);
     const browserTransport = createStudioTransport();
@@ -643,7 +645,7 @@ describe("studio transport", () => {
       false,
     );
 
-    window.aijian = {
+    const withoutMethod = {
       health: vi.fn().mockResolvedValue(health),
       listProjects: vi.fn(),
       createProject: vi.fn(),
@@ -670,8 +672,22 @@ describe("studio transport", () => {
       createProviderConnection: vi.fn(),
       deleteProviderConnection: vi.fn(),
     };
+    window.aijian = withoutMethod as unknown as AijianDesktopBridge;
+    expect(createStudioTransport().fakeTimelineRuns).toBeUndefined();
+
+    window.aijian = {
+      ...withoutMethod,
+      createFakeTimelineRun: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
+    };
     const desktopTransport = createStudioTransport();
-    expect(desktopTransport.fakeTimelineRuns).toBeUndefined();
-    expect(window.aijian).not.toHaveProperty("createFakeTimelineRun");
+    expect(desktopTransport.fakeTimelineRuns).toBeDefined();
+    await desktopTransport.fakeTimelineRuns?.create(project.id, {
+      operation_id: "7e0df32e-299a-4bb7-b77e-b85f20c41d61",
+      input: {
+        source_manifest_version_id: sourceManifest.data.latest_version.id,
+        source_document_id: `src_${"b".repeat(32)}`,
+      },
+    });
+    expect(window.aijian.createFakeTimelineRun).toHaveBeenCalledOnce();
   });
 });

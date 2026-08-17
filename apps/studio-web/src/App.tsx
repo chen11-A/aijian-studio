@@ -2116,14 +2116,12 @@ export function App({ transport }: AppProps) {
                           onOpenQueue={openTaskDrawer}
                         />
                         <FakeWorkflowPanel
+                          key={`fake-timeline:${selectedProject.id}`}
                           project={selectedProject}
-                          sourceFilename={importState.response.data.filename}
-                          startWorkflow={studio.startFakeTimelineWorkflow}
+                          source={importState.response}
+                          getSourceManifest={studio.getSourceManifest}
+                          capability={studio.fakeTimelineRuns}
                           onOpenQueue={openTaskDrawer}
-                          onOpenTimeline={() => {
-                            setProjectRailCollapsed(true);
-                            setActiveWorkspace("edit");
-                          }}
                         />
                       </>
                     )}

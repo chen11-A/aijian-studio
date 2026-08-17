@@ -154,6 +154,10 @@ export interface AijianDesktopBridge {
     projectId: string,
     command: ProposalRunCreateCommand,
   ): Promise<ProposalRunCreateResult>;
+  createFakeTimelineRun(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -311,6 +315,12 @@ export function createStudioTransport(): StudioTransport {
       proposalRuns: {
         create: (projectId, command) => bridge.createProposalRun(projectId, command),
       },
+      fakeTimelineRuns:
+        typeof bridge.createFakeTimelineRun === "function"
+          ? {
+              create: (projectId, command) => bridge.createFakeTimelineRun(projectId, command),
+            }
+          : undefined,
       listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),
       listProjectSkills: (projectId) => bridge.listProjectSkills(projectId),
       startFakeTimelineWorkflow: (projectId) => bridge.startFakeTimelineWorkflow(projectId),

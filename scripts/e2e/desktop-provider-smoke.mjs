@@ -108,6 +108,7 @@ try {
   }
   const expectedBridgeKeys = [
     "acceptArtifactProposalAsDraft",
+    "createFakeTimelineRun",
     "createProviderConnection",
     "createProject",
     "createProposalRun",

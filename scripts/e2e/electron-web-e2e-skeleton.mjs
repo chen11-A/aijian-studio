@@ -263,6 +263,7 @@ try {
     throw new Error("Unified Electron workflow did not persist the expected source/task/timeline");
   }
   const expectedBridgeKeys = [
+    "createFakeTimelineRun",
     "createProject",
     "createProviderConnection",
     "createProposalRun",

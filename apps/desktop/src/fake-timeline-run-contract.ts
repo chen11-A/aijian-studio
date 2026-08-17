@@ -1,5 +1,6 @@
 import type { components } from "@aijian/contracts";
 
+import type { LocalApiClient } from "./api-client";
 import { hasOnlyKeys, isRecord } from "./api-contract-guards";
 
 export type FakeTimelineRunCreateInput = components["schemas"]["CreateFakeTimelineRunRequest"];
@@ -22,6 +23,13 @@ const ATTEMPT_ID = /^att_[0-9a-f]{32}$/;
 const TASK_ID = /^task_[0-9a-f]{32}$/;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export const FAKE_TIMELINE_RUN_CHANNELS = Object.freeze({
+  create: "fake-timeline-runs:create",
+} as const);
+
+type FakeTimelineRunClient = Pick<LocalApiClient, "createFakeTimelineRun">;
+type FakeTimelineRunInvoke = (channel: string, ...args: unknown[]) => Promise<unknown>;
 
 export const FAKE_TIMELINE_CAPABILITY_LOSSES = [
   "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
@@ -162,4 +170,42 @@ export function isFakeTimelineRunResponse(
   return LEGAL_REPLAY_STATUS_PAIRS.has(
     `${String(data.attempt_status)}\0${String(data.task_status)}`,
   );
+}
+
+export function createFakeTimelineRunPreload(invoke: FakeTimelineRunInvoke): {
+  createFakeTimelineRun(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
+} {
+  return {
+    createFakeTimelineRun: (projectId, command) =>
+      invoke(
+        FAKE_TIMELINE_RUN_CHANNELS.create,
+        projectId,
+        command,
+      ) as Promise<FakeTimelineRunCreateResult>,
+  };
+}
+
+export function registerFakeTimelineRunHandlers<TEvent>(
+  handle: (
+    channel: string,
+    listener: (event: TEvent, ...args: unknown[]) => Promise<unknown>,
+  ) => void,
+  clientFor: (event: TEvent) => FakeTimelineRunClient,
+): void {
+  handle(FAKE_TIMELINE_RUN_CHANNELS.create, (event, projectId, command) => {
+    const client = clientFor(event);
+    if (
+      typeof projectId !== "string" ||
+      !PROJECT_ID.test(projectId) ||
+      !isFakeTimelineRunCreateCommand(command)
+    ) {
+      return Promise.reject(
+        new Error("Fake timeline run IPC requires an exact fake timeline run command"),
+      );
+    }
+    return client.createFakeTimelineRun(projectId, command);
+  });
 }

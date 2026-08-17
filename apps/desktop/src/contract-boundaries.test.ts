@@ -32,6 +32,9 @@ describe("privileged contract boundaries", () => {
     expect(preloadSource).toMatch(
       /ipcRenderer\.invoke\(\s*"proposal-runs:create",\s*projectId,\s*command,?\s*\)/,
     );
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"fake-timeline-runs:create",\s*projectId,\s*command,?\s*\)/,
+    );
     expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
   });
 
@@ -48,6 +51,14 @@ describe("privileged contract boundaries", () => {
     expect(mainSource).toContain(
       "createE2EProposalRunResponseFault(fetch, proposalRunResponseFault)",
     );
+    expect(mainSource).toContain("registerFakeTimelineRunHandlers<IpcMainInvokeEvent>(");
+    expect(mainSource).not.toContain('ipcMain.handle("fake-timeline-runs:create"');
+    expect(mainSource).toMatch(
+      /shouldEnableE2EFakeTimelineRunResponseFault\(\{[\s\S]*isPackaged: app\.isPackaged,[\s\S]*hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,[\s\S]*mode: process\.env\.AIJIAN_E2E_FAKE_TIMELINE_RUN_RESPONSE_FAULT,[\s\S]*\}\)/,
+    );
+    expect(mainSource).toMatch(
+      /createE2EFakeTimelineRunResponseFault\(\s*createE2EProposalRunResponseFault\(fetch, proposalRunResponseFault\),\s*fakeTimelineRunResponseFault,?\s*\)/,
+    );
   });
 
   test("does not expose proposal run creation through the ordinary Web HTTP transport", () => {
@@ -57,6 +68,9 @@ describe("privileged contract boundaries", () => {
     );
     expect(studioSource).toContain("proposalRuns: {");
     expect(studioSource).not.toContain("/proposal-runs");
+    expect(studioSource).toContain("fakeTimelineRuns:");
+    expect(studioSource).not.toContain("/fake-timeline-runs");
+    expect(studioSource).toContain('typeof bridge.createFakeTimelineRun === "function"');
   });
 
   test("rejects malformed nested health payloads", () => {

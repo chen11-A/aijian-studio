@@ -15,9 +15,14 @@ import {
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
 import {
+  createE2EFakeTimelineRunResponseFault,
+  shouldEnableE2EFakeTimelineRunResponseFault,
+} from "./e2e-fake-timeline-run-response-fault";
+import {
   createE2EProposalRunResponseFault,
   shouldEnableE2EProposalRunResponseFault,
 } from "./e2e-proposal-run-response-fault";
+import { registerFakeTimelineRunHandlers } from "./fake-timeline-run-contract";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
@@ -141,6 +146,10 @@ registerProposalRunHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
 );
+registerFakeTimelineRunHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+);
 registerAgentSkillCatalogHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
@@ -177,8 +186,16 @@ async function startApplication(): Promise<void> {
     hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,
     mode: process.env.AIJIAN_E2E_PROPOSAL_RUN_RESPONSE_FAULT,
   });
+  const fakeTimelineRunResponseFault = shouldEnableE2EFakeTimelineRunResponseFault({
+    isPackaged: app.isPackaged,
+    hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,
+    mode: process.env.AIJIAN_E2E_FAKE_TIMELINE_RUN_RESPONSE_FAULT,
+  });
   apiClient = createLocalApiClient(
-    createE2EProposalRunResponseFault(fetch, proposalRunResponseFault),
+    createE2EFakeTimelineRunResponseFault(
+      createE2EProposalRunResponseFault(fetch, proposalRunResponseFault),
+      fakeTimelineRunResponseFault,
+    ),
     sidecar.session,
   );
   mainWindow = createMainWindow();

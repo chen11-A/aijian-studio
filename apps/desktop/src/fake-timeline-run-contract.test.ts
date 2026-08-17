@@ -1,13 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { delimiter, resolve } from "node:path";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import {
   FAKE_TIMELINE_CAPABILITY_LOSSES,
+  FAKE_TIMELINE_RUN_CHANNELS,
+  createFakeTimelineRunPreload,
   fakeTimelineRunIdempotencyKey,
   isFakeTimelineRunCreateCommand,
   isFakeTimelineRunResponse,
+  registerFakeTimelineRunHandlers,
   type FakeTimelineRunCreateCommand,
   type FakeTimelineRunResponse,
 } from "./fake-timeline-run-contract";
@@ -373,4 +376,112 @@ describe("fake timeline run creation contract", () => {
       true,
     );
   }, 30_000);
+
+  test("maps one fixed IPC channel without generating operation identity", async () => {
+    const invoke = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    const preload = createFakeTimelineRunPreload(invoke);
+    await preload.createFakeTimelineRun(fakeTimelineRunProjectId, fakeTimelineRunCommand);
+    expect(FAKE_TIMELINE_RUN_CHANNELS).toEqual({ create: "fake-timeline-runs:create" });
+    expect(Object.isFrozen(FAKE_TIMELINE_RUN_CHANNELS)).toBe(true);
+    expect(invoke).toHaveBeenCalledWith(
+      "fake-timeline-runs:create",
+      fakeTimelineRunProjectId,
+      fakeTimelineRunCommand,
+    );
+  });
+
+  test("validates the sender before rejecting malformed IPC arguments", async () => {
+    const listeners = new Map<string, (event: object, ...args: unknown[]) => Promise<unknown>>();
+    const client = { createFakeTimelineRun: vi.fn() };
+    const clientFor = vi.fn(() => client);
+    registerFakeTimelineRunHandlers<object>(
+      (channel, listener) => listeners.set(channel, listener),
+      clientFor,
+    );
+
+    await expect(
+      listeners.get("fake-timeline-runs:create")!({}, fakeTimelineRunProjectId, {
+        ...fakeTimelineRunCommand,
+        extra: true,
+      }),
+    ).rejects.toThrow("exact fake timeline run command");
+    expect(clientFor).toHaveBeenCalledOnce();
+    expect(client.createFakeTimelineRun).not.toHaveBeenCalled();
+  });
+
+  test("rejects detached, extra, and invalid values before any HTTP client call", async () => {
+    const listeners = new Map<string, (event: object, ...args: unknown[]) => Promise<unknown>>();
+    const client = { createFakeTimelineRun: vi.fn() };
+    registerFakeTimelineRunHandlers<object>(
+      (channel, listener) => listeners.set(channel, listener),
+      () => client,
+    );
+    const invoke = listeners.get("fake-timeline-runs:create")!;
+
+    await expect(invoke({}, "prj_not-canonical", fakeTimelineRunCommand)).rejects.toThrow(
+      "exact fake timeline run command",
+    );
+    await expect(invoke({}, fakeTimelineRunProjectId, null)).rejects.toThrow(
+      "exact fake timeline run command",
+    );
+    await expect(
+      invoke({}, fakeTimelineRunProjectId, {
+        ...fakeTimelineRunCommand,
+        operation_id: fakeTimelineRunCommand.operation_id.toUpperCase(),
+      }),
+    ).rejects.toThrow("exact fake timeline run command");
+    await expect(
+      invoke({}, fakeTimelineRunProjectId, {
+        ...fakeTimelineRunCommand,
+        input: {
+          ...fakeTimelineRunCommand.input,
+          extra: true,
+        },
+      }),
+    ).rejects.toThrow("exact fake timeline run command");
+    expect(client.createFakeTimelineRun).not.toHaveBeenCalled();
+  });
+
+  test("rejects an unauthorized sender before any fake timeline run client call", async () => {
+    const listeners = new Map<string, (event: object, ...args: unknown[]) => Promise<unknown>>();
+    registerFakeTimelineRunHandlers<object>(
+      (channel, listener) => listeners.set(channel, listener),
+      () => {
+        throw new Error("Local API is not available");
+      },
+    );
+    expect(() =>
+      listeners.get("fake-timeline-runs:create")!(
+        {},
+        fakeTimelineRunProjectId,
+        fakeTimelineRunCommand,
+      ),
+    ).toThrow("Local API is not available");
+  });
+
+  test("delegates a valid command through the sender-scoped client", async () => {
+    const listeners = new Map<string, (event: object, ...args: unknown[]) => Promise<unknown>>();
+    const result = { kind: "REMOTE_UNKNOWN" as const };
+    const client = { createFakeTimelineRun: vi.fn().mockResolvedValue(result) };
+    const event = { sender: "main-window" };
+    registerFakeTimelineRunHandlers<object>(
+      (channel, listener) => listeners.set(channel, listener),
+      (received) => {
+        expect(received).toBe(event);
+        return client;
+      },
+    );
+
+    await expect(
+      listeners.get("fake-timeline-runs:create")!(
+        event,
+        fakeTimelineRunProjectId,
+        fakeTimelineRunCommand,
+      ),
+    ).resolves.toEqual(result);
+    expect(client.createFakeTimelineRun).toHaveBeenCalledWith(
+      fakeTimelineRunProjectId,
+      fakeTimelineRunCommand,
+    );
+  });
 });

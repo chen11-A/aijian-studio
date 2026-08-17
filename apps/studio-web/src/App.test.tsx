@@ -548,6 +548,7 @@ test("opens the real project timeline workspace", async () => {
 });
 
 test("starts a deterministic preview from the restored imported source", async () => {
+  localStorage.clear();
   const transport = studioTransport([project]);
   vi.mocked(transport.listSources).mockResolvedValue({
     data: [sourceSummary],
@@ -555,15 +556,43 @@ test("starts a deterministic preview from the restored imported source", async (
   });
   render(<App transport={transport} />);
 
-  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "生成 Fake 分镜时间线" }));
+  expect(await screen.findByText(sourceResponse.data.filename)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "生成 Fake 分镜时间线" })).not.toBeInTheDocument();
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+});
 
-  expect(await screen.findByRole("status")).toHaveTextContent("1 个镜头");
-  expect(transport.startFakeTimelineWorkflow).toHaveBeenCalledWith(project.id);
-  fireEvent.click(screen.getByRole("button", { name: "查看任务记录" }));
-  fireEvent.click(await screen.findByRole("button", { name: "关闭任务中心" }));
-  fireEvent.click(screen.getByRole("button", { name: "进入剪辑台" }));
-  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+test("uses the optional Fake Timeline capability instead of the deprecated sync route", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  const create = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  transport.fakeTimelineRuns = { create };
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  render(<App transport={transport} />);
+
+  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(2);
+  fireEvent.click(await screen.findByRole("button", { name: "生成 Fake 分镜时间线" }));
+
+  expect(await screen.findByText("提交结果未知")).toBeInTheDocument();
+  expect(create).toHaveBeenCalledWith(
+    project.id,
+    expect.objectContaining({
+      operation_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      input: {
+        source_manifest_version_id: sourceManifestVersion.id,
+        source_document_id: sourceResponse.data.id,
+      },
+    }),
+  );
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+  expect(appSource).not.toContain("startFakeTimelineWorkflow");
+  expect(appSource).toContain("capability={studio.fakeTimelineRuns}");
+  expect(appSource).toContain("source={importState.response}");
+  expect(appSource).toContain("getSourceManifest={studio.getSourceManifest}");
 });
 
 test("starts the Electron-only source extraction through a recoverable operation", async () => {
