@@ -30,7 +30,7 @@ from aijian_api.artifact_proposal_rejection import (
 from aijian_api.artifact_proposal_store import ArtifactProposalStore
 from aijian_api.domain import TrustedReviewActor
 from aijian_api.main import create_app
-from aijian_api.repository import StudioRepository
+from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
 from aijian_api.task_ledger_snapshots import canonical_snapshot_json, snapshot_sha256
@@ -873,7 +873,7 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
 
     StudioRepository(repository.database_path)
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone() == (14,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (SCHEMA_VERSION,)
         assert connection.execute(
             "SELECT acceptance_id FROM artifact_proposal_draft_acceptances WHERE proposal_id = ?",
             (proposal_id,),

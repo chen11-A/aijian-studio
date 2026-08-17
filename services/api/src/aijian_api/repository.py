@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from aijian_api.artifact_invalidation_ledger import (
+    get_invalidation_operation,
+    list_invalidation_operations,
+    record_accepted_head_replacement,
+)
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
 from aijian_api.domain import (
     ArtifactActorType,
@@ -32,6 +37,7 @@ from aijian_api.domain import (
     GateDecisionResult,
     GateDecisionValue,
     GateReadinessReport,
+    InvalidationOperationRecord,
     PreparedReviewAction,
     Project,
     ProjectStatus,
@@ -49,6 +55,7 @@ from aijian_api.domain import (
 )
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
+from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
 from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
@@ -68,7 +75,7 @@ from aijian_api.workflow_schema import (
     MIGRATION_14,
 )
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -763,6 +770,7 @@ _MIGRATIONS = {
     12: MIGRATION_12,
     13: MIGRATION_13,
     14: MIGRATION_14,
+    15: MIGRATION_15,
 }
 
 
@@ -1092,6 +1100,8 @@ class StudioRepository:
                 try:
                     if next_version == 3:
                         self._validate_v3_legacy_invariants(connection)
+                    if next_version == 15:
+                        statements = migration_15_statements(connection)
                     for step, statement in enumerate(statements):
                         connection.execute(statement)
                         if self._migration_hook is not None:
@@ -2565,10 +2575,27 @@ class StudioRepository:
                     ),
                 )
                 self._transaction_step("decide_gate", "decision_inserted")
+                previous_accepted_version_id = head_row["accepted_version_id"]
+                if (
+                    decision == "approved"
+                    and previous_accepted_version_id is not None
+                    and str(previous_accepted_version_id) != version_id
+                ):
+                    record_accepted_head_replacement(
+                        connection,
+                        project_id=project_id,
+                        changed_artifact_id=str(version_row["artifact_id"]),
+                        old_version_id=str(previous_accepted_version_id),
+                        new_version_id=version_id,
+                        gate_decision_id=gate_decision.id,
+                        created_at=now,
+                        id_factory=self._id_factory,
+                        transaction_hook=self._transaction_hook,
+                    )
                 accepted_version_id = (
                     version_id
                     if decision in ("approved", "approved_with_waiver")
-                    else head_row["accepted_version_id"]
+                    else previous_accepted_version_id
                 )
                 updated = connection.execute(
                     """
@@ -2596,6 +2623,20 @@ class StudioRepository:
                 connection.rollback()
                 raise
         return GateDecisionResult(decision=gate_decision, head=result_head)
+
+    def list_invalidation_operations(
+        self, project_id: str
+    ) -> tuple[InvalidationOperationRecord, ...]:
+        self.get_project(project_id)
+        with self._connection() as connection:
+            return list_invalidation_operations(connection, project_id)
+
+    def get_invalidation_operation(
+        self, project_id: str, operation_id: str
+    ) -> InvalidationOperationRecord:
+        self.get_project(project_id)
+        with self._connection() as connection:
+            return get_invalidation_operation(connection, project_id, operation_id)
 
     def _review_context(
         self,

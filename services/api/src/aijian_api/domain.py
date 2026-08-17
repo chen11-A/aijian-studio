@@ -11,6 +11,7 @@ type SourceSpanRole = Literal["supports", "contradicts", "context"]
 type DependencyImpact = Literal["blocking", "advisory", "render_only"]
 type ReviewAction = Literal["submit", "signoff", "decision"]
 type GateDecisionValue = Literal["approved", "approved_with_waiver", "rejected"]
+type InvalidationClassification = Literal["STALE", "INVALIDATE"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,3 +306,33 @@ class GateDecision:
 class GateDecisionResult:
     decision: GateDecision
     head: ArtifactHead
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationReasonPathRecord:
+    id: str
+    operation_id: str
+    project_id: str
+    affected_artifact_id: str
+    affected_version_id: str
+    classification: InvalidationClassification
+    aggregate_impact: DependencyImpact
+    dependency_ids: tuple[str, ...]
+    relationships: tuple[str, ...]
+    edge_impacts: tuple[DependencyImpact, ...]
+    effective_impact: DependencyImpact
+    ordinal: int
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class InvalidationOperationRecord:
+    id: str
+    project_id: str
+    changed_artifact_id: str
+    old_accepted_version_id: str
+    new_accepted_version_id: str
+    gate_decision_id: str
+    assessment_hash: str
+    created_at: datetime
+    paths: tuple[InvalidationReasonPathRecord, ...]

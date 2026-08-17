@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from aijian_api.agent_skill_contracts import canonical_sha256
+from aijian_api.invalidation_schema import MIGRATION_15
 from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.task_ledger import LocalTaskLedger, QueuedTask
 from aijian_api.workflow_schema import MIGRATION_12, MIGRATION_13
@@ -22,6 +23,22 @@ def drop_v10_tables(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE skill_runs")
     connection.execute("DROP TABLE agent_context_manifests")
     connection.execute("DROP TABLE agent_runs")
+
+
+def drop_v15_invalidation_objects(connection: sqlite3.Connection) -> None:
+    for trigger in (
+        "invalidation_reason_paths_immutable_delete",
+        "invalidation_reason_paths_immutable_update",
+        "invalidation_reason_paths_chain_insert",
+        "invalidation_operations_immutable_delete",
+        "invalidation_operations_immutable_update",
+        "invalidation_operations_chain_insert",
+    ):
+        connection.execute(f"DROP TRIGGER IF EXISTS {trigger}")
+    connection.execute("DROP INDEX IF EXISTS invalidation_reason_paths_project_affected")
+    connection.execute("DROP INDEX IF EXISTS invalidation_operations_project_history")
+    connection.execute("DROP TABLE IF EXISTS invalidation_reason_paths")
+    connection.execute("DROP TABLE IF EXISTS invalidation_operations")
 
 
 V1_SCHEMA = """
@@ -164,6 +181,16 @@ def create_current_v7_database(path: Path) -> None:
     assert database_version(path) == 7
 
 
+def create_current_v14_database(path: Path) -> None:
+    def stop_before_v15(version: int, step: int) -> None:
+        if version == 15 and step == 0:
+            raise RuntimeError("stop before v15")
+
+    with pytest.raises(RuntimeError, match="stop before v15"):
+        StudioRepository(path, migration_hook=stop_before_v15)
+    assert database_version(path) == 14
+
+
 def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
 
@@ -185,7 +212,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         workflow_indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(workflow_runs)")
         }
-        assert SCHEMA_VERSION == 14
+        assert SCHEMA_VERSION == 15
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -225,6 +252,8 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         "proposal_run_enqueue_intents",
         "artifact_proposal_draft_acceptances",
         "artifact_proposal_rejections",
+        "invalidation_operations",
+        "invalidation_reason_paths",
     } <= tables
 
 
@@ -455,6 +484,7 @@ def test_every_v9_ddl_failure_rolls_back_to_v8_and_can_retry(tmp_path: Path) -> 
         )
         with sqlite3.connect(database) as connection:
             drop_v10_tables(connection)
+            drop_v15_invalidation_objects(connection)
             for trigger in (
                 "agent_artifact_proposals_immutable_update",
                 "agent_artifact_proposals_immutable_delete",
@@ -504,6 +534,7 @@ def test_every_v10_ddl_failure_rolls_back_to_v9_and_can_retry(tmp_path: Path) ->
         )
         with sqlite3.connect(database) as connection:
             drop_v10_tables(connection)
+            drop_v15_invalidation_objects(connection)
             connection.execute("PRAGMA user_version = 9")
 
     probe = tmp_path / "probe-v10.db"
@@ -551,6 +582,7 @@ def test_every_v11_ddl_failure_rolls_back_to_v10_and_can_retry(tmp_path: Path) -
             connection.execute("DROP TABLE artifact_proposal_rejections")
             connection.execute("DROP TABLE artifact_proposal_draft_acceptances")
             connection.execute("DROP TABLE proposal_run_enqueue_intents")
+            drop_v15_invalidation_objects(connection)
             connection.execute("PRAGMA user_version = 10")
 
     probe = tmp_path / "probe-v11.db"
@@ -601,6 +633,7 @@ def test_every_v12_ddl_failure_rolls_back_to_v11_and_can_retry(tmp_path: Path) -
             ):
                 connection.execute(f"DROP TRIGGER {trigger}")
             connection.execute("DROP TABLE artifact_proposal_draft_acceptances")
+            drop_v15_invalidation_objects(connection)
             connection.execute("PRAGMA user_version = 11")
 
     probe = tmp_path / "probe-v12.db"
@@ -647,6 +680,7 @@ def test_every_v13_ddl_failure_rolls_back_to_v12_and_can_retry(tmp_path: Path) -
             connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
             for statement in MIGRATION_12[1:2]:
                 connection.execute(statement)
+            drop_v15_invalidation_objects(connection)
             connection.execute("PRAGMA user_version = 12")
 
     probe = tmp_path / "probe-v13.db"
@@ -687,6 +721,7 @@ def test_v14_fake_timeline_uniqueness_migration_rolls_back_and_retries(tmp_path:
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
         connection.execute("DROP INDEX fake_timeline_one_run_per_frozen_input")
+        drop_v15_invalidation_objects(connection)
         connection.execute("PRAGMA user_version = 13")
 
     def fail_v14(version: int, step: int) -> None:
@@ -707,6 +742,369 @@ def test_v14_fake_timeline_uniqueness_migration_rolls_back_and_retries(tmp_path:
 
     StudioRepository(database)
     assert database_version(database) == SCHEMA_VERSION
+
+
+def test_v14_to_v15_preserves_existing_project_artifact_and_gate_rows(tmp_path: Path) -> None:
+    database = tmp_path / "v14-data.db"
+    create_current_v14_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_existing', '旧工作区', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        insert_artifact_version(
+            connection,
+            artifact_id="art_story",
+            artifact_type="story_bible",
+            version_id="ver_story",
+        )
+        connection.execute(
+            """
+            INSERT INTO gate_readiness_reports VALUES (
+                'rpt_story', 'art_story', 'ver_story', 'G2', NULL,
+                'g2.story-bible', '1', 1, 0, '{"ready":true}', ?,
+                '2026-08-03T12:05:00Z', '2026-08-03T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'e' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO review_submissions VALUES (
+                'sub_story', 'art_story', 'ver_story', 'G2', 'rpt_story', NULL,
+                'local-user', '2026-08-03T12:00:00Z'
+            )
+            """
+        )
+        connection.commit()
+
+    StudioRepository(database)
+    assert database_version(database) == 15
+    with sqlite3.connect(database) as connection:
+        project = connection.execute(
+            "SELECT name FROM projects WHERE id = 'prj_existing'"
+        ).fetchone()
+        version = connection.execute(
+            "SELECT version_id FROM artifact_versions WHERE version_id = 'ver_story'"
+        ).fetchone()
+        submission = connection.execute(
+            "SELECT gate FROM review_submissions WHERE submission_id = 'sub_story'"
+        ).fetchone()
+        report = connection.execute(
+            "SELECT gate FROM gate_readiness_reports WHERE report_id = 'rpt_story'"
+        ).fetchone()
+        operations = connection.execute("SELECT COUNT(*) FROM invalidation_operations").fetchone()
+        paths = connection.execute("SELECT COUNT(*) FROM invalidation_reason_paths").fetchone()
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+    assert project == ("旧工作区",)
+    assert version == ("ver_story",)
+    assert submission == ("G2",)
+    assert report == ("G2",)
+    assert operations == (0,)
+    assert paths == (0,)
+    assert {"invalidation_operations", "invalidation_reason_paths"} <= tables
+
+
+def test_every_v15_ddl_failure_rolls_back_to_v14_and_can_retry(tmp_path: Path) -> None:
+    probe = tmp_path / "probe-v15.db"
+    create_current_v14_database(probe)
+    observed_steps: list[int] = []
+    StudioRepository(
+        probe,
+        migration_hook=lambda version, step: observed_steps.append(step) if version == 15 else None,
+    )
+    assert observed_steps
+    assert len(observed_steps) == len(MIGRATION_15)
+
+    for failed_step in observed_steps:
+        database = tmp_path / f"v15-failure-{failed_step}.db"
+        create_current_v14_database(database)
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                """
+                INSERT INTO projects VALUES (
+                    'prj_keep', '保留项目', '9:16', 90, 'zh-CN', 'active', 1,
+                    '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+                )
+                """
+            )
+            connection.commit()
+
+        def fail_at_step(version: int, step: int, *, target: int = failed_step) -> None:
+            if version == 15 and step == target:
+                raise RuntimeError(f"injected v15 failure at {target}")
+
+        with pytest.raises(RuntimeError, match="injected v15 failure"):
+            StudioRepository(database, migration_hook=fail_at_step)
+        assert database_version(database) == 14
+        with sqlite3.connect(database) as connection:
+            project = connection.execute(
+                "SELECT name FROM projects WHERE id = 'prj_keep'"
+            ).fetchone()
+            tables = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+        assert project == ("保留项目",)
+        assert "invalidation_operations" not in tables
+        assert "invalidation_reason_paths" not in tables
+
+        StudioRepository(database)
+        assert database_version(database) == SCHEMA_VERSION
+        with sqlite3.connect(database) as connection:
+            project = connection.execute(
+                "SELECT name FROM projects WHERE id = 'prj_keep'"
+            ).fetchone()
+            tables = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+        assert project == ("保留项目",)
+        assert {"invalidation_operations", "invalidation_reason_paths"} <= tables
+
+
+@pytest.mark.parametrize(
+    ("seed_sql", "cleanup_sql"),
+    (
+        (
+            "CREATE TABLE invalidation_operations (id INTEGER PRIMARY KEY, leftover TEXT)",
+            "DROP TABLE invalidation_operations",
+        ),
+        (
+            "CREATE TRIGGER invalidation_operations_chain_insert "
+            "BEFORE INSERT ON projects BEGIN SELECT 1; END",
+            "DROP TRIGGER invalidation_operations_chain_insert",
+        ),
+        (
+            "CREATE INDEX invalidation_operations_project_history ON projects(id)",
+            "DROP INDEX invalidation_operations_project_history",
+        ),
+    ),
+)
+def test_v15_migration_rejects_incompatible_precreated_objects(
+    tmp_path: Path,
+    seed_sql: str,
+    cleanup_sql: str,
+) -> None:
+    database = tmp_path / "v14-corrupt.db"
+    create_current_v14_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            INSERT INTO projects VALUES (
+                'prj_keep', '保留项目', '9:16', 90, 'zh-CN', 'active', 1,
+                '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+            )
+            """
+        )
+        connection.execute(seed_sql)
+        connection.commit()
+    assert database_version(database) == 14
+
+    with pytest.raises(RuntimeError, match="untrusted invalidation ledger objects"):
+        StudioRepository(database)
+    assert database_version(database) == 14
+    with sqlite3.connect(database) as connection:
+        project = connection.execute(
+            "SELECT name FROM projects WHERE id = 'prj_keep'"
+        ).fetchone()
+        leftover = connection.execute(
+            "SELECT name FROM sqlite_master WHERE name LIKE 'invalidation_%'"
+        ).fetchall()
+    assert project == ("保留项目",)
+    assert leftover
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(cleanup_sql)
+        connection.commit()
+
+    StudioRepository(database)
+    assert database_version(database) == 15
+    with sqlite3.connect(database) as connection:
+        project = connection.execute(
+            "SELECT name FROM projects WHERE id = 'prj_keep'"
+        ).fetchone()
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(invalidation_operations)")
+        }
+    assert project == ("保留项目",)
+    assert {
+        "operation_id",
+        "project_id",
+        "changed_artifact_id",
+        "old_accepted_version_id",
+        "new_accepted_version_id",
+        "gate_decision_id",
+        "assessment_hash",
+        "created_at",
+    } <= columns
+    assert "leftover" not in columns
+
+
+def test_v15_exact_full_set_replays_from_rewound_user_version(tmp_path: Path) -> None:
+    database = tmp_path / "v15-replay.db"
+    StudioRepository(database)
+    with sqlite3.connect(database) as connection:
+        trusted = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE name LIKE 'invalidation_%' ORDER BY type, name"
+        ).fetchall()
+        connection.execute("PRAGMA user_version = 14")
+    assert database_version(database) == 14
+
+    StudioRepository(database)
+    assert database_version(database) == SCHEMA_VERSION
+    with sqlite3.connect(database) as connection:
+        replayed = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE name LIKE 'invalidation_%' ORDER BY type, name"
+        ).fetchall()
+    assert replayed == trusted
+
+
+def test_v12_rewind_with_intact_v15_objects_replays_to_current(tmp_path: Path) -> None:
+    database = tmp_path / "v12-replay.db"
+    StudioRepository(database).create_project(
+        name="V12 rewind keeps v15",
+        aspect_ratio="9:16",
+        target_duration_seconds=15,
+        source_language="zh-CN",
+    )
+    with sqlite3.connect(database) as connection:
+        trusted = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE name LIKE 'invalidation_%' ORDER BY type, name"
+        ).fetchall()
+        connection.execute("DROP TABLE artifact_proposal_rejections")
+        connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
+        connection.execute(MIGRATION_12[1])
+        connection.execute("PRAGMA user_version = 12")
+    assert database_version(database) == 12
+
+    StudioRepository(database)
+    assert database_version(database) == SCHEMA_VERSION
+    with sqlite3.connect(database) as connection:
+        replayed = connection.execute(
+            "SELECT type, name, sql FROM sqlite_master "
+            "WHERE name LIKE 'invalidation_%' ORDER BY type, name"
+        ).fetchall()
+    assert replayed == trusted
+
+
+def test_v15_partial_or_drifted_object_set_fails_closed(tmp_path: Path) -> None:
+    database = tmp_path / "v15-partial.db"
+    StudioRepository(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP TRIGGER invalidation_operations_chain_insert")
+        connection.execute("PRAGMA user_version = 14")
+    with pytest.raises(RuntimeError, match="untrusted invalidation ledger objects"):
+        StudioRepository(database)
+    assert database_version(database) == 14
+    with sqlite3.connect(database) as connection:
+        trigger = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'invalidation_operations_chain_insert'"
+        ).fetchone()
+        table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+            "AND name = 'invalidation_operations'"
+        ).fetchone()
+    assert trigger is None
+    assert table is not None
+
+    drifted = tmp_path / "v15-drifted.db"
+    StudioRepository(drifted)
+    with sqlite3.connect(drifted) as connection:
+        connection.execute("DROP TRIGGER invalidation_operations_immutable_update")
+        connection.execute(
+            """
+            CREATE TRIGGER invalidation_operations_immutable_update
+            BEFORE UPDATE ON invalidation_operations
+            BEGIN
+                SELECT RAISE(ABORT, 'changed body');
+            END
+            """
+        )
+        connection.execute("PRAGMA user_version = 14")
+    with pytest.raises(RuntimeError, match="untrusted invalidation ledger objects"):
+        StudioRepository(drifted)
+    assert database_version(drifted) == 14
+
+
+def test_v15_invalidation_ledger_allows_only_parent_project_cascade() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("CREATE TABLE projects (id TEXT PRIMARY KEY)")
+        connection.execute(
+            "CREATE TABLE artifacts ("
+            "artifact_id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
+        )
+        connection.execute(
+            "CREATE TABLE artifact_versions ("
+            "version_id TEXT PRIMARY KEY, artifact_id TEXT NOT NULL, "
+            "UNIQUE (artifact_id, version_id))"
+        )
+        connection.execute(
+            "CREATE TABLE gate_decisions ("
+            "decision_id TEXT PRIMARY KEY, artifact_id TEXT NOT NULL, "
+            "version_id TEXT NOT NULL, decision TEXT NOT NULL)"
+        )
+        for statement in MIGRATION_15:
+            connection.execute(statement)
+        connection.execute("INSERT INTO projects VALUES ('project-cascade')")
+        connection.execute("INSERT INTO artifacts VALUES ('art_changed', 'project-cascade')")
+        connection.execute("INSERT INTO artifact_versions VALUES ('ver_old', 'art_changed')")
+        connection.execute("INSERT INTO artifact_versions VALUES ('ver_new', 'art_changed')")
+        connection.execute("INSERT INTO artifacts VALUES ('art_down', 'project-cascade')")
+        connection.execute("INSERT INTO artifact_versions VALUES ('ver_down', 'art_down')")
+        connection.execute(
+            "INSERT INTO gate_decisions "
+            "VALUES ('dec_cascade', 'art_changed', 'ver_new', 'approved')"
+        )
+        connection.execute(
+            """
+            INSERT INTO invalidation_operations VALUES (
+                'ivo_cascade', 'project-cascade', 'art_changed', 'ver_old', 'ver_new',
+                'dec_cascade', ?, '2026-08-17T12:00:00Z'
+            )
+            """,
+            (f"sha256:{'a' * 64}",),
+        )
+        connection.execute(
+            """
+            INSERT INTO invalidation_reason_paths VALUES (
+                'ivp_cascade', 'ivo_cascade', 'project-cascade', 'art_down', 'ver_down',
+                'INVALIDATE', 'blocking', '["dep_1"]', '["derived_from"]', '["blocking"]',
+                'blocking', 0, '2026-08-17T12:00:00Z'
+            )
+            """
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "DELETE FROM invalidation_operations WHERE operation_id = 'ivo_cascade'"
+            )
+        connection.rollback()
+        connection.execute("DELETE FROM projects WHERE id = 'project-cascade'")
+        assert connection.execute("SELECT COUNT(*) FROM invalidation_operations").fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM invalidation_reason_paths").fetchone() == (
+            0,
+        )
 
 
 def test_v13_rejection_audit_allows_only_parent_project_cascade() -> None:
@@ -1108,6 +1506,7 @@ def test_v7_workflow_data_migrates_without_inventing_attempt_snapshots(
         ):
             connection.execute(f"DROP TRIGGER {trigger}")
         connection.execute("DROP TABLE workflow_attempt_snapshots")
+        drop_v15_invalidation_objects(connection)
         connection.execute("PRAGMA user_version = 7")
 
     StudioRepository(database)
