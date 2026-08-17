@@ -2,6 +2,7 @@ import type { components } from "@aijian/contracts";
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
+import type { FakeTimelineRunCreateCommand } from "./fake-timeline-run-contract";
 import { createdProposalRunResponse, proposalRunCommand } from "./proposal-run-test-fixture";
 
 type HealthResponse = components["schemas"]["HealthResponse"];
@@ -495,6 +496,38 @@ const skillCatalogResponse: SkillCatalogResponse = {
   },
   request_id: healthyResponse.request_id,
 };
+
+const fakeTimelineRunCommand: FakeTimelineRunCreateCommand = {
+  operation_id: "7e0df32e-299a-4bb7-b77e-b85f20c41d61",
+  input: {
+    source_manifest_version_id: `ver_${"1".repeat(32)}`,
+    source_document_id: `src_${"2".repeat(32)}`,
+  },
+};
+const fakeTimelineCapabilityLosses = [
+  "FAKE_IMAGE_NO_SEMANTIC_GENERATION",
+  "STATIC_FRAME_NO_MOTION_GENERATION",
+  "PLACEHOLDER_TONE_NO_SPEECH_OR_VOICE_IDENTITY",
+] as const;
+function createdFakeTimelineRunResponse(
+  statusPair: { attempt_status?: string; task_status?: string } = {},
+) {
+  return {
+    data: {
+      project_id: project.id,
+      source_manifest_version_id: fakeTimelineRunCommand.input.source_manifest_version_id,
+      source_document_id: fakeTimelineRunCommand.input.source_document_id,
+      workflow_run_id: `wfr_${"3".repeat(32)}`,
+      node_run_id: `node_${"4".repeat(32)}`,
+      attempt_id: `att_${"5".repeat(32)}`,
+      task_id: `task_${"6".repeat(32)}`,
+      attempt_status: statusPair.attempt_status ?? "READY",
+      task_status: statusPair.task_status ?? "READY",
+      capability_losses: [...fakeTimelineCapabilityLosses],
+    },
+    request_id: healthyResponse.request_id,
+  };
+}
 
 const providerConnectionResponse: ProviderConnectionResponse = {
   data: {
@@ -1796,5 +1829,233 @@ describe("local API client", () => {
     );
 
     await expect(client.getSourceManifest(project.id)).rejects.toThrow("status 503");
+  });
+
+  test("posts the exact fake timeline header and body and retries unknown with the same identity", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("connection reset"));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.createFakeTimelineRun(project.id, fakeTimelineRunCommand)).resolves.toEqual(
+      {
+        kind: "REMOTE_UNKNOWN",
+      },
+    );
+    await expect(client.createFakeTimelineRun(project.id, fakeTimelineRunCommand)).resolves.toEqual(
+      {
+        kind: "REMOTE_UNKNOWN",
+      },
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = fetchMock.mock.calls[0]!;
+    const second = fetchMock.mock.calls[1]!;
+    expect(first[0]).toBe(`${session.origin}/api/v1/projects/${project.id}/fake-timeline-runs`);
+    expect(second[0]).toBe(first[0]);
+    const firstInit = first[1] as RequestInit;
+    const secondInit = second[1] as RequestInit;
+    expect(firstInit.method).toBe("POST");
+    expect(firstInit.body).toBe(JSON.stringify(fakeTimelineRunCommand.input));
+    expect(secondInit.body).toBe(firstInit.body);
+    expect(new Headers(firstInit.headers).get("Idempotency-Key")).toBe(
+      `fake-timeline-run:create:v1:${fakeTimelineRunCommand.operation_id}`,
+    );
+    expect(new Headers(secondInit.headers).get("Idempotency-Key")).toBe(
+      new Headers(firstInit.headers).get("Idempotency-Key"),
+    );
+    expect(firstInit.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("distinguishes a fresh 201 fake timeline run from an exact 200 replay", async () => {
+    const receipt = createdFakeTimelineRunResponse();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(receipt, { status: 201 }))
+      .mockResolvedValueOnce(Response.json(receipt, { status: 200 }));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(client.createFakeTimelineRun(project.id, fakeTimelineRunCommand)).resolves.toEqual(
+      {
+        kind: "SUCCEEDED",
+        receipt,
+        replayed: false,
+      },
+    );
+    await expect(client.createFakeTimelineRun(project.id, fakeTimelineRunCommand)).resolves.toEqual(
+      {
+        kind: "SUCCEEDED",
+        receipt,
+        replayed: true,
+      },
+    );
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).body).toBe(
+      JSON.stringify(fakeTimelineRunCommand.input),
+    );
+  });
+
+  test("rejects invalid fake timeline project, command, extra keys, and source ids before HTTP", async () => {
+    const fetchMock = vi.fn();
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(
+      client.createFakeTimelineRun("../workspace.sqlite3", fakeTimelineRunCommand),
+    ).rejects.toThrow("valid project id");
+    await expect(
+      client.createFakeTimelineRun(project.id, {
+        ...fakeTimelineRunCommand,
+        operation_id: fakeTimelineRunCommand.operation_id.toUpperCase(),
+      }),
+    ).rejects.toThrow("valid fake timeline run command");
+    await expect(
+      client.createFakeTimelineRun(project.id, {
+        ...fakeTimelineRunCommand,
+        extra: true,
+      } as FakeTimelineRunCreateCommand),
+    ).rejects.toThrow("valid fake timeline run command");
+    await expect(
+      client.createFakeTimelineRun(project.id, {
+        ...fakeTimelineRunCommand,
+        input: {
+          ...fakeTimelineRunCommand.input,
+          source_document_id: `SRC_${"2".repeat(32)}`,
+        },
+      }),
+    ).rejects.toThrow("valid fake timeline run command");
+    await expect(
+      client.createFakeTimelineRun(project.id, {
+        ...fakeTimelineRunCommand,
+        input: {
+          ...fakeTimelineRunCommand.input,
+          source_manifest_version_id: "ver_not-canonical",
+        },
+      }),
+    ).rejects.toThrow("valid fake timeline run command");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("classifies contract-valid fake timeline errors, special 503, and unknown transport", async () => {
+    const errorPayload = {
+      error: {
+        code: "FAKE_TIMELINE_RUN_CONFLICT",
+        message: "conflict",
+        retryable: false,
+        details: {},
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const unavailable = {
+      error: {
+        code: "FAKE_TIMELINE_RUNTIME_UNAVAILABLE",
+        message: "runtime unavailable",
+        retryable: true,
+        details: {},
+      },
+      request_id: healthyResponse.request_id,
+    };
+    for (const status of [401, 403, 404, 409, 422]) {
+      const client = createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(errorPayload, { status })),
+        session,
+      );
+      await expect(
+        client.createFakeTimelineRun(project.id, fakeTimelineRunCommand),
+      ).resolves.toEqual({
+        kind: "DEFINITE_SERVER_ERROR",
+        status,
+        code: "FAKE_TIMELINE_RUN_CONFLICT",
+        request_id: healthyResponse.request_id,
+      });
+    }
+    const unavailableClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(unavailable, { status: 503 })),
+      session,
+    );
+    await expect(
+      unavailableClient.createFakeTimelineRun(project.id, fakeTimelineRunCommand),
+    ).resolves.toEqual({
+      kind: "DEFINITE_SERVER_ERROR",
+      status: 503,
+      code: "FAKE_TIMELINE_RUNTIME_UNAVAILABLE",
+      request_id: healthyResponse.request_id,
+    });
+
+    const timeoutError = new DOMException(
+      "The operation was aborted due to timeout",
+      "TimeoutError",
+    );
+    for (const response of [
+      { fetcher: vi.fn().mockResolvedValue(Response.json(errorPayload, { status: 500 })) },
+      { fetcher: vi.fn().mockRejectedValue(new Error("connection reset")) },
+      { fetcher: vi.fn().mockRejectedValue(timeoutError) },
+      {
+        fetcher: vi
+          .fn()
+          .mockResolvedValue(Response.json(createdFakeTimelineRunResponse(), { status: 202 })),
+      },
+      {
+        fetcher: vi
+          .fn()
+          .mockResolvedValue(Response.json({ ...errorPayload, extra: true }, { status: 409 })),
+      },
+      { fetcher: vi.fn().mockResolvedValue(Response.json(errorPayload, { status: 503 })) },
+      {
+        fetcher: vi
+          .fn()
+          .mockResolvedValue(Response.json({ ...unavailable, extra: true }, { status: 503 })),
+      },
+      { fetcher: vi.fn().mockResolvedValue(new Response("{", { status: 201 })) },
+      {
+        fetcher: vi.fn().mockResolvedValue(
+          new Response("{}", {
+            status: 201,
+            headers: { "Content-Length": String(16 * 1024 * 1024 + 1) },
+          }),
+        ),
+      },
+      {
+        fetcher: vi.fn().mockResolvedValue(
+          Response.json(
+            createdFakeTimelineRunResponse({ attempt_status: "LEASED", task_status: "LEASED" }),
+            {
+              status: 201,
+            },
+          ),
+        ),
+      },
+    ]) {
+      const client = createLocalApiClient(response.fetcher, session);
+      await expect(
+        client.createFakeTimelineRun(project.id, fakeTimelineRunCommand),
+      ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    }
+  });
+
+  test("binds the fake timeline header to operation identity and sends the exact changed body", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("unknown"));
+    const client = createLocalApiClient(fetchMock, session);
+    const secondOperation = {
+      ...fakeTimelineRunCommand,
+      operation_id: "87302cb8-71f8-4bb9-856a-162571f1ae6e",
+    };
+    const changedInput = {
+      ...fakeTimelineRunCommand,
+      input: {
+        ...fakeTimelineRunCommand.input,
+        source_document_id: `src_${"9".repeat(32)}`,
+      },
+    };
+
+    await client.createFakeTimelineRun(project.id, fakeTimelineRunCommand);
+    await client.createFakeTimelineRun(project.id, changedInput);
+    await client.createFakeTimelineRun(project.id, secondOperation);
+    const keys = fetchMock.mock.calls.map((call) =>
+      new Headers((call[1] as RequestInit).headers).get("Idempotency-Key"),
+    );
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).body).toBe(
+      JSON.stringify(changedInput.input),
+    );
+    expect((fetchMock.mock.calls[2]![1] as RequestInit).body).toBe(
+      JSON.stringify(secondOperation.input),
+    );
   });
 });

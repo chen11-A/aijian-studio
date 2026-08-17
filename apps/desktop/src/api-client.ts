@@ -42,6 +42,13 @@ import {
   type ProviderConnectionResponse,
 } from "./provider-connection-contract";
 import {
+  isFakeTimelineRunCreateCommand,
+  isFakeTimelineRunResponse,
+  fakeTimelineRunIdempotencyKey,
+  type FakeTimelineRunCreateCommand,
+  type FakeTimelineRunCreateResult,
+} from "./fake-timeline-run-contract";
+import {
   isCreatedProposalRunResponse,
   isProposalRunCreateCommand,
   proposalRunIdempotencyKey,
@@ -77,6 +84,11 @@ export type {
   ArtifactProposalResponse,
 } from "./artifact-proposal-contract";
 export type { TaskQueueResponse } from "./task-queue-contract";
+export type {
+  FakeTimelineRunCreateCommand,
+  FakeTimelineRunCreateResult,
+  FakeTimelineRunResponse,
+} from "./fake-timeline-run-contract";
 export type { ProposalRunCreateCommand, ProposalRunCreateResult } from "./proposal-run-contract";
 export type {
   ReorderTimelineClipInput,
@@ -116,6 +128,10 @@ export interface LocalApiClient {
     projectId: string,
     command: ProposalRunCreateCommand,
   ): Promise<ProposalRunCreateResult>;
+  createFakeTimelineRun(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   acceptArtifactProposalAsDraft(
     projectId: string,
@@ -1280,6 +1296,61 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
     }
   }
 
+  async function requestFakeTimelineRunCreation(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}/api/v1/projects/${projectId}/fake-timeline-runs`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+          "Idempotency-Key": fakeTimelineRunIdempotencyKey(command),
+        },
+        body: JSON.stringify(command.input),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+    if (response.status === 200 || response.status === 201) {
+      try {
+        const payload = await readJsonWithLimit(response);
+        return isFakeTimelineRunResponse(payload, projectId, command, response.status === 201)
+          ? { kind: "SUCCEEDED", receipt: payload, replayed: response.status === 200 }
+          : { kind: "REMOTE_UNKNOWN" };
+      } catch {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+    }
+    const definiteStatus =
+      DEFINITE_DECISION_STATUSES.has(response.status) || response.status === 503;
+    if (!definiteStatus) return { kind: "REMOTE_UNKNOWN" };
+    try {
+      const payload = await readJsonWithLimit(response);
+      if (
+        !isErrorResponse(payload) ||
+        !hasOnlyKeys(payload, ["error", "request_id"]) ||
+        !hasOnlyKeys(payload.error, ["code", "message", "retryable", "details"])
+      ) {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+      if (response.status === 503 && payload.error.code !== "FAKE_TIMELINE_RUNTIME_UNAVAILABLE") {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+      return {
+        kind: "DEFINITE_SERVER_ERROR",
+        status: response.status,
+        code: payload.error.code,
+        request_id: payload.request_id,
+      };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+  }
+
   async function requestOptionalJson<T>(
     path: string,
     validator: (value: unknown) => value is T,
@@ -1453,6 +1524,18 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         throw new Error("Local API client requires a valid proposal run command");
       }
       return requestProposalRunCreation(projectId, command);
+    },
+    async createFakeTimelineRun(
+      projectId: string,
+      command: FakeTimelineRunCreateCommand,
+    ): Promise<FakeTimelineRunCreateResult> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!isFakeTimelineRunCreateCommand(command)) {
+        throw new Error("Local API client requires a valid fake timeline run command");
+      }
+      return requestFakeTimelineRunCreation(projectId, command);
     },
     async getArtifactProposal(
       projectId: string,
