@@ -720,3 +720,594 @@ def test_invalid_json_does_not_survive_in_the_public_exception_chain(tmp_path: P
 
     assert error.value.code is MediaProbeErrorCode.INVALID_OUTPUT
     assert error.value.__cause__ is None
+
+
+def test_default_runner_kills_and_reaps_when_stdout_pipe_is_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class UnpipedProcess:
+        stdout = None
+
+        def __init__(self) -> None:
+            self.returncode: int | None = None
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return self.returncode or -9
+
+    process = UnpipedProcess()
+    monkeypatch.setattr(media_probe.subprocess, "Popen", lambda *_args, **_kwargs: process)
+
+    with pytest.raises(OSError, match="output pipe is unavailable"):
+        media_probe.run_ffprobe_command(executable, ("-version",), 3.0)
+
+    assert process.kill_calls == 1
+    assert process.wait_calls == 1
+    assert process.returncode == -9
+
+
+def test_default_runner_reaps_after_a_wait_timeout_without_stop_callback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class TimeoutProcess:
+        def __init__(self) -> None:
+            self.stdout = io.BytesIO(b"")
+            self.returncode: int | None = None
+            self.kill_calls = 0
+            self.wait_timeouts: list[float | None] = []
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.wait_timeouts.append(timeout)
+            if len(self.wait_timeouts) == 1:
+                raise subprocess.TimeoutExpired(["ffprobe"], timeout)
+            return self.returncode or -9
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+    process = TimeoutProcess()
+    monkeypatch.setattr(media_probe.subprocess, "Popen", lambda *_args, **_kwargs: process)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        media_probe.run_ffprobe_command(executable, ("-version",), 3.0)
+
+    assert process.kill_calls == 1
+    assert process.wait_timeouts == [3.0, None]
+    assert process.returncode == -9
+
+
+def test_default_runner_reports_reader_failure_after_killing_the_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class BrokenStream:
+        def read(self, _size: int) -> bytes:
+            raise OSError("reader failed")
+
+    class ReaderFailureProcess:
+        def __init__(self) -> None:
+            self.stdout = BrokenStream()
+            self.returncode: int | None = None
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return self.returncode or 0
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+    process = ReaderFailureProcess()
+    monkeypatch.setattr(media_probe.subprocess, "Popen", lambda *_args, **_kwargs: process)
+
+    with pytest.raises(OSError, match="output could not be read") as error:
+        media_probe.run_ffprobe_command(executable, ("-version",), 3.0)
+
+    assert process.kill_calls == 1
+    assert process.wait_calls == 1
+    assert process.returncode == -9
+    assert error.value.__cause__ is None
+
+
+def test_default_runner_kills_after_stop_termination_times_out(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class TerminationTimeoutProcess:
+        def __init__(self) -> None:
+            self.stdout = io.BytesIO(b"")
+            self.returncode: int | None = None
+            self.terminate_calls = 0
+            self.kill_calls = 0
+            self.wait_timeouts: list[float | None] = []
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminate_calls += 1
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.wait_timeouts.append(timeout)
+            if len(self.wait_timeouts) == 1:
+                raise subprocess.TimeoutExpired(["ffprobe"], timeout)
+            return -9
+
+    process = TerminationTimeoutProcess()
+    monkeypatch.setattr(media_probe.subprocess, "Popen", lambda *_args, **_kwargs: process)
+
+    with pytest.raises(OSError, match="interrupted"):
+        media_probe.run_ffprobe_command(
+            executable,
+            ("-version",),
+            3.0,
+            stop_requested=lambda: True,
+        )
+
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+    assert process.wait_timeouts == [0.5, 0.5]
+    assert process.returncode == -9
+
+
+def test_default_runner_kills_and_reaps_on_deadline_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class WaitingProcess:
+        def __init__(self) -> None:
+            self.stdout = io.BytesIO(b"")
+            self.returncode: int | None = None
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return -9
+
+    deadline_process = WaitingProcess()
+    monotonic_values = iter((0.0, 1.0))
+    monkeypatch.setattr(media_probe.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(
+        media_probe.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: deadline_process,
+    )
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        media_probe.run_ffprobe_command(
+            executable,
+            ("-version",),
+            0.5,
+            stop_requested=lambda: False,
+        )
+
+    assert deadline_process.kill_calls == 1
+    assert deadline_process.wait_calls == 1
+    assert deadline_process.returncode == -9
+
+
+def test_default_runner_preserves_stop_callback_failure_after_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class CallbackProcess:
+        def __init__(self) -> None:
+            self.stdout = io.BytesIO(b"")
+            self.returncode: int | None = None
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return -9
+
+    callback_process = CallbackProcess()
+    monkeypatch.setattr(
+        media_probe.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: callback_process,
+    )
+
+    def broken_stop_callback() -> bool:
+        raise RuntimeError("stop callback failed")
+
+    with pytest.raises(RuntimeError, match="stop callback failed") as error:
+        media_probe.run_ffprobe_command(
+            executable,
+            ("-version",),
+            3.0,
+            stop_requested=broken_stop_callback,
+        )
+
+    assert callback_process.kill_calls == 1
+    assert callback_process.wait_calls == 1
+    assert callback_process.returncode == -9
+    assert error.value.__cause__ is None
+
+
+def test_default_runner_rejects_a_live_reader_at_the_lifecycle_seam(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class LiveReader:
+        instances: list["LiveReader"] = []
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.join_timeouts: list[float | None] = []
+            self.instances.append(self)
+
+        def start(self) -> None:
+            return None
+
+        def join(self, timeout: float | None = None) -> None:
+            self.join_timeouts.append(timeout)
+
+        def is_alive(self) -> bool:
+            return True
+
+    class CompletedProcess:
+        def __init__(self, returncode: int) -> None:
+            self.stdout = io.BytesIO(b"ok")
+            self.returncode = returncode
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return self.returncode
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+
+    live_process = CompletedProcess(0)
+    monkeypatch.setattr(media_probe.threading, "Thread", LiveReader)
+    monkeypatch.setattr(
+        media_probe.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: live_process,
+    )
+
+    with pytest.raises(OSError, match="reader did not terminate"):
+        media_probe.run_ffprobe_command(executable, ("-version",), 3.0)
+
+    assert live_process.kill_calls == 1
+    assert live_process.wait_calls == 2
+    assert LiveReader.instances[0].join_timeouts == [1.0]
+
+
+def test_default_runner_reports_a_nonzero_process_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "ffprobe"
+    executable.write_bytes(b"probe")
+
+    class FailedProcess:
+        def __init__(self) -> None:
+            self.stdout = io.BytesIO(b"ok")
+            self.returncode = 7
+            self.kill_calls = 0
+            self.wait_calls = 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            return self.returncode
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+
+    failed_process = FailedProcess()
+    monkeypatch.setattr(
+        media_probe.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: failed_process,
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        media_probe.run_ffprobe_command(executable, ("-version",), 3.0)
+
+    assert error.value.returncode == 7
+    assert failed_process.kill_calls == 0
+    assert failed_process.wait_calls == 1
+
+
+def test_public_probe_rejects_a_snapshot_when_hashing_crosses_a_small_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "bounded-snapshot.mkv"
+    source.write_bytes(b"four")
+    snapshots: list[Path] = []
+    monkeypatch.setattr(media_probe, "MAX_MEDIA_INPUT_BYTES", len(source.read_bytes()))
+
+    def lower_limit_after_snapshot(
+        _executable: Path,
+        arguments: tuple[str, ...],
+        _timeout: float,
+    ) -> bytes:
+        snapshots.append(Path(arguments[-1]))
+        monkeypatch.setattr(media_probe, "MAX_MEDIA_INPUT_BYTES", 3)
+        return b"{}"
+
+    with pytest.raises(MediaProbeError) as error:
+        probe_local_media(
+            source.resolve(),
+            _toolchain(tmp_path),
+            command_runner=lower_limit_after_snapshot,
+        )
+
+    assert error.value.code is MediaProbeErrorCode.INPUT_CHANGED
+    assert len(snapshots) == 1
+    assert not snapshots[0].exists()
+
+
+def test_public_probe_fails_closed_when_the_snapshot_root_is_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "root-unavailable.mkv"
+    source.write_bytes(b"input")
+    monkeypatch.setattr(media_probe.os, "name", "nt")
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+
+    with pytest.raises(MediaProbeError) as error:
+        probe_local_media(source.resolve(), _toolchain(tmp_path))
+
+    assert error.value.code is MediaProbeErrorCode.INPUT_NOT_FOUND
+    assert error.value.__cause__ is None
+
+
+def _assert_public_probe_rejects_payload(
+    tmp_path: Path,
+    *,
+    summary: dict[str, object] | None = None,
+    video_frames: dict[str, object] | None = None,
+    audio_frames: dict[str, object] | None = None,
+    expected_code: MediaProbeErrorCode = MediaProbeErrorCode.INVALID_OUTPUT,
+) -> None:
+    source = tmp_path / "invalid-metadata.mkv"
+    source.write_bytes(b"input")
+
+    with pytest.raises(MediaProbeError) as error:
+        probe_local_media(
+            source.resolve(),
+            _toolchain(tmp_path),
+            command_runner=_runner_for(
+                source,
+                summary=summary,
+                video_frames=video_frames,
+                audio_frames=audio_frames,
+            ),
+        )
+
+    assert error.value.code is expected_code
+    assert error.value.__cause__ is None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("avg_frame_rate", "not-a-rational"),
+        ("time_base", "0/1"),
+        ("index", True),
+        ("width", 2**53),
+        ("codec_name", ""),
+        ("pix_fmt", "x" * 129),
+    ],
+    ids=(
+        "avg-frame-rate-not-rational",
+        "time-base-not-positive",
+        "stream-index-boolean",
+        "width-outside-json-safe-range",
+        "codec-name-empty",
+        "pixel-format-too-long",
+    ),
+)
+def test_public_probe_rejects_invalid_video_stream_fields(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    summary = _summary_payload(len(b"input"))
+    video_stream = summary["streams"][0]
+    assert isinstance(video_stream, dict)
+    video_stream[field] = value
+
+    _assert_public_probe_rejects_payload(tmp_path, summary=summary)
+
+
+@pytest.mark.parametrize(
+    ("case", "video_frames"),
+    [
+        ("frames-not-a-list", {"frames": "not-a-list"}),
+        ("frames-empty", {"frames": []}),
+        (
+            "frame-media-type-not-video",
+            {
+                "frames": [
+                    {
+                        "media_type": "audio",
+                        "stream_index": 0,
+                        "pts": 0,
+                        "duration": 1,
+                    }
+                ]
+            },
+        ),
+        (
+            "frame-stream-index-mismatch",
+            {
+                "frames": [
+                    {
+                        "media_type": "video",
+                        "stream_index": 99,
+                        "pts": 0,
+                        "duration": 1,
+                    }
+                ]
+            },
+        ),
+    ],
+    ids=lambda case: case,
+)
+def test_public_probe_rejects_invalid_video_frame_payloads(
+    tmp_path: Path,
+    case: str,
+    video_frames: dict[str, object],
+) -> None:
+    del case
+    _assert_public_probe_rejects_payload(tmp_path, video_frames=video_frames)
+
+
+def test_public_probe_rejects_video_frame_count_above_a_controlled_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(media_probe, "MAX_MEDIA_FRAME_COUNT", 1)
+
+    _assert_public_probe_rejects_payload(
+        tmp_path,
+        video_frames=_video_frames_payload((0, 42)),
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "audio_frames"),
+    [
+        ("frames-not-a-list", {"frames": "not-a-list"}),
+        (
+            "frame-media-type-not-audio",
+            {
+                "frames": [
+                    {
+                        "media_type": "video",
+                        "stream_index": 1,
+                        "nb_samples": 1,
+                    }
+                ]
+            },
+        ),
+        (
+            "frame-stream-index-mismatch",
+            {
+                "frames": [
+                    {
+                        "media_type": "audio",
+                        "stream_index": 99,
+                        "nb_samples": 1,
+                    }
+                ]
+            },
+        ),
+    ],
+    ids=lambda case: case,
+)
+def test_public_probe_rejects_invalid_audio_frame_payloads(
+    tmp_path: Path,
+    case: str,
+    audio_frames: dict[str, object],
+) -> None:
+    del case
+    _assert_public_probe_rejects_payload(tmp_path, audio_frames=audio_frames)
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_code"),
+    [
+        ("programs-present", MediaProbeErrorCode.UNSUPPORTED_LAYOUT),
+        ("stream-metadata-not-object", MediaProbeErrorCode.INVALID_OUTPUT),
+    ],
+    ids=("programs-present", "stream-metadata-not-object"),
+)
+def test_public_probe_rejects_invalid_summary_layouts(
+    tmp_path: Path,
+    case: str,
+    expected_code: MediaProbeErrorCode,
+) -> None:
+    summary = _summary_payload(len(b"input"))
+    if case == "programs-present":
+        summary["programs"] = [{}]
+    else:
+        summary["streams"] = ["not-an-object"]
+
+    _assert_public_probe_rejects_payload(
+        tmp_path,
+        summary=summary,
+        expected_code=expected_code,
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    ("declared-size-mismatch", "format-name-missing"),
+)
+def test_public_probe_rejects_invalid_container_metadata(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    summary = _summary_payload(len(b"input"))
+    format_data = summary["format"]
+    assert isinstance(format_data, dict)
+    if case == "declared-size-mismatch":
+        format_data["size"] = str(len(b"input") + 1)
+    else:
+        format_data["format_name"] = ""
+
+    _assert_public_probe_rejects_payload(tmp_path, summary=summary)

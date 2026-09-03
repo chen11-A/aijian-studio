@@ -1,10 +1,13 @@
+import json
 import sqlite3
 import threading
 from collections import defaultdict
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import aijian_api.artifact_invalidation_ledger as invalidation_ledger
 import pytest
 from aijian_api.artifact_invalidation_domain import (
     AcceptedArtifactHead,
@@ -233,12 +236,8 @@ def create_downstream(
 
 def ledger_row_counts(database: Path) -> tuple[int, int]:
     with sqlite3.connect(database) as connection:
-        operations = connection.execute(
-            "SELECT COUNT(*) FROM invalidation_operations"
-        ).fetchone()
-        paths = connection.execute(
-            "SELECT COUNT(*) FROM invalidation_reason_paths"
-        ).fetchone()
+        operations = connection.execute("SELECT COUNT(*) FROM invalidation_operations").fetchone()
+        paths = connection.execute("SELECT COUNT(*) FROM invalidation_reason_paths").fetchone()
     assert operations is not None and paths is not None
     return int(operations[0]), int(paths[0])
 
@@ -264,8 +263,7 @@ def snapshot_immutable_graph(database: Path) -> dict[str, object]:
             ).fetchone()[0],
             "tasks": connection.execute("SELECT COUNT(*) FROM task_ledger").fetchone()[0],
             "decisions": connection.execute(
-                "SELECT decision_id, version_id, decision FROM gate_decisions "
-                "ORDER BY decision_id"
+                "SELECT decision_id, version_id, decision FROM gate_decisions ORDER BY decision_id"
             ).fetchall(),
         }
 
@@ -347,6 +345,287 @@ def assert_operation_matches_result(
     expected = flatten_expected_paths(result)
     assert persisted == expected
     assert [path.ordinal for path in operation.paths] == list(range(len(expected)))
+
+
+class _RowsConnection:
+    def __init__(self, rows: list[sqlite3.Row]) -> None:
+        self._rows = rows
+
+    def execute(self, _sql: str, _parameters: tuple[object, ...]) -> "_RowsConnection":
+        return self
+
+    def fetchall(self) -> list[sqlite3.Row]:
+        return self._rows
+
+
+def _row(**values: object) -> sqlite3.Row:
+    with sqlite3.connect(":memory:") as connection:
+        connection.row_factory = sqlite3.Row
+        columns = ", ".join(f"? AS {name}" for name in values)
+        row = connection.execute(columns.join(("SELECT ", "")), tuple(values.values())).fetchone()
+    assert row is not None
+    return row
+
+
+def _valid_result_with_path() -> TypedDependencyInvalidationResult:
+    path = invalidation_ledger.InvalidationReasonPath(
+        dependency_ids=("dep_a",),
+        relationships=("derived_from",),
+        edge_impacts=("blocking",),
+        effective_impact="blocking",
+    )
+    affected = invalidation_ledger.AffectedDownstreamVersion(
+        version_id="ver_affected",
+        artifact_id="art_affected",
+        classification="STALE",
+        aggregate_impact="blocking",
+        reason_paths=(path,),
+    )
+    return TypedDependencyInvalidationResult(
+        project_id="prj_test",
+        changed_artifact_id="art_changed",
+        old_version_id="ver_old",
+        new_version_id="ver_new",
+        affected=(affected,),
+    )
+
+
+def test_ledger_rejects_missing_operation_and_invalid_closed_replacement_input() -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute(
+            "CREATE TABLE invalidation_operations (project_id TEXT, operation_id TEXT)"
+        )
+        with pytest.raises(InvalidationLedgerError, match="not found"):
+            invalidation_ledger.get_invalidation_operation(connection, "prj", "ivo_missing")
+        with pytest.raises(InvalidationLedgerError, match="empty identity"):
+            invalidation_ledger.load_closed_replacement_input(
+                connection,
+                project_id="",
+                changed_artifact_id="art",
+                old_version_id="old",
+                new_version_id="new",
+            )
+        with pytest.raises(InvalidationLedgerError, match="IDs are equal"):
+            invalidation_ledger.load_closed_replacement_input(
+                connection,
+                project_id="prj",
+                changed_artifact_id="art",
+                old_version_id="same",
+                new_version_id="same",
+            )
+
+
+def test_ledger_rejects_invalid_assessment_identity_and_paths() -> None:
+    result = _valid_result_with_path()
+    with pytest.raises(InvalidationLedgerError, match="identity does not match"):
+        invalidation_ledger._validate_result_identity(
+            replace(result, project_id="other"),
+            project_id=result.project_id,
+            changed_artifact_id=result.changed_artifact_id,
+            old_version_id=result.old_version_id,
+            new_version_id=result.new_version_id,
+        )
+
+    affected = result.affected[0]
+    path = affected.reason_paths[0]
+    invalid_cases = (
+        (replace(affected, classification="UNKNOWN"), "invalid path arrays/hash"),
+        (replace(affected, aggregate_impact="unknown"), "invalid path arrays/hash"),
+        (replace(affected, artifact_id=""), "invalid path arrays/hash"),
+        (
+            replace(affected, reason_paths=(replace(path, dependency_ids=()),)),
+            "invalid path arrays/hash",
+        ),
+        (
+            replace(affected, reason_paths=(replace(path, dependency_ids=("",)),)),
+            "invalid path arrays/hash",
+        ),
+        (
+            replace(affected, reason_paths=(replace(path, edge_impacts=("unknown",)),)),
+            "invalid path arrays/hash",
+        ),
+        (
+            replace(affected, reason_paths=(replace(path, effective_impact="unknown"),)),
+            "invalid path arrays/hash",
+        ),
+    )
+    for invalid_affected, message in invalid_cases:
+        with pytest.raises(InvalidationLedgerError, match=message):
+            invalidation_ledger._validate_result_paths(
+                replace(result, affected=(invalid_affected,))
+            )
+
+
+def test_ledger_rejects_corrupt_path_arrays_and_non_row_values() -> None:
+    invalid_arrays = (
+        ("{", "corrupted dependency_ids"),
+        ("[]", "corrupted dependency_ids"),
+        ("[1]", "corrupted dependency_ids"),
+    )
+    for raw, message in invalid_arrays:
+        with pytest.raises(InvalidationLedgerError, match=message):
+            invalidation_ledger._load_string_array(raw, field_name="dependency_ids")
+    with pytest.raises(InvalidationLedgerError, match="connection must use sqlite3.Row"):
+        invalidation_ledger._row_value(("not", "a", "row"), "project_id")
+
+
+def test_ledger_rejects_corrupt_stored_path_shape_and_values() -> None:
+    base = {
+        "path_id": "ivp_test",
+        "operation_id": "ivo_test",
+        "project_id": "prj_test",
+        "affected_artifact_id": "art_affected",
+        "affected_version_id": "ver_affected",
+        "classification": "STALE",
+        "aggregate_impact": "blocking",
+        "dependency_ids_json": '["dep_a"]',
+        "relationships_json": '["derived_from"]',
+        "edge_impacts_json": '["blocking"]',
+        "effective_impact": "blocking",
+        "ordinal": 0,
+        "created_at": "2026-08-17T12:00:00Z",
+    }
+    cases = (
+        ({"relationships_json": "[]"}, "corrupted relationships"),
+        ({"edge_impacts_json": '["unknown"]'}, "invalid path arrays/hash"),
+        ({"classification": "UNKNOWN"}, "invalid path arrays/hash"),
+        ({"aggregate_impact": "unknown"}, "invalid path arrays/hash"),
+    )
+    for update, message in cases:
+        with pytest.raises(InvalidationLedgerError, match=message):
+            invalidation_ledger._path_from_row(_row(**(base | update)))
+
+
+def test_ledger_rejects_corrupt_identity_rows_before_assessment() -> None:
+    duplicate = _RowsConnection(
+        [
+            _row(project_id="prj", artifact_id="art_a", version_id="ver_same"),
+            _row(project_id="prj", artifact_id="art_b", version_id="ver_same"),
+        ]
+    )
+    with pytest.raises(InvalidationLedgerError, match="duplicate identity"):
+        invalidation_ledger._load_project_versions(duplicate, "prj")
+
+    wrong_project = _RowsConnection(
+        [_row(project_id="other", artifact_id="art_a", version_id="ver_a")]
+    )
+    with pytest.raises(InvalidationLedgerError, match="project identity mismatch"):
+        invalidation_ledger._load_project_versions(wrong_project, "prj")
+
+    versions = {"ver_old": ArtifactVersionIdentity("prj", "art", "ver_old")}
+    with pytest.raises(InvalidationLedgerError, match="missing version"):
+        invalidation_ledger._require_change_versions(
+            versions,
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+        )
+    with pytest.raises(InvalidationLedgerError, match="do not belong"):
+        invalidation_ledger._require_change_versions(
+            {"ver_old": ArtifactVersionIdentity("prj", "other", "ver_old")},
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_old",
+        )
+
+    complete_versions = {
+        "ver_old": ArtifactVersionIdentity("prj", "art", "ver_old"),
+        "ver_new": ArtifactVersionIdentity("prj", "art", "ver_new"),
+        "ver_other": ArtifactVersionIdentity("prj", "art_other", "ver_other"),
+    }
+    with pytest.raises(
+        InvalidationLedgerError, match="missing version referenced by an accepted head"
+    ):
+        invalidation_ledger._load_accepted_heads_with_overlay(
+            _RowsConnection(
+                [_row(project_id="prj", artifact_id="art_other", accepted_version_id="missing")]
+            ),
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+            versions_by_id=complete_versions,
+        )
+    with pytest.raises(InvalidationLedgerError, match="different artifact"):
+        invalidation_ledger._load_accepted_heads_with_overlay(
+            _RowsConnection(
+                [
+                    _row(
+                        project_id="prj",
+                        artifact_id="art_mismatch",
+                        accepted_version_id="ver_other",
+                    )
+                ]
+            ),
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+            versions_by_id=complete_versions,
+        )
+    with pytest.raises(InvalidationLedgerError, match="accepted-head overlay"):
+        invalidation_ledger._load_accepted_heads_with_overlay(
+            _RowsConnection([]),
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+            versions_by_id=complete_versions,
+        )
+
+    invalid_dependency = _RowsConnection(
+        [
+            _row(
+                downstream_project_id="prj",
+                upstream_project_id="prj",
+                downstream_version_id="ver_old",
+                upstream_version_id="ver_new",
+                downstream_artifact_id="art",
+                upstream_artifact_id="art",
+                dependency_id="dep_invalid",
+                relationship="derived_from",
+                impact="unknown",
+            )
+        ]
+    )
+    with pytest.raises(InvalidationLedgerError, match="unsupported dependency impact"):
+        invalidation_ledger._load_project_dependencies(
+            invalid_dependency,
+            "prj",
+            {"ver_old": complete_versions["ver_old"], "ver_new": complete_versions["ver_new"]},
+        )
+
+    repeated_head = _row(
+        project_id="prj",
+        artifact_id="art_other",
+        accepted_version_id="ver_other",
+    )
+    with pytest.raises(InvalidationLedgerError, match="duplicate identity records"):
+        invalidation_ledger._load_accepted_heads_with_overlay(
+            _RowsConnection([repeated_head, repeated_head]),
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+            versions_by_id=complete_versions,
+        )
+
+    mismatched_overlay_versions = complete_versions | {
+        "ver_new": ArtifactVersionIdentity("prj", "art_other", "ver_new")
+    }
+    with pytest.raises(InvalidationLedgerError, match="inconsistent accepted-head overlay"):
+        invalidation_ledger._load_accepted_heads_with_overlay(
+            _RowsConnection(
+                [_row(project_id="prj", artifact_id="art", accepted_version_id="ver_old")]
+            ),
+            project_id="prj",
+            changed_artifact_id="art",
+            old_version_id="ver_old",
+            new_version_id="ver_new",
+            versions_by_id=mismatched_overlay_versions,
+        )
 
 
 def test_first_accepted_version_creates_no_invalidation_operation(tmp_path: Path) -> None:
@@ -578,9 +857,7 @@ def test_accepted_replacement_creates_one_operation_and_all_r01_paths(tmp_path: 
         ),
     )
     assert_operation_matches_result(operation, expected, gate_decision_id=approved.decision.id)
-    classifications = {
-        path.affected_version_id: path.classification for path in operation.paths
-    }
+    classifications = {path.affected_version_id: path.classification for path in operation.paths}
     assert classifications[story.version.id] == "STALE"
     assert classifications[story_draft.version.id] == "INVALIDATE"
     voice_paths = [path for path in operation.paths if path.affected_version_id == voice.version.id]
@@ -783,9 +1060,7 @@ def _overlay_accepted_heads(
     replaced = False
     for head in _project_accepted_heads(database, project_id):
         if head.artifact_id == changed_artifact_id:
-            heads.append(
-                AcceptedArtifactHead(project_id, changed_artifact_id, new_version_id)
-            )
+            heads.append(AcceptedArtifactHead(project_id, changed_artifact_id, new_version_id))
             replaced = True
         else:
             heads.append(head)
@@ -823,9 +1098,7 @@ def test_two_writers_racing_same_identity_converge(tmp_path: Path) -> None:
         parent_version_id=source.version.id,
         expected_revision=repository.get_artifact_head(project.id, "source_manifest").revision,
     )
-    signed, prepared_decision = _prepare_source_replacement_decision(
-        repository, project, source_v2
-    )
+    signed, prepared_decision = _prepare_source_replacement_decision(repository, project, source_v2)
     decision_id = _insert_test_only_approved_decision(
         repository.database_path,
         artifact=source_v2,
@@ -1200,8 +1473,7 @@ def test_assessment_hash_check_rejects_non_hex_digest() -> None:
         connection.execute("INSERT INTO artifact_versions VALUES ('ver_old', 'art_changed')")
         connection.execute("INSERT INTO artifact_versions VALUES ('ver_new', 'art_changed')")
         connection.execute(
-            "INSERT INTO gate_decisions "
-            "VALUES ('dec_hash', 'art_changed', 'ver_new', 'approved')"
+            "INSERT INTO gate_decisions VALUES ('dec_hash', 'art_changed', 'ver_new', 'approved')"
         )
         for bad_hash in (
             "sha256:" + "A" * 64,
@@ -1311,9 +1583,7 @@ def test_fail_closed_graph_and_overlay_errors_roll_back_gate(tmp_path: Path) -> 
         parent_version_id=source.version.id,
         expected_revision=repository.get_artifact_head(project.id, "source_manifest").revision,
     )
-    signed, prepared_decision = _prepare_source_replacement_decision(
-        repository, project, source_v2
-    )
+    signed, prepared_decision = _prepare_source_replacement_decision(repository, project, source_v2)
 
     def decide() -> Any:
         return repository.decide_artifact_gate(
@@ -1849,8 +2119,7 @@ def test_project_deletion_cascades_ledger_rows_only_when_project_is_gone(tmp_pat
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("CREATE TABLE projects (id TEXT PRIMARY KEY)")
         connection.execute(
-            "CREATE TABLE artifacts ("
-            "artifact_id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
+            "CREATE TABLE artifacts (artifact_id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
         )
         connection.execute(
             "CREATE TABLE artifact_versions ("
@@ -1997,3 +2266,55 @@ def _project_dependencies(database: Path, project_id: str) -> tuple[ExactVersion
         )
         for row in rows
     )
+
+
+def test_public_read_rejects_non_contiguous_persisted_reason_path_ordinals(
+    tmp_path: Path,
+) -> None:
+    repository = create_repository(tmp_path / "ordinal-drift.db")
+    project, _, _, operation = _approve_source_replacement_with_episode(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        # Simulate historical/disk drift in the isolated test database only.
+        connection.execute("DROP TRIGGER invalidation_reason_paths_immutable_update")
+        connection.execute(
+            "UPDATE invalidation_reason_paths SET ordinal = ? WHERE path_id = ?",
+            (99, operation.paths[0].id),
+        )
+        connection.commit()
+
+    with pytest.raises(InvalidationLedgerError, match="invalid path arrays/hash"):
+        repository.get_invalidation_operation(project.id, operation.id)
+
+
+@pytest.mark.parametrize(
+    "column",
+    ("dependency_ids_json", "relationships_json", "edge_impacts_json"),
+)
+def test_public_read_rejects_persisted_reason_path_array_length_drift(
+    tmp_path: Path,
+    column: str,
+) -> None:
+    repository = create_repository(tmp_path / f"{column}-drift.db")
+    project, _, _, operation = _approve_source_replacement_with_episode(repository)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        # Simulate historical/disk drift in the isolated test database only.
+        connection.execute("DROP TRIGGER invalidation_reason_paths_immutable_update")
+        connection.execute("PRAGMA ignore_check_constraints = ON")
+        row = connection.execute(
+            f"SELECT {column} FROM invalidation_reason_paths WHERE path_id = ?",
+            (operation.paths[0].id,),
+        ).fetchone()
+        assert row is not None
+        values = json.loads(str(row[0]))
+        assert isinstance(values, list)
+        values.append("historical-drift")
+        connection.execute(
+            f"UPDATE invalidation_reason_paths SET {column} = ? WHERE path_id = ?",
+            (json.dumps(values, separators=(",", ":")), operation.paths[0].id),
+        )
+        connection.commit()
+
+    with pytest.raises(InvalidationLedgerError, match="invalid path arrays/hash"):
+        repository.get_invalidation_operation(project.id, operation.id)

@@ -119,6 +119,93 @@ def test_two_connections_can_claim_a_task_only_once(tmp_path: Path) -> None:
         assert connection.execute("SELECT status FROM task_ledger").fetchone() == ("LEASED",)
 
 
+def test_local_task_ledger_rejects_non_positive_connection_timeout(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    with pytest.raises(
+        ValueError,
+        match="connection timeout must be positive",
+    ):
+        LocalTaskLedger(database, connection_timeout=timedelta(seconds=0))
+
+
+def test_claim_and_recovery_reject_blank_task_kind(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(ledger, project_id)
+
+    with pytest.raises(ValueError, match="task kind must not be empty"):
+        ledger.claim_ready_task(
+            worker_id="worker-a",
+            lease_duration=timedelta(seconds=30),
+            task_kind="   ",
+        )
+
+    with pytest.raises(ValueError, match="task kind must not be empty"):
+        ledger.recover_expired_local_tasks(task_kind="   ")
+
+
+def test_heartbeat_rejects_non_positive_lock_timeout(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(ledger, project_id)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-a",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+
+    with pytest.raises(ValueError, match="heartbeat lock timeout must be positive"):
+        ledger.heartbeat(
+            claim,
+            lease_duration=timedelta(seconds=30),
+            lock_timeout=timedelta(0),
+        )
+
+
+def test_heartbeat_rewraps_non_locked_operational_error(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(ledger, project_id)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-a",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+
+    class _LockedConnection:
+        def __init__(self, inner: sqlite3.Connection) -> None:
+            self._inner = inner
+
+        def execute(self, sql: str, parameters: tuple = ()) -> sqlite3.Cursor:
+            if str(sql).strip().startswith("BEGIN IMMEDIATE"):
+                raise sqlite3.OperationalError("disk I/O error")
+            return self._inner.execute(sql, parameters)
+
+        def rollback(self) -> None:
+            self._inner.rollback()
+
+        def close(self) -> None:
+            self._inner.close()
+
+    baseline_open = ledger._open
+    original_connection = sqlite3.connect(database)
+    ledger._open = lambda: _LockedConnection(original_connection)
+    with pytest.raises(
+        sqlite3.OperationalError,
+        match="disk I/O error",
+    ):
+        ledger.heartbeat(
+            claim,
+            lease_duration=timedelta(seconds=30),
+            lock_timeout=timedelta(seconds=1),
+        )
+    ledger._open = baseline_open
+    original_connection.close()
+
+
 def test_specialized_worker_claims_only_its_exact_task_kind(tmp_path: Path) -> None:
     database = tmp_path / "workspace.db"
     project_id = create_project(database)
@@ -359,3 +446,49 @@ def test_ledger_validates_claim_and_enqueue_boundaries(tmp_path: Path) -> None:
     assert utc_now().tzinfo is not None
     assert new_id("task").startswith("task_")
     assert lease_token()
+
+
+def test_mark_attempt_running_fails_for_unsupported_snapshot_kind(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    queued = enqueue(ledger, project_id)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-a",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+    with sqlite3.connect(database) as connection:
+        now_text = timestamp(NOW)
+        snapshot_hash = "sha256:" + ("f" * 64)
+        connection.execute(
+            """
+            INSERT INTO workflow_attempt_snapshots (
+                attempt_id, snapshot_kind, snapshot_json, snapshot_hash, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(attempt_id) DO UPDATE
+            SET snapshot_kind = EXCLUDED.snapshot_kind
+               ,snapshot_json = EXCLUDED.snapshot_json
+               ,snapshot_hash = EXCLUDED.snapshot_hash
+            """,
+            (queued.attempt_id, "unsupported", "{}", snapshot_hash, now_text),
+        )
+        connection.commit()
+
+    with pytest.raises(ValueError, match="unsupported attempt snapshot kind"):
+        ledger.mark_attempt_running(claim)
+
+
+def test_fail_local_task_rejects_blank_error_code(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    ledger = LocalTaskLedger(database, clock=lambda: NOW)
+    enqueue(ledger, project_id)
+    claim = ledger.claim_ready_task(
+        worker_id="worker-a",
+        lease_duration=timedelta(seconds=30),
+    )
+    assert claim is not None
+
+    with pytest.raises(ValueError, match="error code must not be empty"):
+        ledger.fail_local_task(claim, error_code="   ")
