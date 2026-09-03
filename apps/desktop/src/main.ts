@@ -23,6 +23,7 @@ import {
   shouldEnableE2EProposalRunResponseFault,
 } from "./e2e-proposal-run-response-fault";
 import { registerFakeTimelineRunHandlers } from "./fake-timeline-run-contract";
+import { registerInvalidationOperationHandlers } from "./invalidation-operation-ipc";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
@@ -139,6 +140,10 @@ ipcMain.handle("tasks:list", (event, projectId: string) =>
   clientFor(event).listProjectTasks(projectId),
 );
 registerArtifactProposalHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+);
+registerInvalidationOperationHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
 );

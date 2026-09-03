@@ -270,6 +270,7 @@ try {
     "deleteProviderConnection",
     "acceptArtifactProposalAsDraft",
     "getArtifactProposal",
+    "getInvalidationOperation",
     "getProject",
     "getProjectTimeline",
     "getSource",

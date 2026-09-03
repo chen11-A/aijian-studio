@@ -38,6 +38,19 @@ describe("privileged contract boundaries", () => {
     expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
   });
 
+  test("wires invalidation detail through the exact privileged boundary", () => {
+    const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
+    const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
+
+    expect(preloadSource).not.toMatch(/from\s+["']\.\//);
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"invalidation-operations:get",\s*projectId,\s*operationId,?\s*\)/,
+    );
+    expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
+    expect(mainSource).toContain("registerInvalidationOperationHandlers<IpcMainInvokeEvent>(");
+    expect(mainSource).not.toContain('ipcMain.handle("invalidation-operations:get"');
+  });
+
   test("registers proposal run creation only through the exact main-process handler", () => {
     const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
     expect(mainSource).toContain("registerProposalRunHandlers<IpcMainInvokeEvent>(");

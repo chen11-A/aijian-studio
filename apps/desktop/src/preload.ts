@@ -13,6 +13,7 @@ type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
 type ArtifactProposalResponse = components["schemas"]["ArtifactProposalResponse"];
+type InvalidationOperationResponse = components["schemas"]["InvalidationOperationResponse"];
 type ArtifactProposalDraftAcceptanceInput =
   components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
 type ArtifactProposalDraftAcceptanceResponse =
@@ -89,6 +90,15 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
   getArtifactProposal: (projectId: string, proposalId: string): Promise<ArtifactProposalResponse> =>
     ipcRenderer.invoke("proposals:get", projectId, proposalId) as Promise<ArtifactProposalResponse>,
+  getInvalidationOperation: (
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse> =>
+    ipcRenderer.invoke(
+      "invalidation-operations:get",
+      projectId,
+      operationId,
+    ) as Promise<InvalidationOperationResponse>,
   acceptArtifactProposalAsDraft: (
     projectId: string,
     proposalId: string,

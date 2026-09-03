@@ -45,6 +45,7 @@ const expectedBridgeKeys = [
   "createProposalRun",
   "deleteProviderConnection",
   "getArtifactProposal",
+  "getInvalidationOperation",
   "getProject",
   "getProjectTimeline",
   "getSource",
