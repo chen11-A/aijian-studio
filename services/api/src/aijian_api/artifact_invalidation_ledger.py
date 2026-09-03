@@ -167,9 +167,7 @@ def _persist_invalidation_operation(
     except sqlite3.IntegrityError as error:
         raced = _select_operation_row(connection, gate_decision_id=gate_decision_id)
         if raced is None:
-            raise InvalidationLedgerError(
-                "invalidation ledger violated an invariant"
-            ) from error
+            raise InvalidationLedgerError("invalidation ledger violated an invariant") from error
         return _existing_or_conflict(
             connection,
             raced,
@@ -215,9 +213,7 @@ def _persist_invalidation_operation(
     except sqlite3.IntegrityError as error:
         raced = _select_operation_row(connection, gate_decision_id=gate_decision_id)
         if raced is None:
-            raise InvalidationLedgerError(
-                "invalidation ledger violated an invariant"
-            ) from error
+            raise InvalidationLedgerError("invalidation ledger violated an invariant") from error
         return _existing_or_conflict(
             connection,
             raced,
@@ -390,9 +386,7 @@ def _load_accepted_heads_with_overlay(
         seen_artifacts.add(artifact_id)
         accepted_version_id = _row_value(row, "accepted_version_id")
         if artifact_id == changed_artifact_id:
-            current_accepted = (
-                None if accepted_version_id is None else str(accepted_version_id)
-            )
+            current_accepted = None if accepted_version_id is None else str(accepted_version_id)
         if accepted_version_id is None:
             continue
         accepted = str(accepted_version_id)
@@ -470,9 +464,7 @@ def _load_project_dependencies(
         ):
             identity = versions_by_id.get(version_id)
             if identity is None:
-                raise InvalidationLedgerError(
-                    "missing version referenced by a dependency endpoint"
-                )
+                raise InvalidationLedgerError("missing version referenced by a dependency endpoint")
             if identity.artifact_id != artifact_id:
                 raise InvalidationLedgerError(
                     "dependency artifact identity disagrees with its version identity"
@@ -563,9 +555,7 @@ def _existing_or_conflict(
         or stored_decision != gate_decision_id
         or stored_hash != assessment_hash
     ):
-        raise InvalidationLedgerError(
-            "invalidation identity drifted from the stored result"
-        )
+        raise InvalidationLedgerError("invalidation identity drifted from the stored result")
     return _operation_from_row(connection, row)
 
 

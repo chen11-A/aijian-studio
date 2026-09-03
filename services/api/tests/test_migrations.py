@@ -919,9 +919,7 @@ def test_v15_migration_rejects_incompatible_precreated_objects(
         StudioRepository(database)
     assert database_version(database) == 14
     with sqlite3.connect(database) as connection:
-        project = connection.execute(
-            "SELECT name FROM projects WHERE id = 'prj_keep'"
-        ).fetchone()
+        project = connection.execute("SELECT name FROM projects WHERE id = 'prj_keep'").fetchone()
         leftover = connection.execute(
             "SELECT name FROM sqlite_master WHERE name LIKE 'invalidation_%'"
         ).fetchall()
@@ -935,12 +933,9 @@ def test_v15_migration_rejects_incompatible_precreated_objects(
     StudioRepository(database)
     assert database_version(database) == 15
     with sqlite3.connect(database) as connection:
-        project = connection.execute(
-            "SELECT name FROM projects WHERE id = 'prj_keep'"
-        ).fetchone()
+        project = connection.execute("SELECT name FROM projects WHERE id = 'prj_keep'").fetchone()
         columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(invalidation_operations)")
+            str(row[1]) for row in connection.execute("PRAGMA table_info(invalidation_operations)")
         }
     assert project == ("保留项目",)
     assert {
@@ -1021,8 +1016,7 @@ def test_v15_partial_or_drifted_object_set_fails_closed(tmp_path: Path) -> None:
             "AND name = 'invalidation_operations_chain_insert'"
         ).fetchone()
         table = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' "
-            "AND name = 'invalidation_operations'"
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'invalidation_operations'"
         ).fetchone()
     assert trigger is None
     assert table is not None
@@ -1051,8 +1045,7 @@ def test_v15_invalidation_ledger_allows_only_parent_project_cascade() -> None:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("CREATE TABLE projects (id TEXT PRIMARY KEY)")
         connection.execute(
-            "CREATE TABLE artifacts ("
-            "artifact_id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
+            "CREATE TABLE artifacts (artifact_id TEXT PRIMARY KEY, project_id TEXT NOT NULL)"
         )
         connection.execute(
             "CREATE TABLE artifact_versions ("
