@@ -39,6 +39,10 @@ class InvalidationLedgerError(RuntimeError):
     """Closed invalidation ledger input or stored record is inconsistent."""
 
 
+class InvalidationOperationNotFoundError(InvalidationLedgerError):
+    """The requested operation does not exist in the project."""
+
+
 def canonical_assessment_payload(
     result: TypedDependencyInvalidationResult,
 ) -> dict[str, object]:
@@ -258,7 +262,7 @@ def get_invalidation_operation(
         (project_id, operation_id),
     ).fetchone()
     if row is None:
-        raise InvalidationLedgerError("Invalidation operation was not found")
+        raise InvalidationOperationNotFoundError("Invalidation operation was not found")
     return _operation_from_row(connection, row)
 
 

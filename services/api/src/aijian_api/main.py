@@ -30,6 +30,9 @@ from aijian_api.application_errors import (
     ProposalRunNotFoundError,
     StoryBiblePayloadTooLargeError,
 )
+from aijian_api.artifact_invalidation_ledger import (
+    InvalidationOperationNotFoundError,
+)
 from aijian_api.artifact_proposal_acceptance import (
     ArtifactProposalAcceptanceConflictError,
     ArtifactProposalAcceptanceService,
@@ -79,6 +82,11 @@ from aijian_api.fake_timeline_workflow import (
 )
 from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
 from aijian_api.ingestion import SourceValidationError, ingest_text_file
+from aijian_api.invalidation_routes import (
+    InvalidationReportCorruptError,
+    InvalidationReportTooLargeError,
+    create_invalidation_router,
+)
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
 from aijian_api.proposal_run_routes import (
     create_proposal_run_router,
@@ -275,6 +283,39 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="PROJECT_NOT_FOUND",
             message="The requested project or source was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationOperationNotFoundError)
+    async def invalidation_operation_not_found(
+        request: Request, _error: InvalidationOperationNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="INVALIDATION_OPERATION_NOT_FOUND",
+            message="The requested invalidation operation was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationReportCorruptError)
+    async def invalidation_ledger_corrupt(
+        request: Request, _error: InvalidationReportCorruptError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="INVALIDATION_LEDGER_CORRUPT",
+            message="The invalidation ledger is corrupt",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationReportTooLargeError)
+    async def invalidation_report_too_large(
+        request: Request, _error: InvalidationReportTooLargeError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            code="INVALIDATION_REPORT_TOO_LARGE",
+            message="The invalidation report is too large",
             request_id=request_id(request),
         )
 
@@ -795,6 +836,7 @@ def create_app(
     app.include_router(create_source_manifest_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_task_queue_router(get_task_queue_reader))
+    app.include_router(create_invalidation_router(get_repository))
     app.include_router(
         create_agent_skill_catalog_router(
             get_repository,
