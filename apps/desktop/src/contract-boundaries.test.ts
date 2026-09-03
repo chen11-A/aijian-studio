@@ -49,6 +49,10 @@ describe("privileged contract boundaries", () => {
     expect(preloadSource).not.toMatch(/ipcRenderer\.invoke\(channel|ipcRenderer\.send/);
     expect(mainSource).toContain("registerInvalidationOperationHandlers<IpcMainInvokeEvent>(");
     expect(mainSource).not.toContain('ipcMain.handle("invalidation-operations:get"');
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"invalidation-operations:list",\s*projectId,\s*query === undefined \? \{\} : query,?\s*\)/,
+    );
+    expect(preloadSource).not.toContain("query ?? {}");
   });
 
   test("registers proposal run creation only through the exact main-process handler", () => {

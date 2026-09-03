@@ -451,6 +451,7 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
     } satisfies TaskQueueResponse),
     getArtifactProposal: vi.fn(),
     getInvalidationOperation: vi.fn(),
+    listInvalidationOperations: vi.fn(),
     listProjectAgents: vi.fn().mockResolvedValue({
       data: { project_id: project.id, agents: [] },
       request_id: requestId,

@@ -1,28 +1,47 @@
-import type { InvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
+import {
+  validateInvalidationOperationPageQuery,
+  type InvalidationOperationPageQuery,
+  type InvalidationOperationPageResponse,
+  type InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
 
 import type { LocalApiClient } from "./api-client";
 
 export const INVALIDATION_OPERATION_CHANNELS = Object.freeze({
+  list: "invalidation-operations:list",
   get: "invalidation-operations:get",
 } as const);
 
-type InvalidationOperationClient = Pick<LocalApiClient, "getInvalidationOperation">;
+type InvalidationOperationClient = Pick<
+  LocalApiClient,
+  "getInvalidationOperation" | "listInvalidationOperations"
+>;
 type InvalidationOperationInvoke = (
   channel: string,
   projectId: string,
-  operationId: string,
+  input: unknown,
 ) => Promise<unknown>;
 
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^ivo_[0-9a-f]{32}$/;
 
 export function createInvalidationOperationPreload(invoke: InvalidationOperationInvoke): {
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
   getInvalidationOperation(
     projectId: string,
     operationId: string,
   ): Promise<InvalidationOperationResponse>;
 } {
   return {
+    listInvalidationOperations: (projectId, query) =>
+      invoke(
+        INVALIDATION_OPERATION_CHANNELS.list,
+        projectId,
+        query === undefined ? {} : query,
+      ) as Promise<InvalidationOperationPageResponse>,
     getInvalidationOperation: (projectId, operationId) =>
       invoke(
         INVALIDATION_OPERATION_CHANNELS.get,
@@ -39,6 +58,24 @@ export function registerInvalidationOperationHandlers<TEvent>(
   ) => void,
   clientFor: (event: TEvent) => InvalidationOperationClient,
 ): void {
+  handle(INVALIDATION_OPERATION_CHANNELS.list, async (event, ...args) => {
+    const client = clientFor(event);
+    if (
+      args.length !== 2 ||
+      typeof args[0] !== "string" ||
+      !PROJECT_ID_PATTERN.test(args[0]) ||
+      args[1] === undefined
+    ) {
+      throw new Error("Invalidation operation IPC requires exact canonical arguments");
+    }
+    let query: InvalidationOperationPageQuery;
+    try {
+      query = validateInvalidationOperationPageQuery(args[1]);
+    } catch {
+      throw new Error("Invalidation operation IPC requires exact canonical arguments");
+    }
+    return client.listInvalidationOperations(args[0], query);
+  });
   handle(INVALIDATION_OPERATION_CHANNELS.get, async (event, ...args) => {
     const client = clientFor(event);
     if (

@@ -1,5 +1,9 @@
 import type { components } from "@aijian/contracts";
-import { isInvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
+import {
+  isInvalidationOperationPageResponse,
+  isInvalidationOperationResponse,
+  type InvalidationOperationPageResponse,
+} from "@aijian/contracts/invalidation-operation";
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
@@ -1121,6 +1125,256 @@ describe("local API client", () => {
       invalidInputClient.getInvalidationOperation(project.id, "ivo_not-canonical"),
     ).rejects.toThrow("valid invalidation operation id");
     expect(invalidInputFetch).not.toHaveBeenCalled();
+  });
+
+  test("lists only exact bounded invalidation-operation pages", async () => {
+    const { paths: _paths, ...summary } = invalidationOperationResponse.data;
+    void _paths;
+    const page = {
+      data: {
+        items: [{ ...summary, reason_path_count: 1 }],
+        next_cursor: invalidationOperationId,
+      },
+      request_id: healthyResponse.request_id,
+    } satisfies InvalidationOperationPageResponse;
+    const defaultPage = { ...page, data: { ...page.data, next_cursor: null } };
+    const emptyPage = { ...defaultPage, data: { ...defaultPage.data, items: [] } };
+    const continuedPage = {
+      ...page,
+      data: {
+        ...page.data,
+        items: [{ ...page.data.items[0], operation_id: `ivo_${"e".repeat(32)}` }],
+        next_cursor: `ivo_${"e".repeat(32)}`,
+      },
+    };
+
+    expect(isInvalidationOperationPageResponse(emptyPage, project.id, {})).toBe(true);
+    expect(isInvalidationOperationPageResponse(page, project.id, { limit: 1 })).toBe(true);
+    expect(isInvalidationOperationPageResponse(page, project.id, {})).toBe(false);
+    const firstOperationId = `ivo_${"d".repeat(32)}`;
+    const secondOperationId = `ivo_${"7".repeat(32)}`;
+    const twoItemPage = {
+      ...page,
+      data: {
+        ...page.data,
+        items: [
+          { ...page.data.items[0], operation_id: firstOperationId },
+          { ...page.data.items[0], operation_id: secondOperationId },
+        ],
+        next_cursor: secondOperationId,
+      },
+    };
+    expect(isInvalidationOperationPageResponse(twoItemPage, project.id, { limit: 2 })).toBe(true);
+    expect(
+      isInvalidationOperationPageResponse(
+        { ...twoItemPage, data: { ...twoItemPage.data, items: [page.data.items[0], page.data.items[0]] } },
+        project.id,
+        { limit: 2 },
+      ),
+    ).toBe(false);
+    expect(
+      isInvalidationOperationPageResponse(twoItemPage, project.id, {
+        limit: 2,
+        cursor: firstOperationId,
+      }),
+    ).toBe(false);
+    const withTwoItems = (
+      first: Record<string, unknown>,
+      second: Record<string, unknown>,
+    ) => ({
+      ...twoItemPage,
+      data: { ...twoItemPage.data, items: [first, second], next_cursor: second.operation_id },
+    });
+    expect(
+      isInvalidationOperationPageResponse(
+        withTwoItems(
+          { ...twoItemPage.data.items[0], created_at: "2026-08-03T02:00:00Z" },
+          { ...twoItemPage.data.items[1], created_at: "2026-08-03T03:00:00Z" },
+        ),
+        project.id,
+        { limit: 2 },
+      ),
+    ).toBe(false);
+    expect(
+      isInvalidationOperationPageResponse(
+        withTwoItems(
+          { ...twoItemPage.data.items[0], created_at: "2026-08-03T03:00:00.000002Z" },
+          { ...twoItemPage.data.items[1], created_at: "2026-08-03T03:00:00.000001Z" },
+        ),
+        project.id,
+        { limit: 2 },
+      ),
+    ).toBe(true);
+    expect(
+      isInvalidationOperationPageResponse(
+        withTwoItems(
+          { ...twoItemPage.data.items[0], created_at: "2026-08-03T11:00:00+08:00" },
+          { ...twoItemPage.data.items[1], created_at: "2026-08-03T03:00:00Z" },
+        ),
+        project.id,
+        { limit: 2 },
+      ),
+    ).toBe(true);
+    expect(
+      isInvalidationOperationPageResponse(
+        withTwoItems(
+          { ...twoItemPage.data.items[1], created_at: "2026-08-03T03:00:00Z" },
+          { ...twoItemPage.data.items[0], created_at: "2026-08-03T03:00:00Z" },
+        ),
+        project.id,
+        { limit: 2 },
+      ),
+    ).toBe(false);
+    const twentyOneItems = Array.from({ length: 21 }, () => page.data.items[0]);
+    const hundredItems = Array.from({ length: 100 }, (_, index) => ({
+      ...page.data.items[0],
+      operation_id: `ivo_${(100 - index).toString(16).padStart(32, "0")}`,
+    }));
+    expect(
+      isInvalidationOperationPageResponse(
+        { ...page, data: { ...page.data, items: twentyOneItems } },
+        project.id,
+        {},
+      ),
+    ).toBe(false);
+    expect(
+      isInvalidationOperationPageResponse(
+        {
+          ...page,
+          data: { ...page.data, items: hundredItems, next_cursor: hundredItems.at(-1)!.operation_id },
+        },
+        project.id,
+        { limit: 100 },
+      ),
+    ).toBe(true);
+
+    const invalidPages: readonly unknown[] = [
+      { ...page, extra: true },
+      { ...page, data: { ...page.data, extra: true } },
+      {
+        ...page,
+        data: { ...page.data, items: [{ ...page.data.items[0], project_id: `prj_${"b".repeat(32)}` }] },
+      },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], extra: true }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], operation_id: "ivo_bad" }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], assessment_hash: "bad" }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], created_at: "bad" }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], reason_path_count: -1 }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], reason_path_count: 0.5 }] } },
+      { ...page, data: { ...page.data, items: [{ ...page.data.items[0], reason_path_count: Number.NaN }] } },
+      {
+        ...page,
+        data: {
+          ...page.data,
+          items: [{ ...page.data.items[0], reason_path_count: Number.MAX_SAFE_INTEGER + 1 }],
+        },
+      },
+      { ...page, data: { ...page.data, next_cursor: "ivo_bad" } },
+      { ...page, data: { ...page.data, next_cursor: `ivo_${"c".repeat(32)}` } },
+      { ...page, data: { ...page.data, items: [page.data.items[0], page.data.items[0]] } },
+      {
+        ...page,
+        data: { ...page.data, items: Array.from({ length: 101 }, () => page.data.items[0]) },
+      },
+    ];
+    for (const invalidPage of invalidPages) {
+      expect(isInvalidationOperationPageResponse(invalidPage, project.id, { limit: 1 })).toBe(false);
+    }
+
+    const cursorOnlyPage = {
+      ...continuedPage,
+      data: { ...continuedPage.data, next_cursor: null },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(defaultPage))
+      .mockResolvedValueOnce(Response.json(page))
+      .mockResolvedValueOnce(Response.json(cursorOnlyPage))
+      .mockResolvedValueOnce(Response.json(continuedPage))
+      .mockResolvedValueOnce(Response.json(defaultPage));
+    const client = createLocalApiClient(fetchMock, session);
+    await expect(client.listInvalidationOperations(project.id)).resolves.toEqual(defaultPage);
+    await expect(client.listInvalidationOperations(project.id, { limit: 1 })).resolves.toEqual(page);
+    await expect(
+      client.listInvalidationOperations(project.id, { cursor: invalidationOperationId }),
+    ).resolves.toEqual(cursorOnlyPage);
+    await expect(
+      client.listInvalidationOperations(project.id, { limit: 1, cursor: invalidationOperationId }),
+    ).resolves.toEqual(continuedPage);
+    await expect(
+      client.listInvalidationOperations(project.id, { cursor: null }),
+    ).resolves.toEqual(defaultPage);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations`,
+      { headers: { Accept: "application/json", Authorization: `Bearer ${session.token}`, Origin: "app://aijian" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations?limit=1`,
+      { headers: { Accept: "application/json", Authorization: `Bearer ${session.token}`, Origin: "app://aijian" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations?cursor=${invalidationOperationId}`,
+      { headers: { Accept: "application/json", Authorization: `Bearer ${session.token}`, Origin: "app://aijian" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations?limit=1&cursor=${invalidationOperationId}`,
+      { headers: { Accept: "application/json", Authorization: `Bearer ${session.token}`, Origin: "app://aijian" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations`,
+      { headers: { Accept: "application/json", Authorization: `Bearer ${session.token}`, Origin: "app://aijian" } },
+    );
+
+    const invalidInputFetch = vi.fn();
+    const invalidInputClient = createLocalApiClient(invalidInputFetch, session);
+    for (const query of [
+      { limit: 0 },
+      { limit: 101 },
+      { limit: 1.5 },
+      { limit: Number.NaN },
+      { cursor: "ivo_bad" },
+      { extra: true },
+      [],
+    ]) {
+      await expect(
+        invalidInputClient.listInvalidationOperations(project.id, query as never),
+      ).rejects.toThrow("valid invalidation operation page query");
+    }
+    await expect(invalidInputClient.listInvalidationOperations("prj_bad")).rejects.toThrow(
+      "valid project id",
+    );
+    expect(invalidInputFetch).not.toHaveBeenCalled();
+
+    await expect(
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(
+          Response.json({ ...defaultPage, data: { ...defaultPage.data, extra: true } }),
+        ),
+        session,
+      ).listInvalidationOperations(project.id),
+    ).rejects.toThrow("published contract");
+    await expect(
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(new Response("server failure", { status: 500 })),
+        session,
+      ).listInvalidationOperations(project.id),
+    ).rejects.toThrow("status 500");
+    await expect(
+      createLocalApiClient(vi.fn().mockRejectedValue(new Error("network offline")), session).listInvalidationOperations(
+        project.id,
+      ),
+    ).rejects.toThrow("network offline");
+    await expect(
+      createLocalApiClient(
+        vi.fn().mockResolvedValue(new Response(" ".repeat(16 * 1024 * 1024 + 1))),
+        session,
+      ).listInvalidationOperations(project.id),
+    ).rejects.toThrow("desktop safety limit");
   });
 
   test("rejects malformed invalidation responses and preserves HTTP failures", async () => {

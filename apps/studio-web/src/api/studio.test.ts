@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { InvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
+import type {
+  InvalidationOperationPageResponse,
+  InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
 
 import {
   createStudioTransport,
@@ -64,6 +67,37 @@ const invalidationOperation = {
   },
   request_id: requestId,
 } satisfies InvalidationOperationResponse;
+const invalidationOperationPage = {
+  data: {
+    items: [
+      {
+        operation_id: invalidationOperationId,
+        project_id: project.id,
+        changed_artifact_id: invalidationOperation.data.changed_artifact_id,
+        old_accepted_version_id: invalidationOperation.data.old_accepted_version_id,
+        new_accepted_version_id: invalidationOperation.data.new_accepted_version_id,
+        gate_decision_id: invalidationOperation.data.gate_decision_id,
+        assessment_hash: invalidationOperation.data.assessment_hash,
+        created_at: invalidationOperation.data.created_at,
+        reason_path_count: 1,
+      },
+    ],
+    next_cursor: null,
+  },
+  request_id: requestId,
+} satisfies InvalidationOperationPageResponse;
+const continuedInvalidationOperationPage = {
+  ...invalidationOperationPage,
+  data: {
+    ...invalidationOperationPage.data,
+    items: [
+      {
+        ...invalidationOperationPage.data.items[0]!,
+        operation_id: `ivo_${"e".repeat(32)}`,
+      },
+    ],
+  },
+} satisfies InvalidationOperationPageResponse;
 
 const sourceManifest = {
   data: {
@@ -266,6 +300,7 @@ describe("studio transport", () => {
       getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleVersion),
       listProjectTasks: vi.fn().mockResolvedValue(taskQueue),
       getArtifactProposal: vi.fn().mockResolvedValue(artifactProposal),
+      listInvalidationOperations: vi.fn().mockResolvedValue(invalidationOperationPage),
       getInvalidationOperation: vi.fn().mockResolvedValue(invalidationOperation),
       acceptArtifactProposalAsDraft: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       rejectArtifactProposal: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
@@ -307,6 +342,7 @@ describe("studio transport", () => {
     await transport.getStoryBibleVersion(project.id, storyBibleVersion.data.version.id);
     await transport.listProjectTasks(project.id);
     await transport.getArtifactProposal(project.id, proposalId);
+    await transport.listInvalidationOperations(project.id);
     await transport.getInvalidationOperation(project.id, invalidationOperationId);
     await transport.proposalDecisions?.acceptAsDraft(project.id, proposalId, {
       parent_version_id: null,
@@ -363,6 +399,7 @@ describe("studio transport", () => {
     );
     expect(bridge.listProjectTasks).toHaveBeenCalledWith(project.id);
     expect(bridge.getArtifactProposal).toHaveBeenCalledWith(project.id, proposalId);
+    expect(bridge.listInvalidationOperations).toHaveBeenCalledWith(project.id, {});
     expect(bridge.getInvalidationOperation).toHaveBeenCalledWith(
       project.id,
       invalidationOperationId,
@@ -444,6 +481,98 @@ describe("studio transport", () => {
       `/api/v1/projects/${project.id}/invalidation-operations/${invalidationOperationId}`,
       { headers: { Accept: "application/json" } },
     );
+  });
+
+  test("lists guarded invalidation operations through exact browser routes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(invalidationOperationPage))
+      .mockResolvedValueOnce(Response.json(continuedInvalidationOperationPage));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.listInvalidationOperations(project.id)).resolves.toEqual(
+      invalidationOperationPage,
+    );
+    await expect(
+      transport.listInvalidationOperations(project.id, {
+        limit: 1,
+        cursor: invalidationOperationId,
+      }),
+    ).resolves.toEqual(continuedInvalidationOperationPage);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/projects/${project.id}/invalidation-operations`,
+      { headers: { Accept: "application/json" } },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/projects/${project.id}/invalidation-operations?limit=1&cursor=${invalidationOperationId}`,
+      { headers: { Accept: "application/json" } },
+    );
+  });
+
+  test("preserves browser invalidation-operation list HTTP and network failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ error: { code: "INVALIDATION_OPERATION_NOT_FOUND" } }, { status: 404 }),
+      )
+      .mockRejectedValueOnce(new Error("network offline"));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
+      "status 404 (INVALIDATION_OPERATION_NOT_FOUND)",
+    );
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("network offline");
+  });
+
+  test("fails closed before browser fetch for invalid invalidation-operation page input and data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ ...invalidationOperationPage, data: { ...invalidationOperationPage.data, next_cursor: "ivo_bad" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createStudioTransport();
+
+    for (const query of [{ limit: 0 }, { limit: 101 }, { limit: 1.5 }, { cursor: "ivo_bad" }, { extra: true }, []]) {
+      await expect(transport.listInvalidationOperations(project.id, query as never)).rejects.toThrow(
+        "valid invalidation operation page query",
+      );
+    }
+    await expect(transport.listInvalidationOperations("prj_bad")).rejects.toThrow("valid project id");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("published contract");
+  });
+
+  test("uses only the Electron invalidation-operation list bridge and preserves failures", async () => {
+    const listInvalidationOperations = vi.fn().mockResolvedValue(invalidationOperationPage);
+    const bridge = {
+      listInvalidationOperations,
+    } satisfies Pick<AijianDesktopBridge, "listInvalidationOperations">;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    window.aijian = bridge as unknown as AijianDesktopBridge;
+    const transport = createStudioTransport();
+
+    await expect(transport.listInvalidationOperations(project.id, { limit: 1 })).resolves.toEqual(
+      invalidationOperationPage,
+    );
+    expect(listInvalidationOperations).toHaveBeenCalledWith(project.id, { limit: 1 });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await expect(transport.listInvalidationOperations(project.id, { cursor: "ivo_bad" } as never)).rejects.toThrow(
+      "valid invalidation operation page query",
+    );
+    listInvalidationOperations.mockResolvedValueOnce({
+      ...invalidationOperationPage,
+      data: { ...invalidationOperationPage.data, extra: true },
+    });
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("published contract");
+    listInvalidationOperations.mockRejectedValueOnce(new Error("network offline"));
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("network offline");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("fails closed before browser fetch for invalid invalidation-operation ids and malformed data", async () => {
@@ -817,6 +946,7 @@ describe("studio transport", () => {
       acceptArtifactProposalAsDraft: vi.fn(),
       rejectArtifactProposal: vi.fn(),
       createProposalRun: vi.fn(),
+      listInvalidationOperations: vi.fn(),
       getInvalidationOperation: vi.fn(),
       listProjectAgents: vi.fn(),
       listProjectSkills: vi.fn(),

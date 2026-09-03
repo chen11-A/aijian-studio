@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 
 import type { components } from "@aijian/contracts";
 import {
+  isInvalidationOperationPageResponse,
   isInvalidationOperationResponse,
+  validateInvalidationOperationPageQuery,
+  type InvalidationOperationPageQuery,
+  type InvalidationOperationPageResponse,
   type InvalidationOperationResponse,
 } from "@aijian/contracts/invalidation-operation";
 
@@ -136,6 +140,10 @@ export interface LocalApiClient {
     projectId: string,
     command: FakeTimelineRunCreateCommand,
   ): Promise<FakeTimelineRunCreateResult>;
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -1560,6 +1568,30 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
         (payload): payload is InvalidationOperationResponse =>
           isInvalidationOperationResponse(payload, projectId, operationId),
+        { headers },
+      );
+    },
+    async listInvalidationOperations(
+      projectId: string,
+      query: InvalidationOperationPageQuery = {},
+    ): Promise<InvalidationOperationPageResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      let normalizedQuery: InvalidationOperationPageQuery;
+      try {
+        normalizedQuery = validateInvalidationOperationPageQuery(query);
+      } catch {
+        throw new Error("Local API client requires a valid invalidation operation page query");
+      }
+      const search = new URLSearchParams();
+      if (normalizedQuery.limit !== undefined) search.set("limit", String(normalizedQuery.limit));
+      if (typeof normalizedQuery.cursor === "string") search.set("cursor", normalizedQuery.cursor);
+      const suffix = search.size === 0 ? "" : `?${search.toString()}`;
+      return requestJson(
+        `/api/v1/projects/${projectId}/invalidation-operations${suffix}`,
+        (payload): payload is InvalidationOperationPageResponse =>
+          isInvalidationOperationPageResponse(payload, projectId, normalizedQuery),
         { headers },
       );
     },

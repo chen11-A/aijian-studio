@@ -1,5 +1,9 @@
 import type { components } from "@aijian/contracts";
 import { contextBridge, ipcRenderer } from "electron";
+import type {
+  InvalidationOperationPageQuery,
+  InvalidationOperationPageResponse,
+} from "@aijian/contracts/invalidation-operation";
 
 type HealthResponse = components["schemas"]["HealthResponse"];
 type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
@@ -90,6 +94,15 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
   getArtifactProposal: (projectId: string, proposalId: string): Promise<ArtifactProposalResponse> =>
     ipcRenderer.invoke("proposals:get", projectId, proposalId) as Promise<ArtifactProposalResponse>,
+  listInvalidationOperations: (
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse> =>
+    ipcRenderer.invoke(
+      "invalidation-operations:list",
+      projectId,
+      query === undefined ? {} : query,
+    ) as Promise<InvalidationOperationPageResponse>,
   getInvalidationOperation: (
     projectId: string,
     operationId: string,

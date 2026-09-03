@@ -4,7 +4,11 @@ import {
   type ArtifactProposalResponse,
 } from "@aijian/contracts/artifact-proposal";
 import {
+  isInvalidationOperationPageResponse,
   isInvalidationOperationResponse,
+  validateInvalidationOperationPageQuery,
+  type InvalidationOperationPageQuery,
+  type InvalidationOperationPageResponse,
   type InvalidationOperationResponse,
 } from "@aijian/contracts/invalidation-operation";
 
@@ -21,7 +25,11 @@ export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResp
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
 export type { ArtifactProposalResponse } from "@aijian/contracts/artifact-proposal";
-export type { InvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
+export type {
+  InvalidationOperationPageQuery,
+  InvalidationOperationPageResponse,
+  InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
 export type ArtifactProposalDraftAcceptanceInput =
   components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
 export type ArtifactProposalDraftAcceptanceResponse =
@@ -106,6 +114,10 @@ export interface StudioTransport {
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -149,6 +161,10 @@ export interface AijianDesktopBridge {
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -267,6 +283,20 @@ function validateInvalidationOperationInput(projectId: string, operationId: stri
   }
 }
 
+function validateInvalidationOperationPageInput(
+  projectId: string,
+  query: unknown,
+): InvalidationOperationPageQuery {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  try {
+    return validateInvalidationOperationPageQuery(query);
+  } catch {
+    throw new Error("Studio transport requires a valid invalidation operation page query");
+  }
+}
+
 function validateInvalidationOperationResponse(
   payload: unknown,
   projectId: string,
@@ -276,6 +306,37 @@ function validateInvalidationOperationResponse(
     throw new Error("Invalidation operation response does not match the published contract");
   }
   return payload;
+}
+
+function validateInvalidationOperationPageResponse(
+  payload: unknown,
+  projectId: string,
+  query: InvalidationOperationPageQuery,
+): InvalidationOperationPageResponse {
+  if (!isInvalidationOperationPageResponse(payload, projectId, query)) {
+    throw new Error("Invalidation operation page response does not match the published contract");
+  }
+  return payload;
+}
+
+function invalidationOperationPagePath(
+  projectId: string,
+  query: InvalidationOperationPageQuery,
+): string {
+  const search = new URLSearchParams();
+  if (query.limit !== undefined) search.set("limit", String(query.limit));
+  if (typeof query.cursor === "string") search.set("cursor", query.cursor);
+  const suffix = search.size === 0 ? "" : `?${search.toString()}`;
+  return `/api/v1/projects/${projectId}/invalidation-operations${suffix}`;
+}
+
+async function browserInvalidationOperations(
+  projectId: string,
+  query: InvalidationOperationPageQuery = {},
+): Promise<InvalidationOperationPageResponse> {
+  const normalizedQuery = validateInvalidationOperationPageInput(projectId, query);
+  const payload = await getRequest<unknown>(invalidationOperationPagePath(projectId, normalizedQuery));
+  return validateInvalidationOperationPageResponse(payload, projectId, normalizedQuery);
 }
 
 async function browserInvalidationOperation(
@@ -351,6 +412,11 @@ export function createStudioTransport(): StudioTransport {
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
       getArtifactProposal: (projectId, proposalId) =>
         bridge.getArtifactProposal(projectId, proposalId),
+      listInvalidationOperations: async (projectId, query = {}) => {
+        const normalizedQuery = validateInvalidationOperationPageInput(projectId, query);
+        const payload = await bridge.listInvalidationOperations(projectId, normalizedQuery);
+        return validateInvalidationOperationPageResponse(payload, projectId, normalizedQuery);
+      },
       getInvalidationOperation: async (projectId, operationId) => {
         validateInvalidationOperationInput(projectId, operationId);
         const payload = await bridge.getInvalidationOperation(projectId, operationId);
@@ -411,6 +477,7 @@ export function createStudioTransport(): StudioTransport {
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
     getArtifactProposal: browserArtifactProposal,
+    listInvalidationOperations: browserInvalidationOperations,
     getInvalidationOperation: browserInvalidationOperation,
     listProjectAgents: (projectId) =>
       getRequest<AgentCatalogResponse>(`/api/v1/projects/${projectId}/agents`),
