@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
 
@@ -33,6 +35,12 @@ type IdFactory = Callable[[str], str]
 
 _SUPPORTED_IMPACTS: frozenset[str] = frozenset({"blocking", "advisory", "render_only"})
 _SUPPORTED_CLASSIFICATIONS: frozenset[str] = frozenset({"STALE", "INVALIDATE"})
+_OPERATION_ID_PATTERN = re.compile(r"^ivo_[0-9a-f]{32}$")
+_PROJECT_ID_PATTERN = re.compile(r"^prj_[0-9a-f]{32}$")
+_ARTIFACT_ID_PATTERN = re.compile(r"^art_[0-9a-f]{32}$")
+_VERSION_ID_PATTERN = re.compile(r"^ver_[0-9a-f]{32}$")
+_GATE_DECISION_ID_PATTERN = re.compile(r"^dec_[0-9a-f]{32}$")
+_ASSESSMENT_HASH_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class InvalidationLedgerError(RuntimeError):
@@ -41,6 +49,41 @@ class InvalidationLedgerError(RuntimeError):
 
 class InvalidationOperationNotFoundError(InvalidationLedgerError):
     """The requested operation does not exist in the project."""
+
+
+@dataclass(frozen=True)
+class InvalidationOperationSummaryRecord:
+    """Root-only immutable history entry, intentionally excluding reason paths."""
+
+    id: str
+    project_id: str
+    changed_artifact_id: str
+    old_accepted_version_id: str
+    new_accepted_version_id: str
+    gate_decision_id: str
+    assessment_hash: str
+    created_at: datetime
+    reason_path_count: int
+
+
+@dataclass(frozen=True)
+class InvalidationOperationPage:
+    """A single exclusive Keyset page of root-only history entries."""
+
+    items: tuple[InvalidationOperationSummaryRecord, ...]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
+class _InvalidationOperationRoot:
+    id: str
+    project_id: str
+    changed_artifact_id: str
+    old_accepted_version_id: str
+    new_accepted_version_id: str
+    gate_decision_id: str
+    assessment_hash: str
+    created_at: datetime
 
 
 def canonical_assessment_payload(
@@ -249,6 +292,85 @@ def list_invalidation_operations(
     )
 
 
+def list_invalidation_operation_page(
+    connection: sqlite3.Connection,
+    project_id: str,
+    *,
+    limit: int,
+    cursor: str | None,
+) -> InvalidationOperationPage:
+    cursor_created_at: str | None = None
+    if cursor is not None:
+        cursor_row = connection.execute(
+            """
+            SELECT
+                operation_id,
+                project_id,
+                changed_artifact_id,
+                old_accepted_version_id,
+                new_accepted_version_id,
+                gate_decision_id,
+                assessment_hash,
+                created_at
+            FROM invalidation_operations
+            WHERE project_id = ? AND operation_id = ?
+            """,
+            (project_id, cursor),
+        ).fetchone()
+        if cursor_row is None:
+            raise InvalidationOperationNotFoundError("Invalidation operation was not found")
+        cursor_created_at = _timestamp(_operation_root_from_row(connection, cursor_row).created_at)
+
+    where = "WHERE operations.project_id = ?"
+    parameters: list[object] = [project_id]
+    if cursor_created_at is not None and cursor is not None:
+        where += (
+            " AND (operations.created_at < ? OR "
+            "(operations.created_at = ? AND operations.operation_id < ?))"
+        )
+        parameters.extend((cursor_created_at, cursor_created_at, cursor))
+    parameters.append(limit + 1)
+    rows = connection.execute(
+        f"""
+        WITH page AS (
+            SELECT
+                operations.operation_id,
+                operations.project_id,
+                operations.changed_artifact_id,
+                operations.old_accepted_version_id,
+                operations.new_accepted_version_id,
+                operations.gate_decision_id,
+                operations.assessment_hash,
+                operations.created_at
+            FROM invalidation_operations AS operations
+            {where}
+            ORDER BY operations.created_at DESC, operations.operation_id DESC
+            LIMIT ?
+        )
+        SELECT
+            page.operation_id,
+            page.project_id,
+            page.changed_artifact_id,
+            page.old_accepted_version_id,
+            page.new_accepted_version_id,
+            page.gate_decision_id,
+            page.assessment_hash,
+            page.created_at,
+            (
+                SELECT COUNT(*) FROM invalidation_reason_paths AS paths
+                WHERE paths.operation_id = page.operation_id
+            ) AS reason_path_count
+        FROM page
+        ORDER BY page.created_at DESC, page.operation_id DESC
+        """,
+        parameters,
+    ).fetchall()
+    page_rows = rows[:limit]
+    items = tuple(_summary_from_row(connection, row) for row in page_rows)
+    next_cursor = items[-1].id if len(rows) > limit and items else None
+    return InvalidationOperationPage(items=items, next_cursor=next_cursor)
+
+
 def get_invalidation_operation(
     connection: sqlite3.Connection,
     project_id: str,
@@ -264,6 +386,69 @@ def get_invalidation_operation(
     if row is None:
         raise InvalidationOperationNotFoundError("Invalidation operation was not found")
     return _operation_from_row(connection, row)
+
+
+def _summary_from_row(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row | tuple[object, ...],
+) -> InvalidationOperationSummaryRecord:
+    root = _operation_root_from_row(connection, row)
+    reason_path_count = int(str(_row_value(row, "reason_path_count")))
+    if reason_path_count < 0:
+        raise InvalidationLedgerError("invalid invalidation reason path count")
+    return InvalidationOperationSummaryRecord(
+        id=root.id,
+        project_id=root.project_id,
+        changed_artifact_id=root.changed_artifact_id,
+        old_accepted_version_id=root.old_accepted_version_id,
+        new_accepted_version_id=root.new_accepted_version_id,
+        gate_decision_id=root.gate_decision_id,
+        assessment_hash=root.assessment_hash,
+        created_at=root.created_at,
+        reason_path_count=reason_path_count,
+    )
+
+
+def _operation_root_from_row(
+    connection: sqlite3.Connection,
+    row: sqlite3.Row | tuple[object, ...],
+) -> _InvalidationOperationRoot:
+    operation_id = str(_row_value(row, "operation_id"))
+    project_id = str(_row_value(row, "project_id"))
+    changed_artifact_id = str(_row_value(row, "changed_artifact_id"))
+    old_accepted_version_id = str(_row_value(row, "old_accepted_version_id"))
+    new_accepted_version_id = str(_row_value(row, "new_accepted_version_id"))
+    gate_decision_id = str(_row_value(row, "gate_decision_id"))
+    assessment_hash = str(_row_value(row, "assessment_hash"))
+    created_at_text = str(_row_value(row, "created_at"))
+    if not (
+        _OPERATION_ID_PATTERN.fullmatch(operation_id)
+        and _PROJECT_ID_PATTERN.fullmatch(project_id)
+        and _ARTIFACT_ID_PATTERN.fullmatch(changed_artifact_id)
+        and _VERSION_ID_PATTERN.fullmatch(old_accepted_version_id)
+        and _VERSION_ID_PATTERN.fullmatch(new_accepted_version_id)
+        and _GATE_DECISION_ID_PATTERN.fullmatch(gate_decision_id)
+        and _ASSESSMENT_HASH_PATTERN.fullmatch(assessment_hash)
+    ):
+        raise InvalidationLedgerError("invalid invalidation operation root")
+    try:
+        created_at = _datetime(created_at_text)
+        is_canonical = created_at.tzinfo is not None and _timestamp(created_at) == created_at_text
+    except (ValueError, OverflowError) as error:
+        raise InvalidationLedgerError("invalid invalidation operation root") from error
+    if not is_canonical:
+        raise InvalidationLedgerError("invalid invalidation operation root")
+    _require_stored_operation_ownership(connection, row)
+    return _InvalidationOperationRoot(
+        id=operation_id,
+        project_id=project_id,
+        changed_artifact_id=changed_artifact_id,
+        old_accepted_version_id=old_accepted_version_id,
+        new_accepted_version_id=new_accepted_version_id,
+        gate_decision_id=gate_decision_id,
+        assessment_hash=assessment_hash,
+        created_at=created_at,
+    )
 
 
 def load_closed_replacement_input(

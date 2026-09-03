@@ -76,3 +76,31 @@ class InvalidationOperationResponse(BaseModel):
 
     data: InvalidationOperationData
     request_id: UUID
+
+
+class InvalidationOperationSummaryData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operation_id: str = Field(pattern=OPERATION_ID_PATTERN)
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    changed_artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    old_accepted_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    new_accepted_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    gate_decision_id: str = Field(pattern=GATE_DECISION_ID_PATTERN)
+    assessment_hash: str = Field(pattern=ASSESSMENT_HASH_PATTERN)
+    created_at: AwareDatetime
+    reason_path_count: int = Field(ge=0)
+
+
+class InvalidationOperationPageData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[InvalidationOperationSummaryData]
+    next_cursor: str | None = Field(pattern=OPERATION_ID_PATTERN)
+
+
+class InvalidationOperationPageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: InvalidationOperationPageData
+    request_id: UUID

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Request
+from fastapi import APIRouter, Path, Query, Request
 
 from aijian_api.artifact_invalidation_ledger import (
     InvalidationLedgerError,
@@ -18,7 +18,10 @@ from aijian_api.domain import InvalidationOperationRecord
 from aijian_api.invalidation_contracts import (
     OPERATION_ID_PATTERN,
     InvalidationOperationData,
+    InvalidationOperationPageData,
+    InvalidationOperationPageResponse,
     InvalidationOperationResponse,
+    InvalidationOperationSummaryData,
     InvalidationReasonPathData,
 )
 from aijian_api.repository import StudioRepository
@@ -46,6 +49,49 @@ def create_invalidation_router(repository_provider: RepositoryProvider) -> APIRo
         422: {"description": "Request validation failed", "model": ErrorResponse},
         500: {"description": "Invalidation ledger is corrupt", "model": ErrorResponse},
     }
+
+    @router.get(
+        "/api/v1/projects/{project_id}/invalidation-operations",
+        operation_id="listInvalidationOperations",
+        response_model=InvalidationOperationPageResponse,
+        responses=errors,
+    )
+    def list_invalidation_operations(
+        request: Request,
+        project_id: str = Path(pattern=PROJECT_ID_PATTERN),
+        limit: int = Query(default=20, ge=1, le=100),
+        cursor: str | None = Query(default=None, pattern=OPERATION_ID_PATTERN),
+    ) -> InvalidationOperationPageResponse:
+        try:
+            page = repository_provider().list_invalidation_operation_page(
+                project_id, limit=limit, cursor=cursor
+            )
+            return InvalidationOperationPageResponse(
+                data=InvalidationOperationPageData(
+                    items=[
+                        InvalidationOperationSummaryData(
+                            operation_id=item.id,
+                            project_id=item.project_id,
+                            changed_artifact_id=item.changed_artifact_id,
+                            old_accepted_version_id=item.old_accepted_version_id,
+                            new_accepted_version_id=item.new_accepted_version_id,
+                            gate_decision_id=item.gate_decision_id,
+                            assessment_hash=item.assessment_hash,
+                            created_at=item.created_at,
+                            reason_path_count=item.reason_path_count,
+                        )
+                        for item in page.items
+                    ],
+                    next_cursor=page.next_cursor,
+                ),
+                request_id=cast(UUID, request.state.request_id),
+            )
+        except InvalidationOperationNotFoundError:
+            raise
+        except InvalidationLedgerError as error:
+            raise InvalidationReportCorruptError("invalid invalidation ledger record") from error
+        except (TypeError, ValueError, KeyError) as error:
+            raise InvalidationReportCorruptError("invalid invalidation ledger record") from error
 
     @router.get(
         "/api/v1/projects/{project_id}/invalidation-operations/{operation_id}",

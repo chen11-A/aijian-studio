@@ -29,6 +29,8 @@ OpenAPI 和 TypeScript 仅从本机权威后端生成。此切片同步生成产
 
 项目报告列表需要独立的数据库分页读取边界，不以全量读取后前端切片冒充分页。列表、UI、IPC、真实模型和报告导出均非本切片目标。
 
+R03-C1 的项目报告历史为 `GET /api/v1/projects/{project_id}/invalidation-operations`：只返回根摘要和 `reason_path_count`，以 `created_at DESC, operation_id DESC` 的排他 Keyset 游标分页。游标是 canonical operation ID，数据库在同项目中解析游标并读取 `limit + 1` 根行；不读取完整原因路径、不重算 assessment hash，也不改变既有详情读取语义。
+
 ## 验收
 
 - 真实 SQLite 经 Gate 生成报告，逐字段查询相等；重复查询、重开仓储结果稳定，账本和不可变图不变。

@@ -14,7 +14,9 @@ from typing import cast
 from uuid import uuid4
 
 from aijian_api.artifact_invalidation_ledger import (
+    InvalidationOperationPage,
     get_invalidation_operation,
+    list_invalidation_operation_page,
     list_invalidation_operations,
     record_accepted_head_replacement,
 )
@@ -2630,6 +2632,15 @@ class StudioRepository:
         self.get_project(project_id)
         with self._connection() as connection:
             return list_invalidation_operations(connection, project_id)
+
+    def list_invalidation_operation_page(
+        self, project_id: str, *, limit: int, cursor: str | None
+    ) -> InvalidationOperationPage:
+        self.get_project(project_id)
+        with self._connection() as connection:
+            return list_invalidation_operation_page(
+                connection, project_id, limit=limit, cursor=cursor
+            )
 
     def get_invalidation_operation(
         self, project_id: str, operation_id: str
