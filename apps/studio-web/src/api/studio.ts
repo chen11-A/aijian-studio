@@ -3,6 +3,10 @@ import {
   isArtifactProposalResponse,
   type ArtifactProposalResponse,
 } from "@aijian/contracts/artifact-proposal";
+import {
+  isInvalidationOperationResponse,
+  type InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
@@ -17,6 +21,7 @@ export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResp
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
 export type { ArtifactProposalResponse } from "@aijian/contracts/artifact-proposal";
+export type { InvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
 export type ArtifactProposalDraftAcceptanceInput =
   components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
 export type ArtifactProposalDraftAcceptanceResponse =
@@ -101,6 +106,10 @@ export interface StudioTransport {
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse>;
   proposalDecisions?: ProposalDecisionCapability;
   proposalRuns?: ProposalRunCapability;
   fakeTimelineRuns?: FakeTimelineRunCapability;
@@ -140,6 +149,10 @@ export interface AijianDesktopBridge {
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse>;
   acceptArtifactProposalAsDraft(
     projectId: string,
     proposalId: string,
@@ -224,6 +237,7 @@ function getRequest<T>(path: string): Promise<T> {
 
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
 const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
+const INVALIDATION_OPERATION_ID_PATTERN = /^ivo_[0-9a-f]{32}$/;
 
 async function browserArtifactProposal(
   projectId: string,
@@ -242,6 +256,37 @@ async function browserArtifactProposal(
     throw new Error("Artifact proposal response does not match the published contract");
   }
   return payload;
+}
+
+function validateInvalidationOperationInput(projectId: string, operationId: string): void {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  if (!INVALIDATION_OPERATION_ID_PATTERN.test(operationId)) {
+    throw new Error("Studio transport requires a valid invalidation operation id");
+  }
+}
+
+function validateInvalidationOperationResponse(
+  payload: unknown,
+  projectId: string,
+  operationId: string,
+): InvalidationOperationResponse {
+  if (!isInvalidationOperationResponse(payload, projectId, operationId)) {
+    throw new Error("Invalidation operation response does not match the published contract");
+  }
+  return payload;
+}
+
+async function browserInvalidationOperation(
+  projectId: string,
+  operationId: string,
+): Promise<InvalidationOperationResponse> {
+  validateInvalidationOperationInput(projectId, operationId);
+  const payload = await getRequest<unknown>(
+    `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
+  );
+  return validateInvalidationOperationResponse(payload, projectId, operationId);
 }
 
 function isErrorResponse(value: unknown): value is { error: { code: string } } {
@@ -306,6 +351,11 @@ export function createStudioTransport(): StudioTransport {
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
       getArtifactProposal: (projectId, proposalId) =>
         bridge.getArtifactProposal(projectId, proposalId),
+      getInvalidationOperation: async (projectId, operationId) => {
+        validateInvalidationOperationInput(projectId, operationId);
+        const payload = await bridge.getInvalidationOperation(projectId, operationId);
+        return validateInvalidationOperationResponse(payload, projectId, operationId);
+      },
       proposalDecisions: {
         acceptAsDraft: (projectId, proposalId, input) =>
           bridge.acceptArtifactProposalAsDraft(projectId, proposalId, input),
@@ -361,6 +411,7 @@ export function createStudioTransport(): StudioTransport {
     listProjectTasks: (projectId) =>
       getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
     getArtifactProposal: browserArtifactProposal,
+    getInvalidationOperation: browserInvalidationOperation,
     listProjectAgents: (projectId) =>
       getRequest<AgentCatalogResponse>(`/api/v1/projects/${projectId}/agents`),
     listProjectSkills: (projectId) =>
