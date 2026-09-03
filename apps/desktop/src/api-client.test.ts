@@ -1,4 +1,5 @@
 import type { components } from "@aijian/contracts";
+import { isInvalidationOperationResponse } from "@aijian/contracts/invalidation-operation";
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
@@ -405,6 +406,37 @@ const artifactProposalResponse: components["schemas"]["ArtifactProposalResponse"
       producer_agent_run_id: `agr_${"e".repeat(32)}`,
       producer_skill_run_id: `skr_${"f".repeat(32)}`,
     },
+  },
+  request_id: healthyResponse.request_id,
+};
+const invalidationOperationId = `ivo_${"7".repeat(32)}`;
+const invalidationOperationResponse: components["schemas"]["InvalidationOperationResponse"] = {
+  data: {
+    operation_id: invalidationOperationId,
+    project_id: project.id,
+    changed_artifact_id: `art_${"8".repeat(32)}`,
+    old_accepted_version_id: `ver_${"9".repeat(32)}`,
+    new_accepted_version_id: `ver_${"a".repeat(32)}`,
+    gate_decision_id: `dec_${"b".repeat(32)}`,
+    assessment_hash: `sha256:${"c".repeat(64)}`,
+    created_at: "2026-09-03T09:00:00Z",
+    paths: [
+      {
+        path_id: `ivp_${"d".repeat(32)}`,
+        operation_id: invalidationOperationId,
+        project_id: project.id,
+        affected_artifact_id: `art_${"e".repeat(32)}`,
+        affected_version_id: `ver_${"f".repeat(32)}`,
+        classification: "STALE",
+        aggregate_impact: "blocking",
+        dependency_ids: [`dep_${"1".repeat(32)}`],
+        relationships: ["depends_on"],
+        edge_impacts: ["blocking"],
+        effective_impact: "blocking",
+        ordinal: 0,
+        created_at: "2026-09-03T09:00:00Z",
+      },
+    ],
   },
   request_id: healthyResponse.request_id,
 };
@@ -1053,6 +1085,182 @@ describe("local API client", () => {
     await expect(client.getArtifactProposal(project.id, "not-a-proposal")).rejects.toThrow(
       "valid proposal id",
     );
+  });
+
+  test("reads only an exact, bounded invalidation operation response", async () => {
+    expect(
+      isInvalidationOperationResponse(
+        invalidationOperationResponse,
+        project.id,
+        invalidationOperationId,
+      ),
+    ).toBe(true);
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(invalidationOperationResponse));
+    const client = createLocalApiClient(fetchMock, session);
+
+    await expect(
+      client.getInvalidationOperation(project.id, invalidationOperationId),
+    ).resolves.toEqual(invalidationOperationResponse);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${session.origin}/api/v1/projects/${project.id}/invalidation-operations/${invalidationOperationId}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${session.token}`,
+          Origin: "app://aijian",
+        },
+      },
+    );
+
+    const invalidInputFetch = vi.fn();
+    const invalidInputClient = createLocalApiClient(invalidInputFetch, session);
+    await expect(
+      invalidInputClient.getInvalidationOperation("prj_not-canonical", invalidationOperationId),
+    ).rejects.toThrow("valid project id");
+    await expect(
+      invalidInputClient.getInvalidationOperation(project.id, "ivo_not-canonical"),
+    ).rejects.toThrow("valid invalidation operation id");
+    expect(invalidInputFetch).not.toHaveBeenCalled();
+  });
+
+  test("rejects malformed invalidation responses and preserves HTTP failures", async () => {
+    const path = invalidationOperationResponse.data.paths[0]!;
+    const withData = (data: Record<string, unknown>) => ({
+      ...invalidationOperationResponse,
+      data: { ...invalidationOperationResponse.data, ...data },
+    });
+    const withPath = (pathData: Record<string, unknown>) =>
+      withData({ paths: [{ ...path, ...pathData }] });
+    const secondPath = { ...path, path_id: `ivp_${"2".repeat(32)}`, ordinal: 1 };
+    const withTwoPaths = (first: Record<string, unknown>, second: Record<string, unknown>) =>
+      withData({
+        paths: [
+          { ...path, ...first },
+          { ...secondPath, ...second },
+        ],
+      });
+    const invalidPayloads: Array<[string, unknown]> = [
+      ["root extra", { ...invalidationOperationResponse, extra: "must-not-cross-boundary" }],
+      ["data extra", withData({ token: "must-not-cross-boundary" })],
+      ["path extra", withPath({ token: "must-not-cross-boundary" })],
+      ["request id", { ...invalidationOperationResponse, request_id: "not-a-uuid" }],
+      ["assessment hash", withData({ assessment_hash: "sha256:invalid" })],
+      ["root operation", withData({ operation_id: `ivo_${"0".repeat(32)}` })],
+      ["root project", withData({ project_id: `prj_${"0".repeat(32)}` })],
+      ["path operation", withPath({ operation_id: `ivo_${"0".repeat(32)}` })],
+      ["path project", withPath({ project_id: `prj_${"0".repeat(32)}` })],
+      ["ordinal gap", withTwoPaths({}, { ordinal: 2 })],
+      ["ordinal duplicate", withTwoPaths({}, { ordinal: 0 })],
+      ["empty relationship", withPath({ relationships: [] })],
+      [
+        "unequal path arrays",
+        withPath({ dependency_ids: [`dep_${"1".repeat(32)}`, `dep_${"2".repeat(32)}`] }),
+      ],
+      ["classification", withPath({ classification: "UNKNOWN" })],
+      ["root naive datetime", withData({ created_at: "2026-09-03T09:00:00" })],
+      ["root invalid calendar datetime", withData({ created_at: "2026-02-30T09:00:00Z" })],
+      ["root invalid hour datetime", withData({ created_at: "2026-09-03T24:00:00Z" })],
+      ["path invalid calendar datetime", withPath({ created_at: "2026-02-30T09:00:00Z" })],
+    ];
+
+    for (const [label, payload] of invalidPayloads) {
+      expect(
+        isInvalidationOperationResponse(payload, project.id, invalidationOperationId),
+        label,
+      ).toBe(false);
+      const client = createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(payload)),
+        session,
+      );
+      await expect(
+        client.getInvalidationOperation(project.id, invalidationOperationId),
+      ).rejects.toThrow("published contract");
+    }
+
+    expect(
+      isInvalidationOperationResponse(withData({ paths: [] }), project.id, invalidationOperationId),
+    ).toBe(true);
+
+    const errorPayload = {
+      error: {
+        code: "INVALIDATION_OPERATION_NOT_FOUND",
+        message: "not found",
+        retryable: false,
+        details: {},
+      },
+      request_id: healthyResponse.request_id,
+    };
+    for (const status of [404, 413, 422, 500]) {
+      const client = createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(errorPayload, { status })),
+        session,
+      );
+      await expect(
+        client.getInvalidationOperation(project.id, invalidationOperationId),
+      ).rejects.toThrow(`status ${status}`);
+    }
+
+    const oversizedClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(
+        new Response("{}", {
+          headers: { "Content-Length": String(16 * 1024 * 1024 + 1) },
+        }),
+      ),
+      session,
+    );
+    await expect(
+      oversizedClient.getInvalidationOperation(project.id, invalidationOperationId),
+    ).rejects.toThrow("desktop safety limit");
+  });
+
+  test("enforces the canonical data UTF-8 limit independently of transport size", async () => {
+    const maxDataBytes = 4 * 1024 * 1024;
+    const responseWithRelationship = (relationship: string) => ({
+      ...invalidationOperationResponse,
+      data: {
+        ...invalidationOperationResponse.data,
+        paths: [
+          {
+            ...invalidationOperationResponse.data.paths[0]!,
+            relationships: [relationship],
+          },
+        ],
+      },
+    });
+    const base = responseWithRelationship("");
+    const baseBytes = new TextEncoder().encode(JSON.stringify(base.data)).byteLength;
+    const multiByteCharacter = "汉";
+    const multiByteCharacterBytes = new TextEncoder().encode(multiByteCharacter).byteLength;
+    const remainingBytes = maxDataBytes - baseBytes;
+    const multiByteCount = Math.floor(remainingBytes / multiByteCharacterBytes);
+    const asciiPaddingBytes = remainingBytes % multiByteCharacterBytes;
+    const atLimit = responseWithRelationship(
+      multiByteCharacter.repeat(multiByteCount) + "x".repeat(asciiPaddingBytes),
+    );
+    const overLimit = responseWithRelationship(
+      atLimit.data.paths[0]!.relationships[0]! + multiByteCharacter,
+    );
+
+    expect(multiByteCharacterBytes).toBe(3);
+    expect(atLimit.data.paths[0]!.relationships[0]!.length).toBeLessThan(remainingBytes);
+    expect(new TextEncoder().encode(JSON.stringify(atLimit.data)).byteLength).toBe(maxDataBytes);
+    expect(new TextEncoder().encode(JSON.stringify(overLimit.data)).byteLength).toBe(
+      maxDataBytes + multiByteCharacterBytes,
+    );
+    expect(isInvalidationOperationResponse(atLimit, project.id, invalidationOperationId)).toBe(
+      true,
+    );
+    expect(isInvalidationOperationResponse(overLimit, project.id, invalidationOperationId)).toBe(
+      false,
+    );
+
+    const client = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(overLimit)),
+      session,
+    );
+    await expect(
+      client.getInvalidationOperation(project.id, invalidationOperationId),
+    ).rejects.toThrow("published contract");
   });
 
   test("submits deterministic proposal decisions with normalized inputs", async () => {

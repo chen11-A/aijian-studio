@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { components } from "@aijian/contracts";
+import {
+  isInvalidationOperationResponse,
+  type InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
 
 import {
   isArtifactProposalDecisionKey,
@@ -132,6 +136,10 @@ export interface LocalApiClient {
     projectId: string,
     command: FakeTimelineRunCreateCommand,
   ): Promise<FakeTimelineRunCreateResult>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   acceptArtifactProposalAsDraft(
     projectId: string,
@@ -164,6 +172,7 @@ export interface LocalApiClient {
 }
 
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
+const INVALIDATION_OPERATION_ID_PATTERN = /^ivo_[0-9a-f]{32}$/;
 const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
 const SOURCE_ID_PATTERN = /^src_[0-9a-f]{32}$/;
 const SOURCE_BLOCK_ID_PATTERN = /^srcb_[0-9a-f]{32}$/;
@@ -1536,6 +1545,23 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
         throw new Error("Local API client requires a valid fake timeline run command");
       }
       return requestFakeTimelineRunCreation(projectId, command);
+    },
+    async getInvalidationOperation(
+      projectId: string,
+      operationId: string,
+    ): Promise<InvalidationOperationResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!INVALIDATION_OPERATION_ID_PATTERN.test(operationId)) {
+        throw new Error("Local API client requires a valid invalidation operation id");
+      }
+      return requestJson(
+        `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
+        (payload): payload is InvalidationOperationResponse =>
+          isInvalidationOperationResponse(payload, projectId, operationId),
+        { headers },
+      );
     },
     async getArtifactProposal(
       projectId: string,

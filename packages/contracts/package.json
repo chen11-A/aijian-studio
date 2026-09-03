@@ -12,6 +12,10 @@
     "./artifact-proposal": {
       "types": "./src/artifact-proposal.ts",
       "default": "./src/artifact-proposal.ts"
+    },
+    "./invalidation-operation": {
+      "types": "./src/invalidation-operation.ts",
+      "default": "./src/invalidation-operation.ts"
     }
   },
   "scripts": {
