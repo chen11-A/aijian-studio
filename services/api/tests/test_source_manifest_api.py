@@ -1,15 +1,32 @@
 import base64
+import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from aijian_api.contracts import PreparedReviewActionResponse
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from fastapi.testclient import TestClient
+from pydantic import create_model
+
+from scripts import export_openapi
 
 TOKEN = "g" * 43
 HOST = "127.0.0.1:43124"
 ORIGIN = "app://aijian"
+PRIVATE_COMPONENTS = {
+    "EmptyActionRequest",
+    "ConfirmationRequest",
+    "PrepareGateDecisionRequest",
+    "GateDecisionRequest",
+    "PreparedReviewActionResponse",
+    "ReviewSubmissionResponse",
+    "ReviewSignoffResponse",
+    "GateDecisionResponse",
+}
 
 
 @pytest.fixture
@@ -66,6 +83,18 @@ def confirmation_payload(prepared_response) -> dict[str, str]:
     }
 
 
+def assert_component_references_are_closed(value: object, components: dict[str, object]) -> None:
+    if isinstance(value, dict):
+        reference = value.get("$ref")
+        if isinstance(reference, str) and reference.startswith("#/components/schemas/"):
+            assert reference.removeprefix("#/components/schemas/") in components
+        for nested_value in value.values():
+            assert_component_references_are_closed(nested_value, components)
+    elif isinstance(value, list):
+        for nested_value in value:
+            assert_component_references_are_closed(nested_value, components)
+
+
 def test_g1_source_manifest_requires_etag_and_trusted_prepare_action(
     client: TestClient,
 ) -> None:
@@ -119,6 +148,8 @@ def test_g1_source_manifest_submit_signoff_and_decision_are_confirmed_and_versio
     assert prepared_submit.status_code == 200
     assert prepared_submit.headers["etag"] == '"revision-1"'
     assert prepared_submit.json()["data"]["report"]["gate"] == "G1"
+    prepared_contract = PreparedReviewActionResponse.model_validate(prepared_submit.json())
+    assert prepared_contract.data.report.gate == "G1"
     submitted = client.post(
         f"{base}:submit",
         headers={"If-Match": etag},
@@ -220,3 +251,74 @@ def test_public_openapi_and_unprotected_app_exclude_all_gate_capabilities(tmp_pa
         ).status_code
         == 404
     )
+
+
+def test_source_manifest_review_export_is_private_closed_and_deterministic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    public_output = tmp_path / "packages" / "contracts" / "openapi.json"
+    private_output = tmp_path / "apps" / "desktop" / "src" / "source-manifest-review.openapi.json"
+    monkeypatch.setattr(export_openapi, "ROOT", tmp_path)
+    monkeypatch.setattr(export_openapi, "OUTPUT", public_output)
+    monkeypatch.setattr(sys, "argv", ["export_openapi.py", "--source-manifest-review"])
+
+    export_openapi.main()
+
+    assert not public_output.exists()
+    schema = json.loads(private_output.read_text(encoding="utf-8"))
+    assert schema["paths"] == {}
+    components = schema["components"]["schemas"]
+    assert PRIVATE_COMPONENTS <= set(components)
+    assert components["ConfirmationRequest"]["additionalProperties"] is False
+    assert components["ConfirmationRequest"]["properties"]["confirmation_token"]["minLength"] == 20
+    assert_component_references_are_closed(schema, components)
+
+    first = private_output.read_bytes()
+    export_openapi.main()
+    assert private_output.read_bytes() == first
+
+
+def test_default_contract_export_remains_public_and_excludes_review_secrets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    public_output = tmp_path / "packages" / "contracts" / "openapi.json"
+    private_output = tmp_path / "apps" / "desktop" / "src" / "source-manifest-review.openapi.json"
+    monkeypatch.setattr(export_openapi, "ROOT", tmp_path)
+    monkeypatch.setattr(export_openapi, "OUTPUT", public_output)
+    monkeypatch.setattr(sys, "argv", ["export_openapi.py"])
+
+    export_openapi.main()
+
+    schema = json.loads(public_output.read_text(encoding="utf-8"))
+    assert not private_output.exists()
+    assert all("/api/v1/internal/" not in path for path in schema["paths"])
+    assert "confirmation_token" not in str(schema)
+    assert "PreparedReviewActionResponse" not in schema["components"]["schemas"]
+
+
+def test_source_manifest_review_export_rejects_reachable_nested_name_collisions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    duplicate_text = create_model("DuplicateNested", text=(str, ...))
+    duplicate_count = create_model("DuplicateNested", count=(int, ...))
+    first_root = create_model("FirstRoot", nested=(duplicate_text, ...))
+    second_root = create_model("SecondRoot", nested=(duplicate_count, ...))
+    contracts = SimpleNamespace(FirstRoot=first_root, SecondRoot=second_root)
+    original_import_module = export_openapi.import_module
+
+    def import_contracts(name: str):
+        if name == "aijian_api.contracts":
+            return contracts
+        return original_import_module(name)
+
+    monkeypatch.setattr(
+        export_openapi,
+        "SOURCE_MANIFEST_REVIEW_MODEL_NAMES",
+        ("FirstRoot", "SecondRoot"),
+    )
+    monkeypatch.setattr(export_openapi, "import_module", import_contracts)
+
+    with pytest.raises(ValueError, match="conflicting source manifest review schema name"):
+        export_openapi._source_manifest_review_openapi()

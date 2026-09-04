@@ -169,6 +169,8 @@ json.dumps(
 
 actor、role 与 capability 从可信本地会话解析，不能由 Renderer 请求体指定。`self_review` 由版本作者 actor 与 Gate 决策 actor 比较得到。桌面送审、签署和决策采用 prepare/action 两阶段：prepare 在当前 revision 上生成/复用冻结 readiness report 和一次性 challenge，Electron main 显示绑定 `version_id + content_hash + gate + action + readiness_report_id + report_hash + review_evidence_revision` 的原生确认，随后 action 携带凭据与 `If-Match` 原子消费并复核 revision/evidence 未变化。Renderer 不能自行构造凭据。
 
+G1 SourceManifest 的 prepare、submit、signoff 与 decision 内部服务契约由现有 Pydantic 模型生成到 Desktop main 专用私有 schema/type；该产物没有 paths、preload 或 Renderer 导出，后续 main 接线才消费它。私有产物按 `export_openapi.py --source-manifest-review`、`openapi-typescript`、再对两份生成产物运行 Prettier 的顺序生成和格式化，后续再生成时也遵守该顺序。当前 Sidecar 服务端可信 actor 固定为 `local-user`，可兼任 `writer`、`continuity_reviewer` 与 `producer`；Renderer 不提供 actor 或 role。source-import 作者和现有 `self_review` 计算不等于多角色独立审查。来源专属操作后续仍须分送审与确认基线，签署和批准各需独立原生确认；取消不自动继续，未知结果不自动重发。当前同一 `version_id + gate + role + review_evidence_revision` 的签署受唯一约束，成功签署后若回报过期或丢失，不能直接在同一证据 revision 重签恢复；该恢复缺口须由后续显式设计处理，本包不改变它。
+
 ## 6. 生命周期、并发与 G2 规则
 
 生命周期投影：
