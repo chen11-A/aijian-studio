@@ -20,6 +20,7 @@ import {
   PendingWorkspace,
   ProductionStageBar,
   ProjectInspector,
+  type ProductionSourceStage,
 } from "./components/ProductionShell/ProductionChrome";
 import { ProposalReviewCard } from "./components/ProductionShell/ProposalReviewCard";
 import { SourceExtractRunLauncher } from "./components/ProductionShell/SourceExtractRunLauncher";
@@ -1995,6 +1996,26 @@ export function App({ transport }: AppProps) {
     manifestState.kind === "ready" && manifestState.projectId === selectedId
       ? manifestState.response
       : null;
+  const sourceStage: ProductionSourceStage = (() => {
+    if (
+      !selectedId ||
+      manifestState.kind === "idle" ||
+      manifestState.projectId !== selectedId ||
+      manifestState.kind === "loading"
+    )
+      return { kind: "loading" };
+    if (manifestState.kind === "error") return { kind: "error" };
+    if (!currentManifest) return { kind: "empty" };
+    const identity = sourceReviewIdentity(currentManifest, selectedId);
+    if (!identity) return { kind: "inconsistent" };
+    const { head, latest_version, accepted_version } = currentManifest.data;
+    if (head.accepted_version_id === identity.version_id)
+      return { kind: "approved", versionNumber: latest_version.version_number };
+    return {
+      kind: head.review_version_id === identity.version_id ? "review" : "draft",
+      acceptedVersionNumber: accepted_version?.version_number ?? null,
+    };
+  })();
   const manifestRevision =
     manifestState.kind !== "idle" && manifestState.projectId === selectedId
       ? manifestState.response?.data.head.revision
@@ -2045,6 +2066,16 @@ export function App({ transport }: AppProps) {
       manifestRequestGeneration.current += 1;
     };
   }, [selectedId, loadManifest]);
+
+  const openSourceReview = useCallback(() => {
+    setActiveWorkspace("project");
+    setProjectRailCollapsed(false);
+    requestAnimationFrame(() => {
+      const card = document.getElementById("source-review");
+      card?.scrollIntoView?.({ block: "start" });
+      card?.focus({ preventScroll: true });
+    });
+  }, []);
 
   const openTaskDrawer = useCallback(() => {
     taskDrawerReturnFocusRef.current =
@@ -2457,10 +2488,15 @@ export function App({ transport }: AppProps) {
 
         {selectedProject && activeWorkspace !== "settings" && (
           <ProductionStageBar
-            sourceReady={importState.kind === "success"}
-            onNext={(workspace) => {
-              setActiveWorkspace(workspace);
-              if (workspace === "story") void loadStoryWorkspace(selectedProject.id);
+            source={sourceStage}
+            onNext={(target) => {
+              if (target === "source-review") {
+                openSourceReview();
+                return;
+              }
+              setActiveWorkspace(target);
+              if (target === "project") setProjectRailCollapsed(false);
+              if (target === "story") void loadStoryWorkspace(selectedProject.id);
             }}
           />
         )}
@@ -2628,13 +2664,7 @@ export function App({ transport }: AppProps) {
                     getSource={studio.getSource}
                     getStoryBibleVersion={studio.getStoryBibleVersion}
                     onRetry={() => void loadStoryWorkspace(selectedProject.id)}
-                    onReviewSource={() => {
-                      setActiveWorkspace("project");
-                      setProjectRailCollapsed(false);
-                      requestAnimationFrame(() =>
-                        document.getElementById("source-review")?.focus(),
-                      );
-                    }}
+                    onReviewSource={openSourceReview}
                   />
                 ) : activeWorkspace === "edit" ? (
                   <TimelineWorkspace

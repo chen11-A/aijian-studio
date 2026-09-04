@@ -4,29 +4,75 @@ import type { ProjectData } from "../../api/studio";
 import "./production-chrome.css";
 
 type StageTone = "active" | "waiting" | "review" | "approved";
+export type ProductionSourceStage =
+  | { kind: "loading" | "error" | "inconsistent" | "empty" }
+  | { kind: "draft" | "review"; acceptedVersionNumber: number | null }
+  | { kind: "approved"; versionNumber: number };
+type ProductionNavigationTarget = "project" | "source-review" | "story";
 
 interface ProductionStageBarProps {
-  sourceReady: boolean;
-  onNext(workspace: "project" | "story"): void;
+  source: ProductionSourceStage;
+  onNext(target: ProductionNavigationTarget): void;
 }
 
 const stageNames = ["立项", "来源", "故事", "规划", "剧本", "视觉", "导演", "剪辑", "发布"];
 
-export function ProductionStageBar({ sourceReady, onNext }: ProductionStageBarProps) {
-  const next = sourceReady
-    ? { label: "审阅故事证据", workspace: "story" as const }
-    : { label: "导入小说原文", workspace: "project" as const };
+function sourceNavigation(source: ProductionSourceStage): {
+  status: string;
+  tone: StageTone;
+  label: string;
+  target: ProductionNavigationTarget | null;
+} {
+  switch (source.kind) {
+    case "loading":
+      return { status: "读取中", tone: "waiting", label: "正在读取来源状态", target: null };
+    case "error":
+      return {
+        status: "读取失败",
+        tone: "waiting",
+        label: "恢复来源审核",
+        target: "source-review",
+      };
+    case "inconsistent":
+      return {
+        status: "身份不一致",
+        tone: "waiting",
+        label: "核对来源审核",
+        target: "source-review",
+      };
+    case "empty":
+      return { status: "未导入", tone: "active", label: "导入小说原文", target: "project" };
+    case "approved":
+      return { status: "已批准", tone: "approved", label: "审阅故事证据", target: "story" };
+    case "draft":
+      return {
+        status: source.acceptedVersionNumber === null ? "待审核" : "新版待审核",
+        tone: "review",
+        label: "审核来源版本",
+        target: "source-review",
+      };
+    case "review":
+      return {
+        status: source.acceptedVersionNumber === null ? "审核中" : "新版审核中",
+        tone: "review",
+        label: "审核来源版本",
+        target: "source-review",
+      };
+  }
+}
+
+export function ProductionStageBar({ source, onNext }: ProductionStageBarProps) {
+  const next = sourceNavigation(source);
 
   const toneFor = (index: number): StageTone => {
     if (index === 0) return "active";
-    if (index === 1) return sourceReady ? "review" : "active";
-    if (index === 2) return "waiting";
+    if (index === 1) return next.tone;
     return "waiting";
   };
 
   const statusFor = (index: number) => {
     if (index === 0) return "未签署";
-    if (index === 1) return sourceReady ? "待审批" : "当前";
+    if (index === 1) return next.status;
     if (index === 2) return "状态未接入";
     return "等待上游";
   };
@@ -40,9 +86,10 @@ export function ProductionStageBar({ sourceReady, onNext }: ProductionStageBarPr
             className={`production-stage tone-${toneFor(index)}`}
             key={name}
             aria-label={`G${index} ${name}：${statusFor(index)}`}
-            disabled={index > 1}
+            disabled={index > 1 || (index === 1 && source.kind === "loading")}
             onClick={() => {
-              if (index <= 1) onNext("project");
+              if (index === 0) onNext("project");
+              if (index === 1) onNext("source-review");
             }}
           >
             <span>G{index}</span>
@@ -52,8 +99,29 @@ export function ProductionStageBar({ sourceReady, onNext }: ProductionStageBarPr
         ))}
       </div>
       <div className="production-next">
-        <span>费用尚未接入 · 审批人未指派</span>
-        <button type="button" onClick={() => onNext(next.workspace)}>
+        <span>
+          费用尚未接入 · G1 以实际来源版本为准
+          {source.kind === "approved" && (
+            <>
+              <br />
+              最新来源 V{source.versionNumber} 已批准
+            </>
+          )}
+          {(source.kind === "draft" || source.kind === "review") &&
+            source.acceptedVersionNumber !== null && (
+              <>
+                <br />
+                新版尚未批准；旧批准基线 V{source.acceptedVersionNumber} 仍可用于故事阅读
+              </>
+            )}
+        </span>
+        <button
+          type="button"
+          disabled={next.target === null}
+          onClick={() => {
+            if (next.target) onNext(next.target);
+          }}
+        >
           下一步：{next.label}
         </button>
       </div>

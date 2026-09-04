@@ -1,7 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
 import { App } from "./App";
@@ -1001,6 +1009,184 @@ test("keeps both existing pending journals and their exact old inputs after a ne
   });
   expect({ ...localStorage }).toEqual(frozen);
   localStorage.clear();
+});
+
+test("keeps the top next step on source review when import succeeded but G1 is not approved", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  render(<App transport={transport} />);
+  await screen.findByText("V1 · 草稿，尚未批准");
+  await screen.findByText(sourceResponse.data.filename);
+  const stages = screen.getByRole("region", { name: "G0 至 G8 生产阶段" });
+  expect(within(stages).getByRole("button", { name: "G1 来源：待审核" })).toBeInTheDocument();
+  expect(within(stages).getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  expect(
+    within(stages).queryByRole("button", { name: "下一步：审阅故事证据" }),
+  ).not.toBeInTheDocument();
+});
+
+test("offers import for no manifest and keeps G0 a project entry", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：未导入" });
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  await screen.findByRole("heading", { name: "导演工作区尚未实现" });
+  fireEvent.click(screen.getByRole("button", { name: "下一步：导入小说原文" }));
+  expect(await screen.findByLabelText("选择 TXT 文件")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "来源尚未验收" });
+  fireEvent.click(screen.getByRole("button", { name: "G0 立项：未签署" }));
+  expect(await screen.findByRole("heading", { name: project.name })).toBeInTheDocument();
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+test.each(["review", "accepted"] as const)(
+  "uses the actual %s manifest without requiring the latest source preview",
+  async (role) => {
+    const transport = studioTransport([project]);
+    vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest(role));
+    render(<App transport={transport} />);
+    await screen.findByRole("button", {
+      name: role === "review" ? "G1 来源：审核中" : "G1 来源：已批准",
+    });
+    expect(screen.queryByText(sourceResponse.data.filename)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: role === "review" ? "下一步：审核来源版本" : "下一步：审阅故事证据",
+      }),
+    );
+    if (role === "review") {
+      await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+      expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+    } else {
+      expect(await screen.findByRole("heading", { name: "可以开始拆解小说" })).toBeInTheDocument();
+      expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
+    }
+    expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  },
+);
+
+test("does not reuse an approved label during loading, failed reads or inconsistent identities", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest("accepted"));
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：已批准" });
+  let rejectRead: (error: Error) => void = () => {};
+  vi.mocked(transport.getSourceManifest).mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        rejectRead = reject;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "下一步：正在读取来源状态" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
+  await act(async () => rejectRead(new Error("private read failure")));
+  await screen.findByRole("button", { name: "G1 来源：读取失败" });
+  const reads = vi.mocked(transport.getSourceManifest).mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  fireEvent.click(screen.getByRole("button", { name: "下一步：恢复来源审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(transport.getSourceManifest).toHaveBeenCalledTimes(reads);
+  const inconsistent = reviewManifest("accepted");
+  inconsistent.data.head.latest_version_id = `ver_${"0".repeat(32)}`;
+  vi.mocked(transport.getSourceManifest).mockResolvedValueOnce(inconsistent);
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await screen.findByRole("button", { name: "G1 来源：身份不一致" });
+  expect(screen.getByRole("button", { name: "下一步：核对来源审核" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "下一步：审阅故事证据" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await screen.findByRole("button", { name: "G1 来源：已批准" });
+});
+
+test("keeps an old approved baseline readable while the latest draft routes back to review", async () => {
+  const transport = studioTransport([project]);
+  const manifest = reviewManifest("accepted");
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  manifest.data.latest_version = latest;
+  manifest.data.head.latest_version_id = latest.id;
+  manifest.data.head.revision = 5;
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：新版待审核" });
+  expect(screen.getByText(/旧批准基线 V1 仍可用于故事阅读/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "可以开始拆解小说" });
+  expect(screen.getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "G1 来源：新版待审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  const approved = within(screen.getByRole("region", { name: "来源审核" })).getByRole("article", {
+    name: "已批准基线",
+  });
+  expect(approved).toHaveTextContent(sourceManifestVersion.content_hash);
+});
+
+test("does not let a late old-project approval update the selected project's top navigation", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  let finishFirst: (manifest: SourceManifestResponse) => void = () => {};
+  let finishSecond: (manifest: SourceManifestResponse) => void = () => {};
+  vi.mocked(transport.getSourceManifest)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSecond = resolve;
+        }),
+    );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  await screen.findByRole("heading", { name: second.name });
+  await act(async () => finishFirst(reviewManifest("accepted")));
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  const secondManifest = reviewManifest("review");
+  secondManifest.data.project_id = second.id;
+  await act(async () => finishSecond(secondManifest));
+  expect(await screen.findByRole("button", { name: "G1 来源：审核中" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
+});
+
+test("top next-step and G1 navigation focus the same card without clearing or resending UNKNOWN", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：待审核" });
+  fireEvent.click(screen.getByRole("button", { name: "送审来源版本" }));
+  await screen.findByText("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  await screen.findByRole("heading", { name: "导演工作区尚未实现" });
+  fireEvent.click(screen.getByRole("button", { name: "下一步：审核来源版本" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(screen.getByText("审核结果未知")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "来源尚未验收" });
+  fireEvent.click(screen.getByRole("button", { name: "G1 来源：待审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(screen.getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "复制为新草稿" })).toBeDisabled();
+  expect(capability.submit).toHaveBeenCalledOnce();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(capability.copyDraft).not.toHaveBeenCalled();
 });
 
 test("opens the project-scoped production task queue", async () => {
