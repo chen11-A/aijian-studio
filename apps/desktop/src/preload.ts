@@ -13,6 +13,15 @@ type ProjectResponse = components["schemas"]["ProjectResponse"];
 type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+// Type queries erase completely; the sandbox preload has no relative runtime imports.
+type SourceManifestReviewResult =
+  import("./source-manifest-review").SourceManifestReviewOperationResult;
+type SourceManifestReviewIdentity = {
+  project_id: string;
+  version_id: string;
+  content_hash: string;
+  expected_revision: number;
+};
 type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
@@ -76,6 +85,21 @@ contextBridge.exposeInMainWorld("aijian", {
       "artifacts:get-source-manifest",
       projectId,
     ) as Promise<SourceManifestResponse | null>,
+  submitSourceManifest: (
+    input: SourceManifestReviewIdentity,
+  ): Promise<SourceManifestReviewResult> =>
+    ipcRenderer.invoke("source-manifest:submit", input) as Promise<SourceManifestReviewResult>,
+  confirmSourceManifestBaseline: (
+    input: SourceManifestReviewIdentity & { rationale: string },
+  ): Promise<SourceManifestReviewResult> =>
+    ipcRenderer.invoke(
+      "source-manifest:confirm-baseline",
+      input,
+    ) as Promise<SourceManifestReviewResult>,
+  copySourceManifestDraft: (
+    input: SourceManifestReviewIdentity,
+  ): Promise<SourceManifestReviewResult> =>
+    ipcRenderer.invoke("source-manifest:copy-draft", input) as Promise<SourceManifestReviewResult>,
   getStoryBibleIndex: (projectId: string): Promise<StoryBibleIndexResponse | null> =>
     ipcRenderer.invoke(
       "artifacts:get-story-bible-index",

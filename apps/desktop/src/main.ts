@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from "electron";
 
 import {
   createLocalApiClient,
@@ -8,6 +8,7 @@ import {
   type CreateProviderConnectionInput,
   type ImportTextSourceInput,
   type LocalApiClient,
+  type SourceManifestReviewClient,
   type ReorderTimelineClipInput,
   type ReplaceTimelineClipInput,
   type TrimTimelineClipInput,
@@ -27,11 +28,15 @@ import { registerInvalidationOperationHandlers } from "./invalidation-operation-
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
+import { createSourceManifestReviewController } from "./source-manifest-review";
+import { registerSourceManifestReviewHandlers } from "./source-manifest-review-ipc";
 
 const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173";
 
 let mainWindow: BrowserWindow | null = null;
-let apiClient: LocalApiClient | null = null;
+let apiClient: (LocalApiClient & SourceManifestReviewClient) | null = null;
+let sourceManifestReviewController: ReturnType<typeof createSourceManifestReviewController> | null =
+  null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
 
@@ -130,6 +135,11 @@ ipcMain.handle("sources:import-text", (event, projectId: string, input: ImportTe
 ipcMain.handle("artifacts:get-source-manifest", (event, projectId: string) =>
   clientFor(event).getSourceManifest(projectId),
 );
+registerSourceManifestReviewHandlers((channel, listener) => ipcMain.handle(channel, listener), {
+  getMainWindow: () => mainWindow,
+  getController: () => sourceManifestReviewController,
+  showMessageBox: (origin, options) => dialog.showMessageBox(origin, options),
+});
 ipcMain.handle("artifacts:get-story-bible-index", (event, projectId: string) =>
   clientFor(event).getStoryBibleIndex(projectId),
 );
@@ -203,6 +213,7 @@ async function startApplication(): Promise<void> {
     ),
     sidecar.session,
   );
+  sourceManifestReviewController = createSourceManifestReviewController(apiClient);
   mainWindow = createMainWindow();
 
   app.on("activate", () => {
@@ -226,6 +237,7 @@ app.on("before-quit", (event) => {
     .finally(() => {
       sidecar = null;
       apiClient = null;
+      sourceManifestReviewController = null;
       app.quit();
     });
 });
