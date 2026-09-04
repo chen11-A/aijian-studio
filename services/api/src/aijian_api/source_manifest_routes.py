@@ -11,6 +11,7 @@ from aijian_api.application_errors import (
     PreconditionFailedError,
     PreconditionRequiredError,
 )
+from aijian_api.artifacts import canonical_content_hash
 from aijian_api.contracts import (
     ArtifactHeadData,
     ConfirmationChallengeData,
@@ -175,6 +176,59 @@ def create_source_manifest_internal_router(
     """Create authenticated G1 routes used only by the Electron main process."""
 
     router = APIRouter(include_in_schema=False)
+
+    @router.post(
+        "/api/v1/internal/projects/{project_id}/source-manifest/versions/{version_id}:copy-draft",
+        status_code=201,
+        response_model=SourceManifestResponse,
+        responses=_ARTIFACT_ACTION_ERRORS,
+    )
+    def copy_draft(
+        request: Request,
+        response: Response,
+        project_id: str,
+        version_id: str,
+        _payload: EmptyActionRequest,
+        if_match: str | None = Header(default=None, alias="If-Match"),
+    ) -> SourceManifestResponse:
+        expected_revision = _expected_revision(if_match)
+        repository = repository_provider()
+        try:
+            record = repository.get_latest_artifact(project_id, "source_manifest")
+        except ValueError:
+            raise PreconditionFailedError("Source manifest content is not copyable") from None
+        if record.head.revision != expected_revision or record.version.id != version_id:
+            raise PreconditionFailedError("Source manifest head changed before copy-draft")
+        if record.version.schema_version != "1.0.0":
+            raise PreconditionFailedError("Source manifest schema is not copyable")
+        try:
+            raw_content = record.version.content
+            if canonical_content_hash(raw_content) != record.version.content_hash:
+                raise PreconditionFailedError("Source manifest content hash is not copyable")
+            content_model = SourceManifestContentV1.model_validate(raw_content)
+            content = cast(dict[str, object], content_model.model_dump(mode="json"))
+            if canonical_content_hash(content) != record.version.content_hash:
+                raise PreconditionFailedError("Source manifest content hash is not copyable")
+        except ValueError:
+            raise PreconditionFailedError("Source manifest content is not copyable") from None
+        if record.source_spans or record.dependencies:
+            raise PreconditionFailedError("Source manifest copy would drop immutable metadata")
+        copied = repository.create_artifact_version(
+            project_id=project_id,
+            artifact_type="source_manifest",
+            schema_version="1.0.0",
+            content=content,
+            author_actor_type="human",
+            author_actor_id=trusted_review_actor.subject_id,
+            change_summary="User copied source baseline for renewed review",
+            parent_version_id=record.version.id,
+            expected_revision=expected_revision,
+        )
+        _set_revision_etag(response, copied.head.revision)
+        return SourceManifestResponse(
+            data=_source_manifest_data(project_id, repository, copied),
+            request_id=_request_id(request),
+        )
 
     @router.post(
         "/api/v1/internal/projects/{project_id}/source-manifest/versions/"
