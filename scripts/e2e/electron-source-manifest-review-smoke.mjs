@@ -341,7 +341,7 @@ async function workflow() {
     (await realpath(developmentRoot)).toLowerCase(),
     join(repositoryReal, ".aijian-dev").toLowerCase(),
   );
-  const evidenceRoot = join(developmentRoot, "m3-g1-c2");
+  const evidenceRoot = join(developmentRoot, "m3-g1-c3");
   await mkdir(evidenceRoot, { recursive: true });
   within(await realpath(developmentRoot), await realpath(evidenceRoot));
   evidenceDirectory = await mkdtemp(join(evidenceRoot, "runtime-"));
@@ -464,6 +464,54 @@ async function workflow() {
   }
   assert(evidence.reviewIdentityUi.includes("草稿，尚未批准"));
   assert(evidence.reviewIdentityUi.includes("尚无已批准基线"));
+  const stages = window.getByRole("region", { name: "G0 至 G8 生产阶段" });
+  await stages.getByRole("button", { name: "G1 来源：待审核", exact: true }).waitFor();
+  assert(
+    await stages.getByRole("button", { name: "下一步：审核来源版本", exact: true }).isEnabled(),
+  );
+  assert.equal(
+    await stages.getByRole("button", { name: "下一步：审阅故事证据", exact: true }).count(),
+    0,
+  );
+  await stages.scrollIntoViewIfNeeded();
+  await window.screenshot({
+    path: join(evidenceDirectory, "renderer-source-navigation-1440x900.png"),
+    timeout: 5_000,
+  });
+  evidence.screenshots.push({
+    file: "renderer-source-navigation-1440x900.png",
+    scope: "Actual draft G1 stage and source-review next step; Renderer only",
+  });
+  evidence.sourceNavigation = [];
+  for (const trigger of ["下一步：审核来源版本", "G1 来源：待审核"]) {
+    await window.getByRole("button", { name: /故事工坊/ }).click();
+    await window.getByRole("heading", { name: "来源尚未验收", exact: true }).waitFor();
+    await stages.getByRole("button", { name: trigger, exact: true }).click();
+    await waitUntil(
+      () => window.evaluate(() => document.activeElement?.id === "source-review"),
+      "top navigation focuses source review",
+      10_000,
+    );
+    const observed = await window.evaluate(() => {
+      const card = document.getElementById("source-review");
+      const bounds = card.getBoundingClientRect();
+      return {
+        focusedId: document.activeElement.id,
+        scrollY,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        viewportHeight: innerHeight,
+      };
+    });
+    assert.equal(observed.focusedId, "source-review");
+    assert(
+      observed.scrollY > 0 &&
+        observed.top >= -1 &&
+        observed.top < observed.viewportHeight &&
+        observed.bottom > 0,
+    );
+    evidence.sourceNavigation.push({ trigger, ...observed });
+  }
   await reviewCard.getByRole("textbox", { name: /确认基线的理由/ }).focus();
   await window.keyboard.press("Tab");
   evidence.keyboardFocus = await window.evaluate(() => ({
