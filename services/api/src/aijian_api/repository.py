@@ -2271,10 +2271,10 @@ class StudioRepository:
     ) -> ReviewSubmissionResult:
         policy = self._gate_policy(artifact_type)
         self._authorize_review_action(policy, "submit", {}, actor)
-        now = self._clock()
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                now = self._clock()
                 version_row, head_row = self._review_context(
                     connection,
                     project_id=project_id,
@@ -2368,12 +2368,12 @@ class StudioRepository:
         actor: TrustedReviewActor,
     ) -> ReviewSignoffResult:
         policy = self._gate_policy(artifact_type)
-        now = self._clock()
         payload: dict[str, object] = {"roles": list(roles)}
         self._authorize_review_action(policy, "signoff", payload, actor)
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                now = self._clock()
                 version_row, head_row = self._review_context(
                     connection,
                     project_id=project_id,
@@ -2476,7 +2476,6 @@ class StudioRepository:
         actor_role: str,
     ) -> GateDecisionResult:
         policy = self._gate_policy(artifact_type)
-        now = self._clock()
         payload: dict[str, object] = {
             "decision": decision,
             "rationale": rationale,
@@ -2490,6 +2489,7 @@ class StudioRepository:
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             try:
+                now = self._clock()
                 version_row, head_row = self._review_context(
                     connection,
                     project_id=project_id,
