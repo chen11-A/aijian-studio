@@ -21,6 +21,80 @@ export type ProjectResponse = components["schemas"]["ProjectResponse"];
 export type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 export type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 export type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+/** Renderer-safe business DTOs; native confirmation and authorization stay in main. */
+export type SourceManifestReviewIdentity = {
+  project_id: string;
+  version_id: string;
+  content_hash: string;
+  expected_revision: number;
+};
+export type SourceManifestReviewAction = "submit" | "signoff" | "decision" | "copy_draft";
+export type SourceManifestReviewPhase =
+  | "input"
+  | "preflight"
+  | "prepare_submit"
+  | "confirm_submit"
+  | "submit"
+  | "prepare_signoff"
+  | "confirm_signoff"
+  | "signoff"
+  | "prepare_decision"
+  | "confirm_decision"
+  | "decision"
+  | "confirm_copy_draft"
+  | "copy_draft";
+export type SourceManifestReviewSafeReceipt = {
+  action: SourceManifestReviewAction;
+  request_id: string;
+  project_id: string;
+  artifact_id: string;
+  version_id: string;
+  content_hash: string;
+  head_revision: number;
+  review_evidence_revision: number;
+  latest_version_id: string;
+  review_version_id: string | null;
+  review_submission_id: string | null;
+  accepted_version_id: string | null;
+  report_id: string | null;
+  report_hash: string | null;
+};
+export type SourceManifestReviewOperationResult = {
+  kind:
+    | "SUCCEEDED"
+    | "CANCELLED"
+    | "EXPIRED"
+    | "BUSY"
+    | "INVALID_INPUT"
+    | "STATE_CHANGED"
+    | "DEFINITE_SERVER_ERROR"
+    | "REMOTE_UNKNOWN";
+  phase: SourceManifestReviewPhase;
+  identity: SourceManifestReviewIdentity | null;
+  completed_actions: SourceManifestReviewAction[];
+  receipts: SourceManifestReviewSafeReceipt[];
+  error?: {
+    status: number;
+    code:
+      | "SIDECAR_AUTH_REQUIRED"
+      | "SIDECAR_REQUEST_REJECTED"
+      | "PROJECT_NOT_FOUND"
+      | "SOURCE_MANIFEST_NOT_FOUND"
+      | "GATE_NOT_READY"
+      | "REVIEW_INVALID"
+      | "PRECONDITION_FAILED"
+      | "VALIDATION_ERROR"
+      | "PRECONDITION_REQUIRED";
+    request_id: string;
+  };
+};
+export interface SourceManifestReviewCapability {
+  submit(input: SourceManifestReviewIdentity): Promise<SourceManifestReviewOperationResult>;
+  confirmBaseline(
+    input: SourceManifestReviewIdentity & { rationale: string },
+  ): Promise<SourceManifestReviewOperationResult>;
+  copyDraft(input: SourceManifestReviewIdentity): Promise<SourceManifestReviewOperationResult>;
+}
 export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
@@ -125,6 +199,7 @@ export interface StudioTransport {
   proposalDecisions?: ProposalDecisionCapability;
   proposalRuns?: ProposalRunCapability;
   fakeTimelineRuns?: FakeTimelineRunCapability;
+  sourceManifestReview?: SourceManifestReviewCapability;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
   startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
@@ -146,6 +221,9 @@ export interface StudioTransport {
 }
 
 export interface AijianDesktopBridge {
+  submitSourceManifest?: SourceManifestReviewCapability["submit"];
+  confirmSourceManifestBaseline?: SourceManifestReviewCapability["confirmBaseline"];
+  copySourceManifestDraft?: SourceManifestReviewCapability["copyDraft"];
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
@@ -437,6 +515,16 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.createFakeTimelineRun === "function"
           ? {
               create: (projectId, command) => bridge.createFakeTimelineRun(projectId, command),
+            }
+          : undefined,
+      sourceManifestReview:
+        typeof bridge.submitSourceManifest === "function" &&
+        typeof bridge.confirmSourceManifestBaseline === "function" &&
+        typeof bridge.copySourceManifestDraft === "function"
+          ? {
+              submit: (input) => bridge.submitSourceManifest!(input),
+              confirmBaseline: (input) => bridge.confirmSourceManifestBaseline!(input),
+              copyDraft: (input) => bridge.copySourceManifestDraft!(input),
             }
           : undefined,
       listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),

@@ -286,6 +286,59 @@ afterEach(() => {
 });
 
 describe("studio transport", () => {
+  test("exposes the complete desktop source-review group and forwards one exact argument", async () => {
+    const result = {
+      kind: "CANCELLED",
+      phase: "confirm_submit",
+      identity: null,
+      completed_actions: [],
+      receipts: [],
+    };
+    const bridge = {
+      submitSourceManifest: vi.fn().mockResolvedValue(result),
+      confirmSourceManifestBaseline: vi.fn().mockResolvedValue(result),
+      copySourceManifestDraft: vi.fn().mockResolvedValue(result),
+    };
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    window.aijian = bridge as unknown as AijianDesktopBridge;
+    const capability = createStudioTransport().sourceManifestReview;
+    expect(capability).toBeDefined();
+    const identity = {
+      project_id: project.id,
+      version_id: sourceManifest.data.latest_version.id,
+      content_hash: sourceManifest.data.latest_version.content_hash,
+      expected_revision: 3,
+    };
+    expect(await capability?.submit(identity)).toBe(result);
+    expect(await capability?.confirmBaseline({ ...identity, rationale: "核对原文" })).toBe(result);
+    expect(await capability?.copyDraft(identity)).toBe(result);
+    expect(bridge.submitSourceManifest.mock.calls).toEqual([[identity]]);
+    expect(bridge.confirmSourceManifestBaseline.mock.calls).toEqual([
+      [{ ...identity, rationale: "核对原文" }],
+    ]);
+    expect(bridge.copySourceManifestDraft.mock.calls).toEqual([[identity]]);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  test("never offers partial or browser source-review writes", () => {
+    expect(createStudioTransport().sourceManifestReview).toBeUndefined();
+    for (const missing of [
+      "submitSourceManifest",
+      "confirmSourceManifestBaseline",
+      "copySourceManifestDraft",
+    ]) {
+      const bridge = {
+        submitSourceManifest: vi.fn(),
+        confirmSourceManifestBaseline: vi.fn(),
+        copySourceManifestDraft: vi.fn(),
+        [missing]: undefined,
+      };
+      window.aijian = bridge as unknown as AijianDesktopBridge;
+      expect(createStudioTransport().sourceManifestReview).toBeUndefined();
+    }
+  });
+
   test("uses the narrow Electron preload bridge when it is available", async () => {
     const bridge = {
       health: vi.fn().mockResolvedValue(health),
