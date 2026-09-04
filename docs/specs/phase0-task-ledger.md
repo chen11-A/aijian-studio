@@ -36,6 +36,7 @@ REMOTE_UNKNOWN / SUCCEEDED / FAILED / CANCEL_REQUESTED / CANCELLED / NOT_SUBMITT
 - 租约保存 `lease_owner`、随机 `lease_token`、单调递增 `lease_generation`、`lease_expires_at` 和最后心跳，所有时间为 UTC。
 - 领取使用数据库当前事务的统一时间值；调用者传入的测试时钟只能用于确定性测试。
 - SQLite 领取在 `BEGIN IMMEDIATE` 内使用条件 `UPDATE ... RETURNING`；心跳、取消、输出和完成提交必须同时匹配 token、generation 与 revision，影响 0 行代表租约已丢失。
+- 本地任务完成在 `BEGIN IMMEDIATE` 成功返回后、租约条件查询前采样时钟；它拒绝等待写锁期间已经到期的租约，但不保证事务提交时租约仍未到期。
 - 活跃租约不能被第二执行器领取。过期本地租约进入恢复检查：已有已提交输出则对账为成功；只有无已提交输出且重试安全时才重新排队。旧 worker 不能提交晚到结果。
 - 远程提交相关状态的租约过期不会触发重新提交。缺少可查询的供应商 ID 时进入 `REMOTE_UNKNOWN`。
 

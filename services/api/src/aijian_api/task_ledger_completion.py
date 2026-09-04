@@ -21,10 +21,10 @@ def complete_local_task(
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
 ) -> TaskCompletion:
-    now_text = timestamp(clock())
     connection = connection_factory()
     try:
         connection.execute("BEGIN IMMEDIATE")
+        now_text = timestamp(clock())
         lease = connection.execute(
             """
             SELECT 1 FROM task_ledger
