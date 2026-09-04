@@ -118,6 +118,71 @@ def marker_blocked_fake_skill(
         sleep(1)
 
 
+def failing_before_marker_fake_skill(
+    _snapshot: AttemptSnapshotV1,
+    _invocation: int,
+) -> ArtifactProposalV1:
+    raise RuntimeError("injected handler startup failure")
+
+
+def run_fake_execution_until_handler_ready(
+    *,
+    executor: FakeAgentSkillExecutor,
+    task_id: str,
+    marker: Path,
+    cancel_workflow,
+    cancel_on_ready: bool,
+) -> None:
+    pool = ThreadPoolExecutor(max_workers=1)
+    execution = pool.submit(executor.run_once, task_id=task_id)
+    primary_error: BaseException | None = None
+    cleanup_errors: list[BaseException] = []
+    cancelled = False
+    try:
+        handler_startup_deadline = monotonic() + 10
+        while not marker.exists() and monotonic() < handler_startup_deadline:
+            if execution.done():
+                execution.result()
+                pytest.fail("fake handler exited before publishing its readiness marker")
+            sleep(0.01)
+        assert marker.exists(), "fake handler did not publish its readiness marker"
+        if cancel_on_ready:
+            cancel_workflow()
+            cancelled = True
+            with pytest.raises(LeaseLostError, match="stale or expired"):
+                execution.result(timeout=2)
+    except BaseException as error:
+        primary_error = error
+    finally:
+        if not cancelled:
+            try:
+                cancel_workflow()
+            except BaseException as error:
+                cleanup_errors.append(error)
+        try:
+            execution.result(timeout=2)
+        except LeaseLostError:
+            pass
+        except BaseException as error:
+            if error is not primary_error:
+                cleanup_errors.append(error)
+        try:
+            pool.shutdown(wait=execution.done(), cancel_futures=True)
+        except BaseException as error:
+            cleanup_errors.append(error)
+        if not execution.done():
+            cleanup_errors.append(TimeoutError("fake executor did not stop within cleanup budget"))
+    if primary_error is not None:
+        if cleanup_errors:
+            raise BaseExceptionGroup(
+                "fake executor failed and cleanup did not complete",
+                [primary_error, *cleanup_errors],
+            )
+        raise primary_error
+    if cleanup_errors:
+        raise ExceptionGroup("fake executor cleanup failed", cleanup_errors)
+
+
 def hard_crash_fake_skill(_snapshot: AttemptSnapshotV1, _invocation: int) -> ArtifactProposalV1:
     os._exit(17)
 
@@ -780,19 +845,17 @@ def test_running_fake_process_is_killed_by_cancellation_and_cannot_write_late_re
         delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
     )
     try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            execution = pool.submit(executor.run_once, task_id=task_id)
-            marker_deadline = monotonic() + 3
-            while not marker.exists() and monotonic() < marker_deadline:
-                sleep(0.01)
-            assert marker.exists()
-            ledger.cancel_local_workflow(
+        run_fake_execution_until_handler_ready(
+            executor=executor,
+            task_id=task_id,
+            marker=marker,
+            cancel_workflow=lambda: ledger.cancel_local_workflow(
                 project_id=project_id,
                 workflow_run_id=workflow_run_id,
                 actor_id="local-user",
-            )
-            with pytest.raises(LeaseLostError, match="stale or expired"):
-                execution.result(timeout=2)
+            ),
+            cancel_on_ready=True,
+        )
     finally:
         if previous_marker is None:
             os.environ.pop("AIJIAN_FAKE_HANDLER_MARKER", None)
@@ -812,6 +875,79 @@ def test_running_fake_process_is_killed_by_cancellation_and_cannot_write_late_re
         ("node", "CANCELLED", "human", "local-user"),
         ("task", "CANCELLED", "human", "local-user"),
     ]
+
+
+def test_running_fake_process_surfaces_early_worker_failure_and_cleans_up(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="cancel-startup-failure-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=50),
+        handler_timeout=timedelta(seconds=5),
+        handler=failing_before_marker_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+    )
+    with pytest.raises(FakeSkillExecutionError, match="injected handler startup failure"):
+        run_fake_execution_until_handler_ready(
+            executor=executor,
+            task_id=task_id,
+            marker=tmp_path / "handler-never-started.txt",
+            cancel_workflow=lambda: ledger.cancel_local_workflow(
+                project_id=project_id,
+                workflow_run_id=workflow_run_id,
+                actor_id="local-user",
+            ),
+            cancel_on_ready=True,
+        )
+    assert not any(child.name == "aijian-fake-agent" for child in active_children())
+
+
+def test_running_fake_process_reports_worker_and_cleanup_failures_together(
+    tmp_path: Path,
+) -> None:
+    database, project_id, clock, ledger, _, task_id = setup_fake_task(tmp_path)
+    with sqlite3.connect(database) as connection:
+        workflow_run_id = str(
+            connection.execute("SELECT workflow_run_id FROM workflow_runs").fetchone()[0]
+        )
+    executor = FakeAgentSkillExecutor(
+        ledger,
+        ArtifactProposalStore(database, clock=lambda: clock[0]),
+        worker_id="cancel-cleanup-failure-worker",
+        lease_duration=timedelta(seconds=30),
+        heartbeat_interval=timedelta(milliseconds=50),
+        handler_timeout=timedelta(seconds=5),
+        handler=failing_before_marker_fake_skill,
+        delegation=resolved_delegation(hard_limit_micros=0, retry_increment_limit_micros=0),
+    )
+
+    def cancel_then_fail() -> None:
+        ledger.cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=workflow_run_id,
+            actor_id="local-user",
+        )
+        raise RuntimeError("injected cleanup failure")
+
+    with pytest.raises(BaseExceptionGroup) as raised:
+        run_fake_execution_until_handler_ready(
+            executor=executor,
+            task_id=task_id,
+            marker=tmp_path / "handler-never-started.txt",
+            cancel_workflow=cancel_then_fail,
+            cancel_on_ready=True,
+        )
+    assert any(isinstance(error, FakeSkillExecutionError) for error in raised.value.exceptions)
+    assert any(isinstance(error, RuntimeError) for error in raised.value.exceptions)
+    assert not any(child.name == "aijian-fake-agent" for child in active_children())
 
 
 def test_proposal_review_can_be_cancelled_without_deleting_immutable_proposal(
