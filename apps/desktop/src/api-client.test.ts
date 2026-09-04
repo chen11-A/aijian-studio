@@ -7,8 +7,305 @@ import {
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
+import type {
+  SourceManifestPreparedReview,
+  SourceManifestReviewTarget,
+  SourceManifestSubmissionReceipt,
+  SourceManifestSignoffReceipt,
+  SourceManifestDecisionReceipt,
+  SourceManifestReviewClient,
+} from "./api-client";
 import type { FakeTimelineRunCreateCommand } from "./fake-timeline-run-contract";
 import { createdProposalRunResponse, proposalRunCommand } from "./proposal-run-test-fixture";
+
+describe("source review bounded I/O", () => {
+  const identity = () => ({
+    project_id: project.id,
+    version_id: artifactHead.latest_version_id,
+    content_hash: sourceManifestResponse.data.latest_version.content_hash,
+    expected_revision: artifactHead.revision,
+  });
+
+  test("uses one deadline across delayed fetch and multiple reader chunks without resetting it", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveFetch!: (value: Response) => void;
+      type ReadResult = { done: false; value: Uint8Array } | { done: true; value: undefined };
+      let resolveRead!: (value: ReadResult) => void;
+      const cancel = vi.fn(async () => {});
+      const releaseLock = vi.fn();
+      const reader = {
+        read: vi.fn(
+          () =>
+            new Promise<ReadResult>((resolve) => {
+              resolveRead = resolve;
+            }),
+        ),
+        cancel,
+        releaseLock,
+      };
+      const response = {
+        status: 200,
+        headers: new Headers({ ETag: '"revision-3"' }),
+        body: { getReader: () => reader, cancel },
+      } as unknown as Response;
+      const fetcher = vi.fn(
+        (_url: string, _init?: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      );
+      let result: unknown = "pending";
+      void createLocalApiClient(fetcher, session)
+        .prepareSourceManifestSubmit(reviewTarget())
+        .then((value) => {
+          result = value;
+        });
+      await vi.advanceTimersByTimeAsync(9_000);
+      resolveFetch(response);
+      await vi.advanceTimersByTimeAsync(5_000);
+      resolveRead({ done: false, value: new TextEncoder().encode("{") });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(result).toBe("pending");
+      expect(reader.read).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(result).toEqual({ kind: "REMOTE_UNKNOWN" });
+      expect(fetcher.mock.calls[0]![1]!.signal!.aborted).toBe(true);
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(cancel).toHaveBeenCalled();
+      expect(releaseLock).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+      resolveRead({ done: true, value: undefined });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(result).toEqual({ kind: "REMOTE_UNKNOWN" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("cancels a fetch body that arrives after timeout and never retries the POST", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveFetch!: (value: Response) => void;
+      const fetcher = vi.fn(
+        (_url: string, _init?: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      );
+      const pending = createLocalApiClient(fetcher, session).submitSourceManifestReview(
+        reviewTarget(),
+        preparedReview(),
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      await expect(pending).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+      const cancel = vi.fn(async () => {});
+      resolveFetch({ body: { cancel } } as unknown as Response);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(fetcher.mock.calls[0]![1]!.signal!.aborted).toBe(true);
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("bounds real ReadableStream pull/cancel promises that never settle", async () => {
+    vi.useFakeTimers();
+    try {
+      const cancel = vi.fn(() => new Promise<void>(() => {}));
+      const body = new ReadableStream<Uint8Array>({
+        pull: () => new Promise<void>(() => {}),
+        cancel,
+      });
+      const pending = createLocalApiClient(
+        async () => new Response(body, { headers: { ETag: '"revision-3"' } }),
+        session,
+      ).prepareSourceManifestSubmit(reviewTarget());
+      await vi.advanceTimersByTimeAsync(15_000);
+      await expect(pending).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(body.locked).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("keeps legacy GET behavior unchanged beyond 15 seconds and snapshots the new GET input", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveFetch!: (value: Response) => void;
+      const fetcher = vi.fn(
+        (_url: string, _init?: RequestInit) =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      );
+      const client = createLocalApiClient(fetcher, session);
+      let result: unknown = "pending";
+      void client.getSourceManifest(project.id).then((value) => {
+        result = value;
+      });
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(result).toBe("pending");
+      expect(fetcher.mock.calls[0]![1]!.signal).toBeUndefined();
+      resolveFetch(Response.json(sourceManifestResponse));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(result).toEqual(sourceManifestResponse);
+      const input = identity();
+      const pending = client.getSourceManifestForReview(input);
+      input.version_id = `ver_${"0".repeat(32)}`;
+      input.expected_revision = 99;
+      resolveFetch(Response.json(sourceManifestResponse, { headers: { ETag: '"revision-3"' } }));
+      await expect(pending).resolves.toEqual({
+        kind: "SUCCEEDED",
+        receipt: sourceManifestResponse,
+      });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("accepts bounded bodyless and chunked valid UTF-8 JSON and maps network rejection safely", async () => {
+    const bytes = new TextEncoder().encode(JSON.stringify(preparedReview()));
+    const bodyless = {
+      status: 200,
+      headers: new Headers({ ETag: '"revision-3"' }),
+      body: null,
+      arrayBuffer: async () => bytes.buffer,
+    } as Response;
+    const chunked = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes.slice(0, 11));
+          controller.enqueue(bytes.slice(11));
+          controller.close();
+        },
+      }),
+      { headers: { ETag: '"revision-3"' } },
+    );
+    for (const response of [bodyless, chunked]) {
+      await expect(
+        createLocalApiClient(async () => response, session).prepareSourceManifestSubmit(
+          reviewTarget(),
+        ),
+      ).resolves.toEqual({ kind: "SUCCEEDED", receipt: preparedReview() });
+    }
+    const fetcher = vi.fn(async () => {
+      throw new Error("synthetic secret failure");
+    });
+    await expect(
+      createLocalApiClient(fetcher, session).prepareSourceManifestSubmit(reviewTarget()),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test.each(["reader", "arrayBuffer"])(
+    "bounds an uncooperative %s and cleans resources",
+    async (source) => {
+      vi.useFakeTimers();
+      try {
+        const cancel = vi.fn(() => new Promise<void>(() => {}));
+        const releaseLock = vi.fn();
+        const response = {
+          status: 200,
+          headers: new Headers({ ETag: '"revision-3"' }),
+          body:
+            source === "reader"
+              ? {
+                  getReader: () => ({
+                    read: () => new Promise<never>(() => {}),
+                    cancel,
+                    releaseLock,
+                  }),
+                  cancel,
+                }
+              : null,
+          arrayBuffer: () => new Promise<ArrayBuffer>(() => {}),
+        } as unknown as Response;
+        const client = createLocalApiClient(async () => response, session);
+        let result: unknown = "pending";
+        void client.getSourceManifestForReview(identity()).then((value) => {
+          result = value;
+        });
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(result).toEqual({ kind: "REMOTE_UNKNOWN" });
+        if (source === "reader") {
+          expect(cancel).toHaveBeenCalled();
+          expect(releaseLock).toHaveBeenCalledOnce();
+        }
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  test("checks the exact initial version and hash and rejects extra input before I/O", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(sourceManifestResponse, { headers: { ETag: '"revision-3"' } }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(
+      client.getSourceManifestForReview({ ...identity(), extra: true } as never),
+    ).resolves.toEqual({ kind: "INVALID_INPUT" });
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(
+      client.getSourceManifestForReview({
+        ...identity(),
+        content_hash: `sha256:${"0".repeat(64)}`,
+      }),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+  });
+
+  test("recognizes only the status-bound fixed safe GET error envelope", async () => {
+    const payload = {
+      error: {
+        code: "SOURCE_MANIFEST_NOT_FOUND",
+        message: "sensitive synthetic text",
+        retryable: false,
+        details: {},
+      },
+      request_id: healthyResponse.request_id,
+    };
+    const fetcher = vi.fn(async () => Response.json(payload, { status: 404 }));
+    const client = createLocalApiClient(fetcher, session);
+    await expect(client.getSourceManifestForReview(identity())).resolves.toEqual({
+      kind: "DEFINITE_SERVER_ERROR",
+      status: 404,
+      code: "SOURCE_MANIFEST_NOT_FOUND",
+      request_id: healthyResponse.request_id,
+    });
+  });
+
+  test("returns unknown at the total deadline even when fetch ignores abort", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn(() => new Promise<Response>(() => {}));
+      const client = createLocalApiClient(fetcher, session);
+      let result: unknown = "pending";
+      void client
+        .getSourceManifestForReview({
+          project_id: project.id,
+          version_id: artifactHead.latest_version_id,
+          content_hash: sourceManifestResponse.data.latest_version.content_hash,
+          expected_revision: artifactHead.revision,
+        })
+        .then((value) => {
+          result = value;
+        });
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(result).toEqual({ kind: "REMOTE_UNKNOWN" });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 type HealthResponse = components["schemas"]["HealthResponse"];
 type ProjectData = components["schemas"]["ProjectData"];
@@ -189,6 +486,844 @@ const sourceManifestResponse: SourceManifestResponse = {
   },
   request_id: healthyResponse.request_id,
 };
+
+const reviewTarget = (submitted = false): SourceManifestReviewTarget => ({
+  project_id: project.id,
+  version_id: artifactHead.latest_version_id,
+  content_hash: sourceManifestResponse.data.latest_version.content_hash,
+  expected_revision: submitted ? 4 : 3,
+  artifact_id: artifactHead.artifact_id,
+  version_number: 1,
+  review_evidence_revision: submitted ? 2 : 1,
+  review_version_id: submitted ? artifactHead.latest_version_id : null,
+  review_submission_id: submitted ? `sub_${"3".repeat(32)}` : null,
+  accepted_version_id: null,
+});
+
+function preparedReview(
+  action: "submit" | "signoff" | "decision" = "submit",
+): SourceManifestPreparedReview {
+  const target = reviewTarget(action !== "submit");
+  return {
+    request_id: healthyResponse.request_id,
+    data: {
+      confirmation_token: "synthetic-confirmation-token-for-tests",
+      report: {
+        id: `rpt_${"4".repeat(32)}`,
+        artifact_id: target.artifact_id,
+        version_id: target.version_id,
+        gate: "G1",
+        submission_id: action === "submit" ? null : target.review_submission_id,
+        policy_code: "g1.source-manifest",
+        policy_version: "1",
+        head_revision: target.expected_revision,
+        review_evidence_revision: target.review_evidence_revision,
+        report: {
+          ready: true,
+          blocking: [],
+          policy_code: "g1.source-manifest",
+          policy_version: "1",
+          policy_snapshot_hash:
+            "sha256:d9b44c6cb3464ff85eb7a546286691af0cf92e536d361fc8d5985aaf4320420c",
+        },
+        report_hash: "sha256:8369949613bef69a80963393f43ccf81ab7e87bbc3781ca6a73115e8b4eec3a6",
+        created_at: "2026-09-04T06:00:00Z",
+        expires_at: "2026-09-04T06:05:00Z",
+      },
+      challenge: {
+        id: `chg_${"5".repeat(32)}`,
+        artifact_id: target.artifact_id,
+        version_id: target.version_id,
+        gate: "G1",
+        action,
+        readiness_report_id: `rpt_${"4".repeat(32)}`,
+        head_revision: target.expected_revision + (action === "decision" ? 1 : 0),
+        review_evidence_revision: target.review_evidence_revision,
+        created_at: "2026-09-04T06:00:00Z",
+        expires_at: "2026-09-04T06:05:00Z",
+        consumed_at: null,
+      },
+    },
+  };
+}
+
+function submissionReceipt(): SourceManifestSubmissionReceipt {
+  const target = reviewTarget(true);
+  return {
+    request_id: healthyResponse.request_id,
+    data: {
+      head: {
+        ...artifactHead,
+        revision: 4,
+        review_evidence_revision: 2,
+        review_version_id: target.version_id,
+        review_submission_id: target.review_submission_id,
+      },
+      submission: {
+        id: target.review_submission_id!,
+        artifact_id: target.artifact_id,
+        version_id: target.version_id,
+        gate: "G1",
+        readiness_report_id: preparedReview().data.report.id,
+        supersedes_submission_id: null,
+        submitted_by_actor_id: "local-user",
+        submitted_at: "2026-09-04T06:01:00Z",
+      },
+    },
+  };
+}
+
+function signoffReceipt(): SourceManifestSignoffReceipt {
+  const target = reviewTarget(true);
+  return {
+    request_id: healthyResponse.request_id,
+    data: {
+      head: { ...submissionReceipt().data.head, revision: 5 },
+      signoffs: ["writer", "producer"].map((role, index) => ({
+        id: `sig_${String(index + 6).repeat(32)}`,
+        artifact_id: target.artifact_id,
+        version_id: target.version_id,
+        submission_id: target.review_submission_id!,
+        gate: "G1",
+        role,
+        actor_id: "local-user",
+        review_evidence_revision: target.review_evidence_revision,
+        readiness_report_id: preparedReview("signoff").data.report.id,
+        self_review: true,
+        supersedes_signoff_id: null,
+        signed_at: "2026-09-04T06:02:00Z",
+      })),
+    },
+  };
+}
+
+function decisionReceipt(): SourceManifestDecisionReceipt {
+  const target = reviewTarget(true);
+  return {
+    request_id: healthyResponse.request_id,
+    data: {
+      head: {
+        ...signoffReceipt().data.head,
+        revision: 6,
+        review_version_id: null,
+        review_submission_id: null,
+        accepted_version_id: target.version_id,
+      },
+      decision: {
+        id: `dec_${"8".repeat(32)}`,
+        artifact_id: target.artifact_id,
+        version_id: target.version_id,
+        submission_id: target.review_submission_id!,
+        gate: "G1",
+        decision: "approved",
+        readiness_report_id: preparedReview("signoff").data.report.id,
+        actor_id: "local-user",
+        actor_role: "producer",
+        self_review: true,
+        rationale: "确认来源基线",
+        decided_at: "2026-09-04T06:03:00Z",
+      },
+    },
+  };
+}
+
+function copiedManifest(): SourceManifestResponse {
+  const result = structuredClone(sourceManifestResponse);
+  result.data.latest_version.id = `ver_${"9".repeat(32)}`;
+  result.data.latest_version.parent_version_id = artifactHead.latest_version_id;
+  result.data.latest_version.version_number = 2;
+  result.data.head.latest_version_id = result.data.latest_version.id;
+  result.data.head.revision = 4;
+  return result;
+}
+
+describe("source review actions", () => {
+  test("invalid identities, impossible report revision, and malformed prepared input never fetch", async () => {
+    const fetcher = vi.fn(async () => Response.json({}));
+    const client = createLocalApiClient(fetcher, session);
+    for (const input of [
+      null,
+      { ...reviewTarget(), extra: true },
+      { ...reviewTarget(), project_id: "../outside" },
+      { ...reviewTarget(), artifact_id: "invalid" },
+      { ...reviewTarget(), version_id: "invalid" },
+      { ...reviewTarget(), content_hash: "invalid" },
+      { ...reviewTarget(), expected_revision: 0 },
+      { ...reviewTarget(), expected_revision: 1.5 },
+      { ...reviewTarget(), expected_revision: Number.MAX_SAFE_INTEGER },
+      { ...reviewTarget(), review_evidence_revision: -1 },
+      { ...reviewTarget(), version_number: 0 },
+      { ...reviewTarget(), review_submission_id: `sub_${"3".repeat(32)}` },
+      { ...reviewTarget(), accepted_version_id: "invalid" },
+    ]) {
+      const target = input as SourceManifestReviewTarget;
+      await expect(client.prepareSourceManifestSubmit(target)).resolves.toEqual({
+        kind: "INVALID_INPUT",
+      });
+      await expect(client.prepareSourceManifestSignoff(target)).resolves.toEqual({
+        kind: "INVALID_INPUT",
+      });
+      await expect(
+        client.prepareSourceManifestDecision(
+          target,
+          preparedReview("signoff").data.report,
+          "确认来源基线",
+        ),
+      ).resolves.toEqual({ kind: "INVALID_INPUT" });
+      await expect(client.submitSourceManifestReview(target, preparedReview())).resolves.toEqual({
+        kind: "INVALID_INPUT",
+      });
+      await expect(
+        client.signoffSourceManifestReview(target, preparedReview("signoff")),
+      ).resolves.toEqual({ kind: "INVALID_INPUT" });
+      await expect(
+        client.decideSourceManifestReview(target, preparedReview("decision"), "确认来源基线"),
+      ).resolves.toEqual({ kind: "INVALID_INPUT" });
+      await expect(client.copySourceManifestDraft(target)).resolves.toEqual({
+        kind: "INVALID_INPUT",
+      });
+    }
+    for (const rationale of ["", " ", " untrimmed ", "x".repeat(1001), null]) {
+      await expect(
+        client.prepareSourceManifestDecision(
+          { ...reviewTarget(true), expected_revision: 5 },
+          preparedReview("signoff").data.report,
+          rationale as string,
+        ),
+      ).resolves.toEqual({ kind: "INVALID_INPUT" });
+    }
+    const impossible = preparedReview("signoff").data.report;
+    impossible.head_revision = 0;
+    await expect(
+      client.prepareSourceManifestDecision(
+        { ...reviewTarget(true), expected_revision: 1 },
+        impossible,
+        "确认来源基线",
+      ),
+    ).resolves.toEqual({ kind: "INVALID_INPUT" });
+    const malformed = preparedReview();
+    Object.assign(malformed.data, { extra: true });
+    await expect(client.submitSourceManifestReview(reviewTarget(), malformed)).resolves.toEqual({
+      kind: "INVALID_INPUT",
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  test("copies target, nested prepared data, and decision report before the first await", async () => {
+    let resolve!: (value: Response) => void;
+    const fetcher = vi.fn(
+      (_url: string, _init?: RequestInit) =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    const target = reviewTarget();
+    const prepared = preparedReview();
+    const pending = client.submitSourceManifestReview(target, prepared);
+    target.project_id = `prj_${"0".repeat(32)}`;
+    target.expected_revision = 99;
+    prepared.data.report.id = `rpt_${"0".repeat(32)}`;
+    prepared.data.confirmation_token = "changed";
+    resolve(Response.json(submissionReceipt(), { headers: { ETag: '"revision-4"' } }));
+    await expect(pending).resolves.toEqual({ kind: "SUCCEEDED", receipt: submissionReceipt() });
+    const decisionTarget = { ...reviewTarget(true), expected_revision: 5 };
+    const report = preparedReview("signoff").data.report;
+    const decisionPending = client.prepareSourceManifestDecision(
+      decisionTarget,
+      report,
+      "确认来源基线",
+    );
+    report.id = `rpt_${"0".repeat(32)}`;
+    decisionTarget.expected_revision = 99;
+    resolve(Response.json(preparedReview("decision"), { headers: { ETag: '"revision-5"' } }));
+    await expect(decisionPending).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt: preparedReview("decision"),
+    });
+    expect(fetcher.mock.calls[0]![0]).toContain(project.id);
+  });
+
+  test("consumes submit with exact prepared token and validates both revision advances", async () => {
+    const receipt = submissionReceipt();
+    const prepared = preparedReview();
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+      Response.json(receipt, { headers: { ETag: '"revision-4"' } }),
+    );
+    await expect(
+      createLocalApiClient(fetcher, session).submitSourceManifestReview(reviewTarget(), prepared),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt });
+    expect(fetcher.mock.calls[0]![0]).toMatch(/:submit$/);
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      challenge_id: prepared.data.challenge.id,
+      confirmation_token: prepared.data.confirmation_token,
+    });
+    expect(fetcher.mock.calls[0]![1]!.headers).toMatchObject({ "If-Match": '"revision-3"' });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test("prepares and signs writer/producer once, without inventing report_hash in signoff receipts", async () => {
+    const prepared = preparedReview("signoff");
+    const receipt = signoffReceipt();
+    const fetcher = vi.fn(async (url: string, _init?: RequestInit) =>
+      url.endsWith(":prepare-signoff")
+        ? Response.json(prepared, { headers: { ETag: '"revision-4"' } })
+        : Response.json(receipt, { headers: { ETag: '"revision-5"' } }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(client.prepareSourceManifestSignoff(reviewTarget(true))).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt: prepared,
+    });
+    await expect(client.signoffSourceManifestReview(reviewTarget(true), prepared)).resolves.toEqual(
+      { kind: "SUCCEEDED", receipt },
+    );
+    expect(fetcher.mock.calls.map(([url]) => url.split(artifactHead.latest_version_id)[1])).toEqual(
+      [":prepare-signoff", "/signoffs"],
+    );
+    expect(fetcher.mock.calls[0]![1]!.body).toBe("{}");
+  });
+
+  test("decision reuses the signed report with head one behind the challenge and exact rationale", async () => {
+    const target = { ...reviewTarget(true), expected_revision: 5 };
+    const prepared = preparedReview("decision");
+    const report = preparedReview("signoff").data.report;
+    const receipt = decisionReceipt();
+    const fetcher = vi.fn(async (url: string, _init?: RequestInit) =>
+      url.endsWith(":prepare-decision")
+        ? Response.json(prepared, { headers: { ETag: '"revision-5"' } })
+        : Response.json(receipt, { headers: { ETag: '"revision-6"' } }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(
+      client.prepareSourceManifestDecision(target, report, "确认来源基线"),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt: prepared });
+    await expect(
+      client.decideSourceManifestReview(target, prepared, "确认来源基线"),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt });
+    expect(fetcher.mock.calls.map(([url]) => url.split(target.version_id)[1])).toEqual([
+      ":prepare-decision",
+      "/decisions",
+    ]);
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      decision: "approved",
+      rationale: "确认来源基线",
+      readiness_report_id: report.id,
+    });
+    expect(JSON.parse(fetcher.mock.calls[1]![1]!.body as string)).toEqual({
+      decision: "approved",
+      rationale: "确认来源基线",
+      challenge_id: prepared.data.challenge.id,
+      confirmation_token: prepared.data.confirmation_token,
+    });
+  });
+
+  test("copies only to a new latest child at 201 without sending any automatic review request", async () => {
+    const receipt = copiedManifest();
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+      Response.json(receipt, { status: 201, headers: { ETag: '"revision-4"' } }),
+    );
+    await expect(
+      createLocalApiClient(fetcher, session).copySourceManifestDraft(reviewTarget()),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt });
+    expect(fetcher.mock.calls[0]![0]).toMatch(/:copy-draft$/);
+    expect(fetcher.mock.calls[0]![1]!.body).toBe("{}");
+    expect(fetcher.mock.calls[0]![1]!.headers).toMatchObject({ "If-Match": '"revision-3"' });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test.each([
+    [
+      "report gate",
+      (p: SourceManifestPreparedReview) => {
+        (p.data.report as { gate: string }).gate = "G2";
+      },
+    ],
+    [
+      "challenge gate",
+      (p: SourceManifestPreparedReview) => {
+        (p.data.challenge as { gate: string }).gate = "G2";
+      },
+    ],
+    [
+      "artifact",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.artifact_id = `art_${"0".repeat(32)}`;
+      },
+    ],
+    [
+      "version",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.version_id = `ver_${"0".repeat(32)}`;
+      },
+    ],
+    [
+      "report id",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.readiness_report_id = `rpt_${"0".repeat(32)}`;
+      },
+    ],
+    [
+      "report hash",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.report_hash = reviewTarget().content_hash;
+      },
+    ],
+    [
+      "policy",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.report.policy_snapshot_hash = reviewTarget().content_hash;
+      },
+    ],
+    [
+      "blocking",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.report.blocking = ["missing_source_document"];
+      },
+    ],
+    [
+      "ready",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.report.ready = false;
+      },
+    ],
+    [
+      "report revision",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.head_revision += 1;
+      },
+    ],
+    [
+      "challenge revision",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.head_revision += 1;
+      },
+    ],
+    [
+      "evidence",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.review_evidence_revision += 1;
+      },
+    ],
+    [
+      "action",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.action = "decision";
+      },
+    ],
+    [
+      "submission",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.submission_id = `sub_${"0".repeat(32)}`;
+      },
+    ],
+    [
+      "consumed",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.consumed_at = p.data.challenge.created_at;
+      },
+    ],
+    [
+      "date",
+      (p: SourceManifestPreparedReview) => {
+        p.data.report.created_at = "2026-02-30T06:00:00Z";
+      },
+    ],
+    [
+      "expiry",
+      (p: SourceManifestPreparedReview) => {
+        p.data.challenge.expires_at = p.data.challenge.created_at;
+      },
+    ],
+    [
+      "missing field",
+      (p: SourceManifestPreparedReview) => {
+        delete (p.data.report as Partial<typeof p.data.report>).submission_id;
+      },
+    ],
+    [
+      "extra field",
+      (p: SourceManifestPreparedReview) => {
+        Object.assign(p.data.report, { leaked: "synthetic" });
+      },
+    ],
+    [
+      "token",
+      (p: SourceManifestPreparedReview) => {
+        p.data.confirmation_token = "invalid";
+      },
+    ],
+    [
+      "request id",
+      (p: SourceManifestPreparedReview) => {
+        p.request_id = "not-uuid";
+      },
+    ],
+  ])("rejects prepared %s corruption without leaking the response", async (_name, mutate) => {
+    const prepared = preparedReview();
+    (mutate as (p: SourceManifestPreparedReview) => void)(prepared);
+    const fetcher = vi.fn(async () =>
+      Response.json(prepared, { headers: { ETag: '"revision-3"' } }),
+    );
+    await expect(
+      createLocalApiClient(fetcher, session).prepareSourceManifestSubmit(reviewTarget()),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test("does not replace the signed report or accept a two-revision-old report", async () => {
+    const target = { ...reviewTarget(true), expected_revision: 5 };
+    const prepared = preparedReview("decision");
+    prepared.data.report.id = `rpt_${"0".repeat(32)}`;
+    prepared.data.challenge.readiness_report_id = prepared.data.report.id;
+    const fetcher = vi.fn(async () =>
+      Response.json(prepared, { headers: { ETag: '"revision-5"' } }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(
+      client.prepareSourceManifestDecision(
+        target,
+        preparedReview("signoff").data.report,
+        "确认来源基线",
+      ),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    const report = preparedReview("signoff").data.report;
+    report.head_revision = 3;
+    await expect(
+      client.prepareSourceManifestDecision(target, report, "确认来源基线"),
+    ).resolves.toEqual({ kind: "INVALID_INPUT" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test.each(["submit", "signoff", "decision", "copy"] as const)(
+    "rejects %s success corruption and wrong status",
+    async (action) => {
+      const receipt =
+        action === "submit"
+          ? submissionReceipt()
+          : action === "signoff"
+            ? signoffReceipt()
+            : action === "decision"
+              ? decisionReceipt()
+              : copiedManifest();
+      const target =
+        action === "submit" || action === "copy"
+          ? reviewTarget()
+          : { ...reviewTarget(true), expected_revision: action === "decision" ? 5 : 4 };
+      const invoke = (client: SourceManifestReviewClient) =>
+        action === "submit"
+          ? client.submitSourceManifestReview(target, preparedReview())
+          : action === "signoff"
+            ? client.signoffSourceManifestReview(target, preparedReview("signoff"))
+            : action === "decision"
+              ? client.decideSourceManifestReview(
+                  target,
+                  preparedReview("decision"),
+                  "确认来源基线",
+                )
+              : client.copySourceManifestDraft(target);
+      const fetcher = vi.fn(async () =>
+        Response.json(receipt, {
+          status: action === "copy" ? 200 : 201,
+          headers: { ETag: `"revision-${target.expected_revision + 1}"` },
+        }),
+      );
+      await expect(invoke(createLocalApiClient(fetcher, session))).resolves.toEqual({
+        kind: "REMOTE_UNKNOWN",
+      });
+      receipt.data.head.review_evidence_revision += 1;
+      fetcher.mockImplementation(async () =>
+        Response.json(receipt, {
+          status: action === "copy" ? 201 : 200,
+          headers: { ETag: `"revision-${target.expected_revision + 1}"` },
+        }),
+      );
+      await expect(invoke(createLocalApiClient(fetcher, session))).resolves.toEqual({
+        kind: "REMOTE_UNKNOWN",
+      });
+    },
+  );
+
+  test("rejects wrong roles, actor, duplicate signoffs, changed rationale, and copy parent", async () => {
+    for (const mutate of [
+      (r: SourceManifestSignoffReceipt) => {
+        r.data.signoffs[0]!.actor_id = "someone-else";
+      },
+      (r: SourceManifestSignoffReceipt) => {
+        r.data.signoffs[0]!.role = "admin";
+      },
+      (r: SourceManifestSignoffReceipt) => {
+        r.data.signoffs[1] = r.data.signoffs[0]!;
+      },
+      (r: SourceManifestSignoffReceipt) => {
+        r.data.signoffs[0]!.readiness_report_id = `rpt_${"0".repeat(32)}`;
+      },
+    ]) {
+      const receipt = signoffReceipt();
+      mutate(receipt);
+      const client = createLocalApiClient(
+        async () => Response.json(receipt, { headers: { ETag: '"revision-5"' } }),
+        session,
+      );
+      await expect(
+        client.signoffSourceManifestReview(reviewTarget(true), preparedReview("signoff")),
+      ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    }
+    const decision = decisionReceipt();
+    decision.data.decision.rationale = "changed";
+    await expect(
+      createLocalApiClient(
+        async () => Response.json(decision, { headers: { ETag: '"revision-6"' } }),
+        session,
+      ).decideSourceManifestReview(
+        { ...reviewTarget(true), expected_revision: 5 },
+        preparedReview("decision"),
+        "确认来源基线",
+      ),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    const copy = copiedManifest();
+    copy.data.latest_version.parent_version_id = null;
+    await expect(
+      createLocalApiClient(
+        async () => Response.json(copy, { status: 201, headers: { ETag: '"revision-4"' } }),
+        session,
+      ).copySourceManifestDraft(reviewTarget()),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+  });
+
+  test("prepares submit with fixed scope, If-Match, and a validated main-only response", async () => {
+    const prepared = preparedReview();
+    const fetcher = vi.fn(async () =>
+      Response.json(prepared, { headers: { ETag: '"revision-3"' } }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(client.prepareSourceManifestSubmit(reviewTarget())).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt: prepared,
+    });
+    expect(fetcher).toHaveBeenCalledOnce();
+    const [url, init] = fetcher.mock.calls[0]! as unknown as [string, RequestInit];
+    expect(url).toBe(
+      `${session.origin}/api/v1/internal/projects/${project.id}/source-manifest/versions/${artifactHead.latest_version_id}:prepare-submit`,
+    );
+    expect(init.method).toBe("POST");
+    expect(init.headers).toEqual({
+      Accept: "application/json",
+      Authorization: `Bearer ${session.token}`,
+      Origin: "app://aijian",
+      "Content-Type": "application/json",
+      "If-Match": '"revision-3"',
+    });
+    expect(init.body).toBe("{}");
+  });
+});
+
+describe("source review response boundary", () => {
+  const invoke = (client: SourceManifestReviewClient, phase: "get" | "review" | "copy") =>
+    phase === "get"
+      ? client.getSourceManifestForReview({
+          project_id: project.id,
+          version_id: artifactHead.latest_version_id,
+          content_hash: sourceManifestResponse.data.latest_version.content_hash,
+          expected_revision: 3,
+        })
+      : phase === "review"
+        ? client.prepareSourceManifestSubmit(reviewTarget())
+        : client.copySourceManifestDraft(reviewTarget());
+  const errors = [
+    [401, "SIDECAR_AUTH_REQUIRED"],
+    [403, "SIDECAR_REQUEST_REJECTED"],
+    [404, "PROJECT_NOT_FOUND"],
+    [404, "SOURCE_MANIFEST_NOT_FOUND"],
+    [409, "GATE_NOT_READY"],
+    [409, "REVIEW_INVALID"],
+    [412, "PRECONDITION_FAILED"],
+    [422, "VALIDATION_ERROR"],
+    [428, "PRECONDITION_REQUIRED"],
+  ] as const;
+
+  test.each(["get", "review", "copy"] as const)(
+    "uses the phase/status/code union for %s and discards raw message",
+    async (phase) => {
+      for (const [status, code] of errors) {
+        const payload = {
+          request_id: healthyResponse.request_id,
+          error: {
+            code,
+            message: "synthetic secret confirmation_token must not escape",
+            retryable: false,
+            details: {},
+          },
+        };
+        const client = createLocalApiClient(
+          async () => Response.json(payload, { status }),
+          session,
+        );
+        const allowed =
+          status === 409
+            ? phase === "review"
+            : status === 412 || status === 428
+              ? phase !== "get"
+              : true;
+        await expect(invoke(client, phase)).resolves.toEqual(
+          allowed
+            ? {
+                kind: "DEFINITE_SERVER_ERROR",
+                status,
+                code,
+                request_id: healthyResponse.request_id,
+              }
+            : { kind: "REMOTE_UNKNOWN" },
+        );
+        const mismatched = createLocalApiClient(
+          async () => Response.json(payload, { status: status === 401 ? 403 : 401 }),
+          session,
+        );
+        await expect(invoke(mismatched, phase)).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+      }
+    },
+  );
+
+  test.each([
+    {
+      error: {
+        code: "PRECONDITION_FAILED",
+        message: "synthetic",
+        retryable: false,
+        details: { confirmation_token: "synthetic" },
+      },
+      request_id: healthyResponse.request_id,
+    },
+    {
+      error: { code: "PRECONDITION_FAILED", message: "synthetic", retryable: true, details: {} },
+      request_id: healthyResponse.request_id,
+    },
+    {
+      error: { code: "PRECONDITION_FAILED", message: "synthetic", retryable: false },
+      request_id: healthyResponse.request_id,
+    },
+    {
+      error: {
+        code: "PRECONDITION_FAILED",
+        message: "synthetic",
+        retryable: false,
+        details: {},
+        extra: true,
+      },
+      request_id: healthyResponse.request_id,
+    },
+    {
+      error: { code: "PRECONDITION_FAILED", message: "synthetic", retryable: false, details: {} },
+      request_id: healthyResponse.request_id,
+      extra: true,
+    },
+    {
+      error: { code: "arbitrary-secret-code", message: "synthetic", retryable: false, details: {} },
+      request_id: healthyResponse.request_id,
+    },
+    { detail: "Not Found" },
+  ])("rejects malformed or nonbusiness error envelopes %#", async (payload) => {
+    const client = createLocalApiClient(
+      async () => Response.json(payload, { status: "detail" in payload ? 404 : 412 }),
+      session,
+    );
+    await expect(client.copySourceManifestDraft(reviewTarget())).resolves.toEqual({
+      kind: "REMOTE_UNKNOWN",
+    });
+  });
+
+  test.each([undefined, 'W/"revision-3"', '"revision-4"', '"sha256:wrong"'])(
+    "rejects missing or nonexact ETag %s",
+    async (etag) => {
+      const client = createLocalApiClient(
+        async () =>
+          Response.json(preparedReview(), { headers: etag === undefined ? {} : { ETag: etag } }),
+        session,
+      );
+      await expect(client.prepareSourceManifestSubmit(reviewTarget())).resolves.toEqual({
+        kind: "REMOTE_UNKNOWN",
+      });
+    },
+  );
+
+  test("keeps the 16 MiB limit inclusive and rejects UTF-8, JSON, and oversized bodies", async () => {
+    const json = JSON.stringify(preparedReview());
+    const max = 16 * 1024 * 1024;
+    const padded = json + " ".repeat(max - Buffer.byteLength(json));
+    const valid = createLocalApiClient(
+      async () => new Response(padded, { headers: { ETag: '"revision-3"' } }),
+      session,
+    );
+    await expect(valid.prepareSourceManifestSubmit(reviewTarget())).resolves.toEqual({
+      kind: "SUCCEEDED",
+      receipt: preparedReview(),
+    });
+    for (const response of [
+      new Response(padded + " ", { headers: { ETag: '"revision-3"' } }),
+      new Response(json, { headers: { ETag: '"revision-3"', "Content-Length": String(max + 1) } }),
+      new Response(new Uint8Array([0xc3, 0x28]), { headers: { ETag: '"revision-3"' } }),
+      new Response("not json", { headers: { ETag: '"revision-3"' } }),
+      Response.json({ detail: "synthetic" }, { status: 503 }),
+    ]) {
+      await expect(
+        createLocalApiClient(async () => response, session).prepareSourceManifestSubmit(
+          reviewTarget(),
+        ),
+      ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    }
+    const bytes = new TextEncoder().encode(padded + " ");
+    const bodyless = {
+      status: 200,
+      headers: new Headers({ ETag: '"revision-3"' }),
+      body: null,
+      arrayBuffer: async () => bytes.buffer,
+    } as Response;
+    await expect(
+      createLocalApiClient(async () => bodyless, session).prepareSourceManifestSubmit(
+        reviewTarget(),
+      ),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+  });
+
+  test("rejects incomplete manifest heads, bad dates, identity mismatch, and unsafe integers", async () => {
+    const cases: ((r: SourceManifestResponse) => void)[] = [
+      (r) => {
+        delete (r.data.head as Partial<typeof r.data.head>).accepted_version_id;
+      },
+      (r) => {
+        r.data.head.updated_at = "invalid";
+      },
+      (r) => {
+        r.data.latest_version.created_at = "2026-02-30T00:00:00Z";
+      },
+      (r) => {
+        r.data.project_id = `prj_${"0".repeat(32)}`;
+      },
+      (r) => {
+        r.data.latest_version.content_hash = `sha256:${"0".repeat(64)}`;
+      },
+      (r) => {
+        r.data.latest_version.version_number = Number.MAX_SAFE_INTEGER + 1;
+      },
+      (r) => {
+        r.data.latest_version.content.documents[0]!.byte_size = -1;
+      },
+    ];
+    for (const mutate of cases) {
+      const receipt = structuredClone(sourceManifestResponse);
+      mutate(receipt);
+      await expect(
+        invoke(
+          createLocalApiClient(
+            async () => Response.json(receipt, { headers: { ETag: '"revision-3"' } }),
+            session,
+          ),
+          "get",
+        ),
+      ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    }
+  });
+});
 const storyBibleResponse: StoryBibleVersionResponse = {
   data: {
     project_id: project.id,

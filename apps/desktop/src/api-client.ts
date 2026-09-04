@@ -65,6 +65,7 @@ import {
 } from "./proposal-run-contract";
 import type { SidecarSession } from "./sidecar-protocol";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
+import type { components as ReviewComponents } from "./source-manifest-review.generated";
 import { isTaskQueueResponse, type TaskQueueResponse } from "./task-queue-contract";
 import {
   isReorderTimelineClipInput,
@@ -116,6 +117,93 @@ export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResp
 export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 type SidecarApiSession = Pick<SidecarSession, "origin" | "token">;
+
+export type SourceManifestReviewIdentity = {
+  project_id: string;
+  version_id: string;
+  content_hash: string;
+  expected_revision: number;
+};
+
+type ReviewSchemas = ReviewComponents["schemas"];
+export type SourceManifestReviewReport = ReviewSchemas["GateReadinessReportData"] & { gate: "G1" };
+export type SourceManifestPreparedReview = Omit<
+  ReviewSchemas["PreparedReviewActionResponse"],
+  "data"
+> & {
+  data: {
+    report: SourceManifestReviewReport;
+    challenge: ReviewSchemas["ConfirmationChallengeData"] & { gate: "G1" };
+    confirmation_token: string;
+  };
+};
+export type SourceManifestSubmissionReceipt = ReviewSchemas["ReviewSubmissionResponse"];
+export type SourceManifestSignoffReceipt = ReviewSchemas["ReviewSignoffResponse"];
+export type SourceManifestDecisionReceipt = ReviewSchemas["GateDecisionResponse"];
+export type SourceManifestReviewTarget = SourceManifestReviewIdentity & {
+  artifact_id: string;
+  version_number: number;
+  review_evidence_revision: number;
+  review_version_id: string | null;
+  review_submission_id: string | null;
+  accepted_version_id: string | null;
+};
+
+export type SourceManifestReviewResult<T> =
+  | { kind: "SUCCEEDED"; receipt: T }
+  | { kind: "INVALID_INPUT" }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: number;
+      code: SourceManifestReviewErrorCode;
+      request_id: string;
+    }
+  | { kind: "REMOTE_UNKNOWN" };
+
+export type SourceManifestReviewErrorCode =
+  | "SIDECAR_AUTH_REQUIRED"
+  | "SIDECAR_REQUEST_REJECTED"
+  | "PROJECT_NOT_FOUND"
+  | "SOURCE_MANIFEST_NOT_FOUND"
+  | "GATE_NOT_READY"
+  | "REVIEW_INVALID"
+  | "PRECONDITION_FAILED"
+  | "VALIDATION_ERROR"
+  | "PRECONDITION_REQUIRED";
+
+/** Main-only source review boundary; never expose this client through preload. */
+export interface SourceManifestReviewClient {
+  getSourceManifestForReview(
+    input: SourceManifestReviewIdentity,
+  ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
+  prepareSourceManifestSubmit(
+    input: SourceManifestReviewTarget,
+  ): Promise<SourceManifestReviewResult<SourceManifestPreparedReview>>;
+  submitSourceManifestReview(
+    input: SourceManifestReviewTarget,
+    prepared: SourceManifestPreparedReview,
+  ): Promise<SourceManifestReviewResult<SourceManifestSubmissionReceipt>>;
+  prepareSourceManifestSignoff(
+    input: SourceManifestReviewTarget,
+  ): Promise<SourceManifestReviewResult<SourceManifestPreparedReview>>;
+  signoffSourceManifestReview(
+    input: SourceManifestReviewTarget,
+    prepared: SourceManifestPreparedReview,
+  ): Promise<SourceManifestReviewResult<SourceManifestSignoffReceipt>>;
+  prepareSourceManifestDecision(
+    input: SourceManifestReviewTarget,
+    report: SourceManifestReviewReport,
+    rationale: string,
+  ): Promise<SourceManifestReviewResult<SourceManifestPreparedReview>>;
+  decideSourceManifestReview(
+    input: SourceManifestReviewTarget,
+    prepared: SourceManifestPreparedReview,
+    rationale: string,
+  ): Promise<SourceManifestReviewResult<SourceManifestDecisionReceipt>>;
+  copySourceManifestDraft(
+    input: SourceManifestReviewTarget,
+  ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
+}
 
 export interface LocalApiClient {
   getHealth(): Promise<HealthResponse>;
@@ -198,6 +286,465 @@ const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/
 const MAX_SOURCE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 const MAX_LOCAL_API_JSON_BYTES = 16 * 1024 * 1024;
 const DEFINITE_DECISION_STATUSES = new Set([401, 403, 404, 409, 422]);
+
+const REVIEW_IDENTITY_KEYS = ["project_id", "version_id", "content_hash", "expected_revision"];
+const REVIEW_TARGET_KEYS = [
+  ...REVIEW_IDENTITY_KEYS,
+  "artifact_id",
+  "version_number",
+  "review_evidence_revision",
+  "review_version_id",
+  "review_submission_id",
+  "accepted_version_id",
+];
+const REPORT_ID_PATTERN = /^rpt_[0-9a-f]{32}$/;
+const CHALLENGE_ID_PATTERN = /^chg_[0-9a-f]{32}$/;
+const SIGNOFF_ID_PATTERN = /^sig_[0-9a-f]{32}$/;
+const DECISION_ID_PATTERN = /^dec_[0-9a-f]{32}$/;
+// gate_policy.py DEFAULT_GATE_POLICIES['source_manifest'], canonical_content_hash protocol.
+const G1_POLICY_SNAPSHOT_HASH =
+  "sha256:d9b44c6cb3464ff85eb7a546286691af0cf92e536d361fc8d5985aaf4320420c";
+type SourceReviewAction = "submit" | "signoff" | "decision";
+
+function hasExactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  return (
+    isRecord(value) && hasOnlyKeys(value, keys) && keys.every((key) => Object.hasOwn(value, key))
+  );
+}
+
+function isReviewInteger(value: unknown, minimum = 0): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
+}
+
+function isReviewDate(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+  )
+    return false;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return false;
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return (
+    month! >= 1 &&
+    month! <= 12 &&
+    day! >= 1 &&
+    day! <= new Date(Date.UTC(year!, month!, 0)).getUTCDate() &&
+    Number(value.slice(11, 13)) < 24 &&
+    Number(value.slice(14, 16)) < 60 &&
+    Number(value.slice(17, 19)) < 60
+  );
+}
+
+function isReviewIdentity(
+  value: unknown,
+): value is SourceManifestReviewIdentity & Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    typeof value.project_id === "string" &&
+    PROJECT_ID_PATTERN.test(value.project_id) &&
+    typeof value.version_id === "string" &&
+    VERSION_ID_PATTERN.test(value.version_id) &&
+    typeof value.content_hash === "string" &&
+    CONTENT_HASH_PATTERN.test(value.content_hash) &&
+    isReviewInteger(value.expected_revision, 1) &&
+    value.expected_revision < Number.MAX_SAFE_INTEGER
+  );
+}
+
+function isStrictReviewHead(value: unknown): value is ReviewSchemas["ArtifactHeadData"] {
+  return (
+    isArtifactHead(value) &&
+    isNullableId(value.review_version_id, VERSION_ID_PATTERN) &&
+    isNullableId(value.accepted_version_id, VERSION_ID_PATTERN) &&
+    (value.review_version_id === null) === (value.review_submission_id === null) &&
+    isReviewInteger(value.revision, 1) &&
+    isReviewInteger(value.review_evidence_revision) &&
+    isReviewDate(value.updated_at)
+  );
+}
+
+function reviewTargetSnapshot(input: unknown): SourceManifestReviewTarget | null {
+  if (
+    !hasExactKeys(input, REVIEW_TARGET_KEYS) ||
+    !isReviewIdentity(input) ||
+    typeof input.artifact_id !== "string" ||
+    !ARTIFACT_ID_PATTERN.test(input.artifact_id) ||
+    !isReviewInteger(input.version_number, 1) ||
+    input.version_number >= Number.MAX_SAFE_INTEGER ||
+    !isReviewInteger(input.review_evidence_revision) ||
+    input.review_evidence_revision >= Number.MAX_SAFE_INTEGER ||
+    !isNullableId(input.review_version_id, VERSION_ID_PATTERN) ||
+    !isNullableId(input.review_submission_id, SUBMISSION_ID_PATTERN) ||
+    !isNullableId(input.accepted_version_id, VERSION_ID_PATTERN) ||
+    (input.review_version_id === null) !== (input.review_submission_id === null)
+  )
+    return null;
+  return {
+    project_id: input.project_id,
+    artifact_id: input.artifact_id,
+    version_id: input.version_id,
+    content_hash: input.content_hash,
+    expected_revision: input.expected_revision,
+    version_number: input.version_number,
+    review_evidence_revision: input.review_evidence_revision,
+    review_version_id: input.review_version_id as string | null,
+    review_submission_id: input.review_submission_id as string | null,
+    accepted_version_id: input.accepted_version_id as string | null,
+  };
+}
+
+function isSourceReviewReport(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  action: SourceReviewAction,
+): value is SourceManifestReviewReport {
+  if (
+    !hasExactKeys(value, [
+      "id",
+      "artifact_id",
+      "version_id",
+      "gate",
+      "submission_id",
+      "policy_code",
+      "policy_version",
+      "head_revision",
+      "review_evidence_revision",
+      "report",
+      "report_hash",
+      "expires_at",
+      "created_at",
+    ]) ||
+    typeof value.id !== "string" ||
+    !REPORT_ID_PATTERN.test(value.id) ||
+    value.artifact_id !== target.artifact_id ||
+    value.version_id !== target.version_id ||
+    value.gate !== "G1" ||
+    value.submission_id !== (action === "submit" ? null : target.review_submission_id) ||
+    (action !== "submit" &&
+      (target.review_submission_id === null || target.review_version_id !== target.version_id)) ||
+    value.policy_code !== "g1.source-manifest" ||
+    value.policy_version !== "1" ||
+    !isReviewInteger(value.head_revision, 1) ||
+    !isReviewInteger(value.review_evidence_revision) ||
+    value.head_revision !== target.expected_revision - (action === "decision" ? 1 : 0) ||
+    value.review_evidence_revision !== target.review_evidence_revision ||
+    !isReviewDate(value.created_at) ||
+    !isReviewDate(value.expires_at) ||
+    Date.parse(value.expires_at) <= Date.parse(value.created_at) ||
+    !hasExactKeys(value.report, [
+      "ready",
+      "blocking",
+      "policy_code",
+      "policy_version",
+      "policy_snapshot_hash",
+    ])
+  )
+    return false;
+  const report = value.report;
+  if (
+    report.ready !== true ||
+    !Array.isArray(report.blocking) ||
+    report.blocking.length !== 0 ||
+    report.policy_code !== value.policy_code ||
+    report.policy_version !== value.policy_version ||
+    report.policy_snapshot_hash !== G1_POLICY_SNAPSHOT_HASH
+  )
+    return false;
+  // This is the fixed G1 readiness object, sorted exactly as Python canonical_content_bytes.
+  const canonical = JSON.stringify({
+    blocking: [],
+    policy_code: report.policy_code,
+    policy_snapshot_hash: report.policy_snapshot_hash,
+    policy_version: report.policy_version,
+    ready: true,
+  });
+  return (
+    value.report_hash === `sha256:${createHash("sha256").update(canonical, "utf8").digest("hex")}`
+  );
+}
+
+function isPreparedSourceReview(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  action: SourceReviewAction,
+  expectedReport?: SourceManifestReviewReport,
+): value is SourceManifestPreparedReview {
+  if (
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    !hasExactKeys(value.data, ["report", "challenge", "confirmation_token"]) ||
+    !isSourceReviewReport(value.data.report, target, action) ||
+    typeof value.data.confirmation_token !== "string" ||
+    !/^[A-Za-z0-9_-]{20,256}$/.test(value.data.confirmation_token) ||
+    !hasExactKeys(value.data.challenge, [
+      "id",
+      "artifact_id",
+      "version_id",
+      "gate",
+      "action",
+      "readiness_report_id",
+      "head_revision",
+      "review_evidence_revision",
+      "expires_at",
+      "consumed_at",
+      "created_at",
+    ])
+  )
+    return false;
+  const { report, challenge } = value.data;
+  return (
+    (!expectedReport ||
+      Object.keys(expectedReport).every(
+        (key) =>
+          key === "report" ||
+          report[key as keyof SourceManifestReviewReport] ===
+            expectedReport[key as keyof SourceManifestReviewReport],
+      )) &&
+    typeof challenge.id === "string" &&
+    CHALLENGE_ID_PATTERN.test(challenge.id) &&
+    challenge.artifact_id === target.artifact_id &&
+    challenge.version_id === target.version_id &&
+    challenge.gate === "G1" &&
+    challenge.action === action &&
+    challenge.readiness_report_id === report.id &&
+    challenge.head_revision === target.expected_revision &&
+    challenge.review_evidence_revision === target.review_evidence_revision &&
+    challenge.consumed_at === null &&
+    isReviewDate(challenge.created_at) &&
+    isReviewDate(challenge.expires_at) &&
+    Date.parse(challenge.expires_at) > Date.parse(challenge.created_at) &&
+    Date.parse(challenge.created_at) >= Date.parse(report.created_at)
+  );
+}
+
+function isReviewResultHead(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  action: SourceReviewAction,
+): value is ReviewSchemas["ArtifactHeadData"] {
+  return (
+    isStrictReviewHead(value) &&
+    value.artifact_id === target.artifact_id &&
+    value.latest_version_id === target.version_id &&
+    value.revision === target.expected_revision + 1 &&
+    value.review_evidence_revision ===
+      target.review_evidence_revision + (action === "submit" ? 1 : 0) &&
+    value.accepted_version_id ===
+      (action === "decision" ? target.version_id : target.accepted_version_id) &&
+    value.review_version_id === (action === "decision" ? null : target.version_id) &&
+    (action === "decision"
+      ? value.review_submission_id === null
+      : action === "signoff"
+        ? value.review_submission_id === target.review_submission_id
+        : value.review_submission_id !== null)
+  );
+}
+
+function isSourceSubmissionReceipt(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  prepared: SourceManifestPreparedReview,
+): value is SourceManifestSubmissionReceipt {
+  if (
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    !hasExactKeys(value.data, ["head", "submission"]) ||
+    !isReviewResultHead(value.data.head, target, "submit") ||
+    !hasExactKeys(value.data.submission, [
+      "id",
+      "artifact_id",
+      "version_id",
+      "gate",
+      "readiness_report_id",
+      "supersedes_submission_id",
+      "submitted_by_actor_id",
+      "submitted_at",
+    ])
+  )
+    return false;
+  const submission = value.data.submission;
+  return (
+    typeof submission.id === "string" &&
+    SUBMISSION_ID_PATTERN.test(submission.id) &&
+    submission.id === value.data.head.review_submission_id &&
+    submission.id !== target.review_submission_id &&
+    submission.artifact_id === target.artifact_id &&
+    submission.version_id === target.version_id &&
+    submission.gate === "G1" &&
+    submission.readiness_report_id === prepared.data.report.id &&
+    submission.supersedes_submission_id === target.review_submission_id &&
+    submission.submitted_by_actor_id === "local-user" &&
+    isReviewDate(submission.submitted_at)
+  );
+}
+
+function isSourceSignoffReceipt(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  prepared: SourceManifestPreparedReview,
+): value is SourceManifestSignoffReceipt {
+  if (
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    !hasExactKeys(value.data, ["head", "signoffs"]) ||
+    !isReviewResultHead(value.data.head, target, "signoff") ||
+    !Array.isArray(value.data.signoffs) ||
+    value.data.signoffs.length !== 2
+  )
+    return false;
+  const signoffs = value.data.signoffs;
+  return (
+    signoffs.every(
+      (signoff) =>
+        hasExactKeys(signoff, [
+          "id",
+          "artifact_id",
+          "version_id",
+          "submission_id",
+          "gate",
+          "role",
+          "actor_id",
+          "review_evidence_revision",
+          "readiness_report_id",
+          "self_review",
+          "supersedes_signoff_id",
+          "signed_at",
+        ]) &&
+        typeof signoff.id === "string" &&
+        SIGNOFF_ID_PATTERN.test(signoff.id) &&
+        signoff.artifact_id === target.artifact_id &&
+        signoff.version_id === target.version_id &&
+        signoff.submission_id === target.review_submission_id &&
+        signoff.gate === "G1" &&
+        (signoff.role === "writer" || signoff.role === "producer") &&
+        signoff.actor_id === "local-user" &&
+        signoff.review_evidence_revision === target.review_evidence_revision &&
+        signoff.readiness_report_id === prepared.data.report.id &&
+        typeof signoff.self_review === "boolean" &&
+        isNullableId(signoff.supersedes_signoff_id, SIGNOFF_ID_PATTERN) &&
+        signoff.supersedes_signoff_id !== signoff.id &&
+        isReviewDate(signoff.signed_at),
+    ) &&
+    signoffs[0].id !== signoffs[1].id &&
+    signoffs[0].role !== signoffs[1].role &&
+    signoffs[0].self_review === signoffs[1].self_review
+  );
+}
+
+function isSourceDecisionReceipt(
+  value: unknown,
+  target: SourceManifestReviewTarget,
+  prepared: SourceManifestPreparedReview,
+  rationale: string,
+): value is SourceManifestDecisionReceipt {
+  if (
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    !hasExactKeys(value.data, ["head", "decision"]) ||
+    !isReviewResultHead(value.data.head, target, "decision") ||
+    !hasExactKeys(value.data.decision, [
+      "id",
+      "artifact_id",
+      "version_id",
+      "submission_id",
+      "gate",
+      "decision",
+      "readiness_report_id",
+      "actor_id",
+      "actor_role",
+      "self_review",
+      "rationale",
+      "decided_at",
+    ])
+  )
+    return false;
+  const decision = value.data.decision;
+  return (
+    typeof decision.id === "string" &&
+    DECISION_ID_PATTERN.test(decision.id) &&
+    decision.artifact_id === target.artifact_id &&
+    decision.version_id === target.version_id &&
+    decision.submission_id === target.review_submission_id &&
+    decision.gate === "G1" &&
+    decision.decision === "approved" &&
+    decision.readiness_report_id === prepared.data.report.id &&
+    decision.actor_id === "local-user" &&
+    decision.actor_role === "producer" &&
+    typeof decision.self_review === "boolean" &&
+    decision.rationale === rationale &&
+    isReviewDate(decision.decided_at)
+  );
+}
+
+function isReviewRationale(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value === value.trim() &&
+    value.length > 0 &&
+    [...value].length <= 1000
+  );
+}
+
+function isStrictReviewManifest(
+  value: unknown,
+  projectId: string,
+): value is SourceManifestResponse {
+  if (!isSourceManifestResponse(value, projectId) || !isStrictReviewHead(value.data.head))
+    return false;
+  return [value.data.latest_version, value.data.review_version, value.data.accepted_version].every(
+    (version) =>
+      version === null ||
+      (isNullableId(version.parent_version_id, VERSION_ID_PATTERN) &&
+        isReviewInteger(version.version_number, 1) &&
+        isReviewDate(version.created_at) &&
+        Array.isArray(version.content.exclusions) &&
+        version.content.documents.every(
+          (document) =>
+            isReviewInteger(document.byte_size) &&
+            isReviewInteger(document.chapter_count) &&
+            isReviewInteger(document.import_order) &&
+            document.blocks.every(
+              (block) =>
+                isReviewInteger(block.ordinal) &&
+                isReviewInteger(block.chapter_index) &&
+                isReviewInteger(block.start_byte) &&
+                isReviewInteger(block.end_byte),
+            ),
+        )),
+  );
+}
+
+function sourceReviewErrorCode(
+  status: number,
+  payload: unknown,
+  phase: "get" | "review" | "copy",
+): SourceManifestReviewErrorCode | undefined {
+  if (
+    !isErrorResponse(payload) ||
+    !hasExactKeys(payload, ["error", "request_id"]) ||
+    !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
+    payload.error.retryable !== false ||
+    Object.keys(payload.error.details).length !== 0
+  )
+    return undefined;
+  const code = payload.error.code;
+  if (status === 401 && code === "SIDECAR_AUTH_REQUIRED") return code;
+  if (status === 403 && code === "SIDECAR_REQUEST_REJECTED") return code;
+  if (status === 404 && (code === "PROJECT_NOT_FOUND" || code === "SOURCE_MANIFEST_NOT_FOUND"))
+    return code;
+  if (status === 422 && code === "VALIDATION_ERROR") return code;
+  if (phase === "get") return undefined;
+  if (status === 412 && code === "PRECONDITION_FAILED") return code;
+  if (status === 428 && code === "PRECONDITION_REQUIRED") return code;
+  if (
+    phase === "review" &&
+    status === 409 &&
+    (code === "GATE_NOT_READY" || code === "REVIEW_INVALID")
+  )
+    return code;
+  return undefined;
+}
 
 function normalizeRejectionInput(
   input: ArtifactProposalRejectionInput,
@@ -1139,7 +1686,10 @@ function isImportTextSourceInput(value: unknown): value is ImportTextSourceInput
   );
 }
 
-export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSession): LocalApiClient {
+export function createLocalApiClient(
+  fetcher: Fetcher,
+  session: SidecarApiSession,
+): LocalApiClient & SourceManifestReviewClient {
   const origin = canonicalLoopbackOrigin(session.origin);
   if (!/^[A-Za-z0-9_-]{43,256}$/.test(session.token)) {
     throw new Error("Local API client requires a valid sidecar session");
@@ -1151,7 +1701,10 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
     Origin: "app://aijian",
   };
 
-  async function readJsonWithLimit(response: Response): Promise<unknown> {
+  async function readJsonWithLimit(
+    response: Response,
+    deadline?: { wait: <T>(pending: Promise<T>) => Promise<T> },
+  ): Promise<unknown> {
     const contentLength = response.headers.get("Content-Length");
     if (contentLength && /^\d+$/.test(contentLength)) {
       const declaredBytes = Number(contentLength);
@@ -1160,7 +1713,8 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
       }
     }
     if (!response.body) {
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const pending = response.arrayBuffer();
+      const bytes = new Uint8Array(await (deadline ? deadline.wait(pending) : pending));
       if (bytes.byteLength > MAX_LOCAL_API_JSON_BYTES) {
         throw new Error("Local API response exceeds the desktop safety limit");
       }
@@ -1171,16 +1725,25 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
     let totalBytes = 0;
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const pending = reader.read();
+        const { done, value } = await (deadline ? deadline.wait(pending) : pending);
         if (done) break;
         totalBytes += value.byteLength;
         if (totalBytes > MAX_LOCAL_API_JSON_BYTES) {
-          await reader.cancel("response too large");
+          if (!deadline) await reader.cancel("response too large");
           throw new Error("Local API response exceeds the desktop safety limit");
         }
         chunks.push(value);
       }
     } finally {
+      if (deadline) {
+        // Cleanup must not await an uncooperative stream's cancel promise.
+        try {
+          void reader.cancel().catch(() => {});
+        } catch {
+          /* best effort */
+        }
+      }
       reader.releaseLock();
     }
     const bytes = new Uint8Array(totalBytes);
@@ -1190,6 +1753,148 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
       offset += chunk.byteLength;
     }
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  }
+
+  async function requestSourceReview<T>(
+    path: string,
+    validator: (value: unknown) => value is T,
+    expectedRevision: number,
+    body?: unknown,
+    successStatus = 200,
+    phase: "get" | "review" | "copy" = "get",
+    responseRevision = expectedRevision,
+  ): Promise<SourceManifestReviewResult<T>> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error("Source review deadline"));
+        controller.abort();
+      }, 15_000);
+    });
+    const wait = <V>(pending: Promise<V>): Promise<V> => Promise.race([pending, expired]);
+    let response: Response | undefined;
+    const cancelBody = (value: Response) => {
+      try {
+        void value.body?.cancel().catch(() => {});
+      } catch {
+        /* best effort */
+      }
+    };
+    try {
+      const pending = fetcher(`${origin}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        headers:
+          body === undefined
+            ? headers
+            : {
+                ...headers,
+                "Content-Type": "application/json",
+                "If-Match": `"revision-${expectedRevision}"`,
+              },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: controller.signal,
+      });
+      // A fetch implementation can ignore abort and return a body after we have returned.
+      void pending.then(
+        (late) => {
+          if (controller.signal.aborted) cancelBody(late);
+        },
+        () => {},
+      );
+      response = await wait(pending);
+      const payload = await readJsonWithLimit(response, { wait });
+      if (response.status !== successStatus) {
+        const code = sourceReviewErrorCode(response.status, payload, phase);
+        return code && isErrorResponse(payload)
+          ? {
+              kind: "DEFINITE_SERVER_ERROR",
+              status: response.status,
+              code,
+              request_id: payload.request_id,
+            }
+          : { kind: "REMOTE_UNKNOWN" };
+      }
+      return response.headers.get("ETag") === `"revision-${responseRevision}"` && validator(payload)
+        ? { kind: "SUCCEEDED", receipt: payload }
+        : { kind: "REMOTE_UNKNOWN" };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    } finally {
+      clearTimeout(timer!);
+      controller.abort();
+      if (response) cancelBody(response);
+    }
+  }
+
+  async function prepareSourceReview(
+    input: SourceManifestReviewTarget,
+    action: SourceReviewAction,
+    reportInput?: SourceManifestReviewReport,
+    rationale?: string,
+  ): Promise<SourceManifestReviewResult<SourceManifestPreparedReview>> {
+    const target = reviewTargetSnapshot(input);
+    if (
+      !target ||
+      (action !== "submit" && target.review_version_id !== target.version_id) ||
+      (action === "decision" &&
+        (!isReviewRationale(rationale) || !isSourceReviewReport(reportInput, target, action)))
+    )
+      return { kind: "INVALID_INPUT" };
+    const report = reportInput === undefined ? undefined : structuredClone(reportInput);
+    const body: ReviewSchemas["EmptyActionRequest"] | ReviewSchemas["PrepareGateDecisionRequest"] =
+      action === "decision"
+        ? { decision: "approved", rationale: rationale!, readiness_report_id: report!.id }
+        : {};
+    return requestSourceReview(
+      `/api/v1/internal/projects/${target.project_id}/source-manifest/versions/${target.version_id}:prepare-${action}`,
+      (payload): payload is SourceManifestPreparedReview =>
+        isPreparedSourceReview(payload, target, action, report),
+      target.expected_revision,
+      body,
+      200,
+      "review",
+    );
+  }
+
+  async function consumeSourceReview<T>(
+    input: SourceManifestReviewTarget,
+    preparedInput: SourceManifestPreparedReview,
+    action: SourceReviewAction,
+    validator: (
+      payload: unknown,
+      target: SourceManifestReviewTarget,
+      prepared: SourceManifestPreparedReview,
+    ) => payload is T,
+    rationale?: string,
+  ): Promise<SourceManifestReviewResult<T>> {
+    const target = reviewTargetSnapshot(input);
+    if (
+      !target ||
+      !isPreparedSourceReview(preparedInput, target, action) ||
+      (action === "decision" && !isReviewRationale(rationale))
+    )
+      return { kind: "INVALID_INPUT" };
+    const prepared = structuredClone(preparedInput);
+    const confirmation: ReviewSchemas["ConfirmationRequest"] = {
+      challenge_id: prepared.data.challenge.id,
+      confirmation_token: prepared.data.confirmation_token,
+    };
+    const body: ReviewSchemas["ConfirmationRequest"] | ReviewSchemas["GateDecisionRequest"] =
+      action === "decision"
+        ? { ...confirmation, decision: "approved", rationale: rationale! }
+        : confirmation;
+    const suffix =
+      action === "submit" ? ":submit" : action === "signoff" ? "/signoffs" : "/decisions";
+    return requestSourceReview(
+      `/api/v1/internal/projects/${target.project_id}/source-manifest/versions/${target.version_id}${suffix}`,
+      (payload): payload is T => validator(payload, target, prepared),
+      target.expected_revision,
+      body,
+      200,
+      "review",
+      target.expected_revision + 1,
+    );
   }
 
   async function requestJson<T>(
@@ -1406,6 +2111,61 @@ export function createLocalApiClient(fetcher: Fetcher, session: SidecarApiSessio
   }
 
   return {
+    prepareSourceManifestSubmit: (input) => prepareSourceReview(input, "submit"),
+    submitSourceManifestReview: (input, prepared) =>
+      consumeSourceReview(input, prepared, "submit", isSourceSubmissionReceipt),
+    prepareSourceManifestSignoff: (input) => prepareSourceReview(input, "signoff"),
+    signoffSourceManifestReview: (input, prepared) =>
+      consumeSourceReview(input, prepared, "signoff", isSourceSignoffReceipt),
+    prepareSourceManifestDecision: (input, report, rationale) =>
+      prepareSourceReview(input, "decision", report, rationale),
+    decideSourceManifestReview: (input, prepared, rationale) =>
+      consumeSourceReview(
+        input,
+        prepared,
+        "decision",
+        (payload, target, snapshot): payload is SourceManifestDecisionReceipt =>
+          isSourceDecisionReceipt(payload, target, snapshot, rationale),
+        rationale,
+      ),
+    async copySourceManifestDraft(input) {
+      const target = reviewTargetSnapshot(input);
+      if (!target) return { kind: "INVALID_INPUT" };
+      return requestSourceReview(
+        `/api/v1/internal/projects/${target.project_id}/source-manifest/versions/${target.version_id}:copy-draft`,
+        (payload): payload is SourceManifestResponse =>
+          isStrictReviewManifest(payload, target.project_id) &&
+          payload.data.head.artifact_id === target.artifact_id &&
+          payload.data.head.revision === target.expected_revision + 1 &&
+          payload.data.head.review_evidence_revision === target.review_evidence_revision &&
+          payload.data.head.review_version_id === target.review_version_id &&
+          payload.data.head.review_submission_id === target.review_submission_id &&
+          payload.data.head.accepted_version_id === target.accepted_version_id &&
+          payload.data.latest_version.id !== target.version_id &&
+          payload.data.latest_version.parent_version_id === target.version_id &&
+          payload.data.latest_version.version_number === target.version_number + 1 &&
+          payload.data.latest_version.content_hash === target.content_hash,
+        target.expected_revision,
+        {},
+        201,
+        "copy",
+        target.expected_revision + 1,
+      );
+    },
+    async getSourceManifestForReview(input) {
+      if (!hasExactKeys(input, REVIEW_IDENTITY_KEYS) || !isReviewIdentity(input))
+        return { kind: "INVALID_INPUT" };
+      const identity = { ...input };
+      return requestSourceReview(
+        `/api/v1/projects/${identity.project_id}/source-manifest`,
+        (payload): payload is SourceManifestResponse =>
+          isStrictReviewManifest(payload, identity.project_id) &&
+          payload.data.head.revision === identity.expected_revision &&
+          payload.data.latest_version.id === identity.version_id &&
+          payload.data.latest_version.content_hash === identity.content_hash,
+        identity.expected_revision,
+      );
+    },
     async getHealth(): Promise<HealthResponse> {
       const response = await fetcher(`${origin}/api/v1/health`, {
         headers: {
