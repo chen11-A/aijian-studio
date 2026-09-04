@@ -451,7 +451,10 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
     } satisfies TaskQueueResponse),
     getArtifactProposal: vi.fn(),
     getInvalidationOperation: vi.fn(),
-    listInvalidationOperations: vi.fn(),
+    listInvalidationOperations: vi.fn().mockResolvedValue({
+      data: { items: [], next_cursor: null },
+      request_id: requestId,
+    }),
     listProjectAgents: vi.fn().mockResolvedValue({
       data: { project_id: project.id, agents: [] },
       request_id: requestId,
@@ -476,7 +479,7 @@ test("opens the project-scoped production task queue", async () => {
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  fireEvent.click(screen.getByRole("button", { name: /任务队列/ }));
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
 
   expect(await screen.findByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
   expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
@@ -501,41 +504,186 @@ test("presents the seven production areas and G0-G8 as the desktop shell", async
   expect(screen.getAllByRole("button", { name: /下一步/ })).toHaveLength(1);
 });
 
-test("opens production tasks as a global drawer and closes without changing workspace", async () => {
+test("opens the production control center with task and impact-report tabs", async () => {
   const transport = studioTransport([project]);
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
-  const trigger = screen.getByRole("button", { name: /打开任务中心/ });
+  const trigger = screen.getByRole("button", { name: /打开制作控制中心/ });
   trigger.focus();
   fireEvent.click(trigger);
-  const drawer = await screen.findByRole("dialog", { name: "任务中心" });
-  expect(within(drawer).getByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
-  const closeButton = within(drawer).getByRole("button", { name: "关闭任务中心" });
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  const closeButton = within(drawer).getByRole("button", { name: "关闭制作控制中心" });
   expect(closeButton).toHaveFocus();
-  expect(document.querySelector("main")).toHaveAttribute("inert");
+  expect(within(drawer).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(within(drawer).getByRole("tab", { name: "影响报告" })).toHaveAttribute(
+    "aria-selected",
+    "false",
+  );
+  const taskTab = within(drawer).getByRole("tab", { name: "制作任务" });
+  const reportTab = within(drawer).getByRole("tab", { name: "影响报告" });
+  expect(taskTab).toHaveAttribute("tabindex", "0");
+  expect(reportTab).toHaveAttribute("tabindex", "-1");
+  expect(transport.listInvalidationOperations).not.toHaveBeenCalled();
+  fireEvent.keyDown(taskTab, { key: "ArrowRight" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "ArrowLeft" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(taskTab, { key: "End" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "Home" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(taskTab, { key: "ArrowLeft" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "ArrowRight" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  expect(within(drawer).getByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
+  const hiddenFocusTrap = document.createElement("div");
+  hiddenFocusTrap.style.display = "none";
+  const hiddenButton = document.createElement("button");
+  hiddenButton.type = "button";
+  hiddenButton.textContent = "隐藏焦点诱饵";
+  hiddenFocusTrap.append(hiddenButton);
+  drawer.append(hiddenFocusTrap);
+  closeButton.focus();
+  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  fireEvent(document, reverseTab);
+  expect(reverseTab.defaultPrevented).toBe(true);
+  expect(taskTab).toHaveFocus();
+  expect(reportTab).not.toHaveFocus();
+  expect(hiddenButton).not.toHaveFocus();
   const forwardTab = createEvent.keyDown(document, { key: "Tab" });
   fireEvent(document, forwardTab);
   expect(forwardTab.defaultPrevented).toBe(true);
   expect(closeButton).toHaveFocus();
-  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
-  fireEvent(document, reverseTab);
-  expect(reverseTab.defaultPrevented).toBe(true);
-  expect(closeButton).toHaveFocus();
+  fireEvent.click(reportTab);
+  await waitFor(() =>
+    expect(transport.listInvalidationOperations).toHaveBeenCalledWith(project.id, { limit: 20 }),
+  );
+  expect(document.querySelector("main")).toHaveAttribute("inert");
   fireEvent.mouseDown(drawer);
-  expect(screen.getByRole("dialog", { name: "任务中心" })).toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "制作控制中心" })).toBeInTheDocument();
 
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() =>
-    expect(screen.queryByRole("dialog", { name: "任务中心" })).not.toBeInTheDocument(),
+    expect(screen.queryByRole("dialog", { name: "制作控制中心" })).not.toBeInTheDocument(),
   );
   await waitFor(() => expect(trigger).toHaveFocus());
   expect(screen.getByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
 
   fireEvent.click(trigger);
-  const reopened = await screen.findByRole("dialog", { name: "任务中心" });
+  const reopened = await screen.findByRole("dialog", { name: "制作控制中心" });
+  expect(within(reopened).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(within(reopened).queryByText("暂无影响报告")).not.toBeInTheDocument();
   fireEvent.mouseDown(reopened.parentElement as HTMLElement);
-  expect(screen.queryByRole("dialog", { name: "任务中心" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "制作控制中心" })).not.toBeInTheDocument();
+});
+
+test("includes technical-detail summary in the production-control keyboard loop", async () => {
+  const operation = {
+    operation_id: `ivo_${"c".repeat(32)}`,
+    project_id: project.id,
+    changed_artifact_id: `art_${"d".repeat(32)}`,
+    old_accepted_version_id: `ver_${"e".repeat(32)}`,
+    new_accepted_version_id: `ver_${"f".repeat(32)}`,
+    gate_decision_id: `dec_${"1".repeat(32)}`,
+    assessment_hash: `sha256:${"2".repeat(64)}`,
+    created_at: "2026-08-03T03:00:00Z",
+  };
+  const transport = {
+    ...studioTransport([project]),
+    listInvalidationOperations: vi.fn().mockResolvedValue({
+      data: { items: [{ ...operation, reason_path_count: 0 }], next_cursor: null },
+      request_id: requestId,
+    }),
+    getInvalidationOperation: vi.fn().mockResolvedValue({
+      data: { ...operation, paths: [] },
+      request_id: requestId,
+    }),
+  };
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  const closeButton = within(drawer).getByRole("button", { name: "关闭制作控制中心" });
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  fireEvent.click(await screen.findByRole("button", { name: /内容版本发生变更/ }));
+  const summary = await screen.findByText("技术详情");
+  closeButton.focus();
+  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  fireEvent(document, reverseTab);
+  expect(reverseTab.defaultPrevented).toBe(true);
+  expect(summary).toHaveFocus();
+  const forwardTab = createEvent.keyDown(document, { key: "Tab" });
+  fireEvent(document, forwardTab);
+  expect(forwardTab.defaultPrevented).toBe(true);
+  expect(closeButton).toHaveFocus();
+});
+
+test("resets to tasks when the project changes and does not retain the prior report", async () => {
+  const nextProject = { ...project, id: `prj_${"b".repeat(32)}`, name: "第二制作项目" };
+  const listInvalidationOperations = vi.fn((projectId: string) =>
+    Promise.resolve({
+      data: {
+        items:
+          projectId === project.id
+            ? [
+                {
+                  operation_id: `ivo_${"c".repeat(32)}`,
+                  project_id: project.id,
+                  changed_artifact_id: `art_${"d".repeat(32)}`,
+                  old_accepted_version_id: `ver_${"e".repeat(32)}`,
+                  new_accepted_version_id: `ver_${"f".repeat(32)}`,
+                  gate_decision_id: `dec_${"1".repeat(32)}`,
+                  assessment_hash: `sha256:${"2".repeat(64)}`,
+                  created_at: "2026-08-03T03:00:00Z",
+                  reason_path_count: 0,
+                },
+              ]
+            : [],
+        next_cursor: null,
+      },
+      request_id: requestId,
+    }),
+  );
+  const transport = { ...studioTransport([project, nextProject]), listInvalidationOperations };
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  expect(await screen.findByText("内容版本发生变更")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /第二制作项目/ }));
+  expect(
+    await screen.findByRole("heading", { name: "制作控制中心 · 第二制作项目" }),
+  ).toBeInTheDocument();
+  expect(within(drawer).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.queryByText("内容版本发生变更")).not.toBeInTheDocument();
+  expect(listInvalidationOperations).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  await waitFor(() =>
+    expect(listInvalidationOperations).toHaveBeenLastCalledWith(nextProject.id, { limit: 20 }),
+  );
+  expect(await screen.findByText("暂无影响报告")).toBeInTheDocument();
+  expect(screen.queryByText("内容版本发生变更")).not.toBeInTheDocument();
 });
 
 test("opens the real project timeline workspace", async () => {

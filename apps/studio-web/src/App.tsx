@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, FormEvent } from "react";
+import type { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import {
   createStudioTransport,
@@ -12,6 +12,7 @@ import {
   type StudioTransport,
 } from "./api/studio";
 import { FakeWorkflowPanel } from "./components/FakeWorkflow/FakeWorkflowPanel";
+import { InvalidationHistoryPanel } from "./components/InvalidationHistory/InvalidationHistoryPanel";
 import {
   PendingWorkspace,
   ProductionStageBar,
@@ -1664,6 +1665,7 @@ export function App({ transport }: AppProps) {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
   const [storyState, setStoryState] = useState<StoryWorkspaceState>({ kind: "idle" });
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+  const [productionControlTab, setProductionControlTab] = useState<"tasks" | "reports">("tasks");
   const [projectRailCollapsed, setProjectRailCollapsed] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const sourceRequestGeneration = useRef(0);
@@ -1675,8 +1677,39 @@ export function App({ transport }: AppProps) {
   const openTaskDrawer = useCallback(() => {
     taskDrawerReturnFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setProductionControlTab("tasks");
     setTaskDrawerOpen(true);
   }, []);
+
+  const closeTaskDrawer = useCallback(() => {
+    setProductionControlTab("tasks");
+    setTaskDrawerOpen(false);
+  }, []);
+
+  const handleProductionControlTabKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      let nextTab: "tasks" | "reports" | null = null;
+      const currentTab = event.currentTarget.id.startsWith("production-tasks-tab-")
+        ? "tasks"
+        : "reports";
+      if (event.key === "Home") nextTab = "tasks";
+      if (event.key === "End") nextTab = "reports";
+      if (event.key === "ArrowLeft") nextTab = currentTab === "tasks" ? "reports" : "tasks";
+      if (event.key === "ArrowRight") nextTab = currentTab === "reports" ? "tasks" : "reports";
+      if (nextTab === null) return;
+      event.preventDefault();
+      setProductionControlTab(nextTab);
+      const projectId = selectedProject?.id;
+      if (projectId) {
+        document
+          .getElementById(
+            `${nextTab === "tasks" ? "production-tasks" : "invalidation-history"}-tab-${projectId}`,
+          )
+          ?.focus();
+      }
+    },
+    [selectedProject?.id],
+  );
 
   useEffect(() => {
     if (!taskDrawerOpen) {
@@ -1690,11 +1723,22 @@ export function App({ transport }: AppProps) {
 
     const drawer = taskDrawerRef.current;
     const focusableSelector =
-      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      "button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary:not([disabled]), [tabindex]";
+    const isVisibleWithinDrawer = (element: HTMLElement) => {
+      let current: HTMLElement | null = element;
+      while (current) {
+        if (current.hidden) return false;
+        const style = globalThis.getComputedStyle(current);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        if (current === drawer) return true;
+        current = current.parentElement;
+      }
+      return false;
+    };
     const focusable = () =>
       drawer
         ? Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector)).filter(
-            (element) => !element.hidden,
+            (element) => element.tabIndex >= 0 && isVisibleWithinDrawer(element),
           )
         : [];
     focusable()[0]?.focus();
@@ -1702,7 +1746,7 @@ export function App({ transport }: AppProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setTaskDrawerOpen(false);
+        closeTaskDrawer();
         return;
       }
       if (event.key !== "Tab") return;
@@ -1720,7 +1764,7 @@ export function App({ transport }: AppProps) {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [taskDrawerOpen]);
+  }, [closeTaskDrawer, taskDrawerOpen]);
 
   const restoreLatestSource = useCallback(
     async (projectId: string) => {
@@ -1798,6 +1842,7 @@ export function App({ transport }: AppProps) {
       const projectResponse = await studio.listProjects();
       setProjects(projectResponse.data);
       const nextProjectId = projectResponse.data[0]?.id ?? null;
+      setProductionControlTab("tasks");
       setSelectedId(nextProjectId);
       setActiveWorkspace("project");
       setStoryState({ kind: "idle" });
@@ -1824,6 +1869,7 @@ export function App({ transport }: AppProps) {
         source_language: "zh-CN",
       });
       setProjects((current) => [response.data, ...current]);
+      setProductionControlTab("tasks");
       setSelectedId(response.data.id);
       setImportState({ kind: "idle" });
       setActiveWorkspace("project");
@@ -1958,7 +2004,7 @@ export function App({ transport }: AppProps) {
             <button
               className="secondary-button compact"
               type="button"
-              aria-label="打开任务中心，查看任务队列"
+              aria-label="打开制作控制中心，查看任务和影响报告"
               onClick={openTaskDrawer}
               disabled={!selectedProject}
             >
@@ -2071,6 +2117,7 @@ export function App({ transport }: AppProps) {
                 collapsed={false}
                 onToggle={() => setProjectRailCollapsed(true)}
                 onSelect={(projectId) => {
+                  setProductionControlTab("tasks");
                   setSelectedId(projectId);
                   void restoreLatestSource(projectId);
                   if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
@@ -2180,30 +2227,75 @@ export function App({ transport }: AppProps) {
       </main>
 
       {taskDrawerOpen && selectedProject && (
-        <div
-          className="task-drawer-backdrop"
-          role="presentation"
-          onMouseDown={() => setTaskDrawerOpen(false)}
-        >
+        <div className="task-drawer-backdrop" role="presentation" onMouseDown={closeTaskDrawer}>
           <section
-            className="task-drawer"
+            className="task-drawer production-control-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="任务中心"
+            aria-label="制作控制中心"
             ref={taskDrawerRef}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <header className="task-drawer-heading">
-              <strong>任务中心 · {selectedProject.name}</strong>
-              <button type="button" onClick={() => setTaskDrawerOpen(false)}>
-                关闭任务中心
+              <h2>制作控制中心 · {selectedProject.name}</h2>
+              <button type="button" onClick={closeTaskDrawer}>
+                关闭制作控制中心
               </button>
             </header>
-            <TaskQueueWorkspace
-              key={selectedProject.id}
-              project={selectedProject}
-              loadTasks={studio.listProjectTasks}
-            />
+            <div className="production-control-tabs" role="tablist" aria-label="制作控制中心视图">
+              <button
+                id={`production-tasks-tab-${selectedProject.id}`}
+                type="button"
+                role="tab"
+                aria-selected={productionControlTab === "tasks"}
+                tabIndex={productionControlTab === "tasks" ? 0 : -1}
+                aria-controls={`production-tasks-panel-${selectedProject.id}`}
+                onClick={() => setProductionControlTab("tasks")}
+                onKeyDown={handleProductionControlTabKeyDown}
+              >
+                制作任务
+              </button>
+              <button
+                id={`invalidation-history-tab-${selectedProject.id}`}
+                type="button"
+                role="tab"
+                aria-selected={productionControlTab === "reports"}
+                tabIndex={productionControlTab === "reports" ? 0 : -1}
+                aria-controls={`invalidation-history-panel-${selectedProject.id}`}
+                onClick={() => setProductionControlTab("reports")}
+                onKeyDown={handleProductionControlTabKeyDown}
+              >
+                影响报告
+              </button>
+            </div>
+            {productionControlTab === "tasks" ? (
+              <div
+                className="production-control-panel"
+                id={`production-tasks-panel-${selectedProject.id}`}
+                role="tabpanel"
+                aria-labelledby={`production-tasks-tab-${selectedProject.id}`}
+              >
+                <TaskQueueWorkspace
+                  key={selectedProject.id}
+                  project={selectedProject}
+                  loadTasks={studio.listProjectTasks}
+                />
+              </div>
+            ) : (
+              <div
+                className="production-control-panel"
+                id={`invalidation-history-panel-${selectedProject.id}`}
+                role="tabpanel"
+                aria-labelledby={`invalidation-history-tab-${selectedProject.id}`}
+              >
+                <InvalidationHistoryPanel
+                  key={selectedProject.id}
+                  project={selectedProject}
+                  listOperations={studio.listInvalidationOperations}
+                  getOperation={studio.getInvalidationOperation}
+                />
+              </div>
+            )}
           </section>
         </div>
       )}

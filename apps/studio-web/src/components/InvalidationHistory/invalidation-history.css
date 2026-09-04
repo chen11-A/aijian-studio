@@ -1,0 +1,239 @@
+.task-drawer.production-control-drawer {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  justify-self: center;
+  width: min(1120px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.production-control-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+}
+
+.production-control-tabs button,
+.history-more,
+.history-pagination-error button,
+.history-state button,
+.history-mobile-back {
+  min-height: 44px;
+  font: inherit;
+}
+
+.production-control-tabs button[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.production-control-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.task-drawer.production-control-drawer .task-drawer-heading h2 {
+  margin: 0;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.invalidation-history {
+  display: grid;
+  grid-template-columns: minmax(340px, 380px) minmax(0, 1fr);
+  min-height: 440px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.history-list,
+.history-detail {
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.history-list {
+  border-right: 1px solid var(--line);
+}
+
+.history-list-heading,
+.history-detail-heading,
+.history-operation,
+.history-path header,
+.history-pagination-error {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-list-heading span,
+.history-detail-heading span {
+  font-size: var(--font-meta);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-list-heading small,
+.history-operation small,
+.history-operation time,
+.history-operation span,
+.history-technical-details,
+.history-path p {
+  font-size: var(--font-meta);
+}
+
+.history-operation-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.history-operation {
+  width: 100%;
+  min-height: 88px;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: inherit;
+  text-align: left;
+}
+
+.history-operation strong {
+  width: 100%;
+  font-size: var(--font-ui);
+}
+
+.history-operation.selected {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.history-state,
+.history-error {
+  margin: 28px 0;
+  font-size: var(--font-ui);
+}
+
+.history-error {
+  color: var(--danger);
+}
+
+.history-more {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.history-pagination-error {
+  margin-top: 12px;
+  color: var(--danger);
+  font-size: var(--font-meta);
+}
+
+.history-detail-heading h3 {
+  margin: 4px 0 20px;
+  font-size: clamp(20px, 2vw, 30px);
+  overflow-wrap: anywhere;
+}
+
+.history-paths {
+  display: grid;
+  gap: 12px;
+}
+
+.history-path {
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+}
+
+.history-path header span,
+.history-path header strong {
+  font-size: var(--font-ui);
+}
+
+.history-path code,
+.history-technical-details dd {
+  overflow-wrap: anywhere;
+}
+
+.history-reasons {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+  font-size: var(--font-meta);
+}
+
+.history-reasons li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.history-technical-details {
+  margin-top: 20px;
+}
+
+.history-technical-details dl {
+  display: grid;
+  gap: 8px;
+}
+
+.history-technical-details dl > div {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.history-technical-details dd {
+  margin: 0;
+}
+
+.history-technical-details summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-ui);
+  cursor: pointer;
+}
+
+.history-mobile-back {
+  display: block;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 680px) {
+  .task-drawer.production-control-drawer {
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .invalidation-history {
+    display: block;
+    min-height: 0;
+  }
+
+  .history-list-has-detail {
+    display: none;
+  }
+
+  .history-detail {
+    min-height: calc(100vh - 180px);
+  }
+
+  .history-detail-idle {
+    display: none;
+  }
+
+  .history-reasons li {
+    grid-template-columns: 1fr;
+  }
+}
