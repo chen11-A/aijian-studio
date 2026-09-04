@@ -5,12 +5,15 @@ import { createEvent, fireEvent, render, screen, waitFor, within } from "@testin
 import { expect, test, vi } from "vitest";
 
 import { App } from "./App";
+import { createProposalRunOperationJournal } from "./proposal-run-operation-journal";
+import { createFakeTimelineRunOperationJournal } from "./fake-timeline-run-operation-journal";
 import type {
   HealthResponse,
   ProjectData,
   SourceDocumentListResponse,
   SourceDocumentResponse,
   SourceManifestResponse,
+  SourceManifestReviewOperationResult,
   StoryBibleIndexResponse,
   StoryBibleVersionResponse,
   StudioTransport,
@@ -473,6 +476,532 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
     deleteProviderConnection: vi.fn(),
   };
 }
+
+function reviewManifest(role: "draft" | "review" | "accepted" = "draft"): SourceManifestResponse {
+  return {
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      head: {
+        ...sourceManifestResponse.data.head,
+        revision: role === "draft" ? 1 : role === "review" ? 2 : 4,
+        review_version_id: role === "review" ? sourceManifestVersion.id : null,
+        review_submission_id: role === "review" ? `sub_${"3".repeat(32)}` : null,
+        accepted_version_id: role === "accepted" ? sourceManifestVersion.id : null,
+      },
+      review_version: role === "review" ? sourceManifestVersion : null,
+      accepted_version: role === "accepted" ? sourceManifestVersion : null,
+    },
+  };
+}
+
+test("discovers the exact source review independently from story loading and submits only its identity", async () => {
+  const transport = studioTransport([{ ...project, revision: 99 }]);
+  const manifest = reviewManifest();
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  vi.mocked(transport.getStoryBibleIndex).mockRejectedValue(new Error("private story failure"));
+  const submit = vi.fn().mockResolvedValue({
+    kind: "CANCELLED",
+    phase: "confirm_submit",
+    identity: null,
+    completed_actions: [],
+    receipts: [],
+  });
+  transport.sourceManifestReview = { submit, confirmBaseline: vi.fn(), copyDraft: vi.fn() };
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  expect(
+    await within(card).findByText(manifest.data.latest_version.content_hash),
+  ).toBeInTheDocument();
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText(/已取消/);
+  expect(submit).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    expected_revision: 1,
+  });
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+function reviewResult(
+  kind: SourceManifestReviewOperationResult["kind"],
+): SourceManifestReviewOperationResult {
+  return {
+    kind,
+    phase: "confirm_submit",
+    identity: {
+      project_id: project.id,
+      version_id: sourceManifestVersion.id,
+      content_hash: sourceManifestVersion.content_hash,
+      expected_revision: 1,
+    },
+    completed_actions: [],
+    receipts: [],
+  };
+}
+
+function attachReview(
+  transport: StudioTransport,
+  result: SourceManifestReviewOperationResult = reviewResult("CANCELLED"),
+) {
+  const capability = {
+    submit: vi.fn().mockResolvedValue(result),
+    confirmBaseline: vi.fn().mockResolvedValue(result),
+    copyDraft: vi.fn().mockResolvedValue(result),
+  };
+  transport.sourceManifestReview = capability;
+  return capability;
+}
+
+test.each([
+  "SUCCEEDED",
+  "CANCELLED",
+  "EXPIRED",
+  "BUSY",
+  "INVALID_INPUT",
+  "STATE_CHANGED",
+  "DEFINITE_SERVER_ERROR",
+  "REMOTE_UNKNOWN",
+] as const)("presents the %s source review outcome without silently retrying", async (kind) => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const result = reviewResult(kind);
+  if (kind === "DEFINITE_SERVER_ERROR")
+    result.error = { status: 409, code: "GATE_NOT_READY", request_id: requestId };
+  const capability = attachReview(transport, result);
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  const output = await within(card).findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent(`结果：${kind}`);
+  expect(output).toHaveTextContent("阶段：confirm_submit");
+  expect(output).toHaveTextContent("已完成动作：无");
+  expect(output).toHaveTextContent("安全回执：0 条");
+  if (result.error)
+    expect(output).toHaveTextContent(`错误 code：GATE_NOT_READY · request_id：${requestId}`);
+  expect(capability.submit).toHaveBeenCalledOnce();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(capability.copyDraft).not.toHaveBeenCalled();
+});
+
+test("keeps UNKNOWN locked across readonly refresh, workspace navigation and project switches", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  vi.mocked(transport.getSourceManifest).mockImplementation(async (id) => ({
+    ...reviewManifest(),
+    data: { ...reviewManifest().data, project_id: id },
+  }));
+  const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
+  render(<App transport={transport} />);
+  let card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText("审核结果未知");
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "只读刷新来源" })).toBeEnabled(),
+  );
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  expect(card).toHaveTextContent("不核实旧未知操作");
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "前往来源审核" }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  expect(card).toHaveTextContent("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /雾城来信/ }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  expect(card).toHaveTextContent("审核结果未知");
+  expect(within(card).getByRole("button", { name: "复制为新草稿" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  expect(await screen.findByText("审核结果未知")).toBeInTheDocument();
+  expect(capability.submit).toHaveBeenCalledTimes(2);
+});
+
+test("retains partial signoff receipts without claiming approval and trims Unicode rationale", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest("review"));
+  const receipt = {
+    action: "signoff" as const,
+    request_id: requestId,
+    project_id: project.id,
+    artifact_id: sourceManifestVersion.artifact_id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    head_revision: 3,
+    review_evidence_revision: 1,
+    latest_version_id: sourceManifestVersion.id,
+    review_version_id: sourceManifestVersion.id,
+    review_submission_id: `sub_${"3".repeat(32)}`,
+    accepted_version_id: null,
+    report_id: `rpt_${"a".repeat(32)}`,
+    report_hash: `sha256:${"b".repeat(64)}`,
+    token: "PRIVATE_TOKEN_MUST_NOT_RENDER",
+    body: "PRIVATE_REPORT_BODY",
+  };
+  const result: SourceManifestReviewOperationResult = {
+    ...reviewResult("CANCELLED"),
+    phase: "confirm_decision",
+    completed_actions: ["signoff"],
+    receipts: [receipt],
+  };
+  const capability = attachReview(transport, result);
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  const reason = within(card).getByRole("textbox", { name: /确认基线的理由/ });
+  const confirm = within(card).getByRole("button", { name: "确认来源基线" });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: "  " } });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: "😀".repeat(1001) } });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: `  ${"😀".repeat(1000)}  ` } });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  fireEvent.click(confirm);
+  const output = await within(card).findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent("已签署，但尚未收到批准成功回执");
+  expect(output).toHaveTextContent("已完成动作：签署");
+  expect(output).toHaveTextContent(receipt.report_hash);
+  expect(output).not.toHaveTextContent("PRIVATE_");
+  expect(capability.confirmBaseline).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    expected_revision: 2,
+    rationale: "😀".repeat(1000),
+  });
+  expect(capability.submit).not.toHaveBeenCalled();
+});
+
+test("treats a rejected desktop bridge as possibly submitted and never displays its raw error", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  capability.copyDraft.mockRejectedValue(new Error("token=PRIVATE_ERROR"));
+  render(<App transport={transport} />);
+  const button = await screen.findByRole("button", { name: "复制为新草稿" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  const output = await screen.findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent("审核结果未知");
+  expect(output).toHaveTextContent("不能据此断言未提交");
+  expect(output).toHaveTextContent("已完成动作：无法确定");
+  expect(output).not.toHaveTextContent("PRIVATE_ERROR");
+  expect(button).toBeDisabled();
+});
+
+test("keeps approved v1 visible when copying latest v2 and never auto-submits the copy", async () => {
+  const transport = studioTransport([project]);
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  const manifest = reviewManifest("accepted");
+  manifest.data.latest_version = latest;
+  manifest.data.head.latest_version_id = latest.id;
+  manifest.data.head.revision = 5;
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  const capability = attachReview(transport, {
+    ...reviewResult("SUCCEEDED"),
+    phase: "copy_draft",
+    completed_actions: ["copy_draft"],
+  });
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText("V2 · 草稿，尚未批准");
+  expect(within(card).getByRole("article", { name: "已批准基线" })).toHaveTextContent(
+    sourceManifestVersion.content_hash,
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "复制为新草稿" }));
+  await within(card).findByText("操作成功");
+  expect(capability.copyDraft).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: latest.id,
+    content_hash: latest.content_hash,
+    expected_revision: 5,
+  });
+  expect(capability.submit).not.toHaveBeenCalled();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+});
+
+test("can submit latest v3 while separately displaying review v2 and accepted v1", async () => {
+  const transport = studioTransport([project]);
+  const manifest = reviewManifest("accepted");
+  const review = {
+    ...sourceManifestVersion,
+    id: `ver_${"6".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"7".repeat(64)}`,
+  };
+  const latest = {
+    ...review,
+    id: `ver_${"8".repeat(32)}`,
+    parent_version_id: review.id,
+    version_number: 3,
+    content_hash: `sha256:${"9".repeat(64)}`,
+  };
+  manifest.data.review_version = review;
+  manifest.data.latest_version = latest;
+  manifest.data.head = {
+    ...manifest.data.head,
+    latest_version_id: latest.id,
+    review_version_id: review.id,
+    review_submission_id: `sub_${"3".repeat(32)}`,
+    revision: 7,
+  };
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  const capability = attachReview(transport);
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText("V3 · 草稿，尚未批准");
+  expect(within(card).getByRole("article", { name: "送审版本" })).toHaveTextContent(
+    review.content_hash,
+  );
+  expect(within(card).getByRole("article", { name: "已批准基线" })).toHaveTextContent(
+    sourceManifestVersion.content_hash,
+  );
+  const submit = within(card).getByRole("button", { name: "送审来源版本" });
+  expect(submit).toBeEnabled();
+  fireEvent.click(submit);
+  await within(card).findByText("已取消");
+  expect(capability.submit).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: latest.id,
+    content_hash: latest.content_hash,
+    expected_revision: 7,
+  });
+});
+
+test("handles missing sources, read failures, mismatched identities and readonly recovery without G2", async () => {
+  const transport = studioTransport([project]);
+  attachReview(transport);
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText(/尚无来源清单/);
+  vi.mocked(transport.getSourceManifest).mockRejectedValueOnce(new Error("PRIVATE_READ_ERROR"));
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await within(card).findByText(/来源审核暂时无法读取/);
+  expect(card).not.toHaveTextContent("PRIVATE_READ_ERROR");
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  const mismatched = reviewManifest();
+  mismatched.data.head.latest_version_id = `ver_${"0".repeat(32)}`;
+  vi.mocked(transport.getSourceManifest)
+    .mockResolvedValueOnce(mismatched)
+    .mockResolvedValue(reviewManifest());
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await within(card).findByText(/来源身份不一致/);
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+test("ignores a late manifest from a different project and makes no empty-project requests", async () => {
+  const empty = studioTransport();
+  const rendered = render(<App transport={empty} />);
+  await screen.findByRole("button", { name: "创建第一个项目" });
+  expect(empty.getSourceManifest).not.toHaveBeenCalled();
+  rendered.unmount();
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  let finish: (value: SourceManifestResponse) => void = () => {};
+  vi.mocked(transport.getSourceManifest)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValue(null);
+  attachReview(transport);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  await screen.findByText(/尚无来源清单/);
+  finish(reviewManifest());
+  await waitFor(() => expect(transport.getSourceManifest).toHaveBeenCalledTimes(2));
+  const card = screen.getByRole("region", { name: "来源审核" });
+  expect(card).not.toHaveTextContent(sourceManifestVersion.content_hash);
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+});
+
+test("disables duplicate source actions while native confirmation is pending", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  let finish: (value: SourceManifestReviewOperationResult) => void = () => {};
+  capability.submit.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  const button = await screen.findByRole("button", { name: "送审来源版本" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(button).toBeDisabled();
+  expect(screen.getByRole("button", { name: "只读刷新来源" })).toBeDisabled();
+  finish(reviewResult("EXPIRED"));
+  await screen.findByText("确认已超时");
+  expect(capability.submit).toHaveBeenCalledOnce();
+});
+
+test("rereads both existing launchers after baseline approval without auto-creating tasks", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  let manifest = reviewManifest("review");
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => manifest);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  transport.proposalRuns = { create: vi.fn() };
+  transport.fakeTimelineRuns = { create: vi.fn() };
+  const capability = attachReview(transport);
+  capability.confirmBaseline.mockImplementation(async () => {
+    manifest = reviewManifest("accepted");
+    return {
+      ...reviewResult("SUCCEEDED"),
+      phase: "decision",
+      completed_actions: ["signoff", "decision"],
+    };
+  });
+  render(<App transport={transport} />);
+  await screen.findByText("需要先由具名人员批准来源清单，才能启动来源提取。");
+  await screen.findByText("需要先由具名人员批准来源清单，才能生成 Fake 时间线。");
+  const readsBefore = vi.mocked(transport.getSourceManifest).mock.calls.length;
+  fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
+    target: { value: "已逐段核对" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确认来源基线" }));
+  await screen.findByRole("button", { name: "启动来源提取" });
+  await screen.findByRole("button", { name: "生成 Fake 分镜时间线" });
+  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBe(readsBefore + 3);
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "只读刷新来源" })).toBeEnabled());
+  // Same project/head revision must not retrigger either launcher effect.
+  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBe(readsBefore + 4);
+});
+
+test("keeps both existing pending journals and their exact old inputs after a new baseline is approved", async () => {
+  localStorage.clear();
+  const proposalInput = {
+    agent_definition: { definition_id: "writer.source-analyst", version: "1.0.0" },
+    skill_definition: { definition_id: "source.extract", version: "1.0.0" },
+    source_manifest_version_id: sourceManifestVersion.id,
+    source_document_id: sourceResponse.data.id,
+    source_block_id: sourceResponse.data.blocks[1]!.id,
+    start_byte: 17,
+    end_byte: 41,
+  };
+  const timelineInput = {
+    source_manifest_version_id: sourceManifestVersion.id,
+    source_document_id: sourceResponse.data.id,
+  };
+  const proposalPending = createProposalRunOperationJournal(localStorage).begin(
+    project.id,
+    proposalInput,
+  );
+  const timelinePending = createFakeTimelineRunOperationJournal(localStorage).begin(
+    project.id,
+    timelineInput,
+  );
+  const frozen = { ...localStorage };
+  const transport = studioTransport([project]);
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  let manifest = reviewManifest("review");
+  manifest.data.latest_version = latest;
+  manifest.data.review_version = latest;
+  manifest.data.accepted_version = sourceManifestVersion;
+  manifest.data.head = {
+    ...manifest.data.head,
+    latest_version_id: latest.id,
+    review_version_id: latest.id,
+    accepted_version_id: sourceManifestVersion.id,
+    revision: 6,
+  };
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => manifest);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  transport.proposalRuns = { create: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }) };
+  transport.fakeTimelineRuns = { create: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }) };
+  const capability = attachReview(transport);
+  capability.confirmBaseline.mockImplementation(async () => {
+    manifest = {
+      ...manifest,
+      data: {
+        ...manifest.data,
+        head: {
+          ...manifest.data.head,
+          accepted_version_id: latest.id,
+          review_version_id: null,
+          review_submission_id: null,
+          revision: 8,
+        },
+        accepted_version: latest,
+        review_version: null,
+      },
+    };
+    return {
+      ...reviewResult("SUCCEEDED"),
+      phase: "decision",
+      completed_actions: ["signoff", "decision"],
+    };
+  });
+  render(<App transport={transport} />);
+  expect(await screen.findAllByRole("button", { name: "恢复同一操作" })).toHaveLength(2);
+  fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
+    target: { value: "核对新版本" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确认来源基线" }));
+  await screen.findByText("V2 · 已批准");
+  expect({ ...localStorage }).toEqual(frozen);
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  const restoreButtons = screen.getAllByRole("button", { name: "恢复同一操作" });
+  fireEvent.click(restoreButtons[0]!);
+  fireEvent.click(restoreButtons[1]!);
+  await waitFor(() =>
+    expect(transport.proposalRuns!.create).toHaveBeenCalledExactlyOnceWith(project.id, {
+      operation_id: proposalPending.operation_id,
+      input: proposalInput,
+    }),
+  );
+  expect(transport.fakeTimelineRuns.create).toHaveBeenCalledExactlyOnceWith(project.id, {
+    operation_id: timelinePending.operation_id,
+    input: timelineInput,
+  });
+  expect({ ...localStorage }).toEqual(frozen);
+  localStorage.clear();
+});
 
 test("opens the project-scoped production task queue", async () => {
   const transport = studioTransport([project]);
