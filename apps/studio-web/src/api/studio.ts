@@ -335,7 +335,9 @@ async function browserInvalidationOperations(
   query: InvalidationOperationPageQuery = {},
 ): Promise<InvalidationOperationPageResponse> {
   const normalizedQuery = validateInvalidationOperationPageInput(projectId, query);
-  const payload = await getRequest<unknown>(invalidationOperationPagePath(projectId, normalizedQuery));
+  const payload = await getRequest<unknown>(
+    invalidationOperationPagePath(projectId, normalizedQuery),
+  );
   return validateInvalidationOperationPageResponse(payload, projectId, normalizedQuery);
 }
 

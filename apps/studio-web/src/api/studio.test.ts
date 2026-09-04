@@ -525,25 +525,41 @@ describe("studio transport", () => {
     await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
       "status 404 (INVALIDATION_OPERATION_NOT_FOUND)",
     );
-    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("network offline");
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
+      "network offline",
+    );
   });
 
   test("fails closed before browser fetch for invalid invalidation-operation page input and data", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ ...invalidationOperationPage, data: { ...invalidationOperationPage.data, next_cursor: "ivo_bad" } }),
+      Response.json({
+        ...invalidationOperationPage,
+        data: { ...invalidationOperationPage.data, next_cursor: "ivo_bad" },
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const transport = createStudioTransport();
 
-    for (const query of [{ limit: 0 }, { limit: 101 }, { limit: 1.5 }, { cursor: "ivo_bad" }, { extra: true }, []]) {
-      await expect(transport.listInvalidationOperations(project.id, query as never)).rejects.toThrow(
-        "valid invalidation operation page query",
-      );
+    for (const query of [
+      { limit: 0 },
+      { limit: 101 },
+      { limit: 1.5 },
+      { cursor: "ivo_bad" },
+      { extra: true },
+      [],
+    ]) {
+      await expect(
+        transport.listInvalidationOperations(project.id, query as never),
+      ).rejects.toThrow("valid invalidation operation page query");
     }
-    await expect(transport.listInvalidationOperations("prj_bad")).rejects.toThrow("valid project id");
+    await expect(transport.listInvalidationOperations("prj_bad")).rejects.toThrow(
+      "valid project id",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
 
-    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("published contract");
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
+      "published contract",
+    );
   });
 
   test("uses only the Electron invalidation-operation list bridge and preserves failures", async () => {
@@ -562,16 +578,20 @@ describe("studio transport", () => {
     expect(listInvalidationOperations).toHaveBeenCalledWith(project.id, { limit: 1 });
     expect(fetchMock).not.toHaveBeenCalled();
 
-    await expect(transport.listInvalidationOperations(project.id, { cursor: "ivo_bad" } as never)).rejects.toThrow(
-      "valid invalidation operation page query",
-    );
+    await expect(
+      transport.listInvalidationOperations(project.id, { cursor: "ivo_bad" } as never),
+    ).rejects.toThrow("valid invalidation operation page query");
     listInvalidationOperations.mockResolvedValueOnce({
       ...invalidationOperationPage,
       data: { ...invalidationOperationPage.data, extra: true },
     });
-    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("published contract");
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
+      "published contract",
+    );
     listInvalidationOperations.mockRejectedValueOnce(new Error("network offline"));
-    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow("network offline");
+    await expect(transport.listInvalidationOperations(project.id)).rejects.toThrow(
+      "network offline",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

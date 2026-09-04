@@ -23,12 +23,18 @@ describe("invalidation operation IPC boundary", () => {
 
     await expect(preload.getInvalidationOperation(projectId, operationId)).resolves.toBe(response);
     await expect(preload.listInvalidationOperations(projectId)).resolves.toBe(response);
-    await expect(preload.listInvalidationOperations(projectId, { limit: 1 })).resolves.toBe(response);
-    await expect(preload.listInvalidationOperations(projectId, null as never)).resolves.toBe(response);
+    await expect(preload.listInvalidationOperations(projectId, { limit: 1 })).resolves.toBe(
+      response,
+    );
+    await expect(preload.listInvalidationOperations(projectId, null as never)).resolves.toBe(
+      response,
+    );
     expect(invoke).toHaveBeenCalledTimes(4);
     expect(invoke).toHaveBeenCalledWith("invalidation-operations:get", projectId, operationId);
     expect(invoke).toHaveBeenNthCalledWith(2, "invalidation-operations:list", projectId, {});
-    expect(invoke).toHaveBeenNthCalledWith(3, "invalidation-operations:list", projectId, { limit: 1 });
+    expect(invoke).toHaveBeenNthCalledWith(3, "invalidation-operations:list", projectId, {
+      limit: 1,
+    });
     expect(invoke).toHaveBeenNthCalledWith(4, "invalidation-operations:list", projectId, null);
   });
 

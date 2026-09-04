@@ -7,7 +7,8 @@ export type InvalidationOperationPageQuery = Readonly<{
   cursor?: string | null;
 }>;
 
-export type InvalidationOperationPageItem = components["schemas"]["InvalidationOperationSummaryData"];
+export type InvalidationOperationPageItem =
+  components["schemas"]["InvalidationOperationSummaryData"];
 export type InvalidationOperationPageResponse =
   components["schemas"]["InvalidationOperationPageResponse"];
 
