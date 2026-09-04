@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createConnection, createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
@@ -15,6 +16,23 @@ import { _electron as electron } from "playwright-core";
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
 const developmentRoot = join(repositoryRoot, ".aijian-dev");
+const evidenceRoot = join(developmentRoot, "r04-a2-evidence");
+const expectedBaseline = globalThis.process.env.AIJIAN_E2E_EXPECTED_HEAD ?? null;
+if (expectedBaseline !== null && !/^[0-9a-f]{40}$/i.test(expectedBaseline)) {
+  throw new Error("AIJIAN_E2E_EXPECTED_HEAD must be a 40-character Git SHA");
+}
+const evidenceFlag = globalThis.process.argv.indexOf("--evidence-dir");
+const evidenceDirectory = resolve(
+  evidenceFlag >= 0 && globalThis.process.argv[evidenceFlag + 1]
+    ? globalThis.process.argv[evidenceFlag + 1]
+    : join(evidenceRoot, `electron-${Date.now()}-${globalThis.process.pid}`),
+);
+const developmentPrefix = `${evidenceRoot.toLowerCase()}${globalThis.process.platform === "win32" ? "\\" : "/"}`;
+if (!evidenceDirectory.toLowerCase().startsWith(developmentPrefix)) {
+  throw new Error(
+    "--evidence-dir must stay below this repository's .aijian-dev/r04-a2-evidence directory",
+  );
+}
 const electronExecutable = join(
   repositoryRoot,
   "apps",
@@ -777,18 +795,381 @@ async function closeApplication(applicationHandle) {
   }
 }
 
+// Observe React/rAF completion without repairing focus or changing DOM state.
+async function waitForAssertion(label, read, verify) {
+  const deadline = Date.now() + 5_000;
+  let lastError;
+  do {
+    const actual = await read();
+    try {
+      verify(actual);
+      return actual;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolveWait) => globalThis.setTimeout(resolveWait, 50));
+  } while (Date.now() < deadline);
+  throw new Error(`${label}: ${boundedTail(lastError?.message)}`, { cause: lastError });
+}
+
+async function assertFocus(locator, label, keyboardEvidence) {
+  const focused = await waitForAssertion(
+    label,
+    () => locator.evaluate((element) => element === globalThis.document.activeElement),
+    (value) => deepStrictEqual(value, true),
+  );
+  keyboardEvidence.push({ label, focused });
+}
+
+async function assertTabs(drawer, activeIndex, label, keyboardEvidence, requireFocus = true) {
+  const state = await waitForAssertion(
+    label,
+    () =>
+      drawer.evaluate((root) => {
+        const tabs = Array.from(root.querySelectorAll('[role="tab"]'));
+        const panels = Array.from(root.querySelectorAll('[role="tabpanel"]'));
+        return {
+          tabs: tabs.map((tab) => ({
+            id: tab.id,
+            selected: tab.getAttribute("aria-selected"),
+            tabIndex: tab.tabIndex,
+            focused: tab === globalThis.document.activeElement,
+            controls: tab.getAttribute("aria-controls"),
+          })),
+          panels: panels.map((panel) => ({
+            id: panel.id,
+            labelledBy: panel.getAttribute("aria-labelledby"),
+          })),
+        };
+      }),
+    ({ tabs, panels }) => {
+      deepStrictEqual(tabs.length, 2);
+      deepStrictEqual(panels.length, 1);
+      tabs.forEach((tab, index) => {
+        deepStrictEqual(tab.selected, String(index === activeIndex));
+        deepStrictEqual(tab.tabIndex, index === activeIndex ? 0 : -1);
+        if (requireFocus) deepStrictEqual(tab.focused, index === activeIndex);
+      });
+      deepStrictEqual(panels[0].labelledBy, tabs[activeIndex].id);
+      deepStrictEqual(panels[0].id, tabs[activeIndex].controls);
+    },
+  );
+  keyboardEvidence.push({ label, ...state });
+}
+
+async function assertTaskContent(drawer, label, keyboardEvidence) {
+  await drawer
+    .getByRole("heading", { name: "制作任务总览", exact: true })
+    .waitFor({ state: "visible" });
+  const reports = await waitForAssertion(
+    label,
+    () => drawer.locator(".invalidation-history").count(),
+    (count) => deepStrictEqual(count, 0),
+  );
+  keyboardEvidence.push({ label, taskHeadingVisible: true, reportPanelCount: reports });
+}
+
+async function measureLayout(drawer) {
+  return drawer.evaluate((root) => {
+    const rect = (element) => {
+      const { x, y, width, height, top, right, bottom, left } = element.getBoundingClientRect();
+      return { x, y, width, height, top, right, bottom, left };
+    };
+    const visible = (element) => {
+      const style = globalThis.getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return (
+        style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0
+      );
+    };
+    const business = [
+      ".history-operation strong",
+      ".history-path header span",
+      ".history-path header strong",
+      ".history-technical-details summary",
+      '[role="tab"]',
+      ".task-drawer-heading button",
+      ".history-mobile-back",
+    ];
+    const metadata = [
+      ".history-operation time",
+      ".history-operation span",
+      ".history-operation small",
+      ".history-reasons li",
+      ".history-reasons code",
+      ".history-reasons span",
+      ".history-reasons em",
+      ".history-technical-details dt",
+      ".history-technical-details dd",
+    ];
+    const fonts = [
+      ...business.map((selector) => ({ selector, minimum: 14 })),
+      ...metadata.map((selector) => ({ selector, minimum: 12 })),
+    ].map((group) => ({
+      ...group,
+      elements: Array.from(root.querySelectorAll(group.selector))
+        .filter(visible)
+        .map((element) => ({
+          text: element.textContent?.trim(),
+          fontSize: Number.parseFloat(globalThis.getComputedStyle(element).fontSize),
+          rect: rect(element),
+        })),
+    }));
+    const controls = ["button", "summary"].map((selector) => ({
+      selector,
+      elements: Array.from(root.querySelectorAll(selector))
+        .filter(visible)
+        .map((element) => ({ text: element.textContent?.trim(), rect: rect(element) })),
+    }));
+    const overflow = [
+      { selector: "document", elements: [globalThis.document.documentElement] },
+      { selector: "drawer", elements: [root] },
+      ...['[role="tabpanel"]', ".invalidation-history", ".history-list", ".history-detail"].map(
+        (selector) => ({ selector, elements: Array.from(root.querySelectorAll(selector)) }),
+      ),
+    ].map((group) => ({
+      selector: group.selector,
+      elements: group.elements.map((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        rect: rect(element),
+      })),
+    }));
+    const backdrop = root.closest(".task-drawer-backdrop");
+    return {
+      viewport: {
+        width: globalThis.innerWidth,
+        height: globalThis.innerHeight,
+        clientWidth: globalThis.document.documentElement.clientWidth,
+      },
+      backdrop: backdrop ? { rect: rect(backdrop), clientWidth: backdrop.clientWidth } : null,
+      drawer: rect(root),
+      fonts,
+      controls,
+      overflow,
+    };
+  });
+}
+
+function verifyLayout(layout) {
+  deepStrictEqual(
+    { width: layout.viewport.width, height: layout.viewport.height },
+    { width: 1440, height: 900 },
+  );
+  const box = layout.drawer;
+  const tolerance = 0.5;
+  const backdrop = layout.backdrop;
+  // Windows' classic vertical scrollbar is outside the usable layout viewport.
+  if (
+    !backdrop ||
+    Math.abs(backdrop.rect.left) > tolerance ||
+    Math.abs(backdrop.rect.right - layout.viewport.clientWidth) > tolerance ||
+    Math.abs(backdrop.clientWidth - layout.viewport.clientWidth) > tolerance
+  ) {
+    throw new Error(`backdrop does not cover the layout viewport: ${JSON.stringify(backdrop)}`);
+  }
+  if (
+    Math.abs(box.width - 1120) > tolerance ||
+    Math.abs((box.left + box.right) / 2 - (backdrop.rect.left + backdrop.rect.right) / 2) >
+      tolerance ||
+    box.height <= 0 ||
+    box.height > 820 + tolerance ||
+    box.left < -tolerance ||
+    box.top < -tolerance ||
+    box.right > 1440 + tolerance ||
+    box.bottom > 900 + tolerance
+  ) {
+    throw new Error(`drawer geometry failed: ${JSON.stringify(box)}`);
+  }
+  for (const group of layout.fonts) {
+    if (!group.elements.length) throw new Error(`empty font group: ${group.selector}`);
+    for (const element of group.elements) {
+      if (!Number.isFinite(element.fontSize) || element.fontSize < group.minimum)
+        throw new Error(
+          `font below ${group.minimum}px: ${group.selector} ${JSON.stringify(element)}`,
+        );
+    }
+  }
+  for (const group of layout.controls) {
+    if (!group.elements.length) throw new Error(`empty control group: ${group.selector}`);
+    for (const element of group.elements) {
+      if (element.rect.width < 44 - tolerance || element.rect.height < 44 - tolerance)
+        throw new Error(`control below 44px: ${JSON.stringify(element)}`);
+    }
+  }
+  for (const group of layout.overflow) {
+    if (!group.elements.length) throw new Error(`empty overflow group: ${group.selector}`);
+    for (const element of group.elements) {
+      if (element.scrollWidth > element.clientWidth + tolerance)
+        throw new Error(`horizontal overflow: ${group.selector} ${JSON.stringify(element)}`);
+    }
+  }
+}
+
+async function assessmentGeometry(assessment) {
+  return assessment.evaluate((element) => {
+    const target = element.getBoundingClientRect();
+    const intersection = {
+      left: 0,
+      top: 0,
+      right: globalThis.innerWidth,
+      bottom: globalThis.innerHeight,
+    };
+    const ancestors = [];
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = globalThis.getComputedStyle(parent);
+      const clipX = /auto|scroll|hidden|clip/.test(style.overflowX);
+      const clipY = /auto|scroll|hidden|clip/.test(style.overflowY);
+      if (!clipX && !clipY) continue;
+      const box = parent.getBoundingClientRect();
+      const clip = {
+        left: box.left + parent.clientLeft,
+        top: box.top + parent.clientTop,
+        right: box.left + parent.clientLeft + parent.clientWidth,
+        bottom: box.top + parent.clientTop + parent.clientHeight,
+      };
+      ancestors.push({
+        tag: parent.tagName,
+        className: parent.className,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        scrollTop: parent.scrollTop,
+        clip,
+      });
+      if (clipX) {
+        intersection.left = Math.max(intersection.left, clip.left);
+        intersection.right = Math.min(intersection.right, clip.right);
+      }
+      if (clipY) {
+        intersection.top = Math.max(intersection.top, clip.top);
+        intersection.bottom = Math.min(intersection.bottom, clip.bottom);
+      }
+    }
+    const rect = {
+      left: target.left,
+      top: target.top,
+      right: target.right,
+      bottom: target.bottom,
+      width: target.width,
+      height: target.height,
+    };
+    const fullyReachable =
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.left >= intersection.left - 0.5 &&
+      rect.top >= intersection.top - 0.5 &&
+      rect.right <= intersection.right + 0.5 &&
+      rect.bottom <= intersection.bottom + 0.5;
+    return { rect, intersection, ancestors, fullyReachable };
+  });
+}
+
+async function scrollAssessmentIntoView(window, assessment, scrollEvidence) {
+  // A locator's visibility or scrollIntoView would not prove wheel reachability.
+  for (let attempt = 0; attempt <= 12; attempt += 1) {
+    await window.evaluate(
+      () =>
+        new Promise((done) =>
+          globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(done)),
+        ),
+    );
+    const sample = await assessmentGeometry(assessment);
+    scrollEvidence.push({ attempt, ...sample });
+    if (sample.fullyReachable && attempt > 0) return;
+    if (attempt === 12) break;
+    const clip = sample.intersection;
+    if (clip.right <= clip.left || clip.bottom <= clip.top)
+      throw new Error("Assessment has no visible scrolling area");
+    await window.mouse.move((clip.left + clip.right) / 2, (clip.top + clip.bottom) / 2);
+    const wheelDeltaY = sample.fullyReachable || sample.rect.bottom > clip.bottom ? 450 : -450;
+    await window.mouse.wheel(0, wheelDeltaY);
+    scrollEvidence.at(-1).wheelDeltaY = wheelDeltaY;
+    await new Promise((resolveWait) => globalThis.setTimeout(resolveWait, 100));
+  }
+  throw new Error(
+    "Assessment did not fully enter the viewport and every clipping ancestor after 12 real wheel events",
+  );
+}
+
 async function main() {
   await mkdir(developmentRoot, { recursive: true });
-  const profileDirectory = await mkdtemp(join(developmentRoot, "electron-invalidation-profile-"));
-  const workspaceDirectory = join(profileDirectory, "workspace");
+  await mkdir(dirname(evidenceDirectory), { recursive: true });
+  // Refuse reuse: no screenshots or JSON from an earlier run can be overwritten.
+  await mkdir(evidenceDirectory);
+  let profileDirectory;
+  let workspaceDirectory;
   let application;
+  let window;
   let viteProcess;
   let viteDiagnostics;
   let viteClosed = false;
   let primaryError;
   let passResult;
+  const rendererDiagnostics = [];
+  const requestFailures = [];
+  const evidence = {
+    status: "RUNNING",
+    baseline: {
+      expected: expectedBaseline,
+      actual: null,
+      mode: expectedBaseline === null ? "record-only" : "exact-match",
+      verified: false,
+    },
+    runner: { path: "scripts/e2e/electron-invalidation-operation-smoke.mjs", sha256: null },
+    electronVersion: null,
+    evidenceDirectory,
+    startedAt: new Date().toISOString(),
+    stages: [],
+    uiDetail: null,
+    layout: null,
+    keyboard: [],
+    scroll: [],
+    database: {
+      representation: "canonical-logical-database-sha256-and-counts",
+      before: null,
+      after: null,
+      unchanged: null,
+    },
+    screenshots: [],
+    diagnostics: {
+      renderer: rendererDiagnostics,
+      requestFailures,
+      networkScope:
+        "Renderer requestfailed events only; Electron main-process network was not directly observed. No renderer failures is not an end-to-end network acceptance.",
+    },
+  };
+  const stage = (name) => {
+    const previous = evidence.stages.at(-1);
+    if (previous?.status === "RUNNING") previous.status = "PASS";
+    evidence.stages.push({ name, status: "RUNNING" });
+  };
+  const screenshot = async (name, fullPage = false) => {
+    await window.screenshot({ path: join(evidenceDirectory, name), fullPage, timeout: 5_000 });
+    evidence.screenshots.push({ name, fullPage });
+  };
 
   try {
+    stage("baseline-and-profile");
+    evidence.runner.sha256 = createHash("sha256")
+      .update(await readFile(fileURLToPath(import.meta.url)))
+      .digest("hex");
+    const baseline = await runBoundedProcess({
+      label: "baseline",
+      start: () =>
+        spawn("git", ["rev-parse", "HEAD"], {
+          cwd: repositoryRoot,
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      timeoutMs: 5_000,
+      terminate: stopProcess,
+    });
+    evidence.baseline.actual = baseline.stdout.trim();
+    if (expectedBaseline !== null)
+      deepStrictEqual(evidence.baseline.actual, expectedBaseline.toLowerCase());
+    evidence.baseline.verified = expectedBaseline !== null;
+    profileDirectory = await mkdtemp(join(developmentRoot, "electron-invalidation-profile-"));
+    workspaceDirectory = join(profileDirectory, "workspace");
+    stage("seed-and-launch");
     const seeded = await runSeeder("seed", workspaceDirectory);
     // Do not bind here: on Windows, a probe listen/close can race Vite strictPort.
     await assertPortUnusedBeforeVite();
@@ -809,8 +1190,12 @@ async function main() {
       env: { ...globalThis.process.env, AIJIAN_E2E_USER_DATA_DIR: profileDirectory },
       timeout: 30_000,
     });
-    const window = await application.firstWindow({ timeout: 30_000 });
-    const rendererDiagnostics = [];
+    const electronVersion = await application.evaluate(() => globalThis.process.versions.electron);
+    evidence.electronVersion = electronVersion;
+    if (electronVersion !== "43.2.0") {
+      throw new Error(`Electron runtime version mismatch: ${String(electronVersion)}`);
+    }
+    window = await application.firstWindow({ timeout: 30_000 });
     window.on("console", (message) => {
       if (message.type() === "warning" || message.type() === "error") {
         rendererDiagnostics.push(`${message.type()}: ${boundedTail(message.text())}`);
@@ -821,9 +1206,155 @@ async function main() {
       rendererDiagnostics.push(`pageerror: ${boundedTail(error.message)}`);
       if (rendererDiagnostics.length > 32) rendererDiagnostics.shift();
     });
+    window.on("requestfailed", (request) => {
+      // Do not read headers, cookies, request bodies, or credential-bearing URL queries.
+      const url = new globalThis.URL(request.url());
+      requestFailures.push(
+        boundedTail(
+          `${request.method()} ${url.protocol}//${url.host}${url.pathname}: ${request.failure()?.errorText}`,
+        ),
+      );
+      if (requestFailures.length > 32) requestFailures.shift();
+    });
     await window.getByText("本地工作区服务已连接").waitFor({ timeout: 30_000 });
 
+    stage("database-before");
     const before = await runSeeder("snapshot", workspaceDirectory);
+    evidence.database.before = before;
+    stage("drawer-tabs");
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getFocusedWindow()?.setContentSize(1440, 900),
+    );
+    const taskTrigger = window.getByRole("button", { name: /打开制作控制中心/ });
+    await taskTrigger.click();
+    const drawer = window.getByRole("dialog", { name: "制作控制中心" });
+    await drawer.waitFor();
+    const closeButton = drawer.getByRole("button", { name: "关闭制作控制中心" });
+    await closeButton.waitFor({ state: "visible" });
+    const taskTab = drawer.getByRole("tab", { name: "制作任务" });
+    const reportTab = drawer.getByRole("tab", { name: "影响报告" });
+    await assertTabs(drawer, 0, "default tabs", evidence.keyboard, false);
+    await assertFocus(closeButton, "drawer initial focus", evidence.keyboard);
+    await assertTaskContent(drawer, "default task content", evidence.keyboard);
+    await taskTab.focus();
+    for (const [key, activeIndex] of [
+      ["ArrowLeft", 1],
+      ["ArrowRight", 0],
+      ["ArrowRight", 1],
+      ["ArrowLeft", 0],
+      ["End", 1],
+      ["Home", 0],
+      ["End", 1],
+    ]) {
+      await window.keyboard.press(key);
+      await assertTabs(drawer, activeIndex, `tab keyboard ${key}`, evidence.keyboard);
+      if (activeIndex === 0)
+        await assertTaskContent(drawer, `task content after ${key}`, evidence.keyboard);
+    }
+    stage("report-detail-and-focus-trap");
+    const operationRow = await drawer.getByRole("button", { name: /内容版本发生变更/ }).first();
+    await operationRow.click();
+    await drawer.locator(".history-technical-details").waitFor();
+    await assertFocus(
+      drawer.locator(".history-detail-heading h3"),
+      "detail ready focus",
+      evidence.keyboard,
+    );
+    const technicalSummary = drawer.locator("summary").filter({ hasText: "技术详情" });
+    await closeButton.focus();
+    for (const [key, target, label] of [
+      ["Shift+Tab", technicalSummary, "close to summary reverse wrap"],
+      ["Tab", closeButton, "summary to close wrap"],
+      ["Tab", reportTab, "close to active report tab skips inactive task tab"],
+      ["Shift+Tab", closeButton, "report tab back to close"],
+    ]) {
+      await window.keyboard.press(key);
+      await assertFocus(target, label, evidence.keyboard);
+      await assertTabs(drawer, 1, `${label} tab state`, evidence.keyboard, target === reportTab);
+    }
+    await technicalSummary.click();
+    const uiDetail = await drawer.evaluate((root) => ({
+      paths: Array.from(root.querySelectorAll(".history-path")).map((path) => ({
+        classification: path.querySelector(":scope > header > span")?.textContent?.trim(),
+        effectiveImpact: path.querySelector("strong")?.textContent?.trim(),
+        ids: Array.from(path.querySelectorAll("p code")).map((code) => code.getAttribute("title")),
+        visibleIds: Array.from(path.querySelectorAll("p code")).map((code) =>
+          code.textContent?.trim(),
+        ),
+        reasons: Array.from(path.querySelectorAll(".history-reasons li")).map((reason) => ({
+          dependency: reason.querySelector("code")?.getAttribute("title"),
+          dependencyText: reason.querySelector("code")?.textContent?.trim(),
+          relationship: reason.querySelector("span")?.textContent?.trim(),
+          impact: reason.querySelector("em")?.textContent?.trim(),
+        })),
+      })),
+      technical: Object.fromEntries(
+        Array.from(root.querySelectorAll(".history-technical-details dt")).map((dt) => [
+          dt.textContent?.trim(),
+          dt.nextElementSibling?.textContent?.trim(),
+        ]),
+      ),
+    }));
+    evidence.uiDetail = uiDetail;
+    const impactText = { blocking: "阻塞下游", render_only: "仅重新渲染", advisory: "建议复核" };
+    const shortId = (value) => `${value.slice(0, 14)}…${value.slice(-6)}`;
+    deepStrictEqual(
+      uiDetail.paths,
+      seeded.expected_data.paths.map((path) => ({
+        classification: path.classification === "INVALIDATE" ? "失效" : "待复核",
+        effectiveImpact: impactText[path.effective_impact],
+        ids: [path.affected_artifact_id, path.affected_version_id],
+        visibleIds: [path.affected_artifact_id, path.affected_version_id].map(shortId),
+        reasons: path.dependency_ids.map((dependency, index) => ({
+          dependency,
+          dependencyText: shortId(dependency),
+          relationship: path.relationships[index],
+          impact: impactText[path.edge_impacts[index]],
+        })),
+      })),
+    );
+    deepStrictEqual(uiDetail.technical, {
+      Operation: seeded.operation_id,
+      Gate: seeded.expected_data.gate_decision_id,
+      旧版本: seeded.expected_data.old_accepted_version_id,
+      新版本: seeded.expected_data.new_accepted_version_id,
+      Assessment: seeded.expected_data.assessment_hash,
+    });
+    stage("computed-layout-fonts-and-wheel-reachability");
+    evidence.layout = await measureLayout(drawer);
+    verifyLayout(evidence.layout);
+    const assessmentRow = drawer.locator(".history-technical-details dl > div:last-child");
+    deepStrictEqual((await assessmentRow.locator("dt").textContent())?.trim(), "Assessment");
+    const assessment = assessmentRow.locator("dd");
+    deepStrictEqual(await assessment.count(), 1);
+    await scrollAssessmentIntoView(window, assessment, evidence.scroll);
+    await screenshot("electron-invalidation-detail-fullpage.png", true);
+    await screenshot("electron-invalidation-detail-viewport-1440x900.png");
+    stage("return-reentry-and-escape");
+    await window.getByRole("button", { name: "返回影响报告" }).click();
+    await drawer.locator(".history-technical-details").waitFor({ state: "hidden" });
+    await assertFocus(operationRow, "return to report row", evidence.keyboard);
+    await screenshot("electron-invalidation-list-fullpage.png", true);
+    await screenshot("electron-invalidation-list-viewport-1440x900.png");
+    await operationRow.click();
+    await drawer.locator(".history-technical-details").waitFor();
+    await assertFocus(
+      drawer.locator(".history-detail-heading h3"),
+      "reentry ready focus",
+      evidence.keyboard,
+    );
+    await window.keyboard.press("Escape");
+    await drawer.waitFor({ state: "hidden" });
+    await assertFocus(taskTrigger, "Escape restores entry focus", evidence.keyboard);
+    await taskTrigger.click();
+    await drawer.waitFor();
+    await assertTabs(drawer, 0, "reopened default tabs", evidence.keyboard, false);
+    await assertTaskContent(drawer, "reopened default task content", evidence.keyboard);
+    await assertFocus(closeButton, "reopened drawer initial focus", evidence.keyboard);
+    await window.keyboard.press("Escape");
+    await drawer.waitFor({ state: "hidden" });
+    await assertFocus(taskTrigger, "reopened Escape restores entry focus", evidence.keyboard);
+    stage("existing-bridge-contract");
     const result = await window.evaluate(
       async ({ project_id: projectId, operation_id: operationId }) => {
         const bridge = globalThis.aijian;
@@ -853,6 +1384,7 @@ async function main() {
       seeded,
     );
     const after = await runSeeder("snapshot", workspaceDirectory);
+    evidence.database.after = after;
 
     deepStrictEqual(result.first.data, seeded.expected_data);
     deepStrictEqual(result.repeated.data, seeded.expected_data);
@@ -881,8 +1413,11 @@ async function main() {
       throw new Error("Electron bridge did not preserve the privileged boundary");
     }
     deepStrictEqual(after, before);
-    if (rendererDiagnostics.length > 0) {
-      throw new Error(`renderer diagnostics: ${boundedTail(rendererDiagnostics.join(" | "))}`);
+    evidence.database.unchanged = true;
+    if (rendererDiagnostics.length > 0 || requestFailures.length > 0) {
+      throw new Error(
+        `renderer diagnostics: ${boundedTail([...rendererDiagnostics, ...requestFailures].join(" | "))}`,
+      );
     }
     passResult = {
       status: "PASS",
@@ -890,10 +1425,37 @@ async function main() {
       operation_id: seeded.operation_id,
       paths: seeded.expected_data.paths.length,
     };
+    await screenshot("electron-before-cleanup-viewport-1440x900.png");
+    evidence.stages.at(-1).status = "PASS";
   } catch (error) {
     primaryError = error;
+    if (evidence.stages.length) evidence.stages.at(-1).status = "FAIL";
+    if (window && !window.isClosed()) {
+      try {
+        await screenshot("electron-failure-before-cleanup-viewport.png");
+      } catch (screenshotError) {
+        evidence.diagnostics.screenshotError = boundedTail(screenshotError.message);
+      }
+    }
   }
 
+  // Also retain the post-failure database state before shutting down/removing the profile.
+  if (
+    !evidence.database.after &&
+    workspaceDirectory &&
+    existsSync(join(workspaceDirectory, "workspace.sqlite3"))
+  ) {
+    try {
+      evidence.database.after = await runSeeder("snapshot", workspaceDirectory);
+      if (evidence.database.before) {
+        deepStrictEqual(evidence.database.after, evidence.database.before);
+        evidence.database.unchanged = true;
+      }
+    } catch (error) {
+      evidence.diagnostics.databaseAfterError = boundedTail(error.message);
+      primaryError ??= error;
+    }
+  }
   const cleanupErrors = [];
   try {
     await closeApplication(application);
@@ -907,7 +1469,7 @@ async function main() {
     cleanupErrors.push(error);
   }
   try {
-    await rm(profileDirectory, { recursive: true, force: true });
+    if (profileDirectory) await rm(profileDirectory, { recursive: true, force: true });
   } catch (error) {
     cleanupErrors.push(error);
   }
@@ -915,17 +1477,45 @@ async function main() {
     try {
       if (viteProcess && !viteClosed) throw new Error("Vite remained alive after cleanup");
       await assertPortRebindAfterCleanup();
-      if (existsSync(profileDirectory)) throw new Error("Electron profile remained after cleanup");
+      if (profileDirectory && existsSync(profileDirectory))
+        throw new Error("Electron profile remained after cleanup");
     } catch (error) {
       cleanupErrors.push(error);
     }
   }
+  evidence.stages.push({ name: "cleanup", status: cleanupErrors.length ? "FAIL" : "PASS" });
+  // Listeners remain active through screenshots and Electron close: include late events too.
+  const diagnosticFailure = rendererDiagnostics.length > 0 || requestFailures.length > 0;
+  evidence.stages.push({
+    name: "renderer-diagnostics-through-close",
+    status: diagnosticFailure ? "FAIL" : "PASS",
+  });
+  if (diagnosticFailure)
+    primaryError ??= new Error(
+      `renderer diagnostics through close: ${boundedTail([...rendererDiagnostics, ...requestFailures].join(" | "))}`,
+    );
+  evidence.status = primaryError || cleanupErrors.length ? "FAIL" : "PASS";
+  evidence.finishedAt = new Date().toISOString();
+  evidence.diagnostics.vite = viteDiagnostics ?? null;
+  evidence.diagnostics.primaryError = primaryError
+    ? boundedTail(primaryError.stack ?? primaryError.message)
+    : null;
+  evidence.diagnostics.cleanupErrors = cleanupErrors.map((error) =>
+    boundedTail(error.stack ?? error.message),
+  );
+  await writeFile(
+    join(evidenceDirectory, "result.json"),
+    `${JSON.stringify(evidence, null, 2)}\n`,
+    { flag: "wx" },
+  );
+  globalThis.process.stdout.write(
+    `${JSON.stringify({ ...passResult, status: evidence.status, evidenceDirectory })}\n`,
+  );
   if (primaryError && cleanupErrors.length > 0) {
     throw new AggregateError([primaryError, ...cleanupErrors], "smoke and cleanup both failed");
   }
   if (primaryError) throw primaryError;
   if (cleanupErrors.length > 0) throw new AggregateError(cleanupErrors, "smoke cleanup failed");
-  globalThis.process.stdout.write(`${JSON.stringify(passResult)}\n`);
 }
 
 if (globalThis.process.env.AIJIAN_E2E_RUNNER_SELF_TEST === "1") {
