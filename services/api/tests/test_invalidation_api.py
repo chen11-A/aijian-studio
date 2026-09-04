@@ -1,3 +1,5 @@
+import hashlib
+import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import replace
@@ -6,6 +8,8 @@ from uuid import UUID
 
 import aijian_api.invalidation_routes as invalidation_routes
 import pytest
+from aijian_api.artifact_proposal_store import ArtifactProposalStore
+from aijian_api.domain import ArtifactDependencyDraft
 from aijian_api.invalidation_contracts import (
     InvalidationOperationPageResponse,
     InvalidationOperationResponse,
@@ -17,11 +21,17 @@ from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import ValidationError
 from test_artifact_invalidation_ledger import (
+    STORY_CONTENT,
     _approve_source_replacement_with_episode,
     approve_artifact,
+    create_downstream,
     create_repository,
+    create_source_and_story,
     snapshot_immutable_graph,
+    source_dependency,
 )
+from test_artifact_proposal_api import NOW as PROPOSAL_NOW
+from test_artifact_proposal_api import enqueue_unpersisted_fixture_attempt
 
 TOKEN = "x" * 43
 HOST = "127.0.0.1:43123"
@@ -736,3 +746,306 @@ def _counts(database: Path) -> tuple[int, int]:
             int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
             for table in ("invalidation_operations", "invalidation_reason_paths")
         )  # type: ignore[return-value]
+
+
+def _golden_graph(tmp_path: Path):
+    repository = create_repository(tmp_path / "workspace.db")
+    project, source, story = create_source_and_story(repository)
+    approved = approve_artifact(repository, project, story, "story_bible")
+    draft = repository.create_artifact_version(
+        project_id=project.id,
+        artifact_type="story_bible",
+        schema_version="1.0.0",
+        content={**STORY_CONTENT, "title": "雾城：保留人工草稿"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="尚未采纳的人工修改",
+        parent_version_id=story.version.id,
+        expected_revision=approved.head.revision,
+        **source_dependency(source.version.id),
+    )
+
+    def downstream(artifact_type, *edges):
+        return create_downstream(
+            repository,
+            project,
+            artifact_type=artifact_type,
+            change_summary=f"人工 {artifact_type}",
+            dependencies=tuple(ArtifactDependencyDraft(*edge) for edge in edges),
+        )
+
+    advisory = downstream("style_guide", (source.version.id, "references", "advisory"))
+    render = downstream("previz", (source.version.id, "renders", "render_only"))
+    diamond = downstream(
+        "voice",
+        (story.version.id, "adapts", "blocking"),
+        (advisory.version.id, "references", "blocking"),
+        (render.version.id, "uses_preview", "blocking"),
+    )
+    tail = downstream("cut", (diamond.version.id, "renders", "render_only"))
+    unrelated = downstream("unrelated_asset")
+    downstream("unrelated_cut", (unrelated.version.id, "renders", "blocking"))
+    return repository, project, source, (story, draft, advisory, render, diamond, tail)
+
+
+def _discover_report(client, project_id, new_version_id):
+    response = client.get(_list_url(project_id, limit=100))
+    assert response.status_code == 200
+    page = response.json()["data"]
+    assert page["next_cursor"] is None
+    summaries = [
+        item for item in page["items"] if item["new_accepted_version_id"] == new_version_id
+    ]
+    assert len(summaries) == 1
+    summary = summaries[0]
+    response = client.get(_url(project_id, summary["operation_id"]))
+    assert response.status_code == 200
+    detail = response.json()["data"]
+    assert summary == {
+        **{key: value for key, value in detail.items() if key != "paths"},
+        "reason_path_count": len(detail["paths"]),
+    }
+    return detail
+
+
+def _assert_golden_paths(actual, expected):
+    # Exact ordered comparison also rejects omissions, extras and duplicates.
+    assert [{key: path[key] for key in expected[0]} for path in actual] == expected
+
+
+def test_golden_report_has_every_manually_enumerated_impact_path(tmp_path: Path) -> None:
+    repository, project, source, nodes = _golden_graph(tmp_path)
+    story, draft, advisory, render, diamond, tail = nodes
+    source_v2 = _append_source_replacement(repository, project.id, source.version.id, 2)
+    client = TestClient(create_app(repository=repository))
+    detail = _discover_report(client, project.id, source_v2.version.id)
+
+    # Independent oracle: six affected versions, ten paths, no graph traversal/evaluator.
+    # Each chain is downstream-to-source; path impact is weakest, aggregate is strongest.
+    s = story.dependencies[0].id
+    d = draft.dependencies[0].id
+    a = advisory.dependencies[0].id
+    r = render.dependencies[0].id
+    ds, da, dr = (dependency.id for dependency in diamond.dependencies)
+    t = tail.dependencies[0].id
+    cases = [
+        (story, "STALE", "blocking", [((s,), ("derived_from",), ("blocking",), "blocking")]),
+        (draft, "INVALIDATE", "blocking", [((d,), ("derived_from",), ("blocking",), "blocking")]),
+        (advisory, "INVALIDATE", "advisory", [((a,), ("references",), ("advisory",), "advisory")]),
+        (
+            render,
+            "INVALIDATE",
+            "render_only",
+            [((r,), ("renders",), ("render_only",), "render_only")],
+        ),
+        (
+            diamond,
+            "INVALIDATE",
+            "blocking",
+            [
+                ((ds, s), ("adapts", "derived_from"), ("blocking", "blocking"), "blocking"),
+                ((da, a), ("references", "references"), ("blocking", "advisory"), "advisory"),
+                ((dr, r), ("uses_preview", "renders"), ("blocking", "render_only"), "render_only"),
+            ],
+        ),
+        (
+            tail,
+            "INVALIDATE",
+            "render_only",
+            [
+                (
+                    (t, ds, s),
+                    ("renders", "adapts", "derived_from"),
+                    ("render_only", "blocking", "blocking"),
+                    "render_only",
+                ),
+                (
+                    (t, da, a),
+                    ("renders", "references", "references"),
+                    ("render_only", "blocking", "advisory"),
+                    "advisory",
+                ),
+                (
+                    (t, dr, r),
+                    ("renders", "uses_preview", "renders"),
+                    ("render_only", "blocking", "render_only"),
+                    "render_only",
+                ),
+            ],
+        ),
+    ]
+    expected_paths = []
+    affected = []
+    for record, classification, aggregate, chains in sorted(
+        cases, key=lambda case: (case[0].version.artifact_id, case[0].version.id)
+    ):
+        reason_paths = [
+            {
+                "dependency_ids": list(ids),
+                "relationships": list(relations),
+                "edge_impacts": list(impacts),
+                "effective_impact": effective,
+            }
+            for ids, relations, impacts, effective in sorted(chains)
+        ]
+        affected.append(
+            {
+                "artifact_id": record.version.artifact_id,
+                "version_id": record.version.id,
+                "classification": classification,
+                "aggregate_impact": aggregate,
+                "reason_paths": reason_paths,
+            }
+        )
+        expected_paths.extend(
+            {
+                "affected_artifact_id": record.version.artifact_id,
+                "affected_version_id": record.version.id,
+                "classification": classification,
+                "aggregate_impact": aggregate,
+                **path,
+            }
+            for path in reason_paths
+        )
+
+    assert len(expected_paths) == 10
+    _assert_golden_paths(detail["paths"], expected_paths)
+    assert len({path["path_id"] for path in detail["paths"]}) == 10
+    assert [path["ordinal"] for path in detail["paths"]] == list(range(10))
+    for path in detail["paths"]:
+        assert path["operation_id"] == detail["operation_id"]
+        assert path["project_id"] == project.id
+        assert path["created_at"] == detail["created_at"]
+    assessment = {
+        "project_id": project.id,
+        "changed_artifact_id": source.version.artifact_id,
+        "old_version_id": source.version.id,
+        "new_version_id": source_v2.version.id,
+        "affected": affected,
+    }
+    canonical = json.dumps(
+        assessment, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    assert detail["assessment_hash"] == "sha256:" + hashlib.sha256(canonical).hexdigest()
+    assert detail["changed_artifact_id"] == source.version.artifact_id
+    assert detail["old_accepted_version_id"] == source.version.id
+
+    # Prove the same oracle fails on controlled missing/extra paths without changing SQLite.
+    with pytest.raises(AssertionError):
+        _assert_golden_paths(detail["paths"][:-1], expected_paths)
+    extra = {**detail["paths"][0], "affected_version_id": source_v2.version.id}
+    with pytest.raises(AssertionError):
+        _assert_golden_paths([*detail["paths"], extra], expected_paths)
+    with pytest.raises(AssertionError):
+        _assert_golden_paths([*detail["paths"], detail["paths"][0]], expected_paths)
+
+
+def _full_report_rows(database: Path, *, exclude_artifact_id: str | None = None):
+    tables = (
+        "artifact_versions",
+        "artifact_dependencies",
+        "artifact_heads",
+        "agent_artifact_proposals",
+        "task_ledger",
+        "workflow_attempts",
+        "workflow_node_runs",
+        "workflow_runs",
+        "workflow_transition_events",
+        "invalidation_operations",
+        "invalidation_reason_paths",
+        "gate_decisions",
+    )
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        result = {}
+        for table in tables:
+            rows = [dict(row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY 1")]
+            if exclude_artifact_id is not None:
+                if table in {
+                    "invalidation_operations",
+                    "invalidation_reason_paths",
+                }:
+                    continue
+                if table in {"artifact_versions", "artifact_heads", "gate_decisions"}:
+                    rows = [row for row in rows if row["artifact_id"] != exclude_artifact_id]
+            result[table] = rows
+        return result
+
+
+def test_golden_human_rows_and_historical_report_survive_later_human_approval(
+    tmp_path: Path,
+) -> None:
+    repository, project, source, nodes = _golden_graph(tmp_path)
+    story, draft, *_ = nodes
+    # Nonempty same-project sentinels, not a real provider or a semantic film proposal.
+    bundle, claim = enqueue_unpersisted_fixture_attempt(repository, project.id)
+    proposal = bundle.artifact_proposal.model_copy(update={"project_id": project.id})
+    ArtifactProposalStore(repository.database_path, clock=lambda: PROPOSAL_NOW).persist(
+        claim, proposal
+    )
+    protected = _full_report_rows(
+        repository.database_path, exclude_artifact_id=source.version.artifact_id
+    )
+    assert protected["task_ledger"] and protected["agent_artifact_proposals"]
+    assert all(row["author_actor_type"] == "human" for row in protected["artifact_versions"])
+    assert all(row["content_json"] for row in protected["artifact_versions"])
+    source_v2 = _append_source_replacement(repository, project.id, source.version.id, 2)
+    assert (
+        _full_report_rows(repository.database_path, exclude_artifact_id=source.version.artifact_id)
+        == protected
+    )
+
+    before_get = _full_report_rows(repository.database_path)
+    client = TestClient(create_app(repository=repository))
+    original = _discover_report(client, project.id, source_v2.version.id)
+    assert _full_report_rows(repository.database_path) == before_get
+    assert {
+        path["classification"]
+        for path in original["paths"]
+        if path["affected_version_id"] == story.version.id
+    } == {"STALE"}
+
+    # A new append + synthetic fixture Gate approval is legal, not a DB no-mutation phase.
+    revised = repository.create_artifact_version(
+        project_id=project.id,
+        artifact_type="story_bible",
+        schema_version="1.0.0",
+        content={**draft.version.content, "title": "雾城：人工确认新版来源"},
+        author_actor_type="human",
+        author_actor_id="local-user",
+        change_summary="人工重新校对并采纳当前来源",
+        parent_version_id=draft.version.id,
+        expected_revision=repository.get_artifact_head(project.id, "story_bible").revision,
+        **source_dependency(source_v2.version.id),
+    )
+    approved = approve_artifact(repository, project, revised, "story_bible")
+    assert approved.head.accepted_version_id == revised.version.id
+    after_revision = _full_report_rows(repository.database_path)
+    assert after_revision != before_get
+    for table in (
+        "artifact_versions",
+        "artifact_dependencies",
+        "gate_decisions",
+        "invalidation_operations",
+        "invalidation_reason_paths",
+    ):
+        assert all(row in after_revision[table] for row in before_get[table])
+    assert [
+        row
+        for row in after_revision["artifact_heads"]
+        if row["artifact_id"] != story.version.artifact_id
+    ] == [
+        row
+        for row in before_get["artifact_heads"]
+        if row["artifact_id"] != story.version.artifact_id
+    ]
+    assert after_revision["task_ledger"] == protected["task_ledger"]
+    assert after_revision["agent_artifact_proposals"] == protected["agent_artifact_proposals"]
+
+    reopened = StudioRepository(repository.database_path)
+    repeated = _discover_report(
+        TestClient(create_app(repository=reopened)), project.id, source_v2.version.id
+    )
+    # Includes original STALE/INVALIDATE, exact paths/order and assessment_hash, not live heads.
+    assert repeated == original
+    assert _full_report_rows(repository.database_path) == after_revision
