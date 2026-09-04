@@ -742,7 +742,7 @@ test("uses the optional Fake Timeline capability instead of the deprecated sync 
   expect(appSource).not.toContain("startFakeTimelineWorkflow");
   expect(appSource).toContain("capability={studio.fakeTimelineRuns}");
   expect(appSource).toContain("source={importState.response}");
-  expect(appSource).toContain("getSourceManifest={studio.getSourceManifest}");
+  expect(appSource).toContain("getSourceManifest={loadLauncherManifest}");
 });
 
 test("starts the Electron-only source extraction through a recoverable operation", async () => {
@@ -1601,16 +1601,17 @@ test("shows an honest G1 dependency state instead of a fake story action", async
   fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
 
   expect(await screen.findByRole("heading", { name: "来源尚未验收" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "等待 G1 验收" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "前往来源审核" }));
+  expect(await screen.findByRole("region", { name: "来源审核" })).toBeInTheDocument();
   expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
 });
 
 test("recovers the story workshop after a local read failure", async () => {
   const transport = studioTransport([project]);
-  vi.mocked(transport.getSourceManifest)
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  vi.mocked(transport.getStoryBibleIndex)
     .mockRejectedValueOnce(new Error("sidecar restarting"))
-    .mockResolvedValueOnce(sourceManifestResponse);
-  vi.mocked(transport.getStoryBibleIndex).mockResolvedValue(null);
+    .mockResolvedValueOnce(null);
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
 
@@ -1619,7 +1620,7 @@ test("recovers the story workshop after a local read failure", async () => {
   fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
 
   expect(await screen.findByRole("heading", { name: "可以开始拆解小说" })).toBeInTheDocument();
-  expect(transport.getSourceManifest).toHaveBeenCalledTimes(2);
+  expect(transport.getSourceManifest).toHaveBeenCalledTimes(3);
   expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
 });
 

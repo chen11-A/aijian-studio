@@ -7,6 +7,9 @@ import {
   type ProjectData,
   type SourceDocumentResponse,
   type SourceManifestResponse,
+  type SourceManifestReviewIdentity,
+  type SourceManifestReviewAction,
+  type SourceManifestReviewOperationResult,
   type StoryBibleIndexResponse,
   type StoryBibleVersionResponse,
   type StudioTransport,
@@ -42,11 +45,20 @@ type StoryWorkspaceState =
   | { kind: "loading" }
   | {
       kind: "ready";
-      manifest: SourceManifestResponse | null;
       storyBibleIndex: StoryBibleIndexResponse | null;
       storyBibleVersion: StoryBibleVersionResponse | null;
     }
   | { kind: "error" };
+type ManifestState =
+  | { kind: "idle" }
+  | { kind: "loading" | "error"; projectId: string; response?: SourceManifestResponse | null }
+  | { kind: "ready"; projectId: string; response: SourceManifestResponse | null };
+type ReviewRecord = {
+  identity: SourceManifestReviewIdentity;
+  pending: boolean;
+  result?: SourceManifestReviewOperationResult;
+  bridgeFailure?: boolean;
+};
 type StoryContent = StoryBibleVersionResponse["data"]["version"]["content"];
 type StoryFact = StoryContent["facts"][number];
 type StorySourceSpan = StoryBibleVersionResponse["data"]["version"]["source_spans"][number];
@@ -605,18 +617,22 @@ interface StoryWorkshopProps {
   project: ProjectData;
   sourceState: ImportState;
   state: StoryWorkspaceState;
+  manifest: SourceManifestResponse | null;
   getSource: StudioTransport["getSource"];
   getStoryBibleVersion: StudioTransport["getStoryBibleVersion"];
   onRetry(): void;
+  onReviewSource(): void;
 }
 
 function StoryWorkshop({
   project,
   sourceState,
   state,
+  manifest,
   getSource,
   getStoryBibleVersion,
   onRetry,
+  onReviewSource,
 }: StoryWorkshopProps) {
   const [selectedFactId, setSelectedFactId] = useState<string | null>(null);
   const [selectedVersionRole, setSelectedVersionRole] = useState<StoryVersionRole | null>(null);
@@ -643,7 +659,6 @@ function StoryWorkshop({
   const sourceBlockRefs = useRef(new Map<string, HTMLElement>());
   const factCardRefs = useRef(new Map<string, HTMLElement>());
   const latestSourceDocument = sourceState.kind === "success" ? sourceState.response.data : null;
-  const manifest = state.kind === "ready" ? state.manifest : null;
   const storyBible = state.kind === "ready" ? state.storyBibleIndex : null;
   const initialStoryVersion = state.kind === "ready" ? state.storyBibleVersion?.data.version : null;
   useEffect(() => {
@@ -1315,8 +1330,8 @@ function StoryWorkshop({
               <span className="empty-code">G1 REQUIRED</span>
               <h3>来源尚未验收</h3>
               <p>故事圣经必须绑定已验收的来源版本，避免 AI 把推断混入原著事实。</p>
-              <button className="secondary-button" disabled>
-                等待 G1 验收
+              <button className="secondary-button" onClick={onReviewSource}>
+                前往来源审核
               </button>
             </div>
           )}
@@ -1652,6 +1667,303 @@ function StoryWorkshop({
   );
 }
 
+function sourceReviewIdentity(
+  manifest: SourceManifestResponse | null,
+  projectId: string,
+): SourceManifestReviewIdentity | null {
+  if (!manifest || manifest.data.project_id !== projectId) return null;
+  const {
+    head,
+    latest_version: latest,
+    review_version: review,
+    accepted_version: accepted,
+  } = manifest.data;
+  if (
+    head.latest_version_id !== latest.id ||
+    head.artifact_id !== latest.artifact_id ||
+    !/^prj_[0-9a-f]{32}$/.test(projectId) ||
+    !/^ver_[0-9a-f]{32}$/.test(latest.id) ||
+    !/^sha256:[0-9a-f]{64}$/.test(latest.content_hash) ||
+    !Number.isSafeInteger(head.revision) ||
+    head.revision < 1 ||
+    head.revision >= Number.MAX_SAFE_INTEGER ||
+    (head.review_version_id ?? null) !== (review?.id ?? null) ||
+    (head.accepted_version_id ?? null) !== (accepted?.id ?? null)
+  )
+    return null;
+  return {
+    project_id: projectId,
+    version_id: latest.id,
+    content_hash: latest.content_hash,
+    expected_revision: head.revision,
+  };
+}
+
+const reviewActionLabels: Record<SourceManifestReviewAction, string> = {
+  submit: "送审",
+  signoff: "签署",
+  decision: "批准",
+  copy_draft: "复制草稿",
+};
+const reviewResultLabels: Record<SourceManifestReviewOperationResult["kind"], string> = {
+  SUCCEEDED: "操作成功",
+  CANCELLED: "已取消",
+  EXPIRED: "确认已超时",
+  BUSY: "当前项目另有审核正在进行",
+  INVALID_INPUT: "输入无效",
+  STATE_CHANGED: "来源状态已变化",
+  DEFINITE_SERVER_ERROR: "服务明确拒绝本次动作",
+  REMOTE_UNKNOWN: "审核结果未知",
+};
+
+function SourceReviewCard({
+  projectId,
+  state,
+  record,
+  available,
+  onRefresh,
+  onAction,
+}: {
+  projectId: string;
+  state: ManifestState;
+  record?: ReviewRecord;
+  available: boolean;
+  onRefresh(): void;
+  onAction(action: "submit" | "confirm_baseline" | "copy_draft", rationale: string): void;
+}) {
+  const [rationale, setRationale] = useState("");
+  const manifest = state.kind === "ready" && state.projectId === projectId ? state.response : null;
+  const identity = sourceReviewIdentity(manifest, projectId);
+  const result = record?.result;
+  const unknown = result?.kind === "REMOTE_UNKNOWN";
+  const busy = record?.pending === true;
+  const disabled = !available || !identity || busy || unknown;
+  const reasonLength = [...rationale.trim()].length;
+  const head = manifest?.data.head;
+  return (
+    <section
+      className="source-review-card"
+      id="source-review"
+      aria-labelledby="source-review-title"
+      tabIndex={-1}
+    >
+      <header>
+        <span>G1 · SOURCE MANIFEST</span>
+        <h3 id="source-review-title">来源审核</h3>
+      </header>
+      <p>
+        核对精确来源版本，再显式送审。送审不是批准；确认基线仍需分别在桌面原生窗口确认签署与批准。
+      </p>
+      <p className="source-review-help">
+        同一 local-user 账户以 writer / producer 角色操作，允许自审；不代表两名独立人类审批。
+      </p>
+      {!available && (
+        <p role="status">
+          当前环境仅支持查看来源审核。请使用具备完整审核能力的桌面版本；普通 Web 不能送审或批准。
+        </p>
+      )}
+      {state.kind === "loading" && <p role="status">正在读取来源审核…</p>}
+      {state.kind === "error" && (
+        <p role="alert">来源审核暂时无法读取。写入已禁用，请只读刷新后再核对。</p>
+      )}
+      {state.kind === "ready" && !manifest && (
+        <p role="status">尚无来源清单，请先在桌面导入 TXT。</p>
+      )}
+      {manifest && (
+        <>
+          <dl className="source-review-identity">
+            <div>
+              <dt>项目 ID</dt>
+              <dd>{projectId}</dd>
+            </div>
+            <div>
+              <dt>来源头修订</dt>
+              <dd>REV {head!.revision}</dd>
+            </div>
+          </dl>
+          <div className="source-review-versions">
+            {(
+              [
+                ["latest", "最新版本", manifest.data.latest_version],
+                ["review", "送审版本", manifest.data.review_version],
+                ["accepted", "已批准基线", manifest.data.accepted_version],
+              ] as const
+            ).map(([role, label, version]) => (
+              <article key={role} aria-label={label}>
+                <h4>
+                  {label} <span>{role}</span>
+                </h4>
+                {version ? (
+                  <>
+                    <p>
+                      V{version.version_number}
+                      {role === "latest"
+                        ? version.id === head!.accepted_version_id
+                          ? " · 已批准"
+                          : version.id === head!.review_version_id
+                            ? " · 审核中，尚未批准"
+                            : " · 草稿，尚未批准"
+                        : ""}
+                    </p>
+                    <dl>
+                      <div>
+                        <dt>版本 ID</dt>
+                        <dd>{version.id}</dd>
+                      </div>
+                      <div>
+                        <dt>来源内容 hash</dt>
+                        <dd>{version.content_hash}</dd>
+                      </div>
+                    </dl>
+                  </>
+                ) : (
+                  <p>{role === "review" ? "无当前送审版本" : "尚无已批准基线"}</p>
+                )}
+              </article>
+            ))}
+          </div>
+          {!identity && <p role="alert">来源身份不一致，写入已禁用。请只读刷新并核对。</p>}
+        </>
+      )}
+      <label className="source-review-rationale" htmlFor="source-review-rationale">
+        确认基线的理由（仅签署与批准需要）
+        <textarea
+          id="source-review-rationale"
+          value={rationale}
+          onChange={(event) => setRationale(event.target.value)}
+          disabled={busy || unknown || !available}
+          aria-describedby="source-review-rationale-help"
+        />
+      </label>
+      <p id="source-review-rationale-help" className="source-review-help">
+        去除首尾空白后需 1–1000 个 Unicode 字符；当前 {reasonLength} 个。
+      </p>
+      <div className="source-review-actions">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={
+            disabled ||
+            head?.review_version_id === identity?.version_id ||
+            head?.accepted_version_id === identity?.version_id
+          }
+          onClick={() => onAction("submit", "")}
+        >
+          送审来源版本
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={
+            disabled ||
+            !head?.review_version_id ||
+            head.review_version_id !== identity?.version_id ||
+            reasonLength < 1 ||
+            reasonLength > 1000
+          }
+          onClick={() => onAction("confirm_baseline", rationale.trim())}
+        >
+          确认来源基线
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={disabled}
+          onClick={() => onAction("copy_draft", "")}
+        >
+          复制为新草稿
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={busy || state.kind === "loading"}
+          onClick={onRefresh}
+        >
+          只读刷新来源
+        </button>
+      </div>
+      <p className="source-review-help">
+        复制草稿还需独立原生确认，不会自动送审。取消或超时不会自动重试。
+      </p>
+      {busy && <p role="status">正在等待桌面原生确认或安全回执；请勿重复操作。</p>}
+      {result && (
+        <div
+          className="source-review-result"
+          role={result.kind === "SUCCEEDED" || result.kind === "CANCELLED" ? "status" : "alert"}
+          aria-label="来源审核结果"
+          data-kind={result.kind}
+          data-phase={result.phase}
+        >
+          <h4>{reviewResultLabels[result.kind]}</h4>
+          <p>
+            结果：{result.kind} · 阶段：{result.phase}
+          </p>
+          {record?.bridgeFailure && (
+            <p>桌面连接中断，无法确定实际执行阶段或哪些动作已完成；不能据此断言未提交。</p>
+          )}
+          <p>本次绑定版本：{record?.identity.version_id}</p>
+          <p>本次绑定 hash：{record?.identity.content_hash}</p>
+          <p>
+            已完成动作：
+            {result.completed_actions.length
+              ? result.completed_actions.map((action) => reviewActionLabels[action]).join("、")
+              : record?.bridgeFailure
+                ? "无法确定"
+                : "无"}
+          </p>
+          {result.completed_actions.includes("signoff") &&
+            !result.completed_actions.includes("decision") && (
+              <p>已签署，但尚未收到批准成功回执；不能视为已批准。</p>
+            )}
+          {result.error && (
+            <p>
+              错误 code：{result.error.code} · request_id：{result.error.request_id}
+            </p>
+          )}
+          {unknown && (
+            <p>
+              本项目审核结果未知，已锁定写动作，不提供重发。本次只读刷新仅查看当前状态，不核实旧未知操作。此记录仅在当前应用会话保留，不支持重启恢复。
+            </p>
+          )}
+          <p>安全回执：{result.receipts.length} 条</p>
+          {result.receipts.map((receipt, index) => (
+            <details key={index}>
+              <summary>
+                {reviewActionLabels[receipt.action]}回执 · {receipt.request_id}
+              </summary>
+              <dl>
+                {(
+                  [
+                    "action",
+                    "request_id",
+                    "project_id",
+                    "artifact_id",
+                    "version_id",
+                    "content_hash",
+                    "head_revision",
+                    "review_evidence_revision",
+                    "latest_version_id",
+                    "review_version_id",
+                    "review_submission_id",
+                    "accepted_version_id",
+                    "report_id",
+                    "report_hash",
+                  ] as const
+                ).map((key) => (
+                  <div key={key}>
+                    <dt>{key}</dt>
+                    <dd>{receipt[key] ?? "无"}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function App({ transport }: AppProps) {
   const studio = useMemo(() => transport ?? createStudioTransport(), [transport]);
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
@@ -1664,6 +1976,12 @@ export function App({ transport }: AppProps) {
   const [importState, setImportState] = useState<ImportState>({ kind: "idle" });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
   const [storyState, setStoryState] = useState<StoryWorkspaceState>({ kind: "idle" });
+  const [manifestState, setManifestState] = useState<ManifestState>({ kind: "idle" });
+  const [reviewRecords, setReviewRecords] = useState<Record<string, ReviewRecord>>({});
+  const reviewLocks = useRef(new Set<string>());
+  const manifestRequestGeneration = useRef(0);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [productionControlTab, setProductionControlTab] = useState<"tasks" | "reports">("tasks");
   const [projectRailCollapsed, setProjectRailCollapsed] = useState(false);
@@ -1673,6 +1991,60 @@ export function App({ transport }: AppProps) {
   const taskDrawerRef = useRef<HTMLElement | null>(null);
   const taskDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const selectedProject = projects.find((project) => project.id === selectedId) ?? null;
+  const currentManifest =
+    manifestState.kind === "ready" && manifestState.projectId === selectedId
+      ? manifestState.response
+      : null;
+  const manifestRevision =
+    manifestState.kind !== "idle" && manifestState.projectId === selectedId
+      ? manifestState.response?.data.head.revision
+      : undefined;
+  // Changing this callback re-runs the existing launcher effects without remounting
+  // their inFlight guards or replacing the journals' original pending input.
+  const loadLauncherManifest = useMemo(
+    () => studio.getSourceManifest.bind(studio),
+    [studio, selectedId, manifestRevision],
+  );
+
+  const loadManifest = useCallback(
+    async (projectId: string) => {
+      const generation = ++manifestRequestGeneration.current;
+      setManifestState((current) => ({
+        kind: "loading",
+        projectId,
+        response:
+          current.kind !== "idle" && current.projectId === projectId ? current.response : null,
+      }));
+      try {
+        const response = await studio.getSourceManifest(projectId);
+        if (
+          generation === manifestRequestGeneration.current &&
+          selectedIdRef.current === projectId
+        ) {
+          setManifestState({ kind: "ready", projectId, response });
+        }
+        return response;
+      } catch {
+        if (generation === manifestRequestGeneration.current && selectedIdRef.current === projectId)
+          setManifestState((current) => ({
+            kind: "error",
+            projectId,
+            response:
+              current.kind !== "idle" && current.projectId === projectId ? current.response : null,
+          }));
+        throw new Error("Source manifest read unavailable");
+      }
+    },
+    [studio],
+  );
+
+  useEffect(() => {
+    if (selectedId) void loadManifest(selectedId).catch(() => {});
+    else setManifestState({ kind: "idle" });
+    return () => {
+      manifestRequestGeneration.current += 1;
+    };
+  }, [selectedId, loadManifest]);
 
   const openTaskDrawer = useCallback(() => {
     taskDrawerReturnFocusRef.current =
@@ -1797,19 +2169,20 @@ export function App({ transport }: AppProps) {
       const generation = ++storyRequestGeneration.current;
       setStoryState({ kind: "loading" });
       try {
-        const manifest = await studio.getSourceManifest(projectId);
-        if (generation !== storyRequestGeneration.current) return;
+        const manifest = await loadManifest(projectId);
+        if (generation !== storyRequestGeneration.current || selectedIdRef.current !== projectId)
+          return;
         if (!manifest?.data.head.accepted_version_id) {
           setStoryState({
             kind: "ready",
-            manifest,
             storyBibleIndex: null,
             storyBibleVersion: null,
           });
           return;
         }
         const storyBibleIndex = await studio.getStoryBibleIndex(projectId);
-        if (generation !== storyRequestGeneration.current) return;
+        if (generation !== storyRequestGeneration.current || selectedIdRef.current !== projectId)
+          return;
         const preferredVersion = storyBibleIndex
           ? (storyBibleIndex.data.review_version ??
             storyBibleIndex.data.accepted_version ??
@@ -1818,20 +2191,73 @@ export function App({ transport }: AppProps) {
         const storyBibleVersion = preferredVersion
           ? await studio.getStoryBibleVersion(projectId, preferredVersion.id)
           : null;
-        if (generation !== storyRequestGeneration.current) return;
+        if (generation !== storyRequestGeneration.current || selectedIdRef.current !== projectId)
+          return;
         setStoryState({
           kind: "ready",
-          manifest,
           storyBibleIndex,
           storyBibleVersion,
         });
       } catch {
-        if (generation !== storyRequestGeneration.current) return;
+        if (generation !== storyRequestGeneration.current || selectedIdRef.current !== projectId)
+          return;
         setStoryState({ kind: "error" });
       }
     },
-    [studio],
+    [studio, loadManifest],
   );
+
+  const runSourceReview = async (
+    action: "submit" | "confirm_baseline" | "copy_draft",
+    rationale: string,
+  ) => {
+    const capability = studio.sourceManifestReview;
+    const identity = selectedId ? sourceReviewIdentity(currentManifest, selectedId) : null;
+    if (!capability || !identity || reviewLocks.current.has(identity.project_id)) return;
+    if (
+      action === "confirm_baseline" &&
+      ([...rationale.trim()].length < 1 || [...rationale.trim()].length > 1000)
+    )
+      return;
+    reviewLocks.current.add(identity.project_id);
+    setReviewRecords((current) => ({
+      ...current,
+      [identity.project_id]: { identity, pending: true },
+    }));
+    let result: SourceManifestReviewOperationResult;
+    let bridgeFailure = false;
+    try {
+      result =
+        action === "submit"
+          ? await capability.submit(identity)
+          : action === "copy_draft"
+            ? await capability.copyDraft(identity)
+            : await capability.confirmBaseline({ ...identity, rationale: rationale.trim() });
+    } catch {
+      // Once the bridge is called, rejection cannot prove that no write occurred.
+      bridgeFailure = true;
+      result = {
+        kind: "REMOTE_UNKNOWN",
+        phase: "preflight",
+        identity,
+        completed_actions: [],
+        receipts: [],
+      };
+    }
+    setReviewRecords((current) => ({
+      ...current,
+      [identity.project_id]: { identity, pending: false, result, bridgeFailure },
+    }));
+    if (result.kind !== "REMOTE_UNKNOWN") reviewLocks.current.delete(identity.project_id);
+    if (
+      selectedIdRef.current === identity.project_id &&
+      (result.kind === "SUCCEEDED" ||
+        result.kind === "STATE_CHANGED" ||
+        result.completed_actions.length > 0)
+    ) {
+      void loadManifest(identity.project_id).catch(() => {});
+    }
+  };
 
   const connect = useCallback(async () => {
     setConnection({ kind: "loading" });
@@ -1904,6 +2330,7 @@ export function App({ transport }: AppProps) {
       });
       if (generation !== sourceRequestGeneration.current) return;
       setImportState({ kind: "success", response });
+      void loadManifest(selectedProject.id).catch(() => {});
       const refreshed = await studio.getProject(selectedProject.id);
       if (generation !== sourceRequestGeneration.current) return;
       setProjects((current) =>
@@ -2078,7 +2505,9 @@ export function App({ transport }: AppProps) {
             <section className="mobile-review-notice" aria-label="移动端审阅模式">
               <span>REVIEW ONLY</span>
               <strong>移动端创作操作已关闭</strong>
-              <p>评论与具名批准将在后续 Gate 增量开放；当前请使用桌面端继续导入、生成或剪辑。</p>
+              <p>
+                此宽度仅供审片与来源审核；来源写动作仍须完整桌面能力及原生确认。导入、生成或剪辑请使用宽屏桌面端。
+              </p>
             </section>
             {(projectRailCollapsed || inspectorCollapsed) && (
               <nav className="workspace-layout-controls" aria-label="工作台布局">
@@ -2125,7 +2554,9 @@ export function App({ transport }: AppProps) {
               />
             )}
             {selectedProject && (
-              <section className="project-stage">
+              <section
+                className={`project-stage${activeWorkspace === "project" ? " has-source-review" : ""}`}
+              >
                 {activeWorkspace === "project" ? (
                   <>
                     <header className="project-hero">
@@ -2152,13 +2583,27 @@ export function App({ transport }: AppProps) {
                       </dl>
                     </header>
                     <SourcePanel state={importState} onFile={importFile} />
+                    <SourceReviewCard
+                      key={`source-review:${selectedProject.id}`}
+                      projectId={selectedProject.id}
+                      state={
+                        manifestState.kind !== "idle" &&
+                        manifestState.projectId === selectedProject.id
+                          ? manifestState
+                          : { kind: "loading", projectId: selectedProject.id }
+                      }
+                      record={reviewRecords[selectedProject.id]}
+                      available={studio.sourceManifestReview !== undefined}
+                      onRefresh={() => void loadManifest(selectedProject.id).catch(() => {})}
+                      onAction={(action, rationale) => void runSourceReview(action, rationale)}
+                    />
                     {importState.kind === "success" && (
                       <>
                         <SourceExtractRunLauncher
                           key={selectedProject.id}
                           projectId={selectedProject.id}
                           source={importState.response}
-                          getManifest={studio.getSourceManifest}
+                          getManifest={loadLauncherManifest}
                           capability={studio.proposalRuns}
                           onOpenQueue={openTaskDrawer}
                         />
@@ -2166,7 +2611,7 @@ export function App({ transport }: AppProps) {
                           key={`fake-timeline:${selectedProject.id}`}
                           project={selectedProject}
                           source={importState.response}
-                          getSourceManifest={studio.getSourceManifest}
+                          getSourceManifest={loadLauncherManifest}
                           capability={studio.fakeTimelineRuns}
                           onOpenQueue={openTaskDrawer}
                         />
@@ -2179,9 +2624,17 @@ export function App({ transport }: AppProps) {
                     project={selectedProject}
                     sourceState={importState}
                     state={storyState}
+                    manifest={currentManifest}
                     getSource={studio.getSource}
                     getStoryBibleVersion={studio.getStoryBibleVersion}
                     onRetry={() => void loadStoryWorkspace(selectedProject.id)}
+                    onReviewSource={() => {
+                      setActiveWorkspace("project");
+                      setProjectRailCollapsed(false);
+                      requestAnimationFrame(() =>
+                        document.getElementById("source-review")?.focus(),
+                      );
+                    }}
                   />
                 ) : activeWorkspace === "edit" ? (
                   <TimelineWorkspace

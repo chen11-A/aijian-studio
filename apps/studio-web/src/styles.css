@@ -2790,6 +2790,110 @@ button:disabled {
   }
 }
 
+.source-review-card {
+  min-width: 0;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: var(--line-body);
+  overflow-wrap: anywhere;
+}
+
+.source-review-card h3,
+.source-review-card h4,
+.source-review-card p,
+.source-review-card dl {
+  margin: 0 0 0.75rem;
+}
+
+.source-review-card h3 {
+  font-size: 20px;
+}
+.source-review-card h4 {
+  font-size: 16px;
+}
+.source-review-card header > span,
+.source-review-card h4 span,
+.source-review-card dt,
+.source-review-card .source-review-help {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.source-review-card dd {
+  margin: 0 0 0.5rem;
+}
+.source-review-versions {
+  display: grid;
+  gap: 1rem;
+}
+.source-review-versions article,
+.source-review-result {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-raised);
+  border-radius: 8px;
+}
+.source-review-rationale {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.source-review-card textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 6rem;
+  resize: vertical;
+  padding: 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--panel-raised);
+  font: inherit;
+}
+.source-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.source-review-card button {
+  min-height: 44px;
+  font-size: 16px;
+  white-space: normal;
+}
+.source-review-card :focus-visible,
+.source-review-card:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.source-review-card summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 480px) {
+  .project-stage.has-source-review {
+    display: block;
+    min-width: 0;
+  }
+  .project-stage.has-source-review > :not(.source-review-card) {
+    display: none;
+  }
+  .source-review-card {
+    margin-top: 0;
+    padding: 1rem;
+  }
+  .source-review-actions {
+    flex-direction: column;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
