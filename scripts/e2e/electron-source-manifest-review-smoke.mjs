@@ -341,7 +341,7 @@ async function workflow() {
     (await realpath(developmentRoot)).toLowerCase(),
     join(repositoryReal, ".aijian-dev").toLowerCase(),
   );
-  const evidenceRoot = join(developmentRoot, "m3-g1-c1");
+  const evidenceRoot = join(developmentRoot, "m3-g1-c2");
   await mkdir(evidenceRoot, { recursive: true });
   within(await realpath(developmentRoot), await realpath(evidenceRoot));
   evidenceDirectory = await mkdtemp(join(evidenceRoot, "runtime-"));
@@ -451,6 +451,62 @@ async function workflow() {
       expected_revision: manifest.data.head.revision,
     };
   });
+  const reviewCard = window.getByRole("region", { name: "来源审核" });
+  await reviewCard.getByRole("article", { name: "最新版本" }).waitFor();
+  evidence.reviewIdentityUi = await reviewCard.innerText();
+  for (const value of [
+    evidence.identity.project_id,
+    evidence.identity.version_id,
+    evidence.identity.content_hash,
+    `REV ${evidence.identity.expected_revision}`,
+  ]) {
+    assert(evidence.reviewIdentityUi.includes(value), `Visible source review must show ${value}`);
+  }
+  assert(evidence.reviewIdentityUi.includes("草稿，尚未批准"));
+  assert(evidence.reviewIdentityUi.includes("尚无已批准基线"));
+  await reviewCard.getByRole("textbox", { name: /确认基线的理由/ }).focus();
+  await window.keyboard.press("Tab");
+  evidence.keyboardFocus = await window.evaluate(() => ({
+    label: document.activeElement.textContent,
+    outlineStyle: getComputedStyle(document.activeElement).outlineStyle,
+    outlineWidth: getComputedStyle(document.activeElement).outlineWidth,
+  }));
+  assert.equal(evidence.keyboardFocus.label, "送审来源版本");
+  assert.equal(evidence.keyboardFocus.outlineStyle, "solid");
+  assert(parseFloat(evidence.keyboardFocus.outlineWidth) >= 2);
+  evidence.reviewTypography = await reviewCard.evaluate((card) => {
+    const luminance = (color) => {
+      const channels = color
+        .match(/[\d.]+/g)
+        .slice(0, 3)
+        .map(Number)
+        .map((value) => {
+          const channel = value / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    return Array.from(card.querySelectorAll("p, dt, dd, h3, h4")).map((element) => {
+      const style = getComputedStyle(element);
+      let surface = element;
+      while (getComputedStyle(surface).backgroundColor === "rgba(0, 0, 0, 0)")
+        surface = surface.parentElement;
+      const foreground = luminance(style.color);
+      const background = luminance(getComputedStyle(surface).backgroundColor);
+      return {
+        tag: element.tagName,
+        fontSize: parseFloat(style.fontSize),
+        color: style.color,
+        background: getComputedStyle(surface).backgroundColor,
+        contrast:
+          (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      };
+    });
+  });
+  assert(evidence.reviewTypography.every((item) => item.fontSize >= 14 && item.contrast >= 4.5));
+  assert(evidence.reviewTypography.every((item) => item.scrollWidth <= item.clientWidth));
   await window.screenshot({
     path: join(evidenceDirectory, "renderer-imported-1440x900.png"),
     timeout: 5_000,
@@ -458,6 +514,14 @@ async function workflow() {
   evidence.screenshots.push({
     file: "renderer-imported-1440x900.png",
     scope: "Renderer page only, not Windows native dialog",
+  });
+  await reviewCard.screenshot({
+    path: join(evidenceDirectory, "renderer-source-review-card-1440.png"),
+    timeout: 5_000,
+  });
+  evidence.screenshots.push({
+    file: "renderer-source-review-card-1440.png",
+    scope: "Full Renderer card at a verified 1440x900 viewport; not a native-dialog image",
   });
   await rememberRunningTree(vite);
   await rememberRunningTree(electronProcess);
@@ -468,7 +532,7 @@ async function workflow() {
   );
   ownedPorts = await portsFor(ownedProcesses);
   evidence.ownedPorts = ownedPorts;
-  step("install transparent native dialog observation and invoke actual preload");
+  step("install transparent native dialog observation and click the visible source-review button");
   await application.evaluate(({ dialog }) => {
     const original = dialog.showMessageBox;
     const state = {
@@ -514,11 +578,7 @@ async function workflow() {
       return promise;
     };
   });
-  const pendingReview = window.evaluate(
-    (input) => globalThis.aijian.submitSourceManifest(input),
-    evidence.identity,
-  );
-  pendingReview.catch(() => {});
+  await reviewCard.getByRole("button", { name: "送审来源版本", exact: true }).click();
   await waitUntil(
     () => application.evaluate(() => globalThis.__c1NativeObservation.calls.length === 1),
     "real native dialog start",
@@ -534,11 +594,52 @@ async function workflow() {
     30_000,
   );
   try {
-    evidence.operationResult = await bounded(
-      pendingReview,
+    await bounded(
+      reviewCard.getByLabel("来源审核结果").waitFor({ timeout: 320_000 }),
       "production native cancellation",
       320_000,
     );
+    evidence.operationResultSource =
+      "Visible Renderer result and safe receipt fields; no bridge result interception";
+    evidence.operationResult = await reviewCard.getByLabel("来源审核结果").evaluate((element) => {
+      const paragraphs = Array.from(element.querySelectorAll(":scope > p")).map(
+        (item) => item.textContent,
+      );
+      const completed = paragraphs.find((value) => value.startsWith("已完成动作："));
+      const actionNames = {
+        送审: "submit",
+        签署: "signoff",
+        批准: "decision",
+        复制草稿: "copy_draft",
+      };
+      return {
+        kind: element.dataset.kind,
+        phase: element.dataset.phase,
+        completed_actions:
+          completed === "已完成动作：无"
+            ? []
+            : completed
+                .replace("已完成动作：", "")
+                .split("、")
+                .map((value) => actionNames[value]),
+        receipts: Array.from(element.querySelectorAll("details")).map((receipt) =>
+          Object.fromEntries(
+            Array.from(receipt.querySelectorAll("dl > div")).map((row) => {
+              const key = row.querySelector("dt").textContent;
+              const value = row.querySelector("dd").textContent;
+              return [
+                key,
+                value === "无"
+                  ? null
+                  : ["head_revision", "review_evidence_revision"].includes(key)
+                    ? Number(value)
+                    : value,
+              ];
+            }),
+          ),
+        ),
+      };
+    });
   } finally {
     clearInterval(heartbeat);
   }
@@ -571,6 +672,39 @@ async function workflow() {
     file: "renderer-after-expiry-1440x900.png",
     scope: "Renderer page only, not Windows native dialog",
   });
+  step("verify continued browsing and the actual narrow Renderer size");
+  await window.getByRole("button", { name: /故事工坊/ }).click();
+  await window.getByRole("heading", { name: "来源尚未验收" }).waitFor();
+  await window.getByRole("button", { name: "前往来源审核" }).click();
+  await reviewCard.getByText("确认已超时", { exact: true }).waitFor();
+  evidence.continuedBrowsingAfterCancel = true;
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(390, 900),
+  );
+  evidence.narrowLayout = await window.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+    pageWidth: document.documentElement.scrollWidth,
+  }));
+  evidence.narrow390Accepted = evidence.narrowLayout.width === 390;
+  if (evidence.narrow390Accepted) {
+    assert(evidence.narrowLayout.pageWidth <= 390);
+    assert(await reviewCard.isVisible());
+    assert.equal(await window.getByLabel("选择 TXT 文件").isVisible(), false);
+  } else {
+    evidence.narrowLimitation =
+      "Native window minimum prevented a true 390px Renderer; this run does not accept 390px layout";
+  }
+  await reviewCard.scrollIntoViewIfNeeded();
+  const narrowScreenshot = `renderer-review-narrow-actual-${evidence.narrowLayout.width}.png`;
+  await window.screenshot({ path: join(evidenceDirectory, narrowScreenshot), timeout: 5_000 });
+  evidence.screenshots.push({
+    file: narrowScreenshot,
+    scope: "Renderer only; actual size is recorded, not assumed 390px",
+  });
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(1440, 900),
+  );
   assert.equal(
     evidence.rendererDiagnostics.filter(
       (item) => item.type === "pageerror" || item.type === "error",
