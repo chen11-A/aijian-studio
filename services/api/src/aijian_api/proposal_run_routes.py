@@ -22,11 +22,11 @@ from aijian_api.contracts import (
     ProposalRunResponse,
     ProposalRunTaskData,
 )
-from aijian_api.source_extract_run_factory import SourceExtractRunFactory
+from aijian_api.proposal_run_factory import ProposalRunFactory
 from aijian_api.task_ledger import LocalTaskLedger
 
 type StoreProvider = Callable[[], AgentRunStore]
-type RunFactoryProvider = Callable[[], SourceExtractRunFactory]
+type RunFactoryProvider = Callable[[], ProposalRunFactory]
 type LedgerProvider = Callable[[], LocalTaskLedger]
 type ProjectIdPath = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
 type AgentRunIdPath = Annotated[str, Path(pattern=AGENT_RUN_ID_PATTERN)]

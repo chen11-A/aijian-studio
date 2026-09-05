@@ -27,6 +27,14 @@ SOURCE_EXTRACT_REF = DefinitionRefV1(
     definition_id="source.extract",
     version="1.0.0",
 )
+SHOT_PLANNER_REF = DefinitionRefV1(
+    definition_id="director.shot-planner",
+    version="1.0.0",
+)
+SHOT_OUTLINE_REF = DefinitionRefV1(
+    definition_id="shot.outline",
+    version="1.0.0",
+)
 
 
 class SourceExtractionPayloadV1(BaseModel):
@@ -82,11 +90,58 @@ SOURCE_EXTRACT = SkillDefinitionV1(
     ),
 )
 
+SHOT_PLANNER = AgentDefinitionV1(
+    agent_definition_id=SHOT_PLANNER_REF.definition_id,
+    version=SHOT_PLANNER_REF.version,
+    display_name="导演 Agent · 分镜规划",
+    role="director",
+    layer="EXECUTION",
+    responsibilities=("生成八镜头开发提案", "保持镜头建议与来源证据关联"),
+    forbidden_actions=(
+        "直接写入 ArtifactVersion",
+        "代替具名人类审批",
+        "直接调用 Provider 或读取凭据",
+    ),
+    skill_refs=(SHOT_OUTLINE_REF,),
+    default_policy_version="policy.local-safe@1.0.0",
+    context_policy_version="context.progressive-five-layer@1.0.0",
+    compatibility=ContractCompatibilityV1(
+        minimum_schema_version="1.0.0",
+        maximum_schema_version="1.0.0",
+    ),
+)
+
+SHOT_OUTLINE = SkillDefinitionV1(
+    skill_definition_id=SHOT_OUTLINE_REF.definition_id,
+    version=SHOT_OUTLINE_REF.version,
+    display_name="八镜头提纲",
+    input_schema_ref="schema://aijian/ShotOutlineInput/1.0.0",
+    output_schema_ref="schema://aijian/ShotOutlineProposal/1.0.0",
+    readable_artifact_types=("SourceManifest",),
+    allowed_tools=("source.read",),
+    allowed_provider_capabilities=("LOCAL_FAKE_TEXT",),
+    budget=BudgetPolicyV1(
+        soft_limit_micros=0,
+        hard_limit_micros=0,
+        retry_increment_limit_micros=0,
+    ),
+    timeout_seconds=30,
+    max_attempts=2,
+    required_gate="G1A",
+    invalidation_edges=("SourceManifest->ShotOutline",),
+    ui_renderer="proposal.shot-outline",
+    fixture_refs=("fixture://agent-skill/contracts-v1",),
+    compatibility=ContractCompatibilityV1(
+        minimum_schema_version="1.0.0",
+        maximum_schema_version="1.0.0",
+    ),
+)
+
 
 def built_in_agent_skill_registry() -> AgentSkillRegistry:
     return AgentSkillRegistry(
-        agents=(AgentRegistration(SOURCE_ANALYST),),
-        skills=(SkillRegistration(SOURCE_EXTRACT),),
+        agents=(AgentRegistration(SOURCE_ANALYST), AgentRegistration(SHOT_PLANNER)),
+        skills=(SkillRegistration(SOURCE_EXTRACT), SkillRegistration(SHOT_OUTLINE)),
     )
 
 

@@ -33,11 +33,13 @@ from aijian_api.fake_agent_executor import (
     FakeSkillTimeoutError,
 )
 from aijian_api.repository import StudioRepository
+from aijian_api.shot_outline_worker import create_shot_outline_executor
 from aijian_api.source_extract_run_factory import (
     SourceExtractEnqueueIntentV1,
     resolve_source_extract_context,
 )
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger
+from aijian_api.task_ledger_models import timestamp, utc_now
 
 _LOGGER = logging.getLogger(__name__)
 _FAKE_TASK_KIND = "local.agent-skill.fake"
@@ -433,6 +435,14 @@ class LocalFakeSourceExtractWorker:
             handler_timeout=handler_timeout,
             stop_requested=self._stop.is_set,
         )
+        self._shot_outline_executor = create_shot_outline_executor(
+            self._database_path,
+            worker_id=self._worker_id,
+            lease_duration=lease_duration,
+            handler_timeout=handler_timeout,
+            heartbeat_interval=timedelta(milliseconds=250),
+            stop_requested=self._stop.is_set,
+        )
         self._thread = threading.Thread(
             target=self._run,
             name="aijian-local-fake-source-extract",
@@ -477,8 +487,11 @@ class LocalFakeSourceExtractWorker:
                         },
                     )
                     next_recovery = monotonic() + self._recovery_seconds
-                if self._executor.run_once():
-                    continue
+                selected = self._next_supported_ready_task()
+                if selected is not None:
+                    task_id, executor = selected
+                    if executor.run_once(task_id=task_id):
+                        continue
             except FakeSkillShutdownRequested:
                 break
             except Exception as error:
@@ -499,3 +512,45 @@ class LocalFakeSourceExtractWorker:
         _LOGGER.info(
             "local Fake source.extract worker stopped", extra={"worker_id": self._worker_id}
         )
+
+    def _next_supported_ready_task(self) -> tuple[str, FakeAgentSkillExecutor] | None:
+        connection = sqlite3.connect(
+            self._database_path,
+            timeout=_WORKER_DATABASE_TIMEOUT.total_seconds(),
+        )
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT task.task_id, snapshot.snapshot_json
+                FROM task_ledger AS task
+                JOIN workflow_attempts AS attempt ON attempt.attempt_id = task.attempt_id
+                JOIN workflow_node_runs AS node ON node.node_run_id = attempt.node_run_id
+                JOIN workflow_attempt_snapshots AS snapshot
+                  ON snapshot.attempt_id = attempt.attempt_id
+                WHERE task.status = 'READY' AND task.task_kind = ?
+                  AND task.available_at <= ?
+                  AND attempt.execution_mode = 'local' AND attempt.status = 'READY'
+                  AND node.status = 'PENDING' AND snapshot.snapshot_kind = 'agent_skill_v1'
+                  AND json_extract(snapshot.snapshot_json, '$.output_artifact_type')
+                      IN ('SourceExtraction', 'ShotOutline')
+                ORDER BY task.priority DESC, task.created_at, task.task_id
+                LIMIT 1
+                """,
+                (_FAKE_TASK_KIND, timestamp(utc_now())),
+            ).fetchall()
+        finally:
+            connection.close()
+        for row in rows:
+            try:
+                snapshot = json.loads(str(row["snapshot_json"]))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(snapshot, dict):
+                continue
+            output_type = snapshot.get("output_artifact_type")
+            if output_type == "SourceExtraction":
+                return str(row["task_id"]), self._executor
+            if output_type == "ShotOutline":
+                return str(row["task_id"]), self._shot_outline_executor
+        return None

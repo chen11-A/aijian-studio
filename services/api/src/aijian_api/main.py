@@ -88,6 +88,7 @@ from aijian_api.invalidation_routes import (
     create_invalidation_router,
 )
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
+from aijian_api.proposal_run_factory import ProposalRunFactory
 from aijian_api.proposal_run_routes import (
     create_proposal_run_router,
     create_proposal_run_write_router,
@@ -113,7 +114,6 @@ from aijian_api.repository import (
     StudioRepository,
 )
 from aijian_api.security import SecurityFailure, SidecarSecurity
-from aijian_api.source_extract_run_factory import SourceExtractRunFactory
 from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
@@ -251,8 +251,8 @@ def create_app(
     def get_artifact_proposal_rejection_service() -> ArtifactProposalRejectionService:
         return ArtifactProposalRejectionService(get_repository().database_path)
 
-    def get_source_extract_run_factory() -> SourceExtractRunFactory:
-        return SourceExtractRunFactory(get_repository(), resolved_agent_skill_registry)
+    def get_proposal_run_factory() -> ProposalRunFactory:
+        return ProposalRunFactory(get_repository(), resolved_agent_skill_registry)
 
     def get_fake_timeline_run_factory() -> FakeTimelineRunFactory:
         if resolved_fake_timeline_run_factory is None:
@@ -852,7 +852,7 @@ def create_app(
         app.include_router(create_fake_timeline_run_write_router(get_fake_timeline_run_factory))
         app.include_router(
             create_proposal_run_write_router(
-                get_source_extract_run_factory,
+                get_proposal_run_factory,
                 get_agent_run_store,
                 get_task_ledger,
                 trusted_review_actor.subject_id,
