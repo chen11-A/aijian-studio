@@ -19,7 +19,7 @@
   -> 审片、修改、导出
 ```
 
-AI Agent 负责提出方案和生成结构化产物；确定性工作流负责状态、依赖、版本、审批、重试和恢复。任何 Agent 都不能绕过审批门直接发布成片。
+AI Agent 负责提出方案和生成结构化产物；确定性工作流负责状态、依赖、版本、审批、重试和恢复。任何 Agent 都不能绕过审批门直接发布成片。普通用户看到的是故事、角色、分镜、生成、审片、导出；专业用户展开同一份数据。
 
 ## 三种使用方式
 
@@ -43,9 +43,13 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 
 ## 设计资料
 
+- [产品与系统总体方案（v0.2 overlay）](docs/product/overall-system-proposal.md)
 - [产品需求规格](docs/product/PRD.md)
 - [系统架构与部署](docs/architecture/system-architecture.md)
 - [确定性工作流与 Agent 协作](docs/architecture/workflow-and-agents.md)
+- [ADR-0005 普通/专业双视图](docs/architecture/ADR-0005-casual-professional-views.md)
+- [ADR-0006 整轮审片与 ChangePlan](docs/architecture/ADR-0006-review-round-and-change-plan.md)
+- [审片与修改计划契约](docs/contracts/review-annotation-and-change-plan.md)
 - [GitHub 开源项目审计](docs/research/github-landscape-2026-08.md)
 - [48 周交付路线图](docs/roadmap/48-week-plan.md)
 - [首个 8 周可执行任务](docs/roadmap/phase-0-backlog.md)
@@ -59,3 +63,5 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 3. 提示词是编译产物：先保存镜头意图，再针对不同供应商生成具体提示词。
 4. ChatGPT 和 Grok 网页会员通常不能替代开发者 API；软件支持用户自带 API Key，也支持 OpenAI-compatible 服务。
 5. 桌面、服务器和手机使用同一领域模型与 API 契约，不维护三套业务逻辑。
+6. 普通模式与专业模式是同一 `project_id` 的两套 UI；切换不得复制项目或触发重新生成。
+7. 审片批注保存后继续播放；整轮审核完成后再生成统一修改方案。发布权始终在人。
