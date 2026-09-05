@@ -22,7 +22,7 @@ const project = {
 } satisfies ProjectData;
 
 test.each([
-  [{ kind: "empty" }, "未导入", "导入小说原文", "project"],
+  [{ kind: "empty" }, "未导入", "导入小说原文", "source"],
   [{ kind: "loading" }, "读取中", "正在读取来源状态", null],
   [{ kind: "error" }, "读取失败", "恢复来源审核", "source-review"],
   [{ kind: "inconsistent" }, "身份不一致", "核对来源审核", "source-review"],
@@ -68,6 +68,17 @@ test.each(["draft", "review"] as const)(
     expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
   },
 );
+
+test("keeps G0 overview navigation separate from empty-source import navigation", () => {
+  const onNext = vi.fn();
+  render(<ProductionStageBar source={{ kind: "empty" }} onNext={onNext} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "下一步：导入小说原文" }));
+  expect(onNext).toHaveBeenLastCalledWith("source");
+
+  fireEvent.click(screen.getByRole("button", { name: /G0 立项/ }));
+  expect(onNext).toHaveBeenLastCalledWith("project");
+});
 
 test("keeps the inspector collapsible without inventing proposal data", () => {
   const toggle = vi.fn();

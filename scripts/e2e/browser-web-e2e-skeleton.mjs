@@ -273,6 +273,12 @@ async function runUi01(page) {
   await page.getByRole("textbox", { name: "项目名称" }).fill("1");
   await page.getByRole("button", { name: "创建项目" }).click();
   await page.getByRole("heading", { name: "1", exact: true }).waitFor();
+  const projectBodyFontSize = await page
+    .locator(".project-hero p")
+    .evaluate((element) => globalThis.getComputedStyle(element).fontSize);
+  const projectNavigation = page.getByRole("navigation", { name: "项目工作台" });
+  await projectNavigation.getByRole("button", { name: "原文", exact: true }).click();
+  await page.getByRole("heading", { name: "来源追踪", exact: true }).waitFor();
   const modelApiTrigger = page.getByRole("button", { name: "打开模型与 API", exact: true });
   if ((await modelApiTrigger.textContent())?.trim() !== "模型与 API") {
     throw new Error("The Provider-only global entry must be honestly named 模型与 API");
@@ -281,25 +287,15 @@ async function runUi01(page) {
   await page.getByRole("button", { name: "收起属性检查器" }).click();
   await page.getByRole("navigation", { name: "工作台布局" }).waitFor();
   const inspectShell = async () =>
-    page.evaluate(() => {
+    page.evaluate((bodyFontSize) => {
       const rail = globalThis.document.querySelector('[aria-label="展开项目栏"]');
       const inspector = globalThis.document.querySelector('[aria-label="展开属性检查器"]');
       const toolbar = globalThis.document.querySelector(".workspace-layout-controls");
       const stage = globalThis.document.querySelector(".project-stage");
       const sourceHeading = globalThis.document.querySelector(".preview-placeholder h3");
       const sourceBody = globalThis.document.querySelector(".preview-placeholder p");
-      const projectBody = globalThis.document.querySelector(".project-hero p");
       const stageMeta = globalThis.document.querySelector(".production-stage small");
-      if (
-        !rail ||
-        !inspector ||
-        !toolbar ||
-        !stage ||
-        !sourceHeading ||
-        !sourceBody ||
-        !projectBody ||
-        !stageMeta
-      )
+      if (!rail || !inspector || !toolbar || !stage || !sourceHeading || !sourceBody || !stageMeta)
         return null;
       const contrastAgainstPanel = (color) => {
         const channels = color
@@ -339,13 +335,13 @@ async function runUi01(page) {
         stageTop: stageRect.top,
         sourceTitle: sourceHeading.textContent,
         sourceBodyFontSize: globalThis.getComputedStyle(sourceBody).fontSize,
-        projectBodyFontSize: globalThis.getComputedStyle(projectBody).fontSize,
+        projectBodyFontSize: bodyFontSize,
         sourceBodyColor: globalThis.getComputedStyle(sourceBody).color,
         sourceBodyContrast: contrastAgainstPanel(globalThis.getComputedStyle(sourceBody).color),
         stageMetaFontSize: globalThis.getComputedStyle(stageMeta).fontSize,
         stageMetaContrast: contrastAgainstPanel(globalThis.getComputedStyle(stageMeta).color),
       };
-    });
+    }, projectBodyFontSize);
   const regressionLayouts = {};
   for (const target of [
     { width: 1920, height: 1080, name: "1920x1080", path: regression1920Path },
@@ -411,6 +407,8 @@ async function runUi01(page) {
     throw new Error(`Imported source body typography regression: ${sourceBodyFontSize}`);
   }
   mark("ui01:fake-generation-and-trim");
+  await projectNavigation.getByRole("button", { name: "试制", exact: true }).click();
+  await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).waitFor();
   await page.getByRole("button", { name: "生成 Fake 分镜时间线" }).click();
   await page.getByText("3 个镜头 · REV 1").waitFor();
   await page.getByRole("button", { name: "查看任务记录" }).click();

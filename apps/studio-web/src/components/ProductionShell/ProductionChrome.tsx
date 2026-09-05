@@ -8,7 +8,7 @@ export type ProductionSourceStage =
   | { kind: "loading" | "error" | "inconsistent" | "empty" }
   | { kind: "draft" | "review"; acceptedVersionNumber: number | null }
   | { kind: "approved"; versionNumber: number };
-type ProductionNavigationTarget = "project" | "source-review" | "story";
+type ProductionNavigationTarget = "project" | "source" | "source-review" | "story";
 
 interface ProductionStageBarProps {
   source: ProductionSourceStage;
@@ -41,7 +41,7 @@ function sourceNavigation(source: ProductionSourceStage): {
         target: "source-review",
       };
     case "empty":
-      return { status: "未导入", tone: "active", label: "导入小说原文", target: "project" };
+      return { status: "未导入", tone: "active", label: "导入小说原文", target: "source" };
     case "approved":
       return { status: "已批准", tone: "approved", label: "审阅故事证据", target: "story" };
     case "draft":

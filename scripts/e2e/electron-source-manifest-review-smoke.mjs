@@ -436,6 +436,9 @@ async function workflow() {
   await window.getByRole("textbox", { name: "项目名称" }).fill("C1 原生取消合成验收");
   await window.getByRole("button", { name: "创建项目", exact: true }).click();
   await window.getByRole("heading", { name: "C1 原生取消合成验收", exact: true }).waitFor();
+  const projectNavigation = window.getByRole("navigation", { name: "项目工作台" });
+  await projectNavigation.getByRole("button", { name: "原文", exact: true }).click();
+  await window.getByRole("heading", { name: "来源追踪", exact: true }).waitFor();
   await window.getByLabel("选择 TXT 文件").setInputFiles(syntheticPath);
   await window.getByText("synthetic-source.txt", { exact: true }).first().waitFor();
   evidence.identity = await window.evaluate(async () => {
@@ -451,6 +454,7 @@ async function workflow() {
       expected_revision: manifest.data.head.revision,
     };
   });
+  await projectNavigation.getByRole("button", { name: "来源审核", exact: true }).click();
   const reviewCard = window.getByRole("region", { name: "来源审核" });
   await reviewCard.getByRole("article", { name: "最新版本" }).waitFor();
   evidence.reviewIdentityUi = await reviewCard.innerText();
@@ -494,18 +498,29 @@ async function workflow() {
     );
     const observed = await window.evaluate(() => {
       const card = document.getElementById("source-review");
+      const stage = card.closest(".project-stage");
       const bounds = card.getBoundingClientRect();
+      const stageBounds = stage?.getBoundingClientRect();
       return {
         focusedId: document.activeElement.id,
         scrollY,
         top: bounds.top,
         bottom: bounds.bottom,
         viewportHeight: innerHeight,
+        stageTop: stageBounds?.top ?? null,
+        stageBottom: stageBounds?.bottom ?? null,
+        stageScrollTop: stage?.scrollTop ?? null,
+        stageOverflowY: stage ? getComputedStyle(stage).overflowY : null,
       };
     });
     assert.equal(observed.focusedId, "source-review");
     assert(
-      observed.scrollY > 0 &&
+      observed.scrollY === 0 &&
+        observed.stageOverflowY === "auto" &&
+        observed.stageTop !== null &&
+        observed.stageBottom !== null &&
+        observed.stageTop <= observed.top + 1 &&
+        observed.top < observed.stageBottom &&
         observed.top >= -1 &&
         observed.top < observed.viewportHeight &&
         observed.bottom > 0,

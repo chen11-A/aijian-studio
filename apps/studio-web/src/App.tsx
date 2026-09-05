@@ -41,6 +41,7 @@ type ImportState =
   | { kind: "error"; message: string };
 type WorkspaceView =
   "project" | "story" | "director" | "assets" | "generate" | "edit" | "publish" | "settings";
+type ProjectWorkspacePage = "overview" | "source" | "review" | "trial";
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -1700,6 +1701,16 @@ function sourceReviewIdentity(
   };
 }
 
+function sourceReviewRationaleKey(
+  manifest: SourceManifestResponse | null | undefined,
+  projectId: string,
+): string {
+  const identity = sourceReviewIdentity(manifest ?? null, projectId);
+  return identity
+    ? `${identity.project_id}:${identity.version_id}:${identity.content_hash}`
+    : `${projectId}:pending`;
+}
+
 const reviewActionLabels: Record<SourceManifestReviewAction, string> = {
   submit: "送审",
   signoff: "签署",
@@ -1721,6 +1732,8 @@ function SourceReviewCard({
   projectId,
   state,
   record,
+  rationale,
+  onRationaleChange,
   available,
   onRefresh,
   onAction,
@@ -1728,11 +1741,12 @@ function SourceReviewCard({
   projectId: string;
   state: ManifestState;
   record?: ReviewRecord;
+  rationale: string;
+  onRationaleChange(value: string): void;
   available: boolean;
   onRefresh(): void;
   onAction(action: "submit" | "confirm_baseline" | "copy_draft", rationale: string): void;
 }) {
-  const [rationale, setRationale] = useState("");
   const manifest = state.kind === "ready" && state.projectId === projectId ? state.response : null;
   const identity = sourceReviewIdentity(manifest, projectId);
   const result = record?.result;
@@ -1831,7 +1845,7 @@ function SourceReviewCard({
         <textarea
           id="source-review-rationale"
           value={rationale}
-          onChange={(event) => setRationale(event.target.value)}
+          onChange={(event) => onRationaleChange(event.target.value)}
           disabled={busy || unknown || !available}
           aria-describedby="source-review-rationale-help"
         />
@@ -1976,9 +1990,11 @@ export function App({ transport }: AppProps) {
   const [createError, setCreateError] = useState<string | null>(null);
   const [importState, setImportState] = useState<ImportState>({ kind: "idle" });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
+  const [projectPage, setProjectPage] = useState<ProjectWorkspacePage>("overview");
   const [storyState, setStoryState] = useState<StoryWorkspaceState>({ kind: "idle" });
   const [manifestState, setManifestState] = useState<ManifestState>({ kind: "idle" });
   const [reviewRecords, setReviewRecords] = useState<Record<string, ReviewRecord>>({});
+  const [reviewRationales, setReviewRationales] = useState<Record<string, string>>({});
   const reviewLocks = useRef(new Set<string>());
   const manifestRequestGeneration = useRef(0);
   const selectedIdRef = useRef(selectedId);
@@ -2026,6 +2042,14 @@ export function App({ transport }: AppProps) {
     () => studio.getSourceManifest.bind(studio),
     [studio, selectedId, manifestRevision],
   );
+  const reviewRationaleKey = selectedProject
+    ? sourceReviewRationaleKey(
+        manifestState.kind !== "idle" && manifestState.projectId === selectedProject.id
+          ? manifestState.response
+          : null,
+        selectedProject.id,
+      )
+    : null;
 
   const loadManifest = useCallback(
     async (projectId: string) => {
@@ -2069,10 +2093,10 @@ export function App({ transport }: AppProps) {
 
   const openSourceReview = useCallback(() => {
     setActiveWorkspace("project");
+    setProjectPage("review");
     setProjectRailCollapsed(false);
     requestAnimationFrame(() => {
       const card = document.getElementById("source-review");
-      card?.scrollIntoView?.({ block: "start" });
       card?.focus({ preventScroll: true });
     });
   }, []);
@@ -2302,6 +2326,7 @@ export function App({ transport }: AppProps) {
       setProductionControlTab("tasks");
       setSelectedId(nextProjectId);
       setActiveWorkspace("project");
+      setProjectPage("overview");
       setStoryState({ kind: "idle" });
       setWorkspaceReady(true);
       if (nextProjectId) await restoreLatestSource(nextProjectId);
@@ -2330,6 +2355,7 @@ export function App({ transport }: AppProps) {
       setSelectedId(response.data.id);
       setImportState({ kind: "idle" });
       setActiveWorkspace("project");
+      setProjectPage("overview");
       setStoryState({ kind: "idle" });
       setDialogOpen(false);
     } catch {
@@ -2412,7 +2438,10 @@ export function App({ transport }: AppProps) {
                     : () => {
                         setActiveWorkspace(item.id);
                         if (item.id === "edit") setProjectRailCollapsed(true);
-                        if (item.id === "project") setProjectRailCollapsed(false);
+                        if (item.id === "project") {
+                          setProjectRailCollapsed(false);
+                          setProjectPage("overview");
+                        }
                         if (item.id === "story" && selectedProject) {
                           void loadStoryWorkspace(selectedProject.id);
                         }
@@ -2486,139 +2515,173 @@ export function App({ transport }: AppProps) {
           </div>
         </header>
 
-        {selectedProject && activeWorkspace !== "settings" && (
-          <ProductionStageBar
-            source={sourceStage}
-            onNext={(target) => {
-              if (target === "source-review") {
-                openSourceReview();
-                return;
-              }
-              setActiveWorkspace(target);
-              if (target === "project") setProjectRailCollapsed(false);
-              if (target === "story") void loadStoryWorkspace(selectedProject.id);
-            }}
-          />
-        )}
+        <div className="workspace-body">
+          {selectedProject && activeWorkspace !== "settings" && (
+            <ProductionStageBar
+              source={sourceStage}
+              onNext={(target) => {
+                if (target === "source-review") {
+                  openSourceReview();
+                  return;
+                }
+                setActiveWorkspace(target === "source" ? "project" : target);
+                if (target === "project") {
+                  setProjectRailCollapsed(false);
+                  setProjectPage("overview");
+                }
+                if (target === "source") {
+                  setProjectRailCollapsed(false);
+                  setProjectPage("source");
+                }
+                if (target === "story") void loadStoryWorkspace(selectedProject.id);
+              }}
+            />
+          )}
 
-        {connection.kind === "error" && (
-          <section className="connection-error">
-            <div>
-              <span className="eyebrow">ENGINE OFFLINE</span>
-              <h2>创作引擎未连接</h2>
-              <p>本地项目没有被修改。重新连接后可以继续。</p>
-            </div>
-            <button className="secondary-button" onClick={() => void connect()}>
-              重新连接
-            </button>
-          </section>
-        )}
-
-        {connection.kind !== "error" && !workspaceReady && (
-          <section className="workspace-loading" aria-label="正在载入项目">
-            <span />
-            <span />
-            <span />
-          </section>
-        )}
-
-        {workspaceReady && activeWorkspace === "settings" && (
-          <ProviderSettingsWorkspace
-            listConnections={studio.listProviderConnections}
-            createConnection={studio.createProviderConnection}
-            deleteConnection={studio.deleteProviderConnection}
-          />
-        )}
-
-        {workspaceReady && activeWorkspace !== "settings" && projects.length === 0 && (
-          <EmptyWorkspace onCreate={() => setDialogOpen(true)} />
-        )}
-
-        {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
-          <div
-            className={`project-workspace${projectRailCollapsed ? " rail-collapsed" : ""}${inspectorCollapsed ? " inspector-collapsed" : ""}`}
-          >
-            <section className="mobile-review-notice" aria-label="移动端审阅模式">
-              <span>REVIEW ONLY</span>
-              <strong>移动端创作操作已关闭</strong>
-              <p>
-                此宽度仅供审片与来源审核；来源写动作仍须完整桌面能力及原生确认。导入、生成或剪辑请使用宽屏桌面端。
-              </p>
+          {connection.kind === "error" && (
+            <section className="connection-error">
+              <div>
+                <span className="eyebrow">ENGINE OFFLINE</span>
+                <h2>创作引擎未连接</h2>
+                <p>本地项目没有被修改。重新连接后可以继续。</p>
+              </div>
+              <button className="secondary-button" onClick={() => void connect()}>
+                重新连接
+              </button>
             </section>
-            {(projectRailCollapsed || inspectorCollapsed) && (
-              <nav className="workspace-layout-controls" aria-label="工作台布局">
-                {projectRailCollapsed ? (
-                  <button
-                    type="button"
-                    onClick={() => setProjectRailCollapsed(false)}
-                    aria-label="展开项目栏"
-                    aria-expanded="false"
-                  >
-                    <span aria-hidden="true">›</span>
-                    展开项目栏
-                  </button>
-                ) : (
-                  <span />
-                )}
-                {inspectorCollapsed ? (
-                  <button
-                    type="button"
-                    onClick={() => setInspectorCollapsed(false)}
-                    aria-label="展开属性检查器"
-                    aria-expanded="false"
-                  >
-                    展开属性检查器
-                    <span aria-hidden="true">‹</span>
-                  </button>
-                ) : (
-                  <span />
-                )}
-              </nav>
-            )}
-            {!projectRailCollapsed && (
-              <ProjectRail
-                projects={projects}
-                selectedId={selectedId}
-                collapsed={false}
-                onToggle={() => setProjectRailCollapsed(true)}
-                onSelect={(projectId) => {
-                  setProductionControlTab("tasks");
-                  setSelectedId(projectId);
-                  void restoreLatestSource(projectId);
-                  if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
-                }}
-              />
-            )}
-            {selectedProject && (
-              <section
-                className={`project-stage${activeWorkspace === "project" ? " has-source-review" : ""}`}
-              >
-                {activeWorkspace === "project" ? (
-                  <>
-                    <header className="project-hero">
-                      <div>
-                        <span className="project-status">
-                          制作中 · REV {selectedProject.revision}
-                        </span>
-                        <h2>{selectedProject.name}</h2>
-                        <p>先冻结可靠来源，再让编剧、导演和提示词工具共同工作。</p>
-                      </div>
-                      <dl>
+          )}
+
+          {connection.kind !== "error" && !workspaceReady && (
+            <section className="workspace-loading" aria-label="正在载入项目">
+              <span />
+              <span />
+              <span />
+            </section>
+          )}
+
+          {workspaceReady && activeWorkspace === "settings" && (
+            <ProviderSettingsWorkspace
+              listConnections={studio.listProviderConnections}
+              createConnection={studio.createProviderConnection}
+              deleteConnection={studio.deleteProviderConnection}
+            />
+          )}
+
+          {workspaceReady && activeWorkspace !== "settings" && projects.length === 0 && (
+            <EmptyWorkspace onCreate={() => setDialogOpen(true)} />
+          )}
+
+          {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
+            <div
+              className={`project-workspace${projectRailCollapsed ? " rail-collapsed" : ""}${inspectorCollapsed ? " inspector-collapsed" : ""}`}
+            >
+              <section className="mobile-review-notice" aria-label="移动端审阅模式">
+                <span>REVIEW ONLY</span>
+                <strong>移动端创作操作已关闭</strong>
+                <p>
+                  此宽度仅供审片与来源审核；来源写动作仍须完整桌面能力及原生确认。导入、生成或剪辑请使用宽屏桌面端。
+                </p>
+              </section>
+              {(projectRailCollapsed || inspectorCollapsed) && (
+                <nav className="workspace-layout-controls" aria-label="工作台布局">
+                  {projectRailCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => setProjectRailCollapsed(false)}
+                      aria-label="展开项目栏"
+                      aria-expanded="false"
+                    >
+                      <span aria-hidden="true">›</span>
+                      展开项目栏
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  {inspectorCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => setInspectorCollapsed(false)}
+                      aria-label="展开属性检查器"
+                      aria-expanded="false"
+                    >
+                      展开属性检查器
+                      <span aria-hidden="true">‹</span>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                </nav>
+              )}
+              {!projectRailCollapsed && (
+                <ProjectRail
+                  projects={projects}
+                  selectedId={selectedId}
+                  collapsed={false}
+                  onToggle={() => setProjectRailCollapsed(true)}
+                  onSelect={(projectId) => {
+                    setProductionControlTab("tasks");
+                    setSelectedId(projectId);
+                    if (projectPage !== "review") setProjectPage("overview");
+                    void restoreLatestSource(projectId);
+                    if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
+                  }}
+                />
+              )}
+              {selectedProject && (
+                <section
+                  className={`project-stage${activeWorkspace === "project" ? " has-source-review" : ""}`}
+                >
+                  {activeWorkspace === "project" && (
+                    <nav className="project-subnav" aria-label="项目工作台">
+                      {(
+                        [
+                          ["overview", "概览"],
+                          ["source", "原文"],
+                          ["review", "来源审核"],
+                          ["trial", "试制"],
+                        ] as const
+                      ).map(([page, label]) => (
+                        <button
+                          type="button"
+                          className={projectPage === page ? "active" : undefined}
+                          aria-current={projectPage === page ? "page" : undefined}
+                          key={page}
+                          onClick={() => setProjectPage(page)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </nav>
+                  )}
+                  {activeWorkspace === "project" && projectPage === "overview" ? (
+                    <>
+                      <header className="project-hero">
                         <div>
-                          <dt>画幅</dt>
-                          <dd>{selectedProject.aspect_ratio}</dd>
+                          <span className="project-status">
+                            制作中 · REV {selectedProject.revision}
+                          </span>
+                          <h2>{selectedProject.name}</h2>
+                          <p>先冻结可靠来源，再让编剧、导演和提示词工具共同工作。</p>
                         </div>
-                        <div>
-                          <dt>单集</dt>
-                          <dd>{selectedProject.target_duration_seconds}s</dd>
-                        </div>
-                        <div>
-                          <dt>语言</dt>
-                          <dd>简体中文</dd>
-                        </div>
-                      </dl>
-                    </header>
+                        <dl>
+                          <div>
+                            <dt>画幅</dt>
+                            <dd>{selectedProject.aspect_ratio}</dd>
+                          </div>
+                          <div>
+                            <dt>单集</dt>
+                            <dd>{selectedProject.target_duration_seconds}s</dd>
+                          </div>
+                          <div>
+                            <dt>语言</dt>
+                            <dd>简体中文</dd>
+                          </div>
+                        </dl>
+                      </header>
+                    </>
+                  ) : activeWorkspace === "project" && projectPage === "source" ? (
                     <SourcePanel state={importState} onFile={importFile} />
+                  ) : activeWorkspace === "project" && projectPage === "review" ? (
                     <SourceReviewCard
                       key={`source-review:${selectedProject.id}`}
                       projectId={selectedProject.id}
@@ -2629,11 +2692,23 @@ export function App({ transport }: AppProps) {
                           : { kind: "loading", projectId: selectedProject.id }
                       }
                       record={reviewRecords[selectedProject.id]}
+                      rationale={
+                        reviewRationaleKey ? (reviewRationales[reviewRationaleKey] ?? "") : ""
+                      }
+                      onRationaleChange={(value) =>
+                        reviewRationaleKey
+                          ? setReviewRationales((current) => ({
+                              ...current,
+                              [reviewRationaleKey]: value,
+                            }))
+                          : undefined
+                      }
                       available={studio.sourceManifestReview !== undefined}
                       onRefresh={() => void loadManifest(selectedProject.id).catch(() => {})}
                       onAction={(action, rationale) => void runSourceReview(action, rationale)}
                     />
-                    {importState.kind === "success" && (
+                  ) : activeWorkspace === "project" && projectPage === "trial" ? (
+                    importState.kind === "success" ? (
                       <>
                         <SourceExtractRunLauncher
                           key={selectedProject.id}
@@ -2652,61 +2727,67 @@ export function App({ transport }: AppProps) {
                           onOpenQueue={openTaskDrawer}
                         />
                       </>
-                    )}
-                  </>
-                ) : activeWorkspace === "story" ? (
-                  <StoryWorkshop
-                    key={selectedProject.id}
-                    project={selectedProject}
-                    sourceState={importState}
-                    state={storyState}
-                    manifest={currentManifest}
-                    getSource={studio.getSource}
-                    getStoryBibleVersion={studio.getStoryBibleVersion}
-                    onRetry={() => void loadStoryWorkspace(selectedProject.id)}
-                    onReviewSource={openSourceReview}
-                  />
-                ) : activeWorkspace === "edit" ? (
-                  <TimelineWorkspace
-                    key={selectedProject.id}
-                    project={selectedProject}
-                    loadTimeline={studio.getProjectTimeline}
-                    trimClip={studio.trimTimelineClip}
-                    reorderClip={studio.reorderTimelineClip}
-                    replaceClip={studio.replaceTimelineClip}
-                  />
-                ) : (
-                  <PendingWorkspace
-                    name={
-                      activeWorkspace === "director"
-                        ? "导演"
-                        : activeWorkspace === "assets"
-                          ? "资产"
-                          : activeWorkspace === "generate"
-                            ? "生成"
-                            : "发布"
-                    }
-                  />
-                )}
-              </section>
-            )}
-            {selectedProject && !inspectorCollapsed && (
-              <ProjectInspector
-                project={selectedProject}
-                collapsed={false}
-                proposal={
-                  <ProposalReviewCard
-                    projectId={selectedProject.id}
-                    listTasks={studio.listProjectTasks}
-                    getProposal={studio.getArtifactProposal}
-                    decisionCapability={studio.proposalDecisions}
-                  />
-                }
-                onToggle={() => setInspectorCollapsed(true)}
-              />
-            )}
-          </div>
-        )}
+                    ) : (
+                      <PendingWorkspace name="试制" />
+                    )
+                  ) : (
+                    <>
+                      {activeWorkspace === "story" ? (
+                        <StoryWorkshop
+                          key={selectedProject.id}
+                          project={selectedProject}
+                          sourceState={importState}
+                          state={storyState}
+                          manifest={currentManifest}
+                          getSource={studio.getSource}
+                          getStoryBibleVersion={studio.getStoryBibleVersion}
+                          onRetry={() => void loadStoryWorkspace(selectedProject.id)}
+                          onReviewSource={openSourceReview}
+                        />
+                      ) : activeWorkspace === "edit" ? (
+                        <TimelineWorkspace
+                          key={selectedProject.id}
+                          project={selectedProject}
+                          loadTimeline={studio.getProjectTimeline}
+                          trimClip={studio.trimTimelineClip}
+                          reorderClip={studio.reorderTimelineClip}
+                          replaceClip={studio.replaceTimelineClip}
+                        />
+                      ) : (
+                        <PendingWorkspace
+                          name={
+                            activeWorkspace === "director"
+                              ? "导演"
+                              : activeWorkspace === "assets"
+                                ? "资产"
+                                : activeWorkspace === "generate"
+                                  ? "生成"
+                                  : "发布"
+                          }
+                        />
+                      )}
+                    </>
+                  )}
+                </section>
+              )}
+              {selectedProject && !inspectorCollapsed && (
+                <ProjectInspector
+                  project={selectedProject}
+                  collapsed={false}
+                  proposal={
+                    <ProposalReviewCard
+                      projectId={selectedProject.id}
+                      listTasks={studio.listProjectTasks}
+                      getProposal={studio.getArtifactProposal}
+                      decisionCapability={studio.proposalDecisions}
+                    />
+                  }
+                  onToggle={() => setInspectorCollapsed(true)}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </main>
 
       {taskDrawerOpen && selectedProject && (

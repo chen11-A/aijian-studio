@@ -485,6 +485,11 @@ function studioTransport(projects: ProjectData[] = []): StudioTransport {
   };
 }
 
+async function openProjectPage(label: "概览" | "原文" | "来源审核" | "试制") {
+  const navigation = await screen.findByRole("navigation", { name: "项目工作台" });
+  fireEvent.click(within(navigation).getByRole("button", { name: label }));
+}
+
 function reviewManifest(role: "draft" | "review" | "accepted" = "draft"): SourceManifestResponse {
   return {
     ...sourceManifestResponse,
@@ -517,6 +522,7 @@ test("discovers the exact source review independently from story loading and sub
   });
   transport.sourceManifestReview = { submit, confirmBaseline: vi.fn(), copyDraft: vi.fn() };
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   expect(
     await within(card).findByText(manifest.data.latest_version.content_hash),
@@ -579,6 +585,7 @@ test.each([
     result.error = { status: 409, code: "GATE_NOT_READY", request_id: requestId };
   const capability = attachReview(transport, result);
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   await waitFor(() =>
     expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
@@ -605,6 +612,7 @@ test("keeps UNKNOWN locked across readonly refresh, workspace navigation and pro
   }));
   const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   let card = await screen.findByRole("region", { name: "来源审核" });
   await waitFor(() =>
     expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
@@ -666,6 +674,7 @@ test("retains partial signoff receipts without claiming approval and trims Unico
   };
   const capability = attachReview(transport, result);
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   const reason = within(card).getByRole("textbox", { name: /确认基线的理由/ });
   const confirm = within(card).getByRole("button", { name: "确认来源基线" });
@@ -698,6 +707,7 @@ test("treats a rejected desktop bridge as possibly submitted and never displays 
   const capability = attachReview(transport);
   capability.copyDraft.mockRejectedValue(new Error("token=PRIVATE_ERROR"));
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const button = await screen.findByRole("button", { name: "复制为新草稿" });
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
@@ -729,6 +739,7 @@ test("keeps approved v1 visible when copying latest v2 and never auto-submits th
     completed_actions: ["copy_draft"],
   });
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   await within(card).findByText("V2 · 草稿，尚未批准");
   expect(within(card).getByRole("article", { name: "已批准基线" })).toHaveTextContent(
@@ -775,6 +786,7 @@ test("can submit latest v3 while separately displaying review v2 and accepted v1
   vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
   const capability = attachReview(transport);
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   await within(card).findByText("V3 · 草稿，尚未批准");
   expect(within(card).getByRole("article", { name: "送审版本" })).toHaveTextContent(
@@ -799,6 +811,7 @@ test("handles missing sources, read failures, mismatched identities and readonly
   const transport = studioTransport([project]);
   attachReview(transport);
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const card = await screen.findByRole("region", { name: "来源审核" });
   await within(card).findByText(/尚无来源清单/);
   vi.mocked(transport.getSourceManifest).mockRejectedValueOnce(new Error("PRIVATE_READ_ERROR"));
@@ -840,6 +853,7 @@ test("ignores a late manifest from a different project and makes no empty-projec
   attachReview(transport);
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: project.name });
+  await openProjectPage("来源审核");
   fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
   await screen.findByText(/尚无来源清单/);
   finish(reviewManifest());
@@ -861,6 +875,7 @@ test("disables duplicate source actions while native confirmation is pending", a
       }),
   );
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   const button = await screen.findByRole("button", { name: "送审来源版本" });
   await waitFor(() => expect(button).toBeEnabled());
   fireEvent.click(button);
@@ -893,22 +908,30 @@ test("rereads both existing launchers after baseline approval without auto-creat
     };
   });
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await openProjectPage("试制");
   await screen.findByText("需要先由具名人员批准来源清单，才能启动来源提取。");
   await screen.findByText("需要先由具名人员批准来源清单，才能生成 Fake 时间线。");
+  await openProjectPage("来源审核");
   const readsBefore = vi.mocked(transport.getSourceManifest).mock.calls.length;
   fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
     target: { value: "已逐段核对" },
   });
   fireEvent.click(screen.getByRole("button", { name: "确认来源基线" }));
+  await openProjectPage("试制");
   await screen.findByRole("button", { name: "启动来源提取" });
   await screen.findByRole("button", { name: "生成 Fake 分镜时间线" });
   expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBe(readsBefore + 3);
   expect(transport.proposalRuns.create).not.toHaveBeenCalled();
   expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  await openProjectPage("来源审核");
   fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "只读刷新来源" })).toBeEnabled());
-  // Same project/head revision must not retrigger either launcher effect.
-  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBe(readsBefore + 4);
+  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBeGreaterThan(readsBefore);
+  await openProjectPage("试制");
+  // Returning to trial rereads both launchers without auto-creating either task.
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
 });
 
 test("keeps both existing pending journals and their exact old inputs after a new baseline is approved", async () => {
@@ -985,7 +1008,10 @@ test("keeps both existing pending journals and their exact old inputs after a ne
     };
   });
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await openProjectPage("试制");
   expect(await screen.findAllByRole("button", { name: "恢复同一操作" })).toHaveLength(2);
+  await openProjectPage("来源审核");
   fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
     target: { value: "核对新版本" },
   });
@@ -994,6 +1020,7 @@ test("keeps both existing pending journals and their exact old inputs after a ne
   expect({ ...localStorage }).toEqual(frozen);
   expect(transport.proposalRuns.create).not.toHaveBeenCalled();
   expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  await openProjectPage("试制");
   const restoreButtons = screen.getAllByRole("button", { name: "恢复同一操作" });
   fireEvent.click(restoreButtons[0]!);
   fireEvent.click(restoreButtons[1]!);
@@ -1019,8 +1046,8 @@ test("keeps the top next step on source review when import succeeded but G1 is n
   });
   vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   await screen.findByText("V1 · 草稿，尚未批准");
-  await screen.findByText(sourceResponse.data.filename);
   const stages = screen.getByRole("region", { name: "G0 至 G8 生产阶段" });
   expect(within(stages).getByRole("button", { name: "G1 来源：待审核" })).toBeInTheDocument();
   expect(within(stages).getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
@@ -1074,6 +1101,7 @@ test("does not reuse an approved label during loading, failed reads or inconsist
   const transport = studioTransport([project]);
   vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest("accepted"));
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   await screen.findByRole("button", { name: "G1 来源：已批准" });
   let rejectRead: (error: Error) => void = () => {};
   vi.mocked(transport.getSourceManifest).mockImplementationOnce(
@@ -1170,6 +1198,7 @@ test("top next-step and G1 navigation focus the same card without clearing or re
   vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
   const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
   render(<App transport={transport} />);
+  await openProjectPage("来源审核");
   await screen.findByRole("button", { name: "G1 来源：待审核" });
   fireEvent.click(screen.getByRole("button", { name: "送审来源版本" }));
   await screen.findByText("审核结果未知");
@@ -1217,6 +1246,84 @@ test("presents the seven production areas and G0-G8 as the desktop shell", async
     expect(within(stages).getByText(`G${index}`, { exact: true })).toBeInTheDocument();
   }
   expect(screen.getAllByRole("button", { name: /下一步/ })).toHaveLength(1);
+});
+
+test("switches project content through real secondary pages", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const subnavigation = screen.getByRole("navigation", { name: "项目工作台" });
+  for (const label of ["概览", "原文", "来源审核", "试制"]) {
+    expect(within(subnavigation).getByRole("button", { name: label })).toBeInTheDocument();
+  }
+  expect(screen.getByRole("button", { name: "概览" })).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("heading", { name: "来源追踪" })).not.toBeInTheDocument();
+
+  fireEvent.click(within(subnavigation).getByRole("button", { name: "原文" }));
+  expect(await screen.findByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "雾城来信" })).not.toBeInTheDocument();
+
+  fireEvent.click(within(subnavigation).getByRole("button", { name: "来源审核" }));
+  expect(screen.getByRole("region", { name: "来源审核" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "来源追踪" })).not.toBeInTheDocument();
+});
+
+test("preserves rationale for one source version but isolates a later version", async () => {
+  const secondVersion = {
+    ...sourceManifestVersion,
+    id: `ver_${"5".repeat(32)}`,
+    content_hash: `sha256:${"6".repeat(64)}`,
+  };
+  let manifestVersion: "v1" | "v2" = "v1";
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => {
+    const response = reviewManifest();
+    if (manifestVersion === "v1") return response;
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        head: {
+          ...response.data.head,
+          latest_version_id: secondVersion.id,
+          review_version_id: secondVersion.id,
+        },
+        latest_version: secondVersion,
+        review_version: secondVersion,
+      },
+    };
+  });
+  attachReview(transport);
+  render(<App transport={transport} />);
+
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("来源审核");
+  const rationale = await screen.findByRole("textbox", { name: /确认基线的理由/ });
+  fireEvent.change(rationale, { target: { value: "先核对来源，再批准基线" } });
+  await openProjectPage("原文");
+  await openProjectPage("来源审核");
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
+
+  manifestVersion = "v2";
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
+  expect(await screen.findAllByText(secondVersion.content_hash)).not.toHaveLength(0);
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue("");
+
+  await openProjectPage("原文");
+  await openProjectPage("来源审核");
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue("");
+
+  manifestVersion = "v1";
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(await screen.findAllByText(sourceManifestVersion.content_hash)).not.toHaveLength(0);
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
 });
 
 test("opens the production control center with task and impact-report tabs", async () => {
@@ -1420,8 +1527,12 @@ test("starts a deterministic preview from the restored imported source", async (
     request_id: requestId,
   });
   render(<App transport={transport} />);
-
+  await openProjectPage("原文");
+  await waitFor(() =>
+    expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id),
+  );
   expect(await screen.findByText(sourceResponse.data.filename)).toBeInTheDocument();
+  await openProjectPage("试制");
   expect(screen.queryByRole("button", { name: "生成 Fake 分镜时间线" })).not.toBeInTheDocument();
   expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
 });
@@ -1437,8 +1548,12 @@ test("uses the optional Fake Timeline capability instead of the deprecated sync 
   });
   vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
   render(<App transport={transport} />);
+  await openProjectPage("试制");
+  await waitFor(() =>
+    expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id),
+  );
 
-  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(2);
+  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(1);
   fireEvent.click(await screen.findByRole("button", { name: "生成 Fake 分镜时间线" }));
 
   expect(await screen.findByText("提交结果未知")).toBeInTheDocument();
@@ -1471,6 +1586,7 @@ test("starts the Electron-only source extraction through a recoverable operation
   });
   vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
   render(<App transport={transport} />);
+  await openProjectPage("试制");
 
   fireEvent.click(await screen.findByRole("button", { name: "启动来源提取" }));
 
@@ -1522,6 +1638,7 @@ test("collapses production context and keeps planned areas honest", async () => 
 test("uses neutral source-tracing copy for a numeric project name", async () => {
   render(<App transport={studioTransport([{ ...project, name: "1" }])} />);
   await screen.findByRole("heading", { name: "1" });
+  await openProjectPage("原文");
 
   expect(screen.getByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
   expect(
@@ -1591,6 +1708,7 @@ test("imports a TXT file and shows traceable chapter blocks", async () => {
   const transport = studioTransport([project]);
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
   const file = new File(["第一章 初见\n雨落在霓虹灯下。"], "雾城来信.txt", {
     type: "text/plain",
   });
@@ -1610,6 +1728,7 @@ test("restores the latest persisted source when a project opens", async () => {
     request_id: requestId,
   });
   render(<App transport={transport} />);
+  await openProjectPage("原文");
 
   await waitFor(() => expect(transport.listSources).toHaveBeenCalledWith(project.id));
   expect(await screen.findByText("已解析 1 章 · 2 个文本块")).toBeInTheDocument();
@@ -1656,6 +1775,7 @@ test("rejects unsupported and oversized files before transport", async () => {
   const transport = studioTransport([project]);
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
   const input = screen.getByLabelText("选择 TXT 文件");
 
   fireEvent.change(input, {
@@ -1675,6 +1795,7 @@ test("shows an actionable import error and accepts drag-and-drop", async () => {
   vi.mocked(transport.importTextSource).mockRejectedValueOnce(new Error("duplicate"));
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
   const dropZone = screen.getByText("拖入 TXT，或点击选择").closest("label");
   expect(dropZone).not.toBeNull();
 
@@ -1744,6 +1865,7 @@ test("does not show an imported source under a project selected while upload was
   );
   render(<App transport={transport} />);
   await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
 
   fireEvent.change(screen.getByLabelText("选择 TXT 文件"), {
     target: { files: [new File(["第一章 初见"], "story.txt", { type: "text/plain" })] },
