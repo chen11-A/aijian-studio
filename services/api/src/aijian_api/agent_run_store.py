@@ -144,7 +144,11 @@ class AgentRunStore:
         delegation: ResolvedDelegation,
         enqueue_intent: tuple[str, dict[str, object]] | None,
     ) -> PersistedAgentRunWrite:
-        validate_built_context(built_context, delegation=delegation)
+        validate_built_context(
+            built_context,
+            delegation=delegation,
+            expected_agent_run_id=agent_run.agent_run_id,
+        )
         context_manifest = built_context.manifest
         agent_run, skill_run, context_manifest = _validate_pending_bundle(
             agent_run,

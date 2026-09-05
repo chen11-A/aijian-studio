@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from aijian_api.agent_skill_contracts import (
+    AGENT_RUN_ID_PATTERN,
     ContextEntryKind,
     ContextManifestEntryV1,
     ContextManifestV1,
@@ -22,6 +23,7 @@ _APPROVED_ARTIFACT_REF = re.compile(r"^artifact:[A-Z][A-Za-z0-9]{1,79}/ver_[0-9a
 _SOURCE_SPAN_REF = re.compile(r"^source:spn_[0-9a-f]{32}$")
 _SOURCE_VERSION = re.compile(r"^source-v[1-9][0-9]*$")
 _SCHEMA_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+_CONTEXT_INSTANCE_DOMAIN = "agent-context-instance-v1"
 _TRUSTED_INPUT_SEAL = object()
 _BUILT_CONTEXT_SEAL = object()
 _RESOLVED_INPUTS: weakref.WeakValueDictionary[int, ResolvedContextInputs] = (
@@ -188,6 +190,7 @@ class BuiltContext:
     layers: tuple[BuiltContextLayer, ...]
     manifest: ContextManifestV1
     _build_seal: object = field(repr=False)
+    _run_scope: str | None = field(default=None, repr=False)
 
     def __init__(
         self,
@@ -195,12 +198,16 @@ class BuiltContext:
         layers: tuple[BuiltContextLayer, ...],
         manifest: ContextManifestV1,
         _seal: object,
+        _run_scope: str | None = None,
     ) -> None:
         if _seal is not _BUILT_CONTEXT_SEAL:
             raise TypeError("BuiltContext must be created by build_context")
+        if _run_scope is not None and re.fullmatch(AGENT_RUN_ID_PATTERN, _run_scope) is None:
+            raise ValueError("BuiltContext run scope must be a valid Agent run ID")
         object.__setattr__(self, "layers", layers)
         object.__setattr__(self, "manifest", manifest)
         object.__setattr__(self, "_build_seal", _seal)
+        object.__setattr__(self, "_run_scope", _run_scope)
 
     def assert_builder_resolved(self) -> None:
         if self._build_seal is not _BUILT_CONTEXT_SEAL or _BUILT_CONTEXTS.get(id(self)) is not self:
@@ -224,15 +231,32 @@ def _entry(layer: BuiltContextLayer) -> ContextManifestEntryV1:
     )
 
 
+def _context_manifest_id(manifest_hash: str, run_scope: str | None) -> str:
+    if run_scope is None:
+        digest = manifest_hash.removeprefix("sha256:")
+    else:
+        digest = canonical_sha256(
+            {
+                "domain": _CONTEXT_INSTANCE_DOMAIN,
+                "manifest_hash": manifest_hash,
+                "run_scope": run_scope,
+            }
+        ).removeprefix("sha256:")
+    return f"ctx_{digest[:32]}"
+
+
 def build_context(
     *,
     delegation: ResolvedDelegation,
     trusted_inputs: ResolvedContextInputs,
+    run_scope: str | None = None,
 ) -> BuiltContext:
     """Build fixed trust layers from sealed Registry and loader resolutions."""
 
     delegation.assert_registry_resolved()
     trusted_inputs.assert_loader_resolved()
+    if run_scope is not None and re.fullmatch(AGENT_RUN_ID_PATTERN, run_scope) is None:
+        raise ValueError("context run scope must be a valid Agent run ID")
     agent = delegation.agent_definition
     skill = delegation.skill_definition
     expected_agent_ref = DefinitionRefV1(
@@ -276,7 +300,7 @@ def build_context(
     }
     manifest_hash = canonical_sha256(hash_payload)
     manifest = ContextManifestV1(
-        context_manifest_id=f"ctx_{manifest_hash.removeprefix('sha256:')[:32]}",
+        context_manifest_id=_context_manifest_id(manifest_hash, run_scope),
         project_id=trusted_inputs.project_id,
         agent_definition=expected_agent_ref,
         skill_definition=expected_skill_ref,
@@ -284,7 +308,12 @@ def build_context(
         total_byte_count=total_byte_count,
         manifest_hash=manifest_hash,
     )
-    built = BuiltContext(layers=layers, manifest=manifest, _seal=_BUILT_CONTEXT_SEAL)
+    built = BuiltContext(
+        layers=layers,
+        manifest=manifest,
+        _seal=_BUILT_CONTEXT_SEAL,
+        _run_scope=run_scope,
+    )
     _BUILT_CONTEXTS[id(built)] = built
     return built
 
@@ -293,6 +322,7 @@ def validate_built_context(
     built_context: BuiltContext,
     *,
     delegation: ResolvedDelegation,
+    expected_agent_run_id: str | None = None,
 ) -> None:
     """Recompute the safe manifest boundary instead of trusting a copied token."""
 
@@ -301,6 +331,13 @@ def validate_built_context(
     manifest = built_context.manifest
     agent = delegation.agent_definition
     skill = delegation.skill_definition
+    ContextManifestV1.model_validate(manifest.model_dump(mode="json"))
+    if built_context._run_scope is not None and built_context._run_scope != expected_agent_run_id:
+        raise ValueError("BuiltContext run scope does not match the Agent run")
+    if manifest.context_manifest_id != _context_manifest_id(
+        manifest.manifest_hash, built_context._run_scope
+    ):
+        raise ValueError("BuiltContext instance ID does not match its run scope")
     expected_agent_ref = DefinitionRefV1(
         definition_id=agent.agent_definition_id,
         version=agent.version,

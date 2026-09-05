@@ -18,6 +18,7 @@ from aijian_api.agent_skill_registry import (
     AgentSkillRegistry,
     SkillRegistration,
 )
+from aijian_api.shot_outline_contracts import ShotOutlinePayloadV1
 
 SOURCE_ANALYST_REF = DefinitionRefV1(
     definition_id="writer.source-analyst",
@@ -151,6 +152,10 @@ def built_in_proposal_schema_registry() -> ProposalSchemaRegistry:
             ProposalSchemaRegistration(
                 schema_ref=SOURCE_EXTRACT.output_schema_ref,
                 payload_model=SourceExtractionPayloadV1,
+            ),
+            ProposalSchemaRegistration(
+                schema_ref=SHOT_OUTLINE.output_schema_ref,
+                payload_model=ShotOutlinePayloadV1,
             ),
         )
     )

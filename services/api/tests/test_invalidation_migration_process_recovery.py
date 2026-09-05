@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from aijian_api.invalidation_schema import MIGRATION_15, expected_v15_objects
 from aijian_api.repository import StudioRepository
+from aijian_api.workflow_schema import MIGRATION_16
 from test_invalidation_process_recovery import _run_child, _snapshot
 from test_migrations import create_current_v14_database
 
@@ -68,7 +69,7 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     raw_ms = (perf_counter() - started) * 1000
     StudioRepository(database)
     upgraded = _state(database)
-    assert upgraded["version"] == 15
+    assert upgraded["version"] == 16
     for table, rows in before["rows"].items():
         assert upgraded["rows"][table] == rows, table
     assert upgraded["rows"].keys() - before["rows"].keys() == {
@@ -77,7 +78,17 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     }
     assert upgraded["rows"]["invalidation_operations"] == []
     assert upgraded["rows"]["invalidation_reason_paths"] == []
-    assert all(row in upgraded["schema"] for row in before["schema"])
+    before_schema = {(row[0], row[1]): row for row in before["schema"]}
+    upgraded_schema = {(row[0], row[1]): row for row in upgraded["schema"]}
+    trigger_key = ("trigger", "artifact_proposal_draft_acceptances_chain_insert")
+    assert trigger_key in before_schema
+    assert trigger_key in upgraded_schema
+    unchanged_keys = set(before_schema) - {trigger_key}
+    assert unchanged_keys <= set(upgraded_schema)
+    assert all(before_schema[key] == upgraded_schema[key] for key in unchanged_keys)
+    assert " ".join(upgraded_schema[trigger_key][3].split()).rstrip(";") == " ".join(
+        MIGRATION_16[1].split()
+    ).rstrip(";")
     assert set(expected_v15_objects()) <= {(row[0], row[1]) for row in upgraded["schema"]}
     StudioRepository(control)
     assert _state(control) == upgraded

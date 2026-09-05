@@ -23,6 +23,7 @@ from aijian_api.domain import (
 from aijian_api.repository import (
     AcceptedArtifactDependencyRequirement,
 )
+from aijian_api.shot_outline_contracts import validate_shot_outline_proposal
 
 _SCHEMA_RESOLUTION_SEAL = object()
 
@@ -220,6 +221,13 @@ def prepare_proposal_draft(
         expected_schema_ref=delegation.skill_definition.output_schema_ref,
         payload=proposal.payload,
     )
+    if proposal.target_artifact_type == "ShotOutline":
+        try:
+            validate_shot_outline_proposal(proposal)
+        except (ValidationError, ValueError) as error:
+            raise ProposalValidationError(
+                "ShotOutline proposal failed its content contract"
+            ) from error
     dependencies = _prepare_dependencies(proposal, delegation)
     required_source_version = next(
         (
@@ -244,7 +252,7 @@ def prepare_proposal_draft(
             for dependency in proposal.dependencies
         ),
         required_accepted_upstream_version_id=(
-            required_source_version if artifact_type == "story_bible" else None
+            required_source_version if artifact_type in {"story_bible", "shot_outline"} else None
         ),
         record_validator=_quote_hash_validator(proposal),
     )

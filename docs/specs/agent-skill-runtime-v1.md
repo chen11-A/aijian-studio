@@ -114,6 +114,15 @@ UI Intent
 
 Electron 创建运行只安全提交当前内置的 `writer.source-analyst@1.0.0` + `source.extract@1.0.0`。`operation_id` 由 Renderer 的用户意图协调层生成，并映射为固定命名空间的 `Idempotency-Key`；首次 IPC 前原子持久化 `{operation_id, project_id, canonical_input, state: PENDING_SUBMIT}`。`REMOTE_UNKNOWN` 只保留同一个 operation 和完全相同的输入供用户显式恢复；收到明确 2xx 或合同有效的 4xx 后才结束记录。损坏、额外字段、项目或输入漂移均失败关闭且不删除原记录。当前只从已批准 SourceManifest 选择一个不超过 64 KiB 的精确原文块；这不代表整本小说拆解、通用 Worker 或 Gate 已推进。
 
+`ContextManifest.manifest_hash` remains the canonical hash of context
+content. Its `context_manifest_id` is an immutable context-instance identity:
+unscoped builder calls retain the historical content-derived ID, while the
+bounded ShotOutline proposal-run path may use a stable server-derived AgentRun
+scope to create a distinct instance without changing the public manifest or
+content hash. Exact Idempotency-Key replay returns the existing intent/run
+before rebuilding context; SourceExtract retains its existing instance-ID
+formula in this slice.
+
 Gate 继续复用现有 review/submission/approval 语义，不另建“AI 自动批准”接口。
 
 ### 访问面矩阵

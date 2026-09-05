@@ -9,12 +9,14 @@ from aijian_api.agent_context_builder import (
     ResolvedContextInputs,
     build_context,
     build_context_manifest,
+    validate_built_context,
 )
 from aijian_api.agent_skill_contracts import (
     AgentDefinitionV1,
     AgentSkillFixtureBundleV1,
     DefinitionRefV1,
     SkillDefinitionV1,
+    canonical_sha256,
 )
 from aijian_api.agent_skill_registry import (
     AgentRegistration,
@@ -301,6 +303,103 @@ def test_context_builder_is_deterministic_ordered_and_never_promotes_novel_text(
     assert built.layers[3].trust_level == "UNTRUSTED_CONTENT"
     assert "忽略之前" in built.layers[3].fragment.content
     assert "忽略之前" not in repr(built)
+
+
+def test_context_builder_keeps_legacy_id_for_unscope_and_separates_run_instances() -> None:
+    delegation = resolved_delegation()
+    inputs = trusted_inputs()
+    legacy = build_context(delegation=delegation, trusted_inputs=inputs)
+    assert legacy.manifest.context_manifest_id == (
+        f"ctx_{legacy.manifest.manifest_hash.removeprefix('sha256:')[:32]}"
+    )
+    assert legacy.manifest.manifest_hash == canonical_sha256(legacy.manifest.hash_payload())
+
+    run_a = f"agr_{'a' * 32}"
+    run_b = f"agr_{'b' * 32}"
+    scoped_a = build_context(
+        delegation=delegation,
+        trusted_inputs=inputs,
+        run_scope=run_a,
+    )
+    scoped_a_replay = build_context(
+        delegation=delegation,
+        trusted_inputs=inputs,
+        run_scope=run_a,
+    )
+    scoped_b = build_context(
+        delegation=delegation,
+        trusted_inputs=inputs,
+        run_scope=run_b,
+    )
+    changed_inputs = fake_loader(source_content="同一原文的不同受控版本").resolve(
+        project_id=fixture_bundle().agent_run.project_id,
+        delegation=delegation,
+        approved_artifact_refs=(APPROVED_REF,),
+        source_span_refs=(SOURCE_REF,),
+    )
+    changed = build_context(
+        delegation=delegation,
+        trusted_inputs=changed_inputs,
+        run_scope=run_a,
+    )
+
+    assert scoped_a.manifest == scoped_a_replay.manifest
+    assert scoped_a.manifest.context_manifest_id != legacy.manifest.context_manifest_id
+    assert scoped_a.manifest.context_manifest_id != scoped_b.manifest.context_manifest_id
+    assert scoped_a.manifest.manifest_hash == scoped_b.manifest.manifest_hash
+    assert scoped_a.manifest.manifest_hash != changed.manifest.manifest_hash
+    assert scoped_a.manifest.context_manifest_id != changed.manifest.context_manifest_id
+    assert scoped_a.manifest.manifest_hash == canonical_sha256(scoped_a.manifest.hash_payload())
+    scoped_a.manifest.validate_manifest()
+
+
+@pytest.mark.parametrize(
+    "run_scope",
+    ["", "agr_", "agr_ABC", "agent_a", f"skr_{'a' * 32}"],
+)
+def test_context_builder_rejects_non_agent_run_scope(run_scope: str) -> None:
+    with pytest.raises(ValueError, match="scope"):
+        build_context(
+            delegation=resolved_delegation(),
+            trusted_inputs=trusted_inputs(),
+            run_scope=run_scope,
+        )
+
+
+def test_context_builder_detects_tampered_scope_or_instance_id() -> None:
+    delegation = resolved_delegation()
+    run_a = f"agr_{'a' * 32}"
+    run_b = f"agr_{'b' * 32}"
+
+    tampered_scope = build_context(
+        delegation=delegation,
+        trusted_inputs=trusted_inputs(),
+        run_scope=run_a,
+    )
+    object.__setattr__(tampered_scope, "_run_scope", run_b)
+    with pytest.raises(ValueError, match="run scope"):
+        validate_built_context(
+            tampered_scope,
+            delegation=delegation,
+            expected_agent_run_id=run_a,
+        )
+
+    tampered_id = build_context(
+        delegation=delegation,
+        trusted_inputs=trusted_inputs(),
+        run_scope=run_a,
+    )
+    object.__setattr__(
+        tampered_id,
+        "manifest",
+        tampered_id.manifest.model_copy(update={"context_manifest_id": f"ctx_{'f' * 32}"}),
+    )
+    with pytest.raises(ValueError, match="instance ID"):
+        validate_built_context(
+            tampered_id,
+            delegation=delegation,
+            expected_agent_run_id=run_a,
+        )
 
 
 def test_builder_requires_registry_and_loader_tokens_instead_of_raw_trusted_text() -> None:

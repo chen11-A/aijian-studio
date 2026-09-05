@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sqlite3
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -212,7 +213,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
         workflow_indexes = {
             str(row[1]) for row in connection.execute("PRAGMA index_list(workflow_runs)")
         }
-        assert SCHEMA_VERSION == 15
+        assert SCHEMA_VERSION == 16
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes
@@ -784,7 +785,7 @@ def test_v14_to_v15_preserves_existing_project_artifact_and_gate_rows(tmp_path: 
         connection.commit()
 
     StudioRepository(database)
-    assert database_version(database) == 15
+    assert database_version(database) == 16
     with sqlite3.connect(database) as connection:
         project = connection.execute(
             "SELECT name FROM projects WHERE id = 'prj_existing'"
@@ -931,7 +932,7 @@ def test_v15_migration_rejects_incompatible_precreated_objects(
         connection.commit()
 
     StudioRepository(database)
-    assert database_version(database) == 15
+    assert database_version(database) == 16
     with sqlite3.connect(database) as connection:
         project = connection.execute("SELECT name FROM projects WHERE id = 'prj_keep'").fetchone()
         columns = {
@@ -1752,6 +1753,375 @@ def test_migration_hook_type_accepts_noop_callable(tmp_path: Path) -> None:
         pass
 
     StudioRepository(tmp_path / "workspace.db", migration_hook=hook)
+
+
+def create_genuine_v15_database(path: Path) -> None:
+    """Stop the normal ordered migration after v15, before v16 begins."""
+    assert SCHEMA_VERSION == 16
+
+    def stop_before_v16(version: int, step: int) -> None:
+        if version == 16 and step == 0:
+            raise RuntimeError("stop before v16")
+
+    with pytest.raises(RuntimeError, match="stop before v16"):
+        StudioRepository(path, migration_hook=stop_before_v16)
+    assert database_version(path) == 15
+
+
+def insert_migration_chain_project(connection: sqlite3.Connection, project_id: str) -> None:
+    connection.execute(
+        """
+        INSERT INTO projects VALUES (
+            ?, '迁移保留项目', '9:16', 30, 'zh-CN', 'active', 1,
+            '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+        )
+        """,
+        (project_id,),
+    )
+
+
+def insert_migration_proposal_chain(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str,
+    suffix: str,
+    target_artifact_type: str,
+    artifact_type: str,
+    accepted: bool = False,
+    rejected: bool = False,
+    version_producer_attempt_id: str | None = None,
+    version_author_actor_id: str | None = None,
+) -> tuple[str, str, str]:
+    proposal_id = f"prp_{suffix}"
+    attempt_id = f"att_{suffix}"
+    skill_run_id = f"skr_{suffix}"
+    workflow_definition_id = f"def_{suffix}"
+    workflow_run_id = f"wfr_{suffix}"
+    node_run_id = f"node_{suffix}"
+    artifact_id = f"art_{suffix}"
+    version_id = f"ver_{suffix}"
+    payload = {"summary": f"迁移保留 {target_artifact_type}"}
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    payload_hash = canonical_sha256(payload)
+    proposal_payload = {
+        "schema_version": "1.0.0",
+        "proposal_id": proposal_id,
+        "project_id": project_id,
+        "target_artifact_type": target_artifact_type,
+        "payload": payload,
+        "payload_hash": payload_hash,
+    }
+    proposal_json = json.dumps(
+        proposal_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    proposal_hash = canonical_sha256(proposal_payload)
+    connection.execute(
+        "INSERT INTO workflow_definitions VALUES (?, 1, ?, ?, ?)",
+        (
+            workflow_definition_id,
+            HASH_A,
+            '{"nodes":[]}',
+            "2026-08-03T00:00:00Z",
+        ),
+    )
+    connection.execute(
+        "INSERT INTO workflow_runs VALUES (?, ?, ?, 1, ?, 'ACTIVE', 1, NULL, ?, ?)",
+        (
+            workflow_run_id,
+            project_id,
+            workflow_definition_id,
+            HASH_A,
+            "2026-08-03T00:00:00Z",
+            "2026-08-03T00:00:00Z",
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO workflow_node_runs VALUES (
+            ?, ?, 'legacy.node', 'agent.skill.fake', 1, '{}', ?, ?, 'RUNNING',
+            0, 1, NULL, NULL, 1, '2026-08-03T00:00:00Z', '2026-08-03T00:00:00Z'
+        )
+        """,
+        (node_run_id, workflow_run_id, HASH_A, f"legacy:{suffix}"),
+    )
+    connection.execute(
+        """
+        INSERT INTO workflow_attempts (
+            attempt_id, node_run_id, attempt_number, execution_mode, status,
+            input_hash, request_fingerprint, provider_account_id, provider_model,
+            provider_idempotency_key, provider_capabilities_json, provider_job_id,
+            dispatch_started_at, accepted_at, retry_disposition, error_code,
+            output_version_id, revision, started_at, finished_at, created_at, updated_at
+        ) VALUES (?, ?, 1, 'local', 'RUNNING', ?, ?, NULL, NULL, NULL, NULL, NULL,
+                  NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, ?, ?)
+        """,
+        (
+            attempt_id,
+            node_run_id,
+            HASH_A,
+            HASH_B,
+            "2026-08-03T00:00:00Z",
+            "2026-08-03T00:00:00Z",
+        ),
+    )
+    connection.execute(
+        "INSERT INTO artifacts VALUES (?, ?, ?, ?)",
+        (artifact_id, project_id, artifact_type, "2026-08-03T00:00:00Z"),
+    )
+    connection.execute(
+        """
+        INSERT INTO artifact_versions (
+            version_id, artifact_id, version_number, schema_version, content_json,
+            content_hash, author_actor_type, author_actor_id, parent_version_id,
+            change_summary, created_at, producer_attempt_id
+        ) VALUES (?, ?, 1, '1.0.0', ?, ?, 'agent', ?, NULL, 'legacy', ?, ?)
+        """,
+        (
+            version_id,
+            artifact_id,
+            payload_json,
+            payload_hash,
+            version_author_actor_id or skill_run_id,
+            "2026-08-03T00:00:00Z",
+            version_producer_attempt_id or attempt_id,
+        ),
+    )
+    connection.execute(
+        """
+        INSERT INTO artifact_heads VALUES (
+            ?, ?, NULL, NULL, NULL, 1, 0, '2026-08-03T00:00:00Z'
+        )
+        """,
+        (artifact_id, version_id),
+    )
+    connection.execute(
+        """
+        INSERT INTO agent_artifact_proposals (
+            proposal_id, project_id, producer_attempt_id, producer_agent_run_id,
+            producer_skill_run_id, target_artifact_type, proposal_json, proposal_hash,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            proposal_id,
+            project_id,
+            attempt_id,
+            f"agr_{suffix}",
+            skill_run_id,
+            target_artifact_type,
+            proposal_json,
+            proposal_hash,
+            "2026-08-03T00:00:00Z",
+        ),
+    )
+    if accepted:
+        connection.execute(
+            """
+            INSERT INTO artifact_proposal_draft_acceptances VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                f"pda_{suffix}",
+                project_id,
+                proposal_id,
+                canonical_sha256({"key": suffix}),
+                canonical_sha256({"request": suffix}),
+                proposal_hash,
+                version_id,
+                "local-user",
+                '["producer"]',
+                "2026-08-03T00:00:00Z",
+            ),
+        )
+    if rejected:
+        connection.execute(
+            """
+            INSERT INTO artifact_proposal_rejections VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                f"pdr_{suffix}",
+                project_id,
+                proposal_id,
+                canonical_sha256({"key": f"reject-{suffix}"}),
+                canonical_sha256({"request": f"reject-{suffix}"}),
+                proposal_hash,
+                "SOURCE_EVIDENCE",
+                "迁移负例",
+                "local-user",
+                '["producer"]',
+                "2026-08-03T00:00:00Z",
+            ),
+        )
+    return proposal_id, version_id, proposal_hash
+
+
+def acceptance_row(
+    project_id: str,
+    proposal_id: str,
+    version_id: str,
+    proposal_hash: str,
+    suffix: str,
+) -> tuple[str, ...]:
+    return (
+        f"pda_{suffix}",
+        project_id,
+        proposal_id,
+        canonical_sha256({"key": f"accept-{suffix}"}),
+        canonical_sha256({"request": f"accept-{suffix}"}),
+        proposal_hash,
+        version_id,
+        "local-user",
+        '["producer"]',
+        "2026-08-03T00:00:00Z",
+    )
+
+
+def test_v15_to_v16_preserves_source_extraction_chain_and_allows_only_shot_outline(
+    tmp_path: Path,
+) -> None:
+    assert SCHEMA_VERSION == 16
+    database = tmp_path / "genuine-v15.db"
+    create_genuine_v15_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        insert_migration_chain_project(connection, "prj_legacy")
+        legacy_proposal_id, legacy_version_id, legacy_hash = insert_migration_proposal_chain(
+            connection,
+            project_id="prj_legacy",
+            suffix="1" * 32,
+            target_artifact_type="SourceExtraction",
+            artifact_type="source_extraction",
+            accepted=True,
+        )
+        connection.commit()
+
+    StudioRepository(database)
+    assert database_version(database) == 16
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT proposal_id, draft_version_id FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (legacy_proposal_id, legacy_version_id)
+        assert connection.execute(
+            "SELECT proposal_hash FROM agent_artifact_proposals WHERE proposal_id = ?",
+            (legacy_proposal_id,),
+        ).fetchone() == (legacy_hash,)
+        shot_proposal_id, shot_version_id, shot_hash = insert_migration_proposal_chain(
+            connection,
+            project_id="prj_legacy",
+            suffix="2" * 32,
+            target_artifact_type="ShotOutline",
+            artifact_type="shot_outline",
+        )
+        connection.execute(
+            "INSERT INTO artifact_proposal_draft_acceptances VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            acceptance_row("prj_legacy", shot_proposal_id, shot_version_id, shot_hash, "3" * 32),
+        )
+        connection.commit()
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM artifact_proposal_draft_acceptances"
+        ).fetchone() == (2,)
+        _unsupported_proposal_id, unsupported_version_id, unsupported_hash = (
+            insert_migration_proposal_chain(
+                connection,
+                project_id="prj_legacy",
+                suffix="4" * 32,
+                target_artifact_type="Screenplay",
+                artifact_type="screenplay",
+            )
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                "INSERT INTO artifact_proposal_draft_acceptances "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                acceptance_row(
+                    "prj_legacy",
+                    _unsupported_proposal_id,
+                    unsupported_version_id,
+                    unsupported_hash,
+                    "5" * 32,
+                ),
+            )
+        connection.rollback()
+
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                "INSERT INTO artifact_proposal_draft_acceptances "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                acceptance_row("prj_legacy", shot_proposal_id, shot_version_id, HASH_B, "6" * 32),
+            )
+        connection.rollback()
+
+        insert_migration_chain_project(connection, "prj_rejected")
+        connection.commit()
+        rejected_proposal_id, rejected_version_id, rejected_hash = insert_migration_proposal_chain(
+            connection,
+            project_id="prj_rejected",
+            suffix="7" * 32,
+            target_artifact_type="ShotOutline",
+            artifact_type="shot_outline",
+            rejected=True,
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="chain is inconsistent"):
+            connection.execute(
+                "INSERT INTO artifact_proposal_draft_acceptances "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                acceptance_row(
+                    "prj_rejected",
+                    rejected_proposal_id,
+                    rejected_version_id,
+                    rejected_hash,
+                    "8" * 32,
+                ),
+            )
+        connection.rollback()
+
+    with sqlite3.connect(database) as connection:
+        trigger_before_reinit = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'artifact_proposal_draft_acceptances_chain_insert'"
+        ).fetchone()[0]
+    StudioRepository(database)
+    with sqlite3.connect(database) as connection:
+        trigger_after_reinit = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'artifact_proposal_draft_acceptances_chain_insert'"
+        ).fetchone()[0]
+        assert trigger_after_reinit == trigger_before_reinit
+
+
+def test_v16_migration_failure_after_drop_restores_v15_trigger_and_version(
+    tmp_path: Path,
+) -> None:
+    assert SCHEMA_VERSION == 16
+    database = tmp_path / "v15-failure-after-drop.db"
+    create_genuine_v15_database(database)
+    with sqlite3.connect(database) as connection:
+        old_trigger = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'artifact_proposal_draft_acceptances_chain_insert'"
+        ).fetchone()[0]
+
+    def fail_after_drop(version: int, step: int) -> None:
+        if version == 16 and step == 0:
+            raise RuntimeError("injected v16 failure after drop")
+
+    with pytest.raises(RuntimeError, match="injected v16 failure after drop"):
+        StudioRepository(database, migration_hook=fail_after_drop)
+    assert database_version(database) == 15
+    with sqlite3.connect(database) as connection:
+        restored_trigger = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'artifact_proposal_draft_acceptances_chain_insert'"
+        ).fetchone()[0]
+    assert restored_trigger == old_trigger
+
+    StudioRepository(database)
+    assert database_version(database) == 16
 
 
 def insert_artifact_version(

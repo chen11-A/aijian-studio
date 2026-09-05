@@ -23,7 +23,14 @@ from aijian_api.repository import StudioRepository
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "agent-skill" / "contracts-v1.json"
 
 
-def run_bundle(project_id: str):
+def run_bundle(
+    project_id: str,
+    *,
+    agent_run_id: str | None = None,
+    skill_run_id: str | None = None,
+    run_scope: str | None = None,
+    source_content: str = "Untrusted source excerpt.",
+):
     fixture = AgentSkillFixtureBundleV1.model_validate_json(
         FIXTURE_PATH.read_text(encoding="utf-8")
     )
@@ -59,7 +66,7 @@ def run_bundle(project_id: str):
             ContextFragment(
                 ref=f"source:spn_{'2' * 32}",
                 version="source-v1",
-                content="Untrusted source excerpt.",
+                content=source_content,
             ),
         ),
         task_output_schema=ContextFragment(
@@ -68,11 +75,26 @@ def run_bundle(project_id: str):
             content='{"type":"object","additionalProperties":false}',
         ),
     )
-    built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
-    agent_run = fixture.agent_run.model_copy(update={"project_id": project_id, "status": "PENDING"})
+    built_context = build_context(
+        delegation=delegation,
+        trusted_inputs=trusted_inputs,
+        run_scope=run_scope,
+    )
+    resolved_agent_run_id = agent_run_id or fixture.agent_run.agent_run_id
+    resolved_skill_run_id = skill_run_id or fixture.skill_run.skill_run_id
+    agent_run = fixture.agent_run.model_copy(
+        update={
+            "agent_run_id": resolved_agent_run_id,
+            "project_id": project_id,
+            "status": "PENDING",
+            "delegated_skill_run_ids": (resolved_skill_run_id,),
+        }
+    )
     skill_run = fixture.skill_run.model_copy(
         update={
+            "skill_run_id": resolved_skill_run_id,
             "project_id": project_id,
+            "agent_run_id": resolved_agent_run_id,
             "context_manifest_id": built_context.manifest.context_manifest_id,
             "status": "PENDING",
             "proposal_id": None,
@@ -340,6 +362,135 @@ def test_database_rejects_cross_project_chain_and_reader_fails_closed_on_drift(
 
     with pytest.raises(AgentRunBundleConflictError, match="failed validation"):
         store.get(project_id, agent_run.agent_run_id)
+
+
+def test_scoped_context_instances_persist_for_distinct_agent_runs(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    run_a = f"agr_{'a' * 32}"
+    run_b = f"agr_{'b' * 32}"
+    first = run_bundle(
+        project_id,
+        agent_run_id=run_a,
+        skill_run_id=f"skr_{'a' * 32}",
+        run_scope=run_a,
+    )
+    second = run_bundle(
+        project_id,
+        agent_run_id=run_b,
+        skill_run_id=f"skr_{'b' * 32}",
+        run_scope=run_b,
+    )
+    store = AgentRunStore(database)
+
+    persisted_first = store.persist_pending_bundle(
+        agent_run=first[0],
+        skill_run=first[1],
+        built_context=first[2],
+        delegation=first[3],
+    )
+    persisted_second = store.persist_pending_bundle(
+        agent_run=second[0],
+        skill_run=second[1],
+        built_context=second[2],
+        delegation=second[3],
+    )
+
+    assert persisted_first.context_manifest.manifest_hash == (
+        persisted_second.context_manifest.manifest_hash
+    )
+    assert persisted_first.context_manifest.context_manifest_id != (
+        persisted_second.context_manifest.context_manifest_id
+    )
+    assert store.get(project_id, run_a) == persisted_first
+    assert store.get(project_id, run_b) == persisted_second
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM agent_runs").fetchone() == (2,)
+        assert connection.execute("SELECT COUNT(*) FROM skill_runs").fetchone() == (2,)
+        assert connection.execute("SELECT COUNT(*) FROM agent_context_manifests").fetchone() == (2,)
+
+
+def test_scoped_context_bound_to_another_agent_run_fails_without_writing_rows(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    run_a = f"agr_{'a' * 32}"
+    run_b = f"agr_{'b' * 32}"
+    skill_b = f"skr_{'b' * 32}"
+    agent_run, skill_run, built_context, delegation = run_bundle(
+        project_id,
+        agent_run_id=run_a,
+        skill_run_id=f"skr_{'a' * 32}",
+        run_scope=run_a,
+    )
+    other_agent_run = agent_run.model_copy(
+        update={
+            "agent_run_id": run_b,
+            "delegated_skill_run_ids": (skill_b,),
+        }
+    )
+    other_skill_run = skill_run.model_copy(
+        update={
+            "skill_run_id": skill_b,
+            "agent_run_id": run_b,
+            "context_manifest_id": built_context.manifest.context_manifest_id,
+        }
+    )
+
+    with pytest.raises(ValueError, match="run scope"):
+        AgentRunStore(database).persist_pending_bundle(
+            agent_run=other_agent_run,
+            skill_run=other_skill_run,
+            built_context=built_context,
+            delegation=delegation,
+        )
+
+    with sqlite3.connect(database) as connection:
+        for table in ("agent_runs", "skill_runs", "agent_context_manifests"):
+            assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone() == (0,)
+
+
+def test_scoped_context_with_different_content_does_not_merge_into_same_run(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.db"
+    project_id = create_project(database)
+    run_id = f"agr_{'a' * 32}"
+    skill_id = f"skr_{'a' * 32}"
+    original = run_bundle(
+        project_id,
+        agent_run_id=run_id,
+        skill_run_id=skill_id,
+        run_scope=run_id,
+    )
+    changed = run_bundle(
+        project_id,
+        agent_run_id=run_id,
+        skill_run_id=skill_id,
+        run_scope=run_id,
+        source_content="A different controlled source excerpt.",
+    )
+    store = AgentRunStore(database)
+    store.persist_pending_bundle(
+        agent_run=original[0],
+        skill_run=original[1],
+        built_context=original[2],
+        delegation=original[3],
+    )
+
+    assert original[2].manifest.manifest_hash != changed[2].manifest.manifest_hash
+    assert original[2].manifest.context_manifest_id != changed[2].manifest.context_manifest_id
+    with pytest.raises(AgentRunBundleConflictError, match="immutable identity"):
+        store.persist_pending_bundle(
+            agent_run=changed[0],
+            skill_run=changed[1],
+            built_context=changed[2],
+            delegation=changed[3],
+        )
+    with sqlite3.connect(database) as connection:
+        for table in ("agent_runs", "skill_runs", "agent_context_manifests"):
+            assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone() == (1,)
 
 
 def test_context_manifest_rows_are_immutable_while_project_cascade_is_allowed(

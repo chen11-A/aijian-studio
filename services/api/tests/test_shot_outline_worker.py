@@ -104,7 +104,9 @@ def test_shot_outline_post_runs_to_a_reviewable_eight_shot_proposal(tmp_path) ->
         headers={"Idempotency-Key": "shot-outline-must-not-draft"},
         json={"parent_version_id": None, "expected_head_revision": None},
     )
-    assert acceptance.status_code == 409
+    assert acceptance.status_code == 201, acceptance.text
+    assert acceptance.json()["data"]["replayed"] is False
+    assert acceptance.json()["data"]["draft_version_id"].startswith("ver_")
 
 
 def test_one_supervisor_completes_source_and_shot_tasks_in_one_database(tmp_path) -> None:

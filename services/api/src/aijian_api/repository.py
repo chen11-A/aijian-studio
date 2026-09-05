@@ -75,9 +75,10 @@ from aijian_api.workflow_schema import (
     MIGRATION_12,
     MIGRATION_13,
     MIGRATION_14,
+    MIGRATION_16,
 )
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -773,6 +774,7 @@ _MIGRATIONS = {
     13: MIGRATION_13,
     14: MIGRATION_14,
     15: MIGRATION_15,
+    16: MIGRATION_16,
 }
 
 
@@ -1588,6 +1590,14 @@ class StudioRepository:
                             "producer attempt must be the running attempt for this project"
                         )
 
+                if (
+                    artifact_type == "shot_outline"
+                    and required_accepted_upstream_version_id is None
+                ):
+                    raise ArtifactDependencyInvalidError(
+                        "ShotOutline requires an exact accepted SourceManifest dependency"
+                    )
+
                 dependency_version_ids = {
                     dependency.upstream_version_id for dependency in dependencies
                 }
@@ -1643,10 +1653,12 @@ class StudioRepository:
                         != required_accepted_upstream_version_id
                         or not has_blocking_dependency
                     ):
-                        raise ArtifactDependencyInvalidError(
+                        message = (
                             "StoryBible requires an exact accepted SourceManifest dependency"
+                            if artifact_type == "story_bible"
+                            else "ShotOutline requires an exact accepted SourceManifest dependency"
                         )
-
+                        raise ArtifactDependencyInvalidError(message)
                 if content_resolver is not None:
                     if content is not None or source_spans:
                         raise ValueError(
@@ -1656,6 +1668,17 @@ class StudioRepository:
                     content, source_spans = content_resolver(self._id_factory)
                 if content is None:
                     raise ValueError("Artifact content is required")
+                if artifact_type == "shot_outline":
+                    if required_accepted_upstream_version_id is None:
+                        raise ArtifactDependencyInvalidError(
+                            "ShotOutline requires an exact accepted SourceManifest dependency"
+                        )
+                    self._validate_accepted_source_manifest_membership(
+                        connection,
+                        project_id=project_id,
+                        manifest_version_id=required_accepted_upstream_version_id,
+                        source_spans=source_spans,
+                    )
                 content_bytes = canonical_content_bytes(content)
                 content_json = content_bytes.decode("utf-8")
                 content_hash = canonical_content_hash(content)
@@ -1693,6 +1716,12 @@ class StudioRepository:
                     ):
                         raise ArtifactConflictError(
                             "A StoryBible revision must use the current latest version as parent"
+                        )
+                    if artifact_type == "shot_outline" and parent_version_id != str(
+                        head_row["latest_version_id"]
+                    ):
+                        raise ArtifactConflictError(
+                            "A ShotOutline revision must use the current latest version as parent"
                         )
                     parent = connection.execute(
                         """
@@ -2973,6 +3002,62 @@ class StudioRepository:
             ),
         )
         return span
+
+    @staticmethod
+    def _validate_accepted_source_manifest_membership(
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        manifest_version_id: str,
+        source_spans: tuple[ArtifactSourceSpanDraft, ...],
+    ) -> None:
+        manifest_row = connection.execute(
+            """
+            SELECT artifact_versions.content_json, artifact_versions.content_hash
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            JOIN artifact_heads ON artifact_heads.artifact_id = artifacts.artifact_id
+            WHERE artifacts.project_id = ?
+              AND artifacts.artifact_type = 'source_manifest'
+              AND artifact_versions.version_id = ?
+              AND artifact_heads.accepted_version_id = ?
+            """,
+            (project_id, manifest_version_id, manifest_version_id),
+        ).fetchone()
+        if manifest_row is None:
+            raise ArtifactDependencyInvalidError(
+                "ShotOutline requires an accepted SourceManifest membership"
+            )
+        try:
+            content = json.loads(str(manifest_row["content_json"]))
+            if not isinstance(content, dict) or canonical_content_hash(content) != str(
+                manifest_row["content_hash"]
+            ):
+                raise ValueError("SourceManifest content hash does not match its content")
+            manifest = SourceManifestContentV1.model_validate(content)
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            raise ArtifactDependencyInvalidError(
+                "Accepted SourceManifest content is invalid"
+            ) from error
+
+        members = {
+            (document.source_document_id, block.source_block_id): block
+            for document in manifest.documents
+            for block in document.blocks
+        }
+        for source_span in source_spans:
+            member = members.get((source_span.source_document_id, source_span.source_block_id))
+            if member is None:
+                raise ArtifactDependencyInvalidError(
+                    "ShotOutline SourceSpan is outside the accepted SourceManifest"
+                )
+            if not (
+                member.start_byte <= source_span.start_byte
+                and source_span.start_byte < source_span.end_byte <= member.end_byte
+            ):
+                raise SourceSpanInvalidError(
+                    "ShotOutline SourceSpan falls outside its accepted manifest block"
+                )
 
     def _insert_dependency(
         self,

@@ -95,13 +95,17 @@ prompt-injection acceptance result.
 
 ## Integration handoff and acceptance
 
-Tests register the payload only in a private `ProposalSchemaRegistry` and exercise
-its existing `model_validate` / JSON dump path. O1 does not modify the built-in
-registry or enable a new output target at runtime. Future O2 must call the full
-proposal validator before the existing proposal-to-immutable-DRAFT write, and
-carry the accepted dependency and byte/hash checks into that transaction. O3's
-artifact-specific G1A review policy must validate the exact reviewed version;
-neither step may replace existing run/project/revision/budget/QC checks.
+Tests register the payload in a private `ProposalSchemaRegistry` and exercise
+its existing `model_validate` / JSON dump path. O2B additionally registers the
+same strict model in the built-in registry and calls the full proposal validator
+before the existing proposal-to-immutable-DRAFT write. The DRAFT transaction
+rechecks the current accepted SourceManifest, its concrete document/block
+membership, and actual UTF-8 byte/quote hashes before inserting the version.
+The acceptance record and producer run transitions remain atomic and
+idempotent; replay returns the same version, while `latest` may advance and
+`review`/`accepted` heads and Gate decisions do not. O3's artifact-specific G1A
+review policy must validate the exact reviewed version; neither step may replace
+existing run/project/revision/budget/QC checks.
 
 Acceptance requires legal eight-shot JSON, factual plus invented audio/camera,
 empty audio/camera, cross-shot reuse, stable canonical round trips, and changed

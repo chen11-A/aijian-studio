@@ -807,3 +807,39 @@ MIGRATION_14 = (
     WHERE definition_id = 'phase0.fake-timeline-media'
     """,
 )
+
+
+MIGRATION_16 = (
+    "DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert",
+    """
+    CREATE TRIGGER artifact_proposal_draft_acceptances_chain_insert
+    BEFORE INSERT ON artifact_proposal_draft_acceptances
+    WHEN NOT EXISTS (
+        SELECT 1
+        FROM agent_artifact_proposals AS proposal
+        JOIN artifact_versions AS version
+          ON version.version_id = NEW.draft_version_id
+        JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
+        WHERE proposal.proposal_id = NEW.proposal_id
+          AND proposal.project_id = NEW.project_id
+          AND proposal.proposal_hash = NEW.proposal_hash
+          AND artifact.project_id = NEW.project_id
+          AND version.producer_attempt_id = proposal.producer_attempt_id
+          AND version.content_hash = json_extract(proposal.proposal_json, '$.payload_hash')
+          AND version.author_actor_type = 'agent'
+          AND version.author_actor_id = proposal.producer_skill_run_id
+          AND artifact.artifact_type = CASE proposal.target_artifact_type
+              WHEN 'SourceExtraction' THEN 'source_extraction'
+              WHEN 'ShotOutline' THEN 'shot_outline'
+              ELSE '__unsupported_proposal_artifact_type__'
+          END
+          AND NOT EXISTS (
+              SELECT 1 FROM artifact_proposal_rejections AS rejection
+              WHERE rejection.proposal_id = NEW.proposal_id
+          )
+    )
+    BEGIN
+        SELECT RAISE(ABORT, 'artifact proposal draft acceptance chain is inconsistent');
+    END
+    """,
+)

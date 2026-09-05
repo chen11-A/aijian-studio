@@ -11,8 +11,11 @@ from aijian_api.agent_run_store import (
     read_proposal_run_enqueue_intent_in_connection,
 )
 from aijian_api.artifact_proposal_store import PersistedArtifactProposal
+from aijian_api.shot_outline_run_factory import ShotOutlineEnqueueIntentV1
 from aijian_api.source_extract_run_factory import SourceExtractEnqueueIntentV1
 from aijian_api.task_ledger_snapshots import canonical_snapshot_json
+
+type SupportedEnqueueIntent = SourceExtractEnqueueIntentV1 | ShotOutlineEnqueueIntentV1
 
 
 class ArtifactProposalReviewConflictError(ValueError):
@@ -23,7 +26,7 @@ class ArtifactProposalReviewConflictError(ValueError):
 class ProposalReviewIdentity:
     run_bundle: PersistedAgentRunBundle
     enqueue_intent_record: PersistedProposalRunEnqueueIntent
-    enqueue_intent: SourceExtractEnqueueIntentV1
+    enqueue_intent: SupportedEnqueueIntent
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +57,16 @@ def read_proposal_review_identity(
         project_id,
         proposal.producer_agent_run_id,
     )
-    enqueue_intent = SourceExtractEnqueueIntentV1.model_validate(enqueue_intent_record.payload)
+    if proposal.target_artifact_type == "SourceExtraction":
+        enqueue_intent: SupportedEnqueueIntent = SourceExtractEnqueueIntentV1.model_validate(
+            enqueue_intent_record.payload
+        )
+    elif proposal.target_artifact_type == "ShotOutline":
+        enqueue_intent = ShotOutlineEnqueueIntentV1.model_validate(enqueue_intent_record.payload)
+    else:
+        raise ArtifactProposalReviewConflictError(
+            "ArtifactProposal target has no supported enqueue intent contract"
+        )
     return ProposalReviewIdentity(
         run_bundle=run_bundle,
         enqueue_intent_record=enqueue_intent_record,
@@ -173,7 +185,7 @@ def _validate_enqueue_intent_chain(
     *,
     proposal_row: sqlite3.Row,
     truth: sqlite3.Row,
-    intent: SourceExtractEnqueueIntentV1,
+    intent: SupportedEnqueueIntent,
     intent_project_id: str,
     intent_agent_run_id: str,
     context_manifest_id: str,
