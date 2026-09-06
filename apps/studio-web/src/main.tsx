@@ -1,17 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { App } from "./App";
-import "./styles.css";
+import AivoraUiDemo from "./aivora-ui-demo";
 
 const root = document.getElementById("root");
 
 if (!root) {
-  throw new Error("Aijian Studio root element is missing");
+  throw new Error("AIVORA Studio root element is missing");
 }
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <AivoraUiDemo />
   </StrictMode>,
 );
