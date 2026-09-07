@@ -35,6 +35,7 @@ from aijian_api.domain import (
     ArtifactVersionSummary,
     ConfirmationChallenge,
     DependencyImpact,
+    Episode,
     GateDecision,
     GateDecisionResult,
     GateDecisionValue,
@@ -55,6 +56,7 @@ from aijian_api.domain import (
     SourceSpanRole,
     TrustedReviewActor,
 )
+from aijian_api.episode_schema import MIGRATION_17
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
@@ -78,7 +80,8 @@ from aijian_api.workflow_schema import (
     MIGRATION_16,
 )
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
+SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
 type TransactionHook = Callable[[str, str], None]
@@ -775,6 +778,7 @@ _MIGRATIONS = {
     14: MIGRATION_14,
     15: MIGRATION_15,
     16: MIGRATION_16,
+    17: MIGRATION_17,
 }
 
 
@@ -971,6 +975,10 @@ class ProjectNotFoundError(LookupError):
     pass
 
 
+class EpisodeNotFoundError(LookupError):
+    pass
+
+
 class SourceAlreadyImportedError(RuntimeError):
     pass
 
@@ -1023,6 +1031,11 @@ def _timestamp(value: datetime) -> str:
 
 def _datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _episode_integer(value: int, field: str, minimum: int, maximum: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        raise ValueError(f"Episode {field} must be an integer between {minimum} and {maximum}")
 
 
 class StudioRepository:
@@ -1213,6 +1226,23 @@ class StudioRepository:
                     _timestamp(project.updated_at),
                 ),
             )
+            self._transaction_step("create_project", "project_inserted")
+            connection.execute(
+                """
+                INSERT INTO episodes (
+                    id, project_id, position, title, is_default, target_duration_seconds,
+                    revision, created_at, updated_at
+                ) VALUES (?, ?, 1, '第 1 集', 1, ?, 1, ?, ?)
+                """,
+                (
+                    f"ep_{project.id}",
+                    project.id,
+                    project.target_duration_seconds,
+                    _timestamp(project.created_at),
+                    _timestamp(project.updated_at),
+                ),
+            )
+            self._transaction_step("create_project", "default_episode_inserted")
             connection.commit()
         return project
 
@@ -1231,6 +1261,94 @@ class StudioRepository:
         if row is None:
             raise ProjectNotFoundError("Project was not found")
         return self._project_from_row(row)
+
+    @staticmethod
+    def _require_episode_project(connection: sqlite3.Connection, project_id: str) -> None:
+        if (
+            connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+            is None
+        ):
+            raise ProjectNotFoundError("Project was not found")
+
+    def list_episodes(self, project_id: str, *, limit: int = 50, offset: int = 0) -> list[Episode]:
+        _episode_integer(limit, "limit", 1, 100)
+        _episode_integer(offset, "offset", 0, SQLITE_INTEGER_MAX)
+        with self._connection() as connection:
+            self._require_episode_project(connection, project_id)
+            rows = connection.execute(
+                "SELECT * FROM episodes WHERE project_id = ? "
+                "ORDER BY position, id LIMIT ? OFFSET ?",
+                (project_id, limit, offset),
+            ).fetchall()
+        return [self._episode_from_row(row) for row in rows]
+
+    def get_episode(self, project_id: str, episode_id: str) -> Episode:
+        with self._connection() as connection:
+            self._require_episode_project(connection, project_id)
+            row = connection.execute(
+                "SELECT * FROM episodes WHERE project_id = ? AND id = ?", (project_id, episode_id)
+            ).fetchone()
+        if row is None:
+            raise EpisodeNotFoundError("Episode was not found")
+        return self._episode_from_row(row)
+
+    def create_episode(
+        self, project_id: str, *, title: str, target_duration_seconds: int | None = None
+    ) -> Episode:
+        if not isinstance(title, str):
+            raise ValueError("Episode title must be text")
+        title = title.strip()
+        if not 1 <= len(title) <= 80 or any(ord(char) < 32 or ord(char) == 127 for char in title):
+            raise ValueError(
+                "Episode title must contain 1..80 characters without control characters"
+            )
+        if target_duration_seconds is not None:
+            _episode_integer(target_duration_seconds, "duration", 1, SQLITE_INTEGER_MAX)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                self._require_episode_project(connection, project_id)
+                row = connection.execute(
+                    "SELECT COALESCE(MAX(position), 0) FROM episodes WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()
+                position = int(row[0]) + 1
+                _episode_integer(position, "position", 1, SQLITE_INTEGER_MAX)
+                now = self._clock()
+                episode = Episode(
+                    id=self._id_factory("ep"),
+                    project_id=project_id,
+                    position=position,
+                    title=title,
+                    is_default=False,
+                    target_duration_seconds=target_duration_seconds,
+                    revision=1,
+                    created_at=now,
+                    updated_at=now,
+                )
+                connection.execute(
+                    """
+                    INSERT INTO episodes (
+                        id, project_id, position, title, is_default, target_duration_seconds,
+                        revision, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?)
+                    """,
+                    (
+                        episode.id,
+                        project_id,
+                        position,
+                        title,
+                        target_duration_seconds,
+                        _timestamp(now),
+                        _timestamp(now),
+                    ),
+                )
+                self._transaction_step("create_episode", "episode_inserted")
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+        return episode
 
     def import_source(self, project_id: str, source: ParsedSource) -> SourceDocument:
         document_id = self._id_factory("src")
@@ -3193,6 +3311,21 @@ class StudioRepository:
             relationship=str(row["relationship"]),
             impact=cast(DependencyImpact, row["impact"]),
             created_at=_datetime(str(row["created_at"])),
+        )
+
+    @staticmethod
+    def _episode_from_row(row: sqlite3.Row) -> Episode:
+        duration = row["target_duration_seconds"]
+        return Episode(
+            id=str(row["id"]),
+            project_id=str(row["project_id"]),
+            position=int(row["position"]),
+            title=str(row["title"]),
+            is_default=bool(row["is_default"]),
+            target_duration_seconds=None if duration is None else int(duration),
+            revision=int(row["revision"]),
+            created_at=_datetime(str(row["created_at"])),
+            updated_at=_datetime(str(row["updated_at"])),
         )
 
     @staticmethod

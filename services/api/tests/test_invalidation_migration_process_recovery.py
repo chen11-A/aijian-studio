@@ -69,15 +69,29 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     raw_ms = (perf_counter() - started) * 1000
     StudioRepository(database)
     upgraded = _state(database)
-    assert upgraded["version"] == 16
+    assert upgraded["version"] == 17
     for table, rows in before["rows"].items():
         assert upgraded["rows"][table] == rows, table
     assert upgraded["rows"].keys() - before["rows"].keys() == {
         "invalidation_operations",
         "invalidation_reason_paths",
+        "episodes",
     }
     assert upgraded["rows"]["invalidation_operations"] == []
     assert upgraded["rows"]["invalidation_reason_paths"] == []
+    assert upgraded["rows"]["episodes"] == [
+        {
+            "id": "ep_prj_migration_keep",
+            "project_id": "prj_migration_keep",
+            "position": 1,
+            "title": "第 1 集",
+            "is_default": 1,
+            "target_duration_seconds": 90,
+            "revision": 1,
+            "created_at": "2026-09-04T00:00:00Z",
+            "updated_at": "2026-09-04T00:00:00Z",
+        }
+    ]
     before_schema = {(row[0], row[1]): row for row in before["schema"]}
     upgraded_schema = {(row[0], row[1]): row for row in upgraded["schema"]}
     trigger_key = ("trigger", "artifact_proposal_draft_acceptances_chain_insert")

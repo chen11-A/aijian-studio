@@ -869,6 +869,8 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
         connection.execute("DROP TABLE artifact_proposal_rejections")
         connection.execute("DROP TRIGGER artifact_proposal_draft_acceptances_chain_insert")
         connection.execute(MIGRATION_12[1])
+        # Episodes did not exist in the historic schema represented by this fixture.
+        connection.execute("DROP TABLE episodes")
         connection.execute("PRAGMA user_version = 12")
 
     StudioRepository(repository.database_path)

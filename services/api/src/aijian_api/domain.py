@@ -28,6 +28,19 @@ class Project:
 
 
 @dataclass(frozen=True, slots=True)
+class Episode:
+    id: str
+    project_id: str
+    position: int
+    title: str
+    is_default: bool
+    target_duration_seconds: int | None
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class SourceBlock:
     id: str
     source_document_id: str
