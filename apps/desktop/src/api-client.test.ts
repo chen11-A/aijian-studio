@@ -307,6 +307,149 @@ describe("source review bounded I/O", () => {
   });
 });
 
+describe("Episode metadata HTTP boundary", () => {
+  const episodeProjectId = `prj_${"e".repeat(32)}`;
+  const episodeId = `ep_${"f".repeat(32)}`;
+  const episodeRequestId = "123e4567-e89b-42d3-a456-426614174000";
+  const episode = (position = "1") => ({
+    id: position === "1" ? episodeId : `ep_${"d".repeat(31)}${position}`,
+    project_id: episodeProjectId,
+    position,
+    title: "第一集",
+    is_default: position === "1",
+    target_duration_seconds: null,
+    revision: "1",
+    created_at: "2026-09-07T01:02:03Z",
+    updated_at: "2026-09-07T01:02:03Z",
+  });
+  const episodeResponse = () => ({ data: episode(), request_id: episodeRequestId });
+  const episodeHeaders = { "X-Request-ID": episodeRequestId };
+
+  test("lists and gets only identity-bound Episode bodies with sidecar headers", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          { data: [episode()], request_id: episodeRequestId },
+          { headers: episodeHeaders },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(episodeResponse(), { headers: episodeHeaders }));
+    const client = createLocalApiClient(fetcher, session);
+
+    await expect(client.listEpisodes(episodeProjectId, { limit: 1, offset: "0" })).resolves.toEqual(
+      {
+        data: [episode()],
+        request_id: episodeRequestId,
+      },
+    );
+    await expect(client.getEpisode(episodeProjectId, episodeId)).resolves.toEqual(
+      episodeResponse(),
+    );
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      `${session.origin}/api/v1/projects/${episodeProjectId}/episodes?limit=1&offset=0`,
+      `${session.origin}/api/v1/projects/${episodeProjectId}/episodes/${episodeId}`,
+    ]);
+    const init = fetcher.mock.calls[0]![1] as RequestInit;
+    expect(new Headers(init.headers).get("Authorization")).toBe(`Bearer ${session.token}`);
+    expect(new Headers(init.headers).get("Origin")).toBe("app://aijian");
+  });
+
+  test("rejects invalid Episode reads before dispatch and malformed response identity after dispatch", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response('{"path":"C:/secret/token"}', {
+        headers: { "X-Request-ID": "123e4567-e89b-42d3-a456-426614174001" },
+      }),
+    );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(client.listEpisodes("../workspace.sqlite3", { offset: "0" })).rejects.toThrow(
+      "valid project id",
+    );
+    await expect(client.listEpisodes(episodeProjectId, { offset: "00" })).rejects.toThrow(
+      "valid Episode list query",
+    );
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(client.getEpisode(episodeProjectId, episodeId)).rejects.toThrow(
+      "Episode request could not be completed",
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  test("creates once with normalized input and makes only valid 201 a success", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json(episodeResponse(), { status: 201, headers: episodeHeaders }),
+      );
+    const client = createLocalApiClient(fetcher, session);
+    await expect(
+      client.createEpisode(episodeProjectId, {
+        title: "  第一集  ",
+        target_duration_seconds: null,
+      }),
+    ).resolves.toEqual({ kind: "SUCCEEDED", receipt: episodeResponse() });
+    expect(fetcher).toHaveBeenCalledOnce();
+    const init = fetcher.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ title: "第一集", target_duration_seconds: null }));
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("keeps failed or unreadable create completion unknown after exactly one dispatch", async () => {
+    const error = {
+      error: { code: "EPISODE_CREATE_CONFLICT", message: "safe", retryable: false, details: {} },
+      request_id: episodeRequestId,
+    };
+    for (const { response, definite } of [
+      { response: Response.json(error, { status: 409, headers: episodeHeaders }), definite: true },
+      { response: Response.json(error, { status: 500, headers: episodeHeaders }), definite: false },
+      {
+        response: Response.json(episodeResponse(), { status: 200, headers: episodeHeaders }),
+        definite: false,
+      },
+      {
+        response: Response.json(
+          { ...error, extra: true },
+          { status: 409, headers: episodeHeaders },
+        ),
+        definite: false,
+      },
+      { response: new Response("{", { status: 201, headers: episodeHeaders }), definite: false },
+    ]) {
+      const fetcher = vi.fn().mockResolvedValue(response);
+      const result = await createLocalApiClient(fetcher, session).createEpisode(episodeProjectId, {
+        title: "第一集",
+      });
+      if (definite) {
+        expect(result).toEqual({
+          kind: "DEFINITE_SERVER_ERROR",
+          status: 409,
+          code: "EPISODE_CREATE_CONFLICT",
+          request_id: episodeRequestId,
+        });
+      } else {
+        expect(result).toEqual({ kind: "REMOTE_UNKNOWN" });
+      }
+      expect(fetcher).toHaveBeenCalledOnce();
+    }
+    const invalidFetcher = vi.fn();
+    await expect(
+      createLocalApiClient(invalidFetcher, session).createEpisode(episodeProjectId, {
+        title: "bad\ninput",
+      }),
+    ).rejects.toThrow("valid Episode input");
+    expect(invalidFetcher).not.toHaveBeenCalled();
+
+    const networkFetcher = vi.fn().mockRejectedValue(new Error("token=must-not-leak"));
+    await expect(
+      createLocalApiClient(networkFetcher, session).createEpisode(episodeProjectId, {
+        title: "第一集",
+      }),
+    ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+    expect(networkFetcher).toHaveBeenCalledOnce();
+  });
+});
+
 type HealthResponse = components["schemas"]["HealthResponse"];
 type ProjectData = components["schemas"]["ProjectData"];
 type ProjectListResponse = components["schemas"]["ProjectListResponse"];

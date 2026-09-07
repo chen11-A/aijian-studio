@@ -39,6 +39,20 @@ import {
   isRecord,
   isStringArray,
 } from "./api-contract-guards";
+import {
+  isEpisodeCreateErrorResponse,
+  isEpisodeId,
+  isEpisodeListResponse,
+  isEpisodeProjectId,
+  isEpisodeResponse,
+  normalizeEpisodeCreateInput,
+  validateEpisodeListQuery,
+  type CreateEpisodeInput,
+  type EpisodeCreateResult,
+  type EpisodeListQuery,
+  type EpisodeListResponse,
+  type EpisodeResponse,
+} from "./episode-contract";
 import { isHealthResponse, type HealthResponse } from "./health-contract";
 import {
   isCreateProviderConnectionInput,
@@ -105,6 +119,13 @@ export type {
   TimelineResponse,
   TrimTimelineClipInput,
 } from "./timeline-contract";
+export type {
+  CreateEpisodeInput,
+  EpisodeCreateResult,
+  EpisodeListQuery,
+  EpisodeListResponse,
+  EpisodeResponse,
+} from "./episode-contract";
 
 export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 export type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
@@ -210,6 +231,9 @@ export interface LocalApiClient {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
+  listEpisodes(projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse>;
+  getEpisode(projectId: string, episodeId: string): Promise<EpisodeResponse>;
+  createEpisode(projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult>;
   listSources(projectId: string): Promise<SourceDocumentListResponse>;
   getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
   importTextSource(
@@ -286,6 +310,11 @@ const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/
 const MAX_SOURCE_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 const MAX_LOCAL_API_JSON_BYTES = 16 * 1024 * 1024;
 const DEFINITE_DECISION_STATUSES = new Set([401, 403, 404, 409, 422]);
+type EpisodeDefiniteStatus = 401 | 403 | 404 | 409 | 422;
+
+function isEpisodeDefiniteStatus(status: number): status is EpisodeDefiniteStatus {
+  return status === 401 || status === 403 || status === 404 || status === 409 || status === 422;
+}
 
 const REVIEW_IDENTITY_KEYS = ["project_id", "version_id", "content_hash", "expected_revision"];
 const REVIEW_TARGET_KEYS = [
@@ -1920,6 +1949,81 @@ export function createLocalApiClient(
     return payload;
   }
 
+  function hasMatchingEpisodeRequestId(value: unknown, response: Response): boolean {
+    return (
+      isRecord(value) &&
+      hasRequestId(value) &&
+      response.headers.get("X-Request-ID") === value.request_id
+    );
+  }
+
+  async function requestEpisodeJson<T>(
+    path: string,
+    validator: (value: unknown) => value is T,
+  ): Promise<T> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}${path}`, {
+        headers,
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      throw new Error("Local API Episode request could not be completed");
+    }
+    if (response.status !== 200) {
+      throw new Error("Local API Episode request could not be completed");
+    }
+    try {
+      const payload = await readJsonWithLimit(response);
+      if (!hasMatchingEpisodeRequestId(payload, response) || !validator(payload)) {
+        throw new Error("Local API response does not match the published contract");
+      }
+      return payload;
+    } catch {
+      throw new Error("Local API Episode request could not be completed");
+    }
+  }
+
+  async function requestEpisodeCreation(
+    projectId: string,
+    input: CreateEpisodeInput,
+  ): Promise<EpisodeCreateResult> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}/api/v1/projects/${projectId}/episodes`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+    try {
+      const payload = await readJsonWithLimit(response);
+      if (!hasMatchingEpisodeRequestId(payload, response)) return { kind: "REMOTE_UNKNOWN" };
+      if (response.status === 201) {
+        return isEpisodeResponse(payload, projectId)
+          ? { kind: "SUCCEEDED", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
+      }
+      if (
+        !isEpisodeDefiniteStatus(response.status) ||
+        !isEpisodeCreateErrorResponse(payload, response.status)
+      ) {
+        return { kind: "REMOTE_UNKNOWN" };
+      }
+      return {
+        kind: "DEFINITE_SERVER_ERROR",
+        status: response.status,
+        code: payload.error.code,
+        request_id: payload.request_id,
+      };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+  }
+
   async function requestProposalDecision<TReceipt>(
     path: string,
     idempotencyKey: string,
@@ -2198,6 +2302,52 @@ export function createLocalApiClient(
         throw new Error("Local API client requires a valid project id");
       }
       return requestJson(`/api/v1/projects/${projectId}`, isProjectResponse, { headers });
+    },
+    async listEpisodes(
+      projectId: string,
+      query: EpisodeListQuery = {},
+    ): Promise<EpisodeListResponse> {
+      if (!isEpisodeProjectId(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      const normalizedQuery = validateEpisodeListQuery(query);
+      if (!normalizedQuery) {
+        throw new Error("Local API client requires a valid Episode list query");
+      }
+      const search = new URLSearchParams();
+      if (normalizedQuery.limit !== undefined) search.set("limit", String(normalizedQuery.limit));
+      if (normalizedQuery.offset !== undefined) search.set("offset", normalizedQuery.offset);
+      const suffix = search.size === 0 ? "" : `?${search.toString()}`;
+      return requestEpisodeJson(
+        `/api/v1/projects/${projectId}/episodes${suffix}`,
+        (payload): payload is EpisodeListResponse =>
+          isEpisodeListResponse(payload, projectId, normalizedQuery.limit ?? 50),
+      );
+    },
+    async getEpisode(projectId: string, episodeId: string): Promise<EpisodeResponse> {
+      if (!isEpisodeProjectId(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      if (!isEpisodeId(episodeId)) {
+        throw new Error("Local API client requires a valid Episode id");
+      }
+      return requestEpisodeJson(
+        `/api/v1/projects/${projectId}/episodes/${episodeId}`,
+        (payload): payload is EpisodeResponse => isEpisodeResponse(payload, projectId, episodeId),
+      );
+    },
+    async createEpisode(
+      projectId: string,
+      input: CreateEpisodeInput,
+    ): Promise<EpisodeCreateResult> {
+      if (!isEpisodeProjectId(projectId)) {
+        throw new Error("Local API client requires a valid project id");
+      }
+      const normalizedInput = normalizeEpisodeCreateInput(input);
+      if (!normalizedInput) {
+        throw new Error("Local API client requires a valid Episode input");
+      }
+      return requestEpisodeCreation(projectId, normalizedInput);
     },
     async listSources(projectId: string): Promise<SourceDocumentListResponse> {
       if (!PROJECT_ID_PATTERN.test(projectId)) {
