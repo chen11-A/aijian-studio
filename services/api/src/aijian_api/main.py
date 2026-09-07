@@ -69,6 +69,7 @@ from aijian_api.credential_vault import (
     SystemCredentialVault,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
+from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
 from aijian_api.fake_timeline_run import (
     FakeTimelineRunConflictError,
     FakeTimelineRunFactory,
@@ -106,6 +107,7 @@ from aijian_api.repository import (
     ArtifactConflictError,
     ArtifactDependencyInvalidError,
     ArtifactNotFoundError,
+    EpisodeNotFoundError,
     GateNotReadyError,
     ProjectNotFoundError,
     ReviewInvalidError,
@@ -283,6 +285,24 @@ def create_app(
             status_code=status.HTTP_404_NOT_FOUND,
             code="PROJECT_NOT_FOUND",
             message="The requested project or source was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(EpisodeNotFoundError)
+    async def episode_not_found(request: Request, _error: EpisodeNotFoundError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="EPISODE_NOT_FOUND",
+            message="The requested Episode was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(EpisodeStorageError)
+    async def episode_storage_failed(request: Request, _error: EpisodeStorageError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="EPISODE_STORAGE_FAILED",
+            message="The Episode request could not be completed",
             request_id=request_id(request),
         )
 
@@ -834,6 +854,7 @@ def create_app(
         )
 
     app.include_router(create_source_manifest_public_router(get_repository))
+    app.include_router(create_episode_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
     app.include_router(create_task_queue_router(get_task_queue_reader))
     app.include_router(create_invalidation_router(get_repository))

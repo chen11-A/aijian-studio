@@ -1895,6 +1895,35 @@
         "title": "CreateArtifactProposalRejectionRequest",
         "type": "object"
       },
+      "CreateEpisodeRequest": {
+        "additionalProperties": false,
+        "description": "The small, write-once Episode metadata input surface.",
+        "properties": {
+          "target_duration_seconds": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Duration Seconds"
+          },
+          "title": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "CreateEpisodeRequest",
+        "type": "object"
+      },
       "CreateFakeTimelineRunRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2332,6 +2361,117 @@
           "entity_id"
         ],
         "title": "EntityStateValueV1",
+        "type": "object"
+      },
+      "EpisodeData": {
+        "additionalProperties": false,
+        "description": "Episode organization metadata; it does not partition creative artifacts.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "position": {
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Position",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "target_duration_seconds": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Duration Seconds"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "position",
+          "title",
+          "is_default",
+          "target_duration_seconds",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EpisodeData",
+        "type": "object"
+      },
+      "EpisodeListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeData"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "EpisodeListResponse",
+        "type": "object"
+      },
+      "EpisodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EpisodeData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "EpisodeResponse",
         "type": "object"
       },
       "ErrorBody": {
@@ -9818,6 +9958,288 @@
           }
         },
         "summary": "List Project Agents"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes": {
+      "get": {
+        "operationId": "listEpisodes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "pattern": "^(?:0|[1-9][0-9]*)$",
+              "title": "Offset",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or Episode not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Episode storage failed safely"
+          }
+        },
+        "summary": "List Episodes"
+      },
+      "post": {
+        "description": "A lost response after dispatch can still represent a successful creation. This endpoint provides no idempotency key, automatic retry, or title deduplication.",
+        "operationId": "createEpisode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEpisodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or Episode not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Episode storage failed safely"
+          }
+        },
+        "summary": "Create Episode"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}": {
+      "get": {
+        "operationId": "getEpisode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local request boundary rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Project or Episode not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Episode storage failed safely"
+          }
+        },
+        "summary": "Get Episode"
       }
     },
     "/api/v1/projects/{project_id}/fake-timeline-runs": {

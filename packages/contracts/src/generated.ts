@@ -90,6 +90,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Episodes */
+        get: operations["listEpisodes"];
+        put?: never;
+        /**
+         * Create Episode
+         * @description A lost response after dispatch can still represent a successful creation. This endpoint provides no idempotency key, automatic retry, or title deduplication.
+         */
+        post: operations["createEpisode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Episode */
+        get: operations["getEpisode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/fake-timeline-runs": {
         parameters: {
             query?: never;
@@ -1076,6 +1114,16 @@ export interface components {
             comment: string;
             reason_code: components["schemas"]["ArtifactProposalRejectionReason"];
         };
+        /**
+         * CreateEpisodeRequest
+         * @description The small, write-once Episode metadata input surface.
+         */
+        CreateEpisodeRequest: {
+            /** Target Duration Seconds */
+            target_duration_seconds?: string | null;
+            /** Title */
+            title: string;
+        };
         /** CreateFakeTimelineRunRequest */
         CreateFakeTimelineRunRequest: {
             /** Source Document Id */
@@ -1244,6 +1292,55 @@ export interface components {
              * @enum {string}
              */
             kind: "entity_ref";
+        };
+        /**
+         * EpisodeData
+         * @description Episode organization metadata; it does not partition creative artifacts.
+         */
+        EpisodeData: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Position */
+            position: string;
+            /** Project Id */
+            project_id: string;
+            /** Revision */
+            revision: string;
+            /** Target Duration Seconds */
+            target_duration_seconds: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** EpisodeListResponse */
+        EpisodeListResponse: {
+            /** Data */
+            data: components["schemas"]["EpisodeData"][];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** EpisodeResponse */
+        EpisodeResponse: {
+            data: components["schemas"]["EpisodeData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         /**
          * ErrorBody
@@ -3691,6 +3788,215 @@ export interface operations {
             };
             /** @description Request validation failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listEpisodes: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: string;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeListResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Episode storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEpisodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Episode storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEpisode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Episode storage failed safely */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
