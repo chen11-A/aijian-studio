@@ -46,6 +46,12 @@ def assert_response_identity(response) -> None:
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
+def assert_safe_episode_storage_error(response, sentinel: str) -> None:
+    error_code(response, 500, "EPISODE_STORAGE_FAILED")
+    assert_response_identity(response)
+    assert sentinel not in response.text
+
+
 def test_default_episode_is_listed_and_read_as_canonical_strings(client) -> None:
     test_client, _repository = client
     project = create_project(test_client)
@@ -92,6 +98,18 @@ def test_create_accepts_only_nullable_canonical_duration(client, duration: str |
     response = test_client.post(f"/api/v1/projects/{project['id']}/episodes", json=payload)
     assert response.status_code == 201
     assert response.json()["data"]["target_duration_seconds"] == duration
+
+
+def test_create_accepts_explicit_json_null_duration(client) -> None:
+    test_client, _repository = client
+    project = create_project(test_client)
+    response = test_client.post(
+        f"/api/v1/projects/{project['id']}/episodes",
+        json={"title": "Explicit null", "target_duration_seconds": None},
+    )
+    assert response.status_code == 201
+    assert response.json()["data"]["target_duration_seconds"] is None
+    assert_response_identity(response)
 
 
 @pytest.mark.parametrize(
@@ -147,6 +165,26 @@ def test_list_paging_order_and_project_isolation(client) -> None:
     assert {entry["title"] for entry in all_first} == {"第 1 集", "Two", "Three"}
 
 
+def test_list_limit_bounds_and_empty_offset_page(client) -> None:
+    test_client, _repository = client
+    project = create_project(test_client)
+    for limit in (1, 100):
+        response = test_client.get(
+            f"/api/v1/projects/{project['id']}/episodes", params={"limit": limit}
+        )
+        assert response.status_code == 200
+        assert_response_identity(response)
+    empty = test_client.get(f"/api/v1/projects/{project['id']}/episodes", params={"offset": "1"})
+    assert empty.status_code == 200
+    assert empty.json()["data"] == []
+    for limit in (0, 101):
+        response = test_client.get(
+            f"/api/v1/projects/{project['id']}/episodes", params={"limit": limit}
+        )
+        error_code(response, 422, "VALIDATION_ERROR")
+        assert_response_identity(response)
+
+
 def test_errors_are_scoped_and_foreign_episode_is_indistinguishable(client) -> None:
     test_client, _repository = client
     first = create_project(test_client, name="First")
@@ -165,6 +203,32 @@ def test_errors_are_scoped_and_foreign_episode_is_indistinguishable(client) -> N
     error_code(
         test_client.get(f"/api/v1/projects/{first['id']}/episodes/invalid"), 422, "VALIDATION_ERROR"
     )
+
+
+def test_not_found_and_boundary_errors_preserve_identity(client) -> None:
+    test_client, _repository = client
+    project = create_project(test_client)
+    missing_project = test_client.get("/api/v1/projects/prj_" + "0" * 32 + "/episodes")
+    error_code(missing_project, 404, "PROJECT_NOT_FOUND")
+    assert_response_identity(missing_project)
+    missing_episode = test_client.get(f"/api/v1/projects/{project['id']}/episodes/ep_" + "0" * 32)
+    error_code(missing_episode, 404, "EPISODE_NOT_FOUND")
+    assert_response_identity(missing_episode)
+    validation = test_client.get(
+        f"/api/v1/projects/{project['id']}/episodes", params={"offset": "00"}
+    )
+    error_code(validation, 422, "VALIDATION_ERROR")
+    assert_response_identity(validation)
+    unauthorized = test_client.get(
+        f"/api/v1/projects/{project['id']}/episodes", headers={"Authorization": ""}
+    )
+    error_code(unauthorized, 401, "SIDECAR_AUTH_REQUIRED")
+    assert_response_identity(unauthorized)
+    forbidden = test_client.get(
+        f"/api/v1/projects/{project['id']}/episodes", headers={"Origin": "null"}
+    )
+    error_code(forbidden, 403, "SIDECAR_REQUEST_REJECTED")
+    assert_response_identity(forbidden)
 
 
 @pytest.mark.parametrize(
@@ -212,13 +276,58 @@ def test_storage_fault_is_sanitized(client, monkeypatch) -> None:
     test_client, repository = client
     project = create_project(test_client)
 
+    sentinel = "C:/secret/workspace.sqlite3"
+
     def fail(*_args, **_kwargs):
-        raise sqlite3.OperationalError("C:/secret/workspace.sqlite3")
+        raise sqlite3.OperationalError(sentinel)
 
     monkeypatch.setattr(repository, "list_episodes", fail)
     response = test_client.get(f"/api/v1/projects/{project['id']}/episodes")
-    error_code(response, 500, "EPISODE_STORAGE_FAILED")
-    assert "workspace.sqlite3" not in response.text
+    assert_safe_episode_storage_error(response, sentinel)
+
+
+@pytest.mark.parametrize(
+    ("operation", "sentinel"),
+    [
+        ("list_episodes", "list internal failure"),
+        ("get_episode", "get runtime internal failure"),
+        ("create_episode", "create internal failure"),
+    ],
+)
+def test_ordinary_repository_failures_are_safe_errors(
+    client, monkeypatch, operation, sentinel
+) -> None:
+    test_client, repository = client
+    project = create_project(test_client)
+
+    def fail(*_args, **_kwargs):
+        if operation == "get_episode":
+            raise RuntimeError(sentinel)
+        raise ValueError(sentinel)
+
+    monkeypatch.setattr(repository, operation, fail)
+    if operation == "list_episodes":
+        response = test_client.get(f"/api/v1/projects/{project['id']}/episodes")
+    elif operation == "get_episode":
+        response = test_client.get(f"/api/v1/projects/{project['id']}/episodes/ep_" + "0" * 32)
+    else:
+        response = test_client.post(
+            f"/api/v1/projects/{project['id']}/episodes", json={"title": "failure"}
+        )
+    assert_safe_episode_storage_error(response, sentinel)
+
+
+def test_malformed_persisted_episode_data_is_a_safe_error(client) -> None:
+    test_client, repository = client
+    project = create_project(test_client)
+    episode_id = f"ep_{project['id']}"
+    sentinel = "not-a-real-timestamp"
+    with sqlite3.connect(repository.database_path) as connection:
+        connection.execute(
+            "UPDATE episodes SET created_at = ? WHERE id = ?", (sentinel, episode_id)
+        )
+    response = test_client.get(f"/api/v1/projects/{project['id']}/episodes/{episode_id}")
+    assert_safe_episode_storage_error(response, sentinel)
 
 
 def test_existing_project_api_remains_compatible(client) -> None:

@@ -1,6 +1,5 @@
 """Project-scoped Episode metadata endpoints."""
 
-import sqlite3
 from collections.abc import Callable
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -20,7 +19,7 @@ from aijian_api.episode_contracts import (
     EpisodeResponse,
     parse_canonical_decimal,
 )
-from aijian_api.repository import StudioRepository
+from aijian_api.repository import EpisodeNotFoundError, ProjectNotFoundError, StudioRepository
 
 type RepositoryProvider = Callable[[], StudioRepository]
 ProjectId = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
@@ -41,7 +40,9 @@ def _episode_data(value: object) -> EpisodeData:
 def _repository_call(call: Callable[[], object]) -> object:
     try:
         return call()
-    except sqlite3.Error as error:
+    except (ProjectNotFoundError, EpisodeNotFoundError):
+        raise
+    except Exception as error:
         raise EpisodeStorageError from error
 
 
