@@ -1966,19 +1966,60 @@ test("shows a connected, actionable empty workspace", async () => {
   expect(screen.getByText("本地工作区服务已连接")).toBeInTheDocument();
 });
 
-test("creates and opens a project from the keyboard-friendly dialog", async () => {
+test("keeps project entry unavailable until the project list is ready", async () => {
+  const transport = studioTransport();
+  let resolveProjects: ((value: { data: ProjectData[]; request_id: string }) => void) | undefined;
+  vi.mocked(transport.listProjects).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveProjects = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+
+  expect(await screen.findByText("本地工作区服务已连接")).toBeInTheDocument();
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+  expect(trigger).toBeDisabled();
+  fireEvent.click(trigger);
+  expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull();
+  expect(transport.createProject).not.toHaveBeenCalled();
+
+  await act(async () => resolveProjects?.({ data: [], request_id: requestId }));
+  expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
+  expect(trigger).toBeEnabled();
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+});
+
+test("does not expose an empty project entry when project listing fails", async () => {
+  const transport = studioTransport();
+  vi.mocked(transport.listProjects).mockRejectedValueOnce(new Error("list unavailable"));
+  render(<App transport={transport} />);
+
+  expect(await screen.findByRole("heading", { name: "创作引擎未连接" })).toBeInTheDocument();
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+  expect(trigger).toBeDisabled();
+  fireEvent.click(trigger);
+  expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull();
+  expect(transport.createProject).not.toHaveBeenCalled();
+});
+
+test("adds a created project without selecting it until the user explicitly opens it", async () => {
   const transport = studioTransport();
   render(<App transport={transport} />);
   await screen.findByText("还没有制作项目");
 
   fireEvent.click(screen.getByRole("button", { name: "创建第一个项目" }));
-  const name = screen.getByRole("textbox", { name: "项目名称" });
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  const name = screen.getByRole("textbox", { name: "作品名称" });
   fireEvent.change(name, { target: { value: "雾城来信" } });
-  fireEvent.click(screen.getByRole("button", { name: "创建项目" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
 
   await waitFor(() => expect(transport.createProject).toHaveBeenCalledOnce());
+  expect(await screen.findByText("已创建“雾城来信”。")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "打开新作品" }));
   expect(await screen.findByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
 test("imports a TXT file and shows traceable chapter blocks", async () => {
@@ -2026,26 +2067,86 @@ test("shows a recoverable connection error", async () => {
   expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
 });
 
-test("keeps project input when creation fails and supports Escape", async () => {
+test("maps a failed create to an unknown result and keeps its draft blocked", async () => {
   const transport = studioTransport();
   vi.mocked(transport.createProject).mockRejectedValueOnce(new Error("conflict"));
   render(<App transport={transport} />);
   await screen.findByText("还没有制作项目");
 
   fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "项目名称" }), {
+  await screen.findByRole("heading", { name: "近期作品" });
+  fireEvent.change(screen.getByRole("textbox", { name: "作品名称" }), {
     target: { value: "失败后保留" },
   });
-  fireEvent.change(screen.getByLabelText("单集目标时长"), { target: { value: "120" } });
-  fireEvent.click(screen.getByRole("button", { name: "创建项目" }));
+  fireEvent.change(screen.getByLabelText("作品默认目标时长"), { target: { value: "120" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("已输入内容不会丢失");
-  expect(screen.getByRole("textbox", { name: "项目名称" })).toHaveValue("失败后保留");
+  expect(await screen.findByText(/创建结果待核对/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "作品名称" })).toHaveValue("失败后保留");
   expect(transport.createProject).toHaveBeenCalledWith(
     expect.objectContaining({ target_duration_seconds: 120 }),
   );
-  fireEvent.keyDown(window, { key: "Escape" });
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑草稿" }));
+  expect(screen.getByRole("button", { name: "创建新请求" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "创建新的请求" }));
+  fireEvent.click(screen.getByRole("button", { name: "仍然创建新请求" }));
+  expect(screen.getByRole("button", { name: "创建新请求" })).toBeEnabled();
+  expect(transport.createProject).toHaveBeenCalledOnce();
+});
+
+test("adds a delayed create without automatically replacing the selected project", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+  };
+  let resolveCreate: ((value: { data: ProjectData; request_id: string }) => void) | undefined;
+  const transport = studioTransport([project, second]);
+  vi.mocked(transport.createProject).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+  await screen.findByRole("heading", { name: "近期作品" });
+  fireEvent.change(screen.getByRole("textbox", { name: "作品名称" }), {
+    target: { value: "迟到创建" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
+  expect(await screen.findByRole("button", { name: "正在创建…" })).toBeDisabled();
+  await act(async () =>
+    resolveCreate?.({
+      data: { ...project, id: `prj_${"3".repeat(32)}`, name: "迟到创建" },
+      request_id: requestId,
+    }),
+  );
+  expect(await screen.findByText("已创建“迟到创建”。")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "近期作品列表" })).getByRole("button", {
+      name: /夜航/,
+    }),
+  );
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+});
+
+test("makes the workspace inert while project entry is open and restores its trigger on cancel", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  expect(document.querySelector("main.workspace")).toHaveAttribute("inert");
+  expect(document.querySelector("aside.sidebar")).toHaveAttribute("inert");
+
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull());
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 
 test("rejects unsupported and oversized files before transport", async () => {

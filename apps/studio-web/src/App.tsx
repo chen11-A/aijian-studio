@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { DragEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import {
   createStudioTransport,
+  type CreateProjectInput,
   type HealthResponse,
   type ProjectData,
   type SourceDocumentResponse,
@@ -24,6 +25,10 @@ import {
   type ProductionStage,
 } from "./components/ProductionShell/ProductionChrome";
 import { ProposalReviewCard } from "./components/ProductionShell/ProposalReviewCard";
+import {
+  ProjectEntry,
+  type ProjectEntryCreateOutcome,
+} from "./components/ProductionShell/ProjectEntry";
 import { SourceExtractRunLauncher } from "./components/ProductionShell/SourceExtractRunLauncher";
 import { ProviderSettingsWorkspace } from "./components/ProviderSettings/ProviderSettingsWorkspace";
 import { TaskQueueWorkspace } from "./components/TaskQueue/TaskQueueWorkspace";
@@ -339,90 +344,7 @@ function EngineBadge({ connection }: { connection: ConnectionState }) {
   );
 }
 
-interface CreateProjectDialogProps {
-  busy: boolean;
-  error: string | null;
-  onClose(): void;
-  onCreate(name: string, duration: number): Promise<void>;
-}
-
-function CreateProjectDialog({ busy, error, onClose, onCreate }: CreateProjectDialogProps) {
-  const [name, setName] = useState("");
-  const [duration, setDuration] = useState(90);
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [busy, onClose]);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (name.trim()) void onCreate(name.trim(), duration);
-  };
-
-  return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={busy ? undefined : onClose}>
-      <section
-        className="project-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-project-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-kicker">NEW PRODUCTION</div>
-        <h2 id="new-project-title">建立制作项目</h2>
-        <p>先确定一个清晰的制作容器，原文、剧本、分镜和素材都会在这里保留版本。</p>
-        <form onSubmit={submit}>
-          <label>
-            <span>项目名称</span>
-            <input
-              autoFocus
-              value={name}
-              maxLength={80}
-              placeholder="例如：雾城来信"
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              <span>单集目标时长</span>
-              <select
-                value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-              >
-                <option value={60}>60 秒</option>
-                <option value={90}>90 秒</option>
-                <option value={120}>120 秒</option>
-              </select>
-            </label>
-            <div className="locked-field">
-              <span>首发画幅</span>
-              <strong>9:16 · 竖屏</strong>
-            </div>
-          </div>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="dialog-actions">
-            <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>
-              取消
-            </button>
-            <button type="submit" className="accent-button" disabled={busy || !name.trim()}>
-              {busy ? "正在创建…" : "创建项目"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-function EmptyWorkspace({ onCreate }: { onCreate(): void }) {
+function EmptyWorkspace({ onCreate }: { onCreate(trigger: HTMLButtonElement): void }) {
   return (
     <section className="empty-workspace">
       <div className="empty-visual" aria-hidden="true">
@@ -435,7 +357,7 @@ function EmptyWorkspace({ onCreate }: { onCreate(): void }) {
         <span className="eyebrow">YOUR FIRST PRODUCTION</span>
         <h2>还没有制作项目</h2>
         <p>创建项目后导入 UTF-8 TXT 小说。系统会保留原文件指纹，并把章节与段落变成可追溯来源。</p>
-        <button className="accent-button" onClick={onCreate}>
+        <button className="accent-button" onClick={(event) => onCreate(event.currentTarget)}>
           创建第一个项目
         </button>
       </div>
@@ -1996,8 +1918,6 @@ export function App({ transport }: AppProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [createBusy, setCreateBusy] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [importState, setImportState] = useState<ImportState>({ kind: "idle" });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
   const [projectPage, setProjectPage] = useState<ProjectWorkspacePage>("overview");
@@ -2018,7 +1938,17 @@ export function App({ transport }: AppProps) {
   const storyRequestGeneration = useRef(0);
   const taskDrawerRef = useRef<HTMLElement | null>(null);
   const taskDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
+  const projectEntryReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const selectedProject = projects.find((project) => project.id === selectedId) ?? null;
+  const openProjectEntry = (trigger: HTMLButtonElement) => {
+    if (connection.kind !== "connected" || !workspaceReady) return;
+    projectEntryReturnFocusRef.current = trigger;
+    setDialogOpen(true);
+  };
+  const dismissProjectEntry = () => {
+    setDialogOpen(false);
+    requestAnimationFrame(() => projectEntryReturnFocusRef.current?.focus());
+  };
   const currentManifest =
     manifestState.kind === "ready" && manifestState.projectId === selectedId
       ? manifestState.response
@@ -2362,30 +2292,17 @@ export function App({ transport }: AppProps) {
     void connect();
   }, [connect]);
 
-  const createProject = async (name: string, duration: number) => {
-    sourceRequestGeneration.current += 1;
-    setCreateBusy(true);
-    setCreateError(null);
+  const createProject = async (input: CreateProjectInput): Promise<ProjectEntryCreateOutcome> => {
     try {
-      const response = await studio.createProject({
-        name,
-        aspect_ratio: "9:16",
-        target_duration_seconds: duration,
-        source_language: "zh-CN",
-      });
-      setProjects((current) => [response.data, ...current]);
-      setProductionControlTab("tasks");
-      setSelectedId(response.data.id);
-      setNavigationHistory([]);
-      setImportState({ kind: "idle" });
-      setActiveWorkspace("project");
-      setProjectPage("overview");
-      setStoryState({ kind: "idle" });
-      setDialogOpen(false);
+      const response = await studio.createProject(input);
+      setProjects((current) => [
+        response.data,
+        ...current.filter((item) => item.id !== response.data.id),
+      ]);
+      return { kind: "SUCCEEDED", project: response.data };
     } catch {
-      setCreateError("项目创建失败，请检查名称后重试。已输入内容不会丢失。");
-    } finally {
-      setCreateBusy(false);
+      // The transport does not expose a confirmed server-side rejection outcome.
+      return { kind: "REMOTE_UNKNOWN" };
     }
   };
 
@@ -2462,7 +2379,7 @@ export function App({ transport }: AppProps) {
 
   return (
     <div className="studio-shell r2-shell">
-      <aside className="sidebar" inert={taskDrawerOpen ? true : undefined}>
+      <aside className="sidebar" inert={taskDrawerOpen || dialogOpen ? true : undefined}>
         <a className="brand" href="#top" aria-label="AIVORA 工作台">
           <span className="brand-mark" aria-hidden="true">
             A
@@ -2544,7 +2461,7 @@ export function App({ transport }: AppProps) {
         </div>
       </aside>
 
-      <main id="top" className="workspace" inert={taskDrawerOpen ? true : undefined}>
+      <main id="top" className="workspace" inert={taskDrawerOpen || dialogOpen ? true : undefined}>
         <header className="topbar">
           <div className="r2-project-header">
             {workspaceReady && projects.length > 0 && (
@@ -2631,8 +2548,8 @@ export function App({ transport }: AppProps) {
             </button>
             <button
               className="accent-button compact creation-action"
-              onClick={() => setDialogOpen(true)}
-              disabled={connection.kind !== "connected"}
+              onClick={(event) => openProjectEntry(event.currentTarget)}
+              disabled={connection.kind !== "connected" || !workspaceReady}
             >
               <span aria-hidden="true">＋</span> 新建项目
             </button>
@@ -2706,7 +2623,7 @@ export function App({ transport }: AppProps) {
           )}
 
           {workspaceReady && activeWorkspace !== "settings" && projects.length === 0 && (
-            <EmptyWorkspace onCreate={() => setDialogOpen(true)} />
+            <EmptyWorkspace onCreate={openProjectEntry} />
           )}
 
           {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
@@ -2961,17 +2878,18 @@ export function App({ transport }: AppProps) {
       )}
 
       {dialogOpen && (
-        <CreateProjectDialog
-          busy={createBusy}
-          error={createError}
-          onClose={() => {
-            if (!createBusy) {
+        <div className="dialog-backdrop" role="presentation">
+          <ProjectEntry
+            projects={projects}
+            selectedProjectId={selectedId}
+            onSelectProject={(projectId) => {
+              selectProject(projectId);
               setDialogOpen(false);
-              setCreateError(null);
-            }
-          }}
-          onCreate={createProject}
-        />
+            }}
+            onCreateProject={createProject}
+            onDismiss={dismissProjectEntry}
+          />
+        </div>
       )}
     </div>
   );
