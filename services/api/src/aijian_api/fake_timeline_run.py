@@ -34,7 +34,13 @@ from aijian_api.repository import (
 )
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.task_ledger import ClaimedTask, LocalTaskLedger, QueuedTask
-from aijian_api.timeline import TimelineAssetV1, TimelineClipV1, TimelineVersionV1
+from aijian_api.timeline import (
+    TimelineAssetV1,
+    TimelineClipV1,
+    TimelineMediaAssetBindingV1,
+    TimelineMediaPackageBindingV1,
+    TimelineVersionV1,
+)
 
 TASK_KIND = "local.timeline.assemble.fake.media.v1"
 DEFINITION_ID = "phase0.fake-timeline-media"
@@ -594,6 +600,23 @@ class LocalFakeTimelineWorker:
                     duration_frames=shot.duration_frames,
                 )
                 for index, shot in enumerate(package.manifest.shots, start=1)
+            ),
+            media_package=TimelineMediaPackageBindingV1(
+                media_package_id=package.manifest.package_id,
+                manifest_sha256=canonical_content_hash(package.manifest.model_dump(mode="python")),
+                assets=tuple(
+                    TimelineMediaAssetBindingV1(
+                        asset_id=f"fake-asset-{index:02d}",
+                        preview_relative_path=shot.preview_video.relative_path,
+                        preview_sha256=shot.preview_video.sha256,
+                        preview_byte_length=shot.preview_video.byte_size,
+                        source_asset_sha256=shot.preview_video.sha256,
+                        source_frame_count=shot.preview_video.frame_count,
+                        editing_asset_sha256=shot.preview_video.sha256,
+                        editable_frame_count=shot.preview_video.frame_count,
+                    )
+                    for index, shot in enumerate(package.manifest.shots, start=1)
+                ),
             ),
         )
         manifest_version_id = str(self._validate_truth(running)["source_manifest_version_id"])

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -10,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from aijian_api.artifacts import canonical_content_hash
 from aijian_api.fake_media_package import FakeMediaPackageError, FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.main import create_app
@@ -359,6 +361,39 @@ def test_worker_materializes_real_media_and_completes_timeline_with_recovery_rec
     expected_hashes = [shot.preview_video.sha256 for shot in generated.manifest.shots]
     assert [asset["source_asset_sha256"] for asset in timeline["assets"]] == expected_hashes
     assert [asset["source_frame_count"] for asset in timeline["assets"]] == [125, 125, 125]
+    binding = timeline["media_package"]
+    assert binding["media_package_id"] == generated.manifest.package_id
+    assert binding["manifest_relative_path"] == "manifest.json"
+    assert binding["manifest_sha256"] == canonical_content_hash(
+        generated.manifest.model_dump(mode="python")
+    )
+    unicode_manifest = generated.manifest.model_copy(update={"toolchain_profile_id": "本地-工具链"})
+    publisher_manifest_bytes = json.dumps(
+        unicode_manifest.model_dump(mode="json"),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    assert canonical_content_hash(unicode_manifest.model_dump(mode="python")) == (
+        "sha256:" + hashlib.sha256(publisher_manifest_bytes).hexdigest()
+    )
+    assert binding["assets"] == [
+        {
+            "schema_version": 1,
+            "asset_id": f"fake-asset-{index:02d}",
+            "preview_relative_path": shot.preview_video.relative_path,
+            "preview_sha256": shot.preview_video.sha256,
+            "preview_byte_length": shot.preview_video.byte_size,
+            "preview_mime_type": "video/webm",
+            "preview_kind": "DEVELOPMENT_FAKE",
+            "source_asset_sha256": shot.preview_video.sha256,
+            "source_frame_count": shot.preview_video.frame_count,
+            "editing_asset_sha256": shot.preview_video.sha256,
+            "editable_frame_count": shot.preview_video.frame_count,
+        }
+        for index, shot in enumerate(generated.manifest.shots, start=1)
+    ]
     for shot, expected in zip(generated.manifest.shots, expected_hashes, strict=True):
         with generated.resolve(shot.preview_video).open("rb") as stream:
             actual = "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()

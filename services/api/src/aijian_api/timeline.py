@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from aijian_api.media_contracts import (
     CONTENT_HASH_PATTERN,
@@ -14,6 +15,7 @@ from aijian_api.media_contracts import (
 )
 
 TimelineId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,79}$")]
+FakeMediaPackageId = Annotated[str, Field(pattern=r"^fmp_[0-9a-f]{32}$")]
 PositiveFrameCount = Annotated[
     int,
     Field(strict=True, gt=0, le=JSON_SAFE_INTEGER_MAX),
@@ -64,6 +66,51 @@ class TimelineClipV1(BaseModel):
     duration_frames: PositiveFrameCount
 
 
+class TimelineMediaAssetBindingV1(BaseModel):
+    """A frozen manifest-backed media locator for one Timeline asset."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    asset_id: TimelineId
+    preview_relative_path: Annotated[str, Field(min_length=1, max_length=512)]
+    preview_sha256: str = Field(pattern=CONTENT_HASH_PATTERN)
+    preview_byte_length: PositiveFrameCount
+    preview_mime_type: Literal["video/webm"] = "video/webm"
+    preview_kind: Literal["DEVELOPMENT_FAKE"] = "DEVELOPMENT_FAKE"
+    source_asset_sha256: str = Field(pattern=CONTENT_HASH_PATTERN)
+    source_frame_count: PositiveFrameCount
+    editing_asset_sha256: str = Field(pattern=CONTENT_HASH_PATTERN)
+    editable_frame_count: PositiveFrameCount
+
+    @field_validator("preview_relative_path")
+    @classmethod
+    def require_contained_posix_path(cls, value: str) -> str:
+        path = PurePosixPath(value)
+        if (
+            path.is_absolute()
+            or "\\" in value
+            or ":" in value
+            or any(ord(character) < 32 or ord(character) == 127 for character in value)
+            or any(part in {"", ".", ".."} for part in path.parts)
+            or str(path) != value
+        ):
+            raise ValueError("timeline media binding path must be a contained canonical POSIX path")
+        return value
+
+
+class TimelineMediaPackageBindingV1(BaseModel):
+    """Optional immutable package identity and complete Timeline asset mapping."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    media_package_id: FakeMediaPackageId
+    manifest_relative_path: Literal["manifest.json"] = "manifest.json"
+    manifest_sha256: str = Field(pattern=CONTENT_HASH_PATTERN)
+    assets: tuple[TimelineMediaAssetBindingV1, ...] = Field(min_length=1, max_length=10_000)
+
+
 class TimelineVersionV1(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -75,6 +122,7 @@ class TimelineVersionV1(BaseModel):
     height: Literal[1920] = 1920
     assets: tuple[TimelineAssetV1, ...] = Field(min_length=1, max_length=10_000)
     clips: tuple[TimelineClipV1, ...] = Field(min_length=1, max_length=10_000)
+    media_package: TimelineMediaPackageBindingV1 | None = None
 
     @model_validator(mode="after")
     def require_closed_frame_ranges(self) -> Self:
@@ -102,6 +150,24 @@ class TimelineVersionV1(BaseModel):
             total_duration += clip.duration_frames
             if total_duration > JSON_SAFE_INTEGER_MAX:
                 raise ValueError("timeline total duration exceeds JSON safe integer")
+        if self.media_package is not None:
+            binding_ids = [binding.asset_id for binding in self.media_package.assets]
+            if len(set(binding_ids)) != len(binding_ids):
+                raise ValueError("timeline media binding asset IDs must be unique")
+            if set(binding_ids) != set(asset_ids):
+                raise ValueError(
+                    "timeline media binding must map every timeline asset exactly once"
+                )
+            for binding in self.media_package.assets:
+                asset = assets[binding.asset_id]
+                if (
+                    binding.source_asset_sha256 != asset.source_asset_sha256
+                    or binding.source_frame_count != asset.source_frame_count
+                    or binding.editing_asset_sha256 != asset.editing_asset_sha256
+                    or binding.preview_sha256 != binding.editing_asset_sha256
+                    or binding.editable_frame_count != asset.editable_frame_count
+                ):
+                    raise ValueError("timeline media binding must match its timeline asset")
         return self
 
     @property

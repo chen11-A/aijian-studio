@@ -9178,6 +9178,130 @@
         "title": "TimelineData",
         "type": "object"
       },
+      "TimelineMediaAssetBindingV1": {
+        "additionalProperties": false,
+        "description": "A frozen manifest-backed media locator for one Timeline asset.",
+        "properties": {
+          "asset_id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "editable_frame_count": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Editable Frame Count",
+            "type": "integer"
+          },
+          "editing_asset_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Editing Asset Sha256",
+            "type": "string"
+          },
+          "preview_byte_length": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Preview Byte Length",
+            "type": "integer"
+          },
+          "preview_kind": {
+            "const": "DEVELOPMENT_FAKE",
+            "default": "DEVELOPMENT_FAKE",
+            "title": "Preview Kind",
+            "type": "string"
+          },
+          "preview_mime_type": {
+            "const": "video/webm",
+            "default": "video/webm",
+            "title": "Preview Mime Type",
+            "type": "string"
+          },
+          "preview_relative_path": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Preview Relative Path",
+            "type": "string"
+          },
+          "preview_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Preview Sha256",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_asset_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Asset Sha256",
+            "type": "string"
+          },
+          "source_frame_count": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9007199254740991.0,
+            "title": "Source Frame Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "asset_id",
+          "preview_relative_path",
+          "preview_sha256",
+          "preview_byte_length",
+          "source_asset_sha256",
+          "source_frame_count",
+          "editing_asset_sha256",
+          "editable_frame_count"
+        ],
+        "title": "TimelineMediaAssetBindingV1",
+        "type": "object"
+      },
+      "TimelineMediaPackageBindingV1": {
+        "additionalProperties": false,
+        "description": "Optional immutable package identity and complete Timeline asset mapping.",
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineMediaAssetBindingV1"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Assets",
+            "type": "array"
+          },
+          "manifest_relative_path": {
+            "const": "manifest.json",
+            "default": "manifest.json",
+            "title": "Manifest Relative Path",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "media_package_id": {
+            "pattern": "^fmp_[0-9a-f]{32}$",
+            "title": "Media Package Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "media_package_id",
+          "manifest_sha256",
+          "assets"
+        ],
+        "title": "TimelineMediaPackageBindingV1",
+        "type": "object"
+      },
       "TimelineProxyRefV1": {
         "additionalProperties": false,
         "properties": {
@@ -9261,6 +9385,16 @@
             "default": 1920,
             "title": "Height",
             "type": "integer"
+          },
+          "media_package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimelineMediaPackageBindingV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revision": {
             "maximum": 9007199254740991.0,

@@ -3362,6 +3362,70 @@ export interface components {
             /** Version Id */
             version_id: string;
         };
+        /**
+         * TimelineMediaAssetBindingV1
+         * @description A frozen manifest-backed media locator for one Timeline asset.
+         */
+        TimelineMediaAssetBindingV1: {
+            /** Asset Id */
+            asset_id: string;
+            /** Editable Frame Count */
+            editable_frame_count: number;
+            /** Editing Asset Sha256 */
+            editing_asset_sha256: string;
+            /** Preview Byte Length */
+            preview_byte_length: number;
+            /**
+             * Preview Kind
+             * @default DEVELOPMENT_FAKE
+             * @constant
+             */
+            preview_kind: "DEVELOPMENT_FAKE";
+            /**
+             * Preview Mime Type
+             * @default video/webm
+             * @constant
+             */
+            preview_mime_type: "video/webm";
+            /** Preview Relative Path */
+            preview_relative_path: string;
+            /** Preview Sha256 */
+            preview_sha256: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Source Asset Sha256 */
+            source_asset_sha256: string;
+            /** Source Frame Count */
+            source_frame_count: number;
+        };
+        /**
+         * TimelineMediaPackageBindingV1
+         * @description Optional immutable package identity and complete Timeline asset mapping.
+         */
+        TimelineMediaPackageBindingV1: {
+            /** Assets */
+            assets: components["schemas"]["TimelineMediaAssetBindingV1"][];
+            /**
+             * Manifest Relative Path
+             * @default manifest.json
+             * @constant
+             */
+            manifest_relative_path: "manifest.json";
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+            /** Media Package Id */
+            media_package_id: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+        };
         /** TimelineProxyRefV1 */
         TimelineProxyRefV1: {
             /** Editable Frame Count */
@@ -3403,6 +3467,7 @@ export interface components {
              * @constant
              */
             height: 1920;
+            media_package?: components["schemas"]["TimelineMediaPackageBindingV1"] | null;
             /** Revision */
             revision: number;
             /**

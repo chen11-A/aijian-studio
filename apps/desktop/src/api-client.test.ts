@@ -7,6 +7,7 @@ import {
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
+import { isTimelineResponse } from "./timeline-contract";
 import type {
   SourceManifestPreparedReview,
   SourceManifestReviewTarget,
@@ -3587,6 +3588,125 @@ describe("local API client", () => {
       `${session.origin}/api/v1/projects/${project.id}/timeline/reorder`,
       `${session.origin}/api/v1/projects/${project.id}/timeline/replace`,
     ]);
+  });
+
+  test("accepts a complete immutable media binding and rejects a noncanonical mapping", async () => {
+    const bound = structuredClone(timelineResponse);
+    const asset = bound.data.timeline.assets[0];
+    if (asset === undefined) throw new Error("timeline fixture asset is missing");
+    bound.data.timeline.media_package = {
+      schema_version: 1,
+      media_package_id: `fmp_${"d".repeat(32)}`,
+      manifest_relative_path: "manifest.json",
+      manifest_sha256: `sha256:${"b".repeat(64)}`,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: asset.asset_id,
+          preview_relative_path: "shot-01/preview.webm",
+          preview_sha256: asset.source_asset_sha256,
+          preview_byte_length: 100,
+          preview_mime_type: "video/webm",
+          preview_kind: "DEVELOPMENT_FAKE",
+          source_asset_sha256: asset.source_asset_sha256,
+          source_frame_count: asset.source_frame_count,
+          editing_asset_sha256: asset.source_asset_sha256,
+          editable_frame_count: asset.source_frame_count,
+        },
+      ],
+    };
+    const validClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(bound)),
+      session,
+    );
+    await expect(validClient.getProjectTimeline(project.id)).resolves.toEqual(bound);
+
+    const invalid = structuredClone(bound);
+    const binding = invalid.data.timeline.media_package?.assets[0];
+    if (binding === undefined) throw new Error("timeline fixture binding is missing");
+    binding.preview_relative_path = "C:/outside.webm";
+    const invalidClient = createLocalApiClient(
+      vi.fn().mockResolvedValue(Response.json(invalid)),
+      session,
+    );
+    await expect(invalidClient.getProjectTimeline(project.id)).rejects.toThrow(
+      "published contract",
+    );
+
+    for (const mutate of [
+      (response: typeof bound) => {
+        response.data.timeline.media_package!.assets[0]!.preview_sha256 = `sha256:${"c".repeat(64)}`;
+      },
+      (response: typeof bound) => {
+        response.data.timeline.media_package!.assets.push(
+          structuredClone(response.data.timeline.media_package!.assets[0]!),
+        );
+      },
+      (response: typeof bound) => {
+        (
+          response.data.timeline.media_package!.assets[0]! as object as Record<string, unknown>
+        ).unexpected = true;
+      },
+    ]) {
+      const malformed = structuredClone(bound);
+      mutate(malformed);
+      const malformedClient = createLocalApiClient(
+        vi.fn().mockResolvedValue(Response.json(malformed)),
+        session,
+      );
+      await expect(malformedClient.getProjectTimeline(project.id)).rejects.toThrow(
+        "published contract",
+      );
+    }
+  });
+
+  test("matches a non-sequential media binding by asset id without a linear asset scan", () => {
+    const bound = structuredClone(timelineResponse);
+    const firstAsset = bound.data.timeline.assets[0];
+    if (firstAsset === undefined) {
+      throw new Error("timeline asset fixture is incomplete");
+    }
+    bound.data.timeline.media_package = {
+      schema_version: 1,
+      media_package_id: `fmp_${"d".repeat(32)}`,
+      manifest_relative_path: "manifest.json",
+      manifest_sha256: `sha256:${"b".repeat(64)}`,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: firstAsset.asset_id,
+          preview_relative_path: "shot-01/preview.webm",
+          preview_sha256: firstAsset.source_asset_sha256,
+          preview_byte_length: 100,
+          preview_mime_type: "video/webm",
+          preview_kind: "DEVELOPMENT_FAKE",
+          source_asset_sha256: firstAsset.source_asset_sha256,
+          source_frame_count: firstAsset.source_frame_count,
+          editing_asset_sha256: firstAsset.source_asset_sha256,
+          editable_frame_count: firstAsset.source_frame_count,
+        },
+      ],
+    };
+    const firstBinding = bound.data.timeline.media_package.assets[0];
+    if (firstBinding === undefined) throw new Error("timeline binding fixture is incomplete");
+    const secondAsset = structuredClone(firstAsset);
+    secondAsset.asset_id = "fake-asset-02";
+    secondAsset.source_asset_sha256 = `sha256:${"e".repeat(64)}`;
+    bound.data.timeline.assets.push(secondAsset);
+    const secondBinding = structuredClone(firstBinding);
+    secondBinding.asset_id = secondAsset.asset_id;
+    secondBinding.source_asset_sha256 = secondAsset.source_asset_sha256;
+    secondBinding.editing_asset_sha256 = secondAsset.source_asset_sha256;
+    secondBinding.preview_sha256 = secondAsset.source_asset_sha256;
+    bound.data.timeline.media_package!.assets.unshift(secondBinding);
+
+    const findSpy = vi.spyOn(bound.data.timeline.assets, "find");
+    try {
+      expect(isTimelineResponse(bound, project.id)).toBe(true);
+      expect(findSpy).not.toHaveBeenCalled();
+    } finally {
+      findSpy.mockRestore();
+    }
   });
 
   test("returns null only for the typed missing-timeline response", async () => {

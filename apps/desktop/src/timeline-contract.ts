@@ -12,6 +12,21 @@ const VERSION_ID = /^ver_[0-9a-f]{32}$/;
 const CONTENT_HASH = /^sha256:[0-9a-f]{64}$/;
 const TIMELINE_ID = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 
+type MediaAssetBinding = {
+  asset_id: string;
+  preview_relative_path: string;
+  preview_sha256: string;
+  preview_byte_length: number;
+  preview_mime_type: "video/webm";
+  preview_kind: "DEVELOPMENT_FAKE";
+  source_asset_sha256: string;
+  source_frame_count: number;
+  editing_asset_sha256: string;
+  editable_frame_count: number;
+};
+
+type MediaPackageBinding = { assets: MediaAssetBinding[] };
+
 function isSafeInteger(value: unknown, minimum: number): boolean {
   return Number.isSafeInteger(value) && Number(value) >= minimum;
 }
@@ -99,6 +114,77 @@ function isClip(value: unknown): boolean {
   );
 }
 
+function isContainedRelativePath(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 512 &&
+    !value.startsWith("/") &&
+    !value.includes("\\") &&
+    !value.includes(":") &&
+    ![...value].some(
+      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    ) &&
+    value.split("/").every((part) => part !== "" && part !== "." && part !== "..")
+  );
+}
+
+function isMediaAssetBinding(value: unknown): value is MediaAssetBinding {
+  return (
+    isRecord(value) &&
+    hasOnlyKeys(value, [
+      "schema_version",
+      "asset_id",
+      "preview_relative_path",
+      "preview_sha256",
+      "preview_byte_length",
+      "preview_mime_type",
+      "preview_kind",
+      "source_asset_sha256",
+      "source_frame_count",
+      "editing_asset_sha256",
+      "editable_frame_count",
+    ]) &&
+    value.schema_version === 1 &&
+    typeof value.asset_id === "string" &&
+    TIMELINE_ID.test(value.asset_id) &&
+    isContainedRelativePath(value.preview_relative_path) &&
+    typeof value.preview_sha256 === "string" &&
+    CONTENT_HASH.test(value.preview_sha256) &&
+    isSafeInteger(value.preview_byte_length, 1) &&
+    value.preview_mime_type === "video/webm" &&
+    value.preview_kind === "DEVELOPMENT_FAKE" &&
+    typeof value.source_asset_sha256 === "string" &&
+    CONTENT_HASH.test(value.source_asset_sha256) &&
+    isSafeInteger(value.source_frame_count, 1) &&
+    typeof value.editing_asset_sha256 === "string" &&
+    CONTENT_HASH.test(value.editing_asset_sha256) &&
+    isSafeInteger(value.editable_frame_count, 1)
+  );
+}
+
+function isMediaPackageBinding(value: unknown): value is MediaPackageBinding {
+  return (
+    isRecord(value) &&
+    hasOnlyKeys(value, [
+      "schema_version",
+      "media_package_id",
+      "manifest_relative_path",
+      "manifest_sha256",
+      "assets",
+    ]) &&
+    value.schema_version === 1 &&
+    typeof value.media_package_id === "string" &&
+    /^fmp_[0-9a-f]{32}$/.test(value.media_package_id) &&
+    value.manifest_relative_path === "manifest.json" &&
+    typeof value.manifest_sha256 === "string" &&
+    CONTENT_HASH.test(value.manifest_sha256) &&
+    Array.isArray(value.assets) &&
+    value.assets.length >= 1 &&
+    value.assets.every(isMediaAssetBinding)
+  );
+}
+
 export function isTimelineResponse(
   value: unknown,
   expectedProjectId: string,
@@ -139,6 +225,7 @@ export function isTimelineResponse(
       "height",
       "assets",
       "clips",
+      "media_package",
     ]) ||
     timeline.schema_version !== 1 ||
     typeof timeline.timeline_id !== "string" ||
@@ -164,6 +251,28 @@ export function isTimelineResponse(
   );
   const assetIds = timeline.assets.map((asset) => asset.asset_id);
   const clipIds = timeline.clips.map((clip) => clip.clip_id);
+  const mediaPackage = timeline.media_package;
+  const timelineAssetsById = new Map(timeline.assets.map((asset) => [asset.asset_id, asset]));
+  const hasValidMediaBinding =
+    mediaPackage === undefined ||
+    mediaPackage === null ||
+    (isMediaPackageBinding(mediaPackage) &&
+      new Set(mediaPackage.assets.map((asset) => asset.asset_id)).size ===
+        mediaPackage.assets.length &&
+      mediaPackage.assets.length === timeline.assets.length &&
+      mediaPackage.assets.every((binding) => {
+        const asset = timelineAssetsById.get(binding.asset_id);
+        return (
+          asset !== undefined &&
+          binding.source_asset_sha256 === asset.source_asset_sha256 &&
+          binding.source_frame_count === asset.source_frame_count &&
+          binding.editing_asset_sha256 ===
+            (asset.proxy?.proxy_asset_sha256 ?? asset.source_asset_sha256) &&
+          binding.preview_sha256 === binding.editing_asset_sha256 &&
+          binding.editable_frame_count ===
+            (asset.proxy?.editable_frame_count ?? asset.source_frame_count)
+        );
+      }));
   return (
     new Set(assetIds).size === assetIds.length &&
     new Set(clipIds).size === clipIds.length &&
@@ -177,6 +286,7 @@ export function isTimelineResponse(
       const frameCount = assets.get(clip.asset_id);
       return frameCount !== undefined && clip.source_in_frame + clip.duration_frames <= frameCount;
     }) &&
+    hasValidMediaBinding &&
     timeline.clips.reduce((total, clip) => total + clip.duration_frames, 0) ===
       value.data.total_duration_frames
   );

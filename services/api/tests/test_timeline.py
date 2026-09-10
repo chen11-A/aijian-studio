@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 import pytest
+from aijian_api.artifacts import canonical_content_hash
 from aijian_api.media_contracts import SequenceFrameRateData, SequenceTimebaseData
 from aijian_api.timeline import (
     TimelineAssetV1,
@@ -78,6 +80,133 @@ def _timeline() -> TimelineVersionV1:
     )
 
 
+def _legacy_timeline_json() -> dict[str, Any]:
+    """The exact pre-binding TimelineVersionV1 shape persisted at a925."""
+
+    return {
+        "schema_version": 1,
+        "timeline_id": "episode-01-main",
+        "revision": 7,
+        "sequence_timebase": {
+            "frame_rate": {"num": 25, "den": 1},
+            "timecode_mode": "NON_DROP_FRAME",
+        },
+        "width": 1080,
+        "height": 1920,
+        "assets": [
+            {
+                "schema_version": 1,
+                "asset_id": "source-a",
+                "source_asset_sha256": HASH_A,
+                "source_frame_count": 50,
+                "proxy": None,
+            },
+            {
+                "schema_version": 1,
+                "asset_id": "source-b",
+                "source_asset_sha256": HASH_B,
+                "source_frame_count": 48,
+                "proxy": None,
+            },
+            {
+                "schema_version": 1,
+                "asset_id": "source-vfr",
+                "source_asset_sha256": HASH_C,
+                "source_frame_count": 48,
+                "proxy": {
+                    "schema_version": 1,
+                    "proxy_asset_sha256": HASH_B,
+                    "editable_frame_count": 64,
+                    "sequence_timebase": {
+                        "frame_rate": {"num": 25, "den": 1},
+                        "timecode_mode": "NON_DROP_FRAME",
+                    },
+                    "mapping_schema_version": 1,
+                },
+            },
+        ],
+        "clips": [
+            {
+                "schema_version": 1,
+                "clip_id": "clip-a",
+                "asset_id": "source-a",
+                "source_in_frame": 0,
+                "duration_frames": 10,
+            },
+            {
+                "schema_version": 1,
+                "clip_id": "clip-b",
+                "asset_id": "source-b",
+                "source_in_frame": 5,
+                "duration_frames": 12,
+            },
+            {
+                "schema_version": 1,
+                "clip_id": "clip-proxy",
+                "asset_id": "source-vfr",
+                "source_in_frame": 40,
+                "duration_frames": 20,
+            },
+        ],
+    }
+
+
+def _media_binding_json() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "media_package_id": "fmp_" + "d" * 32,
+        "manifest_relative_path": "manifest.json",
+        "manifest_sha256": HASH_C,
+        "assets": [
+            {
+                "schema_version": 1,
+                "asset_id": "source-a",
+                "preview_relative_path": "shot-01/preview.webm",
+                "preview_sha256": HASH_A,
+                "preview_byte_length": 100,
+                "preview_mime_type": "video/webm",
+                "preview_kind": "DEVELOPMENT_FAKE",
+                "source_asset_sha256": HASH_A,
+                "source_frame_count": 50,
+                "editing_asset_sha256": HASH_A,
+                "editable_frame_count": 50,
+            },
+            {
+                "schema_version": 1,
+                "asset_id": "source-b",
+                "preview_relative_path": "shot-02/preview.webm",
+                "preview_sha256": HASH_B,
+                "preview_byte_length": 101,
+                "preview_mime_type": "video/webm",
+                "preview_kind": "DEVELOPMENT_FAKE",
+                "source_asset_sha256": HASH_B,
+                "source_frame_count": 48,
+                "editing_asset_sha256": HASH_B,
+                "editable_frame_count": 48,
+            },
+            {
+                "schema_version": 1,
+                "asset_id": "source-vfr",
+                "preview_relative_path": "shot-03/preview.webm",
+                "preview_sha256": HASH_B,
+                "preview_byte_length": 102,
+                "preview_mime_type": "video/webm",
+                "preview_kind": "DEVELOPMENT_FAKE",
+                "source_asset_sha256": HASH_C,
+                "source_frame_count": 48,
+                "editing_asset_sha256": HASH_B,
+                "editable_frame_count": 64,
+            },
+        ],
+    }
+
+
+def _bound_timeline_json() -> dict[str, Any]:
+    payload = _legacy_timeline_json()
+    payload["media_package"] = _media_binding_json()
+    return payload
+
+
 def test_timeline_is_immutable_and_uses_proxy_editable_frame_count() -> None:
     timeline = _timeline()
 
@@ -85,6 +214,63 @@ def test_timeline_is_immutable_and_uses_proxy_editable_frame_count() -> None:
     assert timeline.asset_by_id("source-vfr").editable_frame_count == 64
     with pytest.raises(ValidationError):
         timeline.revision = 8  # type: ignore[misc]
+
+
+def test_timeline_accepts_complete_media_binding_without_rewriting_legacy_json() -> None:
+    legacy = _legacy_timeline_json()
+    restored_legacy = TimelineVersionV1.model_validate(legacy)
+    restored_legacy_json = restored_legacy.model_dump(mode="json")
+
+    assert restored_legacy.media_package is None
+    assert restored_legacy_json.pop("media_package") is None
+    assert restored_legacy_json == legacy
+    assert canonical_content_hash(restored_legacy_json) == canonical_content_hash(legacy)
+
+    bound = TimelineVersionV1.model_validate(_bound_timeline_json())
+
+    assert bound.media_package is not None
+    assert tuple(item.asset_id for item in bound.media_package.assets) == (
+        "source-a",
+        "source-b",
+        "source-vfr",
+    )
+    assert canonical_content_hash(bound.model_dump(mode="json")) != canonical_content_hash(legacy)
+    for edited in (
+        trim_clip(
+            bound,
+            "clip-a",
+            new_source_in_frame=1,
+            new_duration_frames=9,
+            expected_revision=7,
+        ),
+        reorder_clip(bound, "clip-proxy", new_index=0, expected_revision=7),
+        replace_clip(
+            bound,
+            "clip-b",
+            replacement_asset_id="source-a",
+            replacement_source_in_frame=30,
+            expected_revision=7,
+        ),
+    ):
+        assert edited.media_package == bound.media_package
+
+
+def test_timeline_rejects_incomplete_or_noncanonical_media_binding() -> None:
+    def reject(mutator: Any) -> None:
+        payload = _bound_timeline_json()
+        binding = payload["media_package"]
+        assert isinstance(binding, dict)
+        mutator(binding)
+        with pytest.raises(ValidationError):
+            TimelineVersionV1.model_validate(payload)
+
+    reject(lambda binding: binding["assets"][0].update(preview_relative_path="C:/outside.webm"))
+    reject(lambda binding: binding["assets"].pop())
+    reject(lambda binding: binding["assets"].append(deepcopy(binding["assets"][0])))
+    reject(lambda binding: binding["assets"][0].update(preview_sha256=HASH_B))
+    reject(lambda binding: binding["assets"][0].update(source_frame_count=49))
+    reject(lambda binding: binding["assets"][2].update(editing_asset_sha256=HASH_C))
+    reject(lambda binding: binding["assets"][0].update(unexpected=True))
 
 
 def test_trim_creates_one_new_revision_without_mutating_the_old_version() -> None:
