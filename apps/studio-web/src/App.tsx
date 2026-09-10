@@ -21,6 +21,7 @@ import {
   ProductionStageBar,
   ProjectInspector,
   type ProductionSourceStage,
+  type ProductionStage,
 } from "./components/ProductionShell/ProductionChrome";
 import { ProposalReviewCard } from "./components/ProductionShell/ProposalReviewCard";
 import { SourceExtractRunLauncher } from "./components/ProductionShell/SourceExtractRunLauncher";
@@ -40,8 +41,17 @@ type ImportState =
   | { kind: "success"; response: SourceDocumentResponse }
   | { kind: "error"; message: string };
 type WorkspaceView =
-  "project" | "story" | "director" | "assets" | "generate" | "edit" | "publish" | "settings";
+  | "project"
+  | "story"
+  | "director"
+  | "assets"
+  | "generate"
+  | "edit"
+  | "review"
+  | "publish"
+  | "settings";
 type ProjectWorkspacePage = "overview" | "source" | "review" | "trial";
+type WorkspaceLocation = { workspace: WorkspaceView; page: ProjectWorkspacePage };
 type StoryWorkspaceState =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -1991,6 +2001,7 @@ export function App({ transport }: AppProps) {
   const [importState, setImportState] = useState<ImportState>({ kind: "idle" });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>("project");
   const [projectPage, setProjectPage] = useState<ProjectWorkspacePage>("overview");
+  const [navigationHistory, setNavigationHistory] = useState<WorkspaceLocation[]>([]);
   const [storyState, setStoryState] = useState<StoryWorkspaceState>({ kind: "idle" });
   const [manifestState, setManifestState] = useState<ManifestState>({ kind: "idle" });
   const [reviewRecords, setReviewRecords] = useState<Record<string, ReviewRecord>>({});
@@ -2002,7 +2013,7 @@ export function App({ transport }: AppProps) {
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [productionControlTab, setProductionControlTab] = useState<"tasks" | "reports">("tasks");
   const [projectRailCollapsed, setProjectRailCollapsed] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const sourceRequestGeneration = useRef(0);
   const storyRequestGeneration = useRef(0);
   const taskDrawerRef = useRef<HTMLElement | null>(null);
@@ -2091,15 +2102,26 @@ export function App({ transport }: AppProps) {
     };
   }, [selectedId, loadManifest]);
 
+  const navigateWorkspace = useCallback(
+    (workspace: WorkspaceView, page: ProjectWorkspacePage = "overview") => {
+      if (workspace === activeWorkspace && page === projectPage) return;
+      setNavigationHistory((history) => [
+        ...history.slice(-19),
+        { workspace: activeWorkspace, page: projectPage },
+      ]);
+      setActiveWorkspace(workspace);
+      setProjectPage(page);
+    },
+    [activeWorkspace, projectPage],
+  );
   const openSourceReview = useCallback(() => {
-    setActiveWorkspace("project");
-    setProjectPage("review");
+    navigateWorkspace("project", "review");
     setProjectRailCollapsed(false);
     requestAnimationFrame(() => {
       const card = document.getElementById("source-review");
       card?.focus({ preventScroll: true });
     });
-  }, []);
+  }, [navigateWorkspace]);
 
   const openTaskDrawer = useCallback(() => {
     taskDrawerReturnFocusRef.current =
@@ -2325,6 +2347,7 @@ export function App({ transport }: AppProps) {
       const nextProjectId = projectResponse.data[0]?.id ?? null;
       setProductionControlTab("tasks");
       setSelectedId(nextProjectId);
+      setNavigationHistory([]);
       setActiveWorkspace("project");
       setProjectPage("overview");
       setStoryState({ kind: "idle" });
@@ -2353,6 +2376,7 @@ export function App({ transport }: AppProps) {
       setProjects((current) => [response.data, ...current]);
       setProductionControlTab("tasks");
       setSelectedId(response.data.id);
+      setNavigationHistory([]);
       setImportState({ kind: "idle" });
       setActiveWorkspace("project");
       setProjectPage("overview");
@@ -2364,6 +2388,40 @@ export function App({ transport }: AppProps) {
       setCreateBusy(false);
     }
   };
+
+  const selectProject = (projectId: string) => {
+    if (projectId === selectedId || !projects.some((item) => item.id === projectId)) return;
+    selectedIdRef.current = projectId;
+    storyRequestGeneration.current += 1;
+    setStoryState({ kind: "idle" });
+    setNavigationHistory([]);
+    setProductionControlTab("tasks");
+    setSelectedId(projectId);
+    if (projectPage !== "review") setProjectPage("overview");
+    void restoreLatestSource(projectId);
+    if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
+  };
+  const returnToPreviousPage = () => {
+    const previous = navigationHistory.at(-1);
+    if (!previous) return;
+    setNavigationHistory((history) => history.slice(0, -1));
+    setActiveWorkspace(previous.workspace);
+    setProjectPage(previous.page);
+    if (previous.workspace === "story" && selectedProject)
+      void loadStoryWorkspace(selectedProject.id);
+  };
+  const activeStage: ProductionStage | null =
+    activeWorkspace === "assets"
+      ? "world"
+      : activeWorkspace === "director"
+        ? "shots"
+        : activeWorkspace === "generate" || activeWorkspace === "edit"
+          ? "production"
+          : activeWorkspace === "review"
+            ? "review"
+            : activeWorkspace === "publish" || activeWorkspace === "settings"
+              ? null
+              : "story";
 
   const importFile = async (file: File) => {
     if (!selectedProject) return;
@@ -2403,15 +2461,15 @@ export function App({ transport }: AppProps) {
   };
 
   return (
-    <div className="studio-shell">
+    <div className="studio-shell r2-shell">
       <aside className="sidebar" inert={taskDrawerOpen ? true : undefined}>
-        <a className="brand" href="#top" aria-label="Aijian Studio 首页">
+        <a className="brand" href="#top" aria-label="AIVORA 工作台">
           <span className="brand-mark" aria-hidden="true">
-            剪
+            A
           </span>
           <span>
-            <strong>AIJIAN</strong>
-            <small>STUDIO</small>
+            <strong>AIVORA</strong>
+            <small>AI STORY STUDIO</small>
           </span>
         </a>
         <nav className="primary-nav" aria-label="制作流程">
@@ -2436,11 +2494,10 @@ export function App({ transport }: AppProps) {
                   !enabled
                     ? undefined
                     : () => {
-                        setActiveWorkspace(item.id);
+                        navigateWorkspace(item.id);
                         if (item.id === "edit") setProjectRailCollapsed(true);
                         if (item.id === "project") {
                           setProjectRailCollapsed(false);
-                          setProjectPage("overview");
                         }
                         if (item.id === "story" && selectedProject) {
                           void loadStoryWorkspace(selectedProject.id);
@@ -2455,38 +2512,105 @@ export function App({ transport }: AppProps) {
             );
           })}
         </nav>
+        {workspaceReady && projects.length > 0 && (
+          <div className="r2-project-list">
+            {projectRailCollapsed ? (
+              <button
+                type="button"
+                className="secondary-button"
+                aria-label="展开项目栏"
+                aria-expanded="false"
+                onClick={() => setProjectRailCollapsed(false)}
+              >
+                展开项目栏
+              </button>
+            ) : (
+              <ProjectRail
+                projects={projects}
+                selectedId={selectedId}
+                collapsed={false}
+                onToggle={() => setProjectRailCollapsed(true)}
+                onSelect={selectProject}
+              />
+            )}
+          </div>
+        )}
         <div className="sidebar-footer">
           <span className="phase-dot" />
           <div>
             <strong>LOCAL WORKSPACE</strong>
-            <small>自动保存 · 版本可追溯</small>
+            <small>状态以本地服务回执为准</small>
           </div>
         </div>
       </aside>
 
       <main id="top" className="workspace" inert={taskDrawerOpen ? true : undefined}>
         <header className="topbar">
-          <div>
-            <span className="eyebrow">CREATOR WORKSPACE</span>
-            <h1>
-              {activeWorkspace === "project"
-                ? "项目"
-                : activeWorkspace === "story"
-                  ? "故事"
-                  : activeWorkspace === "director"
-                    ? "导演"
-                    : activeWorkspace === "assets"
-                      ? "资产"
-                      : activeWorkspace === "generate"
-                        ? "生成"
-                        : activeWorkspace === "edit"
-                          ? "剪辑"
-                          : activeWorkspace === "publish"
-                            ? "发布"
-                            : "模型与 API"}
-            </h1>
+          <div className="r2-project-header">
+            {workspaceReady && projects.length > 0 && (
+              <label className="r2-project-select">
+                <span>当前项目</span>
+                <select
+                  value={selectedId ?? ""}
+                  onChange={(event) => selectProject(event.target.value)}
+                >
+                  {projects.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="button"
+              className="secondary-button compact"
+              aria-label="返回上一页"
+              disabled={navigationHistory.length === 0}
+              onClick={returnToPreviousPage}
+            >
+              ‹ 返回
+            </button>
+            <div className="r2-page-heading">
+              <span className="eyebrow">CREATOR WORKSPACE</span>
+              <h1>
+                {activeWorkspace === "project"
+                  ? "项目"
+                  : activeWorkspace === "story"
+                    ? "故事"
+                    : activeWorkspace === "director"
+                      ? "导演"
+                      : activeWorkspace === "assets"
+                        ? "资产"
+                        : activeWorkspace === "generate"
+                          ? "生成"
+                          : activeWorkspace === "edit"
+                            ? "剪辑"
+                            : activeWorkspace === "publish"
+                              ? "发布"
+                              : activeWorkspace === "review"
+                                ? "审片"
+                                : "模型与 API"}
+              </h1>
+            </div>
           </div>
           <div className="topbar-actions">
+            <div className="r2-mode-switch" role="group" aria-label="工作台视图">
+              <button
+                type="button"
+                aria-pressed={inspectorCollapsed}
+                onClick={() => setInspectorCollapsed(true)}
+              >
+                普通模式
+              </button>
+              <button
+                type="button"
+                aria-pressed={!inspectorCollapsed}
+                onClick={() => setInspectorCollapsed(false)}
+              >
+                专业模式
+              </button>
+            </div>
             <EngineBadge connection={connection} />
             <button
               className="secondary-button compact"
@@ -2501,7 +2625,7 @@ export function App({ transport }: AppProps) {
               className="secondary-button compact settings-action"
               type="button"
               aria-label="打开模型与 API"
-              onClick={() => setActiveWorkspace("settings")}
+              onClick={() => navigateWorkspace("settings")}
             >
               模型与 API
             </button>
@@ -2519,19 +2643,33 @@ export function App({ transport }: AppProps) {
           {selectedProject && activeWorkspace !== "settings" && (
             <ProductionStageBar
               source={sourceStage}
+              activeStage={activeStage}
+              onStage={(stage) => {
+                const workspace = {
+                  story: "story",
+                  world: "assets",
+                  shots: "director",
+                  production: "generate",
+                  review: "review",
+                } as const;
+                const target = workspace[stage];
+                navigateWorkspace(target);
+                if (target === "story") void loadStoryWorkspace(selectedProject.id);
+              }}
               onNext={(target) => {
                 if (target === "source-review") {
                   openSourceReview();
                   return;
                 }
-                setActiveWorkspace(target === "source" ? "project" : target);
+                navigateWorkspace(
+                  target === "source" ? "project" : target,
+                  target === "source" ? "source" : "overview",
+                );
                 if (target === "project") {
                   setProjectRailCollapsed(false);
-                  setProjectPage("overview");
                 }
                 if (target === "source") {
                   setProjectRailCollapsed(false);
-                  setProjectPage("source");
                 }
                 if (target === "story") void loadStoryWorkspace(selectedProject.id);
               }}
@@ -2573,7 +2711,7 @@ export function App({ transport }: AppProps) {
 
           {workspaceReady && activeWorkspace !== "settings" && projects.length > 0 && (
             <div
-              className={`project-workspace${projectRailCollapsed ? " rail-collapsed" : ""}${inspectorCollapsed ? " inspector-collapsed" : ""}`}
+              className={`project-workspace r2-workspace${inspectorCollapsed ? " r2-basic" : " r2-professional"}`}
             >
               <section className="mobile-review-notice" aria-label="移动端审阅模式">
                 <span>REVIEW ONLY</span>
@@ -2582,51 +2720,6 @@ export function App({ transport }: AppProps) {
                   此宽度仅供审片与来源审核；来源写动作仍须完整桌面能力及原生确认。导入、生成或剪辑请使用宽屏桌面端。
                 </p>
               </section>
-              {(projectRailCollapsed || inspectorCollapsed) && (
-                <nav className="workspace-layout-controls" aria-label="工作台布局">
-                  {projectRailCollapsed ? (
-                    <button
-                      type="button"
-                      onClick={() => setProjectRailCollapsed(false)}
-                      aria-label="展开项目栏"
-                      aria-expanded="false"
-                    >
-                      <span aria-hidden="true">›</span>
-                      展开项目栏
-                    </button>
-                  ) : (
-                    <span />
-                  )}
-                  {inspectorCollapsed ? (
-                    <button
-                      type="button"
-                      onClick={() => setInspectorCollapsed(false)}
-                      aria-label="展开属性检查器"
-                      aria-expanded="false"
-                    >
-                      展开属性检查器
-                      <span aria-hidden="true">‹</span>
-                    </button>
-                  ) : (
-                    <span />
-                  )}
-                </nav>
-              )}
-              {!projectRailCollapsed && (
-                <ProjectRail
-                  projects={projects}
-                  selectedId={selectedId}
-                  collapsed={false}
-                  onToggle={() => setProjectRailCollapsed(true)}
-                  onSelect={(projectId) => {
-                    setProductionControlTab("tasks");
-                    setSelectedId(projectId);
-                    if (projectPage !== "review") setProjectPage("overview");
-                    void restoreLatestSource(projectId);
-                    if (activeWorkspace === "story") void loadStoryWorkspace(projectId);
-                  }}
-                />
-              )}
               {selectedProject && (
                 <section
                   className={`project-stage${activeWorkspace === "project" ? " has-source-review" : ""}`}
@@ -2646,7 +2739,7 @@ export function App({ transport }: AppProps) {
                           className={projectPage === page ? "active" : undefined}
                           aria-current={projectPage === page ? "page" : undefined}
                           key={page}
-                          onClick={() => setProjectPage(page)}
+                          onClick={() => navigateWorkspace("project", page)}
                         >
                           {label}
                         </button>
@@ -2762,7 +2855,9 @@ export function App({ transport }: AppProps) {
                                 ? "资产"
                                 : activeWorkspace === "generate"
                                   ? "生成"
-                                  : "发布"
+                                  : activeWorkspace === "review"
+                                    ? "审片"
+                                    : "发布"
                           }
                         />
                       )}
@@ -2770,19 +2865,20 @@ export function App({ transport }: AppProps) {
                   )}
                 </section>
               )}
-              {selectedProject && !inspectorCollapsed && (
+              {selectedProject && (
                 <ProjectInspector
                   project={selectedProject}
-                  collapsed={false}
+                  collapsed={inspectorCollapsed}
                   proposal={
                     <ProposalReviewCard
+                      key={selectedProject.id}
                       projectId={selectedProject.id}
                       listTasks={studio.listProjectTasks}
                       getProposal={studio.getArtifactProposal}
                       decisionCapability={studio.proposalDecisions}
                     />
                   }
-                  onToggle={() => setInspectorCollapsed(true)}
+                  onToggle={() => setInspectorCollapsed((collapsed) => !collapsed)}
                 />
               )}
             </div>

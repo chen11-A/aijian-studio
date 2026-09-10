@@ -9,13 +9,22 @@ export type ProductionSourceStage =
   | { kind: "draft" | "review"; acceptedVersionNumber: number | null }
   | { kind: "approved"; versionNumber: number };
 type ProductionNavigationTarget = "project" | "source" | "source-review" | "story";
+export type ProductionStage = "story" | "world" | "shots" | "production" | "review";
 
 interface ProductionStageBarProps {
   source: ProductionSourceStage;
   onNext(target: ProductionNavigationTarget): void;
+  activeStage?: ProductionStage | null;
+  onStage?(stage: ProductionStage): void;
 }
 
-const stageNames = ["立项", "来源", "故事", "规划", "剧本", "视觉", "导演", "剪辑", "发布"];
+const stages: ReadonlyArray<{ id: ProductionStage; name: string }> = [
+  { id: "story", name: "故事" },
+  { id: "world", name: "角色与世界" },
+  { id: "shots", name: "分镜" },
+  { id: "production", name: "制作" },
+  { id: "review", name: "审片" },
+];
 
 function sourceNavigation(source: ProductionSourceStage): {
   status: string;
@@ -61,42 +70,45 @@ function sourceNavigation(source: ProductionSourceStage): {
   }
 }
 
-export function ProductionStageBar({ source, onNext }: ProductionStageBarProps) {
+export function ProductionStageBar({
+  source,
+  onNext,
+  activeStage = "story",
+  onStage,
+}: ProductionStageBarProps) {
   const next = sourceNavigation(source);
 
-  const toneFor = (index: number): StageTone => {
-    if (index === 0) return "active";
-    if (index === 1) return next.tone;
-    return "waiting";
-  };
-
-  const statusFor = (index: number) => {
-    if (index === 0) return "未签署";
-    if (index === 1) return next.status;
-    if (index === 2) return "状态未接入";
-    return "等待上游";
-  };
-
   return (
-    <section className="production-progress" aria-label="G0 至 G8 生产阶段">
-      <div className="production-stages">
-        {stageNames.map((name, index) => (
+    <section className="production-progress" aria-label="创作导航与来源状态">
+      <nav className="production-stages" aria-label="创作五阶段">
+        {stages.map((stage, index) => (
           <button
             type="button"
-            className={`production-stage tone-${toneFor(index)}`}
-            key={name}
-            aria-label={`G${index} ${name}：${statusFor(index)}`}
-            disabled={index > 1 || (index === 1 && source.kind === "loading")}
-            onClick={() => {
-              if (index === 0) onNext("project");
-              if (index === 1) onNext("source-review");
-            }}
+            className={`production-stage${activeStage === stage.id ? " tone-active" : ""}`}
+            key={stage.id}
+            aria-current={activeStage === stage.id ? "step" : undefined}
+            disabled={!onStage}
+            onClick={() => onStage?.(stage.id)}
           >
-            <span>G{index}</span>
-            <strong>{name}</strong>
-            <small>{statusFor(index)}</small>
+            <span>{index + 1}</span>
+            <strong>{stage.name}</strong>
           </button>
         ))}
+      </nav>
+      <div className="production-gates" aria-label="已有 Gate 与来源状态">
+        <button type="button" onClick={() => onNext("project")} aria-label="G0 立项：项目概览">
+          G0 项目概览
+        </button>
+        <button
+          type="button"
+          className={`source-gate tone-${next.tone}`}
+          aria-label={`G1 来源：${next.status}`}
+          disabled={source.kind === "loading"}
+          onClick={() => onNext("source-review")}
+        >
+          G1 来源：{next.status}
+        </button>
+        <span>G2–G8 状态未接入 · 导航不代表批准</span>
       </div>
       <div className="production-next">
         <span>
@@ -142,28 +154,24 @@ export function ProjectInspector({
   proposal,
   onToggle,
 }: ProjectInspectorProps) {
-  if (collapsed) {
-    return (
-      <aside className="project-inspector collapsed" aria-label="属性检查器">
-        <button type="button" onClick={onToggle} aria-label="展开属性检查器" aria-expanded="false">
-          ‹
-        </button>
-      </aside>
-    );
-  }
-
   return (
-    <aside className="project-inspector" aria-label="属性检查器">
+    <aside className="project-inspector" aria-label="Aivora AI 与提案">
       <header>
         <div>
-          <span>INSPECTOR</span>
-          <strong>项目属性</strong>
+          <span>AIVORA AI</span>
+          <strong>助手尚未接入</strong>
         </div>
-        <button type="button" onClick={onToggle} aria-label="收起属性检查器" aria-expanded="true">
-          ›
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={collapsed ? "展开属性检查器" : "收起属性检查器"}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? "项目属性" : "收起属性"}
         </button>
       </header>
-      <dl>
+      <p className="assistant-availability">对话与生成暂不可用；下方保留已有任务的真实提案审核。</p>
+      <dl hidden={collapsed}>
         <div>
           <dt>当前版本</dt>
           <dd>REV {project.revision}</dd>

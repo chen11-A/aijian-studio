@@ -16,6 +16,7 @@ import { App } from "./App";
 import { createProposalRunOperationJournal } from "./proposal-run-operation-journal";
 import { createFakeTimelineRunOperationJournal } from "./fake-timeline-run-operation-journal";
 import type {
+  ArtifactProposalResponse,
   HealthResponse,
   ProjectData,
   SourceDocumentListResponse,
@@ -1048,7 +1049,7 @@ test("keeps the top next step on source review when import succeeded but G1 is n
   render(<App transport={transport} />);
   await openProjectPage("来源审核");
   await screen.findByText("V1 · 草稿，尚未批准");
-  const stages = screen.getByRole("region", { name: "G0 至 G8 生产阶段" });
+  const stages = screen.getByRole("region", { name: "创作导航与来源状态" });
   expect(within(stages).getByRole("button", { name: "G1 来源：待审核" })).toBeInTheDocument();
   expect(within(stages).getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
   expect(
@@ -1066,7 +1067,7 @@ test("offers import for no manifest and keeps G0 a project entry", async () => {
   expect(await screen.findByLabelText("选择 TXT 文件")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
   await screen.findByRole("heading", { name: "来源尚未验收" });
-  fireEvent.click(screen.getByRole("button", { name: "G0 立项：未签署" }));
+  fireEvent.click(screen.getByRole("button", { name: "G0 立项：项目概览" }));
   expect(await screen.findByRole("heading", { name: project.name })).toBeInTheDocument();
   expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
 });
@@ -1230,6 +1231,280 @@ test("opens the project-scoped production task queue", async () => {
   expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
 });
 
+test("R2 stage navigation keeps existing workspaces separate from unavailable review", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  const stages = screen.getByRole("navigation", { name: "创作五阶段" });
+  expect(
+    within(stages)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["1故事", "2角色与世界", "3分镜", "4制作", "5审片"]);
+  fireEvent.click(within(stages).getByRole("button", { name: /角色与世界/ }));
+  expect(screen.getByRole("heading", { name: "资产工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(within(stages).getByRole("button", { name: /分镜/ }));
+  expect(screen.getByRole("heading", { name: "导演工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(within(stages).getByRole("button", { name: /制作/ }));
+  expect(screen.getByRole("heading", { name: "生成工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /剪辑台/ }));
+  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+  expect(within(stages).getByRole("button", { name: /制作/ })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  fireEvent.click(within(stages).getByRole("button", { name: /审片/ }));
+  expect(screen.getByRole("heading", { name: "审片工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /^07发布$/ }));
+  expect(screen.getByRole("heading", { name: "发布工作区尚未实现" })).toBeInTheDocument();
+  expect(stages.querySelector('[aria-current="step"]')).toBeNull();
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  expect(transport.createProject).not.toHaveBeenCalled();
+});
+
+test("R2 modes retain the mounted source review and proposal access without making decisions", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const proposal = await screen.findByRole("region", { name: "AI 提案" });
+  const rationale = await screen.findByRole("textbox", { name: /确认基线的理由/ });
+  fireEvent.change(rationale, { target: { value: "保留尚未提交的审核理由" } });
+  const reads = vi.mocked(transport.listProjectTasks).mock.calls.length;
+  const sourceCard = screen.getByRole("region", { name: "来源审核" });
+  const version = within(sourceCard).getByText(sourceManifestVersion.id);
+  const hash = within(sourceCard).getByText(sourceManifestVersion.content_hash);
+  expect(screen.getByRole("button", { name: "普通模式" })).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["专业模式", "普通模式"]) {
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toBe(rationale);
+    expect(rationale).toHaveValue("保留尚未提交的审核理由");
+    expect(screen.getByRole("region", { name: "AI 提案" })).toBe(proposal);
+    expect(within(sourceCard).getByText(sourceManifestVersion.id)).toBe(version);
+    expect(within(sourceCard).getByText(sourceManifestVersion.content_hash)).toBe(hash);
+    expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(project.id);
+    expect(screen.getByRole("button", { name: "送审来源版本" })).toBeEnabled();
+  }
+  expect(transport.listProjectTasks).toHaveBeenCalledTimes(reads);
+  expect(capability.submit).not.toHaveBeenCalled();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(screen.getByText("助手尚未接入")).toBeInTheDocument();
+  expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "打开模型与 API" }));
+  fireEvent.click(screen.getByRole("button", { name: "返回上一页" }));
+  const restored = screen.getByRole("region", { name: "来源审核" });
+  expect(within(restored).getByText(sourceManifestVersion.id)).toBeInTheDocument();
+  expect(within(restored).getByText(sourceManifestVersion.content_hash)).toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(project.id);
+});
+
+test("R2 modes preserve real proposal rejection fields and pending acceptance identity", async () => {
+  const transport = studioTransport([project]);
+  const proposalId = `prp_${"2".repeat(32)}`;
+  const attemptId = `att_${"8".repeat(32)}`;
+  const timestamp = "2026-08-11T09:00:00Z";
+  const proposal: ArtifactProposalResponse = {
+    data: {
+      project_id: project.id,
+      proposal_id: proposalId,
+      producer_attempt_id: attemptId,
+      proposal_hash: `sha256:${"a".repeat(64)}`,
+      created_at: timestamp,
+      proposal: {
+        schema_version: "1.0.0",
+        proposal_id: proposalId,
+        project_id: project.id,
+        target_artifact_type: "SourceExtraction",
+        payload: { summary: "真实传输路径的提案测试" },
+        payload_hash: `sha256:${"b".repeat(64)}`,
+        source_spans: [],
+        claims: [],
+        diff: [],
+        dependencies: [],
+        impacts: [],
+        cost: { currency: "USD", estimated_micros: 0, actual_micros: 0 },
+        confidence_basis_points: 9000,
+        capability_losses: [],
+        qc: [],
+        producer_agent_run_id: `agr_${"1".repeat(32)}`,
+        producer_skill_run_id: `skr_${"2".repeat(32)}`,
+      },
+    },
+    request_id: requestId,
+  };
+  vi.mocked(transport.getArtifactProposal).mockResolvedValue(proposal);
+  vi.mocked(transport.listProjectTasks).mockResolvedValue({
+    data: {
+      project_id: project.id,
+      summary: { total: 1, attention: 0, active: 0, completed: 0 },
+      tasks: [
+        {
+          proposal_id: proposalId,
+          node: {
+            workflow_run_id: `wfr_${"3".repeat(32)}`,
+            node_run_id: `node_${"4".repeat(32)}`,
+            node_key: "source.extract",
+            node_type: "source.extract",
+            status: "NEEDS_REVIEW",
+            responsible_role: "编剧 Agent",
+            upstream_gate: "G1",
+            input_hash: `sha256:${"5".repeat(64)}`,
+            input_version_ids: [sourceManifestVersion.id],
+            output_version_id: null,
+            attempt_count: 1,
+            max_attempts: 2,
+            updated_at: timestamp,
+          },
+          attempt: {
+            attempt_id: attemptId,
+            number: 1,
+            execution_mode: "local",
+            status: "RUNNING",
+            provider_model: null,
+            provider_job_id: null,
+            retry_disposition: null,
+            error_code: null,
+            output_version_id: null,
+            started_at: timestamp,
+            finished_at: null,
+            updated_at: timestamp,
+          },
+          task: {
+            task_id: `task_${"9".repeat(32)}`,
+            kind: "local.source.extract",
+            status: "COMPLETED",
+            priority: 70,
+            available_at: timestamp,
+            lease_generation: 1,
+            lease_expires_at: null,
+            heartbeat_at: null,
+            updated_at: timestamp,
+          },
+          cost: {
+            status: "NOT_RECORDED",
+            currency: null,
+            reserved: null,
+            accrued: null,
+            billed: null,
+            budget_limit: null,
+            retry_increment_limit: null,
+          },
+          presentation: {
+            status_label: "等待人工审阅",
+            next_action_label: "查看提案",
+            allowed_actions: ["VIEW_DETAILS"],
+          },
+        },
+      ],
+    },
+    request_id: requestId,
+  });
+  const acceptAsDraft = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  const reject = vi.fn();
+  transport.proposalDecisions = { acceptAsDraft, reject };
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源提取提案" });
+  fireEvent.click(within(card).getByRole("button", { name: "退回并填写意见" }));
+  const reason = within(card).getByRole("combobox", { name: "退回原因" });
+  const comment = within(card).getByRole("textbox", { name: "退回意见" });
+  fireEvent.change(reason, { target: { value: "CONTINUITY" } });
+  fireEvent.change(comment, { target: { value: "保留人物连续性的具体意见" } });
+  for (const mode of ["专业模式", "普通模式"]) {
+    fireEvent.click(screen.getByRole("button", { name: mode }));
+    expect(screen.getByRole("region", { name: "来源提取提案" })).toBe(card);
+    expect(within(card).getByRole("combobox", { name: "退回原因" })).toBe(reason);
+    expect(reason).toHaveValue("CONTINUITY");
+    expect(within(card).getByRole("textbox", { name: "退回意见" })).toBe(comment);
+    expect(comment).toHaveValue("保留人物连续性的具体意见");
+  }
+  fireEvent.click(within(card).getByRole("button", { name: "取消" }));
+  fireEvent.click(within(card).getByRole("button", { name: "接受为 DRAFT" }));
+  const confirm = within(card).getByRole("button", { name: "确认创建 DRAFT" });
+  fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
+  fireEvent.click(screen.getByRole("button", { name: "普通模式" }));
+  expect(within(card).getByRole("button", { name: "确认创建 DRAFT" })).toBe(confirm);
+  expect(acceptAsDraft).not.toHaveBeenCalled();
+  expect(reject).not.toHaveBeenCalled();
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(acceptAsDraft).toHaveBeenCalledExactlyOnceWith(project.id, proposalId, {
+      parent_version_id: null,
+      expected_head_revision: null,
+    }),
+  );
+  expect(transport.getArtifactProposal).toHaveBeenCalledExactlyOnceWith(project.id, proposalId);
+  expect(transport.listProjectTasks).toHaveBeenCalledTimes(1);
+});
+
+test("R2 return restores the preceding project page and clears history on project change", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  render(<App transport={studioTransport([project, second])} />);
+  await openProjectPage("原文");
+  fireEvent.click(screen.getByRole("button", { name: "打开模型与 API" }));
+  expect(await screen.findByRole("heading", { name: "模型与 API", level: 1 })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "返回上一页" }));
+  expect(screen.getByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "原文" })).toHaveAttribute("aria-current", "page");
+  fireEvent.change(screen.getByRole("combobox", { name: "当前项目" }), {
+    target: { value: second.id },
+  });
+  expect(await screen.findByRole("heading", { name: second.name })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "返回上一页" })).toBeDisabled();
+});
+
+test.each(["index", "version"] as const)(
+  "R2 project selector ignores a late story %s from the previous project",
+  async (late) => {
+    const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+    const transport = studioTransport([project, second]);
+    vi.mocked(transport.getSourceManifest).mockImplementation(async (id) =>
+      id === project.id ? sourceManifestResponse : null,
+    );
+    let finishIndex: (value: StoryBibleIndexResponse) => void = () => {};
+    const index = mockStoryBible(transport);
+    let finishVersion: (value: StoryBibleVersionResponse) => void = () => {};
+    if (late === "index") {
+      vi.mocked(transport.getStoryBibleIndex).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishIndex = resolve;
+          }),
+      );
+    } else {
+      vi.mocked(transport.getStoryBibleVersion).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishVersion = resolve;
+          }),
+      );
+    }
+    render(<App transport={transport} />);
+    await screen.findByRole("heading", { name: project.name });
+    fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+    await waitFor(() => expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id));
+    if (late === "version")
+      await waitFor(() =>
+        expect(transport.getStoryBibleVersion).toHaveBeenCalledWith(
+          project.id,
+          storyBibleResponse.data.version.id,
+        ),
+      );
+    fireEvent.change(screen.getByRole("combobox", { name: "当前项目" }), {
+      target: { value: second.id },
+    });
+    await waitFor(() => expect(transport.getSourceManifest).toHaveBeenCalledWith(second.id));
+    await act(async () => {
+      if (late === "index") finishIndex(index);
+      else finishVersion(storyBibleResponse);
+    });
+    expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(second.id);
+    expect(screen.queryByText("失忆记者循着一封旧信追查雾城真相。")).not.toBeInTheDocument();
+    expect(transport.getStoryBibleVersion).toHaveBeenCalledTimes(late === "index" ? 0 : 1);
+    expect(screen.getByRole("button", { name: "返回上一页" })).toBeDisabled();
+  },
+);
+
 test("presents the seven production areas and G0-G8 as the desktop shell", async () => {
   render(<App transport={studioTransport([project])} />);
   await screen.findByRole("heading", { name: "雾城来信" });
@@ -1241,10 +1516,11 @@ test("presents the seven production areas and G0-G8 as the desktop shell", async
   expect(within(navigation).queryByRole("button", { name: /任务/ })).not.toBeInTheDocument();
   expect(within(navigation).queryByRole("button", { name: /模型与 API/ })).not.toBeInTheDocument();
 
-  const stages = screen.getByLabelText("G0 至 G8 生产阶段");
-  for (let index = 0; index <= 8; index += 1) {
-    expect(within(stages).getByText(`G${index}`, { exact: true })).toBeInTheDocument();
-  }
+  const stages = screen.getByRole("navigation", { name: "创作五阶段" });
+  expect(within(stages).getAllByRole("button")).toHaveLength(5);
+  expect(screen.getByRole("button", { name: /G0 立项/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /G1 来源/ })).toBeInTheDocument();
+  expect(screen.getByText("G2–G8 状态未接入 · 导航不代表批准")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /下一步/ })).toHaveLength(1);
 });
 
@@ -1617,6 +1893,7 @@ test("collapses production context and keeps planned areas honest", async () => 
   expect(expandRail).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(expandRail);
 
+  fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
   const collapseInspector = screen.getByRole("button", { name: "收起属性检查器" });
   expect(collapseInspector).toHaveAttribute("aria-expanded", "true");
   fireEvent.click(collapseInspector);

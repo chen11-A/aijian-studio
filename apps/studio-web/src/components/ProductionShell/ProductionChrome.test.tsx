@@ -48,8 +48,8 @@ test.each([
     }
     fireEvent.click(screen.getByRole("button", { name: /G0 立项/ }));
     expect(onNext).toHaveBeenLastCalledWith("project");
-    expect(screen.getByRole("button", { name: /G2 故事：状态未接入/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /G8 发布：等待上游/ })).toBeDisabled();
+    expect(screen.getByText("G2–G8 状态未接入 · 导航不代表批准")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /G[2-8]/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/审批人未指派/)).not.toBeInTheDocument();
   },
 );
@@ -68,6 +68,44 @@ test.each(["draft", "review"] as const)(
     expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
   },
 );
+
+test("R2 five-stage navigation does not submit or approve a source gate", () => {
+  const onNext = vi.fn();
+  const onStage = vi.fn();
+  render(
+    <ProductionStageBar
+      source={{ kind: "review", acceptedVersionNumber: 1 }}
+      onNext={onNext}
+      activeStage="story"
+      onStage={onStage}
+    />,
+  );
+  const stages = screen.getByRole("navigation", { name: "创作五阶段" });
+  expect(stages.querySelectorAll("button")).toHaveLength(5);
+  fireEvent.click(screen.getByRole("button", { name: "2角色与世界" }));
+  expect(onStage).toHaveBeenCalledExactlyOnceWith("world");
+  expect(onNext).not.toHaveBeenCalled();
+  expect(screen.getByText(/旧批准基线 V1 仍可用于故事阅读/)).toBeInTheDocument();
+});
+
+test("R2 inspector folding keeps its proposal controls mounted and available", () => {
+  const proposal = (
+    <label>
+      提案理由
+      <input defaultValue="未提交的内容" />
+    </label>
+  );
+  const view = render(
+    <ProjectInspector project={project} collapsed={false} onToggle={vi.fn()} proposal={proposal} />,
+  );
+  const input = screen.getByRole("textbox", { name: "提案理由" });
+  fireEvent.change(input, { target: { value: "保留修改" } });
+  view.rerender(
+    <ProjectInspector project={project} collapsed onToggle={vi.fn()} proposal={proposal} />,
+  );
+  expect(screen.getByRole("textbox", { name: "提案理由" })).toBe(input);
+  expect(input).toHaveValue("保留修改");
+});
 
 test("keeps G0 overview navigation separate from empty-source import navigation", () => {
   const onNext = vi.fn();
