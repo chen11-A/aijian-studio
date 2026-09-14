@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  base: "./",
   plugins: [react()],
   server: {
     port: 5173,
@@ -25,13 +26,31 @@ export default defineConfig({
         functions: 90,
         branches: 80,
         statements: 90,
-        "src/components/ProviderSettings/**/*.{ts,tsx}": {
+        "src/aivora/ProviderConnectionForm.tsx": {
           lines: 90,
           functions: 90,
           branches: 80,
           statements: 90,
         },
-        "src/components/TaskQueue/**/*.{ts,tsx}": {
+        "src/domain/use-provider-connection-form.ts": {
+          lines: 90,
+          functions: 90,
+          branches: 80,
+          statements: 90,
+        },
+        "src/aivora/AssistantPanel.tsx": {
+          lines: 90,
+          functions: 90,
+          branches: 80,
+          statements: 90,
+        },
+        "src/domain/use-task-queue.ts": {
+          lines: 90,
+          functions: 90,
+          branches: 80,
+          statements: 90,
+        },
+        "src/domain/task-queue-model.ts": {
           lines: 90,
           functions: 90,
           branches: 80,

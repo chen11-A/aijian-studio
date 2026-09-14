@@ -1,0 +1,309 @@
+.demo-root .v21-timeline {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  padding: 10px;
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #0a2438;
+  color: #a8c0d5;
+  overflow: hidden;
+}
+.demo-root .v21-timeline-toolbar,
+.demo-root .v21-timeline-tools,
+.demo-root .v21-timeline-group,
+.demo-root .v21-timeline-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.demo-root .v21-timeline-toolbar,
+.demo-root .v21-timeline-tools {
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.demo-root .v21-timeline button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #215173;
+  border-radius: 6px;
+  color: #bdd9ec;
+  background: #102d43;
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.demo-root .v21-timeline button[aria-pressed="true"] {
+  border-color: #61d8ff;
+  color: #61d8ff;
+  background: #123c54;
+}
+.demo-root .v21-timeline-group > button {
+  height: 28px;
+  min-height: 28px;
+}
+.demo-root .v21-timeline .v21-timeline-group > button {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #091e31;
+  color: #f2f7ff;
+  font-size: 12px;
+  line-height: 20px;
+}
+.demo-root .v21-timeline .v21-timeline-group > button[aria-pressed="true"] {
+  background: #153e61;
+  border-color: #39d7f2;
+}
+.demo-root .v21-timeline :focus-visible {
+  outline: 2px solid #61d8ff;
+  outline-offset: 1px;
+}
+.demo-root .v21-timeline input[aria-label="当前时间码"] {
+  width: 108px;
+  height: 28px;
+  border: 1px solid #326181;
+  border-radius: 5px;
+  background: #061b2b;
+  color: #eaf8ff;
+  text-align: center;
+  font: 12px monospace;
+}
+.demo-root .v21-timeline input[aria-invalid="true"] {
+  border-color: #f4c46a;
+}
+.demo-root .v21-timeline-duration,
+.demo-root .v21-timeline-status {
+  font-size: 10px;
+}
+.demo-root .v21-timeline-scale input {
+  width: 92px;
+  accent-color: #61d8ff;
+}
+.demo-root .v21-timeline-scale output {
+  min-width: 76px;
+  font-size: 10px;
+}
+.demo-root .v21-timeline-status {
+  justify-content: space-between;
+  min-height: 22px;
+  gap: 10px;
+  white-space: nowrap;
+}
+.demo-root .v21-timeline-status output {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.demo-root .v21-timeline-scroll {
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scrollbar-width: auto;
+  scrollbar-color: #326181 #061b2b;
+  touch-action: pan-x;
+}
+.demo-root .v21-timeline-scroll::-webkit-scrollbar {
+  height: 12px;
+}
+.demo-root .v21-timeline-scroll::-webkit-scrollbar-track {
+  background: #061b2b;
+  border-radius: 6px;
+}
+.demo-root .v21-timeline-scroll::-webkit-scrollbar-thumb {
+  background: #326181;
+  border: 2px solid #061b2b;
+  border-radius: 6px;
+}
+.demo-root .v21-timeline-content {
+  position: relative;
+  min-width: 100%;
+  padding-bottom: 6px;
+}
+.demo-root .v21-frame-ruler {
+  height: 28px;
+  position: relative;
+  border-top: 1px solid #215173;
+  cursor: crosshair;
+  touch-action: none;
+  overflow: hidden;
+}
+.demo-root .v21-frame-ruler > span {
+  position: absolute;
+  top: 0;
+  border-left: 1px solid #567a95;
+  padding: 6px 0 0 4px;
+  white-space: nowrap;
+  font: 10px monospace;
+  height: 27px;
+}
+.demo-root .v21-frame-ruler {
+  background-image: linear-gradient(to right, #326181 1px, transparent 1px);
+  background-repeat: repeat-x;
+  background-position: left bottom;
+}
+.demo-root .v21-frame-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  width: 1px;
+  background: #ff6f87;
+  pointer-events: none;
+  z-index: 4;
+}
+.demo-root .v21-frame-playhead > button {
+  position: absolute;
+  left: -7px;
+  top: 0;
+  width: 15px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #ff6f87;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  pointer-events: auto;
+  touch-action: none;
+  cursor: ew-resize;
+}
+.demo-root .v21-selected-range {
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  background: #61d8ff20;
+  border-inline: 1px solid #61d8ff;
+  pointer-events: none;
+  z-index: 2;
+}
+.demo-root .v21-timeline-accessible-seek {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  bottom: 0;
+}
+.demo-root .v21-timeline-seek-access {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.demo-root .v21-timeline-seek-access:focus-within {
+  width: calc(100% - 20px);
+  height: 12px;
+}
+.demo-root .v21-timeline-accessible-seek {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.demo-root .v21-shot-label {
+  position: sticky;
+  left: 4px;
+  width: max-content;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 5px;
+  font-size: 10px;
+  color: #eaf8ff;
+  text-shadow: 0 1px 3px #061726;
+}
+.demo-root .v21-timeline .v2-timeline-thumbnails > button,
+.demo-root .v21-timeline .v2-assembly-track-targets > button {
+  overflow: clip;
+}
+.demo-root
+  .v21-timeline
+  .v2-assembly-track-list
+  > div:nth-child(n + 2)
+  .v2-assembly-track-targets
+  > button {
+  background: #24445d;
+}
+.demo-root
+  .v21-timeline
+  .v2-assembly-track-list
+  > div:last-child
+  .v2-assembly-track-targets
+  > button {
+  background: #363856;
+}
+.demo-root .v21-timeline .v2-timeline-thumbnails > button {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 1px 0 #567a95;
+}
+.demo-root .v21-timeline .v2-timeline-thumbnails > button.selected {
+  box-shadow: inset 0 0 0 2px #61d8ff;
+}
+.demo-root .v21-timeline .v2-assembly-decoration {
+  display: none;
+}
+.demo-root .v21-timeline .v2-assembly-track-targets > button {
+  padding: 0;
+  border-radius: 3px;
+  background: #194d70;
+  box-shadow: inset 0 0 0 1px #326181;
+}
+.demo-root .v21-timeline .v2-assembly-track-targets > button.selected {
+  background: #153e61;
+  box-shadow: inset 0 0 0 2px #61d8ff;
+}
+.demo-root .v21-timeline-accessible-seek:focus-visible {
+  width: calc(100% - 20px);
+  height: 10px;
+  opacity: 1;
+}
+.demo-root .v21-timeline .v2-timeline-layers {
+  height: 54px;
+}
+.demo-root .v21-timeline .v2-timeline-ruler,
+.demo-root .v21-timeline .v2-timeline-seek,
+.demo-root .v21-timeline .v2-timeline-playhead {
+  display: none;
+}
+.demo-root .v21-storyboard-body {
+  grid-template-rows: 36px minmax(0, 1fr) auto;
+}
+.demo-root .v21-review-body {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.demo-root .v21-assembly-body {
+  grid-template-rows: 36px minmax(0, 1fr) auto;
+}
+.demo-root .v21-assembly-body.v2-assembly-pro {
+  grid-template-rows: 36px minmax(0, 1fr) auto;
+}
+.demo-root .v21-assembly-body > .v2-assembly-tracks {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.demo-root .v21-storyboard-body,
+.demo-root .v21-review-body,
+.demo-root .v21-assembly-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.demo-root .v21-assembly-body > .v2-assembly-tracks > header {
+  height: 24px;
+  margin-bottom: 4px;
+}
+.demo-root .v21-timeline .v2-assembly-track-list > div > span {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #0a2438;
+}
+@media (max-width: 1500px) {
+  .demo-root .v21-timeline-duration {
+    display: none;
+  }
+}

@@ -116,6 +116,8 @@ def seed(database: Path) -> dict[str, object]:
             "project_id": project["id"],
             "source_id": source["id"],
             "source_block_id": source["blocks"][-1]["id"],
+            "start_byte": source["blocks"][-1]["normalized_start_byte"],
+            "end_byte": source["blocks"][-1]["normalized_end_byte"],
             "source_manifest_version_id": version_id,
         }
 

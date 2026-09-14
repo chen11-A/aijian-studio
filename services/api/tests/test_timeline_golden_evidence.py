@@ -12,6 +12,7 @@ from scripts.timeline_golden import (
     TimelineGoldenError,
     TimelineGoldenManifestV1,
     _mean_absolute_error,
+    _ntsc_timeline,
     _timeline,
     _verify,
 )
@@ -45,6 +46,14 @@ def test_golden_manifest_is_bound_to_the_edited_timeline_and_render_plan() -> No
     assert selected_frames == manifest.selected_source_frames
     assert canonical_model_sha256(timeline) == f"sha256:{manifest.timeline_sha256}"
     assert canonical_model_sha256(plan) == f"sha256:{manifest.render_plan_sha256}"
+
+
+def test_golden_manifest_is_bound_to_the_ntsc_render_plan() -> None:
+    manifest = _manifest()
+
+    assert canonical_model_sha256(build_timeline_render_plan(_ntsc_timeline())) == (
+        f"sha256:{manifest.ntsc_render_plan_sha256}"
+    )
 
 
 def test_evidence_verifier_rejects_hash_order_and_error_drift() -> None:

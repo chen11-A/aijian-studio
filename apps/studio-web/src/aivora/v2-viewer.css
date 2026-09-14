@@ -1,0 +1,263 @@
+.v2-image-viewer {
+  --viewer-line: #215173;
+  --viewer-text: #f2f7ff;
+  --viewer-muted: #a8c0d5;
+  position: fixed;
+  inset: 52px 44px;
+  width: calc(100vw - 88px);
+  height: calc(100dvh - 104px);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--viewer-line);
+  border-radius: 16px;
+  background: #06192b;
+  color: var(--viewer-text);
+  font:
+    14px/22px "Noto Sans CJK SC",
+    sans-serif;
+}
+.v2-image-viewer[open] {
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr) 48px;
+}
+.v2-image-viewer::backdrop {
+  background: linear-gradient(to bottom right, #041421, #09263e 48%, #04121f);
+}
+.v2-image-viewer *,
+.v2-image-viewer *::before,
+.v2-image-viewer *::after {
+  box-sizing: border-box;
+}
+.v2-viewer-toolbar {
+  position: relative;
+  min-width: 0;
+  background: #091f33;
+  box-shadow: inset 0 0 0 1px var(--viewer-line);
+}
+.v2-image-viewer button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 80px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--viewer-line);
+  border-radius: 8px;
+  background: #0b243b;
+  color: var(--viewer-text);
+  font:
+    400 14px/22px "Noto Sans CJK SC",
+    sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: none;
+}
+.v2-image-viewer button:enabled:hover {
+  filter: brightness(1.1);
+  border-color: #45b7f9;
+}
+.v2-image-viewer button:enabled:active {
+  filter: brightness(0.88);
+  transform: none;
+}
+.v2-image-viewer button:focus-visible,
+.v2-viewer-media:focus-visible {
+  outline: 2px solid #61d8ff;
+  outline-offset: -4px;
+}
+.v2-image-viewer button:disabled {
+  background: #183046;
+  color: #7695af;
+  cursor: default;
+  opacity: 1;
+}
+.v2-image-viewer button[aria-pressed="true"] {
+  background: #153e61;
+  border-color: #1789ff;
+}
+.v2-image-viewer .v2-viewer-close {
+  position: absolute;
+  left: 15px;
+  top: 10px;
+  width: 36px;
+  background: #091e31;
+}
+.v2-viewer-toolbar h2 {
+  position: absolute;
+  top: 18px;
+  left: 67px;
+  width: 340px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--viewer-text);
+  font:
+    700 16px/24px "Noto Sans CJK SC",
+    sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-viewer-tools {
+  position: absolute;
+  top: 10px;
+  right: 267px;
+  display: flex;
+  gap: 8px;
+}
+.v2-image-viewer .v2-viewer-fit {
+  width: 116px;
+}
+.v2-image-viewer .v2-viewer-gallery {
+  width: 100px;
+}
+.v2-image-viewer .v2-viewer-save {
+  position: absolute;
+  top: 10px;
+  right: 17px;
+  width: 104px;
+}
+.v2-viewer-media-band {
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 23px;
+}
+.v2-viewer-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #061726;
+  box-shadow: inset 0 0 0 1px #193e5b;
+  outline: none;
+  touch-action: none;
+}
+.v2-viewer-media.is-pannable {
+  cursor: grab;
+}
+.v2-viewer-media.is-pannable:active {
+  cursor: grabbing;
+}
+.v2-viewer-artwork {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.v2-viewer-artwork img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  object-fit: fill;
+  user-select: none;
+}
+.v2-viewer-load-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--viewer-muted);
+}
+.v2-image-viewer .v2-viewer-load-state button {
+  width: 104px;
+}
+.v2-viewer-info {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 15px 23px 11px;
+  box-shadow: inset 0 1px var(--viewer-line);
+  color: var(--viewer-muted);
+  font-size: 13px;
+  line-height: 22px;
+}
+.v2-viewer-filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-viewer-info output {
+  text-align: center;
+  transform: translateX(25px);
+}
+.v2-viewer-note {
+  text-align: right;
+  font-size: 12px;
+  line-height: 20px;
+}
+/* Below the delivered desktop masters, controls reflow without scaling the page or covering media. */
+@media (max-width: 1300px) {
+  .v2-image-viewer[open] {
+    grid-template-rows: 56px minmax(0, 1fr) 70px;
+  }
+  .v2-viewer-tools {
+    left: auto;
+    right: 137px;
+  }
+  .v2-viewer-toolbar h2 {
+    width: calc(100% - 840px);
+  }
+  .v2-viewer-info {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 0 16px;
+    padding: 8px 23px;
+  }
+  .v2-viewer-note {
+    grid-column: 1 / -1;
+  }
+  .v2-viewer-info output {
+    transform: none;
+  }
+}
+@media (max-width: 1000px) {
+  .v2-image-viewer[open] {
+    grid-template-rows: 100px minmax(0, 1fr) 70px;
+  }
+  .v2-viewer-toolbar h2 {
+    width: calc(100% - 212px);
+  }
+  .v2-viewer-tools {
+    top: 54px;
+    left: 15px;
+    right: 15px;
+    justify-content: center;
+  }
+}
+@media (max-width: 720px) {
+  .v2-image-viewer {
+    inset: 12px;
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 24px);
+  }
+  .v2-image-viewer[open] {
+    grid-template-rows: 144px minmax(0, 1fr) 80px;
+  }
+  .v2-viewer-tools {
+    flex-wrap: wrap;
+  }
+  .v2-viewer-media-band {
+    padding: 8px;
+  }
+  .v2-viewer-info {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 4px 12px;
+  }
+  .v2-viewer-filename,
+  .v2-viewer-info output {
+    text-align: center;
+  }
+}

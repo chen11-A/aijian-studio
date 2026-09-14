@@ -31,8 +31,6 @@ import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./si
 import { createSourceManifestReviewController } from "./source-manifest-review";
 import { registerSourceManifestReviewHandlers } from "./source-manifest-review-ipc";
 
-const DEVELOPMENT_RENDERER_URL = "http://127.0.0.1:5173";
-
 let mainWindow: BrowserWindow | null = null;
 let apiClient: (LocalApiClient & SourceManifestReviewClient) | null = null;
 let sourceManifestReviewController: ReturnType<typeof createSourceManifestReviewController> | null =
@@ -100,11 +98,7 @@ function createMainWindow(): BrowserWindow {
     mainWindow = null;
   });
 
-  if (app.isPackaged) {
-    void window.loadFile(join(__dirname, "../../studio-web/dist/index.html"));
-  } else {
-    void window.loadURL(DEVELOPMENT_RENDERER_URL);
-  }
+  void window.loadFile(join(__dirname, "../../studio-web/dist/index.html"));
   return window;
 }
 

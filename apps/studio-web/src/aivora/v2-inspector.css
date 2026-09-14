@@ -1,0 +1,235 @@
+.demo-root .right-dock .inspector.v2-inspector {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 15px;
+  gap: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+}
+.demo-root .right-dock .inspector.v2-inspector > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 0 0 50px;
+  height: 50px;
+  min-height: 50px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.demo-root .right-dock .inspector.v2-inspector > header > svg {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-top: 4px;
+}
+.demo-root .right-dock .inspector.v2-inspector > header > div {
+  min-width: 0;
+  flex: 1;
+}
+.demo-root .right-dock .inspector.v2-inspector > header h2 {
+  font-size: 21px;
+  line-height: 30px;
+  font-weight: 700;
+  margin: 1px 0 0;
+  white-space: nowrap;
+}
+.demo-root .right-dock .inspector.v2-inspector > header p {
+  font-size: 11px;
+  line-height: 18px;
+  color: #39d7f2;
+  margin: 1px 0 0;
+  white-space: nowrap;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-context-row {
+  flex: 0 0 24px;
+  height: 24px;
+  margin: 16px 0 28px;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-context {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  height: 24px;
+  padding: 2px 9px;
+  border: 1px solid #217ba3;
+  border-radius: 6px;
+  background: #123548;
+  font-size: 12px;
+  line-height: 18px;
+  color: #39d7f2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-scroll::-webkit-scrollbar {
+  display: none;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-section {
+  height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-properties {
+  display: grid;
+  gap: 11px;
+  margin-top: 14px;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-properties > label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  height: 53px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #7695af;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-properties > label > span {
+  display: block;
+  height: 18px;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-properties input {
+  display: block;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  padding: 3px 9px;
+  margin: 0;
+  border: 1px solid #215173;
+  border-radius: 6px;
+  background: #092034;
+  color: #f2f7ff;
+  font-size: 13px;
+  line-height: 22px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-details {
+  margin-top: 21px;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0 9px;
+  list-style: none;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #091e31;
+  color: #f2f7ff;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.demo-root
+  .right-dock
+  .inspector.v2-inspector
+  .v2-inspector-details
+  > summary::-webkit-details-marker {
+  display: none;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-details > summary:focus-visible {
+  outline: 2px solid #39d7f2;
+  outline-offset: -2px;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-details[open] > summary > span {
+  transform: rotate(180deg);
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 0;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-detail-content[hidden] {
+  display: none;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-object {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 700;
+}
+.demo-root .right-dock .inspector.v2-inspector .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  height: auto;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+.demo-root .right-dock .inspector.v2-inspector .tabs > button {
+  flex: 1;
+  min-width: 40px;
+  height: 32px;
+  padding: 0 5px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.demo-root .right-dock .inspector.v2-inspector .inspector-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  overflow: visible;
+  flex: none;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-reference {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid #215173;
+  color: #a8c0d5;
+}
+.demo-root .right-dock .inspector.v2-inspector .v2-inspector-reference > small {
+  font-size: 11px;
+  line-height: 20px;
+}
+.demo-root .right-dock .inspector.v2-inspector > footer {
+  display: block;
+  flex: 0 0 74px;
+  height: 74px;
+  min-height: 74px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.demo-root .right-dock .inspector.v2-inspector > footer > p {
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  color: #a8c0d5;
+  font-size: 12px;
+  line-height: 20px;
+}
+@media (max-width: 1719px) {
+  .demo-root .right-dock .inspector.v2-inspector .v2-inspector-context {
+    visibility: hidden;
+  }
+}

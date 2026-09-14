@@ -1,4 +1,5 @@
 import type { components } from "@aijian/contracts";
+import type { SourceManifestReviewOperationResult } from "./source-manifest-review";
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   InvalidationOperationPageQuery,
@@ -13,9 +14,8 @@ type ProjectResponse = components["schemas"]["ProjectResponse"];
 type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
-// Type queries erase completely; the sandbox preload has no relative runtime imports.
-type SourceManifestReviewResult =
-  import("./source-manifest-review").SourceManifestReviewOperationResult;
+// This type-only import erases completely; the sandbox preload has no relative runtime imports.
+type SourceManifestReviewResult = SourceManifestReviewOperationResult;
 type SourceManifestReviewIdentity = {
   project_id: string;
   version_id: string;

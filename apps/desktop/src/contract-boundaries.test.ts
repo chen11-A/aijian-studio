@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import ts from "typescript";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -13,13 +14,88 @@ import { isCreateProviderConnectionInput } from "./provider-connection-contract"
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import { isTaskQueueResponse } from "./task-queue-contract";
 
+function relativeRuntimeModuleLoads(source: string): string[] {
+  const sourceFile = ts.createSourceFile(
+    "preload-boundary.ts",
+    source,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const loads: string[] = [];
+  const isRelative = (specifier: ts.Expression | undefined): specifier is ts.StringLiteral =>
+    specifier !== undefined && ts.isStringLiteral(specifier) && specifier.text.startsWith(".");
+  const record = (kind: string, specifier: ts.StringLiteral) =>
+    loads.push(`${kind}:${specifier.text}`);
+  const importsRuntimeBinding = (declaration: ts.ImportDeclaration): boolean => {
+    const clause = declaration.importClause;
+    if (!clause) return true;
+    if (clause.isTypeOnly) return false;
+    if (clause.name || !clause.namedBindings) return true;
+    if (ts.isNamespaceImport(clause.namedBindings)) return true;
+    return clause.namedBindings.elements.some((element) => !element.isTypeOnly);
+  };
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isImportDeclaration(node) &&
+      isRelative(node.moduleSpecifier) &&
+      importsRuntimeBinding(node)
+    ) {
+      record("import", node.moduleSpecifier);
+    } else if (
+      ts.isExportDeclaration(node) &&
+      isRelative(node.moduleSpecifier) &&
+      !node.isTypeOnly
+    ) {
+      record("export", node.moduleSpecifier);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      !node.isTypeOnly &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      isRelative(node.moduleReference.expression)
+    ) {
+      record("import-equals", node.moduleReference.expression);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      isRelative(node.arguments[0])
+    ) {
+      record("dynamic-import", node.arguments[0]);
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "require" &&
+      isRelative(node.arguments[0])
+    ) {
+      record("require", node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return loads;
+}
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
 const projectId = `prj_${"1".repeat(32)}`;
 
 describe("privileged contract boundaries", () => {
+  test("allows compiler-erased relative types and rejects relative runtime module loads", () => {
+    expect(relativeRuntimeModuleLoads('import type { Token } from "./types";')).toEqual([]);
+    expect(relativeRuntimeModuleLoads('import { type Token } from "./types";')).toEqual([]);
+    expect(relativeRuntimeModuleLoads('type Token = import("./types").Token;')).toEqual([]);
+    expect(relativeRuntimeModuleLoads('import "./runtime";')).toEqual(["import:./runtime"]);
+    expect(relativeRuntimeModuleLoads('import { runtime } from "./runtime";')).toEqual([
+      "import:./runtime",
+    ]);
+    expect(relativeRuntimeModuleLoads('import value = require("./runtime");')).toEqual([
+      "import-equals:./runtime",
+    ]);
+    expect(relativeRuntimeModuleLoads('const value = require("./runtime");')).toEqual([
+      "require:./runtime",
+    ]);
+  });
   test("keeps the sandboxed preload self-contained", () => {
     const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
-    expect(preloadSource).not.toMatch(/from\s+["']\.\//);
+    expect(relativeRuntimeModuleLoads(preloadSource)).toEqual([]);
     expect(preloadSource).toContain('ipcRenderer.invoke("proposals:get", projectId, proposalId)');
     expect(preloadSource).toContain(
       'ipcRenderer.invoke("proposals:accept-as-draft", projectId, proposalId, input)',
@@ -42,7 +118,7 @@ describe("privileged contract boundaries", () => {
     const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
     const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
 
-    expect(preloadSource).not.toMatch(/from\s+["']\.\//);
+    expect(relativeRuntimeModuleLoads(preloadSource)).toEqual([]);
     expect(preloadSource).toMatch(
       /ipcRenderer\.invoke\(\s*"invalidation-operations:get",\s*projectId,\s*operationId,?\s*\)/,
     );
