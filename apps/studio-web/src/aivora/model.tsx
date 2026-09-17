@@ -70,8 +70,13 @@ export type Editor = {
   images?: readonly V2ViewerImage[];
   presentation?: "drawer" | "dialog";
   imageCrop?: { x: number; y: number; width: number; height: number; sourceWidth: number };
-  save?: (values: Record<string, string>) => void | false;
+  save?: (values: Record<string, string>) => void | false | Promise<void | false>;
 };
+export type ProjectCreateUiState =
+  | { kind: "idle" }
+  | { kind: "SUBMITTING" }
+  | { kind: "FAILED"; message: string }
+  | { kind: "REMOTE_UNKNOWN" };
 export type Annotation = {
   id: number;
   start: number;
@@ -232,6 +237,9 @@ function useDemoModel(fixture?: DemoFixture) {
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>({
+    kind: "idle",
+  });
   const [toast, setToast] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => ({
     source: "",
@@ -765,6 +773,7 @@ function useDemoModel(fixture?: DemoFixture) {
       return { kind: "REMOTE_UNKNOWN" } as const;
     }
     createPending.current = true;
+    setProjectCreateState({ kind: "SUBMITTING" });
     const generation = projectGate.begin();
     sourceGate.invalidate();
     sourceStageGate.invalidate();
@@ -772,11 +781,18 @@ function useDemoModel(fixture?: DemoFixture) {
     episodeGate.invalidate();
     const outcome = await createWorkspaceProject(studio, input);
     createPending.current = false;
+    if (outcome.kind === "FAILED") {
+      setProjectCreateState(outcome);
+      notify(outcome.message);
+      return outcome;
+    }
     if (outcome.kind !== "SUCCEEDED") {
+      setProjectCreateState(outcome);
       createUnknown.current = true;
       notify("创建结果未知。请刷新项目列表后确认，未自动重试。");
       return outcome;
     }
+    setProjectCreateState({ kind: "idle" });
     if (!projectGate.isCurrent(generation)) return outcome;
     const mapped = mapProject(outcome.project, 0);
     clearProjectScopedState();
@@ -1163,15 +1179,16 @@ function useDemoModel(fixture?: DemoFixture) {
   function edit(
     title: string,
     fields: Field[],
-    onSave?: (data: Record<string, string>) => void | false,
+    onSave?: (data: Record<string, string>) => void | false | Promise<void | false>,
   ) {
+    if (title === "新建项目") setProjectCreateState({ kind: "idle" });
     setEditor({
       title,
       fields,
       confirm: "保存演示修改",
-      save: (data) => {
+      save: async (data) => {
         if (onSave) {
-          if (onSave(data) === false) return false;
+          if ((await onSave(data)) === false) return false;
         } else updateValues(data);
         notify("演示修改已保存；刷新后恢复样例");
       },
@@ -1191,6 +1208,7 @@ function useDemoModel(fixture?: DemoFixture) {
     setAiOpen,
     editor,
     setEditor,
+    projectCreateState,
     toast,
     notify,
     values,

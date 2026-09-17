@@ -21,23 +21,21 @@ export function HomePages() {
         { key: "title", label: "作品名称", value: "", required: true },
         { key: "input", label: "故事灵感", type: "textarea", value: d.value("input") },
       ],
-      (data) => {
+      async (data) => {
         if (d.workspaceState !== "connected") {
           d.notify("请先连接本地工作区，再创建真实项目。");
           return false;
         }
         const title = data.title!.trim();
         if (!title) return false;
-        void d
-          .createRealProject({
-            name: title,
-            aspect_ratio: "9:16",
-            target_duration_seconds: 60,
-            source_language: "zh-CN",
-          })
-          .then((outcome) => {
-            if (outcome.kind === "SUCCEEDED") d.go("source");
-          });
+        const outcome = await d.createRealProject({
+          name: title,
+          aspect_ratio: "9:16",
+          target_duration_seconds: 60,
+          source_language: "zh-CN",
+        });
+        if (outcome.kind === "SUCCEEDED") d.go("source");
+        return outcome.kind === "SUCCEEDED" ? undefined : false;
       },
     );
   const newEpisode = () =>
