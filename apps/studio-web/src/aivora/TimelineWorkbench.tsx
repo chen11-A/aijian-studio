@@ -404,7 +404,7 @@ export function TimelineWorkbench({
           aria-label={review ? "审片时间轴" : gutter ? "组装位置" : "预演位置"}
           type="range"
           min={0}
-          max={d.total}
+          max={timeline ? total / frameRate : d.total}
           step={1 / frameRate}
           value={frame / frameRate}
           onChange={(event) => go(Number(event.target.value) * frameRate)}

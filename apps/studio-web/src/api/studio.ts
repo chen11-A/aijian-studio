@@ -18,6 +18,40 @@ export type ImportTextSourceInput = components["schemas"]["ImportTextSourceReque
 export type ProjectData = components["schemas"]["ProjectData"];
 export type ProjectListResponse = components["schemas"]["ProjectListResponse"];
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
+export type CreateEpisodeInput = components["schemas"]["CreateEpisodeRequest"];
+export type EpisodeListResponse = components["schemas"]["EpisodeListResponse"];
+export type EpisodeResponse = components["schemas"]["EpisodeResponse"];
+export type EpisodeListQuery = { limit?: number; offset?: string };
+export type EpisodeCreateErrorCode =
+  | "SIDECAR_AUTH_REQUIRED"
+  | "SIDECAR_REQUEST_REJECTED"
+  | "PROJECT_NOT_FOUND"
+  | "EPISODE_NOT_FOUND"
+  | "EPISODE_CREATE_CONFLICT"
+  | "VALIDATION_ERROR";
+export type EpisodeCreateResult =
+  | { kind: "SUCCEEDED"; receipt: EpisodeResponse }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 422;
+      code: EpisodeCreateErrorCode;
+      request_id: string;
+    }
+  | { kind: "REMOTE_UNKNOWN" };
+export type ProductionBriefResponse = components["schemas"]["ProductionBriefResponse"];
+export type ProductionBriefCreateCommand = {
+  operation_id: string;
+  input: {
+    content: components["schemas"]["ProductionBriefContentV1"];
+    parent_version_id: string | null;
+    expected_revision: number | null;
+    change_summary: string;
+  };
+};
+export type ProductionBriefCreateResult =
+  | { kind: "SUCCEEDED"; receipt: ProductionBriefResponse }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: 409 | 422 | 428; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 export type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
 export type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
 export type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
@@ -172,6 +206,12 @@ export interface FakeTimelineRunCapability {
   ): Promise<FakeTimelineRunCreateResult>;
 }
 
+export interface EpisodeCapability {
+  list(projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse>;
+  get(projectId: string, episodeId: string): Promise<EpisodeResponse>;
+  create(projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult>;
+}
+
 export interface StudioTransport {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
@@ -186,6 +226,15 @@ export interface StudioTransport {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  getProductionBrief?: (projectId: string) => Promise<ProductionBriefResponse | null>;
+  getProductionBriefVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<ProductionBriefResponse>;
+  createProductionBriefVersion?: (
+    projectId: string,
+    command: ProductionBriefCreateCommand,
+  ) => Promise<ProductionBriefCreateResult>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   listInvalidationOperations(
@@ -199,6 +248,7 @@ export interface StudioTransport {
   proposalDecisions?: ProposalDecisionCapability;
   proposalRuns?: ProposalRunCapability;
   fakeTimelineRuns?: FakeTimelineRunCapability;
+  episodes?: EpisodeCapability;
   sourceManifestReview?: SourceManifestReviewCapability;
   listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
   listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
@@ -228,6 +278,9 @@ export interface AijianDesktopBridge {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
+  listEpisodes?: EpisodeCapability["list"];
+  getEpisode?: EpisodeCapability["get"];
+  createEpisode?: EpisodeCapability["create"];
   listSources(projectId: string): Promise<SourceDocumentListResponse>;
   getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
   importTextSource(
@@ -237,6 +290,15 @@ export interface AijianDesktopBridge {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  getProductionBrief?: (projectId: string) => Promise<ProductionBriefResponse | null>;
+  getProductionBriefVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<ProductionBriefResponse>;
+  createProductionBriefVersion?: (
+    projectId: string,
+    command: ProductionBriefCreateCommand,
+  ) => Promise<ProductionBriefCreateResult>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   listInvalidationOperations(
@@ -489,6 +551,18 @@ export function createStudioTransport(): StudioTransport {
       getStoryBibleIndex: (projectId) => bridge.getStoryBibleIndex(projectId),
       getStoryBibleVersion: (projectId, versionId) =>
         bridge.getStoryBibleVersion(projectId, versionId),
+      getProductionBrief:
+        typeof bridge.getProductionBrief === "function"
+          ? (projectId) => bridge.getProductionBrief!(projectId)
+          : undefined,
+      getProductionBriefVersion:
+        typeof bridge.getProductionBriefVersion === "function"
+          ? (projectId, versionId) => bridge.getProductionBriefVersion!(projectId, versionId)
+          : undefined,
+      createProductionBriefVersion:
+        typeof bridge.createProductionBriefVersion === "function"
+          ? (projectId, command) => bridge.createProductionBriefVersion!(projectId, command)
+          : undefined,
       listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
       getArtifactProposal: (projectId, proposalId) =>
         bridge.getArtifactProposal(projectId, proposalId),
@@ -515,6 +589,16 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.createFakeTimelineRun === "function"
           ? {
               create: (projectId, command) => bridge.createFakeTimelineRun(projectId, command),
+            }
+          : undefined,
+      episodes:
+        typeof bridge.listEpisodes === "function" &&
+        typeof bridge.getEpisode === "function" &&
+        typeof bridge.createEpisode === "function"
+          ? {
+              list: (projectId, query) => bridge.listEpisodes!(projectId, query),
+              get: (projectId, episodeId) => bridge.getEpisode!(projectId, episodeId),
+              create: (projectId, input) => bridge.createEpisode!(projectId, input),
             }
           : undefined,
       sourceManifestReview:
@@ -579,6 +663,15 @@ export function createStudioTransport(): StudioTransport {
       getOptionalRequest<TimelineResponse>(
         `/api/v1/projects/${projectId}/timeline`,
         "TIMELINE_NOT_FOUND",
+      ),
+    getProductionBrief: (projectId) =>
+      getOptionalRequest<ProductionBriefResponse>(
+        `/api/v1/projects/${projectId}/production-brief`,
+        "ARTIFACT_NOT_FOUND",
+      ),
+    getProductionBriefVersion: (projectId, versionId) =>
+      getRequest<ProductionBriefResponse>(
+        `/api/v1/projects/${projectId}/production-brief/versions/${versionId}`,
       ),
     trimTimelineClip: (projectId, input) =>
       postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/trim`, input),

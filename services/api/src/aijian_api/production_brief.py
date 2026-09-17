@@ -21,6 +21,7 @@ ShortText = Annotated[StrictStr, Field(min_length=1, max_length=240)]
 NonNegativeSafeInt = Annotated[StrictInt, Field(ge=0, le=JSON_SAFE_INTEGER_MAX)]
 SourceDocumentId = Annotated[StrictStr, Field(pattern=r"^src_[0-9a-f]{32}$")]
 SourceBlockId = Annotated[StrictStr, Field(pattern=r"^srcb_[0-9a-f]{32}$")]
+SourceManifestVersionId = Annotated[StrictStr, Field(pattern=r"^ver_[0-9a-f]{32}$")]
 CurrencyCode = Annotated[StrictStr, Field(pattern=r"^[A-Z]{3}$")]
 
 
@@ -81,6 +82,7 @@ class SourceAdaptationEntryV1(_StrictContract):
     kind: Literal["source_adaptation"]
     adaptation_statement: StrictText
     source_document_id: SourceDocumentId
+    source_manifest_version_id: SourceManifestVersionId
     source_block_ids: tuple[SourceBlockId, ...] = Field(min_length=1, max_length=100)
 
     @field_validator("source_block_ids", mode="before")

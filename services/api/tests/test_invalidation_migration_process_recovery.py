@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from aijian_api.invalidation_schema import MIGRATION_15, expected_v15_objects
 from aijian_api.repository import StudioRepository
-from aijian_api.workflow_schema import MIGRATION_16
+from aijian_api.workflow_schema import MIGRATION_16, migration_19_statements
 from test_invalidation_process_recovery import _run_child, _snapshot
 from test_migrations import create_current_v14_database
 
@@ -69,16 +69,22 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     raw_ms = (perf_counter() - started) * 1000
     StudioRepository(database)
     upgraded = _state(database)
-    assert upgraded["version"] == 17
+    assert upgraded["version"] == 19
     for table, rows in before["rows"].items():
         assert upgraded["rows"][table] == rows, table
     assert upgraded["rows"].keys() - before["rows"].keys() == {
         "invalidation_operations",
         "invalidation_reason_paths",
         "episodes",
+        "production_brief_write_requests",
+        "remote_execution_authorization_snapshots",
+        "remote_dispatch_snapshots",
     }
     assert upgraded["rows"]["invalidation_operations"] == []
     assert upgraded["rows"]["invalidation_reason_paths"] == []
+    assert upgraded["rows"]["production_brief_write_requests"] == []
+    assert upgraded["rows"]["remote_execution_authorization_snapshots"] == []
+    assert upgraded["rows"]["remote_dispatch_snapshots"] == []
     assert upgraded["rows"]["episodes"] == [
         {
             "id": "ep_prj_migration_keep",
@@ -94,15 +100,57 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     ]
     before_schema = {(row[0], row[1]): row for row in before["schema"]}
     upgraded_schema = {(row[0], row[1]): row for row in upgraded["schema"]}
+
+    def normalize(row: tuple[Any, ...]) -> tuple[Any, ...]:
+        return (*row[:3], " ".join((row[3] or "").split()))
+
+    def normalize_sql(statement: str) -> str:
+        return " ".join(statement.split()).rstrip(";")
+
     trigger_key = ("trigger", "artifact_proposal_draft_acceptances_chain_insert")
     assert trigger_key in before_schema
     assert trigger_key in upgraded_schema
-    unchanged_keys = set(before_schema) - {trigger_key}
+    changed_v19_keys = {
+        trigger_key,
+        ("table", "workflow_attempts"),
+        ("index", "workflow_one_blocking_attempt_per_node"),
+        ("trigger", "artifact_proposal_draft_acceptances_chain_insert"),
+    }
+    unchanged_keys = set(before_schema) - changed_v19_keys
     assert unchanged_keys <= set(upgraded_schema)
-    assert all(before_schema[key] == upgraded_schema[key] for key in unchanged_keys)
+    assert all(
+        normalize(before_schema[key]) == normalize(upgraded_schema[key]) for key in unchanged_keys
+    )
     assert " ".join(upgraded_schema[trigger_key][3].split()).rstrip(";") == " ".join(
         MIGRATION_16[1].split()
     ).rstrip(";")
+    migration_19 = migration_19_statements()
+    expected_attempts = next(
+        statement for statement in migration_19 if "CREATE TABLE workflow_attempts_v19" in statement
+    ).replace("workflow_attempts_v19", '"workflow_attempts"')
+    expected_blocking_index = next(
+        statement
+        for statement in migration_19
+        if "CREATE UNIQUE INDEX workflow_one_blocking_attempt_per_node" in statement
+    )
+    assert normalize_sql(upgraded_schema[("table", "workflow_attempts")][3]) == normalize_sql(
+        expected_attempts
+    )
+    assert normalize_sql(
+        upgraded_schema[("index", "workflow_one_blocking_attempt_per_node")][3]
+    ) == normalize_sql(expected_blocking_index)
+    expected_v19_new_keys = {
+        ("table", "remote_execution_authorization_snapshots"),
+        ("table", "remote_dispatch_snapshots"),
+        ("index", "remote_execution_authorization_one_consume"),
+        ("index", "remote_execution_attempt_one_authorization_consume"),
+        ("index", "sqlite_autoindex_remote_execution_authorization_snapshots_1"),
+        ("index", "sqlite_autoindex_remote_dispatch_snapshots_1"),
+        ("index", "sqlite_autoindex_remote_dispatch_snapshots_2"),
+        ("trigger", "remote_dispatch_snapshots_immutable_update"),
+        ("trigger", "remote_dispatch_snapshots_immutable_delete"),
+    }
+    assert expected_v19_new_keys <= set(upgraded_schema) - set(before_schema)
     assert set(expected_v15_objects()) <= {(row[0], row[1]) for row in upgraded["schema"]}
     StudioRepository(control)
     assert _state(control) == upgraded

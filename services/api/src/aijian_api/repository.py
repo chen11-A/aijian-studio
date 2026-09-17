@@ -60,6 +60,7 @@ from aijian_api.episode_schema import MIGRATION_17
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
+from aijian_api.production_brief import ProductionBriefContentV1
 from aijian_api.provider_schema import MIGRATION_7
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
@@ -78,9 +79,10 @@ from aijian_api.workflow_schema import (
     MIGRATION_13,
     MIGRATION_14,
     MIGRATION_16,
+    migration_19_statements,
 )
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 19
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -779,6 +781,23 @@ _MIGRATIONS = {
     15: MIGRATION_15,
     16: MIGRATION_16,
     17: MIGRATION_17,
+    18: (
+        """
+        CREATE TABLE production_brief_write_requests (
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            idempotency_key_hash TEXT NOT NULL,
+            request_hash TEXT NOT NULL
+                CHECK (length(request_hash) = 71 AND request_hash LIKE 'sha256:%'),
+            artifact_id TEXT NOT NULL,
+            version_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (project_id, idempotency_key_hash),
+            FOREIGN KEY (artifact_id, version_id)
+                REFERENCES artifact_versions(artifact_id, version_id) ON DELETE CASCADE
+        )
+        """,
+    ),
+    19: migration_19_statements(),
 }
 
 
@@ -1102,6 +1121,7 @@ class StudioRepository:
             while version < SCHEMA_VERSION:
                 next_version = version + 1
                 statements = _MIGRATIONS[next_version]
+                rebuild_workflow_attempts = next_version == 19
                 if next_version == 3:
                     challenge_columns = {
                         str(row["name"])
@@ -1113,8 +1133,12 @@ class StudioRepository:
                         statements = _LEGACY_V2_CHALLENGE_COLUMNS + statements
                 if next_version == 5:
                     self._validate_v5_enqueue_keys(connection)
-                connection.execute("BEGIN IMMEDIATE")
                 try:
+                    if rebuild_workflow_attempts:
+                        connection.execute("PRAGMA foreign_keys = OFF")
+                        if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 0:
+                            raise RuntimeError("Migration v19 could not disable foreign keys")
+                    connection.execute("BEGIN IMMEDIATE")
                     if next_version == 3:
                         self._validate_v3_legacy_invariants(connection)
                     if next_version == 15:
@@ -1123,14 +1147,22 @@ class StudioRepository:
                         connection.execute(statement)
                         if self._migration_hook is not None:
                             self._migration_hook(next_version, step)
-                    foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
-                    if foreign_key_errors:
-                        raise RuntimeError("Migration produced invalid foreign keys")
+                    if rebuild_workflow_attempts:
+                        foreign_key_errors = connection.execute(
+                            "PRAGMA foreign_key_check"
+                        ).fetchall()
+                        if foreign_key_errors:
+                            raise RuntimeError("Migration v19 produced invalid foreign keys")
                     connection.execute(f"PRAGMA user_version = {next_version}")
                     connection.commit()
                 except Exception:
                     connection.rollback()
                     raise
+                finally:
+                    if rebuild_workflow_attempts:
+                        connection.execute("PRAGMA foreign_keys = ON")
+                        if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 1:
+                            raise RuntimeError("Migration v19 could not restore foreign keys")
                 version = next_version
             if version >= 14:
                 self._validate_v14_fake_timeline_index(connection)
@@ -1696,7 +1728,14 @@ class StudioRepository:
                           ON node.node_run_id = attempt.node_run_id
                         JOIN workflow_runs AS run
                           ON run.workflow_run_id = node.workflow_run_id
-                        WHERE attempt.attempt_id = ? AND attempt.status = 'RUNNING'
+                        WHERE attempt.attempt_id = ?
+                          AND (
+                            attempt.status = 'RUNNING'
+                            OR (
+                              attempt.execution_mode = 'remote'
+                              AND attempt.status = 'REMOTE_REVIEW_PENDING'
+                            )
+                          )
                           AND node.status IN ('RUNNING', 'NEEDS_REVIEW')
                           AND node.active_attempt_id = attempt.attempt_id
                           AND run.project_id = ?
@@ -2020,6 +2059,151 @@ class StudioRepository:
             _transaction_connection=connection,
             _manage_transaction=False,
         )
+
+    def write_production_brief(
+        self,
+        *,
+        project_id: str,
+        content: dict[str, object],
+        author_actor_id: str,
+        change_summary: str,
+        idempotency_key_hash: str,
+        request_hash: str,
+        parent_version_id: str | None = None,
+        expected_revision: int | None = None,
+    ) -> ArtifactVersionRecord:
+        """Atomically append or replay a draft ProductionBrief write receipt."""
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                receipt = connection.execute(
+                    "SELECT request_hash, version_id FROM production_brief_write_requests "
+                    "WHERE project_id = ? AND idempotency_key_hash = ?",
+                    (project_id, idempotency_key_hash),
+                ).fetchone()
+                if receipt is not None:
+                    if str(receipt["request_hash"]) != request_hash:
+                        raise ArtifactDependencyInvalidError(
+                            "Idempotency-Key was reused with different input"
+                        )
+                    record = self._get_artifact_version_in_connection(
+                        connection,
+                        project_id=project_id,
+                        artifact_type="production_brief",
+                        version_id=str(receipt["version_id"]),
+                    )
+                    connection.commit()
+                    return record
+
+                content = ProductionBriefContentV1.model_validate(content).model_dump(mode="json")
+                entry = content.get("creative_entry")
+                dependencies: tuple[ArtifactDependencyDraft, ...] = ()
+                requirements: tuple[AcceptedArtifactDependencyRequirement, ...] = ()
+                if isinstance(entry, dict) and entry.get("kind") == "source_adaptation":
+                    manifest_id = str(entry.get("source_manifest_version_id", ""))
+                    document_id = str(entry.get("source_document_id", ""))
+                    block_ids = tuple(str(item) for item in entry.get("source_block_ids", ()))
+                    self._validate_production_brief_source_membership(
+                        connection,
+                        project_id=project_id,
+                        manifest_version_id=manifest_id,
+                        source_document_id=document_id,
+                        source_block_ids=block_ids,
+                    )
+                    dependencies = (
+                        ArtifactDependencyDraft(
+                            upstream_version_id=manifest_id,
+                            relationship="derived_from",
+                            impact="blocking",
+                        ),
+                    )
+                    requirements = (
+                        AcceptedArtifactDependencyRequirement(
+                            artifact_type="source_manifest", version_id=manifest_id
+                        ),
+                    )
+                record = self._create_artifact_version_in_connection(
+                    connection,
+                    project_id=project_id,
+                    artifact_type="production_brief",
+                    schema_version="1.0.0",
+                    content=content,
+                    author_actor_type="human",
+                    author_actor_id=author_actor_id,
+                    change_summary=change_summary,
+                    parent_version_id=parent_version_id,
+                    expected_revision=expected_revision,
+                    dependencies=dependencies,
+                    accepted_dependency_requirements=requirements,
+                )
+                self._transaction_step("write_production_brief", "artifact_written")
+                connection.execute(
+                    """
+                    INSERT INTO production_brief_write_requests (
+                        project_id, idempotency_key_hash, request_hash, artifact_id, version_id,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        project_id,
+                        idempotency_key_hash,
+                        request_hash,
+                        record.version.artifact_id,
+                        record.version.id,
+                        _timestamp(self._clock()),
+                    ),
+                )
+                self._transaction_step("write_production_brief", "receipt_written")
+                connection.commit()
+                return record
+            except Exception:
+                connection.rollback()
+                raise
+
+    def _validate_production_brief_source_membership(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        manifest_version_id: str,
+        source_document_id: str,
+        source_block_ids: tuple[str, ...],
+    ) -> None:
+        row = connection.execute(
+            """
+            SELECT artifact_versions.content_json, artifact_versions.content_hash
+            FROM artifact_versions
+            JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
+            JOIN artifact_heads ON artifact_heads.artifact_id = artifacts.artifact_id
+            WHERE artifacts.project_id = ? AND artifacts.artifact_type = 'source_manifest'
+              AND artifact_versions.version_id = ?
+              AND artifact_heads.accepted_version_id = artifact_versions.version_id
+            """,
+            (project_id, manifest_version_id),
+        ).fetchone()
+        if row is None:
+            raise ArtifactDependencyInvalidError(
+                "ProductionBrief requires the current accepted SourceManifest"
+            )
+        try:
+            raw_content = cast(dict[str, object], json.loads(str(row["content_json"])))
+            if canonical_content_hash(raw_content) != str(row["content_hash"]):
+                raise ValueError("content hash mismatch")
+            manifest = SourceManifestContentV1.model_validate(raw_content)
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            raise ArtifactDependencyInvalidError(
+                "Accepted SourceManifest content is invalid"
+            ) from error
+        document = next(
+            (item for item in manifest.documents if item.source_document_id == source_document_id),
+            None,
+        )
+        if document is None or not set(source_block_ids).issubset(
+            {block.source_block_id for block in document.blocks}
+        ):
+            raise ArtifactDependencyInvalidError(
+                "ProductionBrief focus blocks are outside the accepted SourceManifest"
+            )
 
     def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
         with self._connection() as connection:

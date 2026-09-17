@@ -90,7 +90,6 @@ body,
   padding: 0 12px;
 }
 .demo-root .topbar > .button,
-.demo-root .topbar .episode-select,
 .demo-root .topbar-spacer {
   display: none;
 }
@@ -1019,4 +1018,112 @@ body,
 }
 .demo-root.no-stage.no-rail .local-note:after {
   content: none;
+}
+
+/* The global episode chooser is rendered only for an active real project. */
+.demo-root .topbar .episode-select {
+  display: block;
+  position: absolute;
+  left: 424px;
+  top: 16px;
+  width: 172px;
+  height: 40px;
+  padding: 0 12px;
+  text-align: center;
+  background: #0b243b;
+  border-color: #215173;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.demo-root .demo-controls {
+  left: 612px;
+}
+@media (max-width: 1280px) {
+  .demo-root .demo-controls {
+    display: none;
+  }
+}
+@media (max-width: 1180px) {
+  .demo-root .topbar > select {
+    left: 210px;
+    width: 150px;
+  }
+  .demo-root .topbar .episode-select {
+    left: 376px;
+    width: 160px;
+  }
+  .demo-root .mode-switch {
+    right: 116px;
+  }
+  .demo-root .service-indicator {
+    display: none;
+  }
+}
+
+/* C2-r6: keep the V2 shell inside the desktop client's 964px inner viewport. */
+.demo-root {
+  min-width: 0;
+}
+@media (max-width: 1180px) {
+  .demo-root .mode-switch {
+    right: 144px;
+  }
+  .demo-root .stage-bar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 4px;
+    padding: 5px;
+  }
+  .demo-root .stage-bar button,
+  .demo-root .stage-bar button.current,
+  .demo-root .stage-bar button:nth-child(2) {
+    width: auto;
+    min-width: 0;
+    padding: 0 2px;
+    gap: 2px;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  .demo-root .stage-bar button span {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    line-height: 18px;
+  }
+  .demo-root .stage-bar button b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* C2-r8: keep the real project title and its two header actions separate at 980px. */
+@media (max-width: 1180px) {
+  .demo-root[data-page="project"] .page-title {
+    height: 108px;
+    min-height: 108px;
+  }
+  .demo-root[data-page="project"] .page-title .actions {
+    top: 44px;
+    right: auto;
+    left: 0;
+  }
+  .demo-root[data-page="project"] .page-title p {
+    position: absolute;
+    top: 84px;
+    left: 0;
+    width: 100%;
+  }
+}
+
+/* C2-r9: project-body content scrolls between its fixed header and footer. */
+.demo-root[data-page="project"] .v2-project-home-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }

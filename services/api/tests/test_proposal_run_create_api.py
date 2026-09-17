@@ -871,6 +871,11 @@ def test_v12_acceptance_survives_v13_upgrade_and_still_blocks_rejection(tmp_path
         connection.execute(MIGRATION_12[1])
         # Episodes did not exist in the historic schema represented by this fixture.
         connection.execute("DROP TABLE episodes")
+        # This v12 fixture predates the v18 idempotent ProductionBrief receipt table.
+        assert connection.execute(
+            "SELECT COUNT(*) FROM production_brief_write_requests"
+        ).fetchone() == (0,)
+        connection.execute("DROP TABLE production_brief_write_requests")
         connection.execute("PRAGMA user_version = 12")
 
     StudioRepository(repository.database_path)

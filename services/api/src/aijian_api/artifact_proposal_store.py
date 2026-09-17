@@ -103,72 +103,16 @@ class ArtifactProposalStore:
         connection = self._open()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            now_text = timestamp(self._clock())
-            snapshot = read_agent_skill_snapshot(connection, claim, now_text=now_text)
-            if (
-                proposal.project_id != snapshot.project_id
-                or proposal.producer_agent_run_id != snapshot.agent_run_id
-                or proposal.producer_skill_run_id != snapshot.skill_run_id
-                or proposal.target_artifact_type != snapshot.output_artifact_type
-            ):
-                raise ArtifactProposalConflictError(
-                    "proposal does not match the frozen attempt snapshot"
-                )
-            existing = connection.execute(
-                PROPOSAL_TRUTH_SELECT
-                + """
-                WHERE proposal.proposal_id = ? OR proposal.producer_attempt_id = ?
-                   OR (proposal.project_id = ? AND proposal.producer_skill_run_id = ?)
-                LIMIT 1
-                """,
-                (
-                    proposal.proposal_id,
-                    claim.attempt_id,
-                    proposal.project_id,
-                    proposal.producer_skill_run_id,
-                ),
-            ).fetchone()
-            if existing is not None:
-                persisted = decode_persisted_proposal_row(existing)
-                assert_attempt_snapshot_templates_match(
-                    connection,
-                    persisted.producer_attempt_id,
-                    claim.attempt_id,
-                )
-                if persisted.proposal != proposal or persisted.proposal_hash != proposal_hash:
-                    raise ArtifactProposalConflictError(
-                        "proposal identity was reused with different content"
-                    )
-                connection.commit()
-                return persisted
-            connection.execute(
-                """
-                INSERT INTO agent_artifact_proposals (
-                    proposal_id, project_id, producer_attempt_id,
-                    producer_agent_run_id, producer_skill_run_id,
-                    target_artifact_type, proposal_json, proposal_hash, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    proposal.proposal_id,
-                    proposal.project_id,
-                    claim.attempt_id,
-                    proposal.producer_agent_run_id,
-                    proposal.producer_skill_run_id,
-                    proposal.target_artifact_type,
-                    proposal_json,
-                    proposal_hash,
-                    now_text,
-                ),
+            persisted = _persist_in_connection(
+                connection,
+                claim=claim,
+                proposal=proposal,
+                proposal_json=proposal_json,
+                proposal_hash=proposal_hash,
+                now_text=timestamp(self._clock()),
             )
-            row = connection.execute(
-                PROPOSAL_TRUTH_SELECT + " WHERE proposal.proposal_id = ?",
-                (proposal.proposal_id,),
-            ).fetchone()
-            if row is None:
-                raise RuntimeError("persisted proposal could not be read back")
             connection.commit()
-            return decode_persisted_proposal_row(row)
+            return persisted
         except Exception:
             connection.rollback()
             raise
@@ -210,6 +154,76 @@ PROPOSAL_TRUTH_SELECT = """
     JOIN workflow_attempt_snapshots AS snapshot
       ON snapshot.attempt_id = attempt.attempt_id
 """
+
+
+def _persist_in_connection(
+    connection: sqlite3.Connection,
+    *,
+    claim: ClaimedTask,
+    proposal: ArtifactProposalV1,
+    proposal_json: str,
+    proposal_hash: str,
+    now_text: str,
+) -> PersistedArtifactProposal:
+    """Persist one validated proposal inside a caller-owned transaction."""
+    snapshot = read_agent_skill_snapshot(connection, claim, now_text=now_text)
+    if (
+        proposal.project_id != snapshot.project_id
+        or proposal.producer_agent_run_id != snapshot.agent_run_id
+        or proposal.producer_skill_run_id != snapshot.skill_run_id
+        or proposal.target_artifact_type != snapshot.output_artifact_type
+    ):
+        raise ArtifactProposalConflictError("proposal does not match the frozen attempt snapshot")
+    existing = connection.execute(
+        PROPOSAL_TRUTH_SELECT
+        + """
+        WHERE proposal.proposal_id = ? OR proposal.producer_attempt_id = ?
+           OR (proposal.project_id = ? AND proposal.producer_skill_run_id = ?)
+        LIMIT 1
+        """,
+        (
+            proposal.proposal_id,
+            claim.attempt_id,
+            proposal.project_id,
+            proposal.producer_skill_run_id,
+        ),
+    ).fetchone()
+    if existing is not None:
+        persisted = decode_persisted_proposal_row(existing)
+        assert_attempt_snapshot_templates_match(
+            connection, persisted.producer_attempt_id, claim.attempt_id
+        )
+        if persisted.proposal != proposal or persisted.proposal_hash != proposal_hash:
+            raise ArtifactProposalConflictError(
+                "proposal identity was reused with different content"
+            )
+        return persisted
+    connection.execute(
+        """
+        INSERT INTO agent_artifact_proposals (
+            proposal_id, project_id, producer_attempt_id,
+            producer_agent_run_id, producer_skill_run_id,
+            target_artifact_type, proposal_json, proposal_hash, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            proposal.proposal_id,
+            proposal.project_id,
+            claim.attempt_id,
+            proposal.producer_agent_run_id,
+            proposal.producer_skill_run_id,
+            proposal.target_artifact_type,
+            proposal_json,
+            proposal_hash,
+            now_text,
+        ),
+    )
+    row = connection.execute(
+        PROPOSAL_TRUTH_SELECT + " WHERE proposal.proposal_id = ?", (proposal.proposal_id,)
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("persisted proposal could not be read back")
+    return decode_persisted_proposal_row(row)
 
 
 def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal:

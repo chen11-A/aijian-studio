@@ -239,7 +239,7 @@ export function EditorDialog() {
         }}
       >
         <header>
-          <Pill>演示数据</Pill>
+          <Pill>内容编辑</Pill>
           <Button aria-label="关闭对话框" icon="close" onClick={requestClose} />
         </header>
         <h2 id="dialog-title">{editor.title}</h2>

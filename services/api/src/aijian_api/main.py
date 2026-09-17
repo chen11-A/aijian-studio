@@ -89,6 +89,10 @@ from aijian_api.invalidation_routes import (
     create_invalidation_router,
 )
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
+from aijian_api.production_brief_routes import (
+    create_production_brief_public_router,
+    create_production_brief_write_router,
+)
 from aijian_api.proposal_run_factory import ProposalRunFactory
 from aijian_api.proposal_run_routes import (
     create_proposal_run_router,
@@ -856,6 +860,7 @@ def create_app(
     app.include_router(create_source_manifest_public_router(get_repository))
     app.include_router(create_episode_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
+    app.include_router(create_production_brief_public_router(get_repository))
     app.include_router(create_task_queue_router(get_task_queue_reader))
     app.include_router(create_invalidation_router(get_repository))
     app.include_router(
@@ -881,6 +886,9 @@ def create_app(
         )
         app.include_router(
             create_source_manifest_internal_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_production_brief_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
             create_artifact_proposal_write_router(

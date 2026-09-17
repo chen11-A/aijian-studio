@@ -19,3 +19,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Local development evidence (all workspace levels)
+.aijian-dev/
+/services/api/0
+/services/api/1

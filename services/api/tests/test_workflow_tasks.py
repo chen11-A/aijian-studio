@@ -381,6 +381,23 @@ def test_remote_unknown_transition_sets_quarantine_disposition() -> None:
     assert uncertain.retry_disposition == "REMOTE_UNKNOWN"
 
 
+def test_remote_response_enters_review_pending_without_an_output_version() -> None:
+    submitting = attempt(mode="remote", state="SUBMITTING", dispatch_started_at=NOW)
+
+    pending = transition_attempt(
+        submitting,
+        "REMOTE_REVIEW_PENDING",
+        now=NOW,
+        evidence=TransitionEvidence(provider_response_id="response-42"),
+    )
+
+    assert pending.provider_response_id == "response-42"
+    assert pending.output_version_id is None
+    assert recovery_action_for_attempt(pending) == "NONE"
+    with pytest.raises(InvalidTaskTransitionError):
+        transition_attempt(pending, "SUBMITTING", now=NOW)
+
+
 def test_provider_job_id_is_immutable_after_persistence() -> None:
     waiting = attempt(mode="remote", state="WAITING_REMOTE", provider_job_id="provider-job-42")
 

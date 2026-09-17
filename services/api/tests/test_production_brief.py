@@ -45,6 +45,7 @@ def adaptation_payload() -> dict[str, object]:
         "kind": "source_adaptation",
         "adaptation_statement": "改编提交的章节。",
         "source_document_id": "src_0123456789abcdef0123456789abcdef",
+        "source_manifest_version_id": "ver_0123456789abcdef0123456789abcdef",
         "source_block_ids": ["srcb_0123456789abcdef0123456789abcdef"],
     }
     payload["delivery"] = {
@@ -88,6 +89,7 @@ def test_valid_adaptation_ids_are_structural_only_and_arrays_become_tuples() -> 
     brief = ProductionBriefContentV1.model_validate(adaptation_payload())
 
     assert brief.creative_entry.source_document_id.startswith("src_")
+    assert brief.creative_entry.source_manifest_version_id.startswith("ver_")
     assert isinstance(brief.creative_entry.source_block_ids, tuple)
     assert brief.delivery.frame_rate == PositiveRationalData(num=48, den=1)
     assert brief.budget_intent.amount_micros == 0
@@ -224,6 +226,13 @@ def test_copied_nested_rational_and_duplicate_or_malformed_source_reject() -> No
     entry["source_block_ids"] = ["srcb_bad"]
     with pytest.raises(ValidationError):
         ProductionBriefContentV1.model_validate(adaptation)
+
+    missing_manifest = adaptation_payload()
+    missing_entry = missing_manifest["creative_entry"]
+    assert isinstance(missing_entry, dict)
+    missing_entry.pop("source_manifest_version_id")
+    with pytest.raises(ValidationError):
+        ProductionBriefContentV1.model_validate(missing_manifest)
 
     original = original_payload()
     original_entry = original["creative_entry"]

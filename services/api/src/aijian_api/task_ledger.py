@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from aijian_api.agent_skill_contracts import AttemptSnapshotV1
+from aijian_api.remote_execution_authorization import RemoteDispatchSnapshotDraft
 from aijian_api.repository import StudioRepository
 from aijian_api.task_ledger_agent_runs import mark_agent_skill_run_running
 from aijian_api.task_ledger_cancellation import (
@@ -14,7 +15,12 @@ from aijian_api.task_ledger_cancellation import (
     cancel_local_workflow,
 )
 from aijian_api.task_ledger_completion import complete_local_task
-from aijian_api.task_ledger_enqueue import EnqueueLocalNodeRequest, enqueue_local_node
+from aijian_api.task_ledger_enqueue import (
+    EnqueueLocalNodeRequest,
+    EnqueueRemoteNodeRequest,
+    enqueue_local_node,
+    enqueue_remote_node,
+)
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_failure import fail_local_task
 from aijian_api.task_ledger_models import (
@@ -132,6 +138,61 @@ class LocalTaskLedger:
             transaction_validator=transaction_validator,
         )
 
+    def enqueue_remote_node(
+        self,
+        *,
+        dispatch_snapshot: RemoteDispatchSnapshotDraft,
+        project_id: str,
+        definition_id: str,
+        definition_version: int,
+        definition_hash: str,
+        graph: Mapping[str, object],
+        workflow_input_hash: str,
+        node_key: str,
+        node_type: str,
+        contract_version: int,
+        input_bindings: Mapping[str, object],
+        node_input_hash: str,
+        request_fingerprint: str,
+        idempotency_key: str,
+        max_attempts: int,
+        task_kind: str,
+        priority: int,
+        available_at: datetime,
+        attempt_snapshot_kind: str,
+        attempt_snapshot: Mapping[str, object],
+        transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+    ) -> QueuedTask:
+        request = EnqueueRemoteNodeRequest(
+            project_id=project_id,
+            definition_id=definition_id,
+            definition_version=definition_version,
+            definition_hash=definition_hash,
+            graph=graph,
+            workflow_input_hash=workflow_input_hash,
+            node_key=node_key,
+            node_type=node_type,
+            contract_version=contract_version,
+            input_bindings=input_bindings,
+            node_input_hash=node_input_hash,
+            request_fingerprint=request_fingerprint,
+            idempotency_key=idempotency_key,
+            max_attempts=max_attempts,
+            task_kind=task_kind,
+            priority=priority,
+            available_at=available_at,
+            attempt_snapshot_kind=attempt_snapshot_kind,
+            attempt_snapshot=attempt_snapshot,
+            dispatch_snapshot=dispatch_snapshot,
+        )
+        return enqueue_remote_node(
+            request,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+            transaction_validator=transaction_validator,
+        )
+
     def claim_ready_task(
         self,
         *,
@@ -139,7 +200,10 @@ class LocalTaskLedger:
         lease_duration: timedelta,
         task_id: str | None = None,
         task_kind: str | None = None,
+        _execution_mode: str = "local",
     ) -> ClaimedTask | None:
+        if _execution_mode not in {"local", "remote"}:
+            raise ValueError("unsupported execution mode")
         self._validate_lease_request(worker_id, lease_duration)
         if task_kind is not None and not task_kind.strip():
             raise ValueError("task kind must not be empty")
@@ -166,7 +230,7 @@ class LocalTaskLedger:
                     JOIN workflow_attempts AS attempt
                       ON attempt.attempt_id = ledger.attempt_id
                     WHERE ledger.status = 'READY' AND ledger.available_at <= ?
-                      AND attempt.execution_mode = 'local' AND attempt.status = 'READY'
+                      AND attempt.execution_mode = ? AND attempt.status = 'READY'
                       AND (? IS NULL OR ledger.task_id = ?)
                       AND (? IS NULL OR ledger.task_kind = ?)
                     ORDER BY ledger.priority DESC, ledger.created_at, ledger.task_id
@@ -181,6 +245,7 @@ class LocalTaskLedger:
                     now_text,
                     now_text,
                     now_text,
+                    _execution_mode,
                     task_id,
                     task_id,
                     task_kind,
@@ -246,6 +311,23 @@ class LocalTaskLedger:
             raise
         finally:
             connection.close()
+
+    def claim_remote_task(
+        self,
+        *,
+        worker_id: str,
+        lease_duration: timedelta,
+        task_id: str | None = None,
+        task_kind: str | None = None,
+    ) -> ClaimedTask | None:
+        """Claim a remote attempt through the same lease-fenced ledger transaction."""
+        return self.claim_ready_task(
+            worker_id=worker_id,
+            lease_duration=lease_duration,
+            task_id=task_id,
+            task_kind=task_kind,
+            _execution_mode="remote",
+        )
 
     def heartbeat(
         self,

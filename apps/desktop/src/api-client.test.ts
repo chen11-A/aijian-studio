@@ -7,6 +7,7 @@ import {
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalApiClient } from "./api-client";
+import type { ProductionBriefCreateCommand } from "./production-brief-contract";
 import { isTimelineResponse } from "./timeline-contract";
 import type {
   SourceManifestPreparedReview,
@@ -493,6 +494,349 @@ const projectListResponse: ProjectListResponse = {
   data: [project],
   request_id: healthyResponse.request_id,
 };
+
+const productionBriefCommand: ProductionBriefCreateCommand = {
+  operation_id: "80cdb6d5-4633-4ffb-9d68-0c9456452274",
+  input: {
+    content: {
+      schema_version: "1.0.0",
+      creative_entry: { kind: "original_idea", origin_statement: "原创", references: [] },
+      creative: { premise: "p", intent: "i", constraints: [] },
+      delivery: {
+        language: "zh",
+        display_aspect_ratio: { num: 16, den: 9 },
+        width_px: 1920,
+        height_px: 1080,
+        frame_rate: { num: 24, den: 1 },
+      },
+      duration_intent: { work_seconds: 1, episode_mode: "unspecified", episode_seconds: null },
+      budget_intent: { state: "unknown", currency: null, amount_micros: null },
+      rights_declaration: { state: "unknown", statement: null },
+    },
+    change_summary: "create",
+  },
+};
+
+function productionBriefReadResponse(versionId = `ver_${"a".repeat(32)}`) {
+  const artifactId = `art_${"b".repeat(32)}`;
+  return {
+    request_id: healthyResponse.request_id,
+    data: {
+      project_id: project.id,
+      head: {
+        accepted_version_id: null,
+        artifact_id: artifactId,
+        latest_version_id: versionId,
+        review_evidence_revision: 0,
+        review_submission_id: null,
+        review_version_id: null,
+        revision: 1,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      version: {
+        id: versionId,
+        artifact_id: artifactId,
+        version_number: 1,
+        schema_version: "1.0.0",
+        content: {
+          schema_version: "1.0.0",
+          creative_entry: { kind: "original_idea", origin_statement: "origin", references: [] },
+          creative: {
+            premise: "premise",
+            intent: "intent",
+            audience: null,
+            genre: null,
+            style: null,
+            constraints: [],
+          },
+          delivery: {
+            language: "zh",
+            display_aspect_ratio: { num: 16, den: 9 },
+            width_px: 1920,
+            height_px: 1080,
+            frame_rate: { num: 24, den: 1 },
+          },
+          duration_intent: { work_seconds: 1, episode_mode: "unspecified", episode_seconds: null },
+          budget_intent: { state: "unknown", currency: null, amount_micros: null },
+          rights_declaration: { state: "unknown", statement: null },
+        },
+        content_hash: `sha256:${"d".repeat(64)}`,
+        parent_version_id: null,
+        change_summary: "created",
+        created_at: "2026-01-01T00:00:00Z",
+      },
+    },
+  };
+}
+
+test("ProductionBrief GET accepts exact request-bound latest and version responses", async () => {
+  const versionId = `ver_${"a".repeat(32)}`;
+  const payload = productionBriefReadResponse(versionId);
+  const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+    Response.json(payload, {
+      status: 200,
+      headers: { "X-Request-ID": healthyResponse.request_id },
+    }),
+  );
+  const client = createLocalApiClient(fetcher, session);
+  await expect(client.getProductionBrief(project.id)).resolves.toEqual(payload);
+  await expect(client.getProductionBriefVersion(project.id, versionId)).resolves.toEqual(payload);
+  expect(fetcher.mock.calls[1]![0]).toBe(
+    `http://127.0.0.1:43123/api/v1/projects/${project.id}/production-brief/versions/${versionId}`,
+  );
+});
+
+test("ProductionBrief GET rejects mismatched request IDs and truncated wire data", async () => {
+  const payload = productionBriefReadResponse();
+  await expect(
+    createLocalApiClient(
+      async () => Response.json(payload, { headers: { "X-Request-ID": "wrong" } }),
+      session,
+    ).getProductionBrief(project.id),
+  ).rejects.toThrow("ProductionBrief read could not be completed");
+  const truncated = structuredClone(payload) as {
+    data: { version: Record<string, unknown> };
+  };
+  delete truncated.data.version.parent_version_id;
+  await expect(
+    createLocalApiClient(
+      async () =>
+        Response.json(truncated, { headers: { "X-Request-ID": healthyResponse.request_id } }),
+      session,
+    ).getProductionBrief(project.id),
+  ).rejects.toThrow("ProductionBrief read could not be completed");
+});
+
+test("ProductionBrief GET rejects non-200 success codes and wrong exact versions", async () => {
+  const versionId = `ver_${"a".repeat(32)}`;
+  const payload = productionBriefReadResponse(versionId);
+  await expect(
+    createLocalApiClient(
+      async () =>
+        Response.json(payload, {
+          status: 201,
+          headers: { "X-Request-ID": healthyResponse.request_id },
+        }),
+      session,
+    ).getProductionBrief(project.id),
+  ).rejects.toThrow("ProductionBrief read could not be completed");
+  await expect(
+    createLocalApiClient(
+      async () =>
+        Response.json(payload, {
+          status: 200,
+          headers: { "X-Request-ID": healthyResponse.request_id },
+        }),
+      session,
+    ).getProductionBriefVersion(project.id, `ver_${"c".repeat(32)}`),
+  ).rejects.toThrow("ProductionBrief read could not be completed");
+});
+
+test("ProductionBrief response loss performs one POST and remains unknown", async () => {
+  const fetcher = vi.fn().mockRejectedValue(new Error("lost"));
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(
+      project.id,
+      productionBriefCommand,
+    ),
+  ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(fetcher.mock.calls[0]![0]).toBe(
+    `http://127.0.0.1:43123/api/v1/projects/${project.id}/production-brief/versions`,
+  );
+  const init = fetcher.mock.calls[0]![1] as RequestInit;
+  expect((init.headers as Record<string, string>)["Idempotency-Key"]).toMatch(
+    /^production-brief:create:v1:/,
+  );
+  expect(JSON.parse(String(init.body))).toEqual({
+    ...productionBriefCommand.input,
+    parent_version_id: null,
+    expected_revision: null,
+    content: {
+      ...(productionBriefCommand.input.content as Record<string, unknown>),
+      creative: {
+        ...((productionBriefCommand.input.content as Record<string, unknown>).creative as Record<
+          string,
+          unknown
+        >),
+        audience: null,
+        genre: null,
+        style: null,
+      },
+    },
+  });
+});
+
+test("ProductionBrief replays a persisted receipt after response loss on a rebuilt client", async () => {
+  const versionId = `ver_${"a".repeat(32)}`;
+  const artifactId = `art_${"b".repeat(32)}`;
+  const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    if (fetcher.mock.calls.length === 1) throw new Error("response lost after persistence");
+    const input = JSON.parse(String(init?.body)) as {
+      content: unknown;
+      parent_version_id: string | null;
+      change_summary: string;
+    };
+    return Response.json(
+      {
+        request_id: requestId,
+        data: {
+          project_id: project.id,
+          head: {
+            accepted_version_id: null,
+            artifact_id: artifactId,
+            latest_version_id: `ver_${"c".repeat(32)}`,
+            review_evidence_revision: 0,
+            review_submission_id: null,
+            review_version_id: null,
+            revision: 2,
+            updated_at: "2026-01-01T00:00:00Z",
+          },
+          version: {
+            id: versionId,
+            artifact_id: artifactId,
+            version_number: 1,
+            schema_version: "1.0.0",
+            content: input.content,
+            content_hash: `sha256:${"d".repeat(64)}`,
+            parent_version_id: input.parent_version_id,
+            change_summary: input.change_summary,
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        },
+      },
+      { status: 201, headers: { "X-Request-ID": requestId } },
+    );
+  });
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(
+      project.id,
+      productionBriefCommand,
+    ),
+  ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(
+      project.id,
+      productionBriefCommand,
+    ),
+  ).resolves.toMatchObject({
+    kind: "SUCCEEDED",
+    receipt: { data: { version: { id: versionId } } },
+  });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  const first = fetcher.mock.calls[0]![1] as RequestInit;
+  const second = fetcher.mock.calls[1]![1] as RequestInit;
+  expect(first.body).toBe(second.body);
+  expect((first.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+    (second.headers as Record<string, string>)["Idempotency-Key"],
+  );
+});
+
+test("ProductionBrief maps only known write failures and never retries", async () => {
+  const error = {
+    error: {
+      code: "ARTIFACT_DEPENDENCY_INVALID",
+      message: "invalid dependency",
+      retryable: false,
+      details: {},
+    },
+    request_id: healthyResponse.request_id,
+  };
+  const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+    Response.json(error, { status: 409, headers: { "X-Request-ID": healthyResponse.request_id } }),
+  );
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(
+      project.id,
+      productionBriefCommand,
+    ),
+  ).resolves.toMatchObject({ kind: "DEFINITE_SERVER_ERROR", status: 409 });
+  expect(fetcher).toHaveBeenCalledOnce();
+  await expect(
+    createLocalApiClient(
+      async () =>
+        Response.json(
+          { ...error, error: { ...error.error, code: "OTHER" } },
+          { status: 409, headers: { "X-Request-ID": healthyResponse.request_id } },
+        ),
+      session,
+    ).createProductionBriefVersion(project.id, productionBriefCommand),
+  ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+});
+
+test("ProductionBrief keeps its operation key across rebuilt clients and payload conflicts", async () => {
+  const error = {
+    error: {
+      code: "ARTIFACT_DEPENDENCY_INVALID",
+      message: "idempotency conflict",
+      retryable: false,
+      details: {},
+    },
+    request_id: healthyResponse.request_id,
+  };
+  const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+    Response.json(error, { status: 409, headers: { "X-Request-ID": healthyResponse.request_id } }),
+  );
+  const changed: ProductionBriefCreateCommand = {
+    ...productionBriefCommand,
+    input: { ...productionBriefCommand.input, change_summary: "changed payload" },
+  };
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(
+      project.id,
+      productionBriefCommand,
+    ),
+  ).resolves.toMatchObject({ kind: "DEFINITE_SERVER_ERROR", status: 409 });
+  await expect(
+    createLocalApiClient(fetcher, session).createProductionBriefVersion(project.id, changed),
+  ).resolves.toMatchObject({ kind: "DEFINITE_SERVER_ERROR", status: 409 });
+  const first = fetcher.mock.calls[0]![1] as RequestInit;
+  const second = fetcher.mock.calls[1]![1] as RequestInit;
+  expect((first.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+    (second.headers as Record<string, string>)["Idempotency-Key"],
+  );
+});
+
+test("ProductionBrief latest maps only ARTIFACT_NOT_FOUND to null", async () => {
+  const missing = {
+    error: { code: "ARTIFACT_NOT_FOUND", message: "missing", retryable: false, details: {} },
+    request_id: healthyResponse.request_id,
+  };
+  await expect(
+    createLocalApiClient(
+      async () =>
+        Response.json(missing, {
+          status: 404,
+          headers: { "X-Request-ID": healthyResponse.request_id },
+        }),
+      session,
+    ).getProductionBrief(project.id),
+  ).resolves.toBeNull();
+});
+
+test("ProductionBrief refuses unbound 404 and definite-error responses", async () => {
+  const missing = {
+    error: { code: "ARTIFACT_NOT_FOUND", message: "missing", retryable: false, details: {} },
+    request_id: healthyResponse.request_id,
+  };
+  await expect(
+    createLocalApiClient(
+      async () => Response.json(missing, { status: 404 }),
+      session,
+    ).getProductionBrief(project.id),
+  ).rejects.toThrow("ProductionBrief read could not be completed");
+  const error = {
+    error: { code: "VALIDATION_ERROR", message: "bad", retryable: false, details: {} },
+    request_id: healthyResponse.request_id,
+  };
+  await expect(
+    createLocalApiClient(
+      async () => Response.json(error, { status: 422 }),
+      session,
+    ).createProductionBriefVersion(project.id, productionBriefCommand),
+  ).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
+});
 const timelineResponse: TimelineResponse = {
   request_id: healthyResponse.request_id,
   data: {

@@ -843,3 +843,252 @@ MIGRATION_16 = (
     END
     """,
 )
+
+
+def migration_19_statements() -> tuple[str, ...]:
+    """Rebuild workflow attempts for the additive remote-review state.
+
+    This helper is intentionally separate from historical migration constants.
+    """
+
+    return (
+        "DROP TRIGGER IF EXISTS remote_dispatch_snapshots_immutable_update",
+        "DROP TRIGGER IF EXISTS remote_dispatch_snapshots_immutable_delete",
+        "DROP TABLE IF EXISTS remote_dispatch_snapshots",
+        "DROP TABLE IF EXISTS remote_execution_authorization_snapshots",
+        "DROP INDEX workflow_one_blocking_attempt_per_node",
+        "DROP INDEX workflow_provider_idempotency",
+        "DROP TRIGGER workflow_remote_unknown_blocks_new_attempt",
+        "DROP TRIGGER workflow_attempt_snapshot_recovery_copy",
+        "DROP TRIGGER workflow_attempt_snapshots_immutable_delete",
+        "DROP TRIGGER agent_artifact_proposals_immutable_delete",
+        """
+        CREATE TABLE workflow_attempts_v19 (
+            attempt_id TEXT PRIMARY KEY,
+            node_run_id TEXT NOT NULL REFERENCES workflow_node_runs(node_run_id)
+                ON DELETE CASCADE,
+            attempt_number INTEGER NOT NULL CHECK (attempt_number >= 1),
+            execution_mode TEXT NOT NULL CHECK (execution_mode IN ('local', 'remote')),
+            status TEXT NOT NULL CHECK (
+                status IN ('READY', 'LEASED', 'RUNNING', 'SUBMIT_INTENT', 'SUBMITTING',
+                           'WAITING_REMOTE', 'REMOTE_UNKNOWN', 'REMOTE_REVIEW_PENDING',
+                           'SUCCEEDED', 'FAILED', 'CANCEL_REQUESTED', 'CANCELLED',
+                           'NOT_SUBMITTED')
+            ),
+            input_hash TEXT NOT NULL
+                CHECK (length(input_hash) = 71 AND input_hash LIKE 'sha256:%'),
+            request_fingerprint TEXT NOT NULL
+                CHECK (length(request_fingerprint) = 71
+                       AND request_fingerprint LIKE 'sha256:%'),
+            provider_account_id TEXT,
+            provider_model TEXT,
+            provider_idempotency_key TEXT,
+            provider_capabilities_json TEXT CHECK (
+                provider_capabilities_json IS NULL OR json_valid(provider_capabilities_json)
+            ),
+            provider_job_id TEXT,
+            provider_response_id TEXT,
+            dispatch_started_at TEXT,
+            accepted_at TEXT,
+            retry_disposition TEXT CHECK (
+                retry_disposition IS NULL OR retry_disposition IN (
+                    'SAFE_LOCAL_RETRY', 'PROVIDER_CONFIRMED_NOT_ACCEPTED',
+                    'NON_RETRYABLE', 'REMOTE_UNKNOWN'
+                )
+            ),
+            error_code TEXT,
+            output_version_id TEXT REFERENCES artifact_versions(version_id),
+            revision INTEGER NOT NULL CHECK (revision >= 1),
+            started_at TEXT,
+            finished_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE (node_run_id, attempt_number),
+            UNIQUE (node_run_id, attempt_id),
+            CHECK (status <> 'SUBMITTING' OR dispatch_started_at IS NOT NULL),
+            CHECK (status <> 'WAITING_REMOTE' OR provider_job_id IS NOT NULL),
+            CHECK (status <> 'REMOTE_UNKNOWN' OR retry_disposition = 'REMOTE_UNKNOWN'),
+            CHECK (
+                status <> 'REMOTE_REVIEW_PENDING'
+                OR (execution_mode = 'remote' AND provider_response_id IS NOT NULL)
+            ),
+            CHECK (status <> 'SUCCEEDED' OR output_version_id IS NOT NULL)
+        )
+        """,
+        """
+        INSERT INTO workflow_attempts_v19 (
+            attempt_id, node_run_id, attempt_number, execution_mode, status,
+            input_hash, request_fingerprint, provider_account_id, provider_model,
+            provider_idempotency_key, provider_capabilities_json, provider_job_id,
+            provider_response_id, dispatch_started_at, accepted_at, retry_disposition,
+            error_code, output_version_id, revision, started_at, finished_at,
+            created_at, updated_at
+        )
+        SELECT
+            attempt_id, node_run_id, attempt_number, execution_mode, status,
+            input_hash, request_fingerprint, provider_account_id, provider_model,
+            provider_idempotency_key, provider_capabilities_json, provider_job_id,
+            NULL, dispatch_started_at, accepted_at, retry_disposition,
+            error_code, output_version_id, revision, started_at, finished_at,
+            created_at, updated_at
+        FROM workflow_attempts
+        """,
+        "DROP TABLE workflow_attempts",
+        "ALTER TABLE workflow_attempts_v19 RENAME TO workflow_attempts",
+        """
+        CREATE UNIQUE INDEX workflow_one_blocking_attempt_per_node
+        ON workflow_attempts(node_run_id)
+        WHERE status IN ('READY', 'LEASED', 'RUNNING', 'SUBMIT_INTENT', 'SUBMITTING',
+                         'WAITING_REMOTE', 'REMOTE_UNKNOWN', 'REMOTE_REVIEW_PENDING',
+                         'CANCEL_REQUESTED')
+        """,
+        """
+        CREATE UNIQUE INDEX workflow_provider_idempotency
+        ON workflow_attempts(provider_account_id, provider_idempotency_key)
+        WHERE provider_account_id IS NOT NULL AND provider_idempotency_key IS NOT NULL
+        """,
+        """
+        CREATE TRIGGER workflow_remote_unknown_blocks_new_attempt
+        BEFORE INSERT ON workflow_attempts
+        WHEN EXISTS (
+            SELECT 1 FROM workflow_attempts AS existing
+            WHERE existing.node_run_id = NEW.node_run_id
+              AND existing.status = 'REMOTE_UNKNOWN'
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'remote unknown attempt blocks a new attempt');
+        END
+        """,
+        """
+        CREATE TRIGGER workflow_attempt_snapshot_recovery_copy
+        AFTER INSERT ON workflow_attempts
+        WHEN NEW.attempt_number > 1
+        BEGIN
+            INSERT INTO workflow_attempt_snapshots (
+                attempt_id, snapshot_kind, snapshot_json, snapshot_hash, created_at
+            )
+            SELECT NEW.attempt_id, snapshot.snapshot_kind, snapshot.snapshot_json,
+                   snapshot.snapshot_hash, NEW.created_at
+            FROM workflow_attempt_snapshots AS snapshot
+            JOIN workflow_attempts AS previous
+              ON previous.attempt_id = snapshot.attempt_id
+            WHERE previous.node_run_id = NEW.node_run_id
+              AND previous.attempt_number = NEW.attempt_number - 1
+              AND previous.input_hash = NEW.input_hash
+              AND previous.request_fingerprint = NEW.request_fingerprint
+            LIMIT 1;
+        END
+        """,
+        """
+        CREATE TRIGGER workflow_attempt_snapshots_immutable_delete
+        BEFORE DELETE ON workflow_attempt_snapshots
+        WHEN EXISTS (
+            SELECT 1 FROM workflow_attempts
+            WHERE attempt_id = OLD.attempt_id
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'workflow attempt snapshots are immutable');
+        END
+        """,
+        """
+        CREATE TRIGGER agent_artifact_proposals_immutable_delete
+        BEFORE DELETE ON agent_artifact_proposals
+        WHEN EXISTS (
+            SELECT 1 FROM projects WHERE id = OLD.project_id
+        ) AND EXISTS (
+            SELECT 1 FROM workflow_attempts WHERE attempt_id = OLD.producer_attempt_id
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'agent artifact proposals are immutable');
+        END
+        """,
+        """
+        CREATE TABLE remote_execution_authorization_snapshots (
+            authorization_id TEXT NOT NULL CHECK (
+                length(authorization_id) = 36 AND authorization_id LIKE 'rea_%'
+            ),
+            revision INTEGER NOT NULL CHECK (revision >= 1 AND revision <= 2147483647),
+            event_kind TEXT NOT NULL CHECK (event_kind IN ('ISSUE', 'CONSUME', 'REVOKE', 'EXPIRE')),
+            grant_core_json TEXT NOT NULL CHECK (json_valid(grant_core_json)),
+            grant_core_hash TEXT NOT NULL CHECK (
+                length(grant_core_hash) = 71 AND grant_core_hash LIKE 'sha256:%'
+            ),
+            evidence_binding_hash TEXT NOT NULL CHECK (
+                length(evidence_binding_hash) = 71 AND evidence_binding_hash LIKE 'sha256:%'
+            ),
+            evidence_decision_json TEXT NOT NULL CHECK (json_valid(evidence_decision_json)),
+            attempt_id TEXT REFERENCES workflow_attempts(attempt_id),
+            lease_generation INTEGER CHECK (lease_generation >= 1),
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (authorization_id, revision),
+            CHECK (
+                (event_kind = 'CONSUME') = (attempt_id IS NOT NULL AND lease_generation IS NOT NULL)
+            )
+        )
+        """,
+        """
+        CREATE UNIQUE INDEX remote_execution_authorization_one_consume
+        ON remote_execution_authorization_snapshots(authorization_id)
+        WHERE event_kind = 'CONSUME'
+        """,
+        """
+        CREATE UNIQUE INDEX remote_execution_attempt_one_authorization_consume
+        ON remote_execution_authorization_snapshots(attempt_id)
+        WHERE event_kind = 'CONSUME'
+        """,
+        """
+        CREATE TABLE remote_dispatch_snapshots (
+            attempt_id TEXT PRIMARY KEY REFERENCES workflow_attempts(attempt_id)
+                ON DELETE CASCADE,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            operation TEXT NOT NULL CHECK (operation = 'remote.source.extract'),
+            input_scope_hash TEXT NOT NULL CHECK (
+                length(input_scope_hash) = 71 AND input_scope_hash LIKE 'sha256:%'
+            ),
+            context_manifest_id TEXT NOT NULL CHECK (
+                length(context_manifest_id) = 36 AND context_manifest_id LIKE 'ctx_%'
+            ),
+            context_manifest_hash TEXT NOT NULL CHECK (
+                length(context_manifest_hash) = 71 AND context_manifest_hash LIKE 'sha256:%'
+            ),
+            scope_kind TEXT NOT NULL CHECK (
+                scope_kind IN ('FORMAL_CONTENT_EXECUTION', 'SYNTHETIC_CAPABILITY_PROBE')
+            ),
+            scope_json TEXT NOT NULL CHECK (json_valid(scope_json)),
+            connection_id TEXT NOT NULL REFERENCES provider_connections(connection_id),
+            connection_revision INTEGER NOT NULL CHECK (
+                connection_revision >= 1 AND connection_revision <= 2147483647
+            ),
+            approved_model_id TEXT NOT NULL CHECK (length(approved_model_id) BETWEEN 1 AND 256),
+            endpoint_binding TEXT NOT NULL CHECK (endpoint_binding = 'CPA_LOOPBACK_V1'),
+            transport_contract_hash TEXT NOT NULL CHECK (
+                length(transport_contract_hash) = 71 AND transport_contract_hash LIKE 'sha256:%'
+            ),
+            requested_additional_budget_micros INTEGER NOT NULL CHECK (
+                requested_additional_budget_micros >= 0
+            ),
+            approved_currency TEXT NOT NULL CHECK (approved_currency = 'USD'),
+            policy_version TEXT NOT NULL CHECK (length(policy_version) BETWEEN 1 AND 128),
+            snapshot_hash TEXT NOT NULL CHECK (
+                length(snapshot_hash) = 71 AND snapshot_hash LIKE 'sha256:%'
+            ),
+            created_at TEXT NOT NULL,
+            UNIQUE (project_id, attempt_id)
+        )
+        """,
+        """
+        CREATE TRIGGER remote_dispatch_snapshots_immutable_update
+        BEFORE UPDATE ON remote_dispatch_snapshots
+        BEGIN
+            SELECT RAISE(ABORT, 'remote dispatch snapshot is immutable');
+        END
+        """,
+        """
+        CREATE TRIGGER remote_dispatch_snapshots_immutable_delete
+        BEFORE DELETE ON remote_dispatch_snapshots
+        WHEN EXISTS (SELECT 1 FROM workflow_attempts WHERE attempt_id = OLD.attempt_id)
+        BEGIN
+            SELECT RAISE(ABORT, 'remote dispatch snapshot is immutable');
+        END
+        """,
+    )

@@ -20,6 +20,7 @@ _ACTIVE_ATTEMPTS = frozenset(
         "SUBMIT_INTENT",
         "SUBMITTING",
         "WAITING_REMOTE",
+        "REMOTE_REVIEW_PENDING",
         "CANCEL_REQUESTED",
     }
 )
@@ -157,7 +158,7 @@ class TaskQueueReader:
                 ORDER BY
                   CASE WHEN attempt.status IN (
                     'READY', 'LEASED', 'RUNNING', 'SUBMIT_INTENT', 'SUBMITTING',
-                    'WAITING_REMOTE', 'REMOTE_UNKNOWN', 'CANCEL_REQUESTED'
+                    'WAITING_REMOTE', 'REMOTE_UNKNOWN', 'REMOTE_REVIEW_PENDING', 'CANCEL_REQUESTED'
                   ) THEN 0 ELSE 1 END,
                   task.updated_at DESC, task.task_id
                 """,

@@ -10,6 +10,7 @@ from aijian_api.agent_run_store import (
     read_agent_run_bundle_in_connection,
     read_proposal_run_enqueue_intent_in_connection,
 )
+from aijian_api.agent_skill_contracts import canonical_sha256
 from aijian_api.artifact_proposal_store import PersistedArtifactProposal
 from aijian_api.shot_outline_run_factory import ShotOutlineEnqueueIntentV1
 from aijian_api.source_extract_run_factory import SourceExtractEnqueueIntentV1
@@ -25,13 +26,14 @@ class ArtifactProposalReviewConflictError(ValueError):
 @dataclass(frozen=True, slots=True)
 class ProposalReviewIdentity:
     run_bundle: PersistedAgentRunBundle
-    enqueue_intent_record: PersistedProposalRunEnqueueIntent
-    enqueue_intent: SupportedEnqueueIntent
+    enqueue_intent_record: PersistedProposalRunEnqueueIntent | None
+    enqueue_intent: SupportedEnqueueIntent | None
 
 
 @dataclass(frozen=True, slots=True)
 class ReviewableProposalTruth:
     attempt_revision: int
+    attempt_status: str
     node_run_id: str
     node_revision: int
     workflow_run_id: str
@@ -52,10 +54,16 @@ def read_proposal_review_identity(
         project_id,
         proposal.producer_agent_run_id,
     )
+    mode = connection.execute(
+        "SELECT execution_mode FROM workflow_attempts WHERE attempt_id = ?",
+        (persisted.producer_attempt_id,),
+    ).fetchone()
+    if mode is None:
+        raise ArtifactProposalReviewConflictError("ArtifactProposal attempt is missing")
+    if str(mode["execution_mode"]) == "remote":
+        return ProposalReviewIdentity(run_bundle, None, None)
     enqueue_intent_record = read_proposal_run_enqueue_intent_in_connection(
-        connection,
-        project_id,
-        proposal.producer_agent_run_id,
+        connection, project_id, proposal.producer_agent_run_id
     )
     if proposal.target_artifact_type == "SourceExtraction":
         enqueue_intent: SupportedEnqueueIntent = SourceExtractEnqueueIntentV1.model_validate(
@@ -116,7 +124,7 @@ def read_reviewable_proposal_truth(
     enqueue_intent = identity.enqueue_intent
     truth = connection.execute(
         """
-        SELECT attempt.status AS attempt_status,
+        SELECT attempt.status AS attempt_status, attempt.execution_mode,
                attempt.revision AS attempt_revision,
                attempt.output_version_id AS attempt_output_version_id,
                node.node_run_id, node.status AS node_status,
@@ -145,11 +153,21 @@ def read_reviewable_proposal_truth(
          AND definition.version = workflow.definition_version
         WHERE attempt.attempt_id = ? AND workflow.project_id = ?
         """,
-        (enqueue_intent.task_kind, persisted.producer_attempt_id, project_id),
+        (
+            enqueue_intent.task_kind if enqueue_intent is not None else "remote.extract",
+            persisted.producer_attempt_id,
+            project_id,
+        ),
     ).fetchone()
     if (
         truth is None
-        or str(truth["attempt_status"]) != "RUNNING"
+        or (
+            (str(truth["execution_mode"]) == "local" and str(truth["attempt_status"]) != "RUNNING")
+            or (
+                str(truth["execution_mode"]) == "remote"
+                and str(truth["attempt_status"]) != "REMOTE_REVIEW_PENDING"
+            )
+        )
         or truth["attempt_output_version_id"] is not None
         or str(truth["node_status"]) != "NEEDS_REVIEW"
         or str(truth["active_attempt_id"]) != persisted.producer_attempt_id
@@ -161,19 +179,30 @@ def read_reviewable_proposal_truth(
         raise ArtifactProposalReviewConflictError(
             "ArtifactProposal is not in a reviewable workflow state"
         )
-    _validate_enqueue_intent_chain(
-        proposal_row=proposal_row,
-        truth=truth,
-        intent=enqueue_intent,
-        intent_project_id=enqueue_intent_record.project_id,
-        intent_agent_run_id=enqueue_intent_record.agent_run_id,
-        context_manifest_id=run_bundle.context_manifest.context_manifest_id,
-        producer_attempt_id=persisted.producer_attempt_id,
-        producer_agent_run_id=proposal.producer_agent_run_id,
-        producer_skill_run_id=proposal.producer_skill_run_id,
-    )
+    if str(truth["execution_mode"]) == "remote":
+        _validate_remote_dispatch_review_chain(
+            connection=connection,
+            truth=truth,
+            persisted=persisted,
+            context_manifest_id=run_bundle.context_manifest.context_manifest_id,
+        )
+    elif enqueue_intent is not None and enqueue_intent_record is not None:
+        _validate_enqueue_intent_chain(
+            proposal_row=proposal_row,
+            truth=truth,
+            intent=enqueue_intent,
+            intent_project_id=enqueue_intent_record.project_id,
+            intent_agent_run_id=enqueue_intent_record.agent_run_id,
+            context_manifest_id=run_bundle.context_manifest.context_manifest_id,
+            producer_attempt_id=persisted.producer_attempt_id,
+            producer_agent_run_id=proposal.producer_agent_run_id,
+            producer_skill_run_id=proposal.producer_skill_run_id,
+        )
+    else:
+        raise ArtifactProposalReviewConflictError("local enqueue intent is missing")
     return ReviewableProposalTruth(
         attempt_revision=int(truth["attempt_revision"]),
+        attempt_status=str(truth["attempt_status"]),
         node_run_id=str(truth["node_run_id"]),
         node_revision=int(truth["node_revision"]),
         workflow_run_id=str(truth["workflow_run_id"]),
@@ -232,3 +261,30 @@ def _validate_enqueue_intent_chain(
         raise ArtifactProposalReviewConflictError(
             "ArtifactProposal is detached from its immutable enqueue intent"
         )
+
+
+def _validate_remote_dispatch_review_chain(
+    *,
+    connection: sqlite3.Connection,
+    truth: sqlite3.Row,
+    persisted: PersistedArtifactProposal,
+    context_manifest_id: str,
+) -> None:
+    row = connection.execute(
+        """SELECT project_id, input_scope_hash, context_manifest_id, context_manifest_hash,
+                  scope_json FROM remote_dispatch_snapshots WHERE attempt_id = ?""",
+        (persisted.producer_attempt_id,),
+    ).fetchone()
+    if row is None:
+        raise ArtifactProposalReviewConflictError("remote dispatch identity is missing")
+    try:
+        scope = json.loads(str(row["scope_json"]))
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ArtifactProposalReviewConflictError("remote dispatch scope is malformed") from error
+    if (
+        str(row["project_id"]) != persisted.proposal.project_id
+        or str(row["context_manifest_id"]) != context_manifest_id
+        or str(row["input_scope_hash"]) != canonical_sha256(scope)
+        or str(truth["current_node_input_hash"]) != scope.get("input_hash")
+    ):
+        raise ArtifactProposalReviewConflictError("remote dispatch identity is detached")

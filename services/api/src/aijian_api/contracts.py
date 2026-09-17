@@ -23,6 +23,7 @@ from aijian_api.artifact_proposal_rejection_input import (
     normalize_rejection_comment,
 )
 from aijian_api.media_contracts import SequenceTimebaseData
+from aijian_api.production_brief import ProductionBriefContentV1
 from aijian_api.source_manifest import SourceManifestContentV1
 from aijian_api.story_bible import StoryBibleContentV1
 from aijian_api.story_bible_drafts import StoryBibleContentDraftV1, StorySourceSpanDraftV1
@@ -439,6 +440,7 @@ class TaskAttemptData(BaseModel):
         "SUBMITTING",
         "WAITING_REMOTE",
         "REMOTE_UNKNOWN",
+        "REMOTE_REVIEW_PENDING",
         "SUCCEEDED",
         "FAILED",
         "CANCEL_REQUESTED",
@@ -793,6 +795,51 @@ class StoryBibleVersionCreatedResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data: StoryBibleVersionCreatedData
+    request_id: UUID
+
+
+class ProductionBriefVersionData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=VERSION_ID_PATTERN)
+    artifact_id: str = Field(pattern=ARTIFACT_ID_PATTERN)
+    version_number: int = Field(ge=1)
+    schema_version: Literal["1.0.0"]
+    content: ProductionBriefContentV1
+    content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    change_summary: str
+    created_at: datetime
+
+
+class ProductionBriefReadData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(pattern=PROJECT_ID_PATTERN)
+    head: ArtifactHeadData
+    version: ProductionBriefVersionData
+
+
+class ProductionBriefResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ProductionBriefReadData
+    request_id: UUID
+
+
+class CreateProductionBriefVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: ProductionBriefContentV1
+    parent_version_id: str | None = Field(default=None, pattern=VERSION_ID_PATTERN)
+    expected_revision: int | None = Field(default=None, ge=1)
+    change_summary: str = Field(min_length=1, max_length=1000)
+
+
+class ProductionBriefVersionCreatedResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: ProductionBriefReadData
     request_id: UUID
 
 

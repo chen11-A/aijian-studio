@@ -40,6 +40,17 @@ export function HomePages() {
           });
       },
     );
+  const newEpisode = () =>
+    d.setEditor({
+      title: "新建剧集",
+      fields: [{ key: "title", label: "剧集名称", value: "", required: true }],
+      confirm: "创建剧集",
+      save: (data) => {
+        const title = data.title?.trim();
+        if (!title) return false;
+        void d.createRealEpisode({ title });
+      },
+    });
   const openProject = (id: number) => {
     const project = d.projects.find((item) => item.id === id);
     if (!project) return;
@@ -140,10 +151,8 @@ export function HomePages() {
           d.setReferences((old) => [...new Set([...old, data.reference!])]);
           d.notify("参考图片已加入当前界面会话");
         } else {
-          const inspiration = "都市悬疑 · 遗失的记忆：写下属于你的故事。";
-          d.put("input", inspiration);
-          d.put("source", inspiration);
-          d.put("sourceApproved", "false");
+          d.notify("请在来源页选择“原创灵感”创建创作简报草稿；不会把灵感写入外部原文。");
+          d.put("c3DraftIntent", "original");
           d.go("source");
         }
       },
@@ -161,6 +170,11 @@ export function HomePages() {
         </p>
       </div>
       <div className="actions">
+        {d.page === "project" && (
+          <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
+            项目中心
+          </Button>
+        )}
         <Button onClick={() => d.go("project")}>
           {d.page === "project" ? "项目设置" : "返回项目"}
         </Button>
@@ -399,6 +413,11 @@ export function HomePages() {
             <h1>项目创作首页</h1>
             <p>尚未选择真实项目。</p>
           </div>
+          <div className="actions">
+            <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
+              项目中心
+            </Button>
+          </div>
         </header>
         <div className="v2-project-home-body">{state("还没有项目")}</div>
       </div>
@@ -409,9 +428,14 @@ export function HomePages() {
       <header className="page-title v2-home-heading">
         <div>
           <h1>项目创作首页</h1>
-          <p>《{d.value("title")}》本地演示样例 · 所有状态仅用于界面与流程复刻。</p>
+          <p>《{d.value("title")}》的本地工作区项目。</p>
         </div>
-        <Button onClick={() => d.go("projectSettings")}>项目设置</Button>
+        <div className="actions">
+          <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
+            项目中心
+          </Button>
+          <Button onClick={() => d.go("projectSettings")}>项目设置</Button>
+        </div>
       </header>
       <div className="v2-project-home-body">
         <div className="v2-project-overview">
@@ -432,12 +456,62 @@ export function HomePages() {
                 <Icon name="home" size={16} />
                 {d.value("title")}
               </h2>
-              <p>近未来记忆都市。当前查看的是内置演示快照，可从故事理解开始逐页核对。</p>
+              <p>
+                {d.isFixture
+                  ? "近未来记忆都市。当前查看的是内置演示快照，可从故事理解开始逐页核对。"
+                  : "当前展示的是本地工作区项目与剧集状态；后续内容以已读取的来源与审核状态为准。"}
+              </p>
             </section>
             <Button onClick={() => d.go("projectSettings")}>项目设置</Button>
             <Button onClick={() => d.go("script")}>查看剧本</Button>
           </div>
         </div>
+        <section className="v2-story-card" aria-label="真实剧集">
+          <h2>剧集</h2>
+          {d.episodeState === "loading" ? (
+            <p role="status">正在读取本地工作区剧集。</p>
+          ) : d.episodeState === "unavailable" ? (
+            <p role="status">当前版本暂不支持剧集操作。</p>
+          ) : d.episodeState === "storage-error" ? (
+            <p role="status">本地选择记录不可用，已保守锁定剧集创建。</p>
+          ) : d.episodeState === "error" ? (
+            <p role="status">真实剧集读取失败；已清空当前选择，请刷新后重试。</p>
+          ) : d.episodes.length ? (
+            <ul>
+              {d.episodes.map((episode) => (
+                <li key={episode.id}>
+                  <Button onClick={() => void d.selectRealEpisode(episode.id)}>
+                    {episode.title}
+                  </Button>
+                  {d.selectedEpisodeId === episode.id ? " · 当前剧集" : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status">本地工作区尚未返回剧集。</p>
+          )}
+          <div className="actions">
+            <Button onClick={() => void d.refreshRealEpisodes()}>刷新剧集列表</Button>
+            <Button onClick={newEpisode} disabled={d.episodeState === "storage-error"}>
+              新建剧集
+            </Button>
+            {d.episodeCreateMarker && d.episodeState === "ready" && (
+              <>
+                <p role="status">
+                  {d.episodeCreateInFlight
+                    ? "正在创建剧集，请等待结果后再试。"
+                    : "上次创建结果待确认，请刷新列表后核对。"}
+                </p>
+                <Button
+                  onClick={d.acknowledgeEpisodeCreation}
+                  disabled={!d.episodeAcknowledgementReady}
+                >
+                  我已核对结果，允许新建
+                </Button>
+              </>
+            )}
+          </div>
+        </section>
         <div className="v2-project-stages">
           {stages.map((stage, index) => (
             <button key={stage.page} onClick={() => d.go(stage.page)}>

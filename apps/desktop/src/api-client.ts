@@ -77,6 +77,17 @@ import {
   type ProposalRunCreateCommand,
   type ProposalRunCreateResult,
 } from "./proposal-run-contract";
+import {
+  isProductionBriefCreateCommand,
+  isProductionBriefLatestResponse,
+  isProductionBriefResponse,
+  normalizeProductionBriefCreateCommand,
+  productionBriefSafeError,
+  productionBriefIdempotencyKey,
+  type ProductionBriefCreateCommand,
+  type ProductionBriefCreateResult,
+  type NormalizedProductionBriefCreateCommand,
+} from "./production-brief-contract";
 import type { SidecarSession } from "./sidecar-protocol";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 import type { components as ReviewComponents } from "./source-manifest-review.generated";
@@ -113,6 +124,11 @@ export type {
   FakeTimelineRunResponse,
 } from "./fake-timeline-run-contract";
 export type { ProposalRunCreateCommand, ProposalRunCreateResult } from "./proposal-run-contract";
+export type {
+  ProductionBriefCreateCommand,
+  ProductionBriefCreateResult,
+} from "./production-brief-contract";
+export type ProductionBriefResponse = components["schemas"]["ProductionBriefResponse"];
 export type {
   ReorderTimelineClipInput,
   ReplaceTimelineClipInput,
@@ -243,6 +259,12 @@ export interface LocalApiClient {
   getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
   getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
   getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  getProductionBrief(projectId: string): Promise<ProductionBriefResponse | null>;
+  getProductionBriefVersion(projectId: string, versionId: string): Promise<ProductionBriefResponse>;
+  createProductionBriefVersion(
+    projectId: string,
+    command: ProductionBriefCreateCommand,
+  ): Promise<ProductionBriefCreateResult>;
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   createProposalRun(
     projectId: string,
@@ -1949,6 +1971,98 @@ export function createLocalApiClient(
     return payload;
   }
 
+  async function requestProductionBriefRead<T>(
+    path: string,
+    validator: (value: unknown) => value is T,
+    absent: boolean,
+  ): Promise<T | null> {
+    let response: Response;
+    try {
+      response = await fetcher(`${origin}${path}`, {
+        headers,
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      throw new Error("ProductionBrief read could not be completed");
+    }
+    let payload: unknown;
+    try {
+      payload = await readJsonWithLimit(response);
+    } catch {
+      throw new Error("ProductionBrief read could not be completed");
+    }
+    if (response.status === 404 && absent && isProductionBriefMissingError(payload, response))
+      return null;
+    if (
+      response.status !== 200 ||
+      !isRecord(payload) ||
+      !hasRequestId(payload) ||
+      response.headers.get("X-Request-ID") !== payload.request_id ||
+      !validator(payload)
+    )
+      throw new Error("ProductionBrief read could not be completed");
+    return payload;
+  }
+
+  function hasMatchingProductionBriefRequestId(value: unknown, response: Response): boolean {
+    return (
+      isRecord(value) &&
+      hasRequestId(value) &&
+      response.headers.get("X-Request-ID") === value.request_id
+    );
+  }
+
+  function isProductionBriefMissingError(value: unknown, response: Response): boolean {
+    if (
+      !hasMatchingProductionBriefRequestId(value, response) ||
+      !isRecord(value) ||
+      !isRecord(value.error)
+    )
+      return false;
+    return (
+      hasOnlyKeys(value, ["error", "request_id"]) &&
+      hasOnlyKeys(value.error, ["code", "message", "retryable", "details"]) &&
+      value.error.code === "ARTIFACT_NOT_FOUND" &&
+      typeof value.error.message === "string" &&
+      typeof value.error.retryable === "boolean" &&
+      isRecord(value.error.details) &&
+      Object.values(value.error.details).every((detail) => typeof detail === "string")
+    );
+  }
+
+  function productionBriefReceiptMatches(
+    value: unknown,
+    projectId: string,
+    command: NormalizedProductionBriefCreateCommand,
+  ): value is ProductionBriefResponse {
+    if (!isProductionBriefResponse(value, projectId)) return false;
+    const version = value.data.version;
+    return (
+      version.parent_version_id === command.input.parent_version_id &&
+      version.change_summary === command.input.change_summary &&
+      sameProductionBriefJson(version.content, command.input.content)
+    );
+  }
+
+  function sameProductionBriefJson(left: unknown, right: unknown): boolean {
+    if (left === right) return true;
+    if (Array.isArray(left) && Array.isArray(right)) {
+      return (
+        left.length === right.length &&
+        left.every((item, index) => sameProductionBriefJson(item, right[index]))
+      );
+    }
+    if (!isRecord(left) || !isRecord(right)) return false;
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key) => Object.hasOwn(right, key) && sameProductionBriefJson(left[key], right[key]),
+      )
+    );
+  }
+
   function hasMatchingEpisodeRequestId(value: unknown, response: Response): boolean {
     return (
       isRecord(value) &&
@@ -2177,10 +2291,49 @@ export function createLocalApiClient(
     }
   }
 
+  async function requestProductionBriefCreation(
+    projectId: string,
+    command: NormalizedProductionBriefCreateCommand,
+  ): Promise<ProductionBriefCreateResult> {
+    try {
+      const response = await fetcher(
+        `${origin}/api/v1/projects/${projectId}/production-brief/versions`,
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": productionBriefIdempotencyKey(projectId, command),
+          },
+          body: JSON.stringify(command.input),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (response.status === 201) {
+        const payload = await readJsonWithLimit(response);
+        return productionBriefReceiptMatches(payload, projectId, command) &&
+          response.headers.get("X-Request-ID") === payload.request_id
+          ? { kind: "SUCCEEDED", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
+      }
+      if (![409, 422, 428].includes(response.status)) return { kind: "REMOTE_UNKNOWN" };
+      const payload = await readJsonWithLimit(response);
+      return hasMatchingProductionBriefRequestId(payload, response)
+        ? (productionBriefSafeError(payload, response.status) ?? { kind: "REMOTE_UNKNOWN" })
+        : { kind: "REMOTE_UNKNOWN" };
+    } catch {
+      return { kind: "REMOTE_UNKNOWN" };
+    }
+  }
+
   async function requestOptionalJson<T>(
     path: string,
     validator: (value: unknown) => value is T,
-    absentCode: "SOURCE_MANIFEST_NOT_FOUND" | "STORY_BIBLE_NOT_FOUND" | "TIMELINE_NOT_FOUND",
+    absentCode:
+      | "SOURCE_MANIFEST_NOT_FOUND"
+      | "STORY_BIBLE_NOT_FOUND"
+      | "TIMELINE_NOT_FOUND"
+      | "ARTIFACT_NOT_FOUND",
   ): Promise<T | null> {
     const response = await fetcher(`${origin}${path}`, { headers });
     if (response.status === 404) {
@@ -2429,6 +2582,42 @@ export function createLocalApiClient(
           isStoryBibleVersionResponse(payload, projectId, versionId),
         { headers },
       );
+    },
+    async getProductionBrief(projectId: string): Promise<ProductionBriefResponse | null> {
+      if (!PROJECT_ID_PATTERN.test(projectId))
+        throw new Error("Local API client requires a valid project id");
+      return requestProductionBriefRead(
+        `/api/v1/projects/${projectId}/production-brief`,
+        (payload): payload is ProductionBriefResponse =>
+          isProductionBriefLatestResponse(payload, projectId),
+        true,
+      );
+    },
+    async getProductionBriefVersion(
+      projectId: string,
+      versionId: string,
+    ): Promise<ProductionBriefResponse> {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !VERSION_ID_PATTERN.test(versionId))
+        throw new Error("Local API client requires a valid ProductionBrief version");
+      const response = await requestProductionBriefRead(
+        `/api/v1/projects/${projectId}/production-brief/versions/${versionId}`,
+        (payload): payload is ProductionBriefResponse =>
+          isProductionBriefResponse(payload, projectId, versionId),
+        false,
+      );
+      if (response === null) throw new Error("ProductionBrief read could not be completed");
+      return response;
+    },
+    async createProductionBriefVersion(
+      projectId: string,
+      command: ProductionBriefCreateCommand,
+    ): Promise<ProductionBriefCreateResult> {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !isProductionBriefCreateCommand(command))
+        throw new Error("Local API client requires a valid ProductionBrief command");
+      const normalized = normalizeProductionBriefCreateCommand(command);
+      if (normalized === null)
+        throw new Error("Local API client requires a valid ProductionBrief command");
+      return requestProductionBriefCreation(projectId, normalized);
     },
     async listProjectTasks(projectId: string): Promise<TaskQueueResponse> {
       if (!PROJECT_ID_PATTERN.test(projectId)) {

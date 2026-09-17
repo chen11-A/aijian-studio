@@ -202,7 +202,11 @@ class ArtifactProposalRejectionService:
                 SET status = 'FAILED', retry_disposition = 'NON_RETRYABLE',
                     error_code = 'PROPOSAL_REJECTED_BY_REVIEWER', finished_at = ?,
                     revision = revision + 1, updated_at = ?
-                WHERE attempt_id = ? AND status = 'RUNNING' AND revision = ?
+                WHERE attempt_id = ? AND (
+                    (execution_mode = 'local' AND status = 'RUNNING')
+                    OR (execution_mode = 'remote' AND status = 'REMOTE_REVIEW_PENDING')
+                )
+                  AND revision = ?
                   AND output_version_id IS NULL
                 RETURNING revision
                 """,
@@ -282,7 +286,11 @@ class ArtifactProposalRejectionService:
                 )
             self._after("run_statuses")
             events: tuple[tuple[EventEntityKind, str, str], ...] = (
-                ("attempt", persisted.producer_attempt_id, "RUNNING"),
+                (
+                    "attempt",
+                    persisted.producer_attempt_id,
+                    str(review_truth.attempt_status),
+                ),
                 ("node", review_truth.node_run_id, "NEEDS_REVIEW"),
             )
             for entity_kind, entity_id, from_status in events:

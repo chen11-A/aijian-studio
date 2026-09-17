@@ -71,6 +71,7 @@ describe("frame-accurate timeline controls", () => {
   it("seeks a typed timecode, steps one frame both ways and rejects invalid fields", () => {
     openTimeline("storyboard");
     const seek = screen.getByRole("slider", { name: "预演位置" });
+    expect(seek).toHaveAttribute("max", "240");
     enterTimecode("00:00:01:12");
     expect(seek).toHaveValue("1.5");
     fireEvent.click(screen.getByRole("button", { name: "下一帧" }));
@@ -111,7 +112,11 @@ describe("frame-accurate timeline controls", () => {
       </DemoProvider>,
     );
     expect(screen.getByRole("textbox", { name: "当前时间码" })).toHaveValue("00:00:01:15");
-    expect(screen.getByLabelText("组装位置")).toHaveValue("1.5");
+    const position = screen.getByLabelText("组装位置");
+    expect(position).toHaveAttribute("max", "10");
+    expect(position).toHaveValue("1.5");
+    fireEvent.change(position, { target: { value: "2" } });
+    expect(seek).toHaveBeenLastCalledWith(2);
     enterTimecode("00:00:02:00");
     expect(seek).toHaveBeenLastCalledWith(2);
     fireEvent.click(screen.getByRole("button", { name: "设入点 I" }));
@@ -119,6 +124,40 @@ describe("frame-accurate timeline controls", () => {
     enterTimecode("00:00:03:00");
     fireEvent.click(screen.getByRole("button", { name: "设出点 O" }));
     expect(screen.getByLabelText("已选时间范围")).toHaveTextContent("30 帧");
+  });
+  it("derives accessible seek duration and its end frame from a rational formal timebase", () => {
+    const seek = vi.fn();
+    function RationalTimeline() {
+      const [frame, setFrame] = useState(0);
+      return (
+        <TimelineWorkbench
+          seek={(seconds) => {
+            seek(seconds);
+            setFrame(Math.round((seconds * 30000) / 1001));
+          }}
+          gutter={64}
+          timeline={{
+            totalFrames: 3000,
+            frame,
+            frameRate: { num: 30000, den: 1001 },
+            timecodeMode: "NON_DROP_FRAME",
+            clipEndFrames: [3000],
+          }}
+        >
+          <div />
+        </TimelineWorkbench>
+      );
+    }
+    render(
+      <DemoProvider fixture={createAivoraSampleFixture()}>
+        <RationalTimeline />
+      </DemoProvider>,
+    );
+    const position = screen.getByLabelText("组装位置");
+    expect(Number((position as HTMLInputElement).max)).toBeCloseTo((3000 * 1001) / 30000);
+    fireEvent.change(position, { target: { value: ((3000 * 1001) / 30000).toString() } });
+    expect(seek.mock.calls.at(-1)?.[0]).toBeCloseTo((3000 * 1001) / 30000);
+    expect(screen.getByLabelText("组装位置")).toHaveValue((3000 / (30000 / 1001)).toString());
   });
 
   it("lets review annotations use a marked interval rather than an unrelated default range", () => {

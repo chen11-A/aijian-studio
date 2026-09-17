@@ -106,6 +106,15 @@ describe("privileged contract boundaries", () => {
     expect(preloadSource).toContain('ipcRenderer.invoke("agents:list", projectId)');
     expect(preloadSource).toContain('ipcRenderer.invoke("skills:list", projectId)');
     expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"episodes:list",\s*projectId,\s*query === undefined \? \{\} : query,?\s*\)/,
+    );
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"episodes:get",\s*projectId,\s*episodeId,?\s*\)/,
+    );
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"episodes:create",\s*projectId,\s*input,?\s*\)/,
+    );
+    expect(preloadSource).toMatch(
       /ipcRenderer\.invoke\(\s*"proposal-runs:create",\s*projectId,\s*command,?\s*\)/,
     );
     expect(preloadSource).toMatch(
@@ -152,6 +161,31 @@ describe("privileged contract boundaries", () => {
     expect(mainSource).toMatch(
       /createE2EFakeTimelineRunResponseFault\(\s*createE2EProposalRunResponseFault\(fetch, proposalRunResponseFault\),\s*fakeTimelineRunResponseFault,?\s*\)/,
     );
+  });
+
+  test("binds ProductionBrief handlers to the actual top-level main-frame resolver", () => {
+    const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
+    const preloadSource = readFileSync(resolve(process.cwd(), "src/preload.ts"), "utf8");
+    expect(mainSource).toContain("registerProductionBriefHandlers<IpcMainInvokeEvent>(");
+    expect(mainSource).toContain("resolveProductionBriefTopFrameClient");
+    expect(mainSource).toContain("mainWindow?.webContents.mainFrame");
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"production-brief:get",\s*projectId,?\s*\)/,
+    );
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"production-brief:get-version",\s*projectId,\s*versionId,?\s*\)/,
+    );
+    expect(preloadSource).toMatch(
+      /ipcRenderer\.invoke\(\s*"production-brief:create",\s*projectId,\s*command,?\s*\)/,
+    );
+  });
+
+  test("registers episode actions only through the exact guarded main-process handler", () => {
+    const mainSource = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
+    expect(mainSource).toContain("registerEpisodeHandlers<IpcMainInvokeEvent>(");
+    expect(mainSource).toContain("createTopLevelEpisodeClientFor(");
+    expect(mainSource).toContain("event.senderFrame === mainWindow.webContents.mainFrame");
+    expect(mainSource).not.toContain('ipcMain.handle("episodes:');
   });
 
   test("does not expose proposal run creation through the ordinary Web HTTP transport", () => {
