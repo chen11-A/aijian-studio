@@ -3356,7 +3356,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "READY" | "LEASED" | "RUNNING" | "SUBMIT_INTENT" | "SUBMITTING" | "WAITING_REMOTE" | "REMOTE_UNKNOWN" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "NOT_SUBMITTED";
+            status: "READY" | "LEASED" | "RUNNING" | "SUBMIT_INTENT" | "SUBMITTING" | "WAITING_REMOTE" | "REMOTE_UNKNOWN" | "REMOTE_REVIEW_PENDING" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "NOT_SUBMITTED";
             /**
              * Updated At
              * Format: date-time
