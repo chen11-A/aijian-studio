@@ -9051,6 +9051,7 @@
               "SUBMITTING",
               "WAITING_REMOTE",
               "REMOTE_UNKNOWN",
+              "REMOTE_REVIEW_PENDING",
               "SUCCEEDED",
               "FAILED",
               "CANCEL_REQUESTED",
