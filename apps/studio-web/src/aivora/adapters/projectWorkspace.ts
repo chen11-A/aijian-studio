@@ -6,7 +6,8 @@ import type {
 } from "../../api/studio";
 
 export type ProjectCreateOutcome =
-  { kind: "SUCCEEDED"; project: ProjectData } | { kind: "REMOTE_UNKNOWN" };
+  | { kind: "SUCCEEDED"; project: ProjectData }
+  | { kind: "REMOTE_UNKNOWN" };
 
 /** Prevent an older project/source response from replacing the latest selection. */
 export class LatestRequestGate {

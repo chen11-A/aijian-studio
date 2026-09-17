@@ -91,8 +91,7 @@ function Workspace({ reset }: { reset: () => void }) {
           onChange={(event) => {
             const project = d.projects.find((item) => item.id === Number(event.target.value));
             if (!project) return;
-            d.put("projectId", String(project.id));
-            d.put("title", project.name);
+            void d.selectRealProject(project.id);
             d.go("project");
           }}
         >
@@ -106,15 +105,72 @@ function Workspace({ reset }: { reset: () => void }) {
           返回
         </Button>
         {!management && (
-          <select
-            className="episode-select"
-            aria-label="剧集选择"
-            value={d.value("episode")}
-            onChange={(event) => d.put("episode", event.target.value)}
-          >
-            <option>第 1 集 · 重逢</option>
-            <option>第 2 集 · 回声</option>
-          </select>
+          <>
+            <select
+              className="episode-select"
+              aria-label="剧集选择"
+              value={d.isFixture ? d.value("episode") : (d.selectedEpisodeId ?? "")}
+              disabled={!d.isFixture && (d.episodeState !== "ready" || d.episodes.length === 0)}
+              onChange={(event) =>
+                d.isFixture
+                  ? d.put("episode", event.target.value)
+                  : void d.selectRealEpisode(event.target.value)
+              }
+            >
+              {!d.isFixture && (
+                <option value="">
+                  {d.episodeState === "loading" ? "正在读取剧集" : "选择剧集"}
+                </option>
+              )}
+              {d.isFixture ? (
+                <>
+                  <option>第 1 集 · 重逢</option>
+                  <option>第 2 集 · 回声</option>
+                </>
+              ) : (
+                d.episodes.map((episode) => (
+                  <option key={episode.id} value={episode.id}>
+                    {episode.title}
+                  </option>
+                ))
+              )}
+            </select>
+            <Button
+              disabled={d.episodeState === "loading" || d.episodeState === "storage-error"}
+              onClick={() =>
+                d.setEditor({
+                  title: "新建剧集",
+                  fields: [{ key: "title", label: "剧集名称", value: "", required: true }],
+                  confirm: "创建剧集",
+                  save: (data) => {
+                    const title = data.title?.trim();
+                    if (!title) return false;
+                    void d.createRealEpisode({ title });
+                  },
+                })
+              }
+            >
+              新建剧集
+            </Button>
+            {(d.episodeState === "error" || d.episodeState === "storage-error") && (
+              <Button onClick={() => void d.refreshRealEpisodes()}>刷新剧集列表</Button>
+            )}
+            {d.episodeCreateMarker && d.episodeState === "ready" && (
+              <>
+                <p role="status">
+                  {d.episodeCreateInFlight
+                    ? "正在创建剧集，请等待结果后再试。"
+                    : "上次创建结果待确认，请刷新列表后核对。"}
+                </p>
+                <Button
+                  onClick={d.acknowledgeEpisodeCreation}
+                  disabled={!d.episodeAcknowledgementReady}
+                >
+                  我已核对结果，允许新建
+                </Button>
+              </>
+            )}
+          </>
         )}
         <div className="topbar-spacer" />
         <div className="mode-switch">

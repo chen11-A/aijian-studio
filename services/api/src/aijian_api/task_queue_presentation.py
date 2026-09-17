@@ -10,6 +10,8 @@ def task_presentation(record: TaskQueueRecord) -> tuple[str, str]:
         return "供应商是否受理尚不明确", "查看证据，禁止重复提交"
     if record.attempt_status == "WAITING_REMOTE":
         return "等待供应商", "查看供应商进度"
+    if record.attempt_status == "REMOTE_REVIEW_PENDING":
+        return "候选待人工审查", "查看候选与审查证据"
     if record.attempt_status in {"LEASED", "RUNNING"}:
         return "正在本地执行", "查看最近检查点"
     if record.attempt_status == "READY":

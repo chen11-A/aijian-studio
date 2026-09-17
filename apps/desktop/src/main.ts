@@ -15,6 +15,7 @@ import {
 } from "./api-client";
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
+import { createTopLevelEpisodeClientFor, registerEpisodeHandlers } from "./episode-ipc";
 import {
   createE2EFakeTimelineRunResponseFault,
   shouldEnableE2EFakeTimelineRunResponseFault,
@@ -26,6 +27,10 @@ import {
 import { registerFakeTimelineRunHandlers } from "./fake-timeline-run-contract";
 import { registerInvalidationOperationHandlers } from "./invalidation-operation-ipc";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
+import {
+  registerProductionBriefHandlers,
+  resolveProductionBriefTopFrameClient,
+} from "./production-brief-ipc";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
 import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
 import { createSourceManifestReviewController } from "./source-manifest-review";
@@ -109,6 +114,11 @@ function clientFor(event: IpcMainInvokeEvent): LocalApiClient {
   return apiClient;
 }
 
+const episodeClientFor = createTopLevelEpisodeClientFor(
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+
 ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
 ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
@@ -116,6 +126,10 @@ ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>
   clientFor(event).getProject(projectId),
+);
+registerEpisodeHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  episodeClientFor,
 );
 ipcMain.handle("sources:list", (event, projectId: string) =>
   clientFor(event).listSources(projectId),
@@ -154,6 +168,16 @@ registerInvalidationOperationHandlers<IpcMainInvokeEvent>(
 registerProposalRunHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
+);
+registerProductionBriefHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) => {
+    return resolveProductionBriefTopFrameClient(
+      event,
+      mainWindow?.webContents.mainFrame,
+      clientFor,
+    );
+  },
 );
 registerFakeTimelineRunHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

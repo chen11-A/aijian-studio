@@ -5,9 +5,15 @@ import type { PageId, Scenario } from "./data";
 import type { V2ViewerImage } from "./V2ImageViewer";
 import {
   createStudioTransport,
+  type CreateEpisodeInput,
   type CreateProjectInput,
+  type EpisodeListResponse,
   type ProjectData,
   type SourceManifestResponse,
+  type SourceManifestReviewIdentity,
+  type SourceDocumentResponse,
+  type ProductionBriefCreateCommand,
+  type ProductionBriefResponse,
 } from "../api/studio";
 import {
   LatestRequestGate,
@@ -16,9 +22,28 @@ import {
   restoreLatestSource,
 } from "./adapters/projectWorkspace";
 import { importTextSource } from "./adapters/sourceImport";
+import {
+  createEpisodeWorkspace,
+  listEpisodeWorkspace,
+  readEpisodeWorkspace,
+} from "./adapters/episodeWorkspace";
+import {
+  persistWorkspaceSelection,
+  readWorkspaceSelection,
+  withEpisodeCreateMarker,
+  withWorkspaceSelection,
+  type WorkspaceSelectionSnapshot,
+} from "./adapters/workspaceSelection";
 import { createSourceReviewRunner, sourceReviewIdentity } from "./adapters/sourceManifest";
 import { type ProductionSourceStage } from "./adapters/productionSourceStage";
 import { loadStoryWorkspace } from "./adapters/storyWorkspace";
+import {
+  clearPendingProductionBriefCommand,
+  readPendingProductionBriefCommand,
+  readProductionBrief,
+  retainProductionBriefCommand,
+  writeProductionBrief,
+} from "./adapters/productionBriefWorkspace";
 import { useInvalidationHistory } from "../domain/use-invalidation-history";
 import { createTimelineWorkspaceGateway } from "../domain/timeline-workspace-controller";
 import { useTimelineWorkspace } from "../domain/use-timeline-workspace";
@@ -45,8 +70,12 @@ export type Editor = {
   images?: readonly V2ViewerImage[];
   presentation?: "drawer" | "dialog";
   imageCrop?: { x: number; y: number; width: number; height: number; sourceWidth: number };
-  save?: (values: Record<string, string>) => void | false;
+  save?: (values: Record<string, string>) => void | false | Promise<void | false>;
 };
+export type ProjectCreateUiState =
+  | { kind: "idle" }
+  | { kind: "SUBMITTING" }
+  | { kind: "REMOTE_UNKNOWN" };
 export type Annotation = {
   id: number;
   start: number;
@@ -88,6 +117,8 @@ type WorkspaceProject = (typeof initialProjects)[number] & {
   revision?: number;
 };
 type WorkspaceState = "idle" | "loading" | "connected" | "error";
+type EpisodeState = "idle" | "loading" | "ready" | "error" | "unavailable" | "storage-error";
+type WorkspaceEpisode = EpisodeListResponse["data"][number];
 export type DemoFixture = Partial<{
   values: Record<string, string>;
   characters: typeof initialCharacters;
@@ -205,6 +236,9 @@ function useDemoModel(fixture?: DemoFixture) {
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>({
+    kind: "idle",
+  });
   const [toast, setToast] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => ({
     source: "",
@@ -215,11 +249,80 @@ function useDemoModel(fixture?: DemoFixture) {
   // Project cards only represent records read from the desktop workspace.
   const [projects, setProjects] = useState<WorkspaceProject[]>(() => fixture?.projects ?? []);
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState>("idle");
+  const [episodes, setEpisodes] = useState<WorkspaceEpisode[]>([]);
+  const [episodeState, setEpisodeState] = useState<EpisodeState>("idle");
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [episodeCreateMarker, setEpisodeCreateMarker] = useState<"PENDING" | "UNKNOWN" | null>(
+    null,
+  );
+  const [episodeAcknowledgementReady, setEpisodeAcknowledgementReady] = useState(false);
+  const [episodeCreateInFlightProjectId, setEpisodeCreateInFlightProjectId] = useState<
+    string | null
+  >(null);
   const [storyWorkspaceState, setStoryWorkspaceState] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [sourceStage, setSourceStage] = useState<ProductionSourceStage>({ kind: "empty" });
+  const [sourceDocument, setSourceDocument] = useState<SourceDocumentResponse | null>(null);
+  const [sourceManifest, setSourceManifest] = useState<SourceManifestResponse | null>(null);
+  const productionBriefGate = useRef(new LatestRequestGate()).current;
+  const productionBriefRecoveryInFlight = useRef(false);
+  const [productionBrief, setProductionBrief] = useState<ProductionBriefResponse | null>(null);
+  const [pendingProductionBrief, setPendingProductionBrief] =
+    useState<ProductionBriefCreateCommand | null>(null);
+  const [pendingProductionBriefProject, setPendingProductionBriefProject] = useState<string | null>(
+    null,
+  );
+  const [productionBriefState, setProductionBriefState] = useState<
+    "idle" | "loading" | "ready" | "empty" | "error" | "unavailable" | "unknown"
+  >("idle");
   const studio = useRef(createStudioTransport()).current;
+  const selectionStorage = useRef<Pick<Storage, "getItem" | "setItem"> | null>(
+    (() => {
+      try {
+        return window.localStorage;
+      } catch {
+        return null;
+      }
+    })(),
+  ).current;
+  const selectionRead = useRef(
+    selectionStorage ? readWorkspaceSelection(selectionStorage) : { kind: "UNAVAILABLE" as const },
+  ).current;
+  const selectionSnapshot = useRef<WorkspaceSelectionSnapshot>(
+    selectionRead.kind === "READY"
+      ? selectionRead.snapshot
+      : { selection: null, createMarkers: {} },
+  );
+  const selectionAvailable = useRef(selectionRead.kind === "READY");
+  const persistSelection = (snapshot: WorkspaceSelectionSnapshot) => {
+    if (
+      !selectionStorage ||
+      !selectionAvailable.current ||
+      !persistWorkspaceSelection(selectionStorage, snapshot)
+    ) {
+      selectionAvailable.current = false;
+      setEpisodeState("storage-error");
+      return false;
+    }
+    selectionSnapshot.current = snapshot;
+    setEpisodeCreateMarker(
+      backendProjectRef.current
+        ? (snapshot.createMarkers[backendProjectRef.current] ?? null)
+        : null,
+    );
+    return true;
+  };
+  const episodeMarkerTokens = useRef(new Map<string, number>()).current;
+  function persistEpisodeMarker(projectId: string, marker: "PENDING" | "UNKNOWN" | null) {
+    const previous = selectionSnapshot.current.createMarkers[projectId] ?? null;
+    if (!persistSelection(withEpisodeCreateMarker(selectionSnapshot.current, projectId, marker)))
+      return false;
+    if (previous !== marker)
+      episodeMarkerTokens.set(projectId, (episodeMarkerTokens.get(projectId) ?? 0) + 1);
+    if (projectId === currentBackendProjectId()) setEpisodeAcknowledgementReady(false);
+    return true;
+  }
   const timelineGateway = useRef(createTimelineWorkspaceGateway(studio)).current;
   // This ref advances before React schedules a render, so a project-scoped read
   // cannot reject its own result just after a workspace switch.
@@ -235,9 +338,16 @@ function useDemoModel(fixture?: DemoFixture) {
   const sourceGate = useRef(new LatestRequestGate()).current;
   const sourceStageGate = useRef(new LatestRequestGate()).current;
   const storyGate = useRef(new LatestRequestGate()).current;
+  const episodeGate = useRef(new LatestRequestGate()).current;
+  const episodeCreateGate = useRef(new LatestRequestGate()).current;
+  const episodeCreatePending = useRef(new Set<string>()).current;
   const createPending = useRef(false);
   const createUnknown = useRef(false);
   const reviewRunner = useRef(createSourceReviewRunner(studio.sourceManifestReview)).current;
+  // Keep the confirmation pending through its authoritative readback.  The review
+  // runner only serializes the bridge call itself, which is too short to prevent a
+  // second click from issuing another confirmation while the first readback is open.
+  const baselineConfirmPending = useRef(new Set<string>()).current;
   const [characters, setCharacters] = useState(() => fixture?.characters ?? []);
   const [selectedCharacter, setSelectedCharacter] = useState(
     () => fixture?.characters?.[0]?.id ?? 0,
@@ -305,9 +415,146 @@ function useDemoModel(fixture?: DemoFixture) {
     backendProjectRef.current = projectId;
     setActiveBackendProjectId(projectId);
     put("backendProjectId", projectId ?? "");
+    setEpisodeCreateMarker(
+      projectId ? (selectionSnapshot.current.createMarkers[projectId] ?? null) : null,
+    );
+    setEpisodeAcknowledgementReady(false);
+  }
+  async function selectRealEpisode(
+    episodeId: string,
+    projectId = currentBackendProjectId(),
+    allowUnlisted = false,
+  ) {
+    if (!projectId || (!allowUnlisted && !episodes.some((episode) => episode.id === episodeId)))
+      return;
+    const generation = episodeGate.begin();
+    setSelectedEpisodeId(null);
+    setEpisodeState("loading");
+    updateValues({
+      episode: "",
+      storyConfirmed: "false",
+      storySourceVersion: "",
+      storyBibleVersion: "",
+    });
+    setStoryWorkspaceState("idle");
+    const outcome = await readEpisodeWorkspace(studio, projectId, episodeId);
+    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return;
+    if (outcome.kind !== "SUCCEEDED") {
+      setEpisodeState(outcome.kind === "UNAVAILABLE" ? "unavailable" : "error");
+      return;
+    }
+    setSelectedEpisodeId(outcome.receipt.data.id);
+    setEpisodeState("ready");
+    setEpisodes((old) =>
+      old.some((episode) => episode.id === outcome.receipt.data.id)
+        ? old
+        : [outcome.receipt.data, ...old],
+    );
+    put("episode", outcome.receipt.data.title);
+    persistSelection(withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }));
+  }
+  async function refreshRealEpisodes(
+    projectId = currentBackendProjectId(),
+    allowAcknowledgement = true,
+  ) {
+    if (!projectId) {
+      episodeGate.invalidate();
+      setEpisodes([]);
+      setSelectedEpisodeId(null);
+      setEpisodeState("idle");
+      return;
+    }
+    if (!selectionAvailable.current) {
+      setEpisodeState("storage-error");
+      return;
+    }
+    const markerAtStart = selectionSnapshot.current.createMarkers[projectId] ?? null;
+    const markerTokenAtStart = episodeMarkerTokens.get(projectId) ?? 0;
+    const canAcknowledgeAtStart = !!markerAtStart && !episodeCreatePending.has(projectId);
+    const generation = episodeGate.begin();
+    setSelectedEpisodeId(null);
+    updateValues({
+      episode: "",
+      storyConfirmed: "false",
+      storySourceVersion: "",
+      storyBibleVersion: "",
+    });
+    setStoryWorkspaceState("idle");
+    setEpisodeState("loading");
+    const outcome = await listEpisodeWorkspace(studio, projectId);
+    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return;
+    if (outcome.kind !== "SUCCEEDED") {
+      setEpisodeState(outcome.kind === "UNAVAILABLE" ? "unavailable" : "error");
+      return;
+    }
+    setEpisodes(outcome.receipt.data);
+    setEpisodeState("ready");
+    const markerIsUnchanged =
+      markerAtStart === (selectionSnapshot.current.createMarkers[projectId] ?? null) &&
+      markerTokenAtStart === (episodeMarkerTokens.get(projectId) ?? 0);
+    setEpisodeAcknowledgementReady(
+      allowAcknowledgement && canAcknowledgeAtStart && markerIsUnchanged,
+    );
+    const restored = selectionSnapshot.current.selection;
+    const episodeId = restored?.projectId === projectId ? restored.episodeId : null;
+    const defaultEpisodeId = outcome.receipt.data.find((episode) => episode.is_default)?.id;
+    if (episodeId) await selectRealEpisode(episodeId, projectId, true);
+    else if (defaultEpisodeId) await selectRealEpisode(defaultEpisodeId, projectId, true);
+  }
+  function acknowledgeEpisodeCreation() {
+    const projectId = currentBackendProjectId();
+    if (
+      !projectId ||
+      episodeState !== "ready" ||
+      !episodeAcknowledgementReady ||
+      episodeCreatePending.has(projectId)
+    )
+      return;
+    const marker = selectionSnapshot.current.createMarkers[projectId];
+    if (!marker) return;
+    if (persistEpisodeMarker(projectId, null)) notify("已记录你的核对；现在可以新建剧集。");
+  }
+  async function createRealEpisode(input: CreateEpisodeInput) {
+    const projectId = currentBackendProjectId();
+    if (!projectId || !selectionAvailable.current) return { kind: "UNAVAILABLE" } as const;
+    if (episodeCreatePending.has(projectId)) {
+      notify("正在创建剧集，请等待结果后再试。");
+      return { kind: "REMOTE_UNKNOWN" } as const;
+    }
+    if (selectionSnapshot.current.createMarkers[projectId]) {
+      notify("上一项剧集创建结果尚未确认。请手动刷新剧集列表后再继续。");
+      return { kind: "REMOTE_UNKNOWN" } as const;
+    }
+    if (!persistEpisodeMarker(projectId, "PENDING")) return { kind: "UNAVAILABLE" } as const;
+    episodeCreatePending.add(projectId);
+    setEpisodeCreateInFlightProjectId(projectId);
+    const generation = episodeCreateGate.begin();
+    const outcome = await createEpisodeWorkspace(studio, projectId, input);
+    episodeCreatePending.delete(projectId);
+    setEpisodeCreateInFlightProjectId((active) => (active === projectId ? null : active));
+    // A project change (including A -> B -> A) invalidates this scope.  Keep
+    // the conservative marker, but never let an old response select or alter
+    // the currently displayed project.
+    if (!episodeCreateGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+      return outcome;
+    if (outcome.kind === "SUCCEEDED") {
+      persistEpisodeMarker(projectId, null);
+      if (projectId !== currentBackendProjectId()) return outcome;
+      setEpisodes((old) => [
+        outcome.receipt.data,
+        ...old.filter((episode) => episode.id !== outcome.receipt.data.id),
+      ]);
+      setEpisodeState("ready");
+      await selectRealEpisode(outcome.receipt.data.id, projectId, true);
+    } else if (outcome.kind === "REMOTE_UNKNOWN") {
+      persistEpisodeMarker(projectId, "UNKNOWN");
+      notify("剧集创建结果未知。请手动刷新剧集列表确认，系统不会自动重试。");
+    } else persistEpisodeMarker(projectId, null);
+    return outcome;
   }
   function clearProjectScopedState() {
     const cleared: Record<string, string> = {
+      episode: "",
       source: "",
       importedName: "",
       sourceApproved: "false",
@@ -324,7 +571,20 @@ function useDemoModel(fixture?: DemoFixture) {
     }
     updateValues(cleared);
     setStoryWorkspaceState("idle");
+    episodeGate.invalidate();
+    episodeCreateGate.invalidate();
+    setEpisodes([]);
+    setEpisodeState("idle");
+    setSelectedEpisodeId(null);
+    setEpisodeAcknowledgementReady(false);
     setSourceStage({ kind: "empty" });
+    setSourceDocument(null);
+    setSourceManifest(null);
+    productionBriefGate.invalidate();
+    setProductionBrief(null);
+    setPendingProductionBrief(null);
+    setPendingProductionBriefProject(null);
+    setProductionBriefState("idle");
     setCharacters([]);
     setSelectedCharacter(0);
     setOutfits([]);
@@ -336,10 +596,91 @@ function useDemoModel(fixture?: DemoFixture) {
     setTime(0);
     setAnnotations([]);
   }
+  async function refreshProductionBrief(projectId = currentBackendProjectId()) {
+    if (!projectId) {
+      productionBriefGate.invalidate();
+      setProductionBrief(null);
+      setProductionBriefState("empty");
+      return;
+    }
+    const generation = productionBriefGate.begin();
+    setProductionBriefState("loading");
+    const outcome = await readProductionBrief(studio, projectId);
+    if (!productionBriefGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+      return;
+    if (outcome.kind === "SUCCEEDED") {
+      setProductionBrief(outcome.receipt);
+      const pending = readPendingProductionBriefCommand(projectId);
+      setPendingProductionBrief(pending.kind === "READY" ? pending.command : null);
+      setPendingProductionBriefProject(
+        pending.kind === "READY" && pending.command ? projectId : null,
+      );
+      setProductionBriefState(
+        pending.kind !== "READY"
+          ? "error"
+          : pending.command
+            ? "unknown"
+            : outcome.receipt
+              ? "ready"
+              : "empty",
+      );
+    } else {
+      const pending = readPendingProductionBriefCommand(projectId);
+      setPendingProductionBrief(pending.kind === "READY" ? pending.command : null);
+      setPendingProductionBriefProject(
+        pending.kind === "READY" && pending.command ? projectId : null,
+      );
+      setProductionBriefState(pending.kind === "READY" && pending.command ? "unknown" : "error");
+    }
+  }
+  async function saveProductionBrief(command: ProductionBriefCreateCommand, recovery = false) {
+    const projectId = currentBackendProjectId();
+    if (!projectId) return { kind: "UNAVAILABLE" } as const;
+    const retained = readPendingProductionBriefCommand(projectId);
+    if (retained.kind !== "READY") return { kind: "UNAVAILABLE" } as const;
+    if (retained.command && !recovery) return { kind: "REMOTE_UNKNOWN" } as const;
+    if (!retainProductionBriefCommand(projectId, command)) return { kind: "UNAVAILABLE" } as const;
+    setPendingProductionBrief(command);
+    setPendingProductionBriefProject(projectId);
+    const generation = productionBriefGate.begin();
+    const outcome = await writeProductionBrief(studio, projectId, command);
+    if (!productionBriefGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+      return outcome;
+    if (outcome.kind === "SUCCEEDED") {
+      if (clearPendingProductionBriefCommand(projectId, command.operation_id)) {
+        setPendingProductionBrief(null);
+        setPendingProductionBriefProject(null);
+        setProductionBrief(outcome.receipt);
+        setProductionBriefState("ready");
+      } else setProductionBriefState("unknown");
+    } else if (outcome.kind === "REMOTE_UNKNOWN" || outcome.kind === "UNAVAILABLE")
+      setProductionBriefState("unknown");
+    else {
+      if (clearPendingProductionBriefCommand(projectId, command.operation_id)) {
+        setPendingProductionBrief(null);
+        setPendingProductionBriefProject(null);
+        setProductionBriefState("error");
+      } else setProductionBriefState("unknown");
+    }
+    return outcome;
+  }
+  async function recoverProductionBrief() {
+    if (!pendingProductionBrief || pendingProductionBriefProject !== currentBackendProjectId())
+      return { kind: "UNAVAILABLE" } as const;
+    if (productionBriefRecoveryInFlight.current) return { kind: "REMOTE_UNKNOWN" } as const;
+    productionBriefRecoveryInFlight.current = true;
+    try {
+      return await saveProductionBrief(pendingProductionBrief, true);
+    } finally {
+      productionBriefRecoveryInFlight.current = false;
+    }
+  }
   async function refreshRealSourceStage(projectId = currentBackendProjectId()) {
     if (!projectId) {
       sourceStageGate.invalidate();
       setSourceStage({ kind: "empty" });
+      setSourceDocument(null);
+      setSourceManifest(null);
       return;
     }
     const generation = sourceStageGate.begin();
@@ -349,6 +690,7 @@ function useDemoModel(fixture?: DemoFixture) {
       const manifest = await studio.getSourceManifest(projectId);
       if (!sourceStageGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return;
       const stage = sourceStageFromManifest(manifest, projectId);
+      setSourceManifest(manifest);
       setSourceStage(stage);
       if (stage.kind !== "approved") put("sourceApproved", "false");
     } catch {
@@ -372,6 +714,15 @@ function useDemoModel(fixture?: DemoFixture) {
     sourceGate.invalidate();
     sourceStageGate.invalidate();
     storyGate.invalidate();
+    // A real refresh has no authoritative project until its list read succeeds.
+    // Keep the persisted opaque selection intact so a later successful read restores it.
+    if (!fixture) {
+      clearProjectScopedState();
+      setProjects([]);
+      setBackendProjectId(null);
+      put("projectId", "");
+      put("title", "");
+    }
     setWorkspaceState("loading");
     try {
       const remote = await connectWorkspace(studio);
@@ -381,20 +732,31 @@ function useDemoModel(fixture?: DemoFixture) {
       // earlier create whose outcome was unknown.
       createUnknown.current = false;
       setProjects(mapped);
-      const first = mapped[0];
+      const savedProjectId = selectionAvailable.current
+        ? selectionSnapshot.current.selection?.projectId
+        : null;
+      const restored =
+        fixture || !savedProjectId
+          ? mapped[0]
+          : mapped.find((project) => project.backendId === savedProjectId);
+      if (savedProjectId && !restored)
+        persistSelection(withWorkspaceSelection(selectionSnapshot.current, null));
       clearProjectScopedState();
-      setBackendProjectId(first?.backendId ?? null);
-      put("projectId", String(first?.id ?? ""));
-      put("title", first?.name ?? "");
+      setBackendProjectId(restored?.backendId ?? null);
+      put("projectId", String(restored?.id ?? ""));
+      put("title", restored?.name ?? "");
       setWorkspaceState("connected");
-      if (first?.backendId) {
-        const source = await restoreLatestSource(studio, first.backendId);
+      if (restored?.backendId) {
+        void refreshRealEpisodes(restored.backendId, false);
+        void refreshProductionBrief(restored.backendId);
+        const source = await restoreLatestSource(studio, restored.backendId);
         if (!projectGate.isCurrent(generation)) return;
         if (source) {
           put("source", source.data.blocks.map((block) => block.text).join("\n\n"));
           put("importedName", source.data.filename);
+          setSourceDocument(source);
         }
-        void refreshRealSourceStage(first.backendId);
+        void refreshRealSourceStage(restored.backendId);
       }
     } catch {
       if (projectGate.isCurrent(generation)) setWorkspaceState("error");
@@ -410,27 +772,39 @@ function useDemoModel(fixture?: DemoFixture) {
       return { kind: "REMOTE_UNKNOWN" } as const;
     }
     createPending.current = true;
+    setProjectCreateState({ kind: "SUBMITTING" });
     const generation = projectGate.begin();
     sourceGate.invalidate();
     sourceStageGate.invalidate();
     storyGate.invalidate();
+    episodeGate.invalidate();
     const outcome = await createWorkspaceProject(studio, input);
     createPending.current = false;
     if (outcome.kind !== "SUCCEEDED") {
+      setProjectCreateState(outcome);
       createUnknown.current = true;
       notify("创建结果未知。请刷新项目列表后确认，未自动重试。");
       return outcome;
     }
+    setProjectCreateState({ kind: "idle" });
     if (!projectGate.isCurrent(generation)) return outcome;
-    setProjects((old) => {
-      const mapped = mapProject(outcome.project, 0);
-      const next = [mapped, ...old.map((project, index) => ({ ...project, id: index + 2 }))];
-      clearProjectScopedState();
-      setBackendProjectId(mapped.backendId ?? null);
-      put("projectId", String(mapped.id));
-      put("title", mapped.name);
-      return next;
-    });
+    const mapped = mapProject(outcome.project, 0);
+    clearProjectScopedState();
+    setBackendProjectId(mapped.backendId ?? null);
+    put("projectId", String(mapped.id));
+    put("title", mapped.name);
+    if (mapped.backendId)
+      persistSelection(
+        withWorkspaceSelection(selectionSnapshot.current, {
+          projectId: mapped.backendId,
+          episodeId: null,
+        }),
+      );
+    setProjects((old) => [mapped, ...old.map((project, index) => ({ ...project, id: index + 2 }))]);
+    if (mapped.backendId) {
+      void refreshRealEpisodes(mapped.backendId, false);
+      void refreshProductionBrief(mapped.backendId);
+    }
     notify("项目已由本地工作区创建。");
     return outcome;
   }
@@ -447,14 +821,26 @@ function useDemoModel(fixture?: DemoFixture) {
     storyGate.invalidate();
     clearProjectScopedState();
     put("projectId", String(selected.id));
+    const existingSelection = selectionSnapshot.current.selection;
+    const preservedEpisodeId =
+      existingSelection?.projectId === selected.backendId ? existingSelection.episodeId : null;
     setBackendProjectId(selected.backendId ?? null);
     put("title", selected.name);
+    persistSelection(
+      withWorkspaceSelection(selectionSnapshot.current, {
+        projectId: selected.backendId,
+        episodeId: preservedEpisodeId,
+      }),
+    );
     try {
+      void refreshRealEpisodes(selected.backendId, false);
+      void refreshProductionBrief(selected.backendId);
       const source = await restoreLatestSource(studio, selected.backendId);
       if (!projectGate.isCurrent(generation)) return;
       if (source) {
         put("source", source.data.blocks.map((block) => block.text).join("\n\n"));
         put("importedName", source.data.filename);
+        setSourceDocument(source);
       }
       void refreshRealSourceStage(selected.backendId);
     } catch {
@@ -478,9 +864,17 @@ function useDemoModel(fixture?: DemoFixture) {
     }
     put("source", result.response.data.blocks.map((block) => block.text).join("\n\n"));
     put("importedName", result.response.data.filename);
+    setSourceDocument(result.response);
     put("sourceApproved", "false");
     void refreshRealSourceStage(projectId);
     notify("来源已导入；请先完成真实来源审核。");
+  }
+  async function importPastedSource(text: string) {
+    if (!text.trim()) {
+      notify("请先粘贴完整的外部原文。");
+      return;
+    }
+    await importRealSource(new File([text], "pasted-source.txt", { type: "text/plain" }));
   }
   async function reviewRealSource() {
     const projectId = currentBackendProjectId();
@@ -521,6 +915,90 @@ function useDemoModel(fixture?: DemoFixture) {
     } catch {
       notify("审核结果未知；请刷新来源清单后确认。");
       return false;
+    }
+  }
+  async function confirmRealSourceBaseline(
+    capturedIdentity: SourceManifestReviewIdentity,
+    rationale: string,
+  ) {
+    const projectId = currentBackendProjectId();
+    if (!projectId || ![...rationale.trim()].length || [...rationale.trim()].length > 1000)
+      return false;
+    if (capturedIdentity.project_id !== projectId) return false;
+    if (baselineConfirmPending.has(projectId)) return false;
+    baselineConfirmPending.add(projectId);
+    const generation = sourceStageGate.begin();
+    try {
+      const manifest = await studio.getSourceManifest(projectId);
+      if (!sourceStageGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+        return false;
+      const identity = sourceReviewIdentity(manifest, projectId);
+      const targetContent = JSON.stringify(manifest?.data.latest_version.content);
+      if (
+        !identity ||
+        sourceStageFromManifest(manifest, projectId).kind !== "review" ||
+        identity.project_id !== capturedIdentity.project_id ||
+        identity.version_id !== capturedIdentity.version_id ||
+        identity.content_hash !== capturedIdentity.content_hash ||
+        identity.expected_revision !== capturedIdentity.expected_revision
+      )
+        return false;
+      const result = await reviewRunner.run("confirm_baseline", capturedIdentity, rationale);
+      if (!sourceStageGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+        return false;
+      if (!result || result.kind !== "SUCCEEDED") {
+        if (result?.kind === "REMOTE_UNKNOWN")
+          notify("确认结果未知；请刷新来源状态后再决定下一步。");
+        return false;
+      }
+      // A successful bridge receipt is not acceptance proof.  Read the manifest
+      // again and require the accepted, latest and captured target to agree.
+      let acceptedManifest: SourceManifestResponse | null;
+      try {
+        acceptedManifest = await studio.getSourceManifest(projectId);
+      } catch {
+        if (sourceStageGate.isCurrent(generation) && projectId === currentBackendProjectId()) {
+          setSourceStage({ kind: "error" });
+          notify("确认已提交，但无法读回来源基线；请刷新来源状态。");
+        }
+        return false;
+      }
+      if (!sourceStageGate.isCurrent(generation) || projectId !== currentBackendProjectId())
+        return false;
+      const accepted = acceptedManifest?.data.accepted_version;
+      const latest = acceptedManifest?.data.latest_version;
+      const acceptedCurrent =
+        !!acceptedManifest &&
+        !!latest &&
+        acceptedManifest.data.project_id === projectId &&
+        sourceStageFromManifest(acceptedManifest, projectId).kind === "approved" &&
+        acceptedManifest.data.head.artifact_id === latest.artifact_id &&
+        acceptedManifest.data.head.latest_version_id === capturedIdentity.version_id &&
+        acceptedManifest.data.head.accepted_version_id === capturedIdentity.version_id &&
+        latest.id === capturedIdentity.version_id &&
+        latest.content_hash === capturedIdentity.content_hash &&
+        accepted?.id === capturedIdentity.version_id &&
+        accepted.content_hash === capturedIdentity.content_hash &&
+        accepted.artifact_id === latest.artifact_id &&
+        JSON.stringify(latest.content) === targetContent &&
+        JSON.stringify(accepted.content) === targetContent;
+      if (!acceptedCurrent) {
+        setSourceManifest(acceptedManifest);
+        setSourceStage({ kind: "error" });
+        put("sourceApproved", "false");
+        notify("确认已提交，但尚未读到已接受的目标基线；请刷新来源状态。");
+        return false;
+      }
+      setSourceManifest(acceptedManifest);
+      setSourceStage(sourceStageFromManifest(acceptedManifest, projectId));
+      put("sourceApproved", "false");
+      return true;
+    } catch {
+      if (sourceStageGate.isCurrent(generation) && projectId === currentBackendProjectId())
+        notify("确认结果未知；请刷新来源状态后再决定下一步。");
+      return false;
+    } finally {
+      baselineConfirmPending.delete(projectId);
     }
   }
   async function readRealStoryWorkspace() {
@@ -607,6 +1085,7 @@ function useDemoModel(fixture?: DemoFixture) {
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }
   function go(next: PageId) {
+    if (next !== "source") sourceStageGate.invalidate();
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     if (next !== page) history.current.push(page);
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
@@ -619,6 +1098,7 @@ function useDemoModel(fixture?: DemoFixture) {
   }
   function back() {
     const next = history.current.pop() ?? "projects";
+    if (next !== "source") sourceStageGate.invalidate();
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     setPage(next);
@@ -635,7 +1115,9 @@ function useDemoModel(fixture?: DemoFixture) {
   }, []);
   useEffect(() => {
     const pop = () => {
-      setPage(initialPage());
+      const next = initialPage();
+      if (next !== "source") sourceStageGate.invalidate();
+      setPage(next);
       setPlaying(false);
     };
     window.addEventListener("popstate", pop);
@@ -691,15 +1173,16 @@ function useDemoModel(fixture?: DemoFixture) {
   function edit(
     title: string,
     fields: Field[],
-    onSave?: (data: Record<string, string>) => void | false,
+    onSave?: (data: Record<string, string>) => void | false | Promise<void | false>,
   ) {
+    if (title === "新建项目") setProjectCreateState({ kind: "idle" });
     setEditor({
       title,
       fields,
       confirm: "保存演示修改",
-      save: (data) => {
+      save: async (data) => {
         if (onSave) {
-          if (onSave(data) === false) return false;
+          if ((await onSave(data)) === false) return false;
         } else updateValues(data);
         notify("演示修改已保存；刷新后恢复样例");
       },
@@ -719,6 +1202,7 @@ function useDemoModel(fixture?: DemoFixture) {
     setAiOpen,
     editor,
     setEditor,
+    projectCreateState,
     toast,
     notify,
     values,
@@ -763,7 +1247,20 @@ function useDemoModel(fixture?: DemoFixture) {
     workspaceState,
     storyWorkspaceState,
     sourceStage,
+    sourceDocument,
+    sourceManifest,
     backendProjectId,
+    episodes,
+    episodeState,
+    episodeCreateMarker,
+    episodeAcknowledgementReady,
+    episodeCreateInFlight: episodeCreateInFlightProjectId === backendProjectId,
+    selectedEpisodeId,
+    refreshRealEpisodes,
+    acknowledgeEpisodeCreation,
+    selectRealEpisode,
+    createRealEpisode,
+    isFixture: !!fixture,
     timelineWorkspace,
     timelineWorkspaceController,
     providerSettings,
@@ -774,9 +1271,17 @@ function useDemoModel(fixture?: DemoFixture) {
     createRealProject,
     selectRealProject,
     importRealSource,
+    importPastedSource,
     reviewRealSource,
+    confirmRealSourceBaseline,
     readRealStoryWorkspace,
     refreshRealSourceStage,
+    productionBrief,
+    productionBriefState,
+    refreshProductionBrief,
+    saveProductionBrief,
+    recoverProductionBrief,
+    pendingProductionBrief,
     rightTab,
     selectRightTab,
     focusAssistant,

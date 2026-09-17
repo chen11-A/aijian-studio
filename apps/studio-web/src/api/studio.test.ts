@@ -12,6 +12,8 @@ import {
   type AgentCatalogResponse,
   type ArtifactProposalResponse,
   type ProjectData,
+  type EpisodeListResponse,
+  type EpisodeResponse,
   type SourceManifestResponse,
   type SkillCatalogResponse,
   type StoryBibleIndexResponse,
@@ -36,6 +38,22 @@ const project: ProjectData = {
   created_at: "2026-08-03T03:00:00Z",
   updated_at: "2026-08-03T03:00:00Z",
 };
+const episodeId = `ep_${"b".repeat(32)}`;
+const episode = {
+  data: {
+    id: episodeId,
+    project_id: project.id,
+    position: "1",
+    title: "第一集",
+    is_default: true,
+    target_duration_seconds: "90",
+    revision: "1",
+    created_at: "2026-09-14T00:00:00Z",
+    updated_at: "2026-09-14T00:00:00Z",
+  },
+  request_id: requestId,
+} satisfies EpisodeResponse;
+const episodeList = { data: [episode.data], request_id: requestId } satisfies EpisodeListResponse;
 const invalidationOperationId = `ivo_${"b".repeat(32)}`;
 const invalidationOperation = {
   data: {
@@ -285,7 +303,55 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test("web transport routes ProductionBrief reads to public GET endpoints without a write fallback", async () => {
+  delete window.aijian;
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(
+      Response.json({ error: { code: "ARTIFACT_NOT_FOUND" } }, { status: 404 }),
+    )
+    .mockResolvedValueOnce(Response.json({ data: { version: { id: `ver_${"b".repeat(32)}` } } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const transport = createStudioTransport();
+  await expect(transport.getProductionBrief!(project.id)).resolves.toBeNull();
+  await transport.getProductionBriefVersion!(project.id, `ver_${"b".repeat(32)}`);
+  expect(fetchMock.mock.calls[0]![0]).toBe(`/api/v1/projects/${project.id}/production-brief`);
+  expect(fetchMock.mock.calls[0]![1]).not.toMatchObject({ method: "POST" });
+  expect(fetchMock.mock.calls[1]![0]).toBe(
+    `/api/v1/projects/${project.id}/production-brief/versions/ver_${"b".repeat(32)}`,
+  );
+  expect(transport.createProductionBriefVersion).toBeUndefined();
+});
+
 describe("studio transport", () => {
+  test("forwards ProductionBrief desktop reads, writes, and rejections without fetch", async () => {
+    const receipt = { kind: "REMOTE_UNKNOWN" };
+    const bridge = {
+      getProductionBrief: vi.fn().mockResolvedValue(null),
+      getProductionBriefVersion: vi.fn().mockResolvedValue({ version: "exact" }),
+      createProductionBriefVersion: vi.fn().mockResolvedValue(receipt),
+    };
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    window.aijian = bridge as unknown as AijianDesktopBridge;
+    const transport = createStudioTransport();
+    const versionId = `ver_${"b".repeat(32)}`;
+    const command = { operation_id: "80cdb6d5-4633-4ffb-9d68-0c9456452274", input: {} };
+    await expect(transport.getProductionBrief!(project.id)).resolves.toBeNull();
+    await expect(transport.getProductionBriefVersion!(project.id, versionId)).resolves.toEqual({
+      version: "exact",
+    });
+    await expect(
+      transport.createProductionBriefVersion!(project.id, command as never),
+    ).resolves.toBe(receipt);
+    expect(bridge.getProductionBrief).toHaveBeenCalledWith(project.id);
+    expect(bridge.getProductionBriefVersion).toHaveBeenCalledWith(project.id, versionId);
+    expect(bridge.createProductionBriefVersion).toHaveBeenCalledWith(project.id, command);
+    bridge.getProductionBrief.mockRejectedValueOnce(new Error("bridge down"));
+    await expect(transport.getProductionBrief!(project.id)).rejects.toThrow("bridge down");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   test("exposes the complete desktop source-review group and forwards one exact argument", async () => {
     const result = {
       kind: "CANCELLED",
@@ -345,6 +411,9 @@ describe("studio transport", () => {
       listProjects: vi.fn().mockResolvedValue({ data: [project], request_id: requestId }),
       createProject: vi.fn().mockResolvedValue({ data: project, request_id: requestId }),
       getProject: vi.fn().mockResolvedValue({ data: project, request_id: requestId }),
+      listEpisodes: vi.fn().mockResolvedValue(episodeList),
+      getEpisode: vi.fn().mockResolvedValue(episode),
+      createEpisode: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }),
       listSources: vi.fn(),
       getSource: vi.fn(),
       importTextSource: vi.fn(),
@@ -373,6 +442,7 @@ describe("studio transport", () => {
     window.aijian = bridge;
     const transport = createStudioTransport();
     expect(transport.fakeTimelineRuns).toBeDefined();
+    expect(transport.episodes).toBeDefined();
 
     await transport.getHealth();
     await transport.listProjects();
@@ -383,6 +453,12 @@ describe("studio transport", () => {
       source_language: "zh-CN",
     });
     await transport.getProject(project.id);
+    await transport.episodes?.list(project.id, { limit: 1 });
+    await transport.episodes?.get(project.id, episodeId);
+    await transport.episodes?.create(project.id, {
+      title: "第一集",
+      target_duration_seconds: "90",
+    });
     await transport.listSources(project.id);
     await transport.getSource(project.id, `src_${"b".repeat(32)}`);
     await transport.importTextSource(project.id, {
@@ -441,6 +517,12 @@ describe("studio transport", () => {
     expect(bridge.listProjects).toHaveBeenCalledOnce();
     expect(bridge.createProject).toHaveBeenCalledOnce();
     expect(bridge.getProject).toHaveBeenCalledWith(project.id);
+    expect(bridge.listEpisodes).toHaveBeenCalledWith(project.id, { limit: 1 });
+    expect(bridge.getEpisode).toHaveBeenCalledWith(project.id, episodeId);
+    expect(bridge.createEpisode).toHaveBeenCalledWith(project.id, {
+      title: "第一集",
+      target_duration_seconds: "90",
+    });
     expect(bridge.listSources).toHaveBeenCalledWith(project.id);
     expect(bridge.getSource).toHaveBeenCalledWith(project.id, `src_${"b".repeat(32)}`);
     expect(bridge.importTextSource).toHaveBeenCalledOnce();
@@ -1049,5 +1131,19 @@ describe("studio transport", () => {
       },
     });
     expect(window.aijian!.createFakeTimelineRun).toHaveBeenCalledOnce();
+  });
+
+  test("does not offer a partial or browser episode capability", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json(health));
+    vi.stubGlobal("fetch", fetcher);
+    expect(createStudioTransport().episodes).toBeUndefined();
+
+    const bridge = {
+      listEpisodes: vi.fn(),
+      getEpisode: vi.fn(),
+    };
+    window.aijian = bridge as unknown as AijianDesktopBridge;
+    expect(createStudioTransport().episodes).toBeUndefined();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

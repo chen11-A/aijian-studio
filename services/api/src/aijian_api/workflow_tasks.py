@@ -26,6 +26,7 @@ type AttemptState = Literal[
     "SUBMITTING",
     "WAITING_REMOTE",
     "REMOTE_UNKNOWN",
+    "REMOTE_REVIEW_PENDING",
     "SUCCEEDED",
     "FAILED",
     "CANCEL_REQUESTED",
@@ -100,9 +101,12 @@ _ATTEMPT_TRANSITIONS: dict[AttemptState, frozenset[AttemptState]] = {
     "LEASED": frozenset({"RUNNING", "FAILED", "CANCEL_REQUESTED"}),
     "RUNNING": frozenset({"SUBMIT_INTENT", "SUCCEEDED", "FAILED", "CANCEL_REQUESTED"}),
     "SUBMIT_INTENT": frozenset({"SUBMITTING", "FAILED", "CANCEL_REQUESTED"}),
-    "SUBMITTING": frozenset({"WAITING_REMOTE", "REMOTE_UNKNOWN", "FAILED", "CANCEL_REQUESTED"}),
+    "SUBMITTING": frozenset(
+        {"WAITING_REMOTE", "REMOTE_UNKNOWN", "REMOTE_REVIEW_PENDING", "FAILED", "CANCEL_REQUESTED"}
+    ),
     "WAITING_REMOTE": frozenset({"SUCCEEDED", "FAILED", "CANCEL_REQUESTED", "REMOTE_UNKNOWN"}),
     "REMOTE_UNKNOWN": frozenset({"WAITING_REMOTE", "SUCCEEDED", "NOT_SUBMITTED"}),
+    "REMOTE_REVIEW_PENDING": frozenset({"SUCCEEDED", "FAILED", "CANCEL_REQUESTED"}),
     "SUCCEEDED": frozenset(),
     "FAILED": frozenset(),
     "CANCEL_REQUESTED": frozenset({"CANCELLED", "SUCCEEDED", "FAILED", "REMOTE_UNKNOWN"}),
@@ -110,7 +114,14 @@ _ATTEMPT_TRANSITIONS: dict[AttemptState, frozenset[AttemptState]] = {
     "NOT_SUBMITTED": frozenset(),
 }
 _REMOTE_PROTOCOL_STATES: frozenset[AttemptState] = frozenset(
-    {"SUBMIT_INTENT", "SUBMITTING", "WAITING_REMOTE", "REMOTE_UNKNOWN", "NOT_SUBMITTED"}
+    {
+        "SUBMIT_INTENT",
+        "SUBMITTING",
+        "WAITING_REMOTE",
+        "REMOTE_UNKNOWN",
+        "REMOTE_REVIEW_PENDING",
+        "NOT_SUBMITTED",
+    }
 )
 
 
@@ -128,6 +139,7 @@ class ProviderCapabilities:
 class TransitionEvidence:
     attempt_id: str | None = None
     provider_job_id: str | None = None
+    provider_response_id: str | None = None
     output_version_id: str | None = None
     dispatch_started_at: datetime | None = None
     retry_disposition: RetryDisposition | None = None
@@ -184,6 +196,7 @@ class TaskAttempt:
     revision: int
     created_at: datetime
     updated_at: datetime
+    provider_response_id: str | None = None
 
     def __post_init__(self) -> None:
         _validate_hash(self.input_fingerprint, "input fingerprint")
@@ -200,6 +213,9 @@ class TaskAttempt:
             raise ValueError("waiting remote attempt must have a provider job id")
         if self.state == "REMOTE_UNKNOWN" and self.retry_disposition != "REMOTE_UNKNOWN":
             raise ValueError("remote unknown attempt must remain quarantined")
+        if self.state == "REMOTE_REVIEW_PENDING":
+            if self.execution_mode != "remote" or not self.provider_response_id:
+                raise ValueError("remote review pending attempt must record a provider response")
         if self.state == "SUCCEEDED" and not self.output_version_id:
             raise ValueError("succeeded attempt must identify its output version")
 
@@ -283,6 +299,7 @@ def transition_attempt(
 
     _validate_reconciliation(attempt, target, transition_evidence)
     provider_job_id = _provider_job_id(attempt, target, transition_evidence)
+    provider_response_id = _provider_response_id(attempt, target, transition_evidence)
     dispatch_started_at = transition_evidence.dispatch_started_at or attempt.dispatch_started_at
     if target == "SUBMITTING" and not dispatch_started_at:
         raise InvalidTaskTransitionError(
@@ -302,6 +319,7 @@ def transition_attempt(
         attempt,
         state=target,
         provider_job_id=provider_job_id,
+        provider_response_id=provider_response_id,
         dispatch_started_at=dispatch_started_at,
         retry_disposition=retry_disposition,
         output_version_id=output_version_id,
@@ -371,6 +389,23 @@ def _provider_job_id(
     if target == "WAITING_REMOTE" and not provider_job_id:
         raise InvalidTaskTransitionError("provider job id is required before waiting")
     return provider_job_id
+
+
+def _provider_response_id(
+    attempt: TaskAttempt,
+    target: AttemptState,
+    evidence: TransitionEvidence,
+) -> str | None:
+    if (
+        attempt.provider_response_id
+        and evidence.provider_response_id is not None
+        and evidence.provider_response_id != attempt.provider_response_id
+    ):
+        raise InvalidTaskTransitionError("provider response id cannot be replaced")
+    provider_response_id = evidence.provider_response_id or attempt.provider_response_id
+    if target == "REMOTE_REVIEW_PENDING" and not provider_response_id:
+        raise InvalidTaskTransitionError("remote review pending requires a provider response id")
+    return provider_response_id
 
 
 def _validate_hash(value: str, label: str) -> None:

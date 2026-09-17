@@ -242,7 +242,11 @@ class ArtifactProposalAcceptanceService:
                 UPDATE workflow_attempts
                 SET status = 'SUCCEEDED', output_version_id = ?, finished_at = ?,
                     revision = revision + 1, updated_at = ?
-                WHERE attempt_id = ? AND status = 'RUNNING' AND revision = ?
+                WHERE attempt_id = ? AND (
+                    (execution_mode = 'local' AND status = 'RUNNING')
+                    OR (execution_mode = 'remote' AND status = 'REMOTE_REVIEW_PENDING')
+                )
+                  AND revision = ?
                 RETURNING revision
                 """,
                 (
@@ -323,7 +327,11 @@ class ArtifactProposalAcceptanceService:
                 ),
             )
             events: tuple[tuple[EventEntityKind, str, str], ...] = (
-                ("attempt", persisted.producer_attempt_id, "RUNNING"),
+                (
+                    "attempt",
+                    persisted.producer_attempt_id,
+                    str(review_truth.attempt_status),
+                ),
                 ("node", review_truth.node_run_id, "NEEDS_REVIEW"),
             )
             for entity_kind, entity_id, from_status in events:

@@ -1,4 +1,11 @@
 import type { components } from "@aijian/contracts";
+import type {
+  CreateEpisodeInput,
+  EpisodeCreateResult,
+  EpisodeListQuery,
+  EpisodeListResponse,
+  EpisodeResponse,
+} from "./api-client";
 import type { SourceManifestReviewOperationResult } from "./source-manifest-review";
 import { contextBridge, ipcRenderer } from "electron";
 import type {
@@ -61,6 +68,17 @@ type ReplaceTimelineClipInput = components["schemas"]["ReplaceTimelineClipReques
 type CreateProviderConnectionInput = components["schemas"]["CreateProviderConnectionRequest"];
 type ProviderConnectionListResponse = components["schemas"]["ProviderConnectionListResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
+type ProductionBriefResponse = components["schemas"]["ProductionBriefResponse"];
+type ProductionBriefCreateInput = {
+  content: components["schemas"]["ProductionBriefContentV1"];
+  parent_version_id: string | null;
+  expected_revision: number | null;
+  change_summary: string;
+};
+type ProductionBriefCreateResult =
+  | { kind: "SUCCEEDED"; receipt: ProductionBriefResponse }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: 409 | 422 | 428; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
 
 contextBridge.exposeInMainWorld("aijian", {
   health: (): Promise<HealthResponse> =>
@@ -71,6 +89,16 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
+  listEpisodes: (projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse> =>
+    ipcRenderer.invoke(
+      "episodes:list",
+      projectId,
+      query === undefined ? {} : query,
+    ) as Promise<EpisodeListResponse>,
+  getEpisode: (projectId: string, episodeId: string): Promise<EpisodeResponse> =>
+    ipcRenderer.invoke("episodes:get", projectId, episodeId) as Promise<EpisodeResponse>,
+  createEpisode: (projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult> =>
+    ipcRenderer.invoke("episodes:create", projectId, input) as Promise<EpisodeCreateResult>,
   listSources: (projectId: string): Promise<SourceDocumentListResponse> =>
     ipcRenderer.invoke("sources:list", projectId) as Promise<SourceDocumentListResponse>,
   getSource: (projectId: string, sourceId: string): Promise<SourceDocumentResponse> =>
@@ -114,6 +142,29 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       versionId,
     ) as Promise<StoryBibleVersionResponse>,
+  getProductionBrief: (projectId: string): Promise<ProductionBriefResponse | null> =>
+    ipcRenderer.invoke(
+      "production-brief:get",
+      projectId,
+    ) as Promise<ProductionBriefResponse | null>,
+  getProductionBriefVersion: (
+    projectId: string,
+    versionId: string,
+  ): Promise<ProductionBriefResponse> =>
+    ipcRenderer.invoke(
+      "production-brief:get-version",
+      projectId,
+      versionId,
+    ) as Promise<ProductionBriefResponse>,
+  createProductionBriefVersion: (
+    projectId: string,
+    command: { operation_id: string; input: ProductionBriefCreateInput },
+  ): Promise<ProductionBriefCreateResult> =>
+    ipcRenderer.invoke(
+      "production-brief:create",
+      projectId,
+      command,
+    ) as Promise<ProductionBriefCreateResult>,
   listProjectTasks: (projectId: string): Promise<TaskQueueResponse> =>
     ipcRenderer.invoke("tasks:list", projectId) as Promise<TaskQueueResponse>,
   getArtifactProposal: (projectId: string, proposalId: string): Promise<ArtifactProposalResponse> =>

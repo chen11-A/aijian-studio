@@ -179,6 +179,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/production-brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Production Brief */
+        get: operations["getProductionBrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/production-brief/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Production Brief Version */
+        get: operations["getProductionBriefVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/proposal-runs": {
         parameters: {
             query?: never;
@@ -849,6 +883,18 @@ export interface components {
             /** Value */
             value: boolean;
         };
+        /** BudgetIntentV1 */
+        BudgetIntentV1: {
+            /** Amount Micros */
+            amount_micros: number | null;
+            /** Currency */
+            currency: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "unknown" | "declared";
+        };
         /** BudgetPolicyV1 */
         BudgetPolicyV1: {
             /**
@@ -1264,12 +1310,53 @@ export interface components {
              */
             request_id: string;
         };
+        /** CreativeDirectionV1 */
+        CreativeDirectionV1: {
+            /** Audience */
+            audience?: string | null;
+            /**
+             * Constraints
+             * @default []
+             */
+            constraints: string[];
+            /** Genre */
+            genre?: string | null;
+            /** Intent */
+            intent: string;
+            /** Premise */
+            premise: string;
+            /** Style */
+            style?: string | null;
+        };
         DefinitionId: string;
         /** DefinitionRefV1 */
         DefinitionRefV1: {
             definition_id: components["schemas"]["DefinitionId"];
             /** Version */
             version: string;
+        };
+        /** DeliveryIntentV1 */
+        DeliveryIntentV1: {
+            display_aspect_ratio: components["schemas"]["PositiveRationalData"];
+            frame_rate: components["schemas"]["PositiveRationalData"];
+            /** Height Px */
+            height_px: number;
+            /** Language */
+            language: string;
+            /** Width Px */
+            width_px: number;
+        };
+        /** DurationIntentV1 */
+        DurationIntentV1: {
+            /**
+             * Episode Mode
+             * @enum {string}
+             */
+            episode_mode: "unspecified" | "per_episode";
+            /** Episode Seconds */
+            episode_seconds: number | null;
+            /** Work Seconds */
+            work_seconds: number | null;
         };
         /** @enum {string} */
         EntityKind: "character" | "location" | "organization" | "prop" | "costume";
@@ -1570,6 +1657,11 @@ export interface components {
             request_id: string;
         };
         FixtureRef: string;
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /**
          * HealthData
          * @description Stable service identity returned by the health endpoint.
@@ -1966,6 +2058,21 @@ export interface components {
             /** Viewpoint Entity Id */
             viewpoint_entity_id?: string | null;
         };
+        /** OriginalIdeaEntryV1 */
+        OriginalIdeaEntryV1: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "original_idea";
+            /** Origin Statement */
+            origin_statement: string;
+            /**
+             * References
+             * @default []
+             */
+            references: components["schemas"]["ReferenceDeclarationV1"][];
+        };
         /** PermanentRefV1 */
         PermanentRefV1: {
             /** Permanent Id */
@@ -1975,6 +2082,77 @@ export interface components {
              * @enum {string}
              */
             ref_type: "permanent_id";
+        };
+        /**
+         * PositiveRationalData
+         * @description Reduced rational whose physical time direction is strictly positive.
+         */
+        PositiveRationalData: {
+            /** Den */
+            den: number;
+            /** Num */
+            num: number;
+        };
+        /**
+         * ProductionBriefContentV1
+         * @description Structural user input that confers no approval, ownership, or spending authority.
+         */
+        ProductionBriefContentV1: {
+            budget_intent: components["schemas"]["BudgetIntentV1"];
+            creative: components["schemas"]["CreativeDirectionV1"];
+            /** Creative Entry */
+            creative_entry: components["schemas"]["OriginalIdeaEntryV1"] | components["schemas"]["SourceAdaptationEntryV1"];
+            delivery: components["schemas"]["DeliveryIntentV1"];
+            duration_intent: components["schemas"]["DurationIntentV1"];
+            rights_declaration: components["schemas"]["RightsDeclarationV1"];
+            /**
+             * Schema Version
+             * @default 1.0.0
+             * @constant
+             */
+            schema_version: "1.0.0";
+        };
+        /** ProductionBriefReadData */
+        ProductionBriefReadData: {
+            head: components["schemas"]["ArtifactHeadData"];
+            /** Project Id */
+            project_id: string;
+            version: components["schemas"]["ProductionBriefVersionData"];
+        };
+        /** ProductionBriefResponse */
+        ProductionBriefResponse: {
+            data: components["schemas"]["ProductionBriefReadData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ProductionBriefVersionData */
+        ProductionBriefVersionData: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["ProductionBriefContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Parent Version Id */
+            parent_version_id?: string | null;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Version Number */
+            version_number: number;
         };
         /** ProjectData */
         ProjectData: {
@@ -2346,6 +2524,16 @@ export interface components {
             /** Model Id */
             model_id: string;
         };
+        /** ReferenceDeclarationV1 */
+        ReferenceDeclarationV1: {
+            /** Description */
+            description: string;
+            /**
+             * Reference Kind
+             * @enum {string}
+             */
+            reference_kind: "inspiration" | "research" | "other";
+        };
         /** RelationshipFactDraftV1 */
         RelationshipFactDraftV1: {
             canon_certainty: components["schemas"]["CanonCertainty"];
@@ -2433,6 +2621,16 @@ export interface components {
             replacement_asset_id: string;
             /** Replacement Source In Frame */
             replacement_source_in_frame: number;
+        };
+        /** RightsDeclarationV1 */
+        RightsDeclarationV1: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "unknown" | "user_declared";
+            /** Statement */
+            statement: string | null;
         };
         RoleStatement: string;
         /**
@@ -2599,6 +2797,22 @@ export interface components {
              * @enum {string}
              */
             status: "PENDING" | "RUNNING" | "NEEDS_REVIEW" | "SUCCEEDED" | "FAILED" | "CANCEL_REQUESTED" | "CANCELLED" | "REMOTE_UNKNOWN";
+        };
+        /** SourceAdaptationEntryV1 */
+        SourceAdaptationEntryV1: {
+            /** Adaptation Statement */
+            adaptation_statement: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "source_adaptation";
+            /** Source Block Ids */
+            source_block_ids: string[];
+            /** Source Document Id */
+            source_document_id: string;
+            /** Source Manifest Version Id */
+            source_manifest_version_id: string;
         };
         /** SourceBlockData */
         SourceBlockData: {
@@ -3497,6 +3711,19 @@ export interface components {
             /** New Source In Frame */
             new_source_in_frame: number;
         };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
         /** WorldRuleFactDraftV1 */
         WorldRuleFactDraftV1: {
             canon_certainty: components["schemas"]["CanonCertainty"];
@@ -4314,6 +4541,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProductionBrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionBriefResponse"];
+                };
+            };
+            /** @description ProductionBrief not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getProductionBriefVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionBriefResponse"];
+                };
+            };
+            /** @description ProductionBrief version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

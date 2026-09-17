@@ -105,6 +105,7 @@ function StoryHarness() {
           event: d.value("event-0"),
           sourceVersion: d.value("sourceVersion"),
           sourceApproved: d.value("sourceApproved"),
+          source: d.value("source"),
         })}
       </output>
     </>
@@ -962,20 +963,111 @@ describe("C19 production viewer interactions", () => {
     expect(code).toHaveAttribute("aria-invalid", "false");
   });
 
-  it("replaces pasted source text locally, invalidates the old approval, and opens a new source-review drawer", () => {
-    openStory("source");
+  it("stages pasted source text until an explicit successful workspace import", async () => {
+    const projectId = `prj_${"a".repeat(32)}`;
+    let resolveImport!: (value: unknown) => void;
+    const importTextSource = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveImport = resolve;
+        }),
+    );
+    const imported = {
+      request_id: "import",
+      data: {
+        id: `src_${"b".repeat(32)}`,
+        project_id: projectId,
+        filename: "pasted-source.txt",
+        media_type: "text/plain",
+        sha256: `sha256:${"c".repeat(64)}`,
+        bytes: 36,
+        blocks: [
+          { id: `srcb_${"d".repeat(32)}`, ordinal: 1, text: "新的来源正文，等待重新审核。" },
+        ],
+        created_at: "2026-09-15T00:00:00Z",
+        updated_at: "2026-09-15T00:00:00Z",
+      },
+    };
+    window.history.replaceState({}, "", "#source");
+    window.aijian = {
+      health: vi.fn().mockResolvedValue({
+        request_id: "health",
+        data: { status: "ok", service: "aijian-api", version: "test" },
+      }),
+      listProjects: vi.fn().mockResolvedValue({
+        request_id: "projects",
+        data: [
+          {
+            id: projectId,
+            name: "来源项目",
+            status: "active",
+            revision: 1,
+            updated_at: "2026-09-15T00:00:00Z",
+          },
+        ],
+      }),
+      listSources: vi.fn().mockResolvedValue({ request_id: "sources", data: [] }),
+      getSourceManifest: vi.fn().mockResolvedValue({
+        request_id: "manifest",
+        data: {
+          project_id: projectId,
+          head: {
+            artifact_id: `art_${"e".repeat(32)}`,
+            latest_version_id: null,
+            review_version_id: null,
+            review_submission_id: null,
+            accepted_version_id: null,
+            revision: 1,
+            review_evidence_revision: 0,
+            updated_at: "2026-09-15T00:00:00Z",
+          },
+          latest_version: null,
+          review_version: null,
+          accepted_version: null,
+        },
+      }),
+      importTextSource,
+    } as never;
+    render(
+      <DemoProvider>
+        <StoryHarness />
+      </DemoProvider>,
+    );
+    await screen.findByText(/来源状态：未导入/);
     fireEvent.click(screen.getByRole("button", { name: "粘贴故事" }));
-    fireEvent.change(screen.getByLabelText("原文正文"), {
+    const before = JSON.parse(screen.getByLabelText("c19-story-state").textContent ?? "{}");
+    fireEvent.change(screen.getByLabelText("外部原文正文"), {
       target: { value: "新的来源正文，等待重新审核。" },
     });
+    expect(JSON.parse(screen.getByLabelText("c19-story-state").textContent ?? "{}")).toMatchObject(
+      before,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "作为外部原文导入" }));
+    await waitFor(() => expect(importTextSource).toHaveBeenCalledOnce());
+    const [[calledProjectId, importInput]] = importTextSource.mock.calls as unknown as [
+      [string, { filename: string; media_type: string; content_base64: string }],
+    ];
+    expect(calledProjectId).toBe(projectId);
+    expect(importInput).toMatchObject({
+      filename: "pasted-source.txt",
+      media_type: "text/plain",
+      content_base64: expect.any(String),
+    });
+    expect(
+      new TextDecoder().decode(
+        Uint8Array.from(atob(importInput.content_base64), (c) => c.charCodeAt(0)),
+      ),
+    ).toBe("新的来源正文，等待重新审核。");
     expect(JSON.parse(screen.getByLabelText("c19-story-state").textContent ?? "{}")).toMatchObject({
-      sourceVersion: "2",
+      source: before.source,
+      sourceApproved: before.sourceApproved,
+    });
+    resolveImport(imported);
+    expect(await screen.findByText("新的来源正文，等待重新审核。")).toBeInTheDocument();
+    expect(JSON.parse(screen.getByLabelText("c19-story-state").textContent ?? "{}")).toMatchObject({
+      source: "新的来源正文，等待重新审核。",
       sourceApproved: "false",
     });
-    fireEvent.click(screen.getByRole("button", { name: "开始理解故事" }));
-    expect(screen.getByRole("dialog", { name: "来源审核 · v2" })).toHaveTextContent(
-      "新的来源正文，等待重新审核。",
-    );
   });
 
   it("seeks with the frame ruler and playhead, then scrolls and zooms the visible timeline controls", () => {

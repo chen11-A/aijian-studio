@@ -799,6 +799,51 @@
         "title": "BooleanStateValueV1",
         "type": "object"
       },
+      "BudgetIntentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_micros": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Micros"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "state": {
+            "enum": [
+              "unknown",
+              "declared"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "currency",
+          "amount_micros"
+        ],
+        "title": "BudgetIntentV1",
+        "type": "object"
+      },
       "BudgetPolicyV1": {
         "additionalProperties": false,
         "properties": {
@@ -2275,6 +2320,79 @@
         "title": "CreatedProposalRunResponse",
         "type": "object"
       },
+      "CreativeDirectionV1": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience"
+          },
+          "constraints": {
+            "default": [],
+            "items": {
+              "maxLength": 240,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Constraints",
+            "type": "array"
+          },
+          "genre": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Genre"
+          },
+          "intent": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          },
+          "premise": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Premise",
+            "type": "string"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          }
+        },
+        "required": [
+          "premise",
+          "intent"
+        ],
+        "title": "CreativeDirectionV1",
+        "type": "object"
+      },
       "DefinitionId": {
         "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
         "type": "string"
@@ -2296,6 +2414,90 @@
           "version"
         ],
         "title": "DefinitionRefV1",
+        "type": "object"
+      },
+      "DeliveryIntentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "display_aspect_ratio": {
+            "$ref": "#/components/schemas/PositiveRationalData"
+          },
+          "frame_rate": {
+            "$ref": "#/components/schemas/PositiveRationalData"
+          },
+          "height_px": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Height Px",
+            "type": "integer"
+          },
+          "language": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Language",
+            "type": "string"
+          },
+          "width_px": {
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Width Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "language",
+          "display_aspect_ratio",
+          "width_px",
+          "height_px",
+          "frame_rate"
+        ],
+        "title": "DeliveryIntentV1",
+        "type": "object"
+      },
+      "DurationIntentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "episode_mode": {
+            "enum": [
+              "unspecified",
+              "per_episode"
+            ],
+            "title": "Episode Mode",
+            "type": "string"
+          },
+          "episode_seconds": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Seconds"
+          },
+          "work_seconds": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Seconds"
+          }
+        },
+        "required": [
+          "work_seconds",
+          "episode_mode",
+          "episode_seconds"
+        ],
+        "title": "DurationIntentV1",
         "type": "object"
       },
       "EntityKind": {
@@ -3379,6 +3581,19 @@
         "maxLength": 240,
         "minLength": 1,
         "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
       },
       "HealthData": {
         "additionalProperties": false,
@@ -4639,6 +4854,37 @@
         "title": "OrganizationFactV1",
         "type": "object"
       },
+      "OriginalIdeaEntryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "original_idea",
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin_statement": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Origin Statement",
+            "type": "string"
+          },
+          "references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReferenceDeclarationV1"
+            },
+            "maxItems": 32,
+            "title": "References",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "origin_statement"
+        ],
+        "title": "OriginalIdeaEntryV1",
+        "type": "object"
+      },
       "PermanentRefV1": {
         "additionalProperties": false,
         "properties": {
@@ -4658,6 +4904,193 @@
           "permanent_id"
         ],
         "title": "PermanentRefV1",
+        "type": "object"
+      },
+      "PositiveRationalData": {
+        "additionalProperties": false,
+        "description": "Reduced rational whose physical time direction is strictly positive.",
+        "properties": {
+          "den": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 2147483647.0,
+            "title": "Den",
+            "type": "integer"
+          },
+          "num": {
+            "maximum": 9007199254740991.0,
+            "minimum": -9007199254740991.0,
+            "title": "Num",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "title": "PositiveRationalData",
+        "type": "object"
+      },
+      "ProductionBriefContentV1": {
+        "additionalProperties": false,
+        "description": "Structural user input that confers no approval, ownership, or spending authority.",
+        "properties": {
+          "budget_intent": {
+            "$ref": "#/components/schemas/BudgetIntentV1"
+          },
+          "creative": {
+            "$ref": "#/components/schemas/CreativeDirectionV1"
+          },
+          "creative_entry": {
+            "discriminator": {
+              "mapping": {
+                "original_idea": "#/components/schemas/OriginalIdeaEntryV1",
+                "source_adaptation": "#/components/schemas/SourceAdaptationEntryV1"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OriginalIdeaEntryV1"
+              },
+              {
+                "$ref": "#/components/schemas/SourceAdaptationEntryV1"
+              }
+            ],
+            "title": "Creative Entry"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/DeliveryIntentV1"
+          },
+          "duration_intent": {
+            "$ref": "#/components/schemas/DurationIntentV1"
+          },
+          "rights_declaration": {
+            "$ref": "#/components/schemas/RightsDeclarationV1"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "default": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "creative_entry",
+          "creative",
+          "delivery",
+          "duration_intent",
+          "budget_intent",
+          "rights_declaration"
+        ],
+        "title": "ProductionBriefContentV1",
+        "type": "object"
+      },
+      "ProductionBriefReadData": {
+        "additionalProperties": false,
+        "properties": {
+          "head": {
+            "$ref": "#/components/schemas/ArtifactHeadData"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/ProductionBriefVersionData"
+          }
+        },
+        "required": [
+          "project_id",
+          "head",
+          "version"
+        ],
+        "title": "ProductionBriefReadData",
+        "type": "object"
+      },
+      "ProductionBriefResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProductionBriefReadData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ProductionBriefResponse",
+        "type": "object"
+      },
+      "ProductionBriefVersionData": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "pattern": "^art_[0-9a-f]{32}$",
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "change_summary": {
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ProductionBriefContentV1"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version_number": {
+            "minimum": 1.0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "artifact_id",
+          "version_number",
+          "schema_version",
+          "content",
+          "content_hash",
+          "change_summary",
+          "created_at"
+        ],
+        "title": "ProductionBriefVersionData",
         "type": "object"
       },
       "ProjectData": {
@@ -5762,6 +6195,32 @@
         "title": "ProviderModelData",
         "type": "object"
       },
+      "ReferenceDeclarationV1": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "reference_kind": {
+            "enum": [
+              "inspiration",
+              "research",
+              "other"
+            ],
+            "title": "Reference Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference_kind",
+          "description"
+        ],
+        "title": "ReferenceDeclarationV1",
+        "type": "object"
+      },
       "RelationshipFactDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -6162,6 +6621,38 @@
           "expected_revision"
         ],
         "title": "ReplaceTimelineClipRequest",
+        "type": "object"
+      },
+      "RightsDeclarationV1": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "unknown",
+              "user_declared"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          }
+        },
+        "required": [
+          "state",
+          "statement"
+        ],
+        "title": "RightsDeclarationV1",
         "type": "object"
       },
       "RoleStatement": {
@@ -6686,6 +7177,51 @@
           "status"
         ],
         "title": "SkillRunV1",
+        "type": "object"
+      },
+      "SourceAdaptationEntryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "adaptation_statement": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Adaptation Statement",
+            "type": "string"
+          },
+          "kind": {
+            "const": "source_adaptation",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_block_ids": {
+            "items": {
+              "pattern": "^srcb_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Source Block Ids",
+            "type": "array"
+          },
+          "source_document_id": {
+            "pattern": "^src_[0-9a-f]{32}$",
+            "title": "Source Document Id",
+            "type": "string"
+          },
+          "source_manifest_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Source Manifest Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "adaptation_statement",
+          "source_document_id",
+          "source_manifest_version_id",
+          "source_block_ids"
+        ],
+        "title": "SourceAdaptationEntryV1",
         "type": "object"
       },
       "SourceBlockData": {
@@ -9466,6 +10002,46 @@
         "title": "TrimTimelineClipRequest",
         "type": "object"
       },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
       "WorldRuleFactDraftV1": {
         "additionalProperties": false,
         "properties": {
@@ -10714,6 +11290,113 @@
           }
         },
         "summary": "Get Invalidation Operation"
+      }
+    },
+    "/api/v1/projects/{project_id}/production-brief": {
+      "get": {
+        "operationId": "getProductionBrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionBriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "ProductionBrief not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Production Brief"
+      }
+    },
+    "/api/v1/projects/{project_id}/production-brief/versions/{version_id}": {
+      "get": {
+        "operationId": "getProductionBriefVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionBriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "ProductionBrief version not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Production Brief Version"
       }
     },
     "/api/v1/projects/{project_id}/proposal-runs": {

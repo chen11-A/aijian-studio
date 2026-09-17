@@ -5,8 +5,12 @@ import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import cast
+from typing import Literal, cast
 
+from aijian_api.remote_execution_authorization import (
+    RemoteDispatchSnapshotDraft,
+    validate_remote_dispatch_snapshot_in_connection,
+)
 from aijian_api.task_ledger_events import append_event
 from aijian_api.task_ledger_models import QueuedTask, timestamp
 from aijian_api.task_ledger_snapshots import prepare_agent_skill_snapshot
@@ -36,6 +40,11 @@ class EnqueueLocalNodeRequest:
     attempt_snapshot: Mapping[str, object] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EnqueueRemoteNodeRequest(EnqueueLocalNodeRequest):
+    dispatch_snapshot: RemoteDispatchSnapshotDraft | None = None
+
+
 def enqueue_local_node(
     request: EnqueueLocalNodeRequest,
     *,
@@ -43,6 +52,48 @@ def enqueue_local_node(
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
     transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+) -> QueuedTask:
+    return _enqueue_node(
+        request,
+        execution_mode="local",
+        dispatch_snapshot=None,
+        connection_factory=connection_factory,
+        clock=clock,
+        id_factory=id_factory,
+        transaction_validator=transaction_validator,
+    )
+
+
+def enqueue_remote_node(
+    request: EnqueueRemoteNodeRequest,
+    *,
+    connection_factory: Callable[[], sqlite3.Connection],
+    clock: Callable[[], datetime],
+    id_factory: Callable[[str], str],
+    transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+) -> QueuedTask:
+    if request.dispatch_snapshot is None:
+        raise ValueError("remote dispatch snapshot is required")
+    return _enqueue_node(
+        request,
+        execution_mode="remote",
+        dispatch_snapshot=request.dispatch_snapshot,
+        connection_factory=connection_factory,
+        clock=clock,
+        id_factory=id_factory,
+        transaction_validator=transaction_validator,
+    )
+
+
+def _enqueue_node(
+    request: EnqueueLocalNodeRequest,
+    *,
+    execution_mode: Literal["local", "remote"],
+    dispatch_snapshot: RemoteDispatchSnapshotDraft | None,
+    connection_factory: Callable[[], sqlite3.Connection],
+    clock: Callable[[], datetime],
+    id_factory: Callable[[str], str],
+    transaction_validator: Callable[[sqlite3.Connection], None] | None,
 ) -> QueuedTask:
     now = clock()
     graph_json = _canonical_json(request.graph)
@@ -66,6 +117,7 @@ def enqueue_local_node(
         node_run_id=node_run_id,
         attempt_id=attempt_id,
         now=now,
+        execution_mode=execution_mode,
     )
     now_text = timestamp(now)
 
@@ -80,6 +132,8 @@ def enqueue_local_node(
                 graph_json=graph_json,
                 input_bindings_json=input_bindings_json,
                 snapshot=snapshot,
+                execution_mode=execution_mode,
+                dispatch_snapshot=dispatch_snapshot,
             )
             connection.commit()
             return QueuedTask(
@@ -154,11 +208,12 @@ def enqueue_local_node(
             INSERT INTO workflow_attempts (
                 attempt_id, node_run_id, attempt_number, execution_mode, status,
                 input_hash, request_fingerprint, revision, created_at, updated_at
-            ) VALUES (?, ?, 1, 'local', 'READY', ?, ?, 1, ?, ?)
+            ) VALUES (?, ?, 1, ?, 'READY', ?, ?, 1, ?, ?)
             """,
             (
                 attempt_id,
                 node_run_id,
+                execution_mode,
                 request.node_input_hash,
                 request.request_fingerprint,
                 now_text,
@@ -174,6 +229,15 @@ def enqueue_local_node(
                 """,
                 (attempt_id, snapshot[0], snapshot[1], snapshot[2], now_text),
             )
+        if dispatch_snapshot is not None:
+            _insert_remote_dispatch_snapshot(
+                connection,
+                attempt_id=attempt_id,
+                project_id=request.project_id,
+                draft=dispatch_snapshot,
+                created_at=now_text,
+            )
+            validate_remote_dispatch_snapshot_in_connection(connection, attempt_id)
         connection.execute(
             """
             INSERT INTO task_ledger (
@@ -244,6 +308,70 @@ def enqueue_local_node(
     return QueuedTask(workflow_run_id, node_run_id, attempt_id, task_id, created=True)
 
 
+def _insert_remote_dispatch_snapshot(
+    connection: sqlite3.Connection,
+    *,
+    attempt_id: str,
+    project_id: str,
+    draft: RemoteDispatchSnapshotDraft,
+    created_at: str,
+) -> None:
+    if draft.endpoint_binding != "CPA_LOOPBACK_V1":
+        raise ValueError("remote dispatch endpoint binding is unsupported")
+    if draft.approved_currency != "USD" or draft.requested_additional_budget_micros != 0:
+        raise ValueError("remote dispatch policy must be zero-budget USD")
+    if not 1 <= draft.connection_revision <= 2_147_483_647:
+        raise ValueError("remote dispatch connection revision is invalid")
+    metadata = connection.execute(
+        "SELECT revision, enabled, models_json FROM provider_connections WHERE connection_id = ?",
+        (draft.connection_id,),
+    ).fetchone()
+    if metadata is None or int(metadata["enabled"]) != 1:
+        raise ValueError("remote dispatch provider connection is unavailable")
+    if int(metadata["revision"]) != draft.connection_revision:
+        raise ValueError("remote dispatch provider revision is stale")
+    try:
+        models = json.loads(str(metadata["models_json"]))
+    except json.JSONDecodeError as error:
+        raise ValueError("remote dispatch provider models are malformed") from error
+    if not any(
+        isinstance(model, dict) and model.get("model_id") == draft.approved_model_id
+        for model in models
+    ):
+        raise ValueError("remote dispatch model is not approved by the connection")
+    scope_json = draft.scope_json()
+    connection.execute(
+        """
+        INSERT INTO remote_dispatch_snapshots (
+            attempt_id, project_id, operation, input_scope_hash, context_manifest_id,
+            context_manifest_hash, scope_kind, scope_json, connection_id, connection_revision,
+            approved_model_id, endpoint_binding, transport_contract_hash,
+            requested_additional_budget_micros, approved_currency, policy_version,
+            snapshot_hash, created_at
+        ) VALUES (?, ?, 'remote.source.extract', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            attempt_id,
+            project_id,
+            draft.input_scope_hash(),
+            draft.context_manifest_id,
+            draft.context_manifest_hash,
+            draft.dispatch_class,
+            scope_json,
+            draft.connection_id,
+            draft.connection_revision,
+            draft.approved_model_id,
+            draft.endpoint_binding,
+            draft.transport_contract_hash,
+            draft.requested_additional_budget_micros,
+            draft.approved_currency,
+            draft.policy_version,
+            draft.snapshot_hash(project_id=project_id, attempt_id=attempt_id),
+            created_at,
+        ),
+    )
+
+
 def _existing_enqueue(
     connection: sqlite3.Connection,
     request: EnqueueLocalNodeRequest,
@@ -272,7 +400,8 @@ def _existing_enqueue(
                node.max_attempts,
                attempt.attempt_id, attempt.request_fingerprint,
                task.task_id, task.task_kind,
-               snapshot.snapshot_kind, snapshot.snapshot_json, snapshot.snapshot_hash
+               snapshot.snapshot_kind, snapshot.snapshot_json, snapshot.snapshot_hash,
+               attempt.execution_mode, dispatch.snapshot_hash AS dispatch_snapshot_hash
         FROM workflow_enqueue_keys AS key
         JOIN workflow_runs AS run ON run.workflow_run_id = key.workflow_run_id
         JOIN workflow_definitions AS definition
@@ -283,6 +412,8 @@ def _existing_enqueue(
         JOIN task_ledger AS task ON task.attempt_id = attempt.attempt_id
         LEFT JOIN workflow_attempt_snapshots AS snapshot
           ON snapshot.attempt_id = attempt.attempt_id
+        LEFT JOIN remote_dispatch_snapshots AS dispatch
+          ON dispatch.attempt_id = attempt.attempt_id
         WHERE key.project_id = ? AND key.idempotency_key = ?
         ORDER BY CASE WHEN task.task_kind = ? THEN 0 ELSE 1 END,
                  task.created_at DESC, task.task_id DESC
@@ -306,6 +437,8 @@ def _validate_existing_enqueue(
     graph_json: str,
     input_bindings_json: str,
     snapshot: tuple[str, str, str] | None,
+    execution_mode: Literal["local", "remote"],
+    dispatch_snapshot: RemoteDispatchSnapshotDraft | None,
 ) -> None:
     expected = (
         request.definition_id,
@@ -324,6 +457,15 @@ def _validate_existing_enqueue(
         snapshot[0] if snapshot is not None else None,
         snapshot[1] if snapshot is not None else None,
         snapshot[2] if snapshot is not None else None,
+        execution_mode,
+        (
+            dispatch_snapshot.snapshot_hash(
+                project_id=request.project_id,
+                attempt_id=str(existing["attempt_id"]),
+            )
+            if dispatch_snapshot is not None
+            else None
+        ),
     )
     persisted = (
         str(existing["definition_id"]),
@@ -342,6 +484,8 @@ def _validate_existing_enqueue(
         _optional_text(existing["snapshot_kind"]),
         _optional_text(existing["snapshot_json"]),
         _optional_text(existing["snapshot_hash"]),
+        str(existing["execution_mode"]),
+        _optional_text(existing["dispatch_snapshot_hash"]),
     )
     if persisted != expected:
         raise ValueError("idempotency key was reused with different workflow input")
@@ -362,7 +506,12 @@ def _validate_request(
     node_run_id: str,
     attempt_id: str,
     now: datetime,
+    execution_mode: Literal["local", "remote"],
 ) -> None:
+    if execution_mode not in {"local", "remote"}:
+        raise ValueError("workflow attempt execution mode is invalid")
+    if execution_mode == "remote" and not isinstance(request, EnqueueRemoteNodeRequest):
+        raise ValueError("remote workflow attempts require an immutable dispatch snapshot")
     if not 0 <= request.priority <= 100:
         raise ValueError("priority must be between zero and 100")
     if request.definition_version < 1 or request.contract_version < 1:
@@ -387,7 +536,7 @@ def _validate_request(
         id=attempt_id,
         node_run_id=node_run_id,
         attempt_number=1,
-        execution_mode="local",
+        execution_mode=execution_mode,
         state="READY",
         input_fingerprint=request.node_input_hash,
         request_fingerprint=request.request_fingerprint,

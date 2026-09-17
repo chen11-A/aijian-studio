@@ -129,6 +129,38 @@ afterEach(() => {
 });
 
 describe("selected renderer workspace callers", () => {
+  it("QA: keeps pending creation single-submit and closes only after success", async () => {
+    let finish!: (value: unknown) => void;
+    const fake = bridge({ createProject: vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve; })) })!;
+    window.aijian = fake;
+    renderHome();
+    await screen.findByText("远端项目");
+    fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("作品名称"), { target: { value: "QA pending" } });
+    const submit = within(dialog).getByRole("button", { name: "保存演示修改" });
+    fireEvent.click(submit);
+    await waitFor(() => expect(fake.createProject).toHaveBeenCalledTimes(1));
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(fake.createProject).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    finish({request_id:"qa-create",data:{id:projectId,name:"QA pending",status:"active",revision:1,updated_at:"2026-09-17T00:00:00Z"}});
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+  it("QA: plain status text remains visible unknown and disables resubmission", async () => {
+    const fake = bridge({createProject: vi.fn().mockRejectedValue(new Error("status 403"))})!;
+    window.aijian = fake;
+    renderHome();
+    await screen.findByText("远端项目");
+    fireEvent.click(screen.getByRole("button", {name:"新建项目"}));
+    const dialog=screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("作品名称"),{target:{value:"QA unknown"}});
+    fireEvent.click(within(dialog).getByRole("button",{name:"保存演示修改"}));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("创建结果未知");
+    expect(within(dialog).getByRole("button",{name:"保存演示修改"})).toBeDisabled();
+    expect(fake.createProject).toHaveBeenCalledTimes(1);
+  });
   it("does not initialize production pages with sample story, visual, or review facts", async () => {
     const fake = bridge({
       listProjects: vi.fn().mockResolvedValue({ request_id: "projects", data: [] }),

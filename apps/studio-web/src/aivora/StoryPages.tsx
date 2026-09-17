@@ -5,6 +5,8 @@ import { useDemo } from "./model";
 import { Button, FlowFooter, PageTitle, Pill } from "./Common";
 import { Icon } from "./Icon";
 import { selectProductionSourceStage } from "./adapters/productionSourceStage";
+import type { SourceManifestReviewIdentity } from "../api/studio";
+import type { ProductionBriefCreateCommand } from "../api/studio";
 import "./v2-story.css";
 
 function Card({
@@ -27,6 +29,27 @@ function Card({
       {children}
     </section>
   );
+}
+function formatMicros(amount: number) {
+  const text = String(Math.abs(amount)).padStart(7, "0");
+  const whole = text.slice(0, -6);
+  const fraction = text.slice(-6).replace(/0+$/, "");
+  return `${amount < 0 ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
+}
+function optionalText(value: string | undefined) {
+  const text = value?.trim() ?? "";
+  return text || null;
+}
+function uniqueLines(value: string | undefined, maximum = 32) {
+  const entries = (value ?? "")
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return entries.length <= maximum &&
+    entries.every((entry) => entry.length <= 240) &&
+    new Set(entries).size === entries.length
+    ? entries
+    : null;
 }
 function EmotionCurve() {
   const plot = useRef<SVGSVGElement>(null);
@@ -112,6 +135,7 @@ export function StoryPages() {
   live.current = d;
   const file = useRef<HTMLInputElement>(null);
   const [paste, setPaste] = useState(false);
+  const [pastedText, setPastedText] = useState("");
   useEffect(() => {
     if (d.page === "story" && d.value("sourceReviewSubmitted") === "true")
       void d.readRealStoryWorkspace();
@@ -173,6 +197,517 @@ export function StoryPages() {
       },
     });
   }
+  function confirmSourceBaseline() {
+    const manifest = d.sourceManifest;
+    const latest = manifest?.data.latest_version;
+    const head = manifest?.data.head;
+    const capturedIdentity: SourceManifestReviewIdentity | null =
+      manifest &&
+      latest &&
+      head &&
+      manifest.data.project_id === d.backendProjectId &&
+      head.latest_version_id === latest.id &&
+      head.review_version_id === latest.id
+        ? {
+            project_id: manifest.data.project_id,
+            version_id: latest.id,
+            content_hash: latest.content_hash,
+            expected_revision: head.revision,
+          }
+        : null;
+    if (!capturedIdentity || d.sourceStage.kind !== "review") {
+      d.notify("当前来源审核目标已变化；请刷新来源状态后重新确认。");
+      return;
+    }
+    d.setEditor({
+      title: "确认来源审核基线",
+      description: `将确认项目 ${capturedIdentity.project_id} 的版本 ${capturedIdentity.version_id}。内容哈希：${capturedIdentity.content_hash}；清单修订：${capturedIdentity.expected_revision}。`,
+      presentation: "drawer",
+      confirm: "确认来源审核基线",
+      fields: [
+        {
+          key: "rationale",
+          label: "确认理由（1 至 1000 个字符）",
+          type: "textarea",
+          value: "",
+          required: true,
+        },
+      ],
+      validate: () => {
+        const current = live.current;
+        const currentLatest = current.sourceManifest?.data.latest_version;
+        const currentHead = current.sourceManifest?.data.head;
+        if (
+          current.page !== "source" ||
+          current.backendProjectId !== capturedIdentity.project_id ||
+          current.sourceStage.kind !== "review" ||
+          !currentLatest ||
+          !currentHead ||
+          currentHead.latest_version_id !== capturedIdentity.version_id ||
+          currentHead.review_version_id !== capturedIdentity.version_id ||
+          currentLatest.content_hash !== capturedIdentity.content_hash ||
+          currentHead.revision !== capturedIdentity.expected_revision
+        )
+          return "来源审核目标已变化；请关闭抽屉并重新核对。";
+      },
+      save: (data) => {
+        const rationale = (data.rationale ?? "").trim();
+        const rationaleLength = [...rationale].length;
+        if (!rationaleLength || rationaleLength > 1000) {
+          d.notify("确认理由需要是 1 至 1000 个字符。");
+          return false;
+        }
+        void d.confirmRealSourceBaseline(capturedIdentity, rationale).then((confirmed) => {
+          const current = live.current;
+          if (current.backendProjectId !== capturedIdentity.project_id || current.page !== "source")
+            return;
+          d.notify(
+            confirmed ? "来源审核基线已读回确认。" : "来源审核基线尚未确认；请刷新来源状态。",
+          );
+        });
+      },
+    });
+  }
+  function createOriginalBrief() {
+    const openedProjectId = d.backendProjectId;
+    d.setEditor({
+      title: "保存原创灵感草稿",
+      description:
+        "这是创作简报草稿，不创建来源，也不表示故事已经完成。所有必填创作与交付信息都需由你确认。",
+      confirm: "保存草稿",
+      fields: [
+        {
+          key: "origin",
+          label: "原创来源说明",
+          type: "textarea",
+          value: d.value("input"),
+          required: true,
+          max: 4000,
+        },
+        { key: "premise", label: "核心设定", type: "textarea", value: "", required: true },
+        { key: "intent", label: "创作意图", type: "textarea", value: "", required: true },
+        { key: "audience", label: "目标受众（可选）", value: "" },
+        { key: "genre", label: "类型（可选）", value: "" },
+        { key: "style", label: "风格（可选）", value: "" },
+        { key: "constraints", label: "创作约束（每行一项，可选）", type: "textarea", value: "" },
+        {
+          key: "referenceKind",
+          label: "参考类型（可选）",
+          value: "",
+          options: ["", "灵感", "研究", "其他"],
+        },
+        { key: "referenceDescription", label: "参考说明（可选）", type: "textarea", value: "" },
+        { key: "width", label: "交付宽度", type: "number", value: "1080", required: true, min: 1 },
+        { key: "height", label: "交付高度", type: "number", value: "1920", required: true, min: 1 },
+        { key: "language", label: "交付语言", value: "zh-CN", required: true },
+        {
+          key: "frameRateNum",
+          label: "帧率分子",
+          type: "number",
+          value: "24",
+          required: true,
+          min: 1,
+        },
+        {
+          key: "frameRateDen",
+          label: "帧率分母",
+          type: "number",
+          value: "1",
+          required: true,
+          min: 1,
+        },
+        {
+          key: "seconds",
+          label: "整部时长（秒，可选）",
+          type: "number",
+          value: "",
+          min: 1,
+        },
+        {
+          key: "episodeMode",
+          label: "单集时长模式",
+          value: "未指定",
+          required: true,
+          options: ["未指定", "按单集"],
+        },
+        { key: "episodeSeconds", label: "单集时长（秒）", type: "number", value: "", min: 1 },
+        {
+          key: "budgetState",
+          label: "预算状态",
+          value: "未知",
+          required: true,
+          options: ["未知", "已声明"],
+        },
+        { key: "budgetAmount", label: "预算金额", type: "number", value: "" },
+        { key: "budgetCurrency", label: "预算币种", value: "" },
+        {
+          key: "rightsState",
+          label: "权利状态",
+          value: "尚未确认",
+          required: true,
+          options: ["尚未确认", "用户声明"],
+        },
+        { key: "rights", label: "权利声明", type: "textarea", value: "" },
+      ],
+      save: (data) => {
+        if (openedProjectId && live.current.backendProjectId !== openedProjectId) {
+          d.notify("项目已变化；请重新打开原创灵感草稿。");
+          return false;
+        }
+        const width = Number(data.width);
+        const height = Number(data.height);
+        const workSeconds = data.seconds?.trim() ? Number(data.seconds) : null;
+        const perEpisode = data.episodeMode === "按单集";
+        const episodeSeconds = data.episodeSeconds?.trim() ? Number(data.episodeSeconds) : null;
+        const language = data.language ?? "";
+        const frameRateNum = Number(data.frameRateNum);
+        const frameRateDen = Number(data.frameRateDen);
+        const budgetDeclared = data.budgetState === "已声明";
+        const budgetText = (data.budgetAmount ?? "").trim();
+        const budgetMatch = /^(\d+)(?:\.(\d{1,6}))?$/.exec(budgetText);
+        const budgetAmountMicros = budgetMatch
+          ? Number(`${budgetMatch[1]}${(budgetMatch[2] ?? "").padEnd(6, "0")}`)
+          : NaN;
+        const budgetCurrency = data.budgetCurrency ?? "";
+        const rightsDeclared = data.rightsState === "用户声明";
+        const rights = data.rights ?? "";
+        const constraints = uniqueLines(data.constraints);
+        const referenceKind =
+          ({ 灵感: "inspiration", 研究: "research", 其他: "other" } as const)[
+            data.referenceKind ?? ""
+          ] ?? "";
+        const referenceDescription = optionalText(data.referenceDescription);
+        const optionalCreative = [data.audience, data.genre, data.style].every(
+          (value) => optionalText(value) === null || optionalText(value)!.length <= 240,
+        );
+        if (
+          !Number.isSafeInteger(width) ||
+          !Number.isSafeInteger(height) ||
+          width < 1 ||
+          height < 1 ||
+          (workSeconds !== null && (!Number.isSafeInteger(workSeconds) || workSeconds < 1)) ||
+          (perEpisode &&
+            (episodeSeconds === null ||
+              !Number.isSafeInteger(episodeSeconds) ||
+              episodeSeconds < 1)) ||
+          (!perEpisode && episodeSeconds !== null) ||
+          !language.trim() ||
+          !Number.isSafeInteger(frameRateNum) ||
+          !Number.isSafeInteger(frameRateDen) ||
+          frameRateNum < 1 ||
+          frameRateDen < 1 ||
+          frameRateDen > 2_147_483_647 ||
+          (budgetDeclared &&
+            (!Number.isSafeInteger(budgetAmountMicros) ||
+              !/^[A-Z]{3}$/.test(budgetCurrency.trim()))) ||
+          (rightsDeclared && !rights.trim()) ||
+          constraints === null ||
+          !optionalCreative ||
+          !!referenceKind !== !!referenceDescription ||
+          (referenceDescription !== null && referenceDescription.length > 4_000) ||
+          (referenceKind !== "" && !["inspiration", "research", "other"].includes(referenceKind))
+        ) {
+          d.notify("请填写有效的交付信息；已声明预算还需要金额和币种。");
+          return false;
+        }
+        const divisor = (left: number, right: number): number =>
+          right === 0 ? left : divisor(right, left % right);
+        const aspectDivisor = divisor(width, height);
+        const frameRateDivisor = divisor(frameRateNum, frameRateDen);
+        if (d.pendingProductionBrief) {
+          d.notify("上次草稿保存结果待确认；请先显式恢复原操作。");
+          return false;
+        }
+        const version = d.productionBrief?.data.version;
+        const command = {
+          operation_id: crypto.randomUUID(),
+          input: {
+            parent_version_id: version?.id ?? null,
+            expected_revision: d.productionBrief?.data.head.revision ?? null,
+            change_summary: "保存原创灵感草稿",
+            content: {
+              schema_version: "1.0.0",
+              creative_entry: {
+                kind: "original_idea",
+                origin_statement: data.origin,
+                references: referenceKind
+                  ? [{ reference_kind: referenceKind, description: referenceDescription }]
+                  : [],
+              },
+              creative: {
+                premise: data.premise,
+                intent: data.intent,
+                audience: optionalText(data.audience),
+                genre: optionalText(data.genre),
+                style: optionalText(data.style),
+                constraints,
+              },
+              delivery: {
+                width_px: width,
+                height_px: height,
+                language: language.trim(),
+                display_aspect_ratio: { num: width / aspectDivisor, den: height / aspectDivisor },
+                frame_rate: {
+                  num: frameRateNum / frameRateDivisor,
+                  den: frameRateDen / frameRateDivisor,
+                },
+              },
+              duration_intent: {
+                episode_mode: perEpisode ? "per_episode" : "unspecified",
+                work_seconds: workSeconds,
+                episode_seconds: perEpisode ? episodeSeconds : null,
+              },
+              budget_intent: budgetDeclared
+                ? {
+                    state: "declared",
+                    amount_micros: budgetAmountMicros,
+                    currency: budgetCurrency.trim(),
+                  }
+                : { state: "unknown", amount_micros: null, currency: null },
+              rights_declaration: rightsDeclared
+                ? { state: "user_declared", statement: rights.trim() }
+                : { state: "unknown", statement: null },
+            },
+          },
+        } as ProductionBriefCreateCommand;
+        void d.saveProductionBrief(command).then((outcome) => {
+          if (outcome.kind === "SUCCEEDED")
+            d.notify("原创灵感已保存为创作简报草稿；尚未完成故事。");
+          else if (outcome.kind === "REMOTE_UNKNOWN")
+            d.notify("草稿保存结果待确认；请显式恢复原操作。");
+          else d.notify("草稿未保存，请核对输入后重试。");
+        });
+      },
+    });
+  }
+  function createAdaptationBrief() {
+    const openedProjectId = d.backendProjectId;
+    const accepted = d.sourceManifest?.data.accepted_version;
+    const document = accepted?.content.documents.find(
+      (item) => item.source_document_id === d.sourceDocument?.data.id,
+    );
+    if (d.sourceStage.kind !== "approved" || !accepted || !document) {
+      d.notify("请先选择当前已批准来源及其清单区块。");
+      return;
+    }
+    d.setEditor({
+      title: "保存来源改编草稿",
+      description: `仅可选用当前已批准清单中的区块；可选焦点序号：${document.blocks
+        .map((block) => block.ordinal)
+        .join("、")}。保存草稿不会确认来源审核或故事。`,
+      confirm: "保存草稿",
+      fields: [
+        { key: "adaptation", label: "改编说明", type: "textarea", value: "", required: true },
+        {
+          key: "blocks",
+          label: "焦点区块序号（逗号分隔，1 至 100 个）",
+          type: "textarea",
+          value: "",
+          required: true,
+        },
+        { key: "premise", label: "核心设定", type: "textarea", value: "", required: true },
+        { key: "intent", label: "创作意图", type: "textarea", value: "", required: true },
+        { key: "audience", label: "目标受众（可选）", value: "" },
+        { key: "genre", label: "类型（可选）", value: "" },
+        { key: "style", label: "风格（可选）", value: "" },
+        { key: "constraints", label: "创作约束（每行一项，可选）", type: "textarea", value: "" },
+        { key: "width", label: "交付宽度", type: "number", value: "1080", required: true, min: 1 },
+        { key: "height", label: "交付高度", type: "number", value: "1920", required: true, min: 1 },
+        { key: "language", label: "交付语言", value: "zh-CN", required: true },
+        {
+          key: "frameRateNum",
+          label: "帧率分子",
+          type: "number",
+          value: "24",
+          required: true,
+          min: 1,
+        },
+        {
+          key: "frameRateDen",
+          label: "帧率分母",
+          type: "number",
+          value: "1",
+          required: true,
+          min: 1,
+        },
+        {
+          key: "seconds",
+          label: "整部时长（秒，可选）",
+          type: "number",
+          value: "",
+          min: 1,
+        },
+        {
+          key: "episodeMode",
+          label: "单集时长模式",
+          value: "未指定",
+          required: true,
+          options: ["未指定", "按单集"],
+        },
+        { key: "episodeSeconds", label: "单集时长（秒）", type: "number", value: "", min: 1 },
+        {
+          key: "budgetState",
+          label: "预算状态",
+          value: "尚未确认",
+          required: true,
+          options: ["尚未确认", "已声明"],
+        },
+        { key: "budgetAmount", label: "预算金额（最多 6 位小数）", type: "number", value: "" },
+        { key: "budgetCurrency", label: "预算币种（ISO 3 位大写）", value: "" },
+        {
+          key: "rightsState",
+          label: "权利状态",
+          value: "尚未确认",
+          required: true,
+          options: ["尚未确认", "用户声明"],
+        },
+        { key: "rights", label: "权利声明", type: "textarea", value: "" },
+      ],
+      save: (data) => {
+        const currentAccepted = live.current.sourceManifest?.data.accepted_version;
+        if (
+          (openedProjectId && live.current.backendProjectId !== openedProjectId) ||
+          live.current.sourceStage.kind !== "approved" ||
+          currentAccepted?.id !== accepted.id ||
+          live.current.sourceDocument?.data.id !== document.source_document_id
+        ) {
+          d.notify("来源或审核清单已变化；请重新选择改编焦点。");
+          return false;
+        }
+        const blocks = data.blocks ?? "";
+        const adaptation = data.adaptation ?? "";
+        const premise = data.premise ?? "";
+        const intent = data.intent ?? "";
+        const language = data.language ?? "";
+        const rights = data.rights ?? "";
+        const constraints = uniqueLines(data.constraints);
+        const optionalCreative = [data.audience, data.genre, data.style].every(
+          (value) => optionalText(value) === null || optionalText(value)!.length <= 240,
+        );
+        const rightsDeclared = data.rightsState === "用户声明";
+        const budgetDeclared = data.budgetState === "已声明";
+        const budgetMatch = /^(\d+)(?:\.(\d{1,6}))?$/.exec((data.budgetAmount ?? "").trim());
+        const budgetMicros = budgetMatch
+          ? Number(`${budgetMatch[1]}${(budgetMatch[2] ?? "").padEnd(6, "0")}`)
+          : NaN;
+        const budgetCurrency = (data.budgetCurrency ?? "").trim();
+        const ordinals = blocks
+          .split(",")
+          .map((item) => Number(item.trim()))
+          .filter(Number.isInteger);
+        const selected = ordinals.map((ordinal) =>
+          document.blocks.find((block) => block.ordinal === ordinal),
+        );
+        const unique = new Set(ordinals);
+        const width = Number(data.width);
+        const height = Number(data.height);
+        const workSeconds = data.seconds?.trim() ? Number(data.seconds) : null;
+        const perEpisode = data.episodeMode === "按单集";
+        const episodeSeconds = data.episodeSeconds?.trim() ? Number(data.episodeSeconds) : null;
+        const frameRateNum = Number(data.frameRateNum);
+        const frameRateDen = Number(data.frameRateDen);
+        if (
+          ordinals.length < 1 ||
+          ordinals.length > 100 ||
+          unique.size !== ordinals.length ||
+          selected.some((block) => !block) ||
+          !Number.isSafeInteger(width) ||
+          !Number.isSafeInteger(height) ||
+          width < 1 ||
+          height < 1 ||
+          (workSeconds !== null && (!Number.isSafeInteger(workSeconds) || workSeconds < 1)) ||
+          (perEpisode &&
+            (episodeSeconds === null ||
+              !Number.isSafeInteger(episodeSeconds) ||
+              episodeSeconds < 1)) ||
+          (!perEpisode && episodeSeconds !== null) ||
+          !language.trim() ||
+          !Number.isSafeInteger(frameRateNum) ||
+          !Number.isSafeInteger(frameRateDen) ||
+          frameRateNum < 1 ||
+          frameRateDen < 1 ||
+          frameRateDen > 2_147_483_647 ||
+          !adaptation.trim() ||
+          !premise.trim() ||
+          !intent.trim() ||
+          (rightsDeclared && !rights.trim()) ||
+          constraints === null ||
+          !optionalCreative ||
+          (budgetDeclared &&
+            (!Number.isSafeInteger(budgetMicros) || !/^[A-Z]{3}$/.test(budgetCurrency)))
+        ) {
+          d.notify("请只选择当前已批准清单中的 1 至 100 个不重复区块，并填写有效交付信息。");
+          return false;
+        }
+        const gcd = (left: number, right: number): number =>
+          right ? gcd(right, left % right) : left;
+        const divisor = gcd(width, height);
+        const frameRateDivisor = gcd(frameRateNum, frameRateDen);
+        const version = d.productionBrief?.data.version;
+        const command = {
+          operation_id: crypto.randomUUID(),
+          input: {
+            parent_version_id: version?.id ?? null,
+            expected_revision: d.productionBrief?.data.head.revision ?? null,
+            change_summary: "保存来源改编草稿",
+            content: {
+              schema_version: "1.0.0",
+              creative_entry: {
+                kind: "source_adaptation",
+                adaptation_statement: adaptation,
+                source_document_id: document.source_document_id,
+                source_manifest_version_id: accepted.id,
+                source_block_ids: selected.map((block) => block!.source_block_id),
+              },
+              creative: {
+                premise,
+                intent,
+                audience: optionalText(data.audience),
+                genre: optionalText(data.genre),
+                style: optionalText(data.style),
+                constraints,
+              },
+              delivery: {
+                width_px: width,
+                height_px: height,
+                language: language.trim(),
+                display_aspect_ratio: { num: width / divisor, den: height / divisor },
+                frame_rate: {
+                  num: frameRateNum / frameRateDivisor,
+                  den: frameRateDen / frameRateDivisor,
+                },
+              },
+              duration_intent: {
+                episode_mode: perEpisode ? "per_episode" : "unspecified",
+                work_seconds: workSeconds,
+                episode_seconds: perEpisode ? episodeSeconds : null,
+              },
+              budget_intent: budgetDeclared
+                ? { state: "declared", amount_micros: budgetMicros, currency: budgetCurrency }
+                : { state: "unknown", amount_micros: null, currency: null },
+              rights_declaration: rightsDeclared
+                ? { state: "user_declared", statement: rights.trim() }
+                : { state: "unknown", statement: null },
+            },
+          },
+        } satisfies ProductionBriefCreateCommand;
+        void d
+          .saveProductionBrief(command)
+          .then((outcome) =>
+            d.notify(
+              outcome.kind === "SUCCEEDED"
+                ? "来源改编已保存为创作简报草稿。"
+                : "草稿保存结果待确认；请显式恢复原操作。",
+            ),
+          );
+      },
+    });
+  }
+  useEffect(() => {
+    if (d.page !== "source" || d.value("c3DraftIntent") !== "original") return;
+    d.put("c3DraftIntent", "");
+    createOriginalBrief();
+  }, [d.page]);
   function confirmStory() {
     const snapshot = (current: typeof d) =>
       JSON.stringify(
@@ -220,6 +755,13 @@ export function StoryPages() {
     "conflict",
     "真实记忆与人造记忆之间：追寻真相，是否意味着放弃被编造的幸福？",
   );
+  const briefContent = d.productionBrief?.data.version.content;
+  const adaptationNeedsRecheck =
+    briefContent?.creative_entry.kind === "source_adaptation" &&
+    (d.sourceStage.kind !== "approved" ||
+      d.sourceManifest?.data.accepted_version?.id !==
+        briefContent.creative_entry.source_manifest_version_id ||
+      d.sourceDocument?.data.id !== briefContent.creative_entry.source_document_id);
   return (
     <>
       <PageTitle
@@ -244,13 +786,17 @@ export function StoryPages() {
               ? " 当前状态读取失败，请稍后重试。"
               : ""}
           {sourceNavigation.target && (
-            <Button onClick={showSourceStage}>{sourceNavigation.label}</Button>
+            <Button onClick={showSourceStage}>
+              {sourceNavigation.target === "source-review"
+                ? "返回来源审核"
+                : sourceNavigation.label}
+            </Button>
           )}
         </p>
       )}
       {d.page === "source" ? (
         <div className="v2-source-body">
-          <Card title="导入或粘贴故事" className="v2-source-entry">
+          <Card title="外部原文或原创灵感" className="v2-source-entry">
             <div className="v2-source-tabs">
               <Button aria-pressed={!paste} onClick={() => setPaste(false)}>
                 导入文本
@@ -262,9 +808,9 @@ export function StoryPages() {
             {paste ? (
               <textarea
                 className="v2-source-drop v2-source-editor"
-                aria-label="原文正文"
-                value={d.value("source")}
-                onChange={(e) => replaceSource(e.target.value)}
+                aria-label="外部原文正文"
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
               />
             ) : (
               <div
@@ -281,6 +827,17 @@ export function StoryPages() {
                 <Button onClick={() => file.current?.click()}>选择样例文本</Button>
               </div>
             )}
+            {paste && (
+              <div className="actions">
+                <Button onClick={() => void d.importPastedSource(pastedText)}>
+                  作为外部原文导入
+                </Button>
+                <Button onClick={createOriginalBrief}>原创灵感</Button>
+              </div>
+            )}
+            <div className="actions">
+              <Button onClick={createAdaptationBrief}>基于已批准来源改编</Button>
+            </div>
             <input
               ref={file}
               type="file"
@@ -294,8 +851,130 @@ export function StoryPages() {
               <input value={d.value("title")} onChange={(e) => d.put("title", e.target.value)} />
             </label>
             <p className="v2-source-support">
-              TXT 来源摄取与坐标由本地工作区处理；审核结果未知时不会自动重试。
+              外部原文会由本地工作区摄取；原创灵感不创建来源。审核结果未知时不会自动重试。
             </p>
+            {d.productionBrief && (
+              <details className="v2-source-support" open>
+                <summary>
+                  已读取创作简报 V{d.productionBrief.data.version.version_number}：
+                  {d.productionBrief.data.version.content.creative_entry.kind ===
+                  "source_adaptation"
+                    ? "来源改编"
+                    : "原创灵感"}
+                </summary>
+                <dl>
+                  <dt>创作说明</dt>
+                  <dd>
+                    {briefContent?.creative_entry.kind === "original_idea"
+                      ? briefContent.creative_entry.origin_statement
+                      : briefContent?.creative_entry.adaptation_statement}
+                  </dd>
+                  <dt>核心设定与意图</dt>
+                  <dd>
+                    {briefContent?.creative.premise}；{briefContent?.creative.intent}
+                  </dd>
+                  <dt>创作信息</dt>
+                  <dd>
+                    受众：{briefContent?.creative.audience ?? "未指定"}；类型：
+                    {briefContent?.creative.genre ?? "未指定"}；风格：
+                    {briefContent?.creative.style ?? "未指定"}
+                    {briefContent?.creative.constraints?.length
+                      ? `；约束：${briefContent.creative.constraints.join("、")}`
+                      : "；约束：无"}
+                  </dd>
+                  {briefContent?.creative_entry.kind === "original_idea" && (
+                    <>
+                      <dt>参考资料</dt>
+                      <dd>
+                        {briefContent.creative_entry.references.length
+                          ? briefContent.creative_entry.references
+                              .map((reference) => {
+                                const kind =
+                                  reference.reference_kind === "inspiration"
+                                    ? "灵感"
+                                    : reference.reference_kind === "research"
+                                      ? "研究"
+                                      : "其他";
+                                return `${kind}：${reference.description}`;
+                              })
+                              .join("；")
+                          : "无"}
+                      </dd>
+                    </>
+                  )}
+                  <dt>交付</dt>
+                  <dd>
+                    {briefContent?.delivery.width_px} × {briefContent?.delivery.height_px}，
+                    {briefContent?.delivery.language}，画幅{" "}
+                    {briefContent?.delivery.display_aspect_ratio.num}/
+                    {briefContent?.delivery.display_aspect_ratio.den}，帧率{" "}
+                    {briefContent?.delivery.frame_rate.num}/{briefContent?.delivery.frame_rate.den}{" "}
+                    fps
+                  </dd>
+                  <dt>时长</dt>
+                  <dd>
+                    整部：{briefContent?.duration_intent.work_seconds ?? "尚未确认"} 秒；
+                    {briefContent?.duration_intent.episode_mode === "per_episode"
+                      ? `按单集：${briefContent.duration_intent.episode_seconds} 秒`
+                      : "单集时长未指定"}
+                  </dd>
+                  <dt>预算与权利</dt>
+                  <dd>
+                    {briefContent?.budget_intent.state === "declared" &&
+                    typeof briefContent.budget_intent.amount_micros === "number" &&
+                    briefContent.budget_intent.currency
+                      ? `${briefContent.budget_intent.currency} ${formatMicros(briefContent.budget_intent.amount_micros)}（已声明）`
+                      : briefContent?.budget_intent.state === "declared"
+                        ? "预算声明不完整"
+                        : "预算尚未确认"}
+                    ；
+                    {briefContent?.rights_declaration.state === "user_declared"
+                      ? briefContent.rights_declaration.statement
+                      : "权利尚未确认"}
+                  </dd>
+                  {briefContent?.creative_entry.kind === "source_adaptation" && (
+                    <>
+                      <dt>来源焦点</dt>
+                      <dd>
+                        <span>
+                          来源清单版本：{briefContent.creative_entry.source_manifest_version_id}
+                        </span>
+                        <br />
+                        <span>来源文档：{briefContent.creative_entry.source_document_id}</span>
+                        <br />
+                        <span>
+                          焦点区块：{briefContent.creative_entry.source_block_ids.join("、")}
+                        </span>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+                <p role="status">
+                  {adaptationNeedsRecheck
+                    ? "当前来源已变化，改编草稿需要重新核对焦点后才能保存新版本。"
+                    : "当前来源与改编焦点一致。"}
+                </p>
+              </details>
+            )}
+            {d.pendingProductionBrief && (
+              <div className="actions">
+                <Button
+                  onClick={() =>
+                    void d
+                      .recoverProductionBrief()
+                      .then((outcome) =>
+                        d.notify(
+                          outcome.kind === "SUCCEEDED"
+                            ? "原草稿操作已确认。"
+                            : "原草稿操作仍待确认；未创建新操作。",
+                        ),
+                      )
+                  }
+                >
+                  恢复原草稿操作
+                </Button>
+              </div>
+            )}
           </Card>
           <div className="v2-source-side">
             <Card title="来源预览" className="v2-source-preview">
@@ -311,6 +990,9 @@ export function StoryPages() {
               </p>
               <div className="actions">
                 <Button onClick={() => void d.refreshRealSourceStage()}>刷新来源状态</Button>
+                {d.sourceStage.kind === "review" && (
+                  <Button onClick={confirmSourceBaseline}>确认来源审核基线</Button>
+                )}
                 {sourceNavigation.target && (
                   <Button onClick={showSourceStage}>{sourceNavigation.label}</Button>
                 )}

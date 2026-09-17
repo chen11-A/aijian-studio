@@ -186,7 +186,10 @@ export function EditorDialog() {
   }, [d.editor]);
   if (!d.editor) return null;
   const editor = d.editor;
+  const projectCreateState =
+    editor.title === "新建项目" ? d.projectCreateState : { kind: "idle" as const };
   const requestClose = () => {
+    if (projectCreateState.kind === "SUBMITTING") return;
     const form = ref.current?.querySelector("form");
     if (editor.save && form && JSON.stringify([...new FormData(form)]) !== initialFields.current) {
       setDiscardPrompt(true);
@@ -223,7 +226,7 @@ export function EditorDialog() {
       <form
         method="dialog"
         onChange={() => setDiscardPrompt(false)}
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
           const error = editor.validate?.();
           if (error) {
@@ -234,16 +237,26 @@ export function EditorDialog() {
             string,
             string
           >;
-          if (editor.save?.(data) === false) return;
+          if ((await editor.save?.(data)) === false) return;
           d.setEditor(null);
         }}
       >
         <header>
-          <Pill>演示数据</Pill>
+          <Pill>内容编辑</Pill>
           <Button aria-label="关闭对话框" icon="close" onClick={requestClose} />
         </header>
         <h2 id="dialog-title">{editor.title}</h2>
         {editor.description && <p className="dialog-description">{editor.description}</p>}
+        {projectCreateState.kind === "SUBMITTING" && (
+          <p role="status" aria-live="polite">
+            正在创建项目，请等待结果后再试。
+          </p>
+        )}
+        {projectCreateState.kind === "REMOTE_UNKNOWN" && (
+          <p role="alert">
+            创建结果未知。请刷新项目列表后确认，未自动重试。
+          </p>
+        )}
         {validationError && <p role="alert">{validationError}</p>}
         {editor.image &&
           (editor.imageCrop ? (
@@ -285,10 +298,22 @@ export function EditorDialog() {
           </div>
         )}
         <footer>
-          <Button onClick={requestClose}>关闭</Button>
+          <Button onClick={requestClose} disabled={projectCreateState.kind === "SUBMITTING"}>
+            关闭
+          </Button>
           {editor.save && (
-            <button className="button primary" type="submit" disabled={!!validationError}>
-              {editor.confirm ?? "确认"}
+            <button
+              className="button primary"
+              type="submit"
+              disabled={
+                !!validationError ||
+                projectCreateState.kind === "SUBMITTING" ||
+                projectCreateState.kind === "REMOTE_UNKNOWN"
+              }
+            >
+              {projectCreateState.kind === "SUBMITTING"
+                ? "正在创建"
+                : editor.confirm ?? "确认"}
             </button>
           )}
         </footer>
