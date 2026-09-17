@@ -11,6 +11,7 @@ from aijian_api.gateway_transport import (
     CPA_GATEWAY_HOST,
     CPA_GATEWAY_PATH,
     CPA_GATEWAY_PORT,
+    GatewayChatMessage,
     GatewayTextRequest,
     GatewayTextTransport,
 )
@@ -236,9 +237,56 @@ def test_total_deadline_is_enforced_before_response_read(monkeypatch: pytest.Mon
     assert result.code == "RESPONSE_TIMEOUT"
 
 
-def test_mutated_messages_do_not_escape_as_an_uncaught_dispatch_error() -> None:
+def test_mutated_messages_do_not_escape_as_an_uncaught_dispatch_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Connection:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("invalid request must not construct HTTPConnection")
+
     request = _request()
     request.messages.append({"role": "user", "content": "late mutation"})  # type: ignore[arg-type]
+    monkeypatch.setattr("aijian_api.gateway_transport.http.client.HTTPConnection", _Connection)
+    result = GatewayTextTransport(connect_timeout_seconds=0.05, read_timeout_seconds=0.05).dispatch(
+        request
+    )
+    assert result.kind == "NOT_DISPATCHED"
+    assert result.code == "REQUEST_INVALID"
+
+
+def test_mutated_typed_messages_over_64_are_rejected_before_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Connection:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("oversized message collection must not construct HTTPConnection")
+
+    request = _request()
+    request.messages.extend(
+        GatewayChatMessage(role="user", content=f"message-{index}") for index in range(64)
+    )
+    monkeypatch.setattr("aijian_api.gateway_transport.http.client.HTTPConnection", _Connection)
+    result = GatewayTextTransport(connect_timeout_seconds=0.05, read_timeout_seconds=0.05).dispatch(
+        request
+    )
+    assert result.kind == "NOT_DISPATCHED"
+    assert result.code == "REQUEST_INVALID"
+
+
+def test_mutated_utf8_request_over_512_kib_is_rejected_before_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Connection:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("oversized UTF-8 request must not construct HTTPConnection")
+
+    request = _request()
+    request.messages[:] = [
+        GatewayChatMessage(role="user", content="雨" * (256 * 1024)),
+        GatewayChatMessage(role="assistant", content="停" * (256 * 1024)),
+        GatewayChatMessage(role="user", content="之前" * (128 * 1024)),
+    ]
+    monkeypatch.setattr("aijian_api.gateway_transport.http.client.HTTPConnection", _Connection)
     result = GatewayTextTransport(connect_timeout_seconds=0.05, read_timeout_seconds=0.05).dispatch(
         request
     )
