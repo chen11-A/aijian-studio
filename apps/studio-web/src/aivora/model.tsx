@@ -75,7 +75,6 @@ export type Editor = {
 export type ProjectCreateUiState =
   | { kind: "idle" }
   | { kind: "SUBMITTING" }
-  | { kind: "FAILED"; message: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type Annotation = {
   id: number;
@@ -781,11 +780,6 @@ function useDemoModel(fixture?: DemoFixture) {
     episodeGate.invalidate();
     const outcome = await createWorkspaceProject(studio, input);
     createPending.current = false;
-    if (outcome.kind === "FAILED") {
-      setProjectCreateState(outcome);
-      notify(outcome.message);
-      return outcome;
-    }
     if (outcome.kind !== "SUCCEEDED") {
       setProjectCreateState(outcome);
       createUnknown.current = true;

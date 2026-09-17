@@ -226,7 +226,7 @@ export function EditorDialog() {
       <form
         method="dialog"
         onChange={() => setDiscardPrompt(false)}
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
           const error = editor.validate?.();
           if (error) {
@@ -251,9 +251,6 @@ export function EditorDialog() {
           <p role="status" aria-live="polite">
             正在创建项目，请等待结果后再试。
           </p>
-        )}
-        {projectCreateState.kind === "FAILED" && (
-          <p role="alert">{projectCreateState.message}</p>
         )}
         {projectCreateState.kind === "REMOTE_UNKNOWN" && (
           <p role="alert">
@@ -316,9 +313,7 @@ export function EditorDialog() {
             >
               {projectCreateState.kind === "SUBMITTING"
                 ? "正在创建"
-                : projectCreateState.kind === "FAILED"
-                  ? "重试创建"
-                  : editor.confirm ?? "确认"}
+                : editor.confirm ?? "确认"}
             </button>
           )}
         </footer>
