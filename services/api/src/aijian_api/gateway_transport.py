@@ -141,7 +141,8 @@ class GatewayTextTransport:
     def dispatch(self, request: GatewayTextRequest) -> GatewayTextResult:
         """Send one request.  A post-dispatch fault is deliberately never retried."""
         try:
-            body = self._serialize(request)
+            snapshot = self._validated_snapshot(request)
+            body = self._serialize(snapshot)
         except (TypeError, ValueError, UnicodeError):
             return GatewayNotDispatched(kind="NOT_DISPATCHED", code="REQUEST_INVALID")
 
@@ -198,6 +199,21 @@ class GatewayTextTransport:
             return self._parse_success(response_bytes, request.model, response.status)
         finally:
             connection.close()
+
+    @staticmethod
+    def _validated_snapshot(request: GatewayTextRequest) -> GatewayTextRequest:
+        if not isinstance(request, GatewayTextRequest) or not isinstance(request.messages, list):
+            raise ValueError("gateway request has an invalid message collection")
+        messages = tuple(request.messages)
+        if not 1 <= len(messages) <= 64 or any(
+            not isinstance(message, GatewayChatMessage) for message in messages
+        ):
+            raise ValueError("gateway request has invalid messages")
+        return GatewayTextRequest(
+            model=request.model,
+            messages=list(messages),
+            bearer_token=request.bearer_token,
+        )
 
     @staticmethod
     def _serialize(request: GatewayTextRequest) -> bytes:
