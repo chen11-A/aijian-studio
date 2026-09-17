@@ -188,3 +188,59 @@ def test_connection_before_dispatch_is_distinct(monkeypatch: pytest.MonkeyPatch)
     )
     assert result.kind == "NOT_DISPATCHED"
     assert result.code == "CONNECTION_FAILED"
+
+
+def test_total_deadline_is_enforced_before_response_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Response:
+        status = 200
+
+        def getheader(self, name: str) -> str | None:
+            return "application/json" if name == "Content-Type" else None
+
+        def read(self, _size: int) -> bytes:
+            raise AssertionError("response.read must not run after the total deadline")
+
+    class _Connection:
+        sock = None
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            return
+
+        def connect(self) -> None:
+            return
+
+        def putrequest(self, *_args: object, **_kwargs: object) -> None:
+            return
+
+        def putheader(self, *_args: object, **_kwargs: object) -> None:
+            return
+
+        def endheaders(self, _body: bytes) -> None:
+            return
+
+        def getresponse(self) -> _Response:
+            return _Response()
+
+        def close(self) -> None:
+            return
+
+    ticks = iter((100.0, 100.01, 100.20))
+    monkeypatch.setattr("aijian_api.gateway_transport.monotonic", lambda: next(ticks))
+    monkeypatch.setattr("aijian_api.gateway_transport.http.client.HTTPConnection", _Connection)
+    result = GatewayTextTransport(
+        connect_timeout_seconds=0.1,
+        read_timeout_seconds=0.1,
+        total_timeout_seconds=0.1,
+    ).dispatch(_request())
+    assert result.kind == "REMOTE_UNKNOWN"
+    assert result.code == "RESPONSE_TIMEOUT"
+
+
+def test_mutated_messages_do_not_escape_as_an_uncaught_dispatch_error() -> None:
+    request = _request()
+    request.messages.append({"role": "user", "content": "late mutation"})  # type: ignore[arg-type]
+    result = GatewayTextTransport(connect_timeout_seconds=0.05, read_timeout_seconds=0.05).dispatch(
+        request
+    )
+    assert result.kind == "NOT_DISPATCHED"
+    assert result.code == "REQUEST_INVALID"
