@@ -51,10 +51,10 @@ The approved project-role model policy for this stage is:
 | Role | Model | Reasoning |
 | --- | --- | --- |
 | Project controller | GPT-6 Astra | high |
-| Software development manager | GPT-5.6 Sol | high |
-| Test manager | GPT-5.6 Sol | high |
-| Production manager | GPT-5.6 Sol | medium |
-| Release manager | GPT-5.6 Luna | medium |
+| Software development manager | GPT-6 Astra | low |
+| Test manager | GPT-6 Astra | low |
+| Production manager | GPT-6 Astra | low |
+| Release manager | GPT-6 Astra | low |
 | Nine execution roles | GPT-5.6 Luna | medium |
 
 This staffing policy is separate from product text/image/video/TTS/lip-sync provider configuration. Providers require explicit capability, version, permission and cost records; staffing models do not establish production-media capability. No new provider, paid call, dependency or external media upload is authorized by this policy.
