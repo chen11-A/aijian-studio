@@ -46,7 +46,26 @@ Goals are finite handoff packages: developers deliver code; QA delivers results/
 
 Goal mode and recurring monitoring are not enabled by writing this charter. Periodic monitoring requires a configured scheduler and should notify only on meaningful changes or blockers. Pauses remain effective.
 
-All newly created project roles use GPT-5.6 Luna with medium reasoning, as requested. Existing controller settings are retained. Product text/image/video/TTS/lip-sync providers are separate configuration with explicit capability, version, permissions and cost records; staffing models do not establish production-media capability.
+The approved project-role model policy for this stage is:
+
+| Role | Model | Reasoning |
+| --- | --- | --- |
+| Project controller | GPT-6 Astra | high |
+| Software development manager | GPT-5.6 Sol | high |
+| Test manager | GPT-5.6 Sol | high |
+| Production manager | GPT-5.6 Sol | medium |
+| Release manager | GPT-5.6 Luna | medium |
+| Nine execution roles | GPT-5.6 Luna | medium |
+
+This staffing policy is separate from product text/image/video/TTS/lip-sync provider configuration. Providers require explicit capability, version, permission and cost records; staffing models do not establish production-media capability. No new provider, paid call, dependency or external media upload is authorized by this policy.
+
+## Approved stage goal: S1
+
+The approved S1 stage goal is to make project creation usable and obtain the first professional-user review. The software manager owns the real project-creation follow-up; the test manager owns independent cases, functional checks and close/reopen verification; the production manager owns four professional-user reviews on the same runnable candidate; and the release manager preserves and integrates the exact accepted version.
+
+Stage completion requires the same frozen version to have real create/reopen evidence, an independent technical conclusion, professional-user feedback, traceable version evidence and controller sign-off. Documents, chat counts or test counts cannot substitute for those gates. When S1 is complete, the stage stops; it does not automatically expand into full media generation or an entire-product release.
+
+Role goals remain finite handoff packages: developers deliver production code, QA delivers results and defects, production delivers the specified review, managers deliver signed package decisions, and the controller delivers the stage. A member without ready inputs or a named package does not receive an unlimited goal. A completed package pauses until a new assignment.
 
 ## Current delivery boundary
 
