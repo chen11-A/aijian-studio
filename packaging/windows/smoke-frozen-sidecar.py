@@ -19,6 +19,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@contextmanager
+def synthetic_packaged_workspace():
+    """Use the same constrained workspace location as the installed application."""
+    configured = os.environ.get("LOCALAPPDATA", "")
+    root = Path(configured)
+    if (
+        not configured
+        or configured != configured.strip()
+        or not root.is_absolute()
+        or not root.is_dir()
+        or root.resolve(strict=True) != root
+        or any(path.is_symlink() or path.is_junction() for path in (root, *root.parents))
+    ):
+        raise RuntimeError("Expected a plain absolute LOCALAPPDATA directory for synthetic smoke")
+    with tempfile.TemporaryDirectory(prefix="aivora-frozen-smoke-", dir=root) as temporary:
+        workspace = Path(temporary) / "workspace"
+        workspace.mkdir()
+        yield workspace
+
+
 def load_baseline():
     spec = importlib.util.spec_from_file_location(
         "baseline", ROOT / "scripts/e2e/runtime_baseline_smoke.py"
@@ -99,9 +119,12 @@ def main() -> None:
     if not (resources / "sidecar/aijian-sidecar.exe").is_file():
         parser.error("Expected resources/sidecar/aijian-sidecar.exe")
     baseline = load_baseline()
-    # Reuse the existing exact create/import/two-episode/close/reopen/readback test.
-    baseline.sidecar = lambda data_dir: frozen_sidecar(resources, data_dir, baseline)
-    baseline.main()
+    # Reuse the exact create/import/two-episode/close/reopen/readback assertions,
+    # but keep both process launches in one fresh packaged-safe workspace. The
+    # baseline's generic temp directory remains unused by the packaged process.
+    with synthetic_packaged_workspace() as workspace:
+        baseline.sidecar = lambda _data_dir: frozen_sidecar(resources, workspace, baseline)
+        baseline.main()
 
 
 if __name__ == "__main__":
