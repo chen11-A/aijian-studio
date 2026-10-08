@@ -5,7 +5,7 @@ import { draftExportProblem, isActiveDraftExport } from "./adapters/draftExport"
 import type { DraftExportGateway, DraftExportJob } from "./adapters/draftExport";
 import type { AssemblyVersion } from "./adapters/episodeMediaAssembly";
 import { useDraftExports } from "./useDraftExports";
-import { DEVELOPMENT_CORE_MEDIA_NOTICE, isDevelopmentCoreBuild } from "./buildProfile";
+import { useMediaToolchain } from "./useMediaToolchain";
 import "./draft-export.css";
 
 export type SavedCompositionPreviewProps = {
@@ -39,8 +39,8 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
     setOpen(false);
   }, [projectId, episodeId, savedVersion?.version_id, savedVersion?.content_hash]);
   const ready = !!exports?.createPreview && !!exports.preview;
-  const developmentCore = isDevelopmentCoreBuild();
-  const canEncode = ready && !developmentCore;
+  const media = useMediaToolchain();
+  const canEncode = ready && media.canPreview;
   const problem = draftExportProblem(savedVersion);
   const matches = (job: DraftExportJob) =>
     job.assembly_version_id === savedVersion?.version_id &&
@@ -59,9 +59,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
         <p role="status">
           {selected
             ? statuses[selected.status]
-            : developmentCore
-              ? DEVELOPMENT_CORE_MEDIA_NOTICE
-              : "保存剪辑后，可在本机生成带声音的连续预览。"}
+            : media.message}
           {props.dirty ? " · 有未保存修改，预览不包含这些修改" : ""}
           {state.pending !== null ? " · 正在核对先前预览任务" : ""}
         </p>
@@ -69,10 +67,9 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
       {open && (
         <>
           <p>
-            {developmentCore
-              ? DEVELOPMENT_CORE_MEDIA_NOTICE
-              : "按已保存版本生成真实 DRAFT MP4，连续播放画面剪辑和已支持的声音、字幕。使用与草稿导出相同的本地编码和文件校验。"}
+            按已保存版本生成真实 DRAFT MP4，连续播放画面剪辑和已支持的声音、字幕。使用与草稿导出相同的本地编码和文件校验。
           </p>
+          <p role="status">{media.message}</p>
           <p role={props.dirty ? "status" : undefined}>
             {props.dirty
               ? "有未保存修改：此预览只使用上次保存版本，不含当前未保存的编辑。请先保存以预览新修改。"

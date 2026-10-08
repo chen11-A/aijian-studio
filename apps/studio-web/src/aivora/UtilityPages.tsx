@@ -3,6 +3,7 @@ import { useDemo } from "./model";
 import { Button, FlowFooter } from "./Common";
 import { Icon } from "./Icon";
 import { SettingsPage } from "./SettingsPage";
+import { MediaToolchainSettings } from "./MediaToolchainSettings";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
 import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
 import { ChatGPTConnectionCard } from "./chatgpt-auth/ChatGPTConnectionCard";
@@ -19,7 +20,26 @@ export function UtilityPages() {
   if (d.page === "services") return <Services />;
   if (d.page === "costs") return <Costs />;
   if (d.page === "voice") return <Voice />;
+  if (!d.isFixture && d.page === "settings") return <MediaEnabledSettings />;
   return <SettingsPage />;
+}
+function MediaEnabledSettings() {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (open && !dialog.current?.open) dialog.current?.showModal();
+    else if (!open && dialog.current?.open) dialog.current.close();
+  }, [open]);
+  return <>
+    <div className="assembly-actions">
+      <Button onClick={() => setOpen(true)}>本地媒体工具 · DRAFT</Button>
+    </div>
+    <SettingsPage />
+    <dialog ref={dialog} className="demo-dialog" aria-label="本地媒体工具" onClose={() => setOpen(false)}>
+      {open && <MediaToolchainSettings />}
+      <Button onClick={() => setOpen(false)}>关闭媒体工具设置</Button>
+    </dialog>
+  </>;
 }
 function Heading({ title, management = false }: { title: string; management?: boolean }) {
   const d = useDemo();

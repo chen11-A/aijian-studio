@@ -132,7 +132,13 @@ from aijian_api.media_asset_probe_routes import create_media_asset_probe_router
 from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
 from aijian_api.media_asset_routes import create_media_asset_router
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
-from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
+from aijian_api.media_toolchain import (
+    MediaToolchain,
+    discover_media_toolchain,
+    load_media_toolchain_lock,
+)
+from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
+from aijian_api.local_media_toolchain_routes import create_local_media_toolchain_router
 from aijian_api.product_export_operation_routes import create_product_export_operation_router
 from aijian_api.product_export_runtime import ProductExportRuntime
 from aijian_api.draft_export_runtime import DraftExportRuntime
@@ -304,6 +310,7 @@ def create_app(
     development_timeline_export_service: DevelopmentTimelineExportService | None = None,
     product_export_runtime: ProductExportRuntime | None = None,
     draft_export_runtime: DraftExportRuntime | None = None,
+    local_media_toolchain: LocalMediaToolchainService | None = None,
     sub2api_runtime_availability: Callable[[], str] | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
@@ -330,6 +337,10 @@ def create_app(
     resolved_proposal_schema_registry = built_in_proposal_schema_registry()
     resolved_fake_timeline_run_factory = fake_timeline_run_factory
     resolved_development_timeline_export_service = development_timeline_export_service
+    resolved_local_media_toolchain = local_media_toolchain or (
+        LocalMediaToolchainService(machine_settings_path())
+        if sidecar_security is not None else None
+    )
 
     def get_repository() -> StudioRepository:
         with repository_lock:
@@ -406,7 +417,9 @@ def create_app(
             get_repository(), media_toolchain_lock_path()
         )
 
-    def get_media_probe_toolchain():
+    def get_media_probe_toolchain() -> MediaToolchain:
+        if resolved_local_media_toolchain is not None:
+            return resolved_local_media_toolchain.discover()
         lock = load_media_toolchain_lock(media_toolchain_lock_path())
         return discover_media_toolchain(lock, explicit_root=media_tool_root())
 
@@ -1185,6 +1198,8 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
+        assert resolved_local_media_toolchain is not None
+        app.include_router(create_local_media_toolchain_router(resolved_local_media_toolchain))
         app.include_router(create_official_text_write_router(get_repository, trusted_review_actor))
         app.include_router(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))

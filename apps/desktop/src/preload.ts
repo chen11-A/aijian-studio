@@ -1,3 +1,5 @@
+import type { MediaToolchainResult, MediaToolchainSelectionResult, MediaToolchainCancelResult } from "./media-toolchain-contract";
+import type { MediaAssetProbeReadResult, MediaAssetProbeWriteResult } from "./media-asset-probe-contract";
 import type { CreateDraftReviewNoteRequest, ResolveDraftReviewNoteRequest, DraftReviewResult } from "./draft-review-contract";
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
@@ -161,6 +163,22 @@ contextBridge.exposeInMainWorld("aijianOfficialText", {
 } satisfies OfficialTextBridge);
 
 contextBridge.exposeInMainWorld("aijian", {
+  getMediaAssetProbeEvidence: (
+    projectId: string, assetId: string, versionId: string,
+  ): Promise<MediaAssetProbeReadResult> =>
+    ipcRenderer.invoke("media-asset-probe:get", projectId, assetId, versionId) as Promise<MediaAssetProbeReadResult>,
+  probeSelectedMediaAssetVersion: (
+    projectId: string, assetId: string, versionId: string,
+  ): Promise<MediaAssetProbeWriteResult> =>
+    ipcRenderer.invoke("media-asset-probe:probe-selected", projectId, assetId, versionId) as Promise<MediaAssetProbeWriteResult>,
+  getMediaToolchainStatus: (): Promise<MediaToolchainResult> =>
+    ipcRenderer.invoke("media-toolchain:status") as Promise<MediaToolchainResult>,
+  selectMediaToolchain: (): Promise<MediaToolchainSelectionResult> =>
+    ipcRenderer.invoke("media-toolchain:select") as Promise<MediaToolchainSelectionResult>,
+  clearMediaToolchain: (): Promise<MediaToolchainResult> =>
+    ipcRenderer.invoke("media-toolchain:clear") as Promise<MediaToolchainResult>,
+  cancelMediaToolchainSelection: (): Promise<MediaToolchainCancelResult> =>
+    ipcRenderer.invoke("media-toolchain:cancel-selection") as Promise<MediaToolchainCancelResult>,
   getAppPreferences: (): Promise<AppPreferencesReadResult> =>
     ipcRenderer.invoke("app-preferences:get") as Promise<AppPreferencesReadResult>,
   saveAppPreferences: (command: SaveAppPreferencesCommand): Promise<AppPreferencesSaveResult> =>

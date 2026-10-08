@@ -2,7 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SavedCompositionPreview } from "./SavedCompositionPreview";
-import * as buildProfile from "./buildProfile";
+import type { AijianDesktopBridge } from "../api/studio";
+import type { MediaToolchainStatus } from "./mediaToolchainContract";
 import type {
   DraftExportCommand,
   DraftExportGateway,
@@ -10,6 +11,18 @@ import type {
   DraftExportPreviewResult,
 } from "./adapters/draftExport";
 import { staticAnimaticContent, type AssemblyVersion } from "./adapters/episodeMediaAssembly";
+const mediaStatus: MediaToolchainStatus = {
+  schema_version: 1, state: "AVAILABLE", source: "EXTERNAL",
+  profile_id: "windows-x86_64-gyan-full-8.1.2-dev", version: "8.1.2", directory: "C:\\Tools\\bin",
+  diagnostic: "Verified", can_probe: true, can_preview: true, can_draft_export: true,
+  formal_release_approved: false,
+};
+function setMediaStatus(status: MediaToolchainStatus) {
+  window.aijian = {
+    getMediaToolchainStatus: vi.fn().mockResolvedValue({ kind: "STATUS", status }),
+    selectMediaToolchain: vi.fn(), clearMediaToolchain: vi.fn(),
+  } as unknown as AijianDesktopBridge;
+}
 const projectId = `prj_${"1".repeat(32)}`;
 const episodeId = `ep_${"2".repeat(32)}`;
 const media = {
@@ -140,6 +153,7 @@ async function loaded() {
 }
 beforeEach(() => {
   localStorage.clear();
+  setMediaStatus(mediaStatus);
   vi.stubGlobal(
     "URL",
     class extends URL {
@@ -150,13 +164,15 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  delete window.aijian;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("saved composition playback", () => {
-  it("keeps verified output playback available but blocks new DEVELOPMENT_CORE encoding", async () => {
-    vi.spyOn(buildProfile, "isDevelopmentCoreBuild").mockReturnValue(true);
+  it("keeps verified output playback available but blocks new encoding without runtime capability", async () => {
+    setMediaStatus({ ...mediaStatus, state: "NOT_CONFIGURED", source: "NONE", directory: null,
+      profile_id: null, version: null, can_probe: false, can_preview: false, can_draft_export: false });
     const state = setup([succeeded()]);
     render(
       <SavedCompositionPreview
@@ -170,7 +186,7 @@ describe("saved composition playback", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "展开连续预览" }));
     await screen.findByText("已保存版本的连续预览可播放 · DRAFT");
-    expect(screen.getByText(/DEVELOPMENT_CORE 开发核心版未附带/)).toBeInTheDocument();
+    expect(screen.getByText(/尚未配置媒体工具/)).toBeInTheDocument();
     const generate = screen.getByRole("button", { name: "重新生成已保存版本预览" });
     expect(generate).toBeDisabled();
     expect(screen.getByRole("checkbox")).toBeDisabled();

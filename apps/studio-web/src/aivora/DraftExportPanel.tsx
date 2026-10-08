@@ -8,7 +8,7 @@ import {
   type DraftExportJob,
 } from "./adapters/draftExport";
 import { useDraftExports, type DraftExportProps } from "./useDraftExports";
-import { DEVELOPMENT_CORE_MEDIA_NOTICE, isDevelopmentCoreBuild } from "./buildProfile";
+import { useMediaToolchain } from "./useMediaToolchain";
 import "./episode-assembly.css";
 import "./draft-export.css";
 
@@ -27,19 +27,18 @@ export function DraftExportPanel(props: DraftExportProps) {
   useEffect(() => setRights(false), [props.projectId, props.episodeId, state.version?.version_id]);
   const problem = draftExportProblem(state.version);
   const nativeReady = !!props.exports && !!props.assembly;
-  const developmentCore = isDevelopmentCoreBuild();
-  const canEncode = nativeReady && !developmentCore;
+  const media = useMediaToolchain();
+  const canEncode = nativeReady && media.canDraftExport;
   return (
     <section className="v2-media-card episode-assembly draft-export" aria-label="草稿 MP4 导出">
       <header>
         <span className="draft-export-badge">DRAFT · 本地草稿</span>
         <h2>导出草稿 MP4</h2>
         <p>
-          {developmentCore
-            ? DEVELOPMENT_CORE_MEDIA_NOTICE
-            : "把本集已保存的真实媒体剪辑编码为本地 MP4。适合预览与内部核对，不能替代版权审核或正式发布批准。"}
+          把本集已保存的真实媒体剪辑编码为本地 MP4。适合预览与内部核对，不能替代版权审核或正式发布批准。
         </p>
       </header>
+      <p role="status">{media.message}</p>
       {!nativeReady && (
         <p role="alert">
           此功能需要桌面软件的原生保存窗口和本地编码服务；当前浏览器无法导出草稿 MP4。
@@ -65,7 +64,7 @@ export function DraftExportPanel(props: DraftExportProps) {
             <summary>查看内容校验值</summary>
             <p>{state.version.content_hash}</p>
           </details>
-          {!developmentCore && (
+          {media.canDraftExport && (
             <p>本机 FFmpeg 编码 · 无云端上传 · 文件名默认含 DRAFT · 不覆盖已存在的文件</p>
           )}
           {state.version.media_checks.some(

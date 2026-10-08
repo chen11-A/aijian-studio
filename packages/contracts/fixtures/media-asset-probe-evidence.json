@@ -1,0 +1,66 @@
+{
+  "data": {
+    "id": "mpe_44444444444444444444444444444444",
+    "project_id": "prj_11111111111111111111111111111111",
+    "asset_id": "asset_22222222222222222222222222222222",
+    "version_id": "asv_33333333333333333333333333333333",
+    "asset_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "byte_size": 128,
+    "probe_sha256": "9320d0f1746c8596a15ca8f80cf8155ba94c1666cc3f70fc222fa4d397a104cc",
+    "toolchain_profile_id": "windows-x86_64-gyan-full-8.1.2-dev",
+    "toolchain_version": "8.1.2",
+    "ffmpeg_sha256": "ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e",
+    "ffprobe_sha256": "9df3b0b5275e830961df6d94e1f7a71121a7abd5ff708e9fec8a0b6084a55015",
+    "created_at": "2026-10-08T12:00:00Z",
+    "probe": {
+      "source_asset_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "byte_size": 128,
+      "format_names": [
+        "mov",
+        "mp4"
+      ],
+      "container_duration": {
+        "num": 1,
+        "den": 12
+      },
+      "video": {
+        "stream_index": 0,
+        "codec_name": "h264",
+        "width": 1280,
+        "height": 720,
+        "pixel_format": "yuv420p",
+        "average_frame_rate": {
+          "num": 24,
+          "den": 1
+        },
+        "time_base": {
+          "num": 1,
+          "den": 24
+        },
+        "frames": [
+          {
+            "pts": {
+              "ticks": 0,
+              "time_base": {
+                "num": 1,
+                "den": 24
+              }
+            }
+          },
+          {
+            "pts": {
+              "ticks": 1,
+              "time_base": {
+                "num": 1,
+                "den": 24
+              }
+            }
+          }
+        ],
+        "is_variable_frame_rate": false
+      },
+      "audio": null
+    }
+  },
+  "request_id": "11111111-2222-4333-8444-555555555555"
+}

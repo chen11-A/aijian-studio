@@ -19,7 +19,9 @@ jobs:
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      # Enable only after zero-extra-cost artifact storage has been verified.
+      # Keep disabled pending the user-approved one-shot delivery.
+      # Run 0 is intentionally impossible. A later approval must bind a NEW exact run.
+      # No artifact upload is authorized for this external-media validation run.
       AIVORA_ARTIFACT_UPLOAD_ALLOWED: "false"
     steps:
       - uses: actions/checkout@v7.0.1
@@ -49,10 +51,12 @@ jobs:
         run: |
           node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs -r --if-present typecheck
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test scripts/build-runtime.test.mjs
+          node --test scripts/build-runtime.test.mjs scripts/e2e/windows-external-media-smoke.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:AIVORA_NSIS_TEST_ROOT = "$env:RUNNER_TEMP\aivora-tools\nsis"
           python -m unittest discover -s packaging/windows -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s scripts/e2e -p 'test_*external_media*.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze and exercise actual Windows sidecar without media tools
         id: frozen_sidecar
@@ -78,17 +82,26 @@ jobs:
         run: |
           python packaging/windows/package-dev-core.py --tools "$env:RUNNER_TEMP\aivora-tools" --frozen "$env:RUNNER_TEMP\aivora-frozen" --out "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Install, native save/reopen, safe abort and uninstall preservation
+      - name: Prepare exact external media tools for isolated synthetic acceptance
+        # Test-only external pair: never copied into the installer or delivery.
         shell: pwsh
         run: |
-          python packaging/windows/test-installed-dev-core.py --stage "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence" --delivery "$env:RUNNER_TEMP\aivora-delivery"
+          python scripts/e2e/prepare-windows-external-media.py --cache "$env:RUNNER_TEMP\aivora-tool-cache" --tools "$env:RUNNER_TEMP\aivora-tools" --output "$env:RUNNER_TEMP\aivora-external-media-tools" --report "$env:RUNNER_TEMP\aivora-external-media-tools.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install, native media/save/reopen, safe abort and uninstall preservation
+        shell: pwsh
+        run: |
+          python packaging/windows/test-installed-dev-core.py --stage "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence" --delivery "$env:RUNNER_TEMP\aivora-delivery" --external-media-tools-report "$env:RUNNER_TEMP\aivora-external-media-tools.json" --external-media-python "$env:RUNNER_TEMP\aivora-frozen\build-env\Scripts\python.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Reverify exact native inputs and shipped license material before upload
         # A development label is not a substitute for native dependency notices.
         # Missing material review must fail before any installer bytes are uploaded.
         run: python packaging/windows/verify-dev-core-distribution.py --stage "${{ runner.temp }}\aivora-stage" --review "${{ runner.temp }}\aivora-evidence\DEV-NATIVE-MATERIALS.json" --frozen-receipt "${{ runner.temp }}\aivora-frozen\FROZEN-SIDECAR.json" --cache "${{ runner.temp }}\aivora-tool-cache" --installer-receipt "${{ runner.temp }}\aivora-evidence\NSIS-CORE-BUILD.json"
-      - name: Upload tested installer after distribution material gate
-        if: env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true'
+      - name: Verify one-shot artifact scope and bounded tested bytes
+        if: env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true' && github.run_number == 0 && github.run_attempt == 1
+        run: python packaging/windows/verify-one-shot-upload.py --run-number 0 --directory "${{ runner.temp }}\aivora-delivery"
+      - name: Upload one tested installer bundle for one day
+        if: env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true' && github.run_number == 0 && github.run_attempt == 1
         uses: actions/upload-artifact@v7
         with:
           name: AIVORA-Dev-Core-Windows-${{ github.sha }}
@@ -100,19 +113,11 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          foreach ($name in @('INSTALL-RESULT.json', 'FROZEN-NATIVE-INVENTORY.json', 'NSIS-CORE-BUILD.json')) {
+          foreach ($name in @('INSTALL-RESULT.json', 'INSTALLED-NATIVE-SMOKE.json', 'INSTALLED-EXTERNAL-MEDIA-SMOKE.json', 'FROZEN-NATIVE-INVENTORY.json', 'NSIS-CORE-BUILD.json')) {
             $path = Join-Path "$env:RUNNER_TEMP\aivora-evidence" $name
             if ((Test-Path $path) -and (Get-Item $path).Length -le 131072) {
               Write-Output "AIVORA EVIDENCE: $name"
               Get-Content -Raw $path
             }
           }
-          Write-Output 'Artifact upload remains disabled until zero-extra-cost storage is verified.'
-      - name: Retain bounded non-binary diagnostic evidence
-        if: always() && env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: AIVORA-Dev-Core-Evidence-${{ github.sha }}
-          path: ${{ runner.temp }}/aivora-evidence/*.json
-          if-no-files-found: ignore
-          retention-days: 1
+          Write-Output 'Artifact upload is gated to one selected, separately approved workflow attempt.'

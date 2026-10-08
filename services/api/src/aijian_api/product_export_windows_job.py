@@ -8,22 +8,27 @@ product export encoder or the engineering MLT worker.
 from __future__ import annotations
 
 import ctypes
-from ctypes import wintypes
 import math
 import os
-from pathlib import Path
 import subprocess
 import threading
 import time
 from collections.abc import Mapping, Sequence
+from ctypes import wintypes
+from pathlib import Path
 from typing import BinaryIO
-
 
 _KILL_ON_JOB_CLOSE = 0x00002000
 _JOB_EXTENDED_LIMIT_INFORMATION = 9
 _JOB_BASIC_ACCOUNTING_INFORMATION = 1
 _HANDLE_LIST = 0x00020002
 _JOB_LIST = 0x0002000D
+_MITIGATION_POLICY = 0x00020007
+# Microsoft-signed DLLs, no remote/low-label images, prefer System32.
+# Official constants and per-child startup semantics:
+# https://learn.microsoft.com/windows/win32/api/processthreadsapi/
+# nf-processthreadsapi-updateprocthreadattribute
+_EXTERNAL_MEDIA_MITIGATION = (1 << 44) | (1 << 52) | (1 << 56) | (1 << 60)
 _STARTF_USESTDHANDLES = 0x00000100
 _CREATE_SUSPENDED = 0x00000004
 _CREATE_UNICODE_ENVIRONMENT = 0x00000400
@@ -267,13 +272,18 @@ class ProductExportJobManager:
 
     def spawn(
         self, executable: Path, arguments: Sequence[str], *,
-        cwd: Path, env: Mapping[str, str],
+        cwd: Path, env: Mapping[str, str], hardened_external_media: bool = False,
     ) -> ProductExportJobProcess:
         with self._lock:
             if self._closing:
                 raise ProductExportJobError("Export job manager is shutting down")
             try:
-                process = spawn_product_export_job(executable, arguments, cwd=cwd, env=env)
+                if hardened_external_media:
+                    process = spawn_product_export_job(
+                        executable, arguments, cwd=cwd, env=env, hardened_external_media=True,
+                    )
+                else:
+                    process = spawn_product_export_job(executable, arguments, cwd=cwd, env=env)
             except BaseException:
                 # A failure after CreateProcess may have required forced
                 # teardown; no startup recovery may assume it was harmless.
@@ -332,6 +342,7 @@ def spawn_product_export_job(
     *,
     cwd: Path,
     env: Mapping[str, str],
+    hardened_external_media: bool = False,
 ) -> ProductExportJobProcess:
     """Start suspended, already in a kill-on-close job, then resume.
 
@@ -382,12 +393,13 @@ def spawn_product_export_job(
         for handle in inherited:
             os.set_handle_inheritable(handle, True)
         size = ctypes.c_size_t()
-        api.InitializeProcThreadAttributeList(None, 2, 0, ctypes.byref(size))
+        attribute_count = 3 if hardened_external_media else 2
+        api.InitializeProcThreadAttributeList(None, attribute_count, 0, ctypes.byref(size))
         if not size.value:
             raise _winerror("Cannot size export process attributes")
         attribute_list = ctypes.create_string_buffer(size.value)
         if not api.InitializeProcThreadAttributeList(
-            attribute_list, 2, 0, ctypes.byref(size),
+            attribute_list, attribute_count, 0, ctypes.byref(size),
         ):
             raise _winerror("Cannot initialize export process attributes")
         attributes_ready = True
@@ -402,6 +414,12 @@ def spawn_product_export_job(
             attribute_list, 0, _JOB_LIST, jobs, ctypes.sizeof(jobs), None, None,
         ):
             raise _winerror("Cannot bind export job at process creation")
+        mitigation = ctypes.c_uint64(_EXTERNAL_MEDIA_MITIGATION)
+        if hardened_external_media and not api.UpdateProcThreadAttribute(
+            attribute_list, 0, _MITIGATION_POLICY, ctypes.byref(mitigation),
+            ctypes.sizeof(mitigation), None, None,
+        ):
+            raise _winerror("Cannot restrict external media image loading")
         startup = _StartupInfoEx()
         startup.StartupInfo.cb = ctypes.sizeof(startup)
         startup.StartupInfo.dwFlags = _STARTF_USESTDHANDLES
@@ -412,7 +430,8 @@ def spawn_product_export_job(
         command = subprocess.list2cmdline([str(executable), *arguments])
         command_buffer = ctypes.create_unicode_buffer(command)
         environment = "\0".join(
-            f"{key}={value}" for key, value in sorted(env.items(), key=lambda item: item[0].casefold())
+            f"{key}={value}"
+            for key, value in sorted(env.items(), key=lambda item: item[0].casefold())
         ) + "\0\0"
         environment_buffer = ctypes.create_unicode_buffer(environment)
         if not api.CreateProcessW(

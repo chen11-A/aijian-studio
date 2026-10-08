@@ -1,3 +1,4 @@
+import { registerMediaToolchainHandlers } from "./media-toolchain-ipc";
 import { registerOfficialTextHandlers } from "./official-text-ipc";
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
@@ -26,6 +27,7 @@ import {
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerAppPreferencesHandlers } from "./app-preferences-ipc";
 import { registerMediaAssetHandlers } from "./media-asset-ipc";
+import { registerMediaAssetProbeHandlers } from "./media-asset-probe-ipc";
 import { registerEpisodeScriptHandlers } from "./episode-script-ipc";
 import { registerProjectCreativeLibraryHandlers } from "./project-creative-library-ipc";
 import { registerEpisodeStoryboardHandlers } from "./episode-storyboard-ipc";
@@ -275,10 +277,27 @@ const episodeClientFor = createTopLevelEpisodeClientFor(
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
 
+registerMediaToolchainHandlers(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  {
+    getMainWindow: () => mainWindow,
+    getClient: () => apiClient,
+    showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
+  },
+);
+
 registerAppPreferencesHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerMediaAssetProbeHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.senderFrame === mainWindow.webContents.mainFrame &&
+    event.senderFrame !== null && !event.senderFrame.isDestroyed() && !event.senderFrame.detached,
 );
 registerMediaAssetHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),

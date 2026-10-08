@@ -1,3 +1,5 @@
+import { createMediaToolchainClient, type MediaToolchainClient } from "./media-toolchain-client";
+import { createMediaAssetProbeClient, type MediaAssetProbeClient } from "./media-asset-probe-client";
 import { createOfficialTextClient, type OfficialTextPersistenceClient } from "./official-text-client";
 import { createDraftReviewClient } from "./draft-review-client";
 import type { DraftReviewGateway } from "./draft-review-contract";
@@ -481,7 +483,7 @@ export interface SourceManifestReviewClient {
   ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
 }
 
-export interface LocalApiClient extends OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway {
+export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainClient, OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
@@ -2423,7 +2425,7 @@ export function createLocalApiClient(
   }
 
   async function requestSub2APIMutationHttp(
-    path: string, init: RequestInit,
+    path: string, init: RequestInit, timeoutMs = 15_000,
   ): Promise<{ status: number; payload: unknown; requestId: string | null } | null> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2431,7 +2433,7 @@ export function createLocalApiClient(
       timer = setTimeout(() => {
         controller.abort();
         reject(new Error("Sub2API mutation deadline"));
-      }, 15_000);
+      }, timeoutMs);
     });
     const wait = <T>(pending: Promise<T>): Promise<T> => Promise.race([pending, deadline]);
     try {
@@ -3099,6 +3101,12 @@ export function createLocalApiClient(
     ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
     ...createDraftExportClient(requestSub2APIMutationHttp, headers),
     ...createDraftReviewClient(requestSub2APIMutationHttp, headers),
+    ...createMediaToolchainClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 90_000), headers,
+    ),
+    ...createMediaAssetProbeClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 5 * 60_000), headers,
+    ),
     prepareSourceManifestSubmit: (input) => prepareSourceReview(input, "submit"),
     submitSourceManifestReview: (input, prepared) =>
       consumeSourceReview(input, prepared, "submit", isSourceSubmissionReceipt),

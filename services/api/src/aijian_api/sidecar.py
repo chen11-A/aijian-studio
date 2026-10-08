@@ -20,10 +20,10 @@ import uvicorn
 
 from aijian_api.credential_vault import CredentialVault, SystemCredentialVault
 from aijian_api.draft_export_runtime import DraftExportRuntime
-from aijian_api.draft_export_toolchain import discover_draft_toolchain
 from aijian_api.fake_media_package import FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.gateway_transport import GatewayTextTransport
+from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
 from aijian_api.main import create_app, default_database_path
 from aijian_api.media_toolchain import (
     MediaToolchain,
@@ -464,8 +464,9 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         )
         repository = StudioRepository(database_path)
         product_export_jobs = ProductExportJobManager()
+        local_media_toolchain = LocalMediaToolchainService(machine_settings_path())
         draft_export_runtime = DraftExportRuntime(
-            repository, discover_draft_toolchain,
+            repository, local_media_toolchain.discover,
             product_export_jobs if os.name == "nt" else None,
         )
         product_export_runtime = ProductExportRuntime(
@@ -498,6 +499,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
                 fake_timeline_run_factory=timeline_factory,
                 product_export_runtime=product_export_runtime,
                 draft_export_runtime=draft_export_runtime,
+                local_media_toolchain=local_media_toolchain,
                 sub2api_runtime_availability=sub2api_worker.availability,
             ),
             host=SIDECAR_HOST,

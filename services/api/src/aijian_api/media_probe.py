@@ -447,6 +447,12 @@ def _run_probe(
         "json",
     )
     try:
+        if toolchain.external_selected:
+            # Native-selected tools keep both exact executable identities locked
+            # through every launch; no generic subprocess/PATH fallback is allowed.
+            from aijian_api.external_media_process import run_external_command
+
+            command_runner = run_external_command
         output = command_runner(
             toolchain.ffprobe_path,
             (*common, *arguments, str(source)),

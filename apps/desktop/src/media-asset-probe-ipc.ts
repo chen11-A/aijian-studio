@@ -7,7 +7,7 @@ import {
   type MediaAssetProbeWriteResult,
 } from "./media-asset-probe-contract";
 
-type MediaAssetProbeClient = {
+export type MediaAssetProbeClient = {
   getMediaAssetProbeEvidence(
     projectId: string, assetId: string, versionId: string,
   ): Promise<MediaAssetProbeReadResult>;
@@ -23,6 +23,7 @@ export function registerMediaAssetProbeHandlers<TEvent>(
   clientFor: (event: TEvent) => MediaAssetProbeClient,
   isTopLevelFrame: (event: TEvent) => boolean,
 ): void {
+  const active = new Set<string>();
   const authorized = (event: TEvent): MediaAssetProbeClient => {
     const client = clientFor(event);
     if (!isTopLevelFrame(event)) {
@@ -37,13 +38,24 @@ export function registerMediaAssetProbeHandlers<TEvent>(
     if (args.length !== 3 || !scope(args)) {
       throw new Error("Media asset probe read IPC requires canonical ids");
     }
-    return client.getMediaAssetProbeEvidence(args[0], args[1], args[2]);
+    const result = await client.getMediaAssetProbeEvidence(args[0], args[1], args[2]);
+    if (authorized(event) !== client) throw new Error("Media probe client changed during readback");
+    return result;
   });
   handle(MEDIA_ASSET_PROBE_CHANNELS.probe, async (event, ...args) => {
     const client = authorized(event);
     if (args.length !== 3 || !scope(args)) {
       throw new Error("Media asset probe write IPC requires canonical ids");
     }
-    return client.probeSelectedMediaAssetVersion(args[0], args[1], args[2]);
+    const key = args.join(":");
+    if (active.has(key)) return { kind: "PROBE_UNKNOWN" };
+    active.add(key);
+    try {
+      const result = await client.probeSelectedMediaAssetVersion(args[0], args[1], args[2]);
+      if (authorized(event) !== client) throw new Error("Media probe client changed during operation");
+      return result;
+    } finally {
+      active.delete(key);
+    }
   });
 }

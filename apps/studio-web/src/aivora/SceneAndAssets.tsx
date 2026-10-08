@@ -8,7 +8,8 @@ import type { AssetLibraryListState, MediaAsset } from "./adapters/assetLibrary"
 import { art } from "./data";
 import { useDemo } from "./model";
 import { ManualCreativePage } from "./ManualCreativeEditor";
-import { isDevelopmentCoreBuild } from "./buildProfile";
+import { useMediaToolchain } from "./useMediaToolchain";
+import { MediaAssetProbe } from "./MediaAssetProbe";
 import { useCurrentObject } from "./useCurrentObject";
 import { Button, FlowFooter, PageTitle } from "./Common";
 import { Dropdown } from "./Dropdown";
@@ -474,7 +475,7 @@ function assetDescription(asset: MediaAsset): string {
     "SHA-256：" + version.sha256,
     "文件状态：" + availability,
     "权利状态：" + (version.rights_status === "PENDING_REVIEW" ? "待审核" : version.rights_status),
-    "来源：本地导入；视频和音频仅存储字节，尚未完成媒体探测。",
+    "来源：本地导入；技术状态以已保存的探测记录为准，不代表正式制作验收。",
     "历史版本：" + asset.versions.map((item) => item.ordinal + " / " + item.id +
       " / " + item.availability).join("；"),
     "剧集引用：" + (asset.episode_references.length
@@ -506,6 +507,8 @@ function assetWriteUnknown(projectId: string): boolean {
 function RealAssetsPage({ projectId }: { projectId: string }) {
   const d = useDemo();
   const gateway = useMemo(() => createStudioTransport().assetLibrary, []);
+  const probeGateway = useMemo(() => createStudioTransport().mediaAssetProbe, []);
+  const mediaTools = useMediaToolchain();
   const epoch = useRef(0);
   const activeProject = useRef(projectId);
   activeProject.current = projectId;
@@ -642,7 +645,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         const copy = new ArrayBuffer(result.bytes.byteLength);
         new Uint8Array(copy).set(result.bytes);
         const url = URL.createObjectURL(new Blob([copy], { type: result.mime_type }));
-        setMediaNotice("已读回并核对原始字节；媒体探测与正式制作验收尚未完成。");
+        setMediaNotice("已读回并核对原始字节；探测状态请查看此版本的探测记录，原件播放不代表正式制作验收。");
         setMediaPreview({ url, filename: version.filename, kind: version.kind });
       } catch {
         setNotice("原件字节已读回，但本地播放器无法创建预览。");
@@ -765,10 +768,12 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         <Button disabled={!gateway || busy || writeUnknown}
           onClick={() => void importAsset()}>导入素材</Button>
       </div>
-      {isDevelopmentCoreBuild() && <p role="status">
-        开发核心版可保存素材原件，并尝试使用系统解码器播放。此安装包未附带媒体探测与编码工具；
-        导入音视频不会自动成为已探测的剪辑输入，也不能生成连续预览或 MP4。
-      </p>}
+      <p role="status">{mediaTools.message} {mediaTools.canProbe
+        ? "视频探测以选中版本的探测记录为准；导入原件记录本身不是探测证据。"
+        : "仍可导入原件并尝试使用系统解码器播放；原件导入不代表已完成媒体探测。"}</p>
+      {selected?.latest_version.kind === "video" && <MediaAssetProbe
+        projectId={projectId} asset={selected} gateway={probeGateway}
+        canProbe={mediaTools.canProbe} disabled={busy || writeUnknown} />}
       <div className="v2-assets-grid">
         {state.kind !== "READY" ? <div className="v2-visual-empty" role="status">
           <h2>{state.kind === "LOADING" ? "正在读取项目素材" :
@@ -791,6 +796,8 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
                 asset.latest_version.availability === "PRESENT_UNVERIFIED" ? "待校验" :
                   "不可用"}</span>
           </button>
+          <Button aria-pressed={selected?.id === asset.id}
+            onClick={() => setSelectedId(asset.id)}>选择 {asset.latest_version.filename}</Button>
           <button className="v2-assets-card-info"
             aria-label={asset.latest_version.filename + "详情与引用"}
             onClick={() => { setSelectedId(asset.id); details(asset); }}>

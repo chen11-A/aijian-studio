@@ -1,3 +1,6 @@
+import { desktopMediaAssetProbe, type MediaAssetProbeGateway } from "../aivora/adapters/mediaAssetProbe";
+import type { MediaToolchainGateway } from "../aivora/mediaToolchainContract";
+import { desktopMediaToolchain } from "../aivora/adapters/mediaToolchain";
 import type { DraftReviewGateway } from "../aivora/adapters/draftReview";
 import type { DraftExportGateway } from "../aivora/adapters/draftExport";
 import { desktopDraftExports } from "./draftExports";
@@ -571,6 +574,8 @@ export interface EpisodeCapability {
 }
 
 export interface StudioTransport {
+  mediaAssetProbe?: MediaAssetProbeGateway;
+  mediaToolchain?: MediaToolchainGateway;
   getAppPreferences?: AppPreferencesGateway["getAppPreferences"];
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
   assetLibrary?: AssetLibraryGateway;
@@ -685,6 +690,12 @@ export interface StudioTransport {
 }
 
 export interface AijianDesktopBridge {
+  getMediaAssetProbeEvidence?: MediaAssetProbeGateway["getMediaAssetProbeEvidence"];
+  probeSelectedMediaAssetVersion?: MediaAssetProbeGateway["probeSelectedMediaAssetVersion"];
+  getMediaToolchainStatus?: MediaToolchainGateway["getMediaToolchainStatus"];
+  cancelMediaToolchainSelection?: MediaToolchainGateway["cancelMediaToolchainSelection"];
+  selectMediaToolchain?: MediaToolchainGateway["selectMediaToolchain"];
+  clearMediaToolchain?: MediaToolchainGateway["clearMediaToolchain"];
   getAppPreferences?: AppPreferencesGateway["getAppPreferences"];
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
   listProjectMediaAssets?: AssetLibraryGateway["listProjectMediaAssets"];
@@ -1034,6 +1045,8 @@ export function createStudioTransport(): StudioTransport {
   const bridge = window.aijian;
   if (bridge) {
     return {
+      mediaToolchain: desktopMediaToolchain(bridge),
+      mediaAssetProbe: desktopMediaAssetProbe(bridge),
       getAppPreferences: typeof bridge.getAppPreferences === "function"
         ? () => bridge.getAppPreferences!() : undefined,
       saveAppPreferences: typeof bridge.saveAppPreferences === "function"

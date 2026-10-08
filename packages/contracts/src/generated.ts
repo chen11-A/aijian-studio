@@ -39,6 +39,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/local-media-toolchain/selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Select */
+        put: operations["selectLocalMediaToolchain"];
+        post?: never;
+        /** Clear */
+        delete: operations["clearLocalMediaToolchain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/local-media-toolchain/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Status */
+        get: operations["getLocalMediaToolchainStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/media/capabilities": {
         parameters: {
             query?: never;
@@ -3880,6 +3915,54 @@ export interface components {
             source_asset_sha256: string;
             video: components["schemas"]["VideoProbeData"];
         };
+        /** LocalMediaToolchainStatus */
+        LocalMediaToolchainStatus: {
+            /**
+             * Can Draft Export
+             * @default false
+             */
+            can_draft_export: boolean;
+            /**
+             * Can Preview
+             * @default false
+             */
+            can_preview: boolean;
+            /**
+             * Can Probe
+             * @default false
+             */
+            can_probe: boolean;
+            /** Diagnostic */
+            diagnostic: string;
+            /** Directory */
+            directory?: string | null;
+            /**
+             * Formal Release Approved
+             * @default false
+             * @constant
+             */
+            formal_release_approved: false;
+            /** Profile Id */
+            profile_id?: string | null;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "EXTERNAL" | "BUNDLED" | "DEVELOPMENT_OVERRIDE" | "DEVELOPMENT_LOCAL" | "NONE";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "AVAILABLE" | "NOT_CONFIGURED" | "INVALID" | "UNSUPPORTED";
+            /** Version */
+            version?: string | null;
+        };
         /** @enum {string} */
         LocalReadinessReason: "NOT_SUB2API" | "CONNECTION_DISABLED" | "ORIGIN_INVALID" | "TEXT_MODEL_NOT_CONFIGURED" | "CREDENTIAL_MISSING" | "CREDENTIAL_UNAVAILABLE" | "RUNTIME_UNAVAILABLE";
         /** LocationEntityV1 */
@@ -5476,6 +5559,11 @@ export interface components {
             ui_theme: "dark-cinematic";
             /** User Name */
             user_name: string;
+        };
+        /** SelectLocalMediaToolchain */
+        SelectLocalMediaToolchain: {
+            /** Directory */
+            directory: string;
         };
         /**
          * SequenceFrameRateData
@@ -7211,6 +7299,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    selectLocalMediaToolchain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectLocalMediaToolchain"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalMediaToolchainStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clearLocalMediaToolchain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalMediaToolchainStatus"];
+                };
+            };
+        };
+    };
+    getLocalMediaToolchainStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalMediaToolchainStatus"];
                 };
             };
         };

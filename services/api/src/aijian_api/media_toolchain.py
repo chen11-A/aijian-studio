@@ -92,6 +92,8 @@ class MediaToolchain:
     license_class: Literal["LGPL", "GPL", "NONFREE"]
     spdx_license: str
     distribution_status: Literal["DEVELOPMENT_ONLY", "RELEASE_REVIEW_REQUIRED"]
+    # Set only by native-selected external admission. Never a release approval.
+    external_selected: bool = False
 
 
 @dataclass(frozen=True, slots=True)

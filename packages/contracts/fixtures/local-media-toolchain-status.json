@@ -1,0 +1,80 @@
+[
+  {
+    "schema_version": 1,
+    "state": "AVAILABLE",
+    "source": "EXTERNAL",
+    "profile_id": "windows-x86_64-gyan-full-8.1.2-dev",
+    "version": "8.1.2",
+    "directory": "/synthetic/local media/bin",
+    "diagnostic": "Verified local tools are available for probing, preview and DRAFT MP4 only.",
+    "can_probe": true,
+    "can_preview": true,
+    "can_draft_export": true,
+    "formal_release_approved": false
+  },
+  {
+    "schema_version": 1,
+    "state": "NOT_CONFIGURED",
+    "source": "NONE",
+    "profile_id": null,
+    "version": null,
+    "directory": null,
+    "diagnostic": "No verified local tools.",
+    "can_probe": false,
+    "can_preview": false,
+    "can_draft_export": false,
+    "formal_release_approved": false
+  },
+  {
+    "schema_version": 1,
+    "state": "INVALID",
+    "source": "EXTERNAL",
+    "profile_id": null,
+    "version": null,
+    "directory": null,
+    "diagnostic": "Selected tools changed.",
+    "can_probe": false,
+    "can_preview": false,
+    "can_draft_export": false,
+    "formal_release_approved": false
+  },
+  {
+    "schema_version": 1,
+    "state": "UNSUPPORTED",
+    "source": "NONE",
+    "profile_id": null,
+    "version": null,
+    "directory": null,
+    "diagnostic": "External selection requires Windows.",
+    "can_probe": false,
+    "can_preview": false,
+    "can_draft_export": false,
+    "formal_release_approved": false
+  },
+  {
+    "schema_version": 1,
+    "state": "AVAILABLE",
+    "source": "DEVELOPMENT_OVERRIDE",
+    "profile_id": "linux-system-ffmpeg-dev",
+    "version": "5.1.6",
+    "directory": "/synthetic/development/tools",
+    "diagnostic": "Verified local tools are available for probing, preview and DRAFT MP4 only.",
+    "can_probe": true,
+    "can_preview": true,
+    "can_draft_export": true,
+    "formal_release_approved": false
+  },
+  {
+    "schema_version": 1,
+    "state": "AVAILABLE",
+    "source": "DEVELOPMENT_LOCAL",
+    "profile_id": "linux-system-ffmpeg-dev",
+    "version": "5.1.6",
+    "directory": "/synthetic/development/tools",
+    "diagnostic": "Verified local tools are available for probing, preview and DRAFT MP4 only.",
+    "can_probe": true,
+    "can_preview": true,
+    "can_draft_export": true,
+    "formal_release_approved": false
+  }
+]

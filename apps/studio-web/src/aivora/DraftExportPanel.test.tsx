@@ -2,7 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftExportPanel } from "./DraftExportPanel";
-import * as buildProfile from "./buildProfile";
+import type { AijianDesktopBridge } from "../api/studio";
+import type { MediaToolchainStatus } from "./mediaToolchainContract";
 import {
   draftExportProblem,
   draftExportFailure,
@@ -16,6 +17,18 @@ import {
   type AssemblyVersion,
   type EpisodeMediaAssemblyGateway,
 } from "./adapters/episodeMediaAssembly";
+const mediaStatus: MediaToolchainStatus = {
+  schema_version: 1, state: "AVAILABLE", source: "EXTERNAL",
+  profile_id: "windows-x86_64-gyan-full-8.1.2-dev", version: "8.1.2", directory: "C:\\Tools\\bin",
+  diagnostic: "Verified", can_probe: true, can_preview: true, can_draft_export: true,
+  formal_release_approved: false,
+};
+function setMediaStatus(status: MediaToolchainStatus) {
+  window.aijian = {
+    getMediaToolchainStatus: vi.fn().mockResolvedValue({ kind: "STATUS", status }),
+    selectMediaToolchain: vi.fn(), clearMediaToolchain: vi.fn(),
+  } as unknown as AijianDesktopBridge;
+}
 const projectId = `prj_${"1".repeat(32)}`,
   episodeId = `ep_${"2".repeat(32)}`;
 const media = {
@@ -112,22 +125,22 @@ async function ready() {
 function declareRights() {
   fireEvent.click(screen.getByRole("checkbox"));
 }
-beforeEach(() => localStorage.clear());
+beforeEach(() => { localStorage.clear(); setMediaStatus(mediaStatus); });
 afterEach(() => {
   cleanup();
+  delete window.aijian;
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
 describe("real saved-assembly DRAFT export", () => {
-  it("disables encoding in DEVELOPMENT_CORE while preserving saved input and history reads", async () => {
-    vi.spyOn(buildProfile, "isDevelopmentCoreBuild").mockReturnValue(true);
+  it("disables encoding without verified runtime capability while preserving saved input and history reads", async () => {
+    setMediaStatus({ ...mediaStatus, state: "NOT_CONFIGURED", source: "NONE", directory: null,
+      profile_id: null, version: null, can_probe: false, can_preview: false, can_draft_export: false });
     const state = setup();
     render(<DraftExportPanel projectId={projectId} episodeId={episodeId} {...state} />);
     await ready();
-    expect(screen.getByText(/DEVELOPMENT_CORE 开发核心版未附带/)).toHaveTextContent(
-      "FFmpeg、FFprobe 或 MLT",
-    );
+    expect(screen.getByText(/尚未配置媒体工具/)).toBeInTheDocument();
     expect(submit()).toBeDisabled();
     expect(screen.getByRole("checkbox")).toBeDisabled();
     fireEvent.click(submit());

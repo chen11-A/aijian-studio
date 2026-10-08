@@ -1,5 +1,33 @@
 # AIVORA Dev Core — Windows x64 development installer
 
+## 中文快速使用说明
+
+这是可安装的开发核心版，目标为 Windows 10 及以上的 x64 系统。已通过
+Windows 云构建机器的真实安装、桌面启动、剧本保存重开及卸载保留数据检查；
+尚未完成普通用户 Windows 10/11 电脑上的完整手工验收，也不是签名正式版。
+
+1. 保存安装器及同包的 `SHA256SUMS`。运行安装器会按当前用户安装，不需要
+   关闭杀毒软件或修改系统安全设置。未签名软件可能收到系统提示，请自行
+   核对来源和校验值；本说明不要求绕过安全警告。
+2. 在 Windows 开始菜单的 AIVORA Dev Core 文件夹中打开软件，进入创作工作台。
+   首次服务选择可以跳过账号登录，
+   先使用本地编辑；也可进入 API 设置。显示登录入口不代表真实 AI 已验收。
+3. 新建项目并选择剧集，在“故事/剧本”中编辑场景和正文，点击保存，等待
+   “已读回保存版本”。角色、世界、场景及分镜也支持手工文本编辑和保存。
+4. 关闭软件后再打开项目，可以继续编辑。工作区位于
+   `%APPDATA%\AIVORA Dev Core\workspace`。备份前先正常退出软件，保留整个
+   工作区，不要只复制数据库文件。
+5. 本包未附带 FFmpeg/FFprobe 命令行工具。未配置经过校验的工具时，素材原件
+   可以导入并尝试播放，但音视频探测、连续预览生成及 MP4 编码不可用。新的
+   本机工具选择入口仅接受明确锁定的工具版本和哈希；Windows 实机媒体验收
+   仍在进行中，请以同包验收记录为准。“字节已校验”不等于已成为可剪辑输入。
+6. 发现已有安装或工作数据时，当前安装器会停止。安全升级恢复还未完成；
+   不要为了重装而删除工作区。卸载仅移除已记录的软件文件，保留工作区和
+   未知的用户新增文件。
+
+完整媒体制作、真实 AI、升级恢复和正式发布检查仍在继续，不能将本包当作
+完整首发产品。后面的英文说明列出构建证据和边界；组件许可证保持原文。
+
 This unsigned development build is a limited core desktop installer, not a
 completed media-production release. The development product identity and user
 data directory are separate from the future AIVORA release.
@@ -39,8 +67,13 @@ Microsoft files. No OS runtime is downloaded or installed by this installer.
 
 ## Explicit limitations
 
-- FFmpeg/FFprobe command-line tools are not included. New composition rendering
-  and DRAFT MP4 export are unavailable. This is not the full MP4-capable installer.
+- FFmpeg/FFprobe command-line tools are not included. Without an explicitly
+  selected, exact-version/hash-verified external pair, media probing, saved
+  composition rendering and DRAFT MP4 export are unavailable. This candidate
+  adds fail-closed machine-local selection; actual Windows media acceptance
+  is pending and must be checked against its own evidence receipt. The bundled
+  full-media installer is still incomplete. External tools are neither installed
+  nor silently downloaded by the app or included in its artifact.
 - Real AI sign-in/inference is not established by this build or its synthetic CI
   smoke. No account, credential, provider configuration or user workspace is
   bundled. Real authorization and any provider costs remain user decisions.

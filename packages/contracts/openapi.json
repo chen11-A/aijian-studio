@@ -7257,6 +7257,103 @@
         "title": "LocalMediaProbeData",
         "type": "object"
       },
+      "LocalMediaToolchainStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "can_draft_export": {
+            "default": false,
+            "title": "Can Draft Export",
+            "type": "boolean"
+          },
+          "can_preview": {
+            "default": false,
+            "title": "Can Preview",
+            "type": "boolean"
+          },
+          "can_probe": {
+            "default": false,
+            "title": "Can Probe",
+            "type": "boolean"
+          },
+          "diagnostic": {
+            "title": "Diagnostic",
+            "type": "string"
+          },
+          "directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directory"
+          },
+          "formal_release_approved": {
+            "const": false,
+            "default": false,
+            "title": "Formal Release Approved",
+            "type": "boolean"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "EXTERNAL",
+              "BUNDLED",
+              "DEVELOPMENT_OVERRIDE",
+              "DEVELOPMENT_LOCAL",
+              "NONE"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "AVAILABLE",
+              "NOT_CONFIGURED",
+              "INVALID",
+              "UNSUPPORTED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "state",
+          "source",
+          "diagnostic"
+        ],
+        "title": "LocalMediaToolchainStatus",
+        "type": "object"
+      },
       "LocalReadinessReason": {
         "enum": [
           "NOT_SUB2API",
@@ -12113,6 +12210,22 @@
           "ui_theme"
         ],
         "title": "SaveAppPreferencesRequest",
+        "type": "object"
+      },
+      "SelectLocalMediaToolchain": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Directory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory"
+        ],
+        "title": "SelectLocalMediaToolchain",
         "type": "object"
       },
       "SequenceFrameRateData": {
@@ -17022,6 +17135,78 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/v1/local-media-toolchain/selection": {
+      "delete": {
+        "operationId": "clearLocalMediaToolchain",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalMediaToolchainStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear"
+      },
+      "put": {
+        "operationId": "selectLocalMediaToolchain",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectLocalMediaToolchain"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalMediaToolchainStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select"
+      }
+    },
+    "/api/v1/local-media-toolchain/status": {
+      "get": {
+        "operationId": "getLocalMediaToolchainStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalMediaToolchainStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Status"
       }
     },
     "/api/v1/media/capabilities": {

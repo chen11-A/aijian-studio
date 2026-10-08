@@ -211,6 +211,8 @@ class _Runner:
         self.manager = manager
         self.stop_requested = stop_requested
         self.deadline = time.monotonic() + MAX_RUNTIME_SECONDS
+        self.external_directory: Path | None = None
+        self.external_environment: dict[str, str] | None = None
 
     def check(self) -> None:
         if self.stop_requested():
@@ -242,6 +244,50 @@ class _Runner:
         output: Path | None = None,
         work_directory: Path | None = None,
     ) -> bytes:
+        if not self.toolchain.external_selected:
+            return self._run(
+                arguments, probe=probe, limit=limit, on_progress=on_progress,
+                total_frames=total_frames, output=output, work_directory=work_directory,
+            )
+        from aijian_api.external_media_process import (
+            external_process_session,
+            guarded_external_pair,
+        )
+
+        try:
+            with ExitStack() as scope:
+                scope.enter_context(guarded_external_pair(self.toolchain.ffmpeg_path.parent))
+                directory, environment = (
+                    (self.external_directory, self.external_environment)
+                    if self.external_directory is not None and self.external_environment is not None
+                    else scope.enter_context(external_process_session())
+                )
+                selected_directory = work_directory or directory
+                if not selected_directory.is_relative_to(directory):
+                    raise OSError("External media process directory must stay private")
+                return self._run(
+                    arguments, probe=probe, limit=limit, on_progress=on_progress,
+                    total_frames=total_frames, output=output, work_directory=selected_directory,
+                    external_environment=dict(environment),
+                )
+        except OSError:
+            raise DraftEncodeError(
+                "TOOLCHAIN_UNAVAILABLE",
+                "External media tools changed or safe execution is unavailable",
+            ) from None
+
+    def _run(
+        self,
+        arguments: list[str],
+        *,
+        probe: bool = False,
+        limit: int = MAX_PROBE_BYTES,
+        on_progress: Callable[[int], None] | None = None,
+        total_frames: int = 0,
+        output: Path | None = None,
+        work_directory: Path | None = None,
+        external_environment: dict[str, str] | None = None,
+    ) -> bytes:
         self.check()
         executable = self.toolchain.ffprobe_path if probe else self.toolchain.ffmpeg_path
         expected = self.toolchain.ffprobe_sha256 if probe else self.toolchain.ffmpeg_sha256
@@ -267,6 +313,8 @@ class _Runner:
             )
             if key in os.environ
         }
+        if external_environment is not None:
+            environment = external_environment
         process: ProductExportJobProcess | subprocess.Popen[bytes]
         try:
             if os.name == "nt":
@@ -276,6 +324,10 @@ class _Runner:
                     arguments,
                     cwd=work_directory or executable.parent,
                     env=environment,
+                    **(
+                        {"hardened_external_media": True}
+                        if self.toolchain.external_selected else {}
+                    ),
                 )
             else:
                 process = subprocess.Popen(
@@ -722,13 +774,26 @@ def encode_draft(
             "SOURCE_SET_MISMATCH", "DRAFT snapshots must cover exactly the selected sources"
         )
     with ExitStack() as stack:
+        if toolchain.external_selected:
+            from aijian_api.external_media_process import external_process_session
+
+            try:
+                private_directory, private_environment = stack.enter_context(
+                    external_process_session()
+                )
+                runner.external_directory = private_directory
+                runner.external_environment = dict(private_environment)
+            except OSError:
+                raise DraftEncodeError(
+                    "TOOLCHAIN_UNAVAILABLE", "Private external media session is unavailable"
+                ) from None
         subtitles: PreparedSubtitles | None = None
         if content.subtitle_segments:
             subtitle_directory = Path(
                 stack.enter_context(
                     tempfile.TemporaryDirectory(
                         prefix="aivora-subtitles-",
-                        dir=temporary_output.parent,
+                        dir=runner.external_directory or temporary_output.parent,
                     )
                 )
             )

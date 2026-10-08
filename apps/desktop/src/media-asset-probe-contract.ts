@@ -49,7 +49,7 @@ export type MediaAssetProbeEvidenceResponse = {
 };
 export type MediaAssetProbeReadResult =
   | { kind: "FOUND"; receipt: MediaAssetProbeEvidenceResponse }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 422;
+  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 422 | 503;
       code: string; request_id: string }
   | { kind: "PROBE_UNKNOWN" };
 export type MediaAssetProbeWriteResult =
@@ -93,7 +93,7 @@ export function isProbeVersionId(value: unknown): value is string { return id(va
 function isProbe(value: unknown, expectedSha: string, expectedBytes: number): value is LocalMediaProbe {
   if (!isRecord(value) || !exact(value, [
     "source_asset_sha256", "byte_size", "format_names", "container_duration", "video", "audio",
-  ]) || value.source_asset_sha256 !== expectedSha || value.byte_size !== expectedBytes ||
+  ]) || value.source_asset_sha256 !== `sha256:${expectedSha}` || value.byte_size !== expectedBytes ||
       !Array.isArray(value.format_names) || value.format_names.length < 1 ||
       value.format_names.some((item) => typeof item !== "string" || item.length < 1) ||
       !isRational(value.container_duration) || !isRecord(value.video) ||
@@ -146,7 +146,7 @@ export function mediaAssetProbeDefiniteError(
   status: number, value: unknown, requestId: string | null,
 ): Extract<MediaAssetProbeReadResult, { kind: "DEFINITE_SERVER_ERROR" }> | null {
   if (status !== 401 && status !== 403 && status !== 404 && status !== 409 &&
-      status !== 422) return null;
+      status !== 422 && status !== 503) return null;
   if (!isRecord(value) || !exact(value, ["error", "request_id"]) ||
       typeof value.request_id !== "string" || !hasRequestId(value) ||
       value.request_id !== requestId ||
@@ -156,6 +156,9 @@ export function mediaAssetProbeDefiniteError(
       !/^[A-Z][A-Z0-9_]{2,79}$/.test(value.error.code) ||
       typeof value.error.message !== "string" || !isRecord(value.error.details) ||
       value.error.retryable !== false) return null;
+  // This exact 503 is emitted before probing/persistence begins. Other 503s may
+  // be lost write receipts and must remain unknown, with read-only reconciliation.
+  if (status === 503 && value.error.code !== "TOOLCHAIN_UNAVAILABLE") return null;
   return { kind: "DEFINITE_SERVER_ERROR", status, code: value.error.code,
     request_id: value.request_id };
 }
