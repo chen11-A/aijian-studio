@@ -28,6 +28,7 @@ const modules = [
   "invalidation-operation",
   "chatgpt-auth",
   "official-text",
+  "shot-plan",
 ];
 
 test("real ASAR nested manifest paths work with Windows traversal", async () => {
@@ -85,7 +86,13 @@ test("builder retains only the explicit contract declaration exceptions", async 
     const include = require(join(root, "packaging/windows/include-dev-contract-types.cjs"));
     const contracts = join(temporary, "node_modules/@aijian/contracts");
     mkdirSync(contracts, { recursive: true });
-    for (const name of ["generated.js", "generated.d.ts", "private.d.ts", "package.json"]) {
+    for (const name of [
+      "generated.js",
+      ...modules.map((name) => `${name}.d.ts`),
+      "private.d.ts",
+      "shot-plan-private.d.ts",
+      "package.json",
+    ]) {
       writeFileSync(join(contracts, name), name === "package.json" ? "{}" : "");
     }
     const config = JSON.parse(
@@ -131,6 +138,18 @@ test("builder retains only the explicit contract declaration exceptions", async 
     );
     assert.equal(
       files.some((path) => path.endsWith("private.d.ts")),
+      false,
+    );
+    for (const name of modules) {
+      assert.equal(
+        files.some((path) => path.endsWith(`${name}.d.ts`)),
+        true,
+        `declared contract ${name} must retain its exact declaration file`,
+      );
+      assert.equal(include(`C:\\app\\node_modules\\@aijian\\contracts\\${name}.d.ts`), true);
+    }
+    assert.equal(
+      include("C:\\app\\node_modules\\@aijian\\contracts\\shot-plan-private.d.ts"),
       false,
     );
     assert.equal(include("C:\\outside\\generated.d.ts"), false);

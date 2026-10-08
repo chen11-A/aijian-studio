@@ -1,7 +1,7 @@
 /* global module */
-// Preserve only the five declared public contract type files. electron-builder
+// Preserve only the six declared public contract type files. electron-builder
 // otherwise drops .d.ts by default despite their exact staged-manifest roles.
 module.exports = (file) =>
-  /(?:^|[/\\])node_modules[/\\]@aijian[/\\]contracts[/\\](?:generated|artifact-proposal|invalidation-operation|chatgpt-auth|official-text)\.d\.ts$/.test(
+  /(?:^|[/\\])node_modules[/\\]@aijian[/\\]contracts[/\\](?:generated|artifact-proposal|invalidation-operation|chatgpt-auth|official-text|shot-plan)\.d\.ts$/.test(
     file,
   );
