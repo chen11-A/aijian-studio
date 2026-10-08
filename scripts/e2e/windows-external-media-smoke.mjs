@@ -497,7 +497,15 @@ export async function runWindowsSmoke(values) {
   }
   async function chooseProject(project, episode) {
     await page.reload();
-    await page.getByLabel("作品选择", { exact: true }).selectOption({ label: project.name });
+    // Global pages intentionally hide the compact project selector. Enter the
+    // real project through its visible management row rather than forcing an
+    // action on a hidden legacy control.
+    await route("projects");
+    const row = page.locator(".v2-project-row").filter({
+      has: page.getByRole("button", { name: project.name, exact: true }),
+    });
+    await row.getByRole("button", { name: "打开项目", exact: true }).click();
+    await page.locator('.production-workbench[data-page="project"]').waitFor();
     await page.getByLabel("剧集选择", { exact: true }).selectOption(episode.id);
   }
   async function importAsset(project, name) {

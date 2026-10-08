@@ -140,7 +140,11 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
       if (dependencies.store.available()) {
         try {
           await restore();
-          if (lastError?.startsWith("SECURE_STORAGE_")) lastError = null;
+          if (
+            lastError?.startsWith("SECURE_STORAGE_") &&
+            lastError !== "SECURE_STORAGE_WRITE_FAILED"
+          )
+            lastError = null;
         } catch (error) {
           lastError = errorCode(error);
         }
@@ -289,8 +293,11 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
     async signOut() {
       if (busy) return { kind: "ERROR", code: "OPERATION_IN_PROGRESS", status: status() };
       busy = true;
-      const profile = active();
       try {
+        if (!dependencies.store.available()) throw new ChatGPTError("SECURE_STORAGE_UNAVAILABLE");
+        // Join any cold-start read before selecting the profile; it must not restore tokens later.
+        await restore();
+        const profile = active();
         let remoteConfirmed = !profile?.tokens?.refreshToken;
         if (profile?.tokens?.refreshToken) {
           try {
@@ -313,8 +320,23 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
             remoteConfirmed = false;
           }
         }
-        if (profile) profile.tokens = null;
-        await persist();
+        if (data) {
+          const signedOut: AuthData = {
+            ...data,
+            profiles: data.profiles.map((item) =>
+              item === profile ? { ...item, tokens: null } : item,
+            ),
+          };
+          try {
+            // Report local deletion only after the protected write has been confirmed.
+            await dependencies.store.write(signedOut);
+          } catch (error) {
+            // Revocation may have succeeded even when local deletion could not be confirmed.
+            if (profile?.tokens) needsReauth = true;
+            throw error;
+          }
+          data = signedOut;
+        }
         needsReauth = false;
         lastError = remoteConfirmed ? null : "REMOTE_REVOCATION_UNCONFIRMED";
         return { kind: "OK", status: status() };
