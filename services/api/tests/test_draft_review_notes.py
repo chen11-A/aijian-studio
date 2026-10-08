@@ -14,7 +14,7 @@ from aijian_api.draft_review_store import DraftReviewError, DraftReviewStore
 from aijian_api.episode_media_assembly_contracts import CreateEpisodeMediaAssemblyVersionRequest
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
 from aijian_api.main import create_app
-from aijian_api.repository import StudioRepository
+from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -266,7 +266,7 @@ def test_schema38_upgrade_and_transactional_rollback(tmp_path):
             is None
         )
     StudioRepository(path)
-    assert database_version(path) == 38
+    assert database_version(path) == SCHEMA_VERSION
 
 
 @pytest.mark.parametrize("text", ["", "  ", "invalid\0text", "a" * 2001])

@@ -5,6 +5,7 @@ Every metadata/credential mutation increments the revision used by approvals.
 """
 
 import json
+import os
 import re
 import sqlite3
 from collections.abc import Callable, Iterator, Sequence
@@ -12,7 +13,9 @@ from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from threading import Lock, RLock
 from typing import Literal, cast
+from weakref import WeakValueDictionary
 
 from aijian_api.provider_contracts import (
     CPA_LOOPBACK_BASE_URL,
@@ -28,6 +31,11 @@ type ProviderKind = Literal[
 ]
 type ProviderCapability = Literal["TEXT", "IMAGE", "VIDEO", "SPEECH"]
 type ProviderRotationStatus = Literal["PREPARED", "APPLIED", "CONFLICT", "UNKNOWN"]
+
+# The sidecar owns one workspace process-wide. Share locks across repository
+# instances, without keeping a SQLite writer transaction open during vault I/O.
+_CREDENTIAL_LOCKS: WeakValueDictionary[tuple[str, str], RLock] = WeakValueDictionary()
+_CREDENTIAL_LOCKS_GUARD = Lock()
 
 
 class ProviderConnectionConflictError(RuntimeError):
@@ -90,10 +98,40 @@ class ProviderConnectionRepository:
         *,
         clock: Callable[[], datetime] = utc_now,
         id_factory: Callable[[str], str] = new_id,
+        credential_lock_timeout_seconds: float = 5,
     ) -> None:
+        if not 0 < credential_lock_timeout_seconds <= 5:
+            raise ValueError("credential lock timeout must be positive and at most five seconds")
         self._database_path = database_path
         self._clock = clock
         self._id_factory = id_factory
+        self._credential_lock_timeout_seconds = credential_lock_timeout_seconds
+
+    @contextmanager
+    def credential_lifecycle(self, connection_id: str) -> Iterator[None]:
+        """Serialize this provider's vault I/O within the single-owner sidecar."""
+        identity = (os.path.normcase(str(self._database_path.resolve())), connection_id)
+        with _CREDENTIAL_LOCKS_GUARD:
+            lock = _CREDENTIAL_LOCKS.get(identity)
+            if lock is None:
+                lock = RLock()
+                _CREDENTIAL_LOCKS[identity] = lock
+        if not lock.acquire(timeout=self._credential_lock_timeout_seconds):
+            raise ProviderConnectionWriteUnknownError(
+                "provider credential mutation is still active"
+            )
+        try:
+            yield
+        finally:
+            lock.release()
+
+    def require_credential_write(self, connection_id: str, expected_revision: int) -> None:
+        """Check admission while the caller holds this provider's lifecycle lock."""
+        with self._connection() as connection:
+            current = _get_connection(connection, connection_id)
+            _require_mutable(connection, connection_id)
+            if current.revision != expected_revision:
+                raise ProviderConnectionVersionConflictError("provider revision changed")
 
     def list(self) -> tuple[ProviderConnection, ...]:
         with self._connection() as connection:
@@ -172,6 +210,7 @@ class ProviderConnectionRepository:
             with self._connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
                 current = _get_connection(connection, connection_id)
+                _require_mutable(connection, connection_id)
                 if current.revision != expected_revision:
                     raise ProviderConnectionVersionConflictError("provider revision changed")
                 if current.provider_kind == "SUB2API":
@@ -235,6 +274,7 @@ class ProviderConnectionRepository:
                 ):
                     raise ProviderRotationOperationExistsError("rotation operation already exists")
                 current = _get_connection(connection, connection_id)
+                _require_mutable(connection, connection_id)
                 if current.provider_kind != "SUB2API" or current.revision != expected_revision:
                     raise ProviderConnectionVersionConflictError("provider revision changed")
                 if current.credential_ref == candidate_credential_ref:
@@ -302,6 +342,7 @@ class ProviderConnectionRepository:
                     current.provider_kind != "SUB2API"
                     or current.revision != expected_revision
                     or current.credential_ref != old_credential_ref
+                    or _cleanup_pending(connection, connection_id)
                 ):
                     connection.execute(
                         """
@@ -367,23 +408,85 @@ class ProviderConnectionRepository:
                 "rotation result requires readback"
             ) from error
 
-    def delete(self, connection_id: str) -> None:
+    def delete(self, connection_id: str, *, expected_revision: int | None = None) -> None:
+        """Remove metadata for an unsuccessful creation, never a pending cleanup."""
         try:
             with self._connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                connection.execute("PRAGMA defer_foreign_keys = ON")
-                cursor = connection.execute(
-                    "DELETE FROM provider_connections WHERE connection_id = ?",
-                    (connection_id,),
-                )
-                if cursor.rowcount != 1:
-                    raise ProviderConnectionNotFoundError("provider connection not found")
-                # Rotation history is protected while its connection exists. Remove it
-                # only as part of deleting that connection, never to permit a retry.
-                connection.execute(
-                    "DELETE FROM provider_credential_rotation_operations WHERE connection_id = ?",
-                    (connection_id,),
-                )
+                current = _get_connection(connection, connection_id)
+                _require_mutable(connection, connection_id)
+                if expected_revision is not None and current.revision != expected_revision:
+                    raise ProviderConnectionVersionConflictError("provider revision changed")
+                _delete_connection(connection, connection_id)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError(
+                "provider connection is still referenced"
+            ) from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "provider deletion requires readback"
+            ) from error
+
+    def prepare_delete(self, connection_id: str) -> None:
+        """Persist irreversible disablement before waiting on any vault writer."""
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                _get_connection(connection, connection_id)
+                _assert_unreferenced(connection, connection_id)
+                if not _cleanup_pending(connection, connection_id):
+                    connection.execute(
+                        """
+                        UPDATE provider_connections
+                        SET cleanup_pending = 1, enabled = 0,
+                            revision = revision + 1, updated_at = ?
+                        WHERE connection_id = ?
+                        """,
+                        (timestamp(self._clock()), connection_id),
+                    )
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError(
+                "provider connection is still referenced"
+            ) from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "provider deletion requires readback"
+            ) from error
+
+    def cleanup_credential_refs(self, connection_id: str) -> tuple[str, ...]:
+        """Return every persisted slot, after admission and before vault cleanup."""
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                _get_connection(connection, connection_id)
+                _require_cleanup_pending(connection, connection_id)
+                _assert_unreferenced(connection, connection_id)
+                references = _credential_refs(connection, connection_id)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError(
+                "provider connection is still referenced"
+            ) from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "provider deletion requires readback"
+            ) from error
+        return references
+
+    def finish_delete(self, connection_id: str, *, credential_refs: Sequence[str]) -> None:
+        """Forget metadata only after the caller verifies all vault slots absent."""
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                _get_connection(connection, connection_id)
+                _require_cleanup_pending(connection, connection_id)
+                if _credential_refs(connection, connection_id) != tuple(credential_refs):
+                    raise ProviderConnectionVersionConflictError(
+                        "provider credential references changed"
+                    )
+                _delete_connection(connection, connection_id)
                 connection.commit()
         except sqlite3.IntegrityError as error:
             raise ProviderConnectionConflictError(
@@ -412,6 +515,60 @@ class ProviderConnectionRepository:
 def _validate_revision(expected_revision: int) -> None:
     if type(expected_revision) is not int or not 1 <= expected_revision <= MAX_EXPECTED_REVISION:
         raise ValueError("provider expected revision is invalid")
+
+
+def _cleanup_pending(connection: sqlite3.Connection, connection_id: str) -> bool:
+    row = connection.execute(
+        "SELECT cleanup_pending FROM provider_connections WHERE connection_id = ?", (connection_id,)
+    ).fetchone()
+    if row is None:
+        raise ProviderConnectionNotFoundError("provider connection not found")
+    return bool(row[0])
+
+
+def _require_mutable(connection: sqlite3.Connection, connection_id: str) -> None:
+    if _cleanup_pending(connection, connection_id):
+        raise ProviderConnectionVersionConflictError("provider credential cleanup is pending")
+
+
+def _require_cleanup_pending(connection: sqlite3.Connection, connection_id: str) -> None:
+    if not _cleanup_pending(connection, connection_id):
+        raise ProviderConnectionConflictError("provider credential cleanup has not been admitted")
+
+
+def _delete_connection(connection: sqlite3.Connection, connection_id: str) -> None:
+    connection.execute("PRAGMA defer_foreign_keys = ON")
+    connection.execute("DELETE FROM provider_connections WHERE connection_id = ?", (connection_id,))
+    # History's delete trigger permits removal only while its parent is absent.
+    connection.execute(
+        "DELETE FROM provider_credential_rotation_operations WHERE connection_id = ?",
+        (connection_id,),
+    )
+
+
+def _credential_refs(connection: sqlite3.Connection, connection_id: str) -> tuple[str, ...]:
+    current = _get_connection(connection, connection_id)
+    rows = connection.execute(
+        "SELECT candidate_credential_ref FROM provider_credential_rotation_operations "
+        "WHERE connection_id = ? ORDER BY created_at, operation_id",
+        (connection_id,),
+    ).fetchall()
+    return tuple(
+        dict.fromkeys((current.id, current.credential_ref, *(str(row[0]) for row in rows)))
+    )
+
+
+def _assert_unreferenced(connection: sqlite3.Connection, connection_id: str) -> None:
+    # Probe the actual schema's FK constraints in a savepoint. Roll back even on
+    # success, so this cannot lose history or a cleanup retry target.
+    connection.execute("SAVEPOINT provider_delete_admission")
+    try:
+        _delete_connection(connection, connection_id)
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise ProviderConnectionConflictError("provider connection is still referenced")
+    finally:
+        connection.execute("ROLLBACK TO provider_delete_admission")
+        connection.execute("RELEASE provider_delete_admission")
 
 
 def _validate_rotation_identity(

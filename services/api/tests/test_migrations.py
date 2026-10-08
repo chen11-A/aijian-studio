@@ -276,7 +276,7 @@ def test_fresh_database_runs_all_ordered_migrations(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'workflow_attempts'"  # noqa: E501
             )
         }
-        assert SCHEMA_VERSION == 38
+        assert SCHEMA_VERSION == 39
     assert database_version(database) == SCHEMA_VERSION
     assert "producer_attempt_id" in artifact_version_columns
     assert "artifact_version_one_output_per_attempt" in indexes

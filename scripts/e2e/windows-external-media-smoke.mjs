@@ -508,6 +508,42 @@ export async function runWindowsSmoke(values) {
     await page.locator('.production-workbench[data-page="project"]').waitFor();
     await page.getByLabel("剧集选择", { exact: true }).selectOption(episode.id);
   }
+  async function checkAssetSelectionLayout(filename, width, height) {
+    await application.evaluate(
+      ({ BrowserWindow }, size) => {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length !== 1) throw new Error("Expected the single installed main window");
+        windows[0].setContentSize(size.width, size.height);
+      },
+      { width, height },
+    );
+    await page.waitForFunction(
+      (size) => globalThis.innerWidth === size.width && globalThis.innerHeight === size.height,
+      { width, height },
+    );
+    const select = page.getByRole("button", { name: `选择 ${filename}`, exact: true });
+    await select.click();
+    const card = page.locator(".v2-assets-card").filter({ has: select });
+    const [previewBox, selectBox, infoBox] = await Promise.all([
+      card.locator(".v2-assets-card-image").boundingBox(),
+      select.boundingBox(),
+      card.locator(".v2-assets-card-info").boundingBox(),
+    ]);
+    assert.ok(previewBox && selectBox && infoBox, "Asset actions need visible geometry");
+    assert.ok(previewBox.y + previewBox.height <= selectBox.y + 1);
+    assert.ok(selectBox.y + selectBox.height <= infoBox.y + 1);
+    const clearHit = await select.evaluate((button) => {
+      const rect = button.getBoundingClientRect();
+      const hit = globalThis.document.elementFromPoint(
+        rect.x + rect.width / 2,
+        rect.y + rect.height / 2,
+      );
+      return hit === button || button.contains(hit);
+    });
+    assert.equal(clearHit, true, "The normal selection target must not be covered");
+    evidence.asset_selection_layout ??= [];
+    evidence.asset_selection_layout.push({ width, height, normal_click: true, clear_hit: true });
+  }
   async function importAsset(project, name) {
     const item = inputs.files[name];
     await route("assets");
@@ -745,8 +781,22 @@ export async function runWindowsSmoke(values) {
     assets.clip_a = await importAsset(project.id, "clip_a");
     statusData(await ipc("getMediaToolchainStatus"), false);
     await selectTools();
+    evidence.verified.push("native exact external tool selection and authoritative readback");
     assets.clip_b = await importAsset(project.id, "clip_b");
     assets.bgm = await importAsset(project.id, "bgm");
+    evidence.verified.push(
+      "native import and authoritative readback of two videos and synthetic BGM",
+    );
+    await route("assets");
+    for (const [width, height] of [
+      [1178, 814],
+      [980, 680],
+      [1178, 814],
+    ])
+      await checkAssetSelectionLayout(assets.clip_a.latest_version.filename, width, height);
+    evidence.verified.push(
+      "unobstructed asset selection at normal and minimum native window sizes",
+    );
     const probes = {};
     for (const name of ["clip_a", "clip_b"]) {
       const asset = assets[name];

@@ -75,6 +75,7 @@ from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
 from aijian_api.project_creative_library_schema import PROJECT_CREATIVE_LIBRARY_MIGRATION
 from aijian_api.project_settings_schema import PROJECT_SETTINGS_MIGRATION
+from aijian_api.provider_credential_cleanup_schema import PROVIDER_CREDENTIAL_CLEANUP_MIGRATION
 from aijian_api.provider_credential_ref_schema import PROVIDER_CREDENTIAL_REF_MIGRATION
 from aijian_api.provider_origin_mode_schema import PROVIDER_ORIGIN_MODE_MIGRATION
 from aijian_api.provider_schema import (
@@ -104,7 +105,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 38
+SCHEMA_VERSION = 39
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -839,6 +840,7 @@ _MIGRATIONS = {
     36: DRAFT_EXPORT_MIGRATION,
     37: OFFICIAL_TEXT_MIGRATION,
     38: DRAFT_REVIEW_MIGRATION,
+    39: PROVIDER_CREDENTIAL_CLEANUP_MIGRATION,
 }
 
 
