@@ -12,16 +12,17 @@ import stat
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NoReturn
 
 from aijian_api.artifacts import canonical_content_bytes
+from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_asset_selected_reader import (
-    SelectedMediaAssetVersion, _plain_directory, read_selected_media_asset_version,
+    SelectedMediaAssetVersion,
+    _plain_directory,
+    read_selected_media_asset_version,
 )
 from aijian_api.media_execution_plan_contracts import FrozenTestAudioInspectionV1
-from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
-
 
 INSPECTION_DOMAIN = "aivora.mlt_test.audio.RIFF_PCM_S16LE_V1"
 MAX_TEST_WAV_BYTES = 1024 * 1024
@@ -41,7 +42,7 @@ class VerifiedTestAudio:
     managed_path: Path
 
 
-def _reject(code: str, message: str) -> None:
+def _reject(code: str, message: str) -> NoReturn:
     raise TestAudioInspectionError(code, message)
 
 

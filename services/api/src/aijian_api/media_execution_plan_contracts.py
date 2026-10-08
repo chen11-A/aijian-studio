@@ -153,9 +153,13 @@ class ExecutionAudioTrackV1(_Closed):
             binding = (
                 clip.script_version_id, clip.script_block_id, clip.speaker_id, clip.delivery,
             )
-            if self.role in {"DIALOGUE", "DIALOGUE_TEST"} and any(value is None for value in binding):
+            if self.role in {"DIALOGUE", "DIALOGUE_TEST"} and any(
+                value is None for value in binding
+            ):
                 raise ValueError("dialogue needs exact script and speaker binding")
-            if self.role not in {"DIALOGUE", "DIALOGUE_TEST"} and any(value is not None for value in binding):
+            if self.role not in {"DIALOGUE", "DIALOGUE_TEST"} and any(
+                value is not None for value in binding
+            ):
                 raise ValueError("non-dialogue audio cannot claim a script speaker")
         return self
 
@@ -233,7 +237,10 @@ class MediaExecutionPlanV1(_Closed):
             raise ValueError("engineering test must derive from a frozen fixture specification")
         if self.scope == "ENGINEERING_TEST" and self.absent_test_roles != ("SFX",):
             raise ValueError("the engineering test must mark SFX absent from its scope")
-        if self.scope == "ENGINEERING_TEST" and self.dialogue_speech_status != "DIALOGUE_SPEECH_NOT_TESTED":
+        if (
+            self.scope == "ENGINEERING_TEST"
+            and self.dialogue_speech_status != "DIALOGUE_SPEECH_NOT_TESTED"
+        ):
             raise ValueError("the engineering tone test cannot claim tested speech")
         if self.scope == "DRAFT_PREVIEW" and self.absent_test_roles:
             raise ValueError("draft preview cannot claim test-only absent roles")
@@ -241,13 +248,18 @@ class MediaExecutionPlanV1(_Closed):
             raise ValueError("draft assembly preview cannot claim speech testing")
         if self.subtitle_output_mode != ("BURN_IN" if self.subtitle_cues else "NONE"):
             raise ValueError("subtitle output mode must match the exact cue set")
-        if [track.layer_index for track in self.video_tracks] != list(range(len(self.video_tracks))):
+        if [track.layer_index for track in self.video_tracks] != list(
+            range(len(self.video_tracks))
+        ):
             raise ValueError("video layers must be ordered from zero without gaps")
-        track_ids = [track.track_id for track in (*self.video_tracks, *self.audio_tracks)]
+        all_tracks: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
+            *self.video_tracks, *self.audio_tracks,
+        )
+        track_ids = [track.track_id for track in all_tracks]
         if len(track_ids) != len(set(track_ids)):
             raise ValueError("execution track IDs must be unique")
         clip_ids = [
-            clip.clip_id for track in (*self.video_tracks, *self.audio_tracks) for clip in track.clips
+            clip.clip_id for track in all_tracks for clip in track.clips
         ]
         cue_ids = [cue.cue_id for cue in self.subtitle_cues]
         transition_ids = [transition.transition_id for transition in self.video_transitions]
@@ -264,7 +276,9 @@ class MediaExecutionPlanV1(_Closed):
                     clip.source_width != self.canvas_width
                     or clip.source_height != self.canvas_height
                 ):
-                    raise ValueError("identity video scaling requires source and canvas dimensions to match")
+                    raise ValueError(
+                        "identity video scaling requires source and canvas dimensions to match",
+                    )
                 cursor = clip.end_frame
                 visual_intervals.append((clip.start_frame, clip.end_frame))
         coverage = 0
@@ -274,18 +288,20 @@ class MediaExecutionPlanV1(_Closed):
             coverage = max(coverage, end)
         if coverage != self.total_frames:
             raise ValueError("video layers must end at total_frames")
-        for track in self.audio_tracks:
+        for audio_track in self.audio_tracks:
             cursor = 0
-            for clip in track.clips:
-                if clip.start_frame < cursor or clip.end_frame > self.total_frames:
+            for audio_clip in audio_track.clips:
+                if audio_clip.start_frame < cursor or audio_clip.end_frame > self.total_frames:
                     raise ValueError("audio clips overlap within a track or exceed the sequence")
                 expected_samples = (
-                    sequence_frame_to_audio_sample(clip.end_frame, self.sequence_timebase)
-                    - sequence_frame_to_audio_sample(clip.start_frame, self.sequence_timebase)
+                    sequence_frame_to_audio_sample(audio_clip.end_frame, self.sequence_timebase)
+                    - sequence_frame_to_audio_sample(audio_clip.start_frame, self.sequence_timebase)
                 )
-                if clip.source_end_sample - clip.source_in_sample != expected_samples:
-                    raise ValueError("audio source sample interval must equal its absolute frame span")
-                cursor = clip.end_frame
+                if audio_clip.source_end_sample - audio_clip.source_in_sample != expected_samples:
+                    raise ValueError(
+                        "audio source sample interval must equal its absolute frame span",
+                    )
+                cursor = audio_clip.end_frame
         cursor = 0
         for cue in self.subtitle_cues:
             if cue.start_frame < cursor or cue.end_frame > self.total_frames:
@@ -302,8 +318,11 @@ class MediaExecutionPlanV1(_Closed):
             ):
                 raise ValueError("transition order, tracks or range is invalid")
             if not all(
-                any(clip.start_frame <= transition.start_frame and clip.end_frame >= transition.end_frame
-                    for clip in video_by_id[track_id].clips)
+                any(
+                    clip.start_frame <= transition.start_frame
+                    and clip.end_frame >= transition.end_frame
+                    for clip in video_by_id[track_id].clips
+                )
                 for track_id in (transition.from_track_id, transition.to_track_id)
             ):
                 raise ValueError("both video tracks must cover every transition frame")
@@ -325,10 +344,10 @@ class MediaExecutionPlanV1(_Closed):
                 raise ValueError("every video overlap needs one exact lower-to-upper transition")
         elif self.video_transitions:
             raise ValueError("single-track video cannot have a transition")
-        for track in self.audio_tracks:
-            if self.scope == "DRAFT_PREVIEW" and track.role.endswith("_TEST"):
+        for audio_track in self.audio_tracks:
+            if self.scope == "DRAFT_PREVIEW" and audio_track.role.endswith("_TEST"):
                 raise ValueError("test audio roles cannot enter a project preview plan")
-            if self.scope == "ENGINEERING_TEST" and track.role in {"DIALOGUE", "BGM", "SFX"}:
+            if self.scope == "ENGINEERING_TEST" and audio_track.role in {"DIALOGUE", "BGM", "SFX"}:
                 raise ValueError("engineering test must retain its explicit test audio roles")
         return self
 

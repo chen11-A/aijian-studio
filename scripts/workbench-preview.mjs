@@ -6,8 +6,10 @@ import { createServer, request as httpRequest } from "node:http";
 import { createReadStream } from "node:fs";
 import { mkdir, realpath, stat } from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import { randomUUID } from "node:crypto";
+import process from "node:process";
+import console from "node:console";
 import sidecarModule from "../apps/desktop/dist/sidecar-process.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

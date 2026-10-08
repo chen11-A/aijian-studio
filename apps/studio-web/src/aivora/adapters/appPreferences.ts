@@ -1,3 +1,5 @@
+import { hasAsciiControlCharacter } from "../textValidation";
+
 export type AppPreferencesData = {
   saved: boolean;
   revision: number;
@@ -94,9 +96,9 @@ export function prepareAppPreferencesSave(
   if (!validResponse(current))
     return { kind: "INVALID_INPUT", message: "当前设置状态无效，请重新读取后再保存。" };
   if ([...name].length < 1 || [...name].length > 80 ||
-      /[\u0000-\u001f\u007f]/.test(name))
+      hasAsciiControlCharacter(name))
     return { kind: "INVALID_INPUT", message: "昵称需为 1 至 80 个字符，且不能包含控制字符。" };
-  if ([...bio].length > 1000 || /[\u0000-\u0009\u000b-\u001f\u007f]/.test(bio))
+  if ([...bio].length > 1000 || hasAsciiControlCharacter(bio, true))
     return { kind: "INVALID_INPUT", message: "创作签名不能超过 1000 字，且只能使用普通文字与换行。" };
   return {
     expected_revision: current.data.revision,

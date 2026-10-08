@@ -192,7 +192,10 @@
 .production-workbench .v2-service-body.provider-settings[hidden] {
   display: none;
 }
-.production-workbench .chatgpt-connection-card h2 { white-space: normal; margin: 0 0 6px; }
+.production-workbench .chatgpt-connection-card h2 {
+  white-space: normal;
+  margin: 0 0 6px;
+}
 .production-workbench .chatgpt-connection-card .chatgpt-checkbox {
   display: flex;
   flex-direction: row;

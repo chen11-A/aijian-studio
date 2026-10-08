@@ -207,7 +207,8 @@ class EpisodeScriptStore:
                 or version.content_hash != canonical_content_hash(version.content)
                 or len(canonical_content_bytes(version.content)) > MAX_SCRIPT_BYTES
                 or record.source_spans
-                or actual_dependencies != expected_dependencies
+                or len(set(actual_dependencies)) != len(actual_dependencies)
+                or sorted(actual_dependencies) != sorted(expected_dependencies)
             ):
                 raise ValueError("EpisodeScript persisted version is inconsistent")
             return EpisodeScriptVersionData(
@@ -217,7 +218,7 @@ class EpisodeScriptStore:
                 version_number=version.version_number,
                 head_revision=record.head.revision,
                 parent_version_id=version.parent_version_id,
-                content=version.content,
+                content=content,
                 stored_content=version.content,
                 content_hash=version.content_hash,
                 author_actor_id=version.author_actor_id,

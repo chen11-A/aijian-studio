@@ -4,6 +4,7 @@ import type {
   UpdateProjectCommand,
   UpdateProjectResult,
 } from "../../api/studio";
+import { hasAsciiControlCharacter } from "../textValidation";
 
 export type ProjectManagementGateway = Pick<StudioTransport, "updateProject" | "getProject">;
 
@@ -49,7 +50,7 @@ function validIntent(value: unknown, projectId: string): value is ProjectUpdateI
     Number.isSafeInteger(item.expectedRevision) && (item.expectedRevision ?? 0) > 0 &&
     (item.name === null || (typeof item.name === "string" && [...item.name].length > 0 &&
       [...item.name].length <= 80 && item.name === item.name.trim() &&
-      !/[\u0000-\u001f\u007f]/.test(item.name))) &&
+      !hasAsciiControlCharacter(item.name))) &&
     (item.status === null || item.status === "active" || item.status === "archived") &&
     (item.name !== null || item.status !== null);
 }
@@ -139,7 +140,7 @@ export async function updateManagedProject(
     (command.name === undefined && command.status === undefined) ||
     (command.name !== undefined && (typeof command.name !== "string" ||
       [...command.name].length < 1 || [...command.name].length > 80 ||
-      command.name !== command.name.trim() || /[\u0000-\u001f\u007f]/.test(command.name))) ||
+      command.name !== command.name.trim() || hasAsciiControlCharacter(command.name))) ||
     (command.status !== undefined && command.status !== "active" &&
       command.status !== "archived") || typeof crypto === "undefined" ||
     typeof crypto.randomUUID !== "function")

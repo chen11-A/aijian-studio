@@ -5,10 +5,8 @@ import { useDemo } from "./model";
 import { Button, FlowFooter } from "./Common";
 import { Icon } from "./Icon";
 import avatar from "./assets/v2/avatar.png";
-import {
-  readAppPreferences,
-  saveAppPreferences,
-} from "./adapters/appPreferences";
+import { readAppPreferences, saveAppPreferences } from "./adapters/appPreferences";
+import { hasAsciiControlCharacter } from "./textValidation";
 import type {
   AppPreferencesGateway,
   AppPreferencesResponse,
@@ -485,7 +483,7 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
     if (!projectId || !storage || !current || !transport.updateProject ||
       !dirty || loading || readError || journal.kind !== "EMPTY" || inFlight.current) return;
     const name = draft.trim();
-    if (!name || [...name].length > 80 || /[\u0000-\u001f\u007f]/.test(name)) {
+    if (!name || [...name].length > 80 || hasAsciiControlCharacter(name)) {
       setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
       return;
     }

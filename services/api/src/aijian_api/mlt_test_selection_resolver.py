@@ -14,38 +14,50 @@ import re
 import sqlite3
 import stat
 import time
+from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Literal, NoReturn
 
 from aijian_api.domain import ArtifactVersionRecord
-from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.episode_media_execution_plan import (
-    ART04_MLT_TEST_SPEC_SHA256, build_art04_synthetic_execution_plan,
+    ART04_MLT_TEST_SPEC_SHA256,
+    build_art04_synthetic_execution_plan,
 )
 from aijian_api.episode_script_contracts import EpisodeScriptContentV1
+from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_asset_audio_inspection import (
-    VerifiedTestAudio, _managed_path, inspect_selected_test_wav,
+    VerifiedTestAudio,
+    _managed_path,
+    inspect_selected_test_wav,
 )
 from aijian_api.media_asset_probe_store import (
-    MediaAssetProbeEvidence, MediaAssetProbeEvidenceError, _from_row,
+    MediaAssetProbeEvidence,
+    MediaAssetProbeEvidenceError,
+    _from_row,
 )
 from aijian_api.media_asset_rights_contracts import AuthoritativeRightsDecision
 from aijian_api.media_asset_rights_reader import read_latest_rights_decision
 from aijian_api.media_asset_selected_reader import (
-    MAX_DATABASE_BYTES, MAX_READ_SECONDS, SelectedMediaAssetVersion,
-    _ReadBudgetExceeded, _hash_stream, _plain_directory, _sidecar_state,
+    MAX_DATABASE_BYTES,
+    MAX_READ_SECONDS,
+    SelectedMediaAssetVersion,
+    _hash_stream,
+    _plain_directory,
+    _ReadBudgetExceeded,
+    _sidecar_state,
     read_selected_media_asset_version,
 )
 from aijian_api.media_execution_plan_contracts import (
-    ExecutionMediaRefV1, FrozenEngineeringTestBindingsV1, MediaExecutionPlanV1,
+    ExecutionMediaRefV1,
+    FrozenEngineeringTestBindingsV1,
+    MediaExecutionPlanV1,
 )
 from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 from aijian_api.mlt_execution_adapter import MltResolvedSelection
 from aijian_api.mlt_execution_worker import MltFileIdentity
 from aijian_api.repository import StudioRepository
-
 
 QA02_FIVE_INPUT_MANIFEST_SHA256 = (
     "ee2166d379c1000d65138c12023209a9d535aee17d707c04bb907b7823fb04e3"
@@ -160,23 +172,32 @@ class ResolvedEngineeringTest:
     ) -> None:
         """Rebuild from current truth immediately before a TEST worker starts."""
         current = prepare_test_selection(self.request)
-        if current.fixture_manifest != self.fixture_manifest or current.subtitle_file != self.subtitle_file:
+        if (
+            current.fixture_manifest != self.fixture_manifest
+            or current.subtitle_file != self.subtitle_file
+        ):
             raise TestSelectionError("FIXTURE_CHANGED", "Frozen TEST manifest or subtitle changed")
         if current.bindings != self.bindings:
-            raise TestSelectionError("BINDINGS_CHANGED", "Frozen TEST selections or subtitle style changed")
+            raise TestSelectionError(
+                "BINDINGS_CHANGED", "Frozen TEST selections or subtitle style changed",
+            )
         if current.selected_media != self.selected_media:
             raise TestSelectionError(
                 "SELECTION_CHANGED", "Selected ASV, rights, probe, or audio inspection changed",
             )
         if current.plan != plan or current.plan != self.plan:
-            raise TestSelectionError("PLAN_CHANGED", "Frozen TEST plan no longer matches current authority")
+            raise TestSelectionError(
+                "PLAN_CHANGED", "Frozen TEST plan no longer matches current authority",
+            )
         expected = {item.file for item in current.selected_media}
         expected.add(current.subtitle_file)
         if set(resources) != expected or len(resources) != len(expected):
-            raise TestSelectionError("RESOURCE_CHANGED", "MLT resources differ from revalidated sources")
+            raise TestSelectionError(
+                "RESOURCE_CHANGED", "MLT resources differ from revalidated sources",
+            )
 
 
-def _reject(code: str, message: str) -> None:
+def _reject(code: str, message: str) -> NoReturn:
     raise TestSelectionError(code, message)
 
 
@@ -371,11 +392,13 @@ def _read_script_record(
             if head_row is None or head_row["latest_version_id"] != manifest.script_version_id:
                 _reject("SCRIPT_CHANGED", "QA02 script head differs from the frozen version")
             span_rows = connection.execute(
-                "SELECT * FROM artifact_source_spans WHERE version_id = ? ORDER BY fact_id, start_byte, span_id",
+                "SELECT * FROM artifact_source_spans WHERE version_id = ? "
+                "ORDER BY fact_id, start_byte, span_id",
                 (manifest.script_version_id,),
             ).fetchall()
             dependency_rows = connection.execute(
-                "SELECT * FROM artifact_dependencies WHERE downstream_version_id = ? ORDER BY dependency_id",
+                "SELECT * FROM artifact_dependencies WHERE downstream_version_id = ? "
+                "ORDER BY dependency_id",
                 (manifest.script_version_id,),
             ).fetchall()
             record = ArtifactVersionRecord(
