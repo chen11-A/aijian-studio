@@ -28,21 +28,22 @@ export function ScriptSceneBlocks({
             <select
               value={block.kind}
               disabled={locked}
-              onChange={(event) =>
+              onChange={(event) => {
+                const kind = event.currentTarget.value as ScriptBlock["kind"];
                 updateScene(selected.scene_id, (scene) => ({
                   ...scene,
                   blocks: scene.blocks.map((item) =>
                     item.block_id === block.block_id
                       ? {
                           ...item,
-                          kind: event.target.value as ScriptBlock["kind"],
-                          speaker: event.target.value === "DIALOGUE" ? "" : null,
+                          kind,
+                          speaker: kind === "DIALOGUE" ? "" : null,
                           delivery: null,
                         }
                       : item,
                   ),
-                }))
-              }
+                }));
+              }}
             >
               <option value="ACTION">动作</option>
               <option value="DIALOGUE">对白</option>
@@ -55,16 +56,17 @@ export function ScriptSceneBlocks({
                 <input
                   value={block.speaker ?? ""}
                   disabled={locked}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const speaker = event.currentTarget.value;
                     updateScene(selected.scene_id, (scene) => ({
                       ...scene,
                       blocks: scene.blocks.map((item) =>
                         item.block_id === block.block_id
-                          ? { ...item, speaker: event.target.value }
+                          ? { ...item, speaker }
                           : item,
                       ),
-                    }))
-                  }
+                    }));
+                  }}
                 />
               </label>
               <label>
@@ -72,16 +74,17 @@ export function ScriptSceneBlocks({
                 <select
                   value={block.delivery ?? ""}
                   disabled={locked}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const delivery = event.currentTarget.value as "ON_SCREEN" | "OFF_SCREEN";
                     updateScene(selected.scene_id, (scene) => ({
                       ...scene,
                       blocks: scene.blocks.map((item) =>
                         item.block_id === block.block_id
-                          ? { ...item, delivery: event.target.value as "ON_SCREEN" | "OFF_SCREEN" }
+                          ? { ...item, delivery }
                           : item,
                       ),
-                    }))
-                  }
+                    }));
+                  }}
                 >
                   <option value="" disabled>
                     待补齐/未知
@@ -97,14 +100,15 @@ export function ScriptSceneBlocks({
             <textarea
               value={block.text}
               disabled={locked}
-              onChange={(event) =>
+              onChange={(event) => {
+                const text = event.currentTarget.value;
                 updateScene(selected.scene_id, (scene) => ({
                   ...scene,
                   blocks: scene.blocks.map((item) =>
-                    item.block_id === block.block_id ? { ...item, text: event.target.value } : item,
+                    item.block_id === block.block_id ? { ...item, text } : item,
                   ),
-                }))
-              }
+                }));
+              }}
             />
           </label>
           {([-1, 1] as const).map((offset) => (

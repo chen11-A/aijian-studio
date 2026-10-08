@@ -130,7 +130,9 @@ def read_call_accounting_in_connection(
         except (ValueError, TypeError, KeyError) as error:
             raise RemoteCallAccountingError("authorization consume is inconsistent") from error
     response_id = attempt["provider_response_id"]
-    response_status = (
+    response_status: Literal[
+        "NO_RESPONSE_RECORDED", "RESPONSE_ID_RECORDED", "REMOTE_UNKNOWN"
+    ] = (
         "REMOTE_UNKNOWN" if attempt["status"] == "REMOTE_UNKNOWN"
         else "RESPONSE_ID_RECORDED" if response_id
         else "NO_RESPONSE_RECORDED"

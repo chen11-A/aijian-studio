@@ -764,14 +764,20 @@ function PersistedUserSettings() {
               <label>昵称
                 <input value={draft.user_name} disabled={!current || loading}
                   placeholder="设置本机昵称"
-                  onChange={(event) => setDraft((old) => ({ ...old, user_name: event.target.value }))} />
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((old) => ({ ...old, user_name: value }));
+                  }} />
               </label>
             )}
             {category === "创作默认值" && (
               <label>创作签名
                 <textarea value={draft.display_bio} disabled={!current || loading}
                   placeholder="可留空"
-                  onChange={(event) => setDraft((old) => ({ ...old, display_bio: event.target.value }))} />
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((old) => ({ ...old, display_bio: value }));
+                  }} />
               </label>
             )}
             {category === "界面语言" && <p>界面语言：简体中文（当前版本）</p>}

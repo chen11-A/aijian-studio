@@ -81,7 +81,7 @@ class EpisodeScriptConfirmationStore:
             EpisodeScriptStore._require_episode(connection, project_id, episode_id)
         except (ProjectNotFoundError, EpisodeNotFoundError) as error:
             raise EpisodeScriptConfirmationNotFoundError("Episode was not found") from error
-        row = connection.execute(
+        row: object = connection.execute(
             """
             SELECT artifact.artifact_id, head.latest_version_id, head.revision,
                    version.content_hash
@@ -97,6 +97,8 @@ class EpisodeScriptConfirmationStore:
         ).fetchone()
         if row is None:
             raise EpisodeScriptConfirmationNotFoundError("Script draft was not found")
+        if not isinstance(row, sqlite3.Row):
+            raise EpisodeScriptConfirmationStorageError("Script head is not a SQLite row")
         return row
 
     @staticmethod
@@ -107,7 +109,7 @@ class EpisodeScriptConfirmationStore:
         confirmation_id: str | None,
     ) -> sqlite3.Row | None:
         if confirmation_id is None:
-            return connection.execute(
+            latest: object = connection.execute(
                 """
                 SELECT receipt.*, version.content_hash AS version_content_hash
                 FROM episode_script_confirmations AS receipt
@@ -119,7 +121,12 @@ class EpisodeScriptConfirmationStore:
                 """,
                 (project_id, episode_id),
             ).fetchone()
-        row = connection.execute(
+            if latest is None:
+                return None
+            if not isinstance(latest, sqlite3.Row):
+                raise EpisodeScriptConfirmationStorageError("Confirmation is not a SQLite row")
+            return latest
+        row: object = connection.execute(
             """
             SELECT receipt.*, version.content_hash AS version_content_hash
             FROM episode_script_confirmations AS receipt
@@ -133,6 +140,8 @@ class EpisodeScriptConfirmationStore:
         ).fetchone()
         if row is None:
             raise EpisodeScriptConfirmationNotFoundError("Confirmation was not found")
+        if not isinstance(row, sqlite3.Row):
+            raise EpisodeScriptConfirmationStorageError("Confirmation is not a SQLite row")
         return row
 
     @staticmethod

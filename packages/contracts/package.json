@@ -24,6 +24,10 @@
     "./official-text": {
       "types": "./src/official-text.ts",
       "default": "./src/official-text.ts"
+    },
+    "./shot-plan": {
+      "types": "./src/shot-plan.ts",
+      "default": "./src/shot-plan.ts"
     }
   },
   "scripts": {

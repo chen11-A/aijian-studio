@@ -15,15 +15,20 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from aijian_api.media_execution_plan_contracts import (
+    ExecutionAudioClipV1,
+    ExecutionAudioTrackV1,
     ExecutionMediaRefV1,
+    ExecutionVideoClipV1,
+    ExecutionVideoTrackV1,
     MediaExecutionPlanV1,
 )
 from aijian_api.media_probe import _open_local_source
 from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.episode_media_execution_plan import ART04_MLT_TEST_SPEC_SHA256
-from aijian_api.product_export_contracts import ProductExportSpec
+from aijian_api.product_timeline_export_contracts import ProductExportSpec
 from aijian_api.mlt_execution_worker import (
     MltExecutionError,
     MltExecutionTask,
@@ -63,7 +68,7 @@ def _property(parent: ET.Element, name: str, value: object) -> None:
     ET.SubElement(parent, "property", {"name": name}).text = str(value)
 
 
-def _reject(message: str) -> None:
+def _reject(message: str) -> NoReturn:
     raise MltExecutionError("ENGINEERING_PLAN_UNSUPPORTED", message)
 
 
@@ -184,20 +189,34 @@ def _source_identity(
     return identity
 
 
-def _add_playlist(root: ET.Element, name: str, clips: tuple, producer_ids: dict[str, str], *, audio: bool) -> None:
+def _add_playlist(
+    root: ET.Element,
+    name: str,
+    clips: tuple[ExecutionVideoClipV1, ...] | tuple[ExecutionAudioClipV1, ...],
+    producer_ids: dict[str, str],
+    *,
+    audio: bool,
+) -> None:
     playlist = ET.SubElement(root, "playlist", {"id": name})
     cursor = 0
     for clip in clips:
         if clip.start_frame > cursor:
             ET.SubElement(playlist, "blank", {"length": str(clip.start_frame - cursor)})
-        source_in = clip.source_in_sample // SAMPLES_PER_FRAME if audio else clip.source_in_frame
-        if audio and (
-            clip.source_in_sample % SAMPLES_PER_FRAME
-            or clip.source_end_sample % SAMPLES_PER_FRAME
-            or clip.source_end_sample - clip.source_in_sample
-            != (clip.end_frame - clip.start_frame) * SAMPLES_PER_FRAME
-        ):
-            _reject("Audio source samples must align exactly with timeline frames")
+        if audio:
+            if not isinstance(clip, ExecutionAudioClipV1):
+                _reject("An audio playlist requires audio clips")
+            source_in = clip.source_in_sample // SAMPLES_PER_FRAME
+            if (
+                clip.source_in_sample % SAMPLES_PER_FRAME
+                or clip.source_end_sample % SAMPLES_PER_FRAME
+                or clip.source_end_sample - clip.source_in_sample
+                != (clip.end_frame - clip.start_frame) * SAMPLES_PER_FRAME
+            ):
+                _reject("Audio source samples must align exactly with timeline frames")
+        else:
+            if not isinstance(clip, ExecutionVideoClipV1):
+                _reject("A video playlist requires video clips")
+            source_in = clip.source_in_frame
         ET.SubElement(playlist, "entry", {
             "producer": producer_ids[clip.clip_id],
             "in": str(source_in),
@@ -239,7 +258,11 @@ def _no_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object
     return result
 
 
-def _manifest_tool_identity(payload: dict, path_key: str, hash_key: str) -> MltFileIdentity:
+def _manifest_tool_identity(
+    payload: dict[str, object],
+    path_key: str,
+    hash_key: str,
+) -> MltFileIdentity:
     raw_path = payload.get(path_key)
     raw_hash = payload.get(hash_key)
     if (
@@ -433,7 +456,9 @@ def build_mlt_engineering_blueprint(
     })
     producer_ids: dict[str, str] = {}
     resources: dict[tuple[str, str], MltFileIdentity] = {}
-    all_tracks = (*plan.video_tracks, *plan.audio_tracks)
+    all_tracks: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
+        *plan.video_tracks, *plan.audio_tracks,
+    )
     for track in all_tracks:
         for clip in track.clips:
             key = (clip.media.asset_id, clip.media.asset_version_id)
@@ -464,7 +489,10 @@ def build_mlt_engineering_blueprint(
     qa_origin_files, generation_lock, generation_ffmpeg, generation_ffprobe = _verify_fixture_manifest(
         fixture_manifest, plan, resources, subtitle_file,
     )
-    ordered = (*plan.video_tracks, *sorted(plan.audio_tracks, key=lambda item: item.role == "DIALOGUE_TEST"))
+    ordered: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
+        *plan.video_tracks,
+        *sorted(plan.audio_tracks, key=lambda item: item.role == "DIALOGUE_TEST"),
+    )
     for index, track in enumerate(ordered):
         _add_playlist(root, f"track_{index}", track.clips, producer_ids,
                       audio=track in plan.audio_tracks)

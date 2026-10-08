@@ -56,6 +56,27 @@
         "title": "AdoptOfficialTextRequest",
         "type": "object"
       },
+      "AdoptShotPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "const": true,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "proposal_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_content_hash",
+          "confirm"
+        ],
+        "title": "AdoptShotPlanRequest",
+        "type": "object"
+      },
       "AgentCatalogData": {
         "additionalProperties": false,
         "properties": {
@@ -3232,6 +3253,53 @@
           "source_document_id"
         ],
         "title": "CreateFakeTimelineRunRequest",
+        "type": "object"
+      },
+      "CreateHumanShotPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "change_summary": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ShotPlanContentV1"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          }
+        },
+        "required": [
+          "content",
+          "parent_version_id",
+          "expected_revision",
+          "change_summary"
+        ],
+        "title": "CreateHumanShotPlanRequest",
         "type": "object"
       },
       "CreateProjectCreativeLibraryVersionRequest": {
@@ -12509,6 +12577,883 @@
           "timecode_mode"
         ],
         "title": "SequenceTimebaseData",
+        "type": "object"
+      },
+      "ShotPlanAdaptedAuthority": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "const": "ADAPTED",
+            "title": "Mode",
+            "type": "string"
+          },
+          "production_brief": {
+            "$ref": "#/components/schemas/ShotPlanExactVersion"
+          },
+          "script": {
+            "$ref": "#/components/schemas/ShotPlanScriptPin"
+          },
+          "source_extraction": {
+            "$ref": "#/components/schemas/ShotPlanExactVersion"
+          },
+          "source_proposal_acceptance_id": {
+            "pattern": "^pda_[0-9a-f]{32}$",
+            "title": "Source Proposal Acceptance Id",
+            "type": "string"
+          },
+          "source_span_ids": {
+            "items": {
+              "pattern": "^spn_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Source Span Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "script",
+          "production_brief",
+          "source_extraction",
+          "source_proposal_acceptance_id",
+          "source_span_ids"
+        ],
+        "title": "ShotPlanAdaptedAuthority",
+        "type": "object"
+      },
+      "ShotPlanAdoptionData": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "adopted_at": {
+            "format": "date-time",
+            "title": "Adopted At",
+            "type": "string"
+          },
+          "proposal_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Content Hash",
+            "type": "string"
+          },
+          "proposal_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Proposal Version Id",
+            "type": "string"
+          },
+          "storyboard_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Storyboard Content Hash",
+            "type": "string"
+          },
+          "storyboard_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Storyboard Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_version_id",
+          "proposal_content_hash",
+          "storyboard_version_id",
+          "storyboard_content_hash",
+          "actor_id",
+          "adopted_at"
+        ],
+        "title": "ShotPlanAdoptionData",
+        "type": "object"
+      },
+      "ShotPlanAdoptionStatusData": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanAdoptionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposal_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Proposal Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_version_id",
+          "adoption"
+        ],
+        "title": "ShotPlanAdoptionStatusData",
+        "type": "object"
+      },
+      "ShotPlanAdoptionStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ShotPlanAdoptionStatusData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ShotPlanAdoptionStatusResponse",
+        "type": "object"
+      },
+      "ShotPlanContentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "episode_id": {
+            "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanIssueV1"
+            },
+            "maxItems": 1000,
+            "title": "Issues",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "const": "HUMAN",
+            "title": "Provenance",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanShotV1"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Shots",
+            "type": "array"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timebase": {
+            "$ref": "#/components/schemas/SequenceTimebaseData"
+          },
+          "visual_constraints": {
+            "items": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Visual Constraints",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "provenance",
+          "project_id",
+          "episode_id",
+          "authority",
+          "storyboard_base",
+          "timebase",
+          "visual_constraints",
+          "shots",
+          "issues"
+        ],
+        "title": "ShotPlanContentV1",
+        "type": "object"
+      },
+      "ShotPlanCutWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "end_frame": {
+            "maximum": 864000.0,
+            "minimum": 1.0,
+            "title": "End Frame",
+            "type": "integer"
+          },
+          "start_frame": {
+            "maximum": 864000.0,
+            "minimum": 0.0,
+            "title": "Start Frame",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_frame",
+          "end_frame"
+        ],
+        "title": "ShotPlanCutWindow",
+        "type": "object"
+      },
+      "ShotPlanExactVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash"
+        ],
+        "title": "ShotPlanExactVersion",
+        "type": "object"
+      },
+      "ShotPlanIssueV1": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "WARNING",
+              "BLOCKING"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "shot_id": {
+            "anyOf": [
+              {
+                "pattern": "^shp_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shot Id"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "shot_id",
+          "message"
+        ],
+        "title": "ShotPlanIssueV1",
+        "type": "object"
+      },
+      "ShotPlanMovement": {
+        "additionalProperties": false,
+        "properties": {
+          "camera": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Camera",
+            "type": "string"
+          },
+          "environment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Environment",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "environment",
+          "camera"
+        ],
+        "title": "ShotPlanMovement",
+        "type": "object"
+      },
+      "ShotPlanMutationData": {
+        "additionalProperties": false,
+        "properties": {
+          "proposal": {
+            "$ref": "#/components/schemas/ShotPlanProposalData"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal",
+          "replayed"
+        ],
+        "title": "ShotPlanMutationData",
+        "type": "object"
+      },
+      "ShotPlanMutationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ShotPlanMutationData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ShotPlanMutationResponse",
+        "type": "object"
+      },
+      "ShotPlanOriginalAuthority": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "const": "ORIGINAL",
+            "title": "Mode",
+            "type": "string"
+          },
+          "production_brief": {
+            "$ref": "#/components/schemas/ShotPlanExactVersion"
+          },
+          "script": {
+            "$ref": "#/components/schemas/ShotPlanScriptPin"
+          }
+        },
+        "required": [
+          "mode",
+          "script",
+          "production_brief"
+        ],
+        "title": "ShotPlanOriginalAuthority",
+        "type": "object"
+      },
+      "ShotPlanPreparationData": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "episode_id": {
+            "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "generation_status": {
+            "const": "UNAVAILABLE",
+            "default": "UNAVAILABLE",
+            "title": "Generation Status",
+            "type": "string"
+          },
+          "production_brief_content": {
+            "$ref": "#/components/schemas/ProductionBriefContentV1"
+          },
+          "production_brief_stored_content": {
+            "additionalProperties": true,
+            "title": "Production Brief Stored Content",
+            "type": "object"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "script_content": {
+            "$ref": "#/components/schemas/EpisodeScriptContentV1"
+          },
+          "script_stored_content": {
+            "additionalProperties": true,
+            "title": "Script Stored Content",
+            "type": "object"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "project_id",
+          "episode_id",
+          "authority",
+          "script_content",
+          "production_brief_content",
+          "script_stored_content",
+          "production_brief_stored_content",
+          "storyboard_base"
+        ],
+        "title": "ShotPlanPreparationData",
+        "type": "object"
+      },
+      "ShotPlanPreparationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ShotPlanPreparationData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ShotPlanPreparationResponse",
+        "type": "object"
+      },
+      "ShotPlanProposalData": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanAdoptionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "author_actor_id": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Author Actor Id",
+            "type": "string"
+          },
+          "capability_losses": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanIssueV1"
+            },
+            "title": "Capability Losses",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ShotPlanContentV1"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "generation_status": {
+            "const": "UNAVAILABLE",
+            "default": "UNAVAILABLE",
+            "title": "Generation Status",
+            "type": "string"
+          },
+          "head_revision": {
+            "minimum": 1.0,
+            "title": "Head Revision",
+            "type": "integer"
+          },
+          "parent_version_id": {
+            "anyOf": [
+              {
+                "pattern": "^ver_[0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Version Id"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "minimum": 1.0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "version_number",
+          "head_revision",
+          "parent_version_id",
+          "content",
+          "author_actor_id",
+          "created_at",
+          "capability_losses",
+          "adoption"
+        ],
+        "title": "ShotPlanProposalData",
+        "type": "object"
+      },
+      "ShotPlanProposalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ShotPlanProposalData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ShotPlanProposalResponse",
+        "type": "object"
+      },
+      "ShotPlanScriptPin": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_id": {
+            "pattern": "^esc_[0-9a-f]{32}$",
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "head_revision": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Head Revision",
+            "type": "integer"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "confirmation_id",
+          "head_revision"
+        ],
+        "title": "ShotPlanScriptPin",
+        "type": "object"
+      },
+      "ShotPlanShotV1": {
+        "additionalProperties": false,
+        "properties": {
+          "composition": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Composition",
+            "type": "string"
+          },
+          "coverage": {
+            "items": {
+              "enum": [
+                "ACTION",
+                "DIALOGUE",
+                "ESTABLISHING",
+                "REACTION",
+                "TRANSITION"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Coverage",
+            "type": "array"
+          },
+          "dialogue_block_ids": {
+            "items": {
+              "pattern": "^sblk_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Dialogue Block Ids",
+            "type": "array"
+          },
+          "duration_frames": {
+            "maximum": 864000.0,
+            "minimum": 1.0,
+            "title": "Duration Frames",
+            "type": "integer"
+          },
+          "end_state": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "End State",
+            "type": "string"
+          },
+          "framing": {
+            "enum": [
+              "EXTREME_WIDE",
+              "WIDE",
+              "MEDIUM",
+              "CLOSE_UP",
+              "EXTREME_CLOSE_UP"
+            ],
+            "title": "Framing",
+            "type": "string"
+          },
+          "handle_in_frames": {
+            "maximum": 864000.0,
+            "minimum": 0.0,
+            "title": "Handle In Frames",
+            "type": "integer"
+          },
+          "handle_out_frames": {
+            "maximum": 864000.0,
+            "minimum": 0.0,
+            "title": "Handle Out Frames",
+            "type": "integer"
+          },
+          "movement": {
+            "$ref": "#/components/schemas/ShotPlanMovement"
+          },
+          "narrative_purpose": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Narrative Purpose",
+            "type": "string"
+          },
+          "ordinal": {
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "performance": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Performance",
+            "type": "string"
+          },
+          "rhythm": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rhythm",
+            "type": "string"
+          },
+          "safe_cut_window": {
+            "$ref": "#/components/schemas/ShotPlanCutWindow"
+          },
+          "script_block_ids": {
+            "items": {
+              "pattern": "^sblk_[0-9a-f]{32}$",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Script Block Ids",
+            "type": "array"
+          },
+          "script_scene_id": {
+            "pattern": "^scn_[0-9a-f]{32}$",
+            "title": "Script Scene Id",
+            "type": "string"
+          },
+          "shot_id": {
+            "pattern": "^shp_[0-9a-f]{32}$",
+            "title": "Shot Id",
+            "type": "string"
+          },
+          "sound_intent": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Sound Intent",
+            "type": "string"
+          },
+          "start_state": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Start State",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shot_id",
+          "ordinal",
+          "script_scene_id",
+          "script_block_ids",
+          "title",
+          "narrative_purpose",
+          "coverage",
+          "framing",
+          "composition",
+          "performance",
+          "movement",
+          "start_state",
+          "end_state",
+          "duration_frames",
+          "handle_in_frames",
+          "handle_out_frames",
+          "safe_cut_window",
+          "rhythm",
+          "sound_intent",
+          "dialogue_block_ids"
+        ],
+        "title": "ShotPlanShotV1",
+        "type": "object"
+      },
+      "ShotPlanStoryboardBase": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "head_revision": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Head Revision",
+            "type": "integer"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "head_revision"
+        ],
+        "title": "ShotPlanStoryboardBase",
+        "type": "object"
+      },
+      "ShotPlanWriteStatusData": {
+        "additionalProperties": false,
+        "properties": {
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanProposalData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "proposal"
+        ],
+        "title": "ShotPlanWriteStatusData",
+        "type": "object"
+      },
+      "ShotPlanWriteStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ShotPlanWriteStatusData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "ShotPlanWriteStatusResponse",
         "type": "object"
       },
       "SkillCatalogData": {
@@ -21921,6 +22866,946 @@
           }
         },
         "summary": "Get Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals": {
+      "get": {
+        "operationId": "getShotPlanProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Latest"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/human": {
+      "post": {
+        "operationId": "createHumanShotPlanProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHumanShotPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Create"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/human-operations/{operation_id}": {
+      "get": {
+        "operationId": "getHumanShotPlanWriteStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanWriteStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Write Status"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/preparation": {
+      "get": {
+        "operationId": "prepareHumanShotPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanPreparationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Prepare"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}": {
+      "get": {
+        "operationId": "getShotPlanProposalVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ver_[0-9a-f]{32}$",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Exact"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}/adopt": {
+      "post": {
+        "operationId": "adoptHumanShotPlanProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ver_[0-9a-f]{32}$",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "minLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptShotPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Adopt"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}/adoption": {
+      "get": {
+        "operationId": "getShotPlanAdoptionStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ver_[0-9a-f]{32}$",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShotPlanAdoptionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Manual shot plan request rejected safely"
+          }
+        },
+        "summary": "Adoption Status"
       }
     },
     "/api/v1/projects/{project_id}/episodes/{episode_id}/storyboard": {

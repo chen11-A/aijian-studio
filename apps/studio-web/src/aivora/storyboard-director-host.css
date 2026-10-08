@@ -1,0 +1,132 @@
+/* Original storyboard workspace: only the active editor consumes canvas height. */
+.storyboard-director-host[hidden],
+.storyboard-manual-host[hidden] {
+  display: none !important;
+}
+.demo-root .page-scroll > .storyboard-director-host {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.storyboard-director-host > .shot-plan-proposal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 10px;
+  overflow: hidden;
+}
+.storyboard-director-host > .shot-plan-proposal:is(details):not([open]) {
+  height: auto;
+}
+.storyboard-director-host .shot-plan-proposal > summary {
+  flex: 0 0 auto;
+}
+.storyboard-director-host .shot-plan-proposal > .episode-storyboard {
+  flex: 1 1 0;
+  min-height: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+.storyboard-director-host .shot-plan-proposal .storyboard-layout {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+}
+.storyboard-director-host .shot-plan-proposal .shot-plan-pin,
+.storyboard-director-host .shot-plan-proposal .shot-plan-issues {
+  flex: 0 0 auto;
+  max-height: 80px;
+  overflow-y: auto;
+  margin-block: 0;
+}
+.storyboard-director-host .shot-plan-proposal .shot-plan-toolbar {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.storyboard-director-host .shot-plan-toolbar > label {
+  max-width: 110px;
+}
+.storyboard-director-host .shot-plan-proposal .storyboard-save-footer {
+  flex: 0 0 auto;
+  gap: 8px;
+  padding-top: 8px;
+}
+@media (max-height: 720px) {
+  .storyboard-director-host .shot-plan-proposal .shot-plan-pin,
+  .storyboard-director-host .shot-plan-proposal .shot-plan-issues {
+    max-height: 48px;
+  }
+  .storyboard-director-host .shot-plan-proposal .storyboard-notice {
+    max-height: 45px;
+    padding: 5px 10px;
+  }
+}
+
+.storyboard-director-host .shot-plan-workspace-title {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #e5f0fa;
+  font-size: 14px;
+}
+/* Metadata stays compact so minimum desktop windows retain a usable canvas. */
+.storyboard-director-host .storyboard-status > p {
+  display: none;
+}
+.storyboard-director-host .storyboard-status > span:last-child {
+  display: inline;
+}
+.storyboard-director-host .shot-plan-toolbar > label {
+  display: flex;
+  flex-direction: row;
+  flex: 0 0 108px;
+  align-items: center;
+  gap: 6px;
+  max-width: none;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.storyboard-director-host .shot-plan-proposal .shot-plan-toolbar > label input {
+  flex: 0 0 52px;
+  width: 52px;
+  padding: 5px;
+}
+.storyboard-director-host .shot-plan-proposal .storyboard-layout {
+  grid-template-columns: minmax(132px, 28%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.storyboard-director-host .storyboard-shot-list > header {
+  gap: 4px;
+  padding: 6px 8px;
+  flex-wrap: wrap;
+}
+.storyboard-director-host .storyboard-shot-list ol {
+  display: block;
+  padding: 5px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.storyboard-director-host .storyboard-shot-list li + li {
+  margin-top: 6px;
+}
+.storyboard-director-host .storyboard-detail-scroll {
+  padding: 8px;
+}
+@media (max-height: 720px) {
+  .storyboard-director-host .shot-plan-proposal > .episode-storyboard {
+    gap: 6px;
+  }
+  .storyboard-director-host .shot-plan-proposal > .episode-storyboard > p.shot-plan-pin {
+    max-height: 32px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .storyboard-director-host .shot-plan-proposal .shot-plan-issues {
+    max-height: 32px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}

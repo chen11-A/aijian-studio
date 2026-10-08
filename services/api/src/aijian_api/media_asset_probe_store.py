@@ -52,7 +52,7 @@ def _plain_directory(path: Path) -> bool:
 def _selected_row(
     connection: sqlite3.Connection, project_id: str, asset_id: str, version_id: str,
 ) -> sqlite3.Row:
-    row = connection.execute(
+    row: object = connection.execute(
         """SELECT version.sha256, version.byte_size, version.kind
            FROM media_asset_versions AS version
            JOIN media_assets AS asset ON asset.project_id = version.project_id
@@ -62,9 +62,17 @@ def _selected_row(
         (project_id, asset_id, version_id),
     ).fetchone()
     if row is None:
-        raise MediaAssetProbeEvidenceError("ASSET_VERSION_NOT_FOUND", "Selected media version was not found")
+        raise MediaAssetProbeEvidenceError(
+            "ASSET_VERSION_NOT_FOUND", "Selected media version was not found",
+        )
+    if not isinstance(row, sqlite3.Row):
+        raise MediaAssetProbeEvidenceError(
+            "MEDIA_RECORD_CORRUPT", "Selected media metadata is not a SQLite row",
+        )
     if str(row["kind"]) != "video":
-        raise MediaAssetProbeEvidenceError("VIDEO_REQUIRED", "Only video originals can use this probe contract")
+        raise MediaAssetProbeEvidenceError(
+            "VIDEO_REQUIRED", "Only video originals can use this probe contract",
+        )
     return row
 
 

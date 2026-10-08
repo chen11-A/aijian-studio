@@ -293,12 +293,13 @@ export function ManualCreativeEditor({
                         value={world[key]}
                         maxLength={240}
                         placeholder={hint}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
                           library.edit((current) => ({
                             ...current,
-                            world: { ...current.world, [key]: event.target.value },
-                          }))
-                        }
+                            world: { ...current.world, [key]: value },
+                          }));
+                        }}
                       />
                     ) : (
                       <textarea
@@ -306,12 +307,13 @@ export function ManualCreativeEditor({
                         maxLength={20_000}
                         placeholder={hint}
                         rows={key === "premise" || key === "rules" ? 4 : 3}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
                           library.edit((current) => ({
                             ...current,
-                            world: { ...current.world, [key]: event.target.value },
-                          }))
-                        }
+                            world: { ...current.world, [key]: value },
+                          }));
+                        }}
                       />
                     )}
                   </label>

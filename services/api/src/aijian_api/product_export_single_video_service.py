@@ -150,6 +150,7 @@ class ProductExportSingleVideoService:
             logging.getLogger(__name__).exception(
                 "Product export worker stopped without a success receipt: %s", key,
             )
+            unresolved: BaseException | None
             try:
                 current = self._coordinator.get(*key)
             except BaseException as readback_error:

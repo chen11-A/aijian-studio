@@ -1,0 +1,14 @@
+{
+  "data": {
+    "adoption": {
+      "actor_id": "local-user",
+      "adopted_at": "2026-10-08T15:36:53.707687Z",
+      "proposal_content_hash": "sha256:b5189d5b3ccaa0548acc7e3c99188078620bd0348bf55e321c37d3c3909fdad9",
+      "proposal_version_id": "ver_d4d39f9c59a54f69925fac9096332770",
+      "storyboard_content_hash": "sha256:2441aa150e4ee532b3d946da8e21c337472e63d50deb7f03835f1c517d0be1f5",
+      "storyboard_version_id": "ver_4190223b99e84f0cb8d46f0ecad720d6"
+    },
+    "proposal_version_id": "ver_d4d39f9c59a54f69925fac9096332770"
+  },
+  "request_id": "9e2773c8-3660-4066-b6ea-411f5070f8d2"
+}

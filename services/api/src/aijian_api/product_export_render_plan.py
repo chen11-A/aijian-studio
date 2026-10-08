@@ -16,10 +16,8 @@ from aijian_api.artifacts import canonical_content_hash
 from aijian_api.episode_media_assembly_contracts import EpisodeMediaAssemblyContentV1
 from aijian_api.media_asset_probe_store import MediaAssetProbeEvidence
 from aijian_api.media_toolchain import MediaToolchain
-from aijian_api.product_export_contracts import (
-    ProductExportClaimRequest,
-    ProductExportSpec,
-)
+from aijian_api.product_export_contracts import ProductExportClaimRequest
+from aijian_api.product_timeline_export_contracts import ProductExportSpec
 
 
 class ProductExportPlanError(ValueError):

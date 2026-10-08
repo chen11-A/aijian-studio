@@ -18,7 +18,8 @@ from aijian_api.media_probe import (
     probe_local_media,
 )
 from aijian_api.media_toolchain import MediaToolchain
-from aijian_api.product_export_contracts import ProductExportClaimRequest, ProductExportSpec
+from aijian_api.product_export_contracts import ProductExportClaimRequest
+from aijian_api.product_timeline_export_contracts import ProductExportSpec
 
 
 class ProductExportOutputError(ValueError):

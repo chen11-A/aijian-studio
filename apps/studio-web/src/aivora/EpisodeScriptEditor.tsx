@@ -600,8 +600,10 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId, epis
   </>;
   const sceneHeading = selected && <>
 <label>场次标题<input value={selected.heading} disabled={locked}
-          onChange={(event) => updateScene(selected.scene_id, (scene) =>
-            ({ ...scene, heading: event.target.value }))} /></label>
+          onChange={(event) => {
+            const heading = event.currentTarget.value;
+            updateScene(selected.scene_id, (scene) => ({ ...scene, heading }));
+          }} /></label>
   </>;
   const blockActions = selected && <>
 <Button disabled={locked} onClick={() => addBlock(selected.scene_id, "ACTION")}>添加动作</Button>

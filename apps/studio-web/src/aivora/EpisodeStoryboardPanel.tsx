@@ -1,4 +1,9 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
+import { ShotPlanProposalReview } from "./ShotPlanProposalReview";
+import { readScriptJournal, readConfirmationJournal } from "./adapters/episodeScript";
+import { readPendingProductionBriefCommand } from "./adapters/productionBriefWorkspace";
+import "./storyboard-director-host.css";
 import { Button, PageTitle } from "./Common";
 import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
 import {
@@ -19,8 +24,89 @@ export function EpisodeStoryboardPanel({
   episodeId: string;
   setNavigationGuard: (guard: (() => boolean) | null) => void;
 }) {
-  const state = useEpisodeStoryboard(projectId, episodeId, setNavigationGuard);
-  const { content, version, locked, dirty, busy } = state;
+  // Both views keep the same authoritative storyboard controller. Switching views
+  // never discards edits; route/project/episode changes still use one combined guard.
+  const storyboardGuard = useRef<(() => boolean) | null>(null);
+  const captureStoryboardGuard = useCallback((guard: (() => boolean) | null) => {
+    storyboardGuard.current = guard;
+  }, []);
+  const state = useEpisodeStoryboard(projectId, episodeId, captureStoryboardGuard);
+  const [directorOpen, setDirectorOpen] = useState(false);
+  const [directorVisited, setDirectorVisited] = useState(false);
+  const [directorWork, setDirectorWork] = useState({ dirty: false, pending: false, busy: false });
+  const directorWorkRef = useRef(directorWork);
+  directorWorkRef.current = directorWork;
+  const onDirectorWork = useCallback((work: typeof directorWork) => setDirectorWork(work), []);
+  const directorGateway = useMemo(() => {
+    const bridge = (window as Window & { aijianShotPlan?: ShotPlanGateway }).aijianShotPlan;
+    const methods: (keyof ShotPlanGateway)[] = [
+      "prepareHumanShotPlan",
+      "getShotPlanProposal",
+      "getShotPlanProposalVersion",
+      "getHumanShotPlanWriteStatus",
+      "getShotPlanAdoptionStatus",
+      "createHumanShotPlanProposal",
+      "adoptHumanShotPlanProposal",
+    ];
+    return bridge && methods.every((method) => typeof bridge[method] === "function")
+      ? bridge
+      : null;
+  }, []);
+  const [, refreshRecoveryState] = useState(0);
+  useEffect(() => {
+    const refresh = () => refreshRecoveryState((value) => value + 1);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  let upstreamPending = true;
+  try {
+    const brief = readPendingProductionBriefCommand(projectId);
+    upstreamPending =
+      readScriptJournal(window.localStorage, projectId, episodeId).kind !== "EMPTY" ||
+      readConfirmationJournal(window.localStorage, projectId, episodeId).kind !== "EMPTY" ||
+      brief.kind !== "READY" ||
+      brief.command !== null;
+  } catch {
+    /* Unreadable recovery state must block new adoption. */
+  }
+  useEffect(() => {
+    setNavigationGuard(() => {
+      const work = directorWorkRef.current;
+      if (work.busy) return false;
+      if (
+        work.dirty &&
+        !window.confirm(
+          work.pending
+            ? "人工导演提案有保存结果待核对，原提交恢复记录会保留。离开此页吗？"
+            : "人工导演提案有未保存修改。放弃修改并离开吗？",
+        )
+      )
+        return false;
+      return storyboardGuard.current?.() ?? true;
+    });
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      const work = directorWorkRef.current;
+      if (!work.dirty && !work.busy) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      setNavigationGuard(null);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
+  }, [setNavigationGuard]);
+  const showDirector = () => {
+    if (state.busy || directorWork.busy) return;
+    setDirectorVisited(true);
+    setDirectorOpen((current) => !current);
+  };
+  const { content, version, dirty, busy } = state;
+  const locked = state.locked || directorWork.busy || directorWork.pending;
   const selectionKey = `aivora.storyboard.selection.v1.${projectId}.${episodeId}`;
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     try {
@@ -94,13 +180,23 @@ export function EpisodeStoryboardPanel({
       <PageTitle
         actions={
           <>
-            <Button disabled={busy} onClick={() => void state.reload()}>
+            <Button
+              aria-pressed={directorOpen}
+              disabled={busy || directorWork.busy}
+              onClick={showDirector}
+            >
+              {directorOpen ? "返回手写分镜" : "导演提案"}
+            </Button>
+            <Button
+              disabled={busy || directorWork.busy || directorOpen}
+              onClick={() => void state.reload()}
+            >
               重新读取
             </Button>
             <Button
               primary
               icon="plus"
-              disabled={locked || content.shots.length >= 1000}
+              disabled={locked || directorOpen || content.shots.length >= 1000}
               onClick={add}
             >
               添加镜头
@@ -108,7 +204,38 @@ export function EpisodeStoryboardPanel({
           </>
         }
       />
-      <section className="episode-storyboard" aria-label="分集手写分镜">
+      {directorVisited && (
+        <div className="storyboard-director-host" hidden={!directorOpen}>
+          <ShotPlanProposalReview
+            projectId={projectId}
+            episodeId={episodeId}
+            gateway={directorGateway}
+            // The route guard has already dealt with the unmounted script editor's
+            // dirty draft. Its durable write/confirmation journals are checked above.
+            scriptDirty={false}
+            storyboardDirty={dirty}
+            pendingOperations={
+              upstreamPending ||
+              state.journal.kind !== "EMPTY" ||
+              state.busy ||
+              state.readState === "loading" ||
+              state.readState === "error"
+            }
+            onWorkStateChange={onDirectorWork}
+            onAdopted={async () => {
+              await state.reload();
+              select(null);
+            }}
+            initiallyOpen
+            workspace
+          />
+        </div>
+      )}
+      <section
+        className="episode-storyboard storyboard-manual-host"
+        hidden={directorOpen}
+        aria-label="分集手写分镜"
+      >
         <div className="storyboard-status">
           <span>
             {stateLabel} · {content.shots.length} 个镜头 · {totalFrames} 帧
@@ -178,9 +305,10 @@ export function EpisodeStoryboardPanel({
                   step={1}
                   value={content.fps || ""}
                   disabled={locked}
-                  onChange={(event) =>
-                    state.edit((value) => ({ ...value, fps: Number(event.target.value) }))
-                  }
+                  onChange={(event) => {
+                    const fps = Number(event.currentTarget.value);
+                    state.edit((value) => ({ ...value, fps }));
+                  }}
                 />
               </label>
               <p>时长以整数帧保存。修改帧率保留帧数，文字预演时长随之变化。</p>

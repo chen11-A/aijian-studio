@@ -30,6 +30,7 @@ import { registerMediaAssetHandlers } from "./media-asset-ipc";
 import { registerMediaAssetProbeHandlers } from "./media-asset-probe-ipc";
 import { registerEpisodeScriptHandlers } from "./episode-script-ipc";
 import { registerProjectCreativeLibraryHandlers } from "./project-creative-library-ipc";
+import { registerShotPlanHandlers } from "./shot-plan-ipc";
 import { registerEpisodeStoryboardHandlers } from "./episode-storyboard-ipc";
 import { registerEpisodeScriptConfirmationHandlers } from "./episode-script-confirmation-ipc";
 import { registerSourceProposalAcceptanceHandler } from "./source-proposal-acceptance-ipc";
@@ -359,6 +360,11 @@ registerDraftExportHandlers<IpcMainInvokeEvent>(
   (operationId) => prepareCompositionPreviewPath(app.getPath("userData"), operationId),
 );
 registerEpisodeMediaAssemblyHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerShotPlanHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,

@@ -84,6 +84,7 @@ from aijian_api.provider_schema import (
     migration_22_statements,
 )
 from aijian_api.remote_settlement_contracts import migration_21_statements
+from aijian_api.shot_plan_schema import SHOT_PLAN_MIGRATION
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
     SourceManifestContentV1,
@@ -105,7 +106,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 39
+SCHEMA_VERSION = 40
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -841,6 +842,7 @@ _MIGRATIONS = {
     37: OFFICIAL_TEXT_MIGRATION,
     38: DRAFT_REVIEW_MIGRATION,
     39: PROVIDER_CREDENTIAL_CLEANUP_MIGRATION,
+    40: SHOT_PLAN_MIGRATION,
 }
 
 

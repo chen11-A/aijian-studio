@@ -14,6 +14,8 @@ import { basename } from "node:path";
 import type { components } from "@aijian/contracts";
 import { createProjectCreativeLibraryClient } from "./project-creative-library-client";
 import type { ProjectCreativeLibraryGateway } from "./project-creative-library-contract";
+import { createShotPlanClient } from "./shot-plan-client";
+import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
 import { createEpisodeStoryboardClient } from "./episode-storyboard-client";
 import type { EpisodeStoryboardGateway } from "./episode-storyboard-contract";
 import {
@@ -483,7 +485,7 @@ export interface SourceManifestReviewClient {
   ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
 }
 
-export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainClient, OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway {
+export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainClient, OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway, ShotPlanGateway {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
@@ -2189,18 +2191,19 @@ export function createLocalApiClient(
   async function readJsonWithLimit(
     response: Response,
     deadline?: { wait: <T>(pending: Promise<T>) => Promise<T> },
+    maxBytes = MAX_LOCAL_API_JSON_BYTES,
   ): Promise<unknown> {
     const contentLength = response.headers.get("Content-Length");
     if (contentLength && /^\d+$/.test(contentLength)) {
       const declaredBytes = Number(contentLength);
-      if (!Number.isSafeInteger(declaredBytes) || declaredBytes > MAX_LOCAL_API_JSON_BYTES) {
+      if (!Number.isSafeInteger(declaredBytes) || declaredBytes > maxBytes) {
         throw new Error("Local API response exceeds the desktop safety limit");
       }
     }
     if (!response.body) {
       const pending = response.arrayBuffer();
       const bytes = new Uint8Array(await (deadline ? deadline.wait(pending) : pending));
-      if (bytes.byteLength > MAX_LOCAL_API_JSON_BYTES) {
+      if (bytes.byteLength > maxBytes) {
         throw new Error("Local API response exceeds the desktop safety limit");
       }
       return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -2214,7 +2217,7 @@ export function createLocalApiClient(
         const { done, value } = await (deadline ? deadline.wait(pending) : pending);
         if (done) break;
         totalBytes += value.byteLength;
-        if (totalBytes > MAX_LOCAL_API_JSON_BYTES) {
+        if (totalBytes > maxBytes) {
           if (!deadline) await reader.cancel("response too large");
           throw new Error("Local API response exceeds the desktop safety limit");
         }
@@ -2425,7 +2428,7 @@ export function createLocalApiClient(
   }
 
   async function requestSub2APIMutationHttp(
-    path: string, init: RequestInit, timeoutMs = 15_000,
+    path: string, init: RequestInit, timeoutMs = 15_000, maxBytes = MAX_LOCAL_API_JSON_BYTES,
   ): Promise<{ status: number; payload: unknown; requestId: string | null } | null> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2440,7 +2443,7 @@ export function createLocalApiClient(
       const response = await wait(fetcher(`${origin}${path}`, {
         ...init, signal: controller.signal,
       }));
-      const payload = await readJsonWithLimit(response, { wait });
+      const payload = await readJsonWithLimit(response, { wait }, maxBytes);
       return {
         status: response.status, payload,
         requestId: response.headers.get("X-Request-ID"),
@@ -3097,6 +3100,9 @@ export function createLocalApiClient(
   return {
     ...createProjectCreativeLibraryClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeStoryboardClient(requestSub2APIMutationHttp, headers),
+    ...createShotPlanClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 15_000, 9_000_000), headers,
+    ),
     ...createOfficialTextClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
     ...createDraftExportClient(requestSub2APIMutationHttp, headers),

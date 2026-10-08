@@ -71,31 +71,32 @@ def _read_operation(
             probe_hash=str(receipt["probe_hash"]),
             verified_at=str(receipt["verified_at"]),
         )
-    return ProductExportOperationData(
-        project_id=str(row["project_id"]),
-        episode_id=str(row["episode_id"]),
-        operation_id=str(row["operation_id"]),
-        request_hash=str(row["request_hash"]),
-        assembly=ProductExportAssemblyAssertion(
+    operation_data: dict[str, object] = {
+        "project_id": str(row["project_id"]),
+        "episode_id": str(row["episode_id"]),
+        "operation_id": str(row["operation_id"]),
+        "request_hash": str(row["request_hash"]),
+        "assembly": ProductExportAssemblyAssertion(
             artifact_id=str(row["assembly_artifact_id"]),
             version_id=str(row["assembly_version_id"]),
             content_hash=str(row["assembly_content_hash"]),
             head_revision=row["assembly_head_revision"],
         ),
-        status=str(row["status"]),
-        progress_phase=str(row["progress_phase"]),
-        progress_frames=row["progress_frames"],
-        total_frames=row["total_frames"],
-        inputs_sealed_at=row["inputs_sealed_at"],
-        cancel_requested_at=row["cancel_requested_at"],
-        unknown_reason=row["unknown_reason"],
-        output=output,
-        created_at=str(row["created_at"]),
-        updated_at=str(row["updated_at"]),
-        started_at=row["started_at"],
-        finished_at=row["finished_at"],
-        reconciled_at=row["reconciled_at"],
-    )
+        "status": str(row["status"]),
+        "progress_phase": str(row["progress_phase"]),
+        "progress_frames": row["progress_frames"],
+        "total_frames": row["total_frames"],
+        "inputs_sealed_at": row["inputs_sealed_at"],
+        "cancel_requested_at": row["cancel_requested_at"],
+        "unknown_reason": row["unknown_reason"],
+        "output": output,
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
+        "started_at": row["started_at"],
+        "finished_at": row["finished_at"],
+        "reconciled_at": row["reconciled_at"],
+    }
+    return ProductExportOperationData.model_validate(operation_data)
 
 
 class ProductExportStore:

@@ -189,6 +189,10 @@ from aijian_api.repository import (
 )
 from aijian_api.runtime_resources import media_tool_root, media_toolchain_lock_path
 from aijian_api.security import SecurityFailure, SidecarSecurity
+from aijian_api.shot_plan_routes import (
+    create_shot_plan_public_router,
+    create_shot_plan_write_router,
+)
 from aijian_api.source_extraction_routes import create_source_extraction_router
 from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
@@ -1179,6 +1183,7 @@ def create_app(
     app.include_router(create_episode_script_public_router(get_repository))
     app.include_router(create_official_text_public_router(get_repository))
     app.include_router(create_episode_storyboard_public_router(get_repository))
+    app.include_router(create_shot_plan_public_router(get_repository))
     app.include_router(create_project_creative_library_public_router(get_repository))
     app.include_router(create_episode_script_confirmation_public_router(get_repository))
     app.include_router(create_episode_media_assembly_public_router(get_repository))
@@ -1233,6 +1238,7 @@ def create_app(
         app.include_router(
             create_episode_storyboard_write_router(get_repository, trusted_review_actor)
         )
+        app.include_router(create_shot_plan_write_router(get_repository, trusted_review_actor))
         app.include_router(
             create_project_creative_library_write_router(get_repository, trusted_review_actor)
         )

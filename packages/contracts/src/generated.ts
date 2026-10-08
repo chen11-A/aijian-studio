@@ -769,6 +769,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest */
+        get: operations["getShotPlanProposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/human": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create */
+        post: operations["createHumanShotPlanProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/human-operations/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Write Status */
+        get: operations["getHumanShotPlanWriteStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prepare */
+        get: operations["prepareHumanShotPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exact */
+        get: operations["getShotPlanProposalVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adopt */
+        post: operations["adoptHumanShotPlanProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/shot-plan-proposals/versions/{version_id}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Adoption Status */
+        get: operations["getShotPlanAdoptionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/episodes/{episode_id}/storyboard": {
         parameters: {
             query?: never;
@@ -1515,6 +1634,16 @@ export interface components {
             proposal_content_hash: string;
             /** Proposal Version Id */
             proposal_version_id: string;
+        };
+        /** AdoptShotPlanRequest */
+        AdoptShotPlanRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
+            /** Proposal Content Hash */
+            proposal_content_hash: string;
         };
         /** AgentCatalogData */
         AgentCatalogData: {
@@ -2541,6 +2670,16 @@ export interface components {
             source_document_id: string;
             /** Source Manifest Version Id */
             source_manifest_version_id: string;
+        };
+        /** CreateHumanShotPlanRequest */
+        CreateHumanShotPlanRequest: {
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["ShotPlanContentV1"];
+            /** Expected Revision */
+            expected_revision: number | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
         };
         /** CreateProjectCreativeLibraryVersionRequest */
         CreateProjectCreativeLibraryVersionRequest: {
@@ -5652,6 +5791,294 @@ export interface components {
             /** @constant */
             timecode_mode: "DROP_FRAME";
         });
+        /** ShotPlanAdaptedAuthority */
+        ShotPlanAdaptedAuthority: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "ADAPTED";
+            production_brief: components["schemas"]["ShotPlanExactVersion"];
+            script: components["schemas"]["ShotPlanScriptPin"];
+            source_extraction: components["schemas"]["ShotPlanExactVersion"];
+            /** Source Proposal Acceptance Id */
+            source_proposal_acceptance_id: string;
+            /** Source Span Ids */
+            source_span_ids: string[];
+        };
+        /** ShotPlanAdoptionData */
+        ShotPlanAdoptionData: {
+            /** Actor Id */
+            actor_id: string;
+            /**
+             * Adopted At
+             * Format: date-time
+             */
+            adopted_at: string;
+            /** Proposal Content Hash */
+            proposal_content_hash: string;
+            /** Proposal Version Id */
+            proposal_version_id: string;
+            /** Storyboard Content Hash */
+            storyboard_content_hash: string;
+            /** Storyboard Version Id */
+            storyboard_version_id: string;
+        };
+        /** ShotPlanAdoptionStatusData */
+        ShotPlanAdoptionStatusData: {
+            adoption: components["schemas"]["ShotPlanAdoptionData"] | null;
+            /** Proposal Version Id */
+            proposal_version_id: string;
+        };
+        /** ShotPlanAdoptionStatusResponse */
+        ShotPlanAdoptionStatusResponse: {
+            data: components["schemas"]["ShotPlanAdoptionStatusData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ShotPlanContentV1 */
+        ShotPlanContentV1: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Episode Id */
+            episode_id: string;
+            /** Issues */
+            issues: components["schemas"]["ShotPlanIssueV1"][];
+            /** Project Id */
+            project_id: string;
+            /**
+             * Provenance
+             * @constant
+             */
+            provenance: "HUMAN";
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Shots */
+            shots: components["schemas"]["ShotPlanShotV1"][];
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
+            timebase: components["schemas"]["SequenceTimebaseData"];
+            /** Visual Constraints */
+            visual_constraints: string[];
+        };
+        /** ShotPlanCutWindow */
+        ShotPlanCutWindow: {
+            /** End Frame */
+            end_frame: number;
+            /** Start Frame */
+            start_frame: number;
+        };
+        /** ShotPlanExactVersion */
+        ShotPlanExactVersion: {
+            /** Content Hash */
+            content_hash: string;
+            /** Version Id */
+            version_id: string;
+        };
+        /** ShotPlanIssueV1 */
+        ShotPlanIssueV1: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "WARNING" | "BLOCKING";
+            /** Shot Id */
+            shot_id: string | null;
+        };
+        /** ShotPlanMovement */
+        ShotPlanMovement: {
+            /** Camera */
+            camera: string;
+            /** Environment */
+            environment: string;
+            /** Subject */
+            subject: string;
+        };
+        /** ShotPlanMutationData */
+        ShotPlanMutationData: {
+            proposal: components["schemas"]["ShotPlanProposalData"];
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** ShotPlanMutationResponse */
+        ShotPlanMutationResponse: {
+            data: components["schemas"]["ShotPlanMutationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ShotPlanOriginalAuthority */
+        ShotPlanOriginalAuthority: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "ORIGINAL";
+            production_brief: components["schemas"]["ShotPlanExactVersion"];
+            script: components["schemas"]["ShotPlanScriptPin"];
+        };
+        /** ShotPlanPreparationData */
+        ShotPlanPreparationData: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Episode Id */
+            episode_id: string;
+            /**
+             * Generation Status
+             * @default UNAVAILABLE
+             * @constant
+             */
+            generation_status: "UNAVAILABLE";
+            production_brief_content: components["schemas"]["ProductionBriefContentV1"];
+            /** Production Brief Stored Content */
+            production_brief_stored_content: {
+                [key: string]: unknown;
+            };
+            /** Project Id */
+            project_id: string;
+            script_content: components["schemas"]["EpisodeScriptContentV1"];
+            /** Script Stored Content */
+            script_stored_content: {
+                [key: string]: unknown;
+            };
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
+        };
+        /** ShotPlanPreparationResponse */
+        ShotPlanPreparationResponse: {
+            data: components["schemas"]["ShotPlanPreparationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ShotPlanProposalData */
+        ShotPlanProposalData: {
+            adoption: components["schemas"]["ShotPlanAdoptionData"] | null;
+            /** Author Actor Id */
+            author_actor_id: string;
+            /** Capability Losses */
+            capability_losses: components["schemas"]["ShotPlanIssueV1"][];
+            content: components["schemas"]["ShotPlanContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Generation Status
+             * @default UNAVAILABLE
+             * @constant
+             */
+            generation_status: "UNAVAILABLE";
+            /** Head Revision */
+            head_revision: number;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+            /** Version Id */
+            version_id: string;
+            /** Version Number */
+            version_number: number;
+        };
+        /** ShotPlanProposalResponse */
+        ShotPlanProposalResponse: {
+            data: components["schemas"]["ShotPlanProposalData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ShotPlanScriptPin */
+        ShotPlanScriptPin: {
+            /** Confirmation Id */
+            confirmation_id: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Head Revision */
+            head_revision: number;
+            /** Version Id */
+            version_id: string;
+        };
+        /** ShotPlanShotV1 */
+        ShotPlanShotV1: {
+            /** Composition */
+            composition: string;
+            /** Coverage */
+            coverage: ("ACTION" | "DIALOGUE" | "ESTABLISHING" | "REACTION" | "TRANSITION")[];
+            /** Dialogue Block Ids */
+            dialogue_block_ids: string[];
+            /** Duration Frames */
+            duration_frames: number;
+            /** End State */
+            end_state: string;
+            /**
+             * Framing
+             * @enum {string}
+             */
+            framing: "EXTREME_WIDE" | "WIDE" | "MEDIUM" | "CLOSE_UP" | "EXTREME_CLOSE_UP";
+            /** Handle In Frames */
+            handle_in_frames: number;
+            /** Handle Out Frames */
+            handle_out_frames: number;
+            movement: components["schemas"]["ShotPlanMovement"];
+            /** Narrative Purpose */
+            narrative_purpose: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Performance */
+            performance: string;
+            /** Rhythm */
+            rhythm: string;
+            safe_cut_window: components["schemas"]["ShotPlanCutWindow"];
+            /** Script Block Ids */
+            script_block_ids: string[];
+            /** Script Scene Id */
+            script_scene_id: string;
+            /** Shot Id */
+            shot_id: string;
+            /** Sound Intent */
+            sound_intent: string;
+            /** Start State */
+            start_state: string;
+            /** Title */
+            title: string;
+        };
+        /** ShotPlanStoryboardBase */
+        ShotPlanStoryboardBase: {
+            /** Content Hash */
+            content_hash: string;
+            /** Head Revision */
+            head_revision: number;
+            /** Version Id */
+            version_id: string;
+        };
+        /** ShotPlanWriteStatusData */
+        ShotPlanWriteStatusData: {
+            proposal: components["schemas"]["ShotPlanProposalData"] | null;
+        };
+        /** ShotPlanWriteStatusResponse */
+        ShotPlanWriteStatusResponse: {
+            data: components["schemas"]["ShotPlanWriteStatusData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** SkillCatalogData */
         SkillCatalogData: {
             /** Project Id */
@@ -10783,6 +11210,687 @@ export interface operations {
                 };
             };
             /** @description Script storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getShotPlanProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanProposalResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createHumanShotPlanProposal: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHumanShotPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanMutationResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getHumanShotPlanWriteStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanWriteStatusResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    prepareHumanShotPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanPreparationResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getShotPlanProposalVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanProposalResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adoptHumanShotPlanProposal: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                project_id: string;
+                episode_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptShotPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanMutationResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getShotPlanAdoptionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShotPlanAdoptionStatusResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Manual shot plan request rejected safely */
             500: {
                 headers: {
                     [name: string]: unknown;

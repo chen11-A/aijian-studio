@@ -1,3 +1,4 @@
+import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
 import type { MediaToolchainResult, MediaToolchainSelectionResult, MediaToolchainCancelResult } from "./media-toolchain-contract";
 import type { MediaAssetProbeReadResult, MediaAssetProbeWriteResult } from "./media-asset-probe-contract";
 import type { CreateDraftReviewNoteRequest, ResolveDraftReviewNoteRequest, DraftReviewResult } from "./draft-review-contract";
@@ -161,6 +162,24 @@ contextBridge.exposeInMainWorld("aijianOfficialText", {
   generate: (command) => ipcRenderer.invoke("official-text:generate", command),
   adopt: (project, episode, operation, input) => ipcRenderer.invoke("official-text:adopt", project, episode, operation, input),
 } satisfies OfficialTextBridge);
+
+// HUMAN-only proposal surface. There is no arbitrary path, renderer fetch or AI completion API.
+contextBridge.exposeInMainWorld("aijianShotPlan", {
+  prepareHumanShotPlan: (projectId, episodeId) =>
+    ipcRenderer.invoke("shot-plan:prepare", projectId, episodeId),
+  getShotPlanProposal: (projectId, episodeId) =>
+    ipcRenderer.invoke("shot-plan:latest", projectId, episodeId),
+  getShotPlanProposalVersion: (projectId, episodeId, versionId) =>
+    ipcRenderer.invoke("shot-plan:version", projectId, episodeId, versionId),
+  getHumanShotPlanWriteStatus: (projectId, episodeId, operationId) =>
+    ipcRenderer.invoke("shot-plan:write-status", projectId, episodeId, operationId),
+  getShotPlanAdoptionStatus: (projectId, episodeId, versionId) =>
+    ipcRenderer.invoke("shot-plan:adoption-status", projectId, episodeId, versionId),
+  createHumanShotPlanProposal: (projectId, episodeId, operationId, payload) =>
+    ipcRenderer.invoke("shot-plan:create-human", projectId, episodeId, operationId, payload),
+  adoptHumanShotPlanProposal: (projectId, episodeId, versionId, operationId, payload) =>
+    ipcRenderer.invoke("shot-plan:adopt-human", projectId, episodeId, versionId, operationId, payload),
+} satisfies ShotPlanGateway);
 
 contextBridge.exposeInMainWorld("aijian", {
   getMediaAssetProbeEvidence: (

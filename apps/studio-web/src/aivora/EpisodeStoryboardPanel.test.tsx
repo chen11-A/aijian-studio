@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EpisodeStoryboardPanel } from "./EpisodeStoryboardPanel";
 import { createStudioTransport } from "../api/studio";
@@ -10,6 +10,16 @@ import {
 import { emptyCreativeContent, type CreativeVersion } from "./adapters/creativeLibrary";
 import type { ScriptVersion } from "./adapters/episodeScript";
 import type * as Common from "./Common";
+import type { ShotPlanProposalReviewProps } from "./ShotPlanProposalReview";
+const planView = vi.hoisted(() => ({ current: null as ShotPlanProposalReviewProps | null }));
+// The real proposal component has its own serialized-contract flow tests. These
+// host tests isolate navigation and the retained storyboard controller.
+vi.mock("./ShotPlanProposalReview", () => ({
+  ShotPlanProposalReview: (props: ShotPlanProposalReviewProps) => {
+    planView.current = props;
+    return <section aria-label="director host test" />;
+  },
+}));
 vi.mock("../api/studio", () => ({ createStudioTransport: vi.fn() }));
 vi.mock("./Common", async (load) => {
   const actual = await load<typeof Common>();
@@ -114,6 +124,7 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   guard.mockClear();
+  planView.current = null;
   service = makeGateway();
   vi.mocked(createStudioTransport).mockReturnValue(
     service.api as ReturnType<typeof createStudioTransport>,
@@ -348,5 +359,58 @@ describe("native manual episode storyboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存分镜草稿" }));
     await screen.findByText(/请填写镜头标题/);
     expect(service.api.createEpisodeStoryboardVersion).toHaveBeenCalledTimes(1);
+  });
+  it("keeps unsaved manual content while switching the two storyboard views", async () => {
+    mount();
+    await add("保留手工修改");
+    fireEvent.click(screen.getByRole("button", { name: "导演提案" }));
+    expect(planView.current).toMatchObject({
+      projectId: project,
+      episodeId: episode,
+      storyboardDirty: true,
+      pendingOperations: false,
+    });
+    expect(screen.getByRole("region", { name: "director host test" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "返回手写分镜" }));
+    expect(screen.getByDisplayValue("保留手工修改")).toBeVisible();
+    expect(service.api.createEpisodeStoryboardVersion).not.toHaveBeenCalled();
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+  it("combines director dirty and busy guards without losing the storyboard guard", async () => {
+    mount();
+    await screen.findByText("本集还没有镜头。");
+    fireEvent.click(screen.getByRole("button", { name: "导演提案" }));
+    act(() => planView.current!.onWorkStateChange!({ dirty: true, pending: false, busy: false }));
+    vi.mocked(window.confirm).mockReturnValue(false);
+    expect(guard.mock.calls.at(-1)![0]!()).toBe(false);
+    expect(window.confirm).toHaveBeenCalledWith("人工导演提案有未保存修改。放弃修改并离开吗？");
+    vi.mocked(window.confirm).mockClear();
+    act(() => planView.current!.onWorkStateChange!({ dirty: false, pending: false, busy: true }));
+    expect(guard.mock.calls.at(-1)![0]!()).toBe(false);
+    expect(window.confirm).not.toHaveBeenCalled();
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    expect(screen.getByRole("button", { name: "返回手写分镜" })).toBeDisabled();
+    act(() => planView.current!.onWorkStateChange!({ dirty: false, pending: true, busy: false }));
+    expect(guard.mock.calls.at(-1)![0]!()).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "返回手写分镜" }));
+    expect(screen.getByRole("button", { name: "保存分镜草稿" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "添加镜头" })).toBeDisabled();
+  });
+  it.each([
+    `aivora.episode-script.pending.v1.${project}.${episode}`,
+    `aivora.episode-script.confirmation.pending.v1.${project}.${episode}`,
+    "aivora.production-brief.pending.v1",
+  ])("blocks proposal adoption when upstream recovery state is unreadable: %s", async (key) => {
+    localStorage.setItem(key, "{invalid");
+    mount();
+    await screen.findByText("本集还没有镜头。");
+    fireEvent.click(screen.getByRole("button", { name: "导演提案" }));
+    expect(planView.current?.pendingOperations).toBe(true);
+    expect(localStorage.getItem(key)).toBe("{invalid");
+    localStorage.removeItem(key);
+    fireEvent(window, new Event("focus"));
+    expect(planView.current?.pendingOperations).toBe(false);
   });
 });
