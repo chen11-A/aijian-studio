@@ -143,7 +143,10 @@ export function isCanonicalWorkspaceRelativePath(value: unknown): value is strin
     !value.includes("\\") && !value.startsWith("/") &&
     value.split("/").every((segment) =>
       segment.length > 0 && segment !== "." && segment !== ".." &&
-      !/[\u0000-\u001f\u007f:]/.test(segment));
+      [...segment].every((character) => {
+        const code = character.charCodeAt(0);
+        return code >= 32 && code !== 127 && character !== ":";
+      }));
 }
 
 function isOutput(value: unknown, projectId: string, exportId: string): value is DevelopmentExportOutput {

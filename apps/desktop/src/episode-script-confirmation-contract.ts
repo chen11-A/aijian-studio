@@ -1,9 +1,5 @@
 import { hasRequestId, isRecord } from "./api-contract-guards";
-import {
-  isEpisodeScriptEpisodeId,
-  isEpisodeScriptProjectId,
-  isEpisodeScriptVersionId,
-} from "./episode-script-contract";
+import { isEpisodeScriptVersionId } from "./episode-script-contract";
 
 export type CreateEpisodeScriptConfirmationRequest = {
   version_id: string;

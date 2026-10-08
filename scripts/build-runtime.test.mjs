@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import process from "node:process";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
@@ -14,9 +15,11 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, win32 } from "node:path";
+import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { asarManifestPath } from "./e2e/asar-manifest-path.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const modules = [
@@ -27,12 +30,58 @@ const modules = [
   "official-text",
 ];
 
+test("real ASAR nested manifest paths work with Windows traversal", async () => {
+  const temporary = mkdtempSync(join(tmpdir(), "aivora-asar-path-"));
+  try {
+    const require = createRequire(join(root, "packaging/windows/build-toolchain/package.json"));
+    const asar = require("@electron/asar");
+    const filename = "node_modules/@aijian/contracts/artifact-proposal.d.ts";
+    const source = join(temporary, "app");
+    const file = join(source, ...filename.split("/"));
+    mkdirSync(dirname(file), { recursive: true });
+    const contents = "export type Synthetic = string;\n";
+    writeFileSync(file, contents);
+    const archive = join(temporary, "app.asar");
+    await asar.createPackage(source, archive);
+    assert.equal(asar.extractFile(archive, asarManifestPath(filename)).toString(), contents);
+    const libraryPath = require.resolve("@electron/asar/lib/filesystem.js");
+    const libraryRequire = createRequire(libraryPath);
+    const module = { exports: {} };
+    runInNewContext(
+      readFileSync(libraryPath, "utf8"),
+      {
+        module,
+        exports: module.exports,
+        require: (name) => (name === "path" ? win32 : libraryRequire(name)),
+      },
+      { filename: libraryPath },
+    );
+    const makeWindowsFilesystem = () => {
+      const filesystem = new module.exports.Filesystem("C:\\synthetic");
+      const raw = asar.getRawHeader(archive);
+      filesystem.setHeader(JSON.parse(JSON.stringify(raw.header)), raw.headerSize);
+      return filesystem;
+    };
+    assert.throws(() => makeWindowsFilesystem().getFile(filename), /not found in this archive/);
+    assert.equal(
+      makeWindowsFilesystem().getFile(asarManifestPath(filename, win32)).size,
+      Buffer.byteLength(contents),
+    );
+    for (const unsafe of ["../escape", "/absolute", "a//b", "C:/root", "a\\b"]) {
+      assert.throws(() => asarManifestPath(unsafe), /plain relative/);
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
 test("builder retains only the explicit contract declaration exceptions", async () => {
   const temporary = mkdtempSync(join(tmpdir(), "aivora-builder-contracts-"));
   try {
     const require = createRequire(join(root, "packaging/windows/build-toolchain/package.json"));
     const { FileMatcher, getNodeModuleFileMatcher } = require("app-builder-lib/out/fileMatcher.js");
     const { NodeModuleCopyHelper } = require("app-builder-lib/out/util/NodeModuleCopyHelper.js");
+    const { doMergeConfigs } = require("app-builder-lib/out/util/config/config.js");
     const include = require(join(root, "packaging/windows/include-dev-contract-types.cjs"));
     const contracts = join(temporary, "node_modules/@aijian/contracts");
     mkdirSync(contracts, { recursive: true });
@@ -49,7 +98,7 @@ test("builder retains only the explicit contract declaration exceptions", async 
         (value) => value,
         {},
         {
-          config: { files },
+          config: doMergeConfigs([{ files: JSON.parse(JSON.stringify(files)) }]),
           debugLogger: { isEnabled: false },
         },
       );
@@ -70,11 +119,10 @@ test("builder retains only the explicit contract declaration exceptions", async 
       (await collect(undefined)).some((path) => path.endsWith("generated.d.ts")),
       false,
     );
-    // Regression: a bare inclusive files string leaves the real module matcher
-    // empty, so this builder ignores the hook despite forceIncluded=true.
+    // Both input syntaxes are normalized by the real builder before matching.
     assert.equal(
       (await collect(include, ["**/*"])).some((path) => path.endsWith("generated.d.ts")),
-      false,
+      true,
     );
     const files = await collect(include);
     assert.equal(

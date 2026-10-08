@@ -191,6 +191,7 @@ def build(stage: Path, tools: dict, evidence: Path) -> Path:
         "hook_sha256": digest(stage / "build/installer.nsh"),
         "installed_program_files": files,
         "installer_sha256": digest(installer),
+        "installer_bytes": installer.stat().st_size,
         "third_party_resource_plugins": [],
         "uninstall": "explicit-program-file-list-and-empty-directories-only",
         "existing_install_or_data": "ABORT",
@@ -222,6 +223,7 @@ def verify(stage: Path, receipt: dict) -> None:
         or digest(hook) != receipt["hook_sha256"]
         or digest(hook) != digest(HERE / "installer.dev-core.nsh")
         or digest(installer) != receipt["installer_sha256"]
+        or installer.stat().st_size != receipt["installer_bytes"]
         or digest(app / "resources/licenses/NSIS-core-COPYING.txt") != NSIS_COPYING_SHA256
     ):
         raise ValueError("Plugin-free installer script, package or licence evidence changed")

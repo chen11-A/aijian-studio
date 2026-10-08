@@ -171,7 +171,10 @@ export function isRemoteSourceExtractCreateCommand(value: unknown): value is Rem
     Number.isSafeInteger(selection.connection_revision) && Number(selection.connection_revision) >= 1 &&
     Number(selection.connection_revision) <= 2_147_483_647 &&
     typeof selection.model_id === "string" && selection.model_id.length <= 120 &&
-    /^\S(?:.*\S)?$/.test(selection.model_id) && !/[\r\n\u0000-\u001f\u007f]/.test(selection.model_id);
+    /^\S(?:.*\S)?$/.test(selection.model_id) && [...selection.model_id].every((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    });
 }
 
 export function isRemoteSourceExtractProjectId(value: unknown): value is string {

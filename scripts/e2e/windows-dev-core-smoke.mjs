@@ -3,13 +3,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { release } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { _electron as electron } from "playwright-core";
+import { asarManifestPath } from "./asar-manifest-path.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { values } = parseArgs({
@@ -60,6 +62,7 @@ let application;
 let firstIdentity;
 let saved;
 const rendererErrors = [];
+const systemRuntimeEvidence = [];
 
 function sidecars() {
   const result = spawnSync(
@@ -76,6 +79,36 @@ function sidecars() {
   return (Array.isArray(rows) ? rows : [rows]).filter((row) =>
     String(row.ExecutablePath).toLowerCase().startsWith(dirname(executable).toLowerCase()),
   );
+}
+
+function checkSystemUcrt(pid) {
+  assert.ok(Number.isSafeInteger(pid) && pid > 0);
+  assert.ok(Number(release().split(".")[0]) >= 10);
+  const result = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-Command",
+      `$modules = @((Get-Process -Id ${pid} -ErrorAction Stop).Modules | Where-Object { $_.ModuleName -ieq 'ucrtbase.dll' } | Select-Object FileName,@{Name='FileVersion';Expression={$_.FileVersionInfo.FileVersion}}); ConvertTo-Json -InputObject $modules -Compress`,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const modules = JSON.parse(result.stdout);
+  assert.equal(modules.length, 1);
+  const module = modules[0];
+  assert.equal(
+    realpathSync(module.FileName).toLowerCase(),
+    realpathSync(resolve(process.env.SystemRoot, "System32/ucrtbase.dll")).toLowerCase(),
+  );
+  assert.equal(typeof module.FileVersion, "string");
+  systemRuntimeEvidence.push({
+    source: "WINDOWS_SYSTEM32/ucrtbase.dll",
+    file_version: module.FileVersion,
+    sha256: hash(readFileSync(module.FileName)),
+    windows_version: release(),
+    sidecar_pid: pid,
+  });
 }
 
 async function launch() {
@@ -113,14 +146,20 @@ async function launch() {
   assert.equal(existsSync(join(identity.resources, "media/ffprobe.exe")), false);
   for (const [name, expected] of Object.entries(manifest.files)) {
     if (name.startsWith("app/")) {
-      assert.equal(hash(extractFile(identity.appPath, name.slice(4))), expected, name);
+      assert.equal(
+        hash(extractFile(identity.appPath, asarManifestPath(name.slice(4)))),
+        expected,
+        name,
+      );
     } else if (name.startsWith("resources/")) {
       assert.equal(hash(readFileSync(join(identity.resources, name.slice(10)))), expected, name);
     }
   }
   const health = await page.evaluate(() => globalThis.aijian.health());
   assert.equal(health.data.status, "ok");
-  assert.equal(sidecars().length, 1);
+  const children = sidecars();
+  assert.equal(children.length, 1);
+  checkSystemUcrt(children[0].ProcessId);
   return { page, identity };
 }
 
@@ -204,6 +243,7 @@ try {
           "media CLI absent",
         ],
         renderer_errors: rendererErrors,
+        system_ucrt: systemRuntimeEvidence,
         external_provider_requests: 0,
         standard_user_acceptance: "NOT_ESTABLISHED_BY_HOSTED_RUNNER",
         upgrade_recovery: "NOT_VERIFIED",

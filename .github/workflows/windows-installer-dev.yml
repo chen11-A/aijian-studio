@@ -59,7 +59,7 @@ jobs:
         shell: pwsh
         run: |
           $python = "$env:RUNNER_TEMP\aivora-tools\cpython\python\python.exe"
-          & $python packaging/windows/freeze-sidecar.py --cache "$env:RUNNER_TEMP\aivora-tool-cache" --output "$env:RUNNER_TEMP\aivora-frozen"
+          & $python packaging/windows/freeze-sidecar.py --development-core --cache "$env:RUNNER_TEMP\aivora-tool-cache" --output "$env:RUNNER_TEMP\aivora-frozen"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $python packaging/windows/smoke-frozen-sidecar.py --resources "$env:RUNNER_TEMP\aivora-frozen\resources"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

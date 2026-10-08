@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -38,7 +39,10 @@ def source_inventory(helpers) -> dict[str, str]:
     files = [
         *sorted((ROOT / "services/api/src/aijian_api").rglob("*.py")),
         HERE / "sidecar-entry.py",
+        HERE / "freeze-sidecar.py",
         HERE / "aijian-sidecar.spec",
+        HERE / "system-ucrt.py",
+        HERE / "system-ucrt-inputs.json",
     ]
     return {p.relative_to(ROOT).as_posix(): helpers.digest(helpers.plain_path(p)) for p in files}
 
@@ -46,6 +50,7 @@ def source_inventory(helpers) -> dict[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", required=True, type=Path)
+    parser.add_argument("--development-core", action="store_true")
     parser.add_argument(
         "--output", required=True, type=Path, help="New absolute directory outside checkout"
     )
@@ -86,6 +91,15 @@ def main() -> None:
     )
     subprocess.run([str(python), "-m", "pip", "check"], check=True)
     resources = output / "resources"
+    build_environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("AIVORA_FREEZE_")
+    }
+    os_evidence = output / "DEVELOPMENT-OS-RUNTIME.json"
+    if args.development_core:
+        build_environment.update(
+            AIVORA_FREEZE_PROFILE="DEVELOPMENT_CORE",
+            AIVORA_FREEZE_OS_EVIDENCE=str(os_evidence),
+        )
     subprocess.run(
         [
             str(python),
@@ -100,6 +114,7 @@ def main() -> None:
             str(HERE / "aijian-sidecar.spec"),
         ],
         cwd=ROOT,
+        env=build_environment,
         check=True,
     )
     executable = resources / "sidecar/aijian-sidecar.exe"
@@ -130,6 +145,14 @@ def main() -> None:
         "installer": "NOT_BUILT",
         "release_approved": False,
     }
+    if args.development_core:
+        receipt["development_os_runtime"] = json.loads(os_evidence.read_text(encoding="utf-8"))
+        spec = importlib.util.spec_from_file_location("system_ucrt", HERE / "system-ucrt.py")
+        assert spec and spec.loader
+        ucrt = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ucrt)
+        if any(ucrt.OS_DLL.fullmatch(path.name) for path in resources.rglob("*")):
+            raise ValueError("An OS-runtime file survived development-only collection filtering")
     receipt_path = output / "FROZEN-SIDECAR.json"
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(f"SIDECAR={executable}")

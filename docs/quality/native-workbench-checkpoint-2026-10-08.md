@@ -264,3 +264,11 @@ This verifies a generated saved-version preview, not real-time timeline playback
 or frame-exact professional review. Standard HTML playback controls can cover the
 bottom caption while controls are visible. Full restart/recovery and minimum-size
 regression for this new combination are still pending.
+
+At 10:54 UTC the native window was closed normally, the retained launcher showed
+that AIVORA had exited, and Enter started it again inside the same secure desktop
+session. Reopening the synthetic project restored two visual clips, one audio
+track and one saved subtitle. Expanding continuous preview read the same immutable
+input version and completed 50/50-frame record without generating another file;
+the verified output remained available for playback. This establishes the new
+combination's full-app restart readback, not interrupted-encoding recovery.

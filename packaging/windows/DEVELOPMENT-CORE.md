@@ -4,6 +4,30 @@ This unsigned development build is a limited core desktop installer, not a
 completed media-production release. The development product identity and user
 data directory are separate from the future AIVORA release.
 
+## Operating-system prerequisite
+
+This profile requires Windows 10 or later, x64, consistent with the
+[exact Electron 43.2.0 platform boundary](https://github.com/electron/electron/blob/v43.2.0/README.md#platform-support).
+The installer fails closed when the Windows major-version registry value is
+missing or below 10; the frozen development sidecar checks the runtime OS too.
+Neither check establishes support for every Windows build or edition.
+
+Windows supplies the Universal CRT. Microsoft's
+[UCRT deployment guidance](https://learn.microsoft.com/en-us/cpp/windows/universal-crt-deployment?view=msvc-170#local-deployment)
+states that Windows 10/11 use the system UCRT even when an application-local copy
+exists. Pinned PyInstaller 6.22.3 `depend/dylib.py` describes the same boundary.
+The development-only freeze therefore omits only the 43 reviewed UCRT/API-set
+names in `system-ucrt-inputs.json`, after checking their actual source is the
+Windows system directory or an x64 Windows SDK UCRT directory. A new name or
+unclassified origin aborts; VCRuntime and all other dependencies remain subject
+to the exact-input distribution check.
+
+The frozen receipt records every native input origin/hash and each omitted
+file's PE version/hash. The installed smoke checks the real sidecar's loaded
+`ucrtbase.dll` resolves to Windows System32 and records its version/hash and OS
+build. This is checked execution evidence, not a redistribution permission for
+Microsoft files. No OS runtime is downloaded or installed by this installer.
+
 ## Available scope
 
 - Local projects, episodes, text-source import, editable scripts and manual

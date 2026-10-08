@@ -94,6 +94,13 @@ def main() -> None:
     args.evidence.mkdir(parents=True, exist_ok=True)
     tools = json.loads((args.tools / "DEV-TOOLS.json").read_text())
     frozen = verify_frozen(args.frozen)
+    os_runtime = frozen.get("development_os_runtime", {})
+    if (
+        os_runtime.get("profile") != "DEVELOPMENT_CORE"
+        or os_runtime.get("minimum_windows_major") != 10
+        or os_runtime.get("ucrt_resolution") != "OPERATING_SYSTEM"
+    ):
+        raise ValueError("Development package requires its Windows 10+ system-UCRT freeze profile")
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     if os.environ.get("GITHUB_SHA", head) != head:
         raise ValueError("Checkout differs from the requested workflow candidate")
@@ -240,6 +247,8 @@ def main() -> None:
         "release_approved": False,
         "upgrade_supported": False,
         "installer_engine": "first-party-nsis-core-zlib",
+        "minimum_windows_major": 10,
+        "ucrt_resolution": "OPERATING_SYSTEM",
     }
     (stage / "resources/config/build-profile.json").write_text(json.dumps(profile, indent=2) + "\n")
     assert_core_tree(stage)
@@ -287,6 +296,7 @@ def main() -> None:
         raise ValueError("Installer exceeds the bounded 250 MiB artifact allowance")
     print("DEVELOPMENT_INSTALLER=" + str(installers[0]))
     print("DEVELOPMENT_INSTALLER_SHA256=" + digest(installers[0]))
+    print("DEVELOPMENT_INSTALLER_BYTES=" + str(installers[0].stat().st_size))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@
 # Keep a console executable: Electron consumes stdout/stdin for authentication
 # and parent-exit supervision. Electron itself hides the child console window.
 from pathlib import Path
+import importlib.util
+import os
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 root = Path(SPECPATH).resolve().parents[1]
@@ -17,6 +19,15 @@ a = Analysis(
     binaries=[], datas=datas, hiddenimports=hidden,
     hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[], noarchive=False,
 )
+if os.environ.get("AIVORA_FREEZE_PROFILE") == "DEVELOPMENT_CORE":
+    helper_spec = importlib.util.spec_from_file_location(
+        "system_ucrt", root / "packaging/windows/system-ucrt.py"
+    )
+    helper = importlib.util.module_from_spec(helper_spec)
+    helper_spec.loader.exec_module(helper)
+    evidence = Path(os.environ["AIVORA_FREEZE_OS_EVIDENCE"])
+    a.binaries = helper.prepare(a.binaries, evidence)
+    a.datas.append(("aivora-development-runtime.json", str(evidence), "DATA"))
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [], exclude_binaries=True, name="aijian-sidecar",

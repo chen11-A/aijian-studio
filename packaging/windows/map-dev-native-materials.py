@@ -130,6 +130,7 @@ def inspect(resources: Path, frozen_receipt: Path | None) -> dict:
         "matches": matches,
         "unknown_native_files": unknown,
         "complete_frozen_receipt_available": receipt is not None,
+        "development_os_runtime": receipt.get("development_os_runtime") if receipt else None,
         "release_approved": False,
     }
 
