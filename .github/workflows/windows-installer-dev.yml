@@ -47,7 +47,7 @@ jobs:
       - name: Check production TypeScript and packaging guards
         shell: pwsh
         run: |
-          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs typecheck:ts
+          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs -r --if-present typecheck
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test scripts/build-runtime.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
