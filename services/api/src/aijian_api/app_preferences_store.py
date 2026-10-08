@@ -51,9 +51,9 @@ class AppPreferencesStore:
         try:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT revision FROM app_preferences WHERE preference_id = ?", (_PREFERENCE_ID,)
+                "SELECT * FROM app_preferences WHERE preference_id = ?", (_PREFERENCE_ID,)
             ).fetchone()
-            revision = int(row["revision"]) if row is not None else 0
+            revision = _from_row(row).revision if row is not None else 0
             if revision != request.expected_revision:
                 raise AppPreferencesRevisionConflictError("Preferences revision has changed")
             now_text = timestamp(self._clock())
@@ -128,19 +128,27 @@ def _unsaved_preferences() -> AppPreferencesData:
     )
 
 
+def _persisted_timestamp(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise TypeError("Persisted timestamp must be text")
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 def _from_row(row: sqlite3.Row) -> AppPreferencesData:
     try:
         if row["preference_id"] != _PREFERENCE_ID:
             raise ValueError("Unexpected preferences identity")
-        return AppPreferencesData(
-            saved=True,
-            revision=int(row["revision"]),
-            user_name=str(row["user_name"]),
-            display_bio=str(row["display_bio"]),
-            ui_language=str(row["ui_language"]),
-            ui_theme=str(row["ui_theme"]),
-            created_at=datetime.fromisoformat(str(row["created_at"]).replace("Z", "+00:00")),
-            updated_at=datetime.fromisoformat(str(row["updated_at"]).replace("Z", "+00:00")),
+        return AppPreferencesData.model_validate(
+            {
+                "saved": True,
+                "revision": row["revision"],
+                "user_name": row["user_name"],
+                "display_bio": row["display_bio"],
+                "ui_language": row["ui_language"],
+                "ui_theme": row["ui_theme"],
+                "created_at": _persisted_timestamp(row["created_at"]),
+                "updated_at": _persisted_timestamp(row["updated_at"]),
+            }
         )
     except (KeyError, TypeError, ValueError, ValidationError) as error:
         raise AppPreferencesCorruptError("Persisted preferences are inconsistent") from error

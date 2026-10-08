@@ -97,6 +97,27 @@ def partition_inputs(binaries: list, roots: dict[str, Path]) -> tuple[list, dict
     }
 
 
+def log_os_inputs(binaries: list, roots: dict[str, Path]) -> None:
+    candidates = [entry for entry in binaries if OS_DLL.fullmatch(Path(entry[0]).name)]
+    if len(candidates) > 128:
+        raise ValueError("Unexpectedly large OS-runtime candidate set")
+    for destination, source, kind in candidates:
+        path = Path(source)
+        record = {
+            "destination": destination,
+            "source_basename": path.name,
+            "source_path": str(path),
+            "typecode": kind,
+            "sha256": digest(path),
+            "origin": source_origin(path, roots),
+        }
+        try:
+            record["file_version"] = pe_version(path)
+        except Exception as error:
+            record["version_read_error"] = type(error).__name__
+        print("AIVORA_UCRT_INPUT " + json.dumps(record, sort_keys=True), flush=True)
+
+
 def prepare(binaries: list, output: Path) -> list:
     if sys.platform != "win32" or sys.getwindowsversion().major < 10:
         raise RuntimeError("Development core freezing requires Windows 10 or later")
@@ -109,6 +130,8 @@ def prepare(binaries: list, output: Path) -> list:
             if candidate.is_dir():
                 roots["WINDOWS_SDK_UCRT:" + candidate.parents[2].name] = candidate
     roots.update({"BUILD_ENVIRONMENT": Path(sys.prefix), "PINNED_PYTHON": Path(sys.base_prefix)})
+    # Retain bounded provenance even when the origin guard rejects a candidate.
+    log_os_inputs(binaries, roots)
     kept, evidence = partition_inputs(binaries, roots)
     version = sys.getwindowsversion()
     evidence["build_windows_version"] = {

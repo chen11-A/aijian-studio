@@ -1,8 +1,11 @@
 """Synthetic provenance/filter tests; no OS DLL or Windows installer is executed."""
 
 import importlib.util
+import io
+import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,6 +17,22 @@ spec.loader.exec_module(ucrt)
 
 
 class SystemUcrtTests(unittest.TestCase):
+    def test_rejected_input_diagnostic_retains_actual_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary).resolve() / "ucrtbase.dll"
+            path.write_bytes(b"unclassified synthetic DLL")
+            entries = [(path.name, str(path), "BINARY")]
+            output = io.StringIO()
+            with redirect_stdout(output), patch.object(ucrt, "pe_version", return_value="10.0.1.2"):
+                ucrt.log_os_inputs(entries, {})
+            record = json.loads(output.getvalue().removeprefix("AIVORA_UCRT_INPUT "))
+            self.assertEqual(record["source_path"], str(path))
+            self.assertEqual(record["sha256"], ucrt.digest(path))
+            self.assertEqual(record["origin"]["kind"], "UNCLASSIFIED")
+            self.assertEqual(record["file_version"], "10.0.1.2")
+            with self.assertRaises(ValueError):
+                ucrt.partition_inputs(entries, {})
+
     def test_only_classified_os_inputs_are_omitted_and_exact_vcruntime_is_retained(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

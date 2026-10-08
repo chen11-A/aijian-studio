@@ -47,6 +47,20 @@ def source_inventory(helpers) -> dict[str, str]:
     return {p.relative_to(ROOT).as_posix(): helpers.digest(helpers.plain_path(p)) for p in files}
 
 
+def development_library_path(python_root: Path, windows_root: Path) -> str:
+    """Do not let unrelated runner toolchains supply frozen native dependencies."""
+    paths = [python_root, windows_root / "System32", windows_root]
+    for path in paths:
+        if (
+            not path.is_absolute()
+            or not path.is_dir()
+            or path.resolve(strict=True) != path
+            or any(parent.is_symlink() or parent.is_junction() for parent in (path, *path.parents))
+        ):
+            raise ValueError("Expected plain pinned Python and Windows library directories")
+    return os.pathsep.join(str(path) for path in paths)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", required=True, type=Path)
@@ -99,6 +113,9 @@ def main() -> None:
         build_environment.update(
             AIVORA_FREEZE_PROFILE="DEVELOPMENT_CORE",
             AIVORA_FREEZE_OS_EVIDENCE=str(os_evidence),
+            PATH=development_library_path(
+                Path(sys.executable).parent, Path(os.environ["SystemRoot"])
+            ),
         )
     subprocess.run(
         [

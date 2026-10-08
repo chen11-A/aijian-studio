@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -25,6 +26,22 @@ freeze = load("freeze", HERE / "freeze-sidecar.py")
 
 
 class PrerequisiteTests(unittest.TestCase):
+    def test_development_library_path_excludes_unrelated_runner_tools(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            python = root / "pinned-python"
+            windows = root / "Windows"
+            python.mkdir()
+            (windows / "System32").mkdir(parents=True)
+            with patch.dict(os.environ, {"PATH": "unrelated-runner-toolchain"}):
+                result = freeze.development_library_path(python, windows)
+            self.assertEqual(
+                result.split(os.pathsep), [str(python), str(windows / "System32"), str(windows)]
+            )
+            self.assertNotIn("unrelated", result)
+            with self.assertRaises(ValueError):
+                freeze.development_library_path(Path("relative-python"), windows)
+
     def setUp(self):
         self.lock = json.loads(prerequisites.LOCK.read_text())
 
