@@ -7,7 +7,7 @@
   "nodeGypRebuild": false,
   "allowMissingDependencies": false,
   "onNodeModuleFile": "build/include-contract-types.cjs",
-  "files": ["**/*"],
+  "files": [{ "from": ".", "filter": ["**/*"] }],
   "extraResources": [{ "from": "resources", "to": ".", "filter": ["**/*"] }],
   "asar": true,
   "win": {

@@ -31,7 +31,7 @@ test("builder retains only the explicit contract declaration exceptions", async 
   const temporary = mkdtempSync(join(tmpdir(), "aivora-builder-contracts-"));
   try {
     const require = createRequire(join(root, "packaging/windows/build-toolchain/package.json"));
-    const { FileMatcher } = require("app-builder-lib/out/fileMatcher.js");
+    const { FileMatcher, getNodeModuleFileMatcher } = require("app-builder-lib/out/fileMatcher.js");
     const { NodeModuleCopyHelper } = require("app-builder-lib/out/util/NodeModuleCopyHelper.js");
     const include = require(join(root, "packaging/windows/include-dev-contract-types.cjs"));
     const contracts = join(temporary, "node_modules/@aijian/contracts");
@@ -39,9 +39,22 @@ test("builder retains only the explicit contract declaration exceptions", async 
     for (const name of ["generated.js", "generated.d.ts", "private.d.ts", "package.json"]) {
       writeFileSync(join(contracts, name), name === "package.json" ? "{}" : "");
     }
-    const collect = (hook) =>
-      new NodeModuleCopyHelper(
-        new FileMatcher(temporary, join(temporary, "out"), (value) => value, ["**/*"]),
+    const config = JSON.parse(
+      readFileSync(join(root, "packaging/windows/electron-builder.dev-core.json"), "utf8"),
+    );
+    const collect = (hook, files = config.files) => {
+      const mainMatcher = getNodeModuleFileMatcher(
+        temporary,
+        join(temporary, "out"),
+        (value) => value,
+        {},
+        {
+          config: { files },
+          debugLogger: { isEnabled: false },
+        },
+      );
+      return new NodeModuleCopyHelper(
+        new FileMatcher(contracts, join(temporary, "out"), (value) => value, mainMatcher.patterns),
         {
           config: { onNodeModuleFile: hook },
           appInfo: { type: "commonjs" },
@@ -52,8 +65,15 @@ test("builder retains only the explicit contract declaration exceptions", async 
         [".d.ts"],
         "node_modules/@aijian/contracts",
       );
+    };
     assert.equal(
       (await collect(undefined)).some((path) => path.endsWith("generated.d.ts")),
+      false,
+    );
+    // Regression: a bare inclusive files string leaves the real module matcher
+    // empty, so this builder ignores the hook despite forceIncluded=true.
+    assert.equal(
+      (await collect(include, ["**/*"])).some((path) => path.endsWith("generated.d.ts")),
       false,
     );
     const files = await collect(include);
