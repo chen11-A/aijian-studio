@@ -1,0 +1,269 @@
+.episode-assembly {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.episode-assembly h2,
+.episode-assembly h3,
+.episode-assembly p {
+  margin: 0;
+}
+.episode-assembly p {
+  color: var(--muted, #aaa8b3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.assembly-summary,
+.assembly-actions,
+.assembly-add,
+.assembly-position,
+.assembly-inspector form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.assembly-summary {
+  padding: 12px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.episode-assembly label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.episode-assembly select,
+.episode-assembly input[type="number"] {
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 6px;
+  background: var(--panel, #201d29);
+  color: inherit;
+}
+.assembly-add {
+  align-items: end;
+}
+.assembly-canvas {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.assembly-canvas select {
+  width: 100%;
+}
+.assembly-add label:nth-child(2) {
+  flex: 1;
+  min-width: 220px;
+}
+.assembly-inspector input[type="number"],
+.assembly-position input[type="number"] {
+  width: 148px;
+}
+.assembly-position input[type="range"] {
+  flex: 1;
+  min-width: 180px;
+  accent-color: var(--accent, #a087ff);
+}
+.assembly-position span {
+  font:
+    13px ui-monospace,
+    monospace;
+}
+.assembly-tracks,
+.assembly-tracks > section,
+.assembly-inspector,
+.assembly-preview {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.assembly-tracks h3,
+.assembly-preview h3 {
+  font-size: 14px;
+}
+.assembly-segments {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 0 8px;
+  margin: 0;
+  overflow-x: auto;
+  list-style: none;
+}
+.assembly-segments li {
+  min-width: 180px;
+  max-width: 320px;
+}
+.assembly-segments button {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+  background: var(--panel, #201d29);
+  color: inherit;
+  cursor: pointer;
+}
+.assembly-segments button[aria-pressed="true"] {
+  border-color: var(--accent, #a087ff);
+  box-shadow: inset 0 0 0 1px var(--accent, #a087ff);
+}
+.assembly-segments strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.assembly-segments span {
+  font:
+    12px ui-monospace,
+    monospace;
+}
+.assembly-inspector {
+  padding: 16px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+}
+.assembly-inspector form {
+  align-items: end;
+}
+.episode-assembly .assembly-checkbox {
+  display: flex;
+  align-items: center;
+  padding-bottom: 8px;
+}
+.assembly-preview {
+  padding: 16px;
+  background: #111015;
+  border-radius: 8px;
+}
+.assembly-preview img,
+.assembly-preview video {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+.assembly-preview audio {
+  width: 100%;
+}
+.episode-assembly .assembly-limit {
+  padding: 12px;
+  border-left: 2px solid var(--border, #34313f);
+}
+.episode-assembly details {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.episode-assembly button:focus-visible,
+.episode-assembly input:focus-visible,
+.episode-assembly select:focus-visible {
+  outline: 2px solid var(--accent, #a087ff);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .assembly-add {
+    align-items: stretch;
+  }
+  .assembly-add label,
+  .assembly-add label:nth-child(2) {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .assembly-inspector {
+    padding: 12px;
+  }
+}
+/* The native workbench shell has a fixed viewport: keep the editor itself scrollable. */
+.demo-root .v2-media-body.native-assembly-body {
+  display: block;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+}
+.demo-root .native-assembly-body > .episode-assembly {
+  display: grid;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  align-content: start;
+  padding: 16px;
+}
+.demo-root .native-assembly-body .episode-assembly > p {
+  margin: 0;
+}
+/* Size to the editor column, not the full desktop viewport beside its inspector. */
+.demo-root .native-assembly-body .assembly-inspector form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  min-width: 0;
+  width: 100%;
+  gap: 12px;
+}
+.demo-root .native-assembly-body .assembly-inspector form > label {
+  min-width: 0;
+}
+.demo-root .native-assembly-body .assembly-inspector input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.demo-root .native-assembly-body .assembly-inspector form > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-width: 100px;
+  width: max-content;
+  white-space: nowrap;
+}
+.demo-root .native-assembly-body .assembly-actions > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.demo-root .assembly-storyboard-references {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+}
+.demo-root .assembly-storyboard-references p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.demo-root .assembly-storyboard-references label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.demo-root .assembly-storyboard-references select {
+  width: 100%;
+  min-width: 0;
+}
+.demo-root .assembly-storyboard-references > button {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.demo-root .assembly-storyboard-references > summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.demo-root .assembly-storyboard-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 12px;
+}
+.demo-root .assembly-storyboard-body > button {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+}

@@ -4,6 +4,7 @@ import { DemoApp } from "./DemoApp";
 import "./demo.css";
 import "./authority.css";
 import "./v2.css";
+import "./workbench-layout.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

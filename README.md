@@ -4,6 +4,19 @@
 
 > 2026-10-08：本仓库 `main` 是个人电脑独立重建起点，不是完整迁移或已验收发行版。399 个受保护版本未上传，其中两个路径保留旧版、397 个路径缺失；先读 [个人电脑接手步骤](PERSONAL_COMPUTER_START.md) 和 [缺口清单](handoff/2026-10-08/TRANSFER-EXCLUSIONS.json)。接手先读 [DOTS_HANDOFF.md](DOTS_HANDOFF.md) 和 [完整产品需求与验收基线](docs/product/AIVORA-完整产品需求与验收基线.md)。目标是同一个可直接使用的 Windows 桌面软件，不另建网页产品。演示残留、真实 AI 调用、完整制作流程和安装交付仍需完成；不能把编译或局部测试通过当成整体验收。
 
+## 当前独立开发检查点
+
+累计更新以 `63c76db96ac64fb3dc960af6bda139aed3a6ec10` 为基线，保留原界面。
+云 Linux 的真实 Electron 窗口已验证项目/分集、剧本、角色与场景、手工分镜、
+本地多片段与 BGM 保存重开，以及横/竖屏 DRAFT MP4 导出和回看。
+分镜与媒体现有精确版本引用和上游变化提示。官方文本提案与手工审片记录
+已有独立持久合同；真实账号调用、完整专业制作和 Windows 安装验收仍未完成。
+历史缺口说明不代表已还原受保护源码，也不能覆盖这些新实现的实际检查记录。
+
+- 当前验证范围：[原生检查点](docs/quality/native-workbench-checkpoint-2026-10-08.md)
+- 页面覆盖与限制：[原生界面覆盖](docs/quality/native-layout-coverage-2026-10-08.json)
+- Windows 前置条件：[构建工具状态](packaging/windows/TOOLCHAIN-STATUS.md)
+
 ## 产品主流程
 
 ```text
@@ -58,14 +71,24 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 
 ## 本地开发
 
-基础要求：Windows 11、Git、Node.js 24、pnpm 11、Python 3.12、uv 0.12。首次克隆后执行：
+目标平台为 Windows 11；本开发检查点已在 Linux 验证原生启动，Windows 仍需实测。
+准备 Git、Node.js 24、pnpm 11.9.0、Python 3.12 和 uv，遵循锁文件安装：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-windows.ps1
+pnpm install --frozen-lockfile
+uv sync --frozen
+pnpm dev
 ```
 
-第二条命令同时启动 FastAPI、Vite 与 Electron。开发阶段的 `8000`/`5173` 仅用于本机调试；交付版会由 Electron main 启动 Python sidecar，使用操作系统分配的随机 `127.0.0.1` 端口和一次性令牌。
+`pnpm dev` 构建并打开 Electron，由主进程启动受控 Python sidecar，使用随机
+`127.0.0.1` 端口和一次性令牌。不需要另起网页或 API 服务。先创建合成测试
+项目；打开已有数据库前备份。累计更新含向前迁移，不能假定旧程序可回读。
+无源码、Python 和构建工具的 Windows 用户仍需等待完成验证的安装器。
+
+本地导出需要匹配固定哈希的 FFmpeg/FFprobe，配置及不支持项见
+[DRAFT MP4 说明](docs/architecture/draft-mp4-export.md)。账号授权使用系统安全
+凭据库；库不可用时保持禁用，不改用明文或关闭沙箱。首次入口可跳过 AI 登录，
+直接配置 API 或进行本地创作；填写凭据与真实调用需要用户自己的授权。
 
 常用质量命令：
 
@@ -84,5 +107,5 @@ pnpm build
 1. 先保证可编辑、可追溯、可重做，再追求“一键全自动”。
 2. 小说拆解必须保留段落级来源锚点，不能只生成一份失去出处的剧本。
 3. 提示词是编译产物：先保存镜头意图，再针对不同供应商生成具体提示词。
-4. ChatGPT 和 Grok 网页会员通常不能替代开发者 API；软件支持用户自带 API Key，也支持 OpenAI-compatible 服务。
+4. 开发者 API 连接与官方 ChatGPT 账号授权是分开的通道；是否可用以真实授权、模型目录与调用验证为准，不能把一个登录推断为图片、视频或配音均可用。
 5. 桌面、服务器和手机使用同一领域模型与 API 契约，不维护三套业务逻辑。

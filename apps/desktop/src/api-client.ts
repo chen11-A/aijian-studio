@@ -1,8 +1,19 @@
+import { createOfficialTextClient, type OfficialTextPersistenceClient } from "./official-text-client";
+import { createDraftReviewClient } from "./draft-review-client";
+import type { DraftReviewGateway } from "./draft-review-contract";
+import { createDraftExportClient } from "./draft-export-client";
+import type { DraftExportClient } from "./draft-export-ipc";
+import { createEpisodeMediaAssemblyClient } from "./episode-media-assembly-client";
+import type { EpisodeMediaAssemblyClient } from "./episode-media-assembly-ipc";
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { basename } from "node:path";
 
 import type { components } from "@aijian/contracts";
+import { createProjectCreativeLibraryClient } from "./project-creative-library-client";
+import type { ProjectCreativeLibraryGateway } from "./project-creative-library-contract";
+import { createEpisodeStoryboardClient } from "./episode-storyboard-client";
+import type { EpisodeStoryboardGateway } from "./episode-storyboard-contract";
 import {
   isInvalidationOperationPageResponse,
   isInvalidationOperationResponse,
@@ -241,6 +252,18 @@ import {
 } from "./development-export-contract";
 
 export type {
+  CreateProjectCreativeLibraryVersionRequest,
+  ProjectCreativeLibraryCreateResult,
+  ProjectCreativeLibraryLatestResult,
+  ProjectCreativeLibraryVersionResult,
+} from "./project-creative-library-contract";
+export type {
+  CreateEpisodeStoryboardVersionRequest,
+  EpisodeStoryboardCreateResult,
+  EpisodeStoryboardLatestResult,
+  EpisodeStoryboardVersionResult,
+} from "./episode-storyboard-contract";
+export type {
   CreateProviderConnectionInput,
   ProviderConnectionListResponse,
   ProviderConnectionResponse,
@@ -458,7 +481,7 @@ export interface SourceManifestReviewClient {
   ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
 }
 
-export interface LocalApiClient {
+export interface LocalApiClient extends OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
@@ -3070,6 +3093,12 @@ export function createLocalApiClient(
   }
 
   return {
+    ...createProjectCreativeLibraryClient(requestSub2APIMutationHttp, headers),
+    ...createEpisodeStoryboardClient(requestSub2APIMutationHttp, headers),
+    ...createOfficialTextClient(requestSub2APIMutationHttp, headers),
+    ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
+    ...createDraftExportClient(requestSub2APIMutationHttp, headers),
+    ...createDraftReviewClient(requestSub2APIMutationHttp, headers),
     prepareSourceManifestSubmit: (input) => prepareSourceReview(input, "submit"),
     submitSourceManifestReview: (input, prepared) =>
       consumeSourceReview(input, prepared, "submit", isSourceSubmissionReceipt),

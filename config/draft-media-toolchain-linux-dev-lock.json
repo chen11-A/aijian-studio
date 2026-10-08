@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "expected_version": "7.1.5",
+  "profiles": [{
+    "profile_id": "linux-x86_64-debian-7.1.5-draft-dev",
+    "ffmpeg_sha256": "e8a8d46f5225f3062cec7c07fb145d58ae73c603cb740dcd5bad34bfb54e455a",
+    "ffprobe_sha256": "cefc5f81c0b18429cdbf8fa5a89e1e9c759235e10f93f9b329ff1b2fdff26f46",
+    "source_url": "https://packages.debian.org/trixie/ffmpeg",
+    "license_class": "GPL",
+    "spdx_license": "GPL-3.0-or-later",
+    "distribution_status": "DEVELOPMENT_ONLY"
+  }]
+}

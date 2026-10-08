@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button, FlowFooter, PageTitle, Pill, Section, Tabs } from "./Common";
 import { Icon } from "./Icon";
+import { useDemo } from "./model";
+import { ManualCreativePage } from "./ManualCreativeEditor";
 import { useCurrentObject } from "./useCurrentObject";
 import type { Outfit } from "./model";
 import avatar from "./assets/v2/avatar.png";
@@ -45,6 +47,11 @@ type CharacterReview = {
 };
 
 export function CharacterPage() {
+  const d = useDemo();
+  return d.isFixture ? <FixtureCharacterPage /> : <ManualCreativePage kind="characters" />;
+}
+
+function FixtureCharacterPage() {
   const triptychRef = useRef<HTMLElement>(null);
   const [triptychColumns, setTriptychColumns] = useState<string>();
   useLayoutEffect(() => {

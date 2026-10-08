@@ -6,8 +6,8 @@ result reconciliation. Constructing this transport never probes a provider.
 
 from __future__ import annotations
 
-import http.client
 import hashlib
+import http.client
 import json
 import math
 import queue
@@ -50,13 +50,14 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     """Connect to one vetted DNS result while verifying TLS against the URL host."""
 
     def __init__(self, hostname: str, port: int, address: str, timeout: float) -> None:
-        super().__init__(hostname, port, timeout=timeout, context=ssl.create_default_context())
+        self._tls_context = ssl.create_default_context()
+        super().__init__(hostname, port, timeout=timeout, context=self._tls_context)
         self._address = address
 
     def connect(self) -> None:
         raw_socket = socket.create_connection((self._address, self.port), self.timeout)
         try:
-            self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
+            self.sock = self._tls_context.wrap_socket(raw_socket, server_hostname=self.host)
         except BaseException:
             raw_socket.close()
             raise
@@ -255,14 +256,20 @@ class Sub2APITextTransport:
 
     @classmethod
     def _resolve_public_address(cls, hostname: str, port: int, deadline: float) -> str:
-        results: queue.Queue[object] = queue.Queue(maxsize=1)
+        results: queue.Queue[list[str] | OSError | ValueError] = queue.Queue(maxsize=1)
 
         def resolve() -> None:
             try:
-                answer: object = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+                addresses: list[str] = []
+                for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM):
+                    address = item[4][0]
+                    if not isinstance(address, str):
+                        raise ValueError("Sub2API DNS returned an invalid address")
+                    addresses.append(address)
             except (OSError, ValueError, UnicodeError) as error:
-                answer = error
-            results.put(answer)
+                results.put(error)
+            else:
+                results.put(addresses)
 
         Thread(target=resolve, name="sub2api-dns", daemon=True).start()
         try:
@@ -271,7 +278,7 @@ class Sub2APITextTransport:
             raise TimeoutError("Sub2API DNS resolution timed out") from error
         if isinstance(answer, (OSError, ValueError, UnicodeError)):
             raise answer
-        addresses = [item[4][0] for item in answer]
+        addresses = answer
         if not addresses or any(
             not ip_address(address).is_global or ip_address(address).is_multicast
             for address in addresses

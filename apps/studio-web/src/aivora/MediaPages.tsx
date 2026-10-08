@@ -1,3 +1,4 @@
+import { DraftExportPanel } from "./DraftExportPanel";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useDemo, moveShot, shotAtTime } from "./model";
@@ -12,8 +13,8 @@ import { DevelopmentExportPanel } from "./DevelopmentExportPanel";
 import { DevelopmentMediaPanel } from "./DevelopmentMediaPanel";
 import { getDevelopmentTimelineSnapshot } from "./adapters/developmentTimeline";
 import { createStudioTransport } from "../api/studio";
+import { EpisodeStoryboardPanel } from "./EpisodeStoryboardPanel";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
-import { MltPreviewPanel } from "./MltPreviewPanel";
 
 const FPS = 24;
 export function mediaTimecode(time: number) {
@@ -528,81 +529,83 @@ function GenerationBody({ actions }: { actions: MediaActions }) {
     <>
       <DevelopmentMediaPanel key={d.backendProjectId ?? "no-project"} />
       <div className="v2-media-body v2-generation-body">
-      <div className="v2-media-selection">
-        <ProductionTabs generation />
-        <span className="v2-media-amber">正式视频未接入 · 本地 Fake 仅开发用途</span>
-      </div>
-      <div className="v2-generation-preview">
-        <ReferenceImage actions={actions} />
-        <Card title="当前镜头" className="v2-generation-job">
-          <dl>
-            <dt>镜头</dt>
-            <dd>
-              <select
-                aria-label="当前制作镜头"
-                value={shot.id}
-                onChange={(event) => select(Number(event.target.value))}
+        <div className="v2-media-selection">
+          <ProductionTabs generation />
+          <span className="v2-media-amber">正式视频未接入 · 本地 Fake 仅开发用途</span>
+        </div>
+        <div className="v2-generation-preview">
+          <ReferenceImage actions={actions} />
+          <Card title="当前镜头" className="v2-generation-job">
+            <dl>
+              <dt>镜头</dt>
+              <dd>
+                <select
+                  aria-label="当前制作镜头"
+                  value={shot.id}
+                  onChange={(event) => select(Number(event.target.value))}
+                >
+                  {d.shots.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {String(item.id).padStart(3, "0")} / {String(d.shots.length).padStart(3, "0")}{" "}
+                      · {item.name}
+                    </option>
+                  ))}
+                </select>
+              </dd>
+              <dt>来源</dt>
+              <dd>已选择分镜参考</dd>
+              <dt>正式视频</dt>
+              <dd>尚未生成</dd>
+              <dt>费用</dt>
+              <dd>未连接真实费用</dd>
+            </dl>
+            <Button onClick={editShot}>编辑镜头</Button>
+          </Card>
+        </div>
+        <section className="v2-generation-candidates">
+          <h2>候选版本 · 图稿样例</h2>
+          <div
+            className="v2-candidate-row"
+            data-scroll-region="generation-candidates-scroll"
+            aria-label="候选版本内容"
+            tabIndex={0}
+            onWheel={(event) => {
+              event.currentTarget.scrollLeft += event.deltaX || event.deltaY;
+            }}
+            onScroll={(event) =>
+              d.put("generationCandidateScroll", String(event.currentTarget.scrollLeft))
+            }
+            ref={(element) => {
+              if (element) element.scrollLeft = Number(d.value("generationCandidateScroll", "0"));
+            }}
+          >
+            {[1, 2, 3].map((version) => (
+              <button
+                key={version}
+                className={
+                  d.value(`candidate-${shot.id}`, "1") === String(version) ? "selected" : ""
+                }
+                onClick={() =>
+                  d.edit("候选版本比较", [
+                    {
+                      key: `candidate-${shot.id}`,
+                      label: "设为当前候选",
+                      value: String(version),
+                      options: ["1", "2", "3"],
+                    },
+                  ])
+                }
               >
-                {d.shots.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {String(item.id).padStart(3, "0")} / {String(d.shots.length).padStart(3, "0")} ·{" "}
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </dd>
-            <dt>来源</dt>
-            <dd>已选择分镜参考</dd>
-            <dt>正式视频</dt>
-            <dd>尚未生成</dd>
-            <dt>费用</dt>
-            <dd>未连接真实费用</dd>
-          </dl>
-          <Button onClick={editShot}>编辑镜头</Button>
-        </Card>
-      </div>
-      <section className="v2-generation-candidates">
-        <h2>候选版本 · 图稿样例</h2>
-        <div
-          className="v2-candidate-row"
-          data-scroll-region="generation-candidates-scroll"
-          aria-label="候选版本内容"
-          tabIndex={0}
-          onWheel={(event) => {
-            event.currentTarget.scrollLeft += event.deltaX || event.deltaY;
-          }}
-          onScroll={(event) =>
-            d.put("generationCandidateScroll", String(event.currentTarget.scrollLeft))
-          }
-          ref={(element) => {
-            if (element) element.scrollLeft = Number(d.value("generationCandidateScroll", "0"));
-          }}
-        >
-          {[1, 2, 3].map((version) => (
-            <button
-              key={version}
-              className={d.value(`candidate-${shot.id}`, "1") === String(version) ? "selected" : ""}
-              onClick={() =>
-                d.edit("候选版本比较", [
-                  {
-                    key: `candidate-${shot.id}`,
-                    label: "设为当前候选",
-                    value: String(version),
-                    options: ["1", "2", "3"],
-                  },
-                ])
-              }
-            >
-              <img src={shot.image} alt={`版本 ${version} 演示参考`} />
-              <span>参考样例 {version}</span>
-            </button>
-          ))}
-        </div>
-        <div className="v2-generation-adjust">
-          <Button onClick={mark}>标记待调整</Button>
-          <small>{d.value(`shotIssue-${shot.id}`, "")}</small>
-        </div>
-      </section>
+                <img src={shot.image} alt={`版本 ${version} 演示参考`} />
+                <span>参考样例 {version}</span>
+              </button>
+            ))}
+          </div>
+          <div className="v2-generation-adjust">
+            <Button onClick={mark}>标记待调整</Button>
+            <small>{d.value(`shotIssue-${shot.id}`, "")}</small>
+          </div>
+        </section>
       </div>
     </>
   );
@@ -1225,31 +1228,145 @@ export function MediaPages() {
   const d = useDemo();
   const actions = useMediaActions();
   const transport = useMemo(createStudioTransport, []);
-  if (d.page === "assembly" && !d.isFixture &&
-      (!d.backendProjectId || !d.selectedEpisodeId)) {
-    return <>
-      <PageTitle />
-      <section className="v2-media-body" role="status">
-        <p>请先在项目页选择真实项目和剧集，再读取该集的媒体装配。</p>
-        <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
-      </section>
-    </>;
+  if (!d.isFixture && (d.page === "review" || d.page === "changes")) {
+    const reviewing = d.page === "review";
+    return (
+      <>
+        <PageTitle />
+        <section className="native-pending-review" role="status">
+          <h2>{reviewing ? "草稿审片与手工核对" : "版本化修改方案待接入"}</h2>
+          <p>
+            {reviewing
+              ? "打开已导出的真实草稿，回看并记录绑定具体文件、编排版本与帧号的手工批注。处理评论不代表正式审片批准；自动修改方案和版本对比尚未接入。"
+              : "本页尚未接入与成片版本绑定的批注、影响分析和修改执行；不会建立仅在内存中的确认方案。"}
+          </p>
+          <p>可以先打开已验证的草稿 MP4，或返回本集真实剪辑继续编辑。</p>
+          <div className="actions">
+            <Button primary onClick={() => d.go("export")}>
+              {reviewing ? "回看草稿并记录批注" : "回看已导出草稿"}
+            </Button>
+            <Button onClick={() => d.go("assembly")}>编辑本集剪辑</Button>
+            {reviewing && <Button onClick={() => d.go("changes")}>查看修改方案状态</Button>}
+          </div>
+        </section>
+        <FlowFooter
+          label="回看已导出草稿"
+          action={() => d.go("export")}
+          secondaryLabel="返回本集剪辑"
+          secondaryAction={() => d.go("assembly")}
+          reason={reviewing ? "手工记录固定到原版本；正式审片批准尚未接入" : "本地 DRAFT 回看可用；修改执行与正式批准尚未接入"}
+        />
+      </>
+    );
+  }
+  if (!d.isFixture && d.page === "export") {
+    return (
+      <>
+        <PageTitle />
+        <div className="v2-media-body native-assembly-body">
+          {d.backendProjectId && d.selectedEpisodeId ? (
+            <DraftExportPanel
+              key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
+              projectId={d.backendProjectId}
+              episodeId={d.selectedEpisodeId}
+              assembly={transport.episodeMediaAssembly}
+              exports={transport.draftExports}
+            />
+          ) : (
+            <section role="status">
+              <p>请先选择真实项目和剧集，再导出已保存的本集草稿。</p>
+              <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
+            </section>
+          )}
+        </div>
+        <FlowFooter
+          label="返回成片组装"
+          action={() => d.go("assembly")}
+          reason="本地 DRAFT 草稿 · 不代表正式发布批准"
+          secondaryLabel="项目素材"
+          secondaryAction={() => d.go("assets")}
+        />
+      </>
+    );
+  }
+  if (!d.isFixture && d.page === "generation") {
+    return (
+      <>
+        <PageTitle />
+        <section className="v2-media-body" aria-label="本地制作入口">
+          <div className="v2-visual-card" style={{ padding: 24, alignSelf: "start" }}>
+            <h2>从本地素材开始制作</h2>
+            <p>
+              导入自己的图片、视频或音频，再在成片组装中剪切、排序和保存。AI
+              媒体生成需要已验证的服务、素材授权和费用批准，当前尚未接通。
+            </p>
+            <div className="actions">
+              <Button onClick={() => d.go("assets")}>导入和管理素材</Button>
+              <Button primary onClick={() => d.go("assembly")}>
+                成片组装
+              </Button>
+              <Button onClick={() => d.go("services")}>AI 服务配置</Button>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
+  if (d.page === "assembly" && !d.isFixture && (!d.backendProjectId || !d.selectedEpisodeId)) {
+    return (
+      <>
+        <PageTitle />
+        <section className="v2-media-body" role="status">
+          <p>请先在项目页选择真实项目和剧集，再读取该集的媒体装配。</p>
+          <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
+        </section>
+      </>
+    );
   }
   if (d.page === "assembly" && d.backendProjectId && d.selectedEpisodeId && !d.isFixture) {
-    return <>
-      <PageTitle />
-      <div className="v2-media-body">
-        <EpisodeMediaAssemblyPanel key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
-          projectId={d.backendProjectId} episodeId={d.selectedEpisodeId}
-          assets={transport.assetLibrary} assembly={transport.episodeMediaAssembly} />
-        <MltPreviewPanel key={`mlt/${d.backendProjectId}/${d.selectedEpisodeId}`}
-          projectId={d.backendProjectId} episodeId={d.selectedEpisodeId}
-          identity={null} totalFrames={null} gateway={undefined} />
-      </div>
-      <FlowFooter secondaryLabel="返回项目素材" secondaryAction={() => d.go("assets")}
-        label="正式审片待接入" disabled
-        reason="当前只有集级草稿预演；声音、字幕、正式审片与导出尚未接入" />
-    </>;
+    return (
+      <>
+        <PageTitle />
+        <div className="v2-media-body native-assembly-body">
+          <EpisodeMediaAssemblyPanel
+            key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
+            projectId={d.backendProjectId}
+            episodeId={d.selectedEpisodeId}
+            assets={transport.assetLibrary}
+            assembly={transport.episodeMediaAssembly}
+            exports={transport.draftExports}
+            setNavigationGuard={d.setNavigationGuard}
+          />
+        </div>
+        <FlowFooter
+          secondaryLabel="返回项目素材"
+          secondaryAction={() => d.go("assets")}
+          label="导出本地 DRAFT 草稿"
+          action={() => d.go("export")}
+          reason="导出使用已保存的本集版本；DRAFT 草稿不代表正式发布批准"
+        />
+      </>
+    );
+  }
+  if (d.page === "storyboard" && !d.isFixture) {
+    if (!d.backendProjectId || !d.selectedEpisodeId)
+      return (
+        <>
+          <PageTitle />
+          <section className="v2-media-body" role="status">
+            <p>请先选择真实作品和剧集，再开始本集分镜。</p>
+            <Button onClick={() => d.go("project")}>选择作品和剧集</Button>
+          </section>
+        </>
+      );
+    return (
+      <EpisodeStoryboardPanel
+        key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
+        projectId={d.backendProjectId}
+        episodeId={d.selectedEpisodeId}
+        setNavigationGuard={d.setNavigationGuard}
+      />
+    );
   }
   if (d.page === "changes") return <V2ChangesPage />;
   if (!d.shots.length && ["storyboard", "review"].includes(d.page)) {
@@ -1267,7 +1384,9 @@ export function MediaPages() {
       <>
         <PageTitle />
         <div className="v2-media-body">
-          <div className="v2-media-selection"><ProductionTabs generation /></div>
+          <div className="v2-media-selection">
+            <ProductionTabs generation />
+          </div>
           <DevelopmentMediaPanel key={d.backendProjectId ?? "no-project"} />
         </div>
       </>
@@ -1282,7 +1401,9 @@ export function MediaPages() {
           projectId={d.backendProjectId}
           timeline={getDevelopmentTimelineSnapshot(d.backendProjectId, d.timelineWorkspace)}
         />
-        <p className="v2-media-muted">正式导出尚未接入；开发 MP4 使用真实时间线和本地 Fake 素材。</p>
+        <p className="v2-media-muted">
+          正式导出尚未接入；开发 MP4 使用真实时间线和本地 Fake 素材。
+        </p>
         <Button onClick={() => d.go("assembly")}>返回真实时间线</Button>
       </>
     );
@@ -1352,8 +1473,15 @@ export function MediaPages() {
       )}
       <FlowFooter
         secondaryLabel={
-          review ? "返回制作" : generation ? "标记待调整" : preview ? "修改当前镜头" :
-            !shot ? "返回本地 Fake 任务" : "调整"
+          review
+            ? "返回制作"
+            : generation
+              ? "标记待调整"
+              : preview
+                ? "修改当前镜头"
+                : !shot
+                  ? "返回本地 Fake 任务"
+                  : "调整"
         }
         secondaryAction={
           review
@@ -1362,7 +1490,7 @@ export function MediaPages() {
               ? mark
               : !shot
                 ? () => d.go("generation")
-              : () => shot && d.focusAssistant(`修改「Shot ${shot.id} · ${shot.name}」：`)
+                : () => shot && d.focusAssistant(`修改「Shot ${shot.id} · ${shot.name}」：`)
         }
         label={
           preview

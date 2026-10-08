@@ -86,18 +86,23 @@ from aijian_api.development_timeline_export_routes import (
     create_development_timeline_export_router,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
-from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
-from aijian_api.episode_script_routes import (
-    create_episode_script_public_router,
-    create_episode_script_write_router,
+from aijian_api.episode_media_assembly_routes import (
+    create_episode_media_assembly_public_router,
+    create_episode_media_assembly_write_router,
 )
+from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
+from aijian_api.official_text_routes import create_official_text_public_router, create_official_text_write_router
 from aijian_api.episode_script_confirmation_routes import (
     create_episode_script_confirmation_public_router,
     create_episode_script_confirmation_write_router,
 )
-from aijian_api.episode_media_assembly_routes import (
-    create_episode_media_assembly_public_router,
-    create_episode_media_assembly_write_router,
+from aijian_api.episode_script_routes import (
+    create_episode_script_public_router,
+    create_episode_script_write_router,
+)
+from aijian_api.episode_storyboard_routes import (
+    create_episode_storyboard_public_router,
+    create_episode_storyboard_write_router,
 )
 from aijian_api.fake_timeline_run import (
     FakeTimelineRunConflictError,
@@ -123,19 +128,26 @@ from aijian_api.invalidation_routes import (
     InvalidationReportTooLargeError,
     create_invalidation_router,
 )
-from aijian_api.media_asset_routes import create_media_asset_router
-from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
 from aijian_api.media_asset_probe_routes import create_media_asset_probe_router
+from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
+from aijian_api.media_asset_routes import create_media_asset_router
 from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
 from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
 from aijian_api.product_export_operation_routes import create_product_export_operation_router
 from aijian_api.product_export_runtime import ProductExportRuntime
+from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.draft_export_routes import create_draft_export_router
+from aijian_api.draft_review_routes import create_draft_review_router
+from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
+from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
 from aijian_api.production_brief_routes import (
     create_production_brief_public_router,
     create_production_brief_write_router,
 )
-from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
-from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
+from aijian_api.project_creative_library_routes import (
+    create_project_creative_library_public_router,
+    create_project_creative_library_write_router,
+)
 from aijian_api.project_management_routes import create_project_management_router
 from aijian_api.proposal_run_factory import ProposalRunFactory
 from aijian_api.proposal_run_routes import (
@@ -154,6 +166,9 @@ from aijian_api.provider_connection_routes import create_provider_connection_rou
 from aijian_api.provider_connections import (
     ProviderConnectionService,
 )
+from aijian_api.remote_source_extract_operation_routes import (
+    create_remote_source_extract_operation_router,
+)
 from aijian_api.repository import (
     ArtifactConflictError,
     ArtifactDependencyInvalidError,
@@ -167,17 +182,14 @@ from aijian_api.repository import (
     StudioRepository,
 )
 from aijian_api.runtime_resources import media_tool_root, media_toolchain_lock_path
-from aijian_api.remote_source_extract_operation_routes import (
-    create_remote_source_extract_operation_router,
-)
 from aijian_api.security import SecurityFailure, SidecarSecurity
 from aijian_api.source_extraction_routes import create_source_extraction_router
-from aijian_api.source_proposal_acceptance_query import (
-    create_source_proposal_acceptance_query_router,
-)
 from aijian_api.source_manifest_routes import (
     create_source_manifest_internal_router,
     create_source_manifest_public_router,
+)
+from aijian_api.source_proposal_acceptance_query import (
+    create_source_proposal_acceptance_query_router,
 )
 from aijian_api.source_text_contracts import SourceDocumentTextData, SourceDocumentTextResponse
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
@@ -291,6 +303,7 @@ def create_app(
     fake_timeline_run_factory: FakeTimelineRunFactory | None = None,
     development_timeline_export_service: DevelopmentTimelineExportService | None = None,
     product_export_runtime: ProductExportRuntime | None = None,
+    draft_export_runtime: DraftExportRuntime | None = None,
     sub2api_runtime_availability: Callable[[], str] | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
@@ -1151,6 +1164,9 @@ def create_app(
     app.include_router(create_remote_source_extract_operation_router(get_repository))
     app.include_router(create_episode_router(get_repository))
     app.include_router(create_episode_script_public_router(get_repository))
+    app.include_router(create_official_text_public_router(get_repository))
+    app.include_router(create_episode_storyboard_public_router(get_repository))
+    app.include_router(create_project_creative_library_public_router(get_repository))
     app.include_router(create_episode_script_confirmation_public_router(get_repository))
     app.include_router(create_episode_media_assembly_public_router(get_repository))
     app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
@@ -1169,6 +1185,13 @@ def create_app(
     app.include_router(create_timeline_router(get_repository))
     app.include_router(create_fake_timeline_workflow_router(get_repository))
     if sidecar_security is not None:
+        app.include_router(create_official_text_write_router(get_repository, trusted_review_actor))
+        app.include_router(
+            create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
+        )
+        app.include_router(create_draft_review_router(
+            get_repository, lambda: cast(DraftExportRuntime, draft_export_runtime), trusted_review_actor
+        ))
         if product_export_runtime is not None:
             app.include_router(
                 create_product_export_operation_router(
@@ -1191,6 +1214,12 @@ def create_app(
         )
         app.include_router(
             create_episode_script_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_episode_storyboard_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_project_creative_library_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
             create_episode_script_confirmation_write_router(

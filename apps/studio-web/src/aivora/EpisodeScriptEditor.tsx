@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import { Button } from "./Common";
+import { ScriptSceneBlocks } from "./ScriptSceneBlocks";
+import { ScriptWorkspaceView } from "./ScriptWorkspaceView";
+import { AcceptedSourceSummarySeed } from "./AcceptedSourceSummarySeed";
+import { OfficialTextProposalPanel } from "./OfficialTextProposalPanel";
+import { summaryStartingScene } from "./adapters/acceptedSourceSummary";
 import {
   closeConfirmationJournal,
   closeScriptJournal,
@@ -14,6 +19,7 @@ import {
   saveScriptVersion,
 } from "./adapters/episodeScript";
 import type {
+  AcceptedSourceBinding,
   ConfirmationGateway,
   ConfirmationJournal,
   ScriptBlock,
@@ -30,7 +36,9 @@ import type {
 } from "./adapters/episodeScript";
 
 type Props = { projectId: string | null; episodeId: string | null;
-  briefVersionId: string | null };
+  briefVersionId: string | null; episodeTitle?: string;
+  setNavigationGuard?: (guard: (() => boolean) | null) => void;
+  onOpenSource?: () => void; workspace?: boolean };
 const PROJECT = /^prj_[0-9a-f]{32}$/;
 const EPISODE = /^ep_(?:prj_)?[0-9a-f]{32}$/;
 const cloneScenes = (scenes: ScriptScene[]): ScriptScene[] =>
@@ -38,6 +46,14 @@ const cloneScenes = (scenes: ScriptScene[]): ScriptScene[] =>
 const normalizeScenes = (scenes: ScriptScene[]): ScriptScene[] =>
   scenes.map((scene, index) => ({ ...scene, ordinal: index + 1,
     blocks: scene.blocks.map((block, blockIndex) => ({ ...block, ordinal: blockIndex + 1 })) }));
+function moveItem<T>(items: T[], index: number, offset: number): T[] {
+  const target = index + offset;
+  if (index < 0 || target < 0 || target >= items.length) return items;
+  const reordered = [...items];
+  const [item] = reordered.splice(index, 1);
+  if (item !== undefined) reordered.splice(target, 0, item);
+  return reordered;
+}
 
 function prepareContent(
   projectId: string, episodeId: string, current: ScriptVersion | null,
@@ -94,7 +110,8 @@ function prepareContent(
   return content;
 }
 
-export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Props) {
+export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId, episodeTitle,
+  setNavigationGuard, onOpenSource, workspace = false }: Props) {
   const transport = useMemo(() =>
     createStudioTransport() as unknown as Partial<
       ScriptGateway & ConfirmationGateway & SourceBindingGateway>, []);
@@ -117,6 +134,7 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
   }, []);
   const epoch = useRef(0);
   const inFlight = useRef(false);
+  const importedSourceBinding = useRef<AcceptedSourceBinding | null>(null);
   const [version, setVersion] = useState<ScriptVersion | null>(null);
   const [scenes, setScenes] = useState<ScriptScene[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -133,9 +151,10 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
   const [inspectedPending, setInspectedPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [changeSummary, setChangeSummary] = useState("人工编辑分集剧本草稿");
+  const [bindCurrentBrief, setBindCurrentBrief] = useState(false);
   const validScope = !!projectId && !!episodeId && PROJECT.test(projectId) && EPISODE.test(episodeId);
   const selected = scenes.find((scene) => scene.scene_id === selectedSceneId) ?? scenes[0];
-  const dirty = JSON.stringify(normalizeScenes(scenes)) !==
+  const dirty = bindCurrentBrief || JSON.stringify(normalizeScenes(scenes)) !==
     JSON.stringify(version?.content.scenes ?? []);
   const unknownDelivery = scenes.some((scene) => scene.blocks.some((block) =>
     block.kind === "DIALOGUE" && block.delivery == null));
@@ -154,6 +173,34 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     needsReload || journal.kind !== "EMPTY";
   const sourceReady = !!version || sourceBinding.kind === "BOUND" ||
     sourceBinding.kind === "UNBOUND";
+  const leaveState = useRef({ dirty, busy, version });
+  leaveState.current = { dirty, busy, version };
+
+  useEffect(() => {
+    setNavigationGuard?.(() => {
+      const current = leaveState.current;
+      if (current.busy || inFlight.current) {
+        setNotice("正在核对或保存剧本，请等待结果后再切换页面、作品或剧集。");
+        return false;
+      }
+      if (!current.dirty) return true;
+      if (!window.confirm("当前剧本有未保存的修改。放弃修改并离开吗？")) return false;
+      leaveState.current.dirty = false;
+      setScenes(cloneScenes(current.version?.content.scenes ?? []));
+      setBindCurrentBrief(false);
+      return true;
+    });
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!leaveState.current.dirty && !leaveState.current.busy) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => {
+      setNavigationGuard?.(null);
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [setNavigationGuard]);
 
   useEffect(() => {
     if (!projectId || !sourceGateway) {
@@ -163,13 +210,14 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     let active = true;
     setSourceBinding({ kind: "UNKNOWN" });
     void readAcceptedSourceBinding(sourceGateway, projectId).then((result) => {
-      if (active) setSourceBinding(result);
+      if (active && !importedSourceBinding.current) setSourceBinding(result);
     });
     return () => { active = false; };
   }, [projectId, sourceGateway]);
 
   useEffect(() => {
     const request = ++epoch.current;
+    importedSourceBinding.current = null;
     setVersion(null);
     setScenes([]);
     setSelectedSceneId(null);
@@ -177,6 +225,7 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     setConfirmation(null);
     setConfirmationReadState("idle");
     setNotice("");
+    setBindCurrentBrief(false);
     setInspectedPending(false);
     if (!validScope || !gateway || !storage || !projectId || !episodeId) {
       setReadState("error");
@@ -242,10 +291,18 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     inFlight.current = true;
     setBusy(true);
     const result = await readLatestScript(gateway, projectId, episodeId);
+    const source = sourceGateway
+      ? await readAcceptedSourceBinding(sourceGateway, projectId)
+      : { kind: "UNKNOWN" as const };
     inFlight.current = false;
     if (epoch.current !== request) return;
     setBusy(false);
+    setBindCurrentBrief(false);
     setJournal(readScriptJournal(storage, projectId, episodeId));
+    if (result.kind === "FOUND" || result.kind === "EMPTY") {
+      importedSourceBinding.current = null;
+      setSourceBinding(source);
+    }
     if (result.kind === "FOUND") {
       setVersion(result.version);
       setScenes(cloneScenes(result.version.content.scenes));
@@ -279,7 +336,8 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
   }
 
   async function refreshSourceBinding() {
-    if (!sourceGateway || !projectId || inFlight.current) return;
+    if (!sourceGateway || !projectId || inFlight.current || leaveState.current.dirty ||
+        importedSourceBinding.current) return;
     inFlight.current = true;
     setBusy(true);
     const result = await readAcceptedSourceBinding(sourceGateway, projectId);
@@ -394,8 +452,13 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
       setNotice("已接受来源状态尚未核实，未发送新剧本草稿。"); return;
     }
     const content = prepareContent(projectId, episodeId, version, scenes,
-      briefVersionId, sourceBinding);
+      briefVersionId, importedSourceBinding.current
+        ? { kind: "BOUND", binding: importedSourceBinding.current } : sourceBinding);
     if (typeof content === "string") { setNotice(content); return; }
+    if (bindCurrentBrief) {
+      if (!briefVersionId) { setNotice("当前创作简报尚未读取，未保存绑定。"); return; }
+      content.production_brief_version_id = briefVersionId;
+    }
     const summary = changeSummary.trim();
     if (!summary || [...summary].length > 240) {
       setNotice("修改说明需为 1 至 240 字。"); return;
@@ -418,7 +481,9 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     setBusy(false);
     setJournal(readScriptJournal(storage, projectId, episodeId));
     if (result.kind === "SAVED") {
+      importedSourceBinding.current = null;
       setVersion(result.version);
+      setBindCurrentBrief(false);
       setScenes(cloneScenes(result.version.content.scenes));
       setReadState("ready");
       setNotice(`草稿版本 ${result.version.version_number} 已保存并精确读回；尚未人工确认。`);
@@ -436,10 +501,24 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
     <h1>分集剧本</h1><p>请先选择真实项目和剧集，再编辑剧本。</p>
   </section>;
 
-  return <div className="v2-script-body" aria-label="分集剧本编辑器">
-    <section className="v2-story-card v2-script-index">
-      <h1>分集剧本</h1>
-      <p>当前剧集：{episodeId}</p>
+  const importControl = !version && scenes.length === 0 && projectId && <AcceptedSourceSummarySeed
+    key={`${projectId}/${episodeId}`} projectId={projectId} disabled={locked || dirty}
+    onImport={(value) => {
+      if (inFlight.current || leaveState.current.dirty || leaveState.current.version) return false;
+      const scene = summaryStartingScene(value.summary);
+      if (!scene) return false;
+      importedSourceBinding.current = value.binding;
+      setSourceBinding({ kind: "BOUND", binding: value.binding });
+      setScenes([scene]);
+      setSelectedSceneId(scene.scene_id);
+      setChangeSummary("从已采纳来源摘要起稿，待人工改编");
+      setNotice("已导入人工接纳的来源摘要，请改编后保存。来源版本与接纳记录保持固定。");
+      return true;
+    }} />;
+  const metadata = <>
+<h1>分集剧本</h1>
+      <p>当前剧集：{episodeTitle ?? episodeId}</p>
+      {episodeTitle && <details><summary>剧集标识</summary><p>{episodeId}</p></details>}
       <p>{version ? `草稿版本 ${version.version_number} · 修订 ${version.head_revision}` :
         readState === "empty" ? "尚无持久剧本草稿" : "正在核对剧本状态"}</p>
       <p>保存产生新草稿版本；人工确认是另一步。</p>
@@ -447,6 +526,13 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
         ? version.content.production_brief_version_id ?? "未绑定"
         : briefVersionId ? `保存新稿将绑定 ${briefVersionId}` :
           "未绑定；确认前需有真实上游版本"}</p>
+      {version && briefVersionId && version.content.production_brief_version_id !== briefVersionId &&
+        <label><input type="checkbox" checked={bindCurrentBrief} disabled={locked}
+          onChange={(event) => setBindCurrentBrief(event.target.checked)} />
+          将当前创作简报绑定到下次保存的新版本
+        </label>}
+      {!briefVersionId && !version?.content.production_brief_version_id && onOpenSource &&
+        <Button onClick={onOpenSource}>补充原创灵感或来源</Button>}
       <p>此稿已采纳来源：{version
         ? version.content.source_extraction_version_id ?? "未绑定"
         : sourceBinding.kind === "BOUND"
@@ -454,10 +540,13 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
           : sourceBinding.kind === "UNBOUND" ? "当前未绑定" : "状态待核实"}</p>
       {version?.content.source_proposal_acceptance_id &&
         <p>此稿接纳记录：{version.content.source_proposal_acceptance_id}</p>}
-      <Button disabled={!sourceGateway || busy} onClick={() => void refreshSourceBinding()}>
+      <Button disabled={!sourceGateway || busy || dirty || !!importedSourceBinding.current}
+        onClick={() => void refreshSourceBinding()}>
         重新核对已采纳来源
       </Button>
-      {version && !confirmableContent &&
+  </>;
+  const alerts = <>
+{version && !confirmableContent &&
         <p role="status">确认需每场至少一段内容、对白呈现方式已明确，并绑定真实创作简报、故事版本或已采纳来源。</p>}
       {unknownDelivery && <p role="alert">旧稿对白呈现方式待补齐/未知。请逐段明确画内或画外，保存为新版本后再确认；旧版本与哈希保持原样。</p>}
       {incompleteSourceBinding && <p role="alert">旧稿来源版本与接纳记录不完整；须核对权威来源绑定，不能推断后确认。</p>}
@@ -472,7 +561,9 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
       {confirmationJournal.kind === "BLOCKED" &&
         <p role="alert">本地确认记录损坏，已阻止确认。</p>}
       {notice && <p role="status">{notice}</p>}
-      <div className="v2-script-scene-list">
+  </>;
+  const outline = <>
+<div className="v2-script-scene-list">
         {scenes.map((scene) => <Button key={scene.scene_id}
           aria-pressed={selected?.scene_id === scene.scene_id}
           onClick={() => setSelectedSceneId(scene.scene_id)}>
@@ -480,14 +571,20 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
         </Button>)}
         {readState === "empty" && <p>此剧集还没有场次。从添加场次开始。</p>}
       </div>
-      <Button disabled={locked} onClick={addScene}>新增场次</Button>
-      <Button disabled={busy || dirty} onClick={() => void refresh(false)}>重新读取</Button>
+  </>;
+  const addSceneControl = <>
+<Button disabled={locked} onClick={addScene}>新增场次</Button>
+  </>;
+  const recovery = <>
+<Button disabled={busy || dirty} onClick={() => void refresh(false)}>重新读取</Button>
       {dirty && <Button disabled={busy} onClick={() => void refresh(true)}>
         舍弃草稿并读取
       </Button>}
       {journal.kind === "PENDING" && inspectedPending &&
         <Button disabled={busy} onClick={finishPending}>结束未知记录</Button>}
-      {version && <>
+  </>;
+  const confirmationControls = <>
+{version && <>
         <p>人工确认：{confirmationReadState === "loading" ? "读取中" :
           confirmationReadState === "error" ? "无法核实" :
             confirmation?.current && confirmation.confirmation?.version_id === version.version_id
@@ -500,68 +597,63 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
         {confirmationJournal.kind === "PENDING" && inspectedConfirmation &&
           <Button disabled={busy} onClick={finishConfirmationPending}>结束未知确认记录</Button>}
       </>}
+  </>;
+  const sceneHeading = selected && <>
+<label>场次标题<input value={selected.heading} disabled={locked}
+          onChange={(event) => updateScene(selected.scene_id, (scene) =>
+            ({ ...scene, heading: event.target.value }))} /></label>
+  </>;
+  const blockActions = selected && <>
+<Button disabled={locked} onClick={() => addBlock(selected.scene_id, "ACTION")}>添加动作</Button>
+        <Button disabled={locked} onClick={() => addBlock(selected.scene_id, "DIALOGUE")}>添加对白</Button>
+  </>;
+  const sceneActions = selected && <>
+    {([-1, 1] as const).map((offset) => <Button key={offset}
+      disabled={locked || selected.ordinal + offset < 1 || selected.ordinal + offset > scenes.length}
+      onClick={() => setScenes((old) => normalizeScenes(moveItem(old,
+        old.findIndex((scene) => scene.scene_id === selected.scene_id), offset)))}>
+      {offset < 0 ? "上移此场" : "下移此场"}
+    </Button>)}
+    <Button disabled={locked} onClick={() => {
+      setScenes((old) => normalizeScenes(old.filter((scene) => scene.scene_id !== selected.scene_id)));
+      setSelectedSceneId(null);
+    }}>删除此场</Button>
+  </>;
+  const summaryControl = <label>修改说明<input value={changeSummary} disabled={locked}
+    onChange={(event) => setChangeSummary(event.target.value)} /></label>;
+  const saveControl = <Button primary disabled={!gateway || !storage || locked || !sourceReady || !dirty}
+    onClick={() => void save()}>{busy ? "正在核对或保存…" : "保存草稿版本"}</Button>;
+  const confirmControl = <Button disabled={!confirmationGateway || !version || !confirmableContent || dirty || busy ||
+    readState !== "ready" || confirmationReadState !== "ready" ||
+    !confirmation || confirmation.current ||
+    confirmation.latest_version_id !== version.version_id ||
+    confirmation.latest_head_revision !== version.head_revision ||
+    journal.kind !== "EMPTY" || confirmationJournal.kind !== "EMPTY"}
+    onClick={() => void confirmCurrentVersion()}>确认此剧本版本</Button>;
+  const blockEditor = selected && <ScriptSceneBlocks selected={selected} locked={locked} updateScene={updateScene} />;
+  const sceneTitle = selected ? `场次 ${selected.ordinal} · ${selected.heading}` : "分集剧本";
+  if (workspace) return <ScriptWorkspaceView title={sceneTitle} sceneCount={scenes.length}
+    blockCount={selected?.blocks.length ?? 0} hasScene={!!selected} outline={outline}
+    addScene={addSceneControl} importControl={importControl} metadata={metadata} alerts={alerts} recovery={recovery}
+    confirmation={confirmationControls} heading={sceneHeading} blocks={blockEditor}
+    blockActions={blockActions} sceneActions={sceneActions} changeSummary={summaryControl}
+    saveAction={saveControl} confirmAction={confirmControl}
+    stateLabel={busy ? "正在处理…" : dirty ? "有未保存修改" : version
+      ? `剧本草稿 v${version.version_number} · 已保存` : "尚未保存版本"} />;
+  return <div className="v2-script-body episode-script-editor" aria-label="分集剧本编辑器">
+    <section className="v2-story-card v2-script-index">
+      {metadata}{alerts}{outline}{addSceneControl}{recovery}{confirmationControls}
     </section>
     <section className="v2-story-card v2-script-paper">
       <h2>{selected ? `场次 ${selected.ordinal}` : "尚未选择场次"}</h2>
-      {selected && <>
-        <label>场次标题<input value={selected.heading} disabled={locked}
-          onChange={(event) => updateScene(selected.scene_id, (scene) =>
-            ({ ...scene, heading: event.target.value }))} /></label>
-        <div className="v2-script-lines">
-          {selected.blocks.map((block) => <div key={block.block_id}>
-            <label>段落类型<select value={block.kind} disabled={locked}
-              onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
-                blocks: scene.blocks.map((item) => item.block_id === block.block_id
-                  ? { ...item, kind: event.target.value as ScriptBlock["kind"],
-                      speaker: event.target.value === "DIALOGUE" ? "" : null,
-                      delivery: null }
-                  : item) }))}>
-              <option value="ACTION">动作</option><option value="DIALOGUE">对白</option>
-            </select></label>
-            {block.kind === "DIALOGUE" && <>
-              <label>说话人<input value={block.speaker ?? ""} disabled={locked}
-                onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
-                  blocks: scene.blocks.map((item) => item.block_id === block.block_id
-                    ? { ...item, speaker: event.target.value } : item) }))} /></label>
-              <label>对白呈现<select value={block.delivery ?? ""} disabled={locked}
-                onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
-                  blocks: scene.blocks.map((item) => item.block_id === block.block_id
-                    ? { ...item, delivery: event.target.value as "ON_SCREEN" | "OFF_SCREEN" }
-                    : item) }))}>
-                <option value="" disabled>待补齐/未知</option>
-                <option value="ON_SCREEN">画内</option><option value="OFF_SCREEN">画外</option>
-              </select></label>
-            </>}
-            <label>{block.kind === "DIALOGUE" ? "对白内容" : "动作内容"}
-              <textarea value={block.text} disabled={locked}
-                onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
-                  blocks: scene.blocks.map((item) => item.block_id === block.block_id
-                    ? { ...item, text: event.target.value } : item) }))} />
-            </label>
-            <Button disabled={locked} onClick={() => updateScene(selected.scene_id,
-              (scene) => ({ ...scene, blocks: scene.blocks.filter((item) =>
-                item.block_id !== block.block_id) }))}>删除此段</Button>
-          </div>)}
-        </div>
-        <Button disabled={locked} onClick={() => addBlock(selected.scene_id, "ACTION")}>添加动作</Button>
-        <Button disabled={locked} onClick={() => addBlock(selected.scene_id, "DIALOGUE")}>添加对白</Button>
-        <Button disabled={locked} onClick={() => {
-          setScenes((old) => normalizeScenes(old.filter((scene) =>
-            scene.scene_id !== selected.scene_id)));
-          setSelectedSceneId(null);
-        }}>删除此场</Button>
-      </>}
-      <label>修改说明<input value={changeSummary} disabled={locked}
-        onChange={(event) => setChangeSummary(event.target.value)} /></label>
-      <Button primary disabled={!gateway || !storage || locked || !sourceReady || !dirty}
-        onClick={() => void save()}>保存草稿版本</Button>
-      <Button disabled={!confirmationGateway || !version || !confirmableContent || dirty || busy ||
-        readState !== "ready" || confirmationReadState !== "ready" ||
-        !confirmation || confirmation.current ||
-        confirmation.latest_version_id !== version.version_id ||
-        confirmation.latest_head_revision !== version.head_revision ||
-        journal.kind !== "EMPTY" || confirmationJournal.kind !== "EMPTY"}
-        onClick={() => void confirmCurrentVersion()}>确认此剧本版本</Button>
+      {importControl}{sceneHeading}{blockEditor}{blockActions}{sceneActions}{summaryControl}{saveControl}{confirmControl}
+      {projectId && episodeId && <OfficialTextProposalPanel key={`${projectId}/${episodeId}`}
+        projectId={projectId} episodeId={episodeId}
+        base={version ? { version_id: version.version_id, content_hash: version.content_hash,
+          head_revision: version.head_revision } : null}
+        disabled={locked || dirty || confirmationJournal.kind !== "EMPTY"}
+        onBusyChange={(value) => { inFlight.current = value; setBusy(value); }}
+        onAdopted={() => refresh(false)} />}
       <p>确认只绑定当前精确版本；继续编辑并保存新草稿后，需重新人工确认。</p>
     </section>
   </div>;

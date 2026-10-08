@@ -13,6 +13,7 @@ import {
   type Sub2APIOriginMode,
 } from "../domain/provider-settings-model";
 import { Button } from "./Common";
+import { Sub2APIReadiness } from "./Sub2APIReadiness";
 
 type Connection = ProviderConnectionListResponse["data"][number];
 
@@ -51,8 +52,6 @@ export function Sub2APIConnectionManagement({
   const [enabled, setEnabled] = useState(connection.enabled);
   const [models, setModels] = useState(connection.models.map((item) => item.model_id).join(", "));
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState(connection.models[0]?.model_id ?? "");
-  const [readiness, setReadiness] = useState("");
 
   useEffect(() => {
     activeScope.current = scope;
@@ -62,9 +61,7 @@ export function Sub2APIConnectionManagement({
     setOrigin(connection.base_url);
     setEnabled(connection.enabled);
     setModels(connection.models.map((item) => item.model_id).join(", "));
-    setModelId(connection.models[0]?.model_id ?? "");
     setApiKey("");
-    setReadiness("");
     setBusy(false);
     return () => { if (activeScope.current === scope) activeScope.current = ""; };
   }, [connection.id, connection.revision, connection.origin_mode]);
@@ -224,7 +221,7 @@ export function Sub2APIConnectionManagement({
   }
 
   async function rotateKey() {
-    if (!transport.rotateSub2APIKey || !canWrite || mode !== "PUBLIC_HTTPS") return;
+    if (!transport.rotateSub2APIKey || !canWrite || mode !== connectionMode) return;
     if (apiKey.length < 8 || apiKey.length > 8192 || /\s/.test(apiKey)) {
       setNotice("新业务密钥须为 8–8192 字符且不含空白。");
       return;
@@ -259,30 +256,6 @@ export function Sub2APIConnectionManagement({
     } else {
       setNotice(`已提交一次换钥匙，操作 ID ${operationId}；正在按原 ID 只读查询。`);
       await queryRotation(write);
-    }
-  }
-
-  async function readReadiness() {
-    if (!transport.readSub2APIConfiguredReadiness || !modelId || busy ||
-        mode !== "PUBLIC_HTTPS") return;
-    setBusy(true);
-    const requestedModel = modelId;
-    const result = await transport.readSub2APIConfiguredReadiness(connection.id, requestedModel)
-      .catch(() => ({ kind: "READINESS_UNKNOWN" as const }));
-    if (activeScope.current !== scope) return;
-    setBusy(false);
-    if (result.kind === "READ" &&
-        result.receipt.data.connection_id === connection.id &&
-        result.receipt.data.connection_revision === connection.revision &&
-        result.receipt.data.model_id === requestedModel &&
-        result.receipt.data.provider_observation === "NOT_CHECKED" &&
-        result.receipt.data.model_entitlement === "UNKNOWN") {
-      const data = result.receipt.data;
-      setReadiness(`本地前置条件${data.local_preconditions_met ? "满足" : "未满足"}；` +
-        `原因：${data.reasons.join("、") || "无"}；凭据：${data.credential_status}；` +
-        `本地运行状态：${data.runtime_status}。供应商未检查，模型权限未知。`);
-    } else {
-      setReadiness("readiness 结果未知、错误或连接修订已变化；没有供应商可用结论。");
     }
   }
 
@@ -328,25 +301,15 @@ export function Sub2APIConnectionManagement({
     {mode === "LOCAL_LOOPBACK_HTTP" &&
       <p role="status">仅接受 127.0.0.1 或 [::1] 加显式端口；localhost、私网、路径及重定向目标不可用。权威读回模式：{connectionMode}；本机网关不代表上游 AI 离线。{!sub2apiOriginModeWritesReady && "当前版本尚不能保存本机模式。"}</p>}
     <fieldset disabled={!transport.rotateSub2APIKey || !canWrite ||
-      mode === "LOCAL_LOOPBACK_HTTP"}>
+      mode !== connectionMode}>
       <legend>轮换业务密钥</legend>
       <label>新密钥<input type="password" value={apiKey} autoComplete="off"
         onChange={(event) => setApiKey(event.target.value)} /></label>
       <Button disabled={!transport.rotateSub2APIKey || !canWrite || !apiKey}
         onClick={() => void rotateKey()}>明确轮换一次</Button>
     </fieldset>
-    <fieldset disabled={!transport.readSub2APIConfiguredReadiness || busy ||
-      mode === "LOCAL_LOOPBACK_HTTP"}>
-      <legend>本地配置 readiness · 不调用供应商</legend>
-      <label>TEXT 模型<select value={modelId}
-        onChange={(event) => { setModelId(event.target.value); setReadiness(""); }}>
-        {connection.models.map((model) =>
-          <option key={model.model_id} value={model.model_id}>{model.model_id}</option>)}
-      </select></label>
-      <Button disabled={!transport.readSub2APIConfiguredReadiness || !modelId || busy}
-        onClick={() => void readReadiness()}>只读核对本地配置</Button>
-    </fieldset>
-    {readiness && <p role="status">{readiness}</p>}
+    <Sub2APIReadiness key={scope} connection={connection}
+      read={transport.readSub2APIConfiguredReadiness} disabled={busy} />
     {notice && <p role="status">{notice}</p>}
     {(!transport.editSub2APIMetadata || !transport.rotateSub2APIKey ||
       !transport.readSub2APIKeyRotation || !transport.readSub2APIConfiguredReadiness) &&

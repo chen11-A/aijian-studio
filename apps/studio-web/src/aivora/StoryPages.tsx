@@ -91,7 +91,7 @@ function ProjectNameEditor({ projectId }: { projectId: string }) {
       loadedRevision !== revision || !dirty || busy || mustRead ||
       journal.kind !== "EMPTY" || inFlight.current) return;
     const name = draft.trim();
-    if (!name || [...name].length > 80 || /[\u0000-\u001f\u007f]/.test(name)) {
+    if (!name || [...name].length > 80 || [...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
       setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
       return;
     }
@@ -307,7 +307,9 @@ export function StoryPages() {
       brief.head.latest_version_id === brief.version.id
         ? brief.version.id : null;
     return <EpisodeScriptEditor key={`${projectId ?? "none"}:${episodeId ?? "none"}`}
-      projectId={projectId} episodeId={episodeId} briefVersionId={briefVersionId} />;
+      projectId={projectId} episodeId={episodeId} briefVersionId={briefVersionId}
+      episodeTitle={d.episodes.find((episode) => episode.id === episodeId)?.title}
+      setNavigationGuard={d.setNavigationGuard} onOpenSource={() => d.go("source")} />;
   }
   return <LegacyStoryPages />;
 }
@@ -321,6 +323,30 @@ function LegacyStoryPages() {
   const [pastedText, setPastedText] = useState("");
   const pastedTextRef = useRef(pastedText);
   pastedTextRef.current = pastedText;
+  useEffect(() => {
+    if (d.isFixture || d.page !== "source") return;
+    let discarded = false;
+    const hasDraft = () => !discarded &&
+      !!(pastedTextRef.current.trim() || live.current.value("input").trim());
+    d.setNavigationGuard(() => {
+      if (!hasDraft()) return true;
+      if (!window.confirm("有尚未保存的来源文本或原创灵感。放弃草稿并离开吗？")) return false;
+      discarded = true;
+      setPastedText("");
+      live.current.put("input", "");
+      return true;
+    });
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasDraft()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => {
+      d.setNavigationGuard(null);
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [d.page, d.isFixture, d.setNavigationGuard, pastedText, d.value("input")]);
   useEffect(() => {
     if (d.page === "story" && !d.isFixture && d.backendProjectId)
       void d.readRealStoryWorkspace();
@@ -349,7 +375,7 @@ function LegacyStoryPages() {
     });
   const viewEvidence = () =>
     d.setEditor({
-      title: "原文依据 · 第一章",
+      title: d.isFixture ? "原文依据 · 第一章" : `${d.value("importedName") || "当前来源"} · 已导入原文`,
       description: d.value("source"),
       presentation: "drawer",
     });
@@ -478,17 +504,18 @@ function LegacyStoryPages() {
   }
   function createOriginalBrief() {
     const openedProjectId = d.backendProjectId;
+    const openedPastedText = pastedText;
     d.setEditor({
       title: "保存原创灵感草稿",
       description:
-        "这是创作简报草稿，不创建来源，也不表示故事已经完成。所有必填创作与交付信息都需由你确认。",
+        "输入的灵感尚未保存。补充并确认创作与交付信息后，保存为此作品的原创简报；不会创建外部原文。",
       confirm: "保存草稿",
       fields: [
         {
           key: "origin",
           label: "原创来源说明",
           type: "textarea",
-          value: d.value("input"),
+          value: pastedText.trim() || d.value("input"),
           required: true,
           max: 4000,
         },
@@ -557,7 +584,15 @@ function LegacyStoryPages() {
         },
         { key: "rights", label: "权利声明", type: "textarea", value: "" },
       ],
-      save: (data) => {
+      validate: () => {
+        const current = live.current;
+        if (!current.isFixture && (!openedProjectId || current.backendProjectId !== openedProjectId))
+          return "项目已变化，请关闭窗口后重新打开原创灵感草稿。";
+        if (current.pendingProductionBrief) return "上次保存结果待确认，请先关闭窗口并恢复原操作。";
+        if (current.productionBriefState === "loading") return "正在读取当前创作简报，请稍候。";
+        if (current.productionBriefState === "error") return "创作简报读取失败，请关闭窗口并重新读取。";
+      },
+      save: async (data) => {
         if (openedProjectId && live.current.backendProjectId !== openedProjectId) {
           d.notify("项目已变化；请重新打开原创灵感草稿。");
           return false;
@@ -589,6 +624,8 @@ function LegacyStoryPages() {
           (value) => optionalText(value) === null || optionalText(value)!.length <= 240,
         );
         if (
+          !data.origin?.trim() || [...data.origin].length > 4_000 ||
+          !data.premise?.trim() || !data.intent?.trim() ||
           !Number.isSafeInteger(width) ||
           !Number.isSafeInteger(height) ||
           width < 1 ||
@@ -622,16 +659,16 @@ function LegacyStoryPages() {
           right === 0 ? left : divisor(right, left % right);
         const aspectDivisor = divisor(width, height);
         const frameRateDivisor = divisor(frameRateNum, frameRateDen);
-        if (d.pendingProductionBrief) {
+        if (live.current.pendingProductionBrief) {
           d.notify("上次草稿保存结果待确认；请先显式恢复原操作。");
           return false;
         }
-        const version = d.productionBrief?.data.version;
+        const version = live.current.productionBrief?.data.version;
         const command = {
           operation_id: crypto.randomUUID(),
           input: {
             parent_version_id: version?.id ?? null,
-            expected_revision: d.productionBrief?.data.head.revision ?? null,
+            expected_revision: live.current.productionBrief?.data.head.revision ?? null,
             change_summary: "保存原创灵感草稿",
             content: {
               schema_version: "1.0.0",
@@ -678,13 +715,17 @@ function LegacyStoryPages() {
             },
           },
         } as ProductionBriefCreateCommand;
-        void d.saveProductionBrief(command).then((outcome) => {
-          if (outcome.kind === "SUCCEEDED")
-            d.notify("原创灵感已保存为创作简报草稿；尚未完成故事。");
-          else if (outcome.kind === "REMOTE_UNKNOWN")
-            d.notify("草稿保存结果待确认；请显式恢复原操作。");
-          else d.notify("草稿未保存，请核对输入后重试。");
-        });
+        const outcome = await d.saveProductionBrief(command);
+        if (outcome.kind === "SUCCEEDED") {
+          d.put("input", "");
+          if (pastedTextRef.current === openedPastedText) setPastedText("");
+          d.notify("原创灵感已保存并读回，可选择剧集开始编写剧本。");
+          return;
+        }
+        d.notify(outcome.kind === "REMOTE_UNKNOWN"
+          ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
+          : "草稿未保存，请核对输入后重试。");
+        return false;
       },
     });
   }
@@ -771,7 +812,7 @@ function LegacyStoryPages() {
         },
         { key: "rights", label: "权利声明", type: "textarea", value: "" },
       ],
-      save: (data) => {
+      save: async (data) => {
         const currentAccepted = live.current.sourceManifest?.data.accepted_version;
         if (
           (openedProjectId && live.current.backendProjectId !== openedProjectId) ||
@@ -851,12 +892,17 @@ function LegacyStoryPages() {
           right ? gcd(right, left % right) : left;
         const divisor = gcd(width, height);
         const frameRateDivisor = gcd(frameRateNum, frameRateDen);
-        const version = d.productionBrief?.data.version;
+        if (live.current.pendingProductionBrief || live.current.productionBriefState === "loading" ||
+          live.current.productionBriefState === "error") {
+          d.notify("当前创作简报尚未核实，请先重新读取或恢复原操作。");
+          return false;
+        }
+        const version = live.current.productionBrief?.data.version;
         const command = {
           operation_id: crypto.randomUUID(),
           input: {
             parent_version_id: version?.id ?? null,
-            expected_revision: d.productionBrief?.data.head.revision ?? null,
+            expected_revision: live.current.productionBrief?.data.head.revision ?? null,
             change_summary: "保存来源改编草稿",
             content: {
               schema_version: "1.0.0",
@@ -899,15 +945,13 @@ function LegacyStoryPages() {
             },
           },
         } satisfies ProductionBriefCreateCommand;
-        void d
-          .saveProductionBrief(command)
-          .then((outcome) =>
-            d.notify(
-              outcome.kind === "SUCCEEDED"
-                ? "来源改编已保存为创作简报草稿。"
-                : "草稿保存结果待确认；请显式恢复原操作。",
-            ),
-          );
+        const outcome = await d.saveProductionBrief(command);
+        d.notify(outcome.kind === "SUCCEEDED"
+          ? "来源改编已保存并读回，可选择剧集开始编写剧本。"
+          : outcome.kind === "REMOTE_UNKNOWN"
+            ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
+            : "草稿未保存，请核对输入后重试。");
+        return outcome.kind === "SUCCEEDED" ? undefined : false;
       },
     });
   }
@@ -970,6 +1014,22 @@ function LegacyStoryPages() {
       d.sourceManifest?.data.accepted_version?.id !==
         briefContent.creative_entry.source_manifest_version_id ||
       d.sourceDocument?.data.id !== briefContent.creative_entry.source_document_id);
+  if (d.page === "story" && !d.isFixture) return <>
+    <PageTitle actions={<>
+      <Button onClick={() => d.go("source")}>来源与原创灵感</Button>
+      <Button onClick={() => d.go("script")}>编写分集剧本</Button>
+    </>} />
+    <div className="production-story-workspace">
+    <p className="v2-source-support" role="status">
+      {briefContent?.creative_entry.kind === "original_idea"
+        ? "当前作品采用原创灵感。可直接编写分集剧本；原创内容不会伪造原文引用。"
+        : `来源状态：${sourceNavigation.status}。先审核来源，再使用真实提取结果或手工编写剧本。`}
+    </p>
+    <SourceExtractionPanel projectId={d.backendProjectId}
+      sourceManifest={d.sourceManifest} sourceDocumentId={d.sourceDocument?.data.id ?? null}
+      sourceApproved={d.sourceStage.kind === "approved"} />
+    </div>
+  </>;
   return (
     <>
       <PageTitle
@@ -980,7 +1040,8 @@ function LegacyStoryPages() {
                 大屏预览
               </Button>
             )}
-            <Button onClick={viewEvidence}>查看原文</Button>
+            <Button disabled={!d.isFixture && !d.value("source").trim()}
+              onClick={viewEvidence}>查看原文</Button>
           </>
         }
       />
@@ -1052,11 +1113,12 @@ function LegacyStoryPages() {
                   disabled={d.sourceImportState.kind === "pending"}
                   onClick={() => {
                     const submittedText = pastedText;
+                    const submittedProjectId = d.backendProjectId;
                     void d.importPastedSource(submittedText).then((result) => {
                       if (
                         result.kind === "SUCCEEDED" &&
                         pastedTextRef.current === submittedText &&
-                        live.current.sourceDocument?.data.id === result.response.data.id
+                        live.current.backendProjectId === submittedProjectId
                       )
                         setPastedText("");
                     });
@@ -1064,7 +1126,6 @@ function LegacyStoryPages() {
                 >
                   作为外部原文导入
                 </Button>
-                <Button onClick={createOriginalBrief}>原创灵感</Button>
               </div>
             )}
             <p className="v2-source-support" role="status" aria-live="polite">
@@ -1079,15 +1140,28 @@ function LegacyStoryPages() {
                       : "来源导入只负责保存原文；来源审核和故事生成是后续独立步骤。"}
             </p>
             <div className="actions">
+              <Button onClick={createOriginalBrief}>原创灵感</Button>
               <Button onClick={createAdaptationBrief}>基于已批准来源改编</Button>
+              {!d.isFixture && <Button onClick={() => d.go("script")}>编写分集剧本</Button>}
+              {!d.isFixture && <Button disabled={d.productionBriefState === "loading"}
+                onClick={() => void d.refreshProductionBrief()}>重新读取创作简报</Button>}
             </div>
+            {d.productionBriefState === "error" && <p role="alert">
+              创作简报尚未读取成功。请重新读取后再保存原创或改编简报。
+            </p>}
+            {!d.isFixture && d.value("input").trim() && <p role="status">
+              有尚未保存的原创灵感，请打开“原创灵感”补充并保存创作简报。
+            </p>}
             <input
               ref={file}
               type="file"
               className="sr-only"
               aria-label="替换原文文件"
               accept=".txt,text/plain"
-              onChange={(e) => void importFile(e.target.files?.[0])}
+              onChange={(e) => {
+                void importFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
             />
             {d.isFixture ? <label className="v2-source-name">
               项目名称（样例）
@@ -1194,7 +1268,9 @@ function LegacyStoryPages() {
                   )}
                 </dl>
                 <p role="status">
-                  {adaptationNeedsRecheck
+                  {briefContent?.creative_entry.kind === "original_idea"
+                    ? "原创灵感已保存，不绑定外部原文引用。"
+                    : adaptationNeedsRecheck
                     ? "当前来源已变化，改编草稿需要重新核对焦点后才能保存新版本。"
                     : "当前来源与改编焦点一致。"}
                 </p>
@@ -1244,19 +1320,15 @@ function LegacyStoryPages() {
             </Card>
             <Card title="隐私边界" icon="review">
               <p>提交后会由本地工作区核对来源；尚未接受的版本会保持待审状态。</p>
-              <button
+              {d.isFixture && <button
                 className="text-button v2-source-reset"
                 onClick={() => {
-                  if (d.backendProjectId && !d.isFixture) {
-                    d.notify("真实项目来源不能恢复内置样例；请使用导入或粘贴保存新来源。");
-                    return;
-                  }
                   replaceSource(sourceText);
                   d.put("importedName", "");
                 }}
               >
                 恢复内置样例
-              </button>
+              </button>}
             </Card>
           </div>
         </div>

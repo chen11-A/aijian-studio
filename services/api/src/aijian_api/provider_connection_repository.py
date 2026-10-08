@@ -1,26 +1,53 @@
-"""SQLite metadata repository for model-provider connections."""
+"""SQLite provider metadata and durable credential-rotation outcomes.
+
+Credential references identify Vault slots. Credential bytes never belong here.
+Every metadata/credential mutation increments the revision used by approvals.
+"""
 
 import json
+import re
 import sqlite3
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, cast
 
-from aijian_api.provider_contracts import CPA_LOOPBACK_BASE_URL
+from aijian_api.provider_contracts import (
+    CPA_LOOPBACK_BASE_URL,
+    MAX_EXPECTED_REVISION,
+    PROVIDER_MUTATION_ID_PATTERN,
+    Sub2APIOriginMode,
+    validate_sub2api_origin,
+)
 from aijian_api.task_ledger_models import new_id, parse_datetime, timestamp, utc_now
 
-type ProviderKind = Literal["OPENAI", "XAI", "OPENAI_COMPATIBLE", "OLLAMA", "CPA_LOOPBACK"]
+type ProviderKind = Literal[
+    "OPENAI", "XAI", "OPENAI_COMPATIBLE", "OLLAMA", "CPA_LOOPBACK", "SUB2API"
+]
 type ProviderCapability = Literal["TEXT", "IMAGE", "VIDEO", "SPEECH"]
+type ProviderRotationStatus = Literal["PREPARED", "APPLIED", "CONFLICT", "UNKNOWN"]
 
 
 class ProviderConnectionConflictError(RuntimeError):
-    """Raised when a display name is already used."""
+    """Raised when provider metadata conflicts with persisted state."""
 
 
 class ProviderConnectionNotFoundError(LookupError):
-    """Raised when a provider connection does not exist."""
+    """Raised when a provider connection or rotation operation does not exist."""
+
+
+class ProviderConnectionVersionConflictError(ProviderConnectionConflictError):
+    """Raised when a mutation no longer matches the approved connection revision."""
+
+
+class ProviderConnectionWriteUnknownError(RuntimeError):
+    """Raised when a write outcome requires readback, never an automatic retry."""
+
+
+class ProviderRotationOperationExistsError(ProviderConnectionConflictError):
+    """Raised when a rotation identity has already been used."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +67,20 @@ class ProviderConnection:
     revision: int
     created_at: datetime
     updated_at: datetime
+    credential_ref: str
+    origin_mode: Sub2APIOriginMode | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRotationOperation:
+    operation_id: str
+    connection_id: str
+    expected_revision: int
+    candidate_credential_ref: str
+    status: ProviderRotationStatus
+    applied_revision: int | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProviderConnectionRepository:
@@ -55,7 +96,7 @@ class ProviderConnectionRepository:
         self._id_factory = id_factory
 
     def list(self) -> tuple[ProviderConnection, ...]:
-        with self._open() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT * FROM provider_connections
@@ -65,14 +106,8 @@ class ProviderConnectionRepository:
         return tuple(_connection_from_row(row) for row in rows)
 
     def get(self, connection_id: str) -> ProviderConnection:
-        with self._open() as connection:
-            row = connection.execute(
-                "SELECT * FROM provider_connections WHERE connection_id = ?",
-                (connection_id,),
-            ).fetchone()
-        if row is None:
-            raise ProviderConnectionNotFoundError("provider connection not found")
-        return _connection_from_row(row)
+        with self._connection() as connection:
+            return _get_connection(connection, connection_id)
 
     def create(
         self,
@@ -82,24 +117,22 @@ class ProviderConnectionRepository:
         base_url: str,
         enabled: bool,
         models: Sequence[ProviderModel],
+        origin_mode: Sub2APIOriginMode | None = None,
     ) -> ProviderConnection:
-        if provider_kind == "CPA_LOOPBACK" and (
-            base_url != CPA_LOOPBACK_BASE_URL
-            or not models
-            or any(model.capabilities != ("TEXT",) for model in models)
-        ):
-            raise ValueError("CPA loopback requires its fixed origin and text-only models")
+        models = tuple(models)
+        if provider_kind == "SUB2API" and origin_mode is None:
+            origin_mode = "PUBLIC_HTTPS"
+        _validate_metadata(provider_kind, display_name, base_url, enabled, models, origin_mode)
         connection_id = self._id_factory("pcn")
         now_text = timestamp(self._clock())
-        models_json = _models_json(models)
         try:
-            with self._open() as connection:
+            with self._connection() as connection:
                 connection.execute(
                     """
                     INSERT INTO provider_connections (
                         connection_id, provider_kind, display_name, base_url, enabled,
-                        models_json, revision, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                        models_json, revision, created_at, updated_at, credential_ref, origin_mode
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                     """,
                     (
                         connection_id,
@@ -107,35 +140,266 @@ class ProviderConnectionRepository:
                         display_name,
                         base_url,
                         int(enabled),
-                        models_json,
+                        _models_json(models),
+                        now_text,
+                        now_text,
+                        connection_id,
+                        origin_mode,
+                    ),
+                )
+                result = _get_connection(connection, connection_id)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError("provider metadata conflicts") from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError("provider write requires readback") from error
+        return result
+
+    def update_metadata_cas(
+        self,
+        *,
+        connection_id: str,
+        expected_revision: int,
+        display_name: str,
+        base_url: str,
+        enabled: bool,
+        models: Sequence[ProviderModel],
+        origin_mode: Sub2APIOriginMode | None = None,
+    ) -> ProviderConnection:
+        _validate_revision(expected_revision)
+        models = tuple(models)
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                current = _get_connection(connection, connection_id)
+                if current.revision != expected_revision:
+                    raise ProviderConnectionVersionConflictError("provider revision changed")
+                if current.provider_kind == "SUB2API":
+                    if current.origin_mode == "LOCAL_LOOPBACK_HTTP" and origin_mode is None:
+                        raise ValueError("editing a local Sub2API connection requires origin_mode")
+                    if origin_mode is None:
+                        origin_mode = "PUBLIC_HTTPS"
+                _validate_metadata(
+                    current.provider_kind, display_name, base_url, enabled, models, origin_mode
+                )
+                cursor = connection.execute(
+                    """
+                    UPDATE provider_connections
+                    SET display_name = ?, base_url = ?, enabled = ?, models_json = ?,
+                        origin_mode = ?, revision = revision + 1, updated_at = ?
+                    WHERE connection_id = ? AND revision = ?
+                    """,
+                    (
+                        display_name,
+                        base_url,
+                        int(enabled),
+                        _models_json(models),
+                        origin_mode,
+                        timestamp(self._clock()),
+                        connection_id,
+                        expected_revision,
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise ProviderConnectionVersionConflictError("provider revision changed")
+                result = _get_connection(connection, connection_id)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError("provider metadata conflicts") from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError("provider write requires readback") from error
+        return result
+
+    def prepare_rotation(
+        self,
+        *,
+        operation_id: str,
+        connection_id: str,
+        expected_revision: int,
+        candidate_credential_ref: str,
+    ) -> ProviderRotationOperation:
+        _validate_rotation_identity(
+            operation_id, connection_id, expected_revision, candidate_credential_ref
+        )
+        now_text = timestamp(self._clock())
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                if (
+                    connection.execute(
+                        "SELECT 1 FROM provider_credential_rotation_operations "
+                        "WHERE operation_id = ?",
+                        (operation_id,),
+                    ).fetchone()
+                    is not None
+                ):
+                    raise ProviderRotationOperationExistsError("rotation operation already exists")
+                current = _get_connection(connection, connection_id)
+                if current.provider_kind != "SUB2API" or current.revision != expected_revision:
+                    raise ProviderConnectionVersionConflictError("provider revision changed")
+                if current.credential_ref == candidate_credential_ref:
+                    raise ValueError("rotation requires a new credential reference")
+                connection.execute(
+                    """
+                    INSERT INTO provider_credential_rotation_operations (
+                        operation_id, connection_id, expected_revision, candidate_credential_ref,
+                        status, applied_revision, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, 'PREPARED', NULL, ?, ?)
+                    """,
+                    (
+                        operation_id,
+                        connection_id,
+                        expected_revision,
+                        candidate_credential_ref,
                         now_text,
                         now_text,
                     ),
                 )
+                result = _get_rotation(connection, operation_id)
                 connection.commit()
         except sqlite3.IntegrityError as error:
-            raise ProviderConnectionConflictError("provider display name already exists") from error
-        return ProviderConnection(
-            id=connection_id,
-            provider_kind=provider_kind,
-            display_name=display_name,
-            base_url=base_url,
-            enabled=enabled,
-            models=tuple(models),
-            revision=1,
-            created_at=parse_datetime(now_text),
-            updated_at=parse_datetime(now_text),
+            raise ProviderConnectionConflictError("rotation metadata conflicts") from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "rotation preparation requires readback"
+            ) from error
+        return result
+
+    def get_rotation_operation(self, operation_id: str) -> ProviderRotationOperation:
+        with self._connection() as connection:
+            return _get_rotation(connection, operation_id)
+
+    def apply_rotation_cas(
+        self,
+        *,
+        operation_id: str,
+        connection_id: str,
+        expected_revision: int,
+        old_credential_ref: str,
+        candidate_credential_ref: str,
+    ) -> ProviderConnection:
+        _validate_rotation_identity(
+            operation_id, connection_id, expected_revision, candidate_credential_ref
         )
+        conflict = False
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                operation = _get_rotation(connection, operation_id)
+                if (
+                    operation.connection_id != connection_id
+                    or operation.expected_revision != expected_revision
+                    or operation.candidate_credential_ref != candidate_credential_ref
+                ):
+                    raise ValueError("rotation identity does not match its prepared operation")
+                if operation.status == "APPLIED":
+                    raise ProviderRotationOperationExistsError("rotation operation already applied")
+                if operation.status == "CONFLICT":
+                    raise ProviderConnectionVersionConflictError("provider revision changed")
+                current = _get_connection(connection, connection_id)
+                now_text = timestamp(self._clock())
+                if (
+                    current.provider_kind != "SUB2API"
+                    or current.revision != expected_revision
+                    or current.credential_ref != old_credential_ref
+                ):
+                    connection.execute(
+                        """
+                        UPDATE provider_credential_rotation_operations
+                        SET status = 'CONFLICT', updated_at = ? WHERE operation_id = ?
+                        """,
+                        (now_text, operation_id),
+                    )
+                    conflict = True
+                else:
+                    connection.execute(
+                        """
+                        UPDATE provider_connections
+                        SET credential_ref = ?, revision = revision + 1, updated_at = ?
+                        WHERE connection_id = ? AND revision = ? AND credential_ref = ?
+                        """,
+                        (
+                            candidate_credential_ref,
+                            now_text,
+                            connection_id,
+                            expected_revision,
+                            old_credential_ref,
+                        ),
+                    )
+                    connection.execute(
+                        """
+                        UPDATE provider_credential_rotation_operations
+                        SET status = 'APPLIED', applied_revision = ?, updated_at = ?
+                        WHERE operation_id = ?
+                        """,
+                        (expected_revision + 1, now_text, operation_id),
+                    )
+                result = _get_connection(connection, connection_id)
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError("rotation metadata conflicts") from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "rotation result requires readback"
+            ) from error
+        # Persist the conflict outcome before raising; raising inside the transaction
+        # context would roll it back and leave an indefinitely PREPARED operation.
+        if conflict:
+            raise ProviderConnectionVersionConflictError("provider revision changed")
+        return result
+
+    def mark_rotation_unknown(self, operation_id: str) -> None:
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                _get_rotation(connection, operation_id)
+                connection.execute(
+                    """
+                    UPDATE provider_credential_rotation_operations
+                    SET status = 'UNKNOWN', updated_at = ?
+                    WHERE operation_id = ? AND status = 'PREPARED'
+                    """,
+                    (timestamp(self._clock()), operation_id),
+                )
+                connection.commit()
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "rotation result requires readback"
+            ) from error
 
     def delete(self, connection_id: str) -> None:
-        with self._open() as connection:
-            cursor = connection.execute(
-                "DELETE FROM provider_connections WHERE connection_id = ?",
-                (connection_id,),
-            )
-            if cursor.rowcount != 1:
-                raise ProviderConnectionNotFoundError("provider connection not found")
-            connection.commit()
+        try:
+            with self._connection() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("PRAGMA defer_foreign_keys = ON")
+                cursor = connection.execute(
+                    "DELETE FROM provider_connections WHERE connection_id = ?",
+                    (connection_id,),
+                )
+                if cursor.rowcount != 1:
+                    raise ProviderConnectionNotFoundError("provider connection not found")
+                # Rotation history is protected while its connection exists. Remove it
+                # only as part of deleting that connection, never to permit a retry.
+                connection.execute(
+                    "DELETE FROM provider_credential_rotation_operations WHERE connection_id = ?",
+                    (connection_id,),
+                )
+                connection.commit()
+        except sqlite3.IntegrityError as error:
+            raise ProviderConnectionConflictError(
+                "provider connection is still referenced"
+            ) from error
+        except sqlite3.Error as error:
+            raise ProviderConnectionWriteUnknownError(
+                "provider deletion requires readback"
+            ) from error
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        # SQLite's transaction context does not close its connection. Keep
+        # handles bounded on Windows as well as on reference-counted runtimes.
+        with closing(self._open()) as connection, connection:
+            yield connection
 
     def _open(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._database_path, timeout=5)
@@ -143,6 +407,75 @@ class ProviderConnectionRepository:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
+
+
+def _validate_revision(expected_revision: int) -> None:
+    if type(expected_revision) is not int or not 1 <= expected_revision <= MAX_EXPECTED_REVISION:
+        raise ValueError("provider expected revision is invalid")
+
+
+def _validate_rotation_identity(
+    operation_id: str,
+    connection_id: str,
+    expected_revision: int,
+    candidate_credential_ref: str,
+) -> None:
+    _validate_revision(expected_revision)
+    if re.fullmatch(PROVIDER_MUTATION_ID_PATTERN, operation_id) is None:
+        raise ValueError("rotation operation ID is invalid")
+    if (
+        re.fullmatch(r"pcn_[0-9a-f]{32}", connection_id) is None
+        or re.fullmatch(re.escape(connection_id) + r":crd_[0-9a-f]{32}", candidate_credential_ref)
+        is None
+    ):
+        raise ValueError("rotation credential reference is invalid")
+
+
+def _validate_metadata(
+    provider_kind: ProviderKind,
+    display_name: str,
+    base_url: str,
+    enabled: bool,
+    models: Sequence[ProviderModel],
+    origin_mode: Sub2APIOriginMode | None,
+) -> None:
+    if provider_kind not in {
+        "OPENAI",
+        "XAI",
+        "OPENAI_COMPATIBLE",
+        "OLLAMA",
+        "CPA_LOOPBACK",
+        "SUB2API",
+    }:
+        raise ValueError("provider kind is invalid")
+    if not 1 <= len(display_name.strip()) <= 80 or not 1 <= len(base_url) <= 2048:
+        raise ValueError("provider metadata is invalid")
+    if type(enabled) is not bool:
+        raise ValueError("provider enabled flag must be boolean")
+    if not 1 <= len(models) <= 100 or len({model.model_id for model in models}) != len(models):
+        raise ValueError("provider models must be nonempty and unique")
+    for model in models:
+        if (
+            not 1 <= len(model.model_id) <= 200
+            or model.model_id != model.model_id.strip()
+            or not 1 <= len(model.capabilities) <= 4
+            or len(set(model.capabilities)) != len(model.capabilities)
+            or not set(model.capabilities) <= {"TEXT", "IMAGE", "VIDEO", "SPEECH"}
+        ):
+            raise ValueError("provider model is invalid")
+    if provider_kind == "SUB2API":
+        if origin_mode is None:
+            raise ValueError("Sub2API requires an origin mode")
+        validate_sub2api_origin(base_url, origin_mode)
+        if any(model.capabilities != ("TEXT",) for model in models):
+            raise ValueError("Sub2API requires text-only models")
+    elif origin_mode is not None:
+        raise ValueError("origin_mode is only valid for Sub2API")
+    if provider_kind == "CPA_LOOPBACK" and (
+        base_url != CPA_LOOPBACK_BASE_URL
+        or any(model.capabilities != ("TEXT",) for model in models)
+    ):
+        raise ValueError("CPA loopback requires its fixed origin and text-only models")
 
 
 def _models_json(models: Sequence[ProviderModel]) -> str:
@@ -154,6 +487,36 @@ def _models_json(models: Sequence[ProviderModel]) -> str:
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
+    )
+
+
+def _get_connection(connection: sqlite3.Connection, connection_id: str) -> ProviderConnection:
+    row = connection.execute(
+        "SELECT * FROM provider_connections WHERE connection_id = ?", (connection_id,)
+    ).fetchone()
+    if row is None:
+        raise ProviderConnectionNotFoundError("provider connection not found")
+    return _connection_from_row(row)
+
+
+def _get_rotation(connection: sqlite3.Connection, operation_id: str) -> ProviderRotationOperation:
+    row = connection.execute(
+        "SELECT * FROM provider_credential_rotation_operations WHERE operation_id = ?",
+        (operation_id,),
+    ).fetchone()
+    if row is None:
+        raise ProviderConnectionNotFoundError("rotation operation not found")
+    return ProviderRotationOperation(
+        operation_id=str(row["operation_id"]),
+        connection_id=str(row["connection_id"]),
+        expected_revision=int(row["expected_revision"]),
+        candidate_credential_ref=str(row["candidate_credential_ref"]),
+        status=cast(ProviderRotationStatus, str(row["status"])),
+        applied_revision=int(row["applied_revision"])
+        if row["applied_revision"] is not None
+        else None,
+        created_at=parse_datetime(str(row["created_at"])),
+        updated_at=parse_datetime(str(row["updated_at"])),
     )
 
 
@@ -176,4 +539,6 @@ def _connection_from_row(row: sqlite3.Row) -> ProviderConnection:
         revision=int(row["revision"]),
         created_at=parse_datetime(str(row["created_at"])),
         updated_at=parse_datetime(str(row["updated_at"])),
+        credential_ref=str(row["credential_ref"]),
+        origin_mode=cast(Sub2APIOriginMode | None, row["origin_mode"]),
     )

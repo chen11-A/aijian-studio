@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "profile": "DEVELOPMENT_CORE",
+  "status": "BLOCKED",
+  "reason": "The exact frozen Python native dependency list and version-matched companion license texts have not yet been verified. Build and synthetic Windows tests may run; do not upload the installer.",
+  "native_components": [],
+  "release_approved": false
+}

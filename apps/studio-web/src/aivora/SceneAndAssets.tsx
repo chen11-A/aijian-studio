@@ -7,6 +7,8 @@ import {
 import type { AssetLibraryListState, MediaAsset } from "./adapters/assetLibrary";
 import { art } from "./data";
 import { useDemo } from "./model";
+import { ManualCreativePage } from "./ManualCreativeEditor";
+import { isDevelopmentCoreBuild } from "./buildProfile";
 import { useCurrentObject } from "./useCurrentObject";
 import { Button, FlowFooter, PageTitle } from "./Common";
 import { Dropdown } from "./Dropdown";
@@ -20,6 +22,11 @@ import "./v2-visual.css";
 import "./v21-scene-r1.css";
 
 export function ScenePage() {
+  const d = useDemo();
+  return d.isFixture ? <FixtureScenePage /> : <ManualCreativePage kind="scenes" />;
+}
+
+function FixtureScenePage() {
   const { d, field, putField } = useCurrentObject();
   const [mediaAspect, setMediaAspect] = useState(16 / 9);
   if (!d.locations.length) {
@@ -626,7 +633,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
       return;
     }
     if (version.kind !== "image") {
-      if ((version.kind === "video" && version.mime_type !== "video/webm") ||
+      if ((version.kind === "video" && !["video/webm", "video/mp4"].includes(version.mime_type)) ||
           (version.kind === "audio" && !["audio/wav", "audio/mpeg"].includes(version.mime_type))) {
         setNotice("原件媒体类型不在当前播放器支持范围；未显示文件。");
         return;
@@ -758,6 +765,10 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         <Button disabled={!gateway || busy || writeUnknown}
           onClick={() => void importAsset()}>导入素材</Button>
       </div>
+      {isDevelopmentCoreBuild() && <p role="status">
+        开发核心版可保存素材原件，并尝试使用系统解码器播放。此安装包未附带媒体探测与编码工具；
+        导入音视频不会自动成为已探测的剪辑输入，也不能生成连续预览或 MP4。
+      </p>}
       <div className="v2-assets-grid">
         {state.kind !== "READY" ? <div className="v2-visual-empty" role="status">
           <h2>{state.kind === "LOADING" ? "正在读取项目素材" :

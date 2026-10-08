@@ -16,6 +16,14 @@
     "./invalidation-operation": {
       "types": "./src/invalidation-operation.ts",
       "default": "./src/invalidation-operation.ts"
+    },
+    "./chatgpt-auth": {
+      "types": "./src/chatgpt-auth.ts",
+      "default": "./src/chatgpt-auth.ts"
+    },
+    "./official-text": {
+      "types": "./src/official-text.ts",
+      "default": "./src/official-text.ts"
     }
   },
   "scripts": {

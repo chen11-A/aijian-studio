@@ -1,5 +1,7 @@
 # AIVORA Windows 安装输入
 
+**2026-10-08 更新：**当前独立重建分支已实际下载并校验 Windows 工具链，新增原生 sidecar 冻结与测试入口。请先看 [当前环境与可复现步骤](TOOLCHAIN-STATUS.md)。下文包含旧候选历史，不代表当前源码或安装器已验收；其发行与数据安全门仍保留。
+
 本目录定义 Electron 桌面程序的受控资源布局。`runtime-layout.json` 是安装器的输入约束，不是已生成的安装包；`scripts/stage-windows-runtime.ps1` 只在完整发行清单通过预检后，将固定字节放进全新暂存目录。
 
 ## 固定布局

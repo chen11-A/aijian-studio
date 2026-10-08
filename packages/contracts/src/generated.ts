@@ -319,6 +319,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/creative-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest */
+        get: operations["getProjectCreativeLibrary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/creative-library/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Version */
+        post: operations["createProjectCreativeLibraryVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/creative-library/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Version */
+        get: operations["getProjectCreativeLibraryVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/development-exports": {
         parameters: {
             query?: never;
@@ -391,6 +442,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["listDraftExports"];
+        put?: never;
+        /** Submit */
+        post: operations["createDraftExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["getDraftExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancelDraftExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/review-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["listDraftReviewNotes"];
+        put?: never;
+        /** Create */
+        post: operations["createDraftReviewNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/review-notes/{note_id}/resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve */
+        post: operations["resolveDraftReviewNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/episodes/{episode_id}/media-assembly": {
         parameters: {
             query?: never;
@@ -419,6 +557,92 @@ export interface paths {
         get: operations["getEpisodeMediaAssemblyVersion"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Operations */
+        get: operations["listOfficialTextOperations"];
+        put?: never;
+        /** Reserve */
+        post: operations["reserveOfficialTextOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Operation */
+        get: operations["getOfficialTextOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text/{operation_id}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adopt */
+        post: operations["adoptOfficialTextProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text/{operation_id}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete */
+        post: operations["completeOfficialTextOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text/{operation_id}/not-sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Not Sent */
+        post: operations["recordOfficialTextNotSent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -502,6 +726,57 @@ export interface paths {
         };
         /** Get Version */
         get: operations["getEpisodeScriptVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/storyboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest */
+        get: operations["getEpisodeStoryboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/storyboard/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Version */
+        post: operations["createEpisodeStoryboardVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/storyboard/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Version */
+        get: operations["getEpisodeStoryboardVersion"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1194,6 +1469,18 @@ export interface components {
             /** Version Id */
             version_id: string;
         };
+        /** AdoptOfficialTextRequest */
+        AdoptOfficialTextRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
+            /** Proposal Content Hash */
+            proposal_content_hash: string;
+            /** Proposal Version Id */
+            proposal_version_id: string;
+        };
         /** AgentCatalogData */
         AgentCatalogData: {
             /** Agents */
@@ -1569,6 +1856,16 @@ export interface components {
             /** Sha256 */
             sha256: string;
         };
+        /**
+         * AssemblyStoryboardRefV1
+         * @description Author-selected provenance; never a claim that the shot has been fulfilled.
+         */
+        AssemblyStoryboardRefV1: {
+            /** Shot Id */
+            shot_id: string;
+            /** Storyboard Version Id */
+            storyboard_version_id: string;
+        };
         /** AssemblySubtitleSegmentV1 */
         AssemblySubtitleSegmentV1: {
             /** End Frame */
@@ -1581,6 +1878,25 @@ export interface components {
             segment_id: string;
             /** Start Frame */
             start_frame: number;
+        };
+        /**
+         * AssemblyTextSubtitleSegmentV1
+         * @description User-authored text, frozen with its exact frame span and closed render profile.
+         */
+        AssemblyTextSubtitleSegmentV1: {
+            /** End Frame */
+            end_frame: number;
+            /**
+             * Render Profile
+             * @constant
+             */
+            render_profile: "noto-cjk-sc-bottom-v1";
+            /** Segment Id */
+            segment_id: string;
+            /** Start Frame */
+            start_frame: number;
+            /** Text */
+            text: string;
         };
         /** AssemblyVisualSegmentV1 */
         AssemblyVisualSegmentV1: {
@@ -1607,6 +1923,7 @@ export interface components {
             source_in_frame: number;
             /** Start Frame */
             start_frame: number;
+            storyboard_ref?: components["schemas"]["AssemblyStoryboardRefV1"] | null;
         };
         /** @enum {string} */
         AssetAvailability: "PRESENT_UNVERIFIED" | "VERIFIED" | "MISSING" | "CORRUPT";
@@ -1950,6 +2267,21 @@ export interface components {
              */
             ref_type: "client_key";
         };
+        /** CompleteOfficialTextRequest */
+        CompleteOfficialTextRequest: {
+            /** Completed At */
+            completed_at: string;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Request Hash */
+            request_hash: string;
+            /** Text */
+            text: string;
+        };
         /** @enum {string} */
         ContextEntryKind: "ROLE_INVARIANTS" | "SKILL_INSTRUCTIONS" | "APPROVED_ARTIFACT" | "SOURCE_SPAN" | "TASK_OUTPUT_SCHEMA";
         /** ContextManifestEntryV1 */
@@ -2115,6 +2447,39 @@ export interface components {
             /** Timeline Version Id */
             timeline_version_id: string;
         };
+        /** CreateDraftExportRequest */
+        CreateDraftExportRequest: {
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Output Path */
+            output_path: string;
+            /**
+             * Rights Declaration
+             * @constant
+             */
+            rights_declaration: "OWNED_OR_SYNTHETIC";
+        };
+        /** CreateDraftReviewNoteRequest */
+        CreateDraftReviewNoteRequest: {
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Frame Index */
+            frame_index: number;
+            /** Note Id */
+            note_id: string;
+            /** Output Bytes */
+            output_bytes: number;
+            /** Output Sha256 */
+            output_sha256: string;
+            /** Text */
+            text: string;
+        };
         /**
          * CreateEpisodeRequest
          * @description The small, write-once Episode metadata input surface.
@@ -2125,12 +2490,32 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** CreateEpisodeStoryboardVersionRequest */
+        CreateEpisodeStoryboardVersionRequest: {
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["EpisodeStoryboardContentV1"];
+            /** Expected Revision */
+            expected_revision: number | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+        };
         /** CreateFakeTimelineRunRequest */
         CreateFakeTimelineRunRequest: {
             /** Source Document Id */
             source_document_id: string;
             /** Source Manifest Version Id */
             source_manifest_version_id: string;
+        };
+        /** CreateProjectCreativeLibraryVersionRequest */
+        CreateProjectCreativeLibraryVersionRequest: {
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["ProjectCreativeLibraryContentV1"];
+            /** Expected Revision */
+            expected_revision: number | null;
+            /** Parent Version Id */
+            parent_version_id: string | null;
         };
         /** CreateProjectRequest */
         CreateProjectRequest: {
@@ -2456,6 +2841,168 @@ export interface components {
             /** Timeline Version Id */
             timeline_version_id: string;
         };
+        /** DraftExportJob */
+        DraftExportJob: {
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Draft
+             * @default true
+             * @constant
+             */
+            draft: true;
+            /** Episode Id */
+            episode_id: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Operation Id */
+            operation_id: string;
+            /** Output Bytes */
+            output_bytes?: number | null;
+            /** Output Filename */
+            output_filename: string;
+            /** Output Path */
+            output_path?: string | null;
+            /** Output Sha256 */
+            output_sha256?: string | null;
+            /** Progress Frames */
+            progress_frames: number;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Rights Declaration
+             * @default OWNED_OR_SYNTHETIC
+             * @constant
+             */
+            rights_declaration: "OWNED_OR_SYNTHETIC";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "QUEUED" | "RUNNING" | "VERIFYING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | "INTERRUPTED";
+            /** Toolchain Profile Id */
+            toolchain_profile_id: string;
+            /** Total Frames */
+            total_frames: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** DraftExportListData */
+        DraftExportListData: {
+            /** Items */
+            items: components["schemas"]["DraftExportJob"][];
+        };
+        /** DraftExportListResponse */
+        DraftExportListResponse: {
+            data: components["schemas"]["DraftExportListData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** DraftExportResponse */
+        DraftExportResponse: {
+            data: components["schemas"]["DraftExportJob"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** DraftReviewData */
+        DraftReviewData: {
+            /** Current Assembly Content Hash */
+            current_assembly_content_hash: string | null;
+            /** Current Assembly Version Id */
+            current_assembly_version_id: string | null;
+            /**
+             * Manual Review Only
+             * @default true
+             * @constant
+             */
+            manual_review_only: true;
+            /** Notes */
+            notes: components["schemas"]["DraftReviewNote"][];
+            /** Output Verified */
+            output_verified: boolean;
+            target: components["schemas"]["DraftReviewTarget"];
+            /**
+             * Version Status
+             * @enum {string}
+             */
+            version_status: "CURRENT" | "OLDER_VERSION" | "UNKNOWN";
+        };
+        /** DraftReviewNote */
+        DraftReviewNote: {
+            /** Actor Id */
+            actor_id: string;
+            /** Created At */
+            created_at: string;
+            /** Frame Index */
+            frame_index: number;
+            /** Note Id */
+            note_id: string;
+            resolution: components["schemas"]["DraftReviewResolution"] | null;
+            /**
+             * Revision
+             * @enum {integer}
+             */
+            revision: 1 | 2;
+            /** Text */
+            text: string;
+        };
+        /** DraftReviewResolution */
+        DraftReviewResolution: {
+            /** Actor Id */
+            actor_id: string;
+            /** Created At */
+            created_at: string;
+            /** Reason */
+            reason: string;
+            /** Resolution Id */
+            resolution_id: string;
+        };
+        /** DraftReviewResponse */
+        DraftReviewResponse: {
+            data: components["schemas"]["DraftReviewData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** DraftReviewTarget */
+        DraftReviewTarget: {
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Assembly Version Number */
+            assembly_version_number: number;
+            /** Episode Id */
+            episode_id: string;
+            /** Frame Rate Den */
+            frame_rate_den: number;
+            /** Frame Rate Num */
+            frame_rate_num: number;
+            /** Operation Id */
+            operation_id: string;
+            /** Output Bytes */
+            output_bytes: number;
+            /** Output Sha256 */
+            output_sha256: string;
+            /** Project Id */
+            project_id: string;
+            /** Total Frames */
+            total_frames: number;
+        };
         /** DurationIntentV1 */
         DurationIntentV1: {
             /**
@@ -2578,7 +3125,7 @@ export interface components {
              * Subtitle Segments
              * @default []
              */
-            subtitle_segments: components["schemas"]["AssemblySubtitleSegmentV1"][];
+            subtitle_segments: (components["schemas"]["AssemblySubtitleSegmentV1"] | components["schemas"]["AssemblyTextSubtitleSegmentV1"])[];
             /** Total Frames */
             total_frames: number;
             /** Visual Segments */
@@ -2769,6 +3316,105 @@ export interface components {
         /** EpisodeScriptVersionResponse */
         EpisodeScriptVersionResponse: {
             data: components["schemas"]["EpisodeScriptVersionData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /**
+         * EpisodeStoryboardContentV1
+         * @description An empty manual draft is valid; this is not an accepted ShotOutline.
+         */
+        EpisodeStoryboardContentV1: {
+            /** Creative Library Version Id */
+            creative_library_version_id: string | null;
+            /** Episode Id */
+            episode_id: string;
+            /** Fps */
+            fps: number;
+            /** Project Id */
+            project_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Script Version Id */
+            script_version_id: string | null;
+            /** Shots */
+            shots: components["schemas"]["EpisodeStoryboardShotV1"][];
+        };
+        /** EpisodeStoryboardShotV1 */
+        EpisodeStoryboardShotV1: {
+            /** Action */
+            action: string;
+            /** Camera */
+            camera: string;
+            /** Character Ids */
+            character_ids: string[];
+            /** Description */
+            description: string;
+            /** Dialogue */
+            dialogue: string;
+            /** Duration Frames */
+            duration_frames: number;
+            /** Location Id */
+            location_id: string | null;
+            /** Ordinal */
+            ordinal: number;
+            /** Script Scene Id */
+            script_scene_id: string | null;
+            /** Shot Id */
+            shot_id: string;
+            /** Title */
+            title: string;
+        };
+        /** EpisodeStoryboardVersionCreatedData */
+        EpisodeStoryboardVersionCreatedData: {
+            /** Replayed */
+            replayed: boolean;
+            version: components["schemas"]["EpisodeStoryboardVersionData"];
+        };
+        /** EpisodeStoryboardVersionCreatedResponse */
+        EpisodeStoryboardVersionCreatedResponse: {
+            data: components["schemas"]["EpisodeStoryboardVersionCreatedData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** EpisodeStoryboardVersionData */
+        EpisodeStoryboardVersionData: {
+            /** Author Actor Id */
+            author_actor_id: string;
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["EpisodeStoryboardContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Episode Id */
+            episode_id: string;
+            /** Head Revision */
+            head_revision: number;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Version Id */
+            version_id: string;
+            /** Version Number */
+            version_number: number;
+        };
+        /** EpisodeStoryboardVersionResponse */
+        EpisodeStoryboardVersionResponse: {
+            data: components["schemas"]["EpisodeStoryboardVersionData"];
             /**
              * Request Id
              * Format: uuid
@@ -3463,6 +4109,92 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** OfficialTextAdoption */
+        OfficialTextAdoption: {
+            /** Actor Id */
+            actor_id: string;
+            /** Adopted At */
+            adopted_at: string;
+            /** Script Content Hash */
+            script_content_hash: string;
+            /** Script Version Id */
+            script_version_id: string;
+        };
+        /** OfficialTextListResponse */
+        OfficialTextListResponse: {
+            /** Data */
+            data: components["schemas"]["OfficialTextOperation"][];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialTextMutationData */
+        OfficialTextMutationData: {
+            operation: components["schemas"]["OfficialTextOperation"];
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** OfficialTextMutationResponse */
+        OfficialTextMutationResponse: {
+            data: components["schemas"]["OfficialTextMutationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialTextNotSentRequest */
+        OfficialTextNotSentRequest: {
+            /** Code */
+            code: string;
+        };
+        /** OfficialTextOperation */
+        OfficialTextOperation: {
+            adoption: components["schemas"]["OfficialTextAdoption"] | null;
+            /** Created At */
+            created_at: string;
+            /** Episode Id */
+            episode_id: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Project Id */
+            project_id: string;
+            proposal: components["schemas"]["OfficialTextProposal"] | null;
+            request: components["schemas"]["ReserveOfficialTextRequest"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "REMOTE_UNKNOWN" | "COMPLETED" | "NOT_SENT";
+        };
+        /** OfficialTextOperationResponse */
+        OfficialTextOperationResponse: {
+            data: components["schemas"]["OfficialTextOperation"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialTextProposal */
+        OfficialTextProposal: {
+            /** Content Hash */
+            content_hash: string;
+            result: components["schemas"]["CompleteOfficialTextRequest"];
+            /** Version Id */
+            version_id: string;
+        };
+        /** OfficialTextScriptBase */
+        OfficialTextScriptBase: {
+            /** Content Hash */
+            content_hash: string;
+            /** Head Revision */
+            head_revision: number;
+            /** Version Id */
+            version_id: string;
+        };
         /** OrganizationEntityV1 */
         OrganizationEntityV1: {
             /** Aliases */
@@ -3756,6 +4488,91 @@ export interface components {
             /** Version Number */
             version_number: number;
         };
+        /** ProjectCharacterV1 */
+        ProjectCharacterV1: {
+            /** Appearance */
+            appearance: string;
+            /** Character Id */
+            character_id: string;
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Personality */
+            personality: string;
+            /** Role */
+            role: string;
+        };
+        /** ProjectCreativeLibraryContentV1 */
+        ProjectCreativeLibraryContentV1: {
+            /** Characters */
+            characters: components["schemas"]["ProjectCharacterV1"][];
+            /** Episode Id */
+            episode_id: null;
+            /** Project Id */
+            project_id: string;
+            /** Scenes */
+            scenes: components["schemas"]["ProjectSceneV1"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            world: components["schemas"]["ProjectWorldV1"];
+        };
+        /** ProjectCreativeLibraryVersionCreatedData */
+        ProjectCreativeLibraryVersionCreatedData: {
+            /** Replayed */
+            replayed: boolean;
+            version: components["schemas"]["ProjectCreativeLibraryVersionData"];
+        };
+        /** ProjectCreativeLibraryVersionCreatedResponse */
+        ProjectCreativeLibraryVersionCreatedResponse: {
+            data: components["schemas"]["ProjectCreativeLibraryVersionCreatedData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ProjectCreativeLibraryVersionData */
+        ProjectCreativeLibraryVersionData: {
+            /** Author Actor Id */
+            author_actor_id: string;
+            /** Change Summary */
+            change_summary: string;
+            content: components["schemas"]["ProjectCreativeLibraryContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Episode Id */
+            episode_id: null;
+            /** Head Revision */
+            head_revision: number;
+            /** Parent Version Id */
+            parent_version_id: string | null;
+            /** Project Id */
+            project_id: string;
+            /** Version Id */
+            version_id: string;
+            /** Version Number */
+            version_number: number;
+        };
+        /** ProjectCreativeLibraryVersionResponse */
+        ProjectCreativeLibraryVersionResponse: {
+            data: components["schemas"]["ProjectCreativeLibraryVersionData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** ProjectData */
         ProjectData: {
             /**
@@ -3810,6 +4627,40 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** ProjectSceneV1 */
+        ProjectSceneV1: {
+            /** Continuity */
+            continuity: string;
+            /** Description */
+            description: string;
+            /** Location */
+            location: string;
+            /** Name */
+            name: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Scene Id */
+            scene_id: string;
+            /** Time Of Day */
+            time_of_day: string;
+            /** Weather */
+            weather: string;
+        };
+        /** ProjectWorldV1 */
+        ProjectWorldV1: {
+            /** Era */
+            era: string;
+            /** Materials */
+            materials: string;
+            /** Palette */
+            palette: string;
+            /** Premise */
+            premise: string;
+            /** Rules */
+            rules: string;
+            /** Visual Style */
+            visual_style: string;
         };
         /** PropEntityV1 */
         PropEntityV1: {
@@ -4440,6 +5291,42 @@ export interface components {
             replacement_asset_id: string;
             /** Replacement Source In Frame */
             replacement_source_in_frame: number;
+        };
+        /** ReserveOfficialTextRequest */
+        ReserveOfficialTextRequest: {
+            base: components["schemas"]["OfficialTextScriptBase"] | null;
+            /** Input Text */
+            input_text: string;
+            /** Instructions */
+            instructions?: string | null;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Request Hash */
+            request_hash: string;
+        };
+        /** ResolveDraftReviewNoteRequest */
+        ResolveDraftReviewNoteRequest: {
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /**
+             * Expected Revision
+             * @constant
+             */
+            expected_revision: 1;
+            /** Output Bytes */
+            output_bytes: number;
+            /** Output Sha256 */
+            output_sha256: string;
+            /** Reason */
+            reason: string;
+            /** Resolution Id */
+            resolution_id: string;
         };
         /** RightsDecisionAuditData */
         RightsDecisionAuditData: {
@@ -8063,6 +8950,295 @@ export interface operations {
             };
         };
     };
+    getProjectCreativeLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCreativeLibraryVersionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or creative library version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or creative library input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createProjectCreativeLibraryVersion: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectCreativeLibraryVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCreativeLibraryVersionCreatedResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or creative library version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or creative library input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProjectCreativeLibraryVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCreativeLibraryVersionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project or creative library version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or creative library input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Creative library storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     createDevelopmentTimelineExport: {
         parameters: {
             query?: never;
@@ -8429,6 +9605,248 @@ export interface operations {
             };
         };
     };
+    listDraftExports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftExportListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createDraftExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDraftExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancelDraftExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftExportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listDraftReviewNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createDraftReviewNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftReviewNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolveDraftReviewNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveDraftReviewNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getEpisodeMediaAssembly: {
         parameters: {
             query?: never;
@@ -8580,6 +9998,218 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listOfficialTextOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reserveOfficialTextOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReserveOfficialTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getOfficialTextOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextOperationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adoptOfficialTextProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptOfficialTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    completeOfficialTextOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteOfficialTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recordOfficialTextNotSent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfficialTextNotSentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialTextMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8992,6 +10622,298 @@ export interface operations {
                 };
             };
             /** @description Script storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEpisodeStoryboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeStoryboardVersionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, Episode, or storyboard version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or storyboard input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createEpisodeStoryboardVersion: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEpisodeStoryboardVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeStoryboardVersionCreatedResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, Episode, or storyboard version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or storyboard input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard storage failed safely */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEpisodeStoryboardVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeStoryboardVersionResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Local request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, Episode, or storyboard version not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Revision or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard content too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or storyboard input invalid */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Idempotency-Key required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Storyboard storage failed safely */
             500: {
                 headers: {
                     [name: string]: unknown;

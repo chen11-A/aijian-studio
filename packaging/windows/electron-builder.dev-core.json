@@ -1,0 +1,28 @@
+{
+  "appId": "com.aivora.studio.devcore",
+  "productName": "AIVORA Dev Core",
+  "electronVersion": "43.2.0",
+  "directories": { "app": "app", "output": "installer-output" },
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "allowMissingDependencies": false,
+  "onNodeModuleFile": "build/include-contract-types.cjs",
+  "files": ["**/*"],
+  "extraResources": [{ "from": "resources", "to": ".", "filter": ["**/*"] }],
+  "asar": true,
+  "win": {
+    "target": [{ "target": "dir", "arch": ["x64"] }],
+    "executableName": "AIVORA Dev Core",
+    "signAndEditExecutable": true,
+    "signExecutable": false
+  },
+  "nsis": {
+    "include": "build/installer.nsh",
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": false,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": false,
+    "artifactName": "AIVORA-Dev-Core-${version}-win-${arch}.${ext}"
+  }
+}

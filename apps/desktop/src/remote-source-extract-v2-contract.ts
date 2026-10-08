@@ -6,6 +6,7 @@ import {
 } from "@aijian/contracts/artifact-proposal";
 import type { components } from "@aijian/contracts";
 import { hasRequestId, isRecord } from "./api-contract-guards";
+import { isSub2APIOriginMode } from "./provider-connection-contract";
 
 export type UnknownRemoteCost = {
   status: "UNKNOWN";
@@ -92,6 +93,7 @@ export type Sub2APIScope = {
   selection: Sub2APISelection;
   source: Sub2APISource;
   origin_hash: string;
+  origin_mode: NonNullable<components["schemas"]["Sub2APISourceExtractScopeData"]["origin_mode"]>;
   input_hash: string;
   context_manifest_hash: string;
   attempt_fingerprint: string;
@@ -300,7 +302,7 @@ export function isSub2APIQueueCommand(value: unknown): value is Sub2APIQueueComm
     integer(selection.connection_revision, 1, 2_147_483_647) &&
     typeof selection.model_id === "string" && selection.model_id.length <= 200 &&
     /^\S(?:.*\S)?$/.test(selection.model_id) &&
-    !/[\r\n\u0000-\u001f\u007f]/.test(selection.model_id);
+    ![...selection.model_id].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
 }
 
 export function isSub2APIApprovalCommand(value: unknown): value is Sub2APIApprovalCommand {
@@ -504,9 +506,9 @@ function envelope(value: unknown, requestId: string | null):
 function sameScope(value: unknown, projectId: string, command: Sub2APIQueueCommand):
   value is Sub2APIScope {
   if (!isRecord(value) || !exact(value, [
-    "project_id", "task_id", "attempt_id", "selection", "source", "origin_hash",
+    "project_id", "task_id", "attempt_id", "selection", "source", "origin_hash", "origin_mode",
     "input_hash", "context_manifest_hash", "attempt_fingerprint",
-  ]) || value.project_id !== projectId ||
+  ]) || value.project_id !== projectId || !isSub2APIOriginMode(value.origin_mode) ||
       typeof value.task_id !== "string" || !TASK.test(value.task_id) ||
       typeof value.attempt_id !== "string" || !ATTEMPT.test(value.attempt_id) ||
       !isRecord(value.selection) || !isRecord(value.source)) return false;

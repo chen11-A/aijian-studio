@@ -1,0 +1,18 @@
+.demo-root .right-dock .assistant-panel.assistant-workbench .ai-composer {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+}
+.demo-root .right-dock .assistant-panel.assistant-workbench .ai-composer p {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+.demo-root .right-dock .assistant-panel.assistant-workbench .v2-ai-detail {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.demo-root .right-dock .assistant-panel.assistant-workbench .v2-ai-detail p + p,
+.demo-root .right-dock .assistant-panel.assistant-workbench .v2-ai-detail .suggestions {
+  margin-top: 8px;
+}

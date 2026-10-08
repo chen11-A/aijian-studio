@@ -1,0 +1,68 @@
+.first-run-service-choice {
+  box-sizing: border-box;
+  width: min(680px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #285476;
+  border-radius: 16px;
+  color: #d9eaf5;
+  background: #0b2234;
+  box-shadow: 0 24px 80px #0008;
+}
+.first-run-service-choice::backdrop {
+  background: #020c17b3;
+}
+.first-run-service-choice > header,
+.first-run-service-choice > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.first-run-service-choice h2,
+.first-run-service-choice h3 {
+  margin: 0;
+}
+.first-run-service-choice p,
+.first-run-service-choice > footer {
+  color: #a4bed2;
+  line-height: 1.6;
+}
+.first-run-service-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.first-run-service-options > section {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid #244c68;
+  border-radius: 10px;
+  background: #102c41;
+  min-width: 0;
+}
+.first-run-service-options p {
+  flex: 1;
+}
+.first-run-service-options .button {
+  white-space: normal;
+  min-height: 44px;
+}
+.first-run-service-choice > footer {
+  margin-top: 20px;
+  font-size: 13px;
+}
+.first-run-service-choice > footer .button {
+  flex: 0 0 auto;
+}
+@media (max-width: 600px) {
+  .first-run-service-options {
+    grid-template-columns: 1fr;
+  }
+  .first-run-service-choice > footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

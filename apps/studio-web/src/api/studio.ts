@@ -1,4 +1,8 @@
+import type { DraftReviewGateway } from "../aivora/adapters/draftReview";
+import type { DraftExportGateway } from "../aivora/adapters/draftExport";
+import { desktopDraftExports } from "./draftExports";
 import type { components } from "@aijian/contracts";
+import { localWorkbenchTransport } from "./localWorkbench";
 import {
   isArtifactProposalResponse,
   type ArtifactProposalResponse,
@@ -12,6 +16,8 @@ import {
   type InvalidationOperationResponse,
 } from "@aijian/contracts/invalidation-operation";
 import type { AppPreferencesGateway } from "../aivora/adapters/appPreferences";
+import type { StoryboardGateway } from "../aivora/adapters/episodeStoryboard";
+import type { CreativeGateway } from "../aivora/adapters/creativeLibrary";
 import type { AssetLibraryGateway } from "../aivora/adapters/assetLibrary";
 import type { EpisodeMediaAssemblyGateway } from "../aivora/adapters/episodeMediaAssembly";
 import type {
@@ -282,6 +288,7 @@ export type Sub2APISourceExtractScope = {
   selection: Sub2APISourceExtractCreateCommand["input"]["selection"];
   source: Sub2APISourceExtractCreateCommand["input"]["source"];
   origin_hash: string;
+  origin_mode: Sub2APIOriginMode;
   input_hash: string;
   context_manifest_hash: string;
   attempt_fingerprint: string;
@@ -524,13 +531,7 @@ export type Sub2APIRotationReadResult =
       code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APIReadinessResult =
-  | { kind: "READ"; receipt: { data: {
-      connection_id: string; connection_revision: number; model_id: string;
-      credential_status: "CONFIGURED" | "MISSING" | "UNAVAILABLE";
-      runtime_status: string; local_preconditions_met: boolean;
-      reasons: string[]; provider_observation: "NOT_CHECKED";
-      model_entitlement: "UNKNOWN";
-    }; request_id: string } }
+  | { kind: "READ"; receipt: components["schemas"]["Sub2APIConfiguredReadinessResponse"] }
   | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
       code: string; request_id: string }
   | { kind: "READINESS_UNKNOWN" };
@@ -574,6 +575,13 @@ export interface StudioTransport {
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
   assetLibrary?: AssetLibraryGateway;
   episodeMediaAssembly?: EpisodeMediaAssemblyGateway;
+  draftExports?: DraftExportGateway;
+  getEpisodeStoryboard?: StoryboardGateway["getEpisodeStoryboard"];
+  getEpisodeStoryboardVersion?: StoryboardGateway["getEpisodeStoryboardVersion"];
+  createEpisodeStoryboardVersion?: StoryboardGateway["createEpisodeStoryboardVersion"];
+  getProjectCreativeLibrary?: CreativeGateway["getProjectCreativeLibrary"];
+  getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
+  createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
@@ -690,8 +698,24 @@ export interface AijianDesktopBridge {
   removeProjectMediaAssetEpisodeReference?:
     AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
   deleteProjectMediaAsset?: AssetLibraryGateway["deleteProjectMediaAsset"];
+  listDraftReviewNotes?: DraftReviewGateway["listDraftReviewNotes"];
+  createDraftReviewNote?: DraftReviewGateway["createDraftReviewNote"];
+  resolveDraftReviewNote?: DraftReviewGateway["resolveDraftReviewNote"];
+  listDraftExports?: DraftExportGateway["list"];
+  getDraftExport?: DraftExportGateway["get"];
+  createDraftExportFromPicker?: DraftExportGateway["createFromPicker"];
+  createDraftCompositionPreview?: DraftExportGateway["createPreview"];
+  cancelDraftExport?: DraftExportGateway["cancel"];
+  readDraftExportPreview?: DraftExportGateway["preview"];
+  revealDraftExportOutput?: DraftExportGateway["reveal"];
   readLatestEpisodeMediaAssembly?: EpisodeMediaAssemblyGateway["readLatest"];
   createEpisodeMediaAssemblyVersion?: EpisodeMediaAssemblyGateway["createVersion"];
+  getEpisodeStoryboard?: StoryboardGateway["getEpisodeStoryboard"];
+  getEpisodeStoryboardVersion?: StoryboardGateway["getEpisodeStoryboardVersion"];
+  createEpisodeStoryboardVersion?: StoryboardGateway["createEpisodeStoryboardVersion"];
+  getProjectCreativeLibrary?: CreativeGateway["getProjectCreativeLibrary"];
+  getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
+  createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
@@ -1041,6 +1065,7 @@ export function createStudioTransport(): StudioTransport {
                 bridge.deleteProjectMediaAsset!(projectId, assetId),
             }
           : undefined,
+      draftExports: desktopDraftExports(bridge),
       episodeMediaAssembly:
         typeof bridge.readLatestEpisodeMediaAssembly === "function" &&
         typeof bridge.createEpisodeMediaAssemblyVersion === "function"
@@ -1051,6 +1076,19 @@ export function createStudioTransport(): StudioTransport {
                 bridge.createEpisodeMediaAssemblyVersion!(projectId, episodeId, command),
             }
           : undefined,
+      getEpisodeStoryboard: typeof bridge.getEpisodeStoryboard === "function"
+        ? (projectId, episodeId) => bridge.getEpisodeStoryboard!(projectId, episodeId) : undefined,
+      getEpisodeStoryboardVersion: typeof bridge.getEpisodeStoryboardVersion === "function"
+        ? (projectId, episodeId, versionId) => bridge.getEpisodeStoryboardVersion!(projectId, episodeId, versionId) : undefined,
+      createEpisodeStoryboardVersion: typeof bridge.createEpisodeStoryboardVersion === "function"
+        ? (projectId, episodeId, idempotencyKey, payload) => bridge.createEpisodeStoryboardVersion!(projectId, episodeId, idempotencyKey, payload) : undefined,
+      getProjectCreativeLibrary: typeof bridge.getProjectCreativeLibrary === "function"
+        ? (projectId) => bridge.getProjectCreativeLibrary!(projectId) : undefined,
+      getProjectCreativeLibraryVersion: typeof bridge.getProjectCreativeLibraryVersion === "function"
+        ? (projectId, versionId) => bridge.getProjectCreativeLibraryVersion!(projectId, versionId) : undefined,
+      createProjectCreativeLibraryVersion: typeof bridge.createProjectCreativeLibraryVersion === "function"
+        ? (projectId, idempotencyKey, payload) =>
+            bridge.createProjectCreativeLibraryVersion!(projectId, idempotencyKey, payload) : undefined,
       getEpisodeScript: typeof bridge.getEpisodeScript === "function"
         ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId) : undefined,
       getEpisodeScriptVersion: typeof bridge.getEpisodeScriptVersion === "function"
@@ -1269,6 +1307,7 @@ export function createStudioTransport(): StudioTransport {
     };
   }
   return {
+    ...localWorkbenchTransport(),
     getHealth: browserHealth,
     listProjects: () => getRequest<ProjectListResponse>("/api/v1/projects"),
     createProject: (input) => postRequest<ProjectResponse>("/api/v1/projects", input),
@@ -1312,15 +1351,6 @@ export function createStudioTransport(): StudioTransport {
       getOptionalRequest<TimelineResponse>(
         `/api/v1/projects/${projectId}/timeline`,
         "TIMELINE_NOT_FOUND",
-      ),
-    getProductionBrief: (projectId) =>
-      getOptionalRequest<ProductionBriefResponse>(
-        `/api/v1/projects/${projectId}/production-brief`,
-        "ARTIFACT_NOT_FOUND",
-      ),
-    getProductionBriefVersion: (projectId, versionId) =>
-      getRequest<ProductionBriefResponse>(
-        `/api/v1/projects/${projectId}/production-brief/versions/${versionId}`,
       ),
     trimTimelineClip: (projectId, input) =>
       postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/trim`, input),

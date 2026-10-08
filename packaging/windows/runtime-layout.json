@@ -25,7 +25,9 @@
     "project-license": "resources/licenses/AIVORA-LICENSE",
     "project-notice": "resources/licenses/AIVORA-NOTICE",
     "media-license": "resources/licenses/ffmpeg/LICENSE",
-    "media-notice": "resources/licenses/ffmpeg/NOTICE"
+    "media-notice": "resources/licenses/ffmpeg/NOTICE",
+    "subtitle-font": "resources/fonts/NotoSansCJKsc-Regular.otf",
+    "subtitle-font-license": "resources/fonts/Noto-LICENSE.txt"
   },
   "install_policy": {
     "scope": "per-user",

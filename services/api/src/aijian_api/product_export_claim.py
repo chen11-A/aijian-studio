@@ -15,7 +15,7 @@ from pathlib import Path
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
 from aijian_api.episode_media_assembly_contracts import (
     ASSEMBLY_ARTIFACT_TYPE, ASSEMBLY_SCHEMA_VERSION,
-    EpisodeMediaAssemblyContentV1,
+    AssemblySubtitleSegmentV1, EpisodeMediaAssemblyContentV1,
 )
 from aijian_api.episode_media_assembly_store import _validate_script_refs
 from aijian_api.media_asset_probe_store import MediaAssetProbeEvidenceStore
@@ -91,6 +91,21 @@ def _selected_tracks(content: EpisodeMediaAssemblyContentV1) -> tuple[tuple[str,
     if not 1 <= len(tracks) <= 8:
         raise ProductExportClaimError("MEDIA_INPUT_LIMIT", "This export path supports at most eight selected versions")
     return tuple(tracks.values())
+
+
+def _formal_script_subtitles(
+    content: EpisodeMediaAssemblyContentV1,
+) -> tuple[AssemblySubtitleSegmentV1, ...]:
+    """DRAFT literal cues must never be discarded or coerced into formal inputs."""
+    subtitles: list[AssemblySubtitleSegmentV1] = []
+    for subtitle in content.subtitle_segments:
+        if not isinstance(subtitle, AssemblySubtitleSegmentV1):
+            raise ProductExportClaimError(
+                "SUBTITLE_UNSUPPORTED",
+                "Literal text subtitles are DRAFT-only; formal subtitle rendering is not approved",
+            )
+        subtitles.append(subtitle)
+    return tuple(subtitles)
 
 
 def _assembly_in_transaction(
@@ -186,12 +201,13 @@ class ProductExportClaimService:
             connection.execute("BEGIN")
             content = _assembly_in_transaction(connection, project_id, episode_id, request)
             connection.commit()
+        subtitles = _formal_script_subtitles(content)
         selected = _selected_tracks(content)
         if len(content.visual_segments) != 1:
             raise ProductExportClaimError("MULTI_SEGMENT_UNSUPPORTED", "Multiple visual segments are not renderable")
         if content.audio_segments:
             raise ProductExportClaimError("AUDIO_TRACKS_UNSUPPORTED", "Independent dialogue, BGM and SFX are not renderable")
-        if content.subtitle_segments:
+        if subtitles:
             raise ProductExportClaimError("SUBTITLE_UNSUPPORTED", "Subtitle rendering is not available")
         if content.visual_segments[0].media_kind != "video":
             raise ProductExportClaimError("VISUAL_UNSUPPORTED", "This render path requires a video original")
@@ -332,7 +348,7 @@ class ProductExportClaimService:
                         project_id, request.operation_id, subtitle.segment_id,
                         subtitle.script_version_id, subtitle.script_block_id,
                         subtitle.start_frame, subtitle.end_frame,
-                    ) for subtitle in content.subtitle_segments],
+                    ) for subtitle in subtitles],
                 )
                 connection.execute(
                     """UPDATE product_export_operations SET inputs_sealed_at = ?, updated_at = ?

@@ -66,6 +66,8 @@ class Sub2APIConfiguredReadiness:
             reasons.append("NOT_SUB2API")
         else:
             try:
+                if connection.origin_mode is None:
+                    raise ValueError("Sub2API origin mode is missing")
                 validate_sub2api_origin(connection.base_url, connection.origin_mode)
                 if connection.origin_mode == "LOCAL_LOOPBACK_HTTP" and not local_loopback_route_clear(
                     connection.base_url

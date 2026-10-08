@@ -34,16 +34,17 @@ function Workspace({ reset }: { reset: () => void }) {
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));
   const projectUnavailable = !global && !activeProject;
   const sourceUnavailable =
+    d.isFixture &&
     !!activeProject?.backendId &&
     activeProject.backendId === d.backendProjectId &&
     ["story", "script"].includes(d.page) &&
     !d.value("source").trim();
   const missingPageData =
     !activeProject ||
-    (["story", "script"].includes(d.page) && !d.value("source").trim()) ||
-    (d.page === "world" && !d.value("worldNote").trim()) ||
-    (d.page === "assets" && d.localAssets.length === 0) ||
-    (d.page === "voice" && d.characters.length === 0);
+    (d.isFixture && ["story", "script"].includes(d.page) && !d.value("source").trim()) ||
+    (d.isFixture && d.page === "world" && !d.value("worldNote").trim()) ||
+    (d.isFixture && d.page === "assets" && d.localAssets.length === 0) ||
+    (d.isFixture && d.page === "voice" && d.characters.length === 0);
   const management = global || projectUnavailable;
   const hasStage = !management;
   const inspectable = [
@@ -93,7 +94,7 @@ function Workspace({ reset }: { reset: () => void }) {
                 .join("\n");
   return (
     <div
-      className={`demo-root ${global ? "global-shell" : "project-shell"} ${hasStage ? "has-stage" : "no-stage"} ${management ? "management-shell" : "creation-shell"} ${pro ? "is-pro" : "is-simple"} ${hasRail ? "has-rail" : "no-rail"}`}
+      className={`demo-root ${!d.isFixture ? "production-workbench" : ""} ${global ? "global-shell" : "project-shell"} ${hasStage ? "has-stage" : "no-stage"} ${management ? "management-shell" : "creation-shell"} ${pro ? "is-pro" : "is-simple"} ${hasRail ? "has-rail" : "no-rail"}`}
       data-right-tab={d.rightTab}
       data-page={d.page}
       data-scenario={d.scenario}
@@ -119,11 +120,10 @@ function Workspace({ reset }: { reset: () => void }) {
         <select
           aria-label="作品选择"
           value={d.value("projectId", "1")}
-          onChange={(event) => {
+          onChange={async (event) => {
             const project = d.projects.find((item) => item.id === Number(event.target.value));
             if (!project) return;
-            void d.selectRealProject(project.id);
-            d.go("project");
+            if (await d.selectRealProject(project.id)) d.go("project");
           }}
         >
           {d.projects.map((project) => (
@@ -167,16 +167,30 @@ function Workspace({ reset }: { reset: () => void }) {
               )}
             </select>
             <Button
-              disabled={d.episodeState === "loading" || d.episodeState === "storage-error"}
+              disabled={
+                d.episodeState === "loading" ||
+                d.episodeState === "storage-error" ||
+                d.episodeCreateInFlight ||
+                !!d.episodeCreateMarker
+              }
               onClick={() =>
                 d.setEditor({
                   title: "新建剧集",
                   fields: [{ key: "title", label: "剧集名称", value: "", required: true }],
                   confirm: "创建剧集",
-                  save: (data) => {
+                  save: async (data) => {
                     const title = data.title?.trim();
                     if (!title) return false;
-                    void d.createRealEpisode({ title });
+                    const outcome = await d.createRealEpisode({ title });
+                    if (outcome.kind !== "SUCCEEDED") {
+                      d.notify(
+                        outcome.kind === "REMOTE_UNKNOWN"
+                          ? "创建结果待确认，请关闭窗口并刷新剧集列表核对。"
+                          : "剧集未创建，请核对名称和工作区连接后重试。",
+                      );
+                      return false;
+                    }
+                    d.notify("剧集已创建并读回，可以开始编写剧本。");
                   },
                 })
               }
@@ -483,6 +497,7 @@ function NavItem({
     <button
       className={`nav-item ${selected ? "selected" : ""} ${child ? "nav-child" : ""}`}
       aria-current={selected ? "page" : undefined}
+      aria-label={label}
       title={label}
       onClick={() => d.go(page)}
     >

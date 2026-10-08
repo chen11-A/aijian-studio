@@ -14,18 +14,32 @@ import sqlite3
 import stat
 from pathlib import Path
 
-from aijian_api.artifacts import canonical_content_bytes
+from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.assembly_storyboard_provenance import (
+    AssemblyStoryboardReferenceError,
+    storyboard_dependencies,
+    validate_storyboard_provenance,
+)
 from aijian_api.domain import ArtifactVersionRecord
 from aijian_api.episode_media_assembly_contracts import (
-    ASSEMBLY_ARTIFACT_TYPE, ASSEMBLY_SCHEMA_VERSION, AssemblyMediaCheckV1,
-    AssemblyMediaRefV1, CreateEpisodeMediaAssemblyVersionRequest,
-    EpisodeMediaAssemblyContentV1, EpisodeMediaAssemblyVersionData,
+    ASSEMBLY_ARTIFACT_TYPE,
+    ASSEMBLY_SCHEMA_VERSION,
+    AssemblyMediaAvailability,
+    AssemblyMediaCheckV1,
+    AssemblyMediaKind,
+    AssemblyMediaRefV1,
+    AssemblyPlaybackStatus,
+    AssemblySubtitleSegmentV1,
+    AssemblyTechnicalStatus,
+    CreateEpisodeMediaAssemblyVersionRequest,
+    EpisodeMediaAssemblyContentV1,
+    EpisodeMediaAssemblyVersionData,
 )
 from aijian_api.episode_script_contracts import EpisodeScriptContentV1
 from aijian_api.managed_local_paths import managed_local_io_path
-from aijian_api.media_asset_store import MAX_INLINE_PREVIEW_BYTES
 from aijian_api.media_asset_probe_store import MediaAssetProbeEvidenceError, _from_row
 from aijian_api.media_asset_rights_store import RightsDecisionError, _validated_history
+from aijian_api.media_asset_store import MAX_INLINE_PREVIEW_BYTES
 from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 from aijian_api.repository import ArtifactConflictError, StudioRepository
 
@@ -45,7 +59,7 @@ def _plain_directory(path: Path) -> bool:
         return False
 
 
-def _availability(database_path: Path, digest: str, byte_size: int) -> str:
+def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyMediaAvailability:
     """Check a managed original without creating directories or media copies."""
 
     if _SHA.fullmatch(digest) is None or byte_size <= 0:
@@ -115,16 +129,18 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> str:
     return "VERIFIED" if total == byte_size and hasher.hexdigest() == digest else "CORRUPT"
 
 
-def _media_refs(content: EpisodeMediaAssemblyContentV1) -> tuple[tuple[AssemblyMediaRefV1, str], ...]:
-    refs: dict[tuple[str, str, str], tuple[AssemblyMediaRefV1, str]] = {}
+def _media_refs(
+    content: EpisodeMediaAssemblyContentV1,
+) -> tuple[tuple[AssemblyMediaRefV1, AssemblyMediaKind], ...]:
+    refs: dict[tuple[str, str, str], tuple[AssemblyMediaRefV1, AssemblyMediaKind]] = {}
     for segment in content.visual_segments:
         media = segment.media
         key = (media.asset_id, media.asset_version_id, media.sha256)
         if key in refs and refs[key][1] != segment.media_kind:
             raise EpisodeMediaAssemblyError("MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds")
         refs[key] = (media, segment.media_kind)
-    for segment in content.audio_segments:
-        media = segment.media
+    for audio_segment in content.audio_segments:
+        media = audio_segment.media
         key = (media.asset_id, media.asset_version_id, media.sha256)
         if key in refs and refs[key][1] != "audio":
             raise EpisodeMediaAssemblyError("MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds")
@@ -151,8 +167,9 @@ def _validate_script_refs(connection: sqlite3.Connection, content: EpisodeMediaA
             bindings.setdefault(segment.script_version_id, []).append(
                 (segment.script_block_id, segment.delivery, segment.speaker_id)
             )
-    for segment in content.subtitle_segments:
-        bindings.setdefault(segment.script_version_id, []).append((segment.script_block_id, None, None))
+    for subtitle in content.subtitle_segments:
+        if isinstance(subtitle, AssemblySubtitleSegmentV1):
+            bindings.setdefault(subtitle.script_version_id, []).append((subtitle.script_block_id, None, None))
     for version_id, references in bindings.items():
         row = connection.execute(
             """SELECT version.content_json FROM artifact_versions AS version
@@ -246,7 +263,9 @@ def _collect_checks(
             "UNKNOWN_MEDIA_CHANGED",
         }:
             raise EpisodeMediaAssemblyError("MEDIA_" + availability, "Selected media original is unavailable")
-        technical_status = "STILL_HEADER_ONLY" if kind == "image" else "PENDING_MEDIA_PROBE"
+        technical_status: AssemblyTechnicalStatus = (
+            "STILL_HEADER_ONLY" if kind == "image" else "PENDING_MEDIA_PROBE"
+        )
         probe_id = None
         probed_frames = None
         has_audio = None
@@ -304,6 +323,7 @@ def _result(
     content: EpisodeMediaAssemblyContentV1,
     checks: tuple[AssemblyMediaCheckV1, ...],
 ) -> EpisodeMediaAssemblyVersionData:
+    playback: AssemblyPlaybackStatus
     if any(check.rights_status == "RESTRICTED" for check in checks):
         playback = "BLOCKED_RIGHTS"
     elif any(check.availability != "VERIFIED" for check in checks):
@@ -358,6 +378,10 @@ class EpisodeMediaAssemblyStore:
                 if head is not None and request.parent_version_id != str(head["latest_version_id"]):
                     raise ArtifactConflictError("Assembly revision must parent the latest version")
                 _validate_script_refs(connection, content)
+                try:
+                    validate_storyboard_provenance(self._repository, connection, content)
+                except AssemblyStoryboardReferenceError as error:
+                    raise EpisodeMediaAssemblyError(error.code, str(error)) from error
                 checks = _collect_checks(connection, self._repository.database_path, content, writing=True)
                 record = self._repository._create_artifact_version_in_connection(
                     connection,
@@ -371,6 +395,7 @@ class EpisodeMediaAssemblyStore:
                     change_summary=request.change_summary,
                     parent_version_id=request.parent_version_id,
                     expected_revision=request.expected_revision,
+                    dependencies=storyboard_dependencies(content),
                 )
                 connection.commit()
             except BaseException:
@@ -393,12 +418,29 @@ class EpisodeMediaAssemblyStore:
             record = self._repository.get_artifact_version(
                 project_id, ASSEMBLY_ARTIFACT_TYPE, version_id, episode_id=episode_id,
             )
-        content = EpisodeMediaAssemblyContentV1.model_validate(record.version.content)
+        try:
+            content = EpisodeMediaAssemblyContentV1.model_validate(record.version.content)
+            if (
+                record.version.schema_version != ASSEMBLY_SCHEMA_VERSION
+                or canonical_content_hash(record.version.content) != record.version.content_hash
+                or content.model_dump(mode="json") != record.version.content
+            ):
+                raise ValueError("Assembly stored content is inconsistent")
+        except (ValueError, TypeError) as error:
+            raise EpisodeMediaAssemblyError(
+                "ASSEMBLY_CONTENT_CORRUPT", "Stored assembly failed integrity checks",
+            ) from error
         if content.project_id != project_id or content.episode_id != episode_id:
             raise EpisodeMediaAssemblyError("EPISODE_SCOPE_CONFLICT", "Persisted assembly has wrong scope")
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
             connection.execute("BEGIN")
+            try:
+                validate_storyboard_provenance(
+                    self._repository, connection, content, assembly_record=record,
+                )
+            except AssemblyStoryboardReferenceError as error:
+                raise EpisodeMediaAssemblyError(error.code, str(error)) from error
             checks = _collect_checks(connection, self._repository.database_path, content, writing=False)
             connection.commit()
         return _result(record, content, checks)

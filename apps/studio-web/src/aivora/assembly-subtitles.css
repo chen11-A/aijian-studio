@@ -1,0 +1,71 @@
+.assembly-subtitles {
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0;
+}
+.assembly-subtitles > summary {
+  cursor: pointer;
+}
+.assembly-subtitle-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 12px;
+}
+.assembly-subtitle-body > button {
+  justify-self: start;
+}
+.assembly-subtitle-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.assembly-subtitle-list > li {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 6px;
+  min-width: 0;
+}
+.assembly-subtitle-list strong {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.assembly-subtitle-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+.assembly-subtitle-text,
+.assembly-subtitle-form > p,
+.assembly-subtitle-form > .assembly-actions {
+  grid-column: 1 / -1;
+}
+.assembly-subtitle-form label {
+  min-width: 0;
+}
+.assembly-subtitle-form textarea,
+.assembly-subtitle-form input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.assembly-subtitle-form textarea {
+  resize: vertical;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 6px;
+  padding: 8px;
+  color: inherit;
+  background: var(--panel, #201d29);
+  font: inherit;
+}
+.assembly-subtitle-form textarea:focus-visible {
+  outline: 2px solid var(--accent, #a087ff);
+  outline-offset: 3px;
+}

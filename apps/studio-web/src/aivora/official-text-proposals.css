@@ -1,0 +1,40 @@
+.official-text-panel {
+  margin-block: 16px;
+  padding: 12px;
+  border: 1px solid var(--v2-border, #34313d);
+  border-radius: 8px;
+  min-width: 0;
+}
+.official-text-panel > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.official-text-panel label {
+  display: grid;
+  gap: 8px;
+  margin-block: 12px;
+}
+.official-text-panel textarea,
+.official-text-panel select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.official-text-panel textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.official-text-panel article {
+  border-top: 1px solid var(--v2-border, #34313d);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.official-text-panel .official-text-identity {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.official-text-panel .official-text-result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+}

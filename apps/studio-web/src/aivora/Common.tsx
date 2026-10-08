@@ -48,12 +48,12 @@ export function Section({
   );
 }
 export function PageTitle({ actions }: { actions?: ReactNode }) {
-  const { page } = useDemo();
+  const { page, isFixture } = useDemo();
   return (
     <div className="page-title">
       <div>
         <h1>{v2PageCopy[page]?.title || pages[page][0]}</h1>
-        <p>{v2PageCopy[page]?.description || pages[page][1]}</p>
+        <p>{isFixture ? v2PageCopy[page]?.description || pages[page][1] : pages[page][1]}</p>
       </div>
       <div className="actions">{actions}</div>
     </div>
@@ -177,19 +177,25 @@ export function EditorDialog() {
   const ref = useRef<HTMLDialogElement>(null);
   const initialFields = useRef("");
   const [discardPrompt, setDiscardPrompt] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saving = useRef(false);
+  const currentEditor = useRef(d.editor);
+  currentEditor.current = d.editor;
   useEffect(() => {
     const dialog = ref.current;
     if (d.editor && dialog && !dialog.open) dialog.showModal();
     const form = dialog?.querySelector("form");
     initialFields.current = form ? JSON.stringify([...new FormData(form)]) : "";
     setDiscardPrompt(false);
+    setSaveError("");
   }, [d.editor]);
   if (!d.editor) return null;
   const editor = d.editor;
   const projectCreateState =
     editor.title === "新建项目" ? d.projectCreateState : { kind: "idle" as const };
   const requestClose = () => {
-    if (projectCreateState.kind === "SUBMITTING") return;
+    if (saving.current || projectCreateState.kind === "SUBMITTING") return;
     const form = ref.current?.querySelector("form");
     if (editor.save && form && JSON.stringify([...new FormData(form)]) !== initialFields.current) {
       setDiscardPrompt(true);
@@ -228,6 +234,7 @@ export function EditorDialog() {
         onChange={() => setDiscardPrompt(false)}
         onSubmit={async (event) => {
           event.preventDefault();
+          if (saving.current) return;
           const error = editor.validate?.();
           if (error) {
             d.notify(error);
@@ -237,13 +244,23 @@ export function EditorDialog() {
             string,
             string
           >;
-          if ((await editor.save?.(data)) === false) return;
-          d.setEditor(null);
+          saving.current = true;
+          setSubmitting(true);
+          setSaveError("");
+          try {
+            if ((await editor.save?.(data)) === false) return;
+            if (currentEditor.current === editor) d.setEditor(null);
+          } catch {
+            setSaveError("保存未完成，请保留输入并核对当前状态后再试。");
+          } finally {
+            saving.current = false;
+            setSubmitting(false);
+          }
         }}
       >
         <header>
           <Pill>内容编辑</Pill>
-          <Button aria-label="关闭对话框" icon="close" onClick={requestClose} />
+          <Button aria-label="关闭对话框" icon="close" onClick={requestClose} disabled={submitting} />
         </header>
         <h2 id="dialog-title">{editor.title}</h2>
         {editor.description && <p className="dialog-description">{editor.description}</p>}
@@ -255,6 +272,10 @@ export function EditorDialog() {
         {projectCreateState.kind === "REMOTE_UNKNOWN" && (
           <p role="alert">创建结果未知。请刷新项目列表后确认，未自动重试。</p>
         )}
+        {submitting && projectCreateState.kind !== "SUBMITTING" && (
+          <p role="status" aria-live="polite">正在保存，请等待工作区确认。</p>
+        )}
+        {saveError && <p role="alert">{saveError}</p>}
         {validationError && <p role="alert">{validationError}</p>}
         {editor.image &&
           (editor.imageCrop ? (
@@ -262,7 +283,7 @@ export function EditorDialog() {
           ) : (
             <img className="dialog-image" src={editor.image} alt={editor.title} />
           ))}
-        <div className="form-fields">
+        <fieldset className="form-fields" disabled={submitting} style={{ border: 0, padding: 0, margin: 0 }}>
           {editor.fields?.map((field) => (
             <label key={field.key}>
               {field.label}
@@ -287,7 +308,7 @@ export function EditorDialog() {
               )}
             </label>
           ))}
-        </div>
+        </fieldset>
         {discardPrompt && (
           <div role="alert">
             <p>有未保存的修改。继续编辑，或放弃本次修改？</p>
@@ -296,7 +317,7 @@ export function EditorDialog() {
           </div>
         )}
         <footer>
-          <Button onClick={requestClose} disabled={projectCreateState.kind === "SUBMITTING"}>
+          <Button onClick={requestClose} disabled={submitting || projectCreateState.kind === "SUBMITTING"}>
             关闭
           </Button>
           {editor.save && (
@@ -304,12 +325,13 @@ export function EditorDialog() {
               className="button primary"
               type="submit"
               disabled={
+                submitting ||
                 !!validationError ||
                 projectCreateState.kind === "SUBMITTING" ||
                 projectCreateState.kind === "REMOTE_UNKNOWN"
               }
             >
-              {projectCreateState.kind === "SUBMITTING" ? "正在创建" : (editor.confirm ?? "确认")}
+              {projectCreateState.kind === "SUBMITTING" ? "正在创建" : submitting ? "正在保存" : (editor.confirm ?? "确认")}
             </button>
           )}
         </footer>

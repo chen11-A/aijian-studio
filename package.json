@@ -10,7 +10,7 @@
     "pnpm": ">=11 <12"
   },
   "scripts": {
-    "dev": "concurrently --kill-others --names api,web,desktop --prefix-colors yellow,cyan,magenta \"pnpm dev:api\" \"pnpm dev:web\" \"pnpm dev:desktop\"",
+    "dev": "pnpm dev:desktop",
     "dev:api": "uv run uvicorn aijian_api.main:app --app-dir services/api/src --host 127.0.0.1 --port 8000",
     "dev:api:reload": "uv run uvicorn aijian_api.main:app --app-dir services/api/src --host 127.0.0.1 --port 8000 --reload",
     "dev:web": "pnpm --filter @aijian/studio-web dev",
@@ -47,7 +47,8 @@
     "evidence:check": "uv run python scripts/check_evidence_hashes.py",
     "test:ts": "pnpm -r --if-present test",
     "test:py": "uv run pytest --cov=aijian_api --cov-report=term-missing --cov-report=json:coverage-python.json && uv run python scripts/check_python_coverage.py coverage-python.json",
-    "build": "pnpm -r --if-present build"
+    "build": "pnpm -r --if-present build",
+    "preview:workbench": "pnpm --filter @aijian/studio-web build && pnpm --filter @aijian/desktop build && node scripts/workbench-preview.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

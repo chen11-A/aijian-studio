@@ -699,8 +699,8 @@ describe("production brief recovery", () => {
       },
     }));
     const view = await mountDemo(productionBriefBridge({ listSources, getSource, getSourceText }));
-    let switchB!: Promise<void>;
-    let switchA!: Promise<void>;
+    let switchB!: Promise<boolean>;
+    let switchA!: Promise<boolean>;
 
     await act(async () => {
       switchB = demo!.selectRealProject(2);
@@ -751,7 +751,7 @@ describe("production brief recovery", () => {
           }),
     );
     const view = await mountDemo(productionBriefBridge({ listSources, getSource, getSourceText }));
-    let switchB!: Promise<void>;
+    let switchB!: Promise<boolean>;
     await act(async () => {
       switchB = demo!.selectRealProject(2);
       await Promise.resolve();
@@ -786,8 +786,8 @@ describe("production brief recovery", () => {
         }),
     );
     const view = await mountDemo(productionBriefBridge({ getProductionBrief }));
-    let switchB!: Promise<void>;
-    let switchA!: Promise<void>;
+    let switchB!: Promise<boolean>;
+    let switchA!: Promise<boolean>;
     await act(async () => {
       switchB = demo!.selectRealProject(2);
       switchA = demo!.selectRealProject(1);

@@ -9,7 +9,7 @@ import {
   type EpisodeMediaAssemblyWriteResult,
 } from "./episode-media-assembly-contract";
 
-type EpisodeMediaAssemblyClient = {
+export type EpisodeMediaAssemblyClient = {
   readLatestEpisodeMediaAssembly(
     projectId: string, episodeId: string,
   ): Promise<EpisodeMediaAssemblyResult>;

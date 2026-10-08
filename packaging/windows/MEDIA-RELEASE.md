@@ -1,5 +1,11 @@
 # Windows 媒体工具发行输入
 
+## 2026-10-08 本地草稿导出补充
+
+新增“草稿 MP4 / DRAFT”路径读取已保存的真实 EpisodeMediaAssembly，并要求素材为用户拥有或合法合成素材的明确声明；RESTRICTED 素材仍阻断。该路径不创建正式 ProductExport 申领、不批准权利或发行许可，也不修改正式工具链 allowlist。
+
+开发运行可使用已锁定的本机 Windows 开发工具对。Linux 隔离 QA 另有 `config/draft-media-toolchain-linux-dev-lock.json`，只供未冻结的开发侧车通过两个明确环境变量选择，不能替换正式锁文件，也不进入安装包。现有 Windows 打包脚本仍只读取原 `config/media-toolchain-lock.json`，本次没有把 GPL 媒体工具复制到发行输入。完整边界与验证见 `docs/architecture/draft-mp4-export.md`。以下许可审核与正式发行阻断项保持有效。
+
 状态：2026-09-28 本机只读核查；未批准把媒体二进制放入安装候选。本记录供版本负责人、媒体代码 owner 与许可证负责人选择发行路径，不替代法律审查。
 
 ## 已有字节与真实配置

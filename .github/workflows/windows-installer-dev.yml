@@ -1,0 +1,118 @@
+name: Windows development-core installer
+
+on:
+  push:
+    branches: [codex/windows-installer-dev-20261008]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-development-core
+  cancel-in-progress: true
+
+jobs:
+  development-core:
+    if: github.repository == 'chen11-A/aijian-studio'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # Enable only after zero-extra-cost artifact storage has been verified.
+      AIVORA_ARTIFACT_UPLOAD_ALLOWED: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24.19.0"
+          package-manager-cache: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Verify and prepare fixed Windows tool inputs
+        shell: pwsh
+        run: |
+          python packaging/windows/prepare-dev-core.py --cache "$env:RUNNER_TEMP\aivora-tool-cache" --tools "$env:RUNNER_TEMP\aivora-tools"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Restore locked JavaScript dependencies without lifecycle scripts
+        shell: pwsh
+        run: |
+          npm ci --prefix packaging/windows/build-toolchain --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs install --frozen-lockfile --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check production TypeScript and packaging guards
+        shell: pwsh
+        run: |
+          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs typecheck:ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test scripts/build-runtime.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:AIVORA_NSIS_TEST_ROOT = "$env:RUNNER_TEMP\aivora-tools\nsis"
+          python -m unittest discover -s packaging/windows -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Freeze and exercise actual Windows sidecar without media tools
+        id: frozen_sidecar
+        shell: pwsh
+        run: |
+          $python = "$env:RUNNER_TEMP\aivora-tools\cpython\python\python.exe"
+          & $python packaging/windows/freeze-sidecar.py --cache "$env:RUNNER_TEMP\aivora-tool-cache" --output "$env:RUNNER_TEMP\aivora-frozen"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $python packaging/windows/smoke-frozen-sidecar.py --resources "$env:RUNNER_TEMP\aivora-frozen\resources"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Collect nonbinary native inventory even if frozen smoke fails
+        if: always() && steps.frozen_sidecar.outcome != 'skipped'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\aivora-evidence" | Out-Null
+          if (Test-Path "$env:RUNNER_TEMP\aivora-frozen\FROZEN-SIDECAR.json") {
+            Copy-Item "$env:RUNNER_TEMP\aivora-frozen\FROZEN-SIDECAR.json" "$env:RUNNER_TEMP\aivora-evidence\FROZEN-SIDECAR.json"
+          }
+          python packaging/windows/map-dev-native-materials.py --resources "$env:RUNNER_TEMP\aivora-frozen\resources" --frozen-receipt "$env:RUNNER_TEMP\aivora-frozen\FROZEN-SIDECAR.json" --output "$env:RUNNER_TEMP\aivora-evidence\FROZEN-NATIVE-INVENTORY.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build same-candidate unsigned development-core installer
+        shell: pwsh
+        run: |
+          python packaging/windows/package-dev-core.py --tools "$env:RUNNER_TEMP\aivora-tools" --frozen "$env:RUNNER_TEMP\aivora-frozen" --out "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install, native save/reopen, safe abort and uninstall preservation
+        shell: pwsh
+        run: |
+          python packaging/windows/test-installed-dev-core.py --stage "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence" --delivery "$env:RUNNER_TEMP\aivora-delivery"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Reverify exact native inputs and shipped license material before upload
+        # A development label is not a substitute for native dependency notices.
+        # Missing material review must fail before any installer bytes are uploaded.
+        run: python packaging/windows/verify-dev-core-distribution.py --stage "${{ runner.temp }}\aivora-stage" --review "${{ runner.temp }}\aivora-evidence\DEV-NATIVE-MATERIALS.json" --frozen-receipt "${{ runner.temp }}\aivora-frozen\FROZEN-SIDECAR.json" --cache "${{ runner.temp }}\aivora-tool-cache" --installer-receipt "${{ runner.temp }}\aivora-evidence\NSIS-CORE-BUILD.json"
+      - name: Upload tested installer after distribution material gate
+        if: env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: AIVORA-Dev-Core-Windows-${{ github.sha }}
+          path: ${{ runner.temp }}/aivora-delivery/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Record bounded nonbinary results in the build log
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($name in @('INSTALL-RESULT.json', 'FROZEN-NATIVE-INVENTORY.json', 'NSIS-CORE-BUILD.json')) {
+            $path = Join-Path "$env:RUNNER_TEMP\aivora-evidence" $name
+            if ((Test-Path $path) -and (Get-Item $path).Length -le 131072) {
+              Write-Output "AIVORA EVIDENCE: $name"
+              Get-Content -Raw $path
+            }
+          }
+          Write-Output 'Artifact upload remains disabled until zero-extra-cost storage is verified.'
+      - name: Retain bounded non-binary diagnostic evidence
+        if: always() && env.AIVORA_ARTIFACT_UPLOAD_ALLOWED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: AIVORA-Dev-Core-Evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/aivora-evidence/*.json
+          if-no-files-found: ignore
+          retention-days: 1

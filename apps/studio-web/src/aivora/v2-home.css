@@ -74,6 +74,7 @@
 }
 .v2-welcome h2 {
   padding-left: 0;
+  padding-right: 200px;
 }
 .demo-root .v2-welcome-copy {
   border: 0;
@@ -82,19 +83,45 @@
   text-align: left;
   position: absolute;
   left: 19px;
+  right: 220px;
   top: 53px;
   font-size: 18px !important;
   line-height: 30px;
   padding: 0;
 }
-.demo-root .v2-welcome > .button {
+.demo-root .v2-welcome-actions {
   position: absolute;
   right: 23px;
-  top: 49px;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: 180px;
-  height: 48px;
-  min-height: 48px;
+}
+.demo-root .v2-welcome-actions > .button {
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
   padding: 0;
+}
+@media (max-width: 1100px) {
+  .v2-welcome {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .v2-welcome h2 {
+    padding-right: 0;
+  }
+  .demo-root .v2-welcome-copy,
+  .demo-root .v2-welcome-actions {
+    position: static;
+    width: 100%;
+  }
+  .demo-root .v2-welcome-actions {
+    flex-direction: row;
+  }
 }
 .v2-recent-heading {
   height: 28px;

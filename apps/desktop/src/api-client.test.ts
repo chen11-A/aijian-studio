@@ -2194,6 +2194,7 @@ const providerConnectionResponse: ProviderConnectionResponse = {
     provider_kind: "OPENAI",
     display_name: "OpenAI 主连接",
     base_url: "https://api.openai.com/v1",
+    origin_mode: null,
     enabled: true,
     models: [{ model_id: "gpt-production", capabilities: ["TEXT"] }],
     credential_status: "CONFIGURED",

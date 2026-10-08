@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -68,10 +68,10 @@ SOURCE_EXTRACT_SUB2API_REF = DefinitionRefV1(
 )
 
 _GRAPH: dict[str, object] = {"nodes": ["source.extract"], "runtime": "sub2api-v0.2.8"}
-_DEFINITION_ID = "agent-skill-sub2api-runtime"
+_DEFINITION_ID: Final = "agent-skill-sub2api-runtime"
 _DEFINITION_HASH = canonical_sha256(_GRAPH)
-_ENDPOINT_BINDING = "SUB2API_EXTERNAL_HTTPS_CHAT_V1"
-_LOCAL_ENDPOINT_BINDING = "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
+_ENDPOINT_BINDING: Final = "SUB2API_EXTERNAL_HTTPS_CHAT_V1"
+_LOCAL_ENDPOINT_BINDING: Final = "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
 _TRANSPORT_CONTRACT_HASH = canonical_sha256(
     {
         "method": "POST",
@@ -286,6 +286,8 @@ class Sub2APISourceExtractRunFactory:
             connection = ProviderConnectionRepository(self._repository.database_path).get(
                 selection.connection_id
             )
+            if connection.origin_mode is None:
+                raise ValueError("Sub2API origin mode is missing")
             validate_sub2api_origin(connection.base_url, connection.origin_mode)
         except (ProviderConnectionNotFoundError, ValueError) as error:
             raise ProposalRunInputRejectedError("Sub2API connection is unavailable") from error

@@ -1,0 +1,258 @@
+[
+  {
+    "mode": "PUBLIC_HTTPS",
+    "projectId": "prj_dcce27fcc6a34db9b2235148e5f83e3b",
+    "command": {
+      "operation_id": "c017dd85-4314-43f1-bed2-fd0c4cc7ae2f",
+      "input": {
+        "source": {
+          "agent_definition": {
+            "definition_id": "writer.source-analyst-sub2api",
+            "version": "1.0.0"
+          },
+          "skill_definition": {
+            "definition_id": "source.extract-sub2api",
+            "version": "1.0.0"
+          },
+          "source_manifest_version_id": "ver_2fb1909da47542daa30d7bad7632af6b",
+          "source_document_id": "src_9ed15b5e57b642609d8c64509aef5a4c",
+          "source_block_id": "srcb_6a6826edb2a442188e1a51dcd4dd2d1c",
+          "start_byte": 10,
+          "end_byte": 67
+        },
+        "selection": {
+          "connection_id": "pcn_417f752466864259ac0a4eb4a3b62e7f",
+          "connection_revision": 1,
+          "model_id": "fake-text-model"
+        }
+      }
+    },
+    "operation": {
+      "data": {
+        "scope": {
+          "project_id": "prj_dcce27fcc6a34db9b2235148e5f83e3b",
+          "task_id": "task_1fabeaa58e904e909585907814c54c63",
+          "attempt_id": "att_d48e572b9cc4492ea676781f3c0e0c8f",
+          "selection": {
+            "connection_id": "pcn_417f752466864259ac0a4eb4a3b62e7f",
+            "connection_revision": 1,
+            "model_id": "fake-text-model"
+          },
+          "source": {
+            "agent_definition": {
+              "definition_id": "writer.source-analyst-sub2api",
+              "version": "1.0.0"
+            },
+            "skill_definition": {
+              "definition_id": "source.extract-sub2api",
+              "version": "1.0.0"
+            },
+            "source_manifest_version_id": "ver_2fb1909da47542daa30d7bad7632af6b",
+            "source_document_id": "src_9ed15b5e57b642609d8c64509aef5a4c",
+            "source_block_id": "srcb_6a6826edb2a442188e1a51dcd4dd2d1c",
+            "start_byte": 10,
+            "end_byte": 67
+          },
+          "origin_hash": "sha256:fc83926611c9d717079ef59101a5f4ad6f9a38badbf8c27e16747474e988abfc",
+          "origin_mode": "PUBLIC_HTTPS",
+          "input_hash": "sha256:59ab6798dbe802b5ec5c552001874271a83903fc9a170fd91f231db75a5fd147",
+          "context_manifest_hash": "sha256:3a7ab3afc7665d860af86054af32af67e70af1c28bb0ac84cf770c57767c106f",
+          "attempt_fingerprint": "sha256:5668123a2b7dc9e709acfe0eaefa9d920e18f1f8e0f2cbec03f19a9826e0bb6e"
+        },
+        "attempt_status": "READY",
+        "approval_id": null,
+        "proposal_id": null,
+        "content_status": "PENDING",
+        "cost": {
+          "status": "UNKNOWN",
+          "currency": null,
+          "estimated_micros": null,
+          "actual_micros": null,
+          "upstream_status": "UNKNOWN",
+          "upstream_actual_micros": null,
+          "budget_enforcement": "UNENFORCED"
+        },
+        "automatic_retry_allowed": false
+      },
+      "request_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "approval": {
+      "data": {
+        "approval_id": "sap_4f3e426dca2e4c78962072a5760689af",
+        "scope": {
+          "project_id": "prj_dcce27fcc6a34db9b2235148e5f83e3b",
+          "task_id": "task_1fabeaa58e904e909585907814c54c63",
+          "attempt_id": "att_d48e572b9cc4492ea676781f3c0e0c8f",
+          "selection": {
+            "connection_id": "pcn_417f752466864259ac0a4eb4a3b62e7f",
+            "connection_revision": 1,
+            "model_id": "fake-text-model"
+          },
+          "source": {
+            "agent_definition": {
+              "definition_id": "writer.source-analyst-sub2api",
+              "version": "1.0.0"
+            },
+            "skill_definition": {
+              "definition_id": "source.extract-sub2api",
+              "version": "1.0.0"
+            },
+            "source_manifest_version_id": "ver_2fb1909da47542daa30d7bad7632af6b",
+            "source_document_id": "src_9ed15b5e57b642609d8c64509aef5a4c",
+            "source_block_id": "srcb_6a6826edb2a442188e1a51dcd4dd2d1c",
+            "start_byte": 10,
+            "end_byte": 67
+          },
+          "origin_hash": "sha256:fc83926611c9d717079ef59101a5f4ad6f9a38badbf8c27e16747474e988abfc",
+          "origin_mode": "PUBLIC_HTTPS",
+          "input_hash": "sha256:59ab6798dbe802b5ec5c552001874271a83903fc9a170fd91f231db75a5fd147",
+          "context_manifest_hash": "sha256:3a7ab3afc7665d860af86054af32af67e70af1c28bb0ac84cf770c57767c106f",
+          "attempt_fingerprint": "sha256:5668123a2b7dc9e709acfe0eaefa9d920e18f1f8e0f2cbec03f19a9826e0bb6e"
+        },
+        "status": "APPROVED_ONE_CALL",
+        "approved_at": "2026-10-08T06:04:06.660445Z",
+        "expires_at": "2026-10-08T06:19:06.660445Z",
+        "allowed_calls": 1,
+        "cost_decision": "UNKNOWN_COST_ACCEPTED",
+        "cost": {
+          "status": "UNKNOWN",
+          "currency": null,
+          "estimated_micros": null,
+          "actual_micros": null,
+          "upstream_status": "UNKNOWN",
+          "upstream_actual_micros": null,
+          "budget_enforcement": "UNENFORCED"
+        }
+      },
+      "request_id": "00000000-0000-4000-8000-000000000001"
+    }
+  },
+  {
+    "mode": "LOCAL_LOOPBACK_HTTP",
+    "projectId": "prj_42032afb368b4a40b6dfc12b2a0673c3",
+    "command": {
+      "operation_id": "efa434e4-2a7d-4401-a139-14a671c84e56",
+      "input": {
+        "source": {
+          "agent_definition": {
+            "definition_id": "writer.source-analyst-sub2api",
+            "version": "1.0.0"
+          },
+          "skill_definition": {
+            "definition_id": "source.extract-sub2api",
+            "version": "1.0.0"
+          },
+          "source_manifest_version_id": "ver_6d7065466b604a1b855a9e7014c8f04b",
+          "source_document_id": "src_10cce65c62e34e07b77e3f59c09b6987",
+          "source_block_id": "srcb_302828848887412190a6f4c80f20137a",
+          "start_byte": 10,
+          "end_byte": 67
+        },
+        "selection": {
+          "connection_id": "pcn_257e2961606b4c6db3102fb41eb293ec",
+          "connection_revision": 1,
+          "model_id": "fake-text-model"
+        }
+      }
+    },
+    "operation": {
+      "data": {
+        "scope": {
+          "project_id": "prj_42032afb368b4a40b6dfc12b2a0673c3",
+          "task_id": "task_159104d4860840049d1bc4f13658449d",
+          "attempt_id": "att_210fd2b9f31e4bc79beecf42184ce976",
+          "selection": {
+            "connection_id": "pcn_257e2961606b4c6db3102fb41eb293ec",
+            "connection_revision": 1,
+            "model_id": "fake-text-model"
+          },
+          "source": {
+            "agent_definition": {
+              "definition_id": "writer.source-analyst-sub2api",
+              "version": "1.0.0"
+            },
+            "skill_definition": {
+              "definition_id": "source.extract-sub2api",
+              "version": "1.0.0"
+            },
+            "source_manifest_version_id": "ver_6d7065466b604a1b855a9e7014c8f04b",
+            "source_document_id": "src_10cce65c62e34e07b77e3f59c09b6987",
+            "source_block_id": "srcb_302828848887412190a6f4c80f20137a",
+            "start_byte": 10,
+            "end_byte": 67
+          },
+          "origin_hash": "sha256:ac23b9165180c791671779264d47456df9f6f9d9600a70efc8e713af6ae38ba2",
+          "origin_mode": "LOCAL_LOOPBACK_HTTP",
+          "input_hash": "sha256:3f8a05a3e13107a18dae59530dd6d6f03dc5ba45ef37e37294ba9eb1a88342a2",
+          "context_manifest_hash": "sha256:df7391b7e941342aaabc0423e6b6d96df461879623e89939e3089e56e16adf6c",
+          "attempt_fingerprint": "sha256:3a2e91b8a0dafe0f29d677972cefc39ade4aa19f6346840726065e8d77b104bb"
+        },
+        "attempt_status": "READY",
+        "approval_id": null,
+        "proposal_id": null,
+        "content_status": "PENDING",
+        "cost": {
+          "status": "UNKNOWN",
+          "currency": null,
+          "estimated_micros": null,
+          "actual_micros": null,
+          "upstream_status": "UNKNOWN",
+          "upstream_actual_micros": null,
+          "budget_enforcement": "UNENFORCED"
+        },
+        "automatic_retry_allowed": false
+      },
+      "request_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "approval": {
+      "data": {
+        "approval_id": "sap_bbba2e5652f347d0b461f0bd122d56f1",
+        "scope": {
+          "project_id": "prj_42032afb368b4a40b6dfc12b2a0673c3",
+          "task_id": "task_159104d4860840049d1bc4f13658449d",
+          "attempt_id": "att_210fd2b9f31e4bc79beecf42184ce976",
+          "selection": {
+            "connection_id": "pcn_257e2961606b4c6db3102fb41eb293ec",
+            "connection_revision": 1,
+            "model_id": "fake-text-model"
+          },
+          "source": {
+            "agent_definition": {
+              "definition_id": "writer.source-analyst-sub2api",
+              "version": "1.0.0"
+            },
+            "skill_definition": {
+              "definition_id": "source.extract-sub2api",
+              "version": "1.0.0"
+            },
+            "source_manifest_version_id": "ver_6d7065466b604a1b855a9e7014c8f04b",
+            "source_document_id": "src_10cce65c62e34e07b77e3f59c09b6987",
+            "source_block_id": "srcb_302828848887412190a6f4c80f20137a",
+            "start_byte": 10,
+            "end_byte": 67
+          },
+          "origin_hash": "sha256:ac23b9165180c791671779264d47456df9f6f9d9600a70efc8e713af6ae38ba2",
+          "origin_mode": "LOCAL_LOOPBACK_HTTP",
+          "input_hash": "sha256:3f8a05a3e13107a18dae59530dd6d6f03dc5ba45ef37e37294ba9eb1a88342a2",
+          "context_manifest_hash": "sha256:df7391b7e941342aaabc0423e6b6d96df461879623e89939e3089e56e16adf6c",
+          "attempt_fingerprint": "sha256:3a2e91b8a0dafe0f29d677972cefc39ade4aa19f6346840726065e8d77b104bb"
+        },
+        "status": "APPROVED_ONE_CALL",
+        "approved_at": "2026-10-08T06:04:07.097063Z",
+        "expires_at": "2026-10-08T06:19:07.097063Z",
+        "allowed_calls": 1,
+        "cost_decision": "UNKNOWN_COST_ACCEPTED",
+        "cost": {
+          "status": "UNKNOWN",
+          "currency": null,
+          "estimated_micros": null,
+          "actual_micros": null,
+          "upstream_status": "UNKNOWN",
+          "upstream_actual_micros": null,
+          "budget_enforcement": "UNENFORCED"
+        }
+      },
+      "request_id": "00000000-0000-4000-8000-000000000001"
+    }
+  }
+]

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode, SetStateAction } from "react";
 import { initialCharacters, initialProjects, initialShots, pages } from "./data";
 import type { PageId, Scenario } from "./data";
@@ -243,10 +243,17 @@ export function moveShot(shots: typeof initialShots, id: number, target: number)
 }
 function initialPage(): PageId {
   const hash = window.location.hash.slice(1);
-  return hash in pages ? (hash as PageId) : "project";
+  return hash in pages ? (hash as PageId) : "launch";
 }
 function useDemoModel(fixture?: DemoFixture) {
   const [page, setPage] = useState<PageId>(initialPage);
+  const currentPage = useRef(page);
+  currentPage.current = page;
+  const navigationGuard = useRef<(() => boolean) | null>(null);
+  const setNavigationGuard = useCallback((guard: (() => boolean) | null) => {
+    navigationGuard.current = guard;
+  }, []);
+  const canNavigate = () => navigationGuard.current?.() ?? true;
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [professional, setProfessional] = useState(false);
   const [inspector, setInspector] = useState(false);
@@ -460,7 +467,8 @@ function useDemoModel(fixture?: DemoFixture) {
     allowUnlisted = false,
   ) {
     if (!projectId || (!allowUnlisted && !episodes.some((episode) => episode.id === episodeId)))
-      return;
+      return false;
+    if (!allowUnlisted && episodeId !== selectedEpisodeId && !canNavigate()) return false;
     const generation = episodeGate.begin();
     setSelectedEpisodeId(null);
     setEpisodeState("loading");
@@ -472,10 +480,10 @@ function useDemoModel(fixture?: DemoFixture) {
     });
     setStoryWorkspaceState("idle");
     const outcome = await readEpisodeWorkspace(studio, projectId, episodeId);
-    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return;
+    if (!episodeGate.isCurrent(generation) || projectId !== currentBackendProjectId()) return false;
     if (outcome.kind !== "SUCCEEDED") {
       setEpisodeState(outcome.kind === "UNAVAILABLE" ? "unavailable" : "error");
-      return;
+      return false;
     }
     setSelectedEpisodeId(outcome.receipt.data.id);
     setEpisodeState("ready");
@@ -485,7 +493,7 @@ function useDemoModel(fixture?: DemoFixture) {
         : [outcome.receipt.data, ...old],
     );
     put("episode", outcome.receipt.data.title);
-    persistSelection(withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }));
+    return persistSelection(withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }));
   }
   async function refreshRealEpisodes(
     projectId = currentBackendProjectId(),
@@ -549,6 +557,7 @@ function useDemoModel(fixture?: DemoFixture) {
     if (persistEpisodeMarker(projectId, null)) notify("已记录你的核对；现在可以新建剧集。");
   }
   async function createRealEpisode(input: CreateEpisodeInput) {
+    if (!canNavigate()) return { kind: "UNAVAILABLE" } as const;
     const projectId = currentBackendProjectId();
     if (!projectId || !selectionAvailable.current) return { kind: "UNAVAILABLE" } as const;
     if (episodeCreatePending.has(projectId)) {
@@ -589,6 +598,8 @@ function useDemoModel(fixture?: DemoFixture) {
   function clearProjectScopedState() {
     const cleared: Record<string, string> = {
       episode: "",
+      input: "",
+      c3DraftIntent: "",
       source: "",
       importedName: "",
       sourceApproved: "false",
@@ -882,6 +893,7 @@ function useDemoModel(fixture?: DemoFixture) {
     }
   }
   async function createRealProject(input: CreateProjectInput) {
+    if (!canNavigate()) return { kind: "UNAVAILABLE" } as const;
     if (createPending.current || createUnknown.current) {
       notify(
         createUnknown.current
@@ -922,19 +934,22 @@ function useDemoModel(fixture?: DemoFixture) {
     setProjects((old) => [mapped, ...old.map((project, index) => ({ ...project, id: index + 2 }))]);
     if (mapped.backendId) {
       restoreSourceImportMarker(mapped.backendId);
-      void refreshRealEpisodes(mapped.backendId, false);
-      void refreshProductionBrief(mapped.backendId);
+      await Promise.all([
+        refreshRealEpisodes(mapped.backendId, false),
+        refreshProductionBrief(mapped.backendId),
+      ]);
     }
     notify("项目已由本地工作区创建。");
     return outcome;
   }
   async function selectRealProject(localId: number) {
     const selected = projects.find((project) => project.id === localId);
-    if (!selected) return;
+    if (!selected) return false;
     if (!selected.backendId) {
       notify("该项目没有本地工作区标识，无法打开。");
-      return;
+      return false;
     }
+    if (!canNavigate()) return false;
     const generation = projectGate.begin();
     sourceGate.invalidate();
     sourceStageGate.invalidate();
@@ -957,7 +972,7 @@ function useDemoModel(fixture?: DemoFixture) {
       void refreshRealEpisodes(selected.backendId, false);
       void refreshProductionBrief(selected.backendId);
       const source = await restoreLatestSource(studio, selected.backendId);
-      if (!projectGate.isCurrent(generation)) return;
+      if (!projectGate.isCurrent(generation)) return false;
       if (source) {
         put("importedName", source.data.filename);
         try {
@@ -966,11 +981,11 @@ function useDemoModel(fixture?: DemoFixture) {
             selected.backendId,
             source.data,
           );
-          if (!projectGate.isCurrent(generation)) return;
+          if (!projectGate.isCurrent(generation)) return false;
           put("source", normalizedText);
           setSourceDocument(source);
         } catch {
-          if (!projectGate.isCurrent(generation)) return;
+          if (!projectGate.isCurrent(generation)) return false;
           put("source", "");
           setSourceDocument(null);
           setSourceImportState({
@@ -980,9 +995,11 @@ function useDemoModel(fixture?: DemoFixture) {
         }
       }
       void refreshRealSourceStage(selected.backendId);
+      return true;
     } catch {
       if (projectGate.isCurrent(generation))
         notify("项目已切换，但原文恢复失败；请重新连接后再试。");
+      return false;
     }
   }
   async function importRealSource(file: File) {
@@ -1360,6 +1377,7 @@ function useDemoModel(fixture?: DemoFixture) {
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }
   function go(next: PageId) {
+    if (next !== page && !canNavigate()) return;
     if (next !== "source") sourceStageGate.invalidate();
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     if (next !== page) history.current.push(page);
@@ -1372,6 +1390,7 @@ function useDemoModel(fixture?: DemoFixture) {
     window.history.pushState({}, "", `#${next}`);
   }
   function back() {
+    if (!canNavigate()) return;
     const next = history.current.pop() ?? "projects";
     if (next !== "source") sourceStageGate.invalidate();
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
@@ -1403,6 +1422,10 @@ function useDemoModel(fixture?: DemoFixture) {
   useEffect(() => {
     const pop = () => {
       const next = initialPage();
+      if (next !== currentPage.current && !canNavigate()) {
+        window.history.pushState({}, "", `#${currentPage.current}`);
+        return;
+      }
       if (next !== "source") sourceStageGate.invalidate();
       setPage(next);
       setPlaying(false);
@@ -1478,6 +1501,8 @@ function useDemoModel(fixture?: DemoFixture) {
   }
   return {
     page,
+    setNavigationGuard,
+    canLeaveCurrentEditor: canNavigate,
     go,
     back,
     scenario,

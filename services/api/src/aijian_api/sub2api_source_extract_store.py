@@ -5,10 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Literal
 
 from aijian_api.agent_skill_contracts import ArtifactProposalV2, canonical_sha256
 from aijian_api.contracts import CreateProposalRunRequest
@@ -18,12 +19,13 @@ from aijian_api.provider_contracts import (
     validate_sub2api_origin,
 )
 from aijian_api.repository import StudioRepository
+from aijian_api.sub2api_dispatch_contracts import Sub2APIDispatchPermit as Sub2APIDispatchPermit
 from aijian_api.sub2api_source_extract_contracts import (
     Sub2APICallApprovalData,
-    Sub2APIUnknownCostV1,
     Sub2APISourceExtractRunData,
     Sub2APISourceExtractScopeData,
     Sub2APISourceExtractSelectionData,
+    Sub2APIUnknownCostV1,
 )
 from aijian_api.sub2api_source_extract_policy import (
     Sub2APICallApprovalV1,
@@ -34,13 +36,16 @@ from aijian_api.task_ledger_agent_runs import (
     mark_agent_skill_run_failed,
     mark_agent_skill_run_needs_review,
 )
-from aijian_api.task_ledger_events import append_event
+from aijian_api.task_ledger_events import EventEntityKind, append_event
 from aijian_api.task_ledger_models import ClaimedTask, LeaseLostError, new_id, timestamp, utc_now
 from aijian_api.task_ledger_snapshots import (
     canonical_snapshot_json,
     read_agent_skill_snapshot,
     read_agent_skill_snapshot_for_attempt,
 )
+
+if TYPE_CHECKING:
+    from aijian_api.sub2api_source_extract_runtime import AuthorizedSub2APITask
 
 
 class Sub2APISourceExtractConflictError(ValueError):
@@ -87,20 +92,6 @@ class Sub2APISourceExtractScopeDraft:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class Sub2APIDispatchPermit:
-    claim: ClaimedTask
-    approval_id: str
-    connection_id: str
-    connection_revision: int
-    model_id: str
-    origin_hash: str
-    origin_mode: Sub2APIOriginMode
-    input_hash: str
-    context_manifest_hash: str
-    lease_token_hash: str
-
-
 def insert_sub2api_scope_in_connection(
     connection: sqlite3.Connection, *, draft: Sub2APISourceExtractScopeDraft,
     project_id: str, task_id: str, attempt_id: str,
@@ -127,10 +118,11 @@ def insert_sub2api_scope_in_connection(
         raise Sub2APISourceExtractConflictError("Sub2API connection is unavailable")
     if int(metadata["revision"]) != draft.selection.connection_revision:
         raise Sub2APISourceExtractConflictError("Sub2API connection revision changed")
-    validate_sub2api_origin(str(metadata["base_url"]), str(metadata["origin_mode"]))
-    if draft.origin_mode != str(metadata["origin_mode"]) or draft.origin_hash != canonical_sha256(
+    origin_mode = _persisted_origin_mode(metadata["origin_mode"])
+    validate_sub2api_origin(str(metadata["base_url"]), origin_mode)
+    if draft.origin_mode != origin_mode or draft.origin_hash != canonical_sha256(
         sub2api_origin_binding(
-            str(metadata["base_url"]), str(metadata["origin_mode"]),
+            str(metadata["base_url"]), origin_mode,
             int(metadata["revision"]),
         )
     ):
@@ -200,6 +192,7 @@ class Sub2APISourceExtractStore:
             row = _read_run_row(connection, project_id=project_id, run_id=run_id)
             scope = _scope_contract(_verified_scope(row))
             proposal_id: str | None = None
+            content_status: Literal["PENDING", "PROPOSAL_READY", "FAILED", "REMOTE_UNKNOWN"]
             observation_status = row["observation_status"]
             if observation_status == "PROPOSAL_READY":
                 if (str(row["response_content_type"]) != "application/json"
@@ -210,7 +203,8 @@ class Sub2APISourceExtractStore:
                     raise Sub2APISourceExtractConflictError("response body evidence is invalid")
                 proposal_id = str(row["observation_proposal_id"])
                 from aijian_api.artifact_proposal_store import (
-                    PROPOSAL_TRUTH_SELECT, decode_persisted_proposal_row,
+                    PROPOSAL_TRUTH_SELECT,
+                    decode_persisted_proposal_row,
                 )
                 proposal_row = connection.execute(
                     PROPOSAL_TRUTH_SELECT +
@@ -260,7 +254,7 @@ class Sub2APISourceExtractStore:
                     or approval.context_manifest_hash != scope.context_manifest_hash):
                 raise Sub2APISourceExtractConflictError("approval differs from frozen run scope")
             now = self._clock()
-            status = (
+            status: Literal["APPROVED_ONE_CALL", "CONSUMED", "EXPIRED", "REVOKED"] = (
                 "CONSUMED" if row["consumed_approval_id"] is not None
                 else "REVOKED" if row["revoked_at"] is not None
                 else "EXPIRED" if now >= approval.expires_at
@@ -275,7 +269,9 @@ class Sub2APISourceExtractStore:
         finally:
             connection.close()
 
-    def next_ready(self, *, exclude_task_ids: frozenset[str]):
+    def next_ready(
+        self, *, exclude_task_ids: frozenset[str]
+    ) -> AuthorizedSub2APITask | None:
         """Read-only scheduler hint; begin_sub2api_dispatch remains authority."""
         from aijian_api.sub2api_source_extract_runtime import AuthorizedSub2APITask
 
@@ -438,7 +434,7 @@ class Sub2APISourceExtractStore:
                 provider_kind=str(metadata["provider_kind"]),
                 connection_enabled=bool(metadata["enabled"]),
                 base_url=str(metadata["base_url"]),
-                origin_mode=str(metadata["origin_mode"]),
+                origin_mode=_persisted_origin_mode(metadata["origin_mode"]),
                 model_id=str(row["model_id"]),
                 model_capabilities=_model_capabilities(metadata, str(row["model_id"])),
                 input_hash=str(row["input_hash"]),
@@ -714,7 +710,7 @@ def _scope_contract(payload: dict[str, object]) -> Sub2APISourceExtractScopeData
 
 def _read_run_row(connection: sqlite3.Connection, *, project_id: str,
                   run_id: str) -> sqlite3.Row:
-    row = connection.execute(
+    row: list[sqlite3.Row] = connection.execute(
         """SELECT scope.*, attempt.status AS attempt_status,
                   approval.approval_id, approval.approval_json, approval.approval_hash,
                   approval.revoked_at, consume.approval_id AS consumed_approval_id,
@@ -750,7 +746,7 @@ def _read_run_row(connection: sqlite3.Connection, *, project_id: str,
 
 def _read_claim_scope(connection: sqlite3.Connection, claim: ClaimedTask, *,
                       now_text: str, expected_status: str) -> sqlite3.Row:
-    row = connection.execute(
+    row: sqlite3.Row | None = connection.execute(
         """SELECT scope.*, task.task_kind, task.status AS task_status,
                   attempt.status AS attempt_status, attempt.execution_mode,
                   attempt.revision AS attempt_revision, attempt.input_hash AS attempt_input_hash,
@@ -798,6 +794,14 @@ def _assert_consumed_permit(connection: sqlite3.Connection, permit: Sub2APIDispa
             or str(row["lease_token_hash"]) != permit.lease_token_hash
             or permit.lease_token_hash != canonical_sha256({"lease_token": permit.claim.lease_token})):
         raise Sub2APISourceExtractConflictError("Sub2API permit is not the consumed call")
+
+
+def _persisted_origin_mode(value: object) -> Sub2APIOriginMode:
+    if value == "PUBLIC_HTTPS":
+        return "PUBLIC_HTTPS"
+    if value == "LOCAL_LOOPBACK_HTTP":
+        return "LOCAL_LOOPBACK_HTTP"
+    raise Sub2APISourceExtractConflictError("persisted Sub2API origin mode is invalid")
 
 
 def _model_capabilities(metadata: sqlite3.Row, model_id: str) -> tuple[str, ...]:
@@ -1045,11 +1049,12 @@ def _quarantine_workflow(connection: sqlite3.Connection, claim: ClaimedTask, *,
     ).fetchone()
     if attempt is None or node is None or task is None:
         raise LeaseLostError("Sub2API quarantine lost its workflow claim")
-    for kind, entity_id, before, after in (
+    transitions: tuple[tuple[EventEntityKind, str, str, str], ...] = (
         ("attempt", claim.attempt_id, "SUBMITTING", "REMOTE_UNKNOWN"),
         ("node", claim.node_run_id, "RUNNING", "RECONCILIATION_REQUIRED"),
         ("task", claim.task_id, "LEASED", "COMPLETED"),
-    ):
+    )
+    for kind, entity_id, before, after in transitions:
         append_event(connection, new_id, kind, entity_id, before, after,
                      "sub2api.call.unknown", now_text, actor_kind="worker",
                      actor_id=claim.lease_owner, lease_generation=claim.lease_generation)
@@ -1087,11 +1092,12 @@ def _finish_failed(connection: sqlite3.Connection, claim: ClaimedTask, *,
     )
     if attempt is None or node is None or task is None or workflow.rowcount != 1:
         raise LeaseLostError("Sub2API failure lost its workflow claim")
-    for kind, entity_id, before, after in (
+    transitions: tuple[tuple[EventEntityKind, str, str, str], ...] = (
         ("attempt", claim.attempt_id, "RUNNING", "FAILED"),
         ("node", claim.node_run_id, "RUNNING", "FAILED"),
         ("task", claim.task_id, "LEASED", "COMPLETED"),
-    ):
+    )
+    for kind, entity_id, before, after in transitions:
         append_event(connection, new_id, kind, entity_id, before, after,
                      "sub2api.before_dispatch.failed", now_text, actor_kind="worker",
                      actor_id=claim.lease_owner, lease_generation=claim.lease_generation)

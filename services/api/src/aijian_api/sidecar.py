@@ -6,19 +6,21 @@ import json
 import logging
 import os
 import secrets
-import sqlite3
 import socket
+import sqlite3
 import stat
 import sys
 import threading
 from collections.abc import Mapping
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import uvicorn
 
 from aijian_api.credential_vault import CredentialVault, SystemCredentialVault
+from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.draft_export_toolchain import discover_draft_toolchain
 from aijian_api.fake_media_package import FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.gateway_transport import GatewayTextTransport
@@ -28,9 +30,9 @@ from aijian_api.media_toolchain import (
     discover_media_toolchain,
     load_media_toolchain_lock,
 )
-from aijian_api.provider_connection_repository import ProviderConnectionRepository
 from aijian_api.product_export_runtime import ProductExportRuntime
 from aijian_api.product_export_windows_job import ProductExportJobManager
+from aijian_api.provider_connection_repository import ProviderConnectionRepository
 from aijian_api.remote_execution_authorization import RemoteExecutionAuthorizationStore
 from aijian_api.remote_settlement_contracts import DenyRemoteSettlementVerifier
 from aijian_api.remote_source_extract_runtime import (
@@ -64,6 +66,7 @@ PROTOCOL_VERSION = 1
 SIDECAR_HOST = "127.0.0.1"
 _LOGGER = logging.getLogger(__name__)
 _BACKUP_DIRECTORIES = ("media-assets", "fake-media", "exports")
+_BACKUP_EMPTY_DIRECTORIES = ("draft-export-work",)
 _SQLITE_SIDECARS = frozenset(
     {"workspace.sqlite3-wal", "workspace.sqlite3-shm", "workspace.sqlite3-journal"}
 )
@@ -96,7 +99,12 @@ def _plain_existing_path(path: Path, *, directory: bool) -> None:
 def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
     """Enumerate every supported media file without following links."""
 
-    allowed = {"workspace.sqlite3", *_SQLITE_SIDECARS, *_BACKUP_DIRECTORIES}
+    allowed = {
+        "workspace.sqlite3",
+        *_SQLITE_SIDECARS,
+        *_BACKUP_DIRECTORIES,
+        *_BACKUP_EMPTY_DIRECTORIES,
+    }
     if any(child.name not in allowed for child in workspace.iterdir()):
         raise WorkspaceBackupError("Workspace contains an unsupported top-level entry")
     for name in _SQLITE_SIDECARS:
@@ -125,6 +133,17 @@ def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
         root = workspace / name
         if os.path.lexists(root):
             visit(root)
+    for name in _BACKUP_EMPTY_DIRECTORIES:
+        root = workspace / name
+        if not os.path.lexists(root):
+            continue
+        # A completed draft leaves this parent directory. Never recursively copy
+        # unknown interrupted job state or accept a link to another directory.
+        _plain_existing_path(root, directory=True)
+        info = root.stat(follow_symlinks=False)
+        if next(root.iterdir(), None) is not None:
+            raise WorkspaceBackupError("Draft export staging must be empty before backup")
+        inventory[name] = ("dir", 0, info.st_mtime_ns, info.st_dev, info.st_ino)
     return inventory
 
 
@@ -217,7 +236,7 @@ def backup_workspace(workspace: Path, output: Path) -> dict[str, object]:
     receipt = {
         "schema_version": 1,
         "source_workspace": str(workspace),
-        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "files": sorted(files, key=lambda entry: str(entry["path"])),
         "sqlite_sidecars_excluded": sorted(_SQLITE_SIDECARS),
     }
@@ -426,6 +445,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
     listener: socket.socket | None = None
     product_export_jobs: ProductExportJobManager | None = None
     product_export_runtime: ProductExportRuntime | None = None
+    draft_export_runtime: DraftExportRuntime | None = None
     worker: LocalFakeSourceExtractWorker | None = None
     timeline_worker: LocalFakeTimelineWorker | None = None
     remote_worker: RemoteSourceExtractRuntime | None = None
@@ -444,6 +464,10 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         )
         repository = StudioRepository(database_path)
         product_export_jobs = ProductExportJobManager()
+        draft_export_runtime = DraftExportRuntime(
+            repository, discover_draft_toolchain,
+            product_export_jobs if os.name == "nt" else None,
+        )
         product_export_runtime = ProductExportRuntime(
             repository,
             product_export_jobs,
@@ -473,6 +497,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
                 credential_vault=credentials,
                 fake_timeline_run_factory=timeline_factory,
                 product_export_runtime=product_export_runtime,
+                draft_export_runtime=draft_export_runtime,
                 sub2api_runtime_availability=sub2api_worker.availability,
             ),
             host=SIDECAR_HOST,
@@ -506,6 +531,11 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
     finally:
         shutdown_error: BaseException | None = None
         try:
+            if draft_export_runtime is not None:
+                try:
+                    draft_export_runtime.stop_accepting()
+                except BaseException as error:
+                    shutdown_error = error
             if product_export_runtime is not None:
                 try:
                     product_export_runtime.stop_accepting()
@@ -521,6 +551,12 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
             if product_export_runtime is not None:
                 try:
                     product_export_runtime.join_workers()
+                except BaseException as error:
+                    if shutdown_error is None:
+                        shutdown_error = error
+            if draft_export_runtime is not None:
+                try:
+                    draft_export_runtime.join_workers()
                 except BaseException as error:
                     if shutdown_error is None:
                         shutdown_error = error

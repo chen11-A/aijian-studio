@@ -153,7 +153,7 @@ function isIdentity(value: unknown): value is RemoteSourceExtractIdentity {
     (item.connectionRevision ?? 0) <= 2_147_483_647 &&
     typeof item.modelId === "string" && item.modelId.length > 0 &&
     item.modelId.length <= 120 && /^\S(?:.*\S)?$/.test(item.modelId) &&
-    !/[\r\n\u0000-\u001f\u007f]/.test(item.modelId);
+    ![...item.modelId].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
 }
 
 function isOperation(value: unknown, projectId: string, sub2api = false):
@@ -374,7 +374,9 @@ function sameSub2APIScope(
   const source = data.scope.source;
   const selection = data.scope.selection;
   const cost = data.cost;
-  return data.scope.project_id === operation.projectId &&
+  return (data.scope.origin_mode === "PUBLIC_HTTPS" ||
+      data.scope.origin_mode === "LOCAL_LOOPBACK_HTTP") &&
+    data.scope.project_id === operation.projectId &&
     TASK.test(data.scope.task_id) && ATTEMPT.test(data.scope.attempt_id) &&
     HASH.test(data.scope.attempt_fingerprint) &&
     source.agent_definition.definition_id === "writer.source-analyst-sub2api" &&
@@ -493,7 +495,7 @@ function sameSub2APIApprovalScope(
     scope.project_id === operation.projectId &&
     scope.task_id === original.task_id && scope.attempt_id === original.attempt_id &&
     scope.attempt_fingerprint === original.attempt_fingerprint &&
-    scope.origin_hash === original.origin_hash &&
+    scope.origin_hash === original.origin_hash && scope.origin_mode === original.origin_mode &&
     scope.input_hash === original.input_hash &&
     scope.context_manifest_hash === original.context_manifest_hash &&
     scope.selection.connection_id === operation.connectionId &&

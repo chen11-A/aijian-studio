@@ -1,0 +1,55 @@
+.draft-review {
+  margin-top: 16px;
+  min-width: 0;
+}
+.draft-review-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.draft-review-editor p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.draft-review-editor h4 {
+  margin: 0;
+}
+.draft-review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  max-height: 360px;
+  overflow: auto;
+}
+.draft-review-list li {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.draft-review-text {
+  white-space: pre-wrap;
+}
+.draft-review-compose,
+.draft-review-resolution {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.draft-review-compose input {
+  max-width: 180px;
+}
+.draft-review-editor textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.draft-review-editor small {
+  color: var(--muted);
+  line-height: 1.6;
+}

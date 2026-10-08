@@ -1,0 +1,119 @@
+.chatgpt-connection-card {
+  min-width: 0;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+.chatgpt-connection-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chatgpt-connection-card h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.chatgpt-connection-card p {
+  margin: 0;
+  line-height: 1.65;
+  font-size: 12px;
+}
+.chatgpt-connection-card small {
+  font-size: 11px;
+  line-height: 1.6;
+  opacity: 0.76;
+}
+.chatgpt-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  border: 1px solid var(--line, #c9cad1);
+  border-radius: 20px;
+  padding: 5px 9px;
+}
+.chatgpt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chatgpt-actions .button {
+  min-height: 34px;
+}
+.chatgpt-consent {
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line, #c9cad1);
+  border-radius: 8px;
+}
+.chatgpt-consent label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.chatgpt-consent select {
+  width: 100%;
+  min-height: 36px;
+  background: var(--surface, #fff);
+  color: inherit;
+  border: 1px solid var(--line, #c9cad1);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.chatgpt-consent .chatgpt-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.65;
+}
+.chatgpt-checkbox input {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.chatgpt-notice {
+  padding: 10px;
+  border-left: 3px solid #8581c0;
+  background: rgb(128 120 190 / 8%);
+}
+.chatgpt-profiles,
+.chatgpt-models {
+  display: grid;
+  gap: 8px;
+}
+.chatgpt-profiles > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.chatgpt-profiles span,
+.chatgpt-models li {
+  overflow-wrap: anywhere;
+}
+.chatgpt-models ul {
+  padding-left: 18px;
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 12px;
+}
+.chatgpt-models li {
+  margin: 6px 0;
+}
+.chatgpt-models li span {
+  opacity: 0.7;
+  margin-left: 6px;
+}
+@media (max-width: 520px) {
+  .chatgpt-connection-card {
+    padding: 14px;
+  }
+  .chatgpt-connection-card header,
+  .chatgpt-profiles > div {
+    flex-direction: column;
+  }
+  .chatgpt-actions .button {
+    min-height: 44px;
+  }
+}

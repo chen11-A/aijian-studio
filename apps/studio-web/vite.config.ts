@@ -1,9 +1,14 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { developmentCoreAssets } from "./build/developmentCoreAssets.ts";
+
+const buildProfile =
+  process.env.AIVORA_BUILD_PROFILE === "development-core" ? "development-core" : "production";
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [react(), ...(buildProfile === "development-core" ? [developmentCoreAssets()] : [])],
+  define: { __AIVORA_BUILD_PROFILE__: JSON.stringify(buildProfile) },
   server: {
     port: 5173,
     strictPort: true,

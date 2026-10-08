@@ -26,10 +26,12 @@ from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_execution_plan_contracts import MediaExecutionPlanV1
 from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 from aijian_api.media_toolchain import (
-    MediaToolchain, MediaToolchainError, load_media_toolchain_lock,
+    MediaToolchain,
+    MediaToolchainError,
+    load_media_toolchain_lock,
 )
-from aijian_api.product_export_contracts import ProductExportSpec
 from aijian_api.product_export_output_verify import VerifiedProductOutput, verify_local_mp4
+from aijian_api.product_timeline_export_contracts import ProductExportSpec
 
 # The v7.40.0 melt source writes this line to stderr for -progress2.
 # Source: https://github.com/mltframework/mlt/blob/v7.40.0/src/melt/melt.c
@@ -358,6 +360,27 @@ def _verify_runtime_services(runtime: MltEngineeringRuntime, environment: dict[s
     return hashlib.sha256(output).hexdigest()
 
 
+def _revalidate_selection(
+    task: MltExecutionTask,
+    callback: Callable[[MediaExecutionPlanV1, tuple[MltFileIdentity, ...]], object],
+) -> None:
+    """Validate the callback's runtime result without relaxing its public None contract."""
+    if not callable(callback):
+        raise MltExecutionError(
+            "SELECTION_REVALIDATION_MISSING", "Selected media requires a current authority check",
+        )
+    try:
+        result = callback(task.plan, task.resources)
+    except Exception:
+        raise MltExecutionError(
+            "SELECTION_REVALIDATION_FAILED", "Selected media authority changed or is unavailable",
+        ) from None
+    if result is not None:
+        raise MltExecutionError(
+            "SELECTION_REVALIDATION_FAILED", "Selected media authority check returned invalid status",
+        )
+
+
 def run_mlt_engineering_task(
     task: MltExecutionTask,
     runtime: MltEngineeringRuntime,
@@ -376,6 +399,10 @@ def run_mlt_engineering_task(
     ):
         raise MltExecutionError("INVALID_TIMEOUT", "MLT timeout is invalid")
     _validate_task(task, runtime)
+    test_spec_sha256 = task.plan.source.test_spec_sha256
+    fixture_manifest_sha256 = task.plan.source.fixture_manifest_sha256
+    if test_spec_sha256 is None or fixture_manifest_sha256 is None:
+        raise MltExecutionError("PLAN_OR_TOOLCHAIN_INVALID", "Frozen test provenance is missing")
     _verify_runtime_inventory(runtime)
     start = time.monotonic()
     identities = (
@@ -468,20 +495,7 @@ def run_mlt_engineering_task(
             raise MltExecutionError("CANCELLED", "MLT job was cancelled before render")
         if time.monotonic() - start >= timeout_seconds:
             raise MltExecutionError("TIMEOUT", "MLT job timed out before render")
-        if not callable(revalidate_selection):
-            raise MltExecutionError(
-                "SELECTION_REVALIDATION_MISSING", "Selected media requires a current authority check",
-            )
-        try:
-            result = revalidate_selection(task.plan, task.resources)
-        except Exception:
-            raise MltExecutionError(
-                "SELECTION_REVALIDATION_FAILED", "Selected media authority changed or is unavailable",
-            ) from None
-        if result is not None:
-            raise MltExecutionError(
-                "SELECTION_REVALIDATION_FAILED", "Selected media authority check returned invalid status",
-            )
+        _revalidate_selection(task, revalidate_selection)
         _verify_open_files(held, managed_paths)
         if stop_requested():
             raise MltExecutionError("CANCELLED", "MLT job was cancelled before render")
@@ -582,9 +596,9 @@ def run_mlt_engineering_task(
             return MltExecutionEvidence(
                 scope="ENGINEERING_TEST", operation_id=task.operation_id,
                 execution_plan_hash=task.execution_plan_hash,
-                test_spec_sha256=plan.source.test_spec_sha256,
-                fixture_manifest_sha256=plan.source.fixture_manifest_sha256,
-                project_id=plan.source.project_id, episode_id=plan.source.episode_id,
+                test_spec_sha256=test_spec_sha256,
+                fixture_manifest_sha256=fixture_manifest_sha256,
+                project_id=task.plan.source.project_id, episode_id=task.plan.source.episode_id,
                 assembly_artifact_id=task.assembly_artifact_id,
                 assembly_version_id=task.assembly_version_id,
                 assembly_content_hash=task.assembly_content_hash,

@@ -1,9 +1,12 @@
+import { useEffect, useRef, useState } from "react";
 import { useDemo } from "./model";
 import { Button, FlowFooter } from "./Common";
 import { Icon } from "./Icon";
 import { SettingsPage } from "./SettingsPage";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
 import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
+import { ChatGPTConnectionCard } from "./chatgpt-auth/ChatGPTConnectionCard";
+import { rememberServiceEntryChoice } from "./FirstRunServiceChoice";
 import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
 import "./provider-connection-form.css";
 import avatar from "./assets/v2/avatar.png";
@@ -62,10 +65,33 @@ function Services() {
   const d = useDemo();
   const settings = d.providerSettings;
   const state = settings.state;
+  const official = useRef<HTMLDivElement>(null);
+  const apiConfig = useRef<HTMLElement>(null);
+  const entry = d.value("serviceEntry");
+  const [serviceTab, setServiceTab] = useState<"api" | "chatgpt">(entry === "chatgpt" ? "chatgpt" : "api");
+  const useApi = () => {
+    rememberServiceEntryChoice("api");
+    d.put("serviceEntry", "api");
+    setServiceTab("api");
+  };
+  useEffect(() => {
+    if (serviceTab === "api" && entry === "api") apiConfig.current?.focus();
+    if (serviceTab === "chatgpt") official.current?.focus();
+  }, [entry, serviceTab]);
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
-      <div className="v2-service-body provider-settings">
+      {!d.isFixture && <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
+        <Button aria-pressed={serviceTab === "api"} primary={serviceTab === "api"} onClick={() => setServiceTab("api")}>API / Sub2API</Button>
+        <Button aria-pressed={serviceTab === "chatgpt"} primary={serviceTab === "chatgpt"} onClick={() => setServiceTab("chatgpt")}>ChatGPT 官方账号</Button>
+      </div>}
+      {!d.isFixture && <div ref={official} tabIndex={-1} hidden={serviceTab !== "chatgpt"} className="official-service-panel">
+        {serviceTab === "chatgpt" && <ChatGPTConnectionCard
+          onConnected={() => { rememberServiceEntryChoice("chatgpt"); }}
+          onUseApi={useApi}
+        />}
+      </div>}
+      <div className="v2-service-body provider-settings" hidden={!d.isFixture && serviceTab !== "api"}>
         <section
           className="v2-utility-card v2-service-list connections-panel"
           aria-labelledby="service-connections-title"
@@ -91,7 +117,7 @@ function Services() {
           {state.kind === "ready" && state.response.data.length === 0 && (
             <div className="settings-empty">
               <strong>还没有模型连接</strong>
-              <p>请添加开发者 API 连接。</p>
+              <p>可添加 API 连接，或切换到 ChatGPT 官方账号。</p>
             </div>
           )}
           {state.kind === "ready" &&
@@ -129,9 +155,9 @@ function Services() {
                     ))
                   )}
                 </div>
-                {connection.provider_kind === "SUB2API" &&
-                  <Sub2APIConnectionManagement connection={connection}
-                    onReload={settings.load} />}
+                {connection.provider_kind === "SUB2API" && (
+                  <Sub2APIConnectionManagement connection={connection} onReload={settings.load} />
+                )}
                 {settings.confirmingId === connection.id ? (
                   <div role="alert">
                     <span>同时移除系统凭据？</span>
@@ -144,12 +170,12 @@ function Services() {
               </article>
             ))}
         </section>
-        <section className="v2-utility-card v2-service-config" aria-labelledby="service-new-title">
+        <section ref={apiConfig} tabIndex={-1} className="v2-utility-card v2-service-config" aria-labelledby="service-new-title">
           <h2 id="service-new-title">
             <Icon name="settings" size={16} />
             添加模型供应商
           </h2>
-          <p>填写供应商开发者控制台签发的 API Key；会员订阅不能替代开发者 API 凭据。</p>
+          <p>此处配置 API Key。ChatGPT 官方账号使用上方独立入口。</p>
           <ProviderConnectionForm
             busy={settings.saving}
             error={settings.saveError}
@@ -199,8 +225,13 @@ function Costs() {
               <strong>—</strong>
               <p>未连接账本 · 不编造金额</p>
               {index === 1 && (
-                <button className="v2-detail-tool" onClick={budget}>
-                  预算设置
+                <button
+                  className="v2-detail-tool"
+                  onClick={d.isFixture ? budget : undefined}
+                  disabled={!d.isFixture}
+                  title={d.isFixture ? undefined : "真实预算账本尚未接入，本页不保存预算修改"}
+                >
+                  {d.isFixture ? "预算设置" : "预算设置待接入"}
                 </button>
               )}
             </section>
@@ -227,9 +258,11 @@ function Costs() {
               <>
                 <p>账本尚未接入；已有界面不代表已经发生调用或费用。</p>
                 <Button onClick={() => d.go("services")}>前往 AI 服务</Button>
-                <button className="v2-cost-sample" onClick={sampleLedger}>
-                  查看固定演示账单
-                </button>
+                {d.isFixture && (
+                  <button className="v2-cost-sample" onClick={sampleLedger}>
+                    查看固定演示账单
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -241,6 +274,21 @@ function Costs() {
 }
 function Voice() {
   const d = useDemo();
+  if (!d.isFixture)
+    return (
+      <div className="v2-utility-page v2-utility-management">
+        <Heading title="声音制作" />
+        <section className="native-pending-review" role="status">
+          <h2>真实语音制作待接入</h2>
+          <p>声线授权、真实语音任务和对白对齐尚未接入本页。不会提供默认对白或模拟生成结果。</p>
+          <p>已有本地音频可在素材库导入，并在成片组装中作为 BGM / SFX 使用。</p>
+          <div className="actions">
+            <Button onClick={() => d.go("assets")}>打开真实素材库</Button>
+            <Button onClick={() => d.go("script")}>编辑本集对白</Button>
+          </div>
+        </section>
+      </div>
+    );
   const selected = d.characters.find((p) => p.id === d.selectedCharacter);
   const key = (name: string) => `character-${d.selectedCharacter}-${name}`;
   const tone = () =>

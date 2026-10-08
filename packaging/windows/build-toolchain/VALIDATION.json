@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "verified_date_utc": "2026-10-08",
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64"
+  },
+  "prerequisites": {
+    "result": "PASS",
+    "files": 40,
+    "bytes": 386949852,
+    "lock_sha256": "86b8c3930bf596cbe2edf4c556e2b08bc36c08d2a37833fd23ea051090263800"
+  },
+  "checks": {
+    "offline_cache_verification": "PASS",
+    "packaging_guard_tests": "12 PASS",
+    "python_lint_format_syntax": "PASS",
+    "builder_26_17_0_config_schema": "PASS",
+    "linux_nsis_version_command": "PASS: v27-Nov-2019.cvs (pinned NSIS 3.0.4.1 bundle)",
+    "windows_cpython_matches_uv_managed_install": "PASS: python.exe, python312.dll, LICENSE.txt",
+    "ffmpeg_ffprobe_match_existing_development_profile": "PASS",
+    "windows_pyinstaller_freeze": "NOT_RUN",
+    "windows_frozen_sidecar_smoke": "NOT_RUN",
+    "windows_electron_execution": "NOT_RUN",
+    "installer_build_install_upgrade_uninstall": "NOT_RUN",
+    "media_release_approval": "NOT_GRANTED"
+  },
+  "release_approved": false
+}

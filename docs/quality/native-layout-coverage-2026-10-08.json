@@ -1,0 +1,294 @@
+{
+  "application": "AIVORA native Electron",
+  "environment": "Cloud Linux desktop",
+  "baseline": "repair/runtime-baseline",
+  "test_project": "harbor desktop check",
+  "content_changes": "None; switched between existing episode 1 and empty episode two, then restored episode 1. No saves, imports, or remote calls.",
+  "sizes": [
+    [
+      1178,
+      814
+    ],
+    [
+      1364,
+      920
+    ],
+    [
+      1005,
+      688
+    ],
+    [
+      980,
+      680
+    ]
+  ],
+  "route_count_declared": 23,
+  "route_count_observed": 21,
+  "routes": [
+    {
+      "id": "launch",
+      "observed": true,
+      "evidence": [
+        "41-launch-fixed-normal.png",
+        "96-launch-minimum.png",
+        "103-launch-final-minimum.png"
+      ]
+    },
+    {
+      "id": "home",
+      "observed": true,
+      "evidence": [
+        "42-home-fixed-normal.png",
+        "97-home-minimum.png",
+        "99-home-card-scroll-minimum.png",
+        "104-home-final-minimum.png"
+      ]
+    },
+    {
+      "id": "project",
+      "observed": true,
+      "evidence": [
+        "18-project-normal.png",
+        "22-project-maximized.png",
+        "35-home-stage-cards-minimum.png",
+        "74-home-cards-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "projects",
+      "observed": true,
+      "evidence": [
+        "43-projects-fixed-normal.png",
+        "44-projects-no-results.png",
+        "45-create-project-dialog.png",
+        "98-projects-minimum.png"
+      ]
+    },
+    {
+      "id": "source",
+      "observed": true,
+      "evidence": [
+        "23-source-maximized.png",
+        "24-source-normal.png",
+        "25-source-small.png",
+        "93-source-fixed-minimum.png",
+        "94-source-paste-minimum.png",
+        "95-source-lower-fields-minimum.png",
+        "107-source-footer-final-minimum.png",
+        "108-final-restored-native.png"
+      ],
+      "pending_retest": "None for reported clipping/overlap defects; final 980×680 native retest completed."
+    },
+    {
+      "id": "story",
+      "observed": true,
+      "evidence": [
+        "02-story-normal.png",
+        "75-story-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "script",
+      "observed": true,
+      "evidence": [
+        "03-script-normal.png",
+        "04-script-assistant-collapsed.png",
+        "76-script-fixed-minimum.png",
+        "77-script-save-fixed-minimum.png",
+        "78-empty-episode-script.png"
+      ]
+    },
+    {
+      "id": "characters",
+      "observed": true,
+      "evidence": [
+        "05-character-normal.png",
+        "29-character-minimum.png",
+        "64-characters-professional.png",
+        "70-characters-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "character",
+      "observed": false,
+      "reason": "Implementer confirms production alias of manual character page, without independent UI entry. Main characters page verified. This alias was not forced through hidden navigation."
+    },
+    {
+      "id": "world",
+      "observed": true,
+      "evidence": [
+        "06-world-normal.png",
+        "72-world-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "scenes",
+      "observed": true,
+      "evidence": [
+        "07-scenes-normal.png",
+        "73-scenes-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "storyboard",
+      "observed": true,
+      "evidence": [
+        "08-storyboard-normal.png",
+        "30-storyboard-minimum.png",
+        "55-storyboard-professional-normal.png",
+        "71-storyboard-fixed-minimum.png",
+        "79-empty-storyboard.png",
+        "88-real-inspector-fixed.png",
+        "89-professional-ai-fixed.png"
+      ]
+    },
+    {
+      "id": "generation",
+      "observed": true,
+      "evidence": [
+        "10-assembly-normal.png"
+      ]
+    },
+    {
+      "id": "assembly",
+      "observed": true,
+      "evidence": [
+        "11-media-timeline-normal.png",
+        "12-media-timeline-scrolled.png",
+        "13-media-selected.png",
+        "14-media-editor-scrolled.png",
+        "31-assembly-minimum.png",
+        "80-empty-assembly.png"
+      ]
+    },
+    {
+      "id": "review",
+      "observed": true,
+      "evidence": [
+        "15-review-normal.png",
+        "65-review-professional.png",
+        "66-review-inspector-scroll.png",
+        "90-review-real-empty.png"
+      ]
+    },
+    {
+      "id": "changes",
+      "observed": true,
+      "evidence": [
+        "67-changes-professional.png",
+        "68-changes-details-dialog.png",
+        "69-changes-minimum.png",
+        "91-changes-real-empty.png",
+        "92-changes-fixed-minimum.png"
+      ],
+      "entry": "Professional review > Inspector > Technical details > scroll > Open modification plan"
+    },
+    {
+      "id": "assets",
+      "observed": true,
+      "evidence": [
+        "16-assets-normal.png",
+        "17-asset-drawer-clipped-hash.png",
+        "37-assets-header-minimum.png",
+        "40-assets-fixed-normal.png",
+        "83-assets-fixed-minimum.png",
+        "84-asset-drawer-fixed-minimum.png",
+        "85-import-dialog-minimum.png"
+      ]
+    },
+    {
+      "id": "voice",
+      "observed": false,
+      "reason": "Implementer confirms no public production UI entry. No fixture or hash injection used; this route remains unvisited."
+    },
+    {
+      "id": "export",
+      "observed": true,
+      "evidence": [
+        "01-export-normal.png",
+        "33-export-minimum.png",
+        "81-empty-export.png",
+        "82-export-fixed-minimum.png"
+      ]
+    },
+    {
+      "id": "services",
+      "observed": true,
+      "evidence": [
+        "46-services-fixed-normal.png",
+        "47-services-scroll-attempt.png",
+        "86-services-save-visible.png",
+        "102-services-minimum.png"
+      ],
+      "pending_retest": "None for reported scrolling defect; verified normal and minimum size."
+    },
+    {
+      "id": "costs",
+      "observed": true,
+      "evidence": [
+        "48-costs-fixed-normal.png",
+        "100-costs-minimum.png"
+      ]
+    },
+    {
+      "id": "settings",
+      "observed": true,
+      "evidence": [
+        "21-settings-normal.png",
+        "49-settings-fixed-normal.png",
+        "50-settings-language.png",
+        "51-settings-appearance.png",
+        "52-settings-defaults.png",
+        "101-settings-minimum.png"
+      ]
+    },
+    {
+      "id": "projectSettings",
+      "observed": true,
+      "evidence": [
+        "53-project-settings-normal.png",
+        "54-project-settings-scroll-attempt.png",
+        "87-project-settings-fixed.png",
+        "105-project-settings-final-minimum.png",
+        "106-project-settings-bottom-final.png"
+      ],
+      "pending_retest": "None for reported clipping/overlap defects; final 980×680 native retest completed."
+    }
+  ],
+  "additional_observed_states": [
+    "Assistant collapse/reopen",
+    "Assistant dialogue/suggestions/tasks/context",
+    "Professional Inspector five tabs",
+    "New episode dialog at normal and minimum sizes",
+    "Required empty field validation",
+    "New project dialog",
+    "Project no-result search and reset",
+    "Asset details drawer and Escape",
+    "Native import file chooser and Escape",
+    "Empty episode script/storyboard/assembly/export",
+    "Saved episode reselected without content changes"
+  ],
+  "not_tested": [
+    "Windows runtime",
+    "Real provider calls",
+    "Credentials submission",
+    "Network fault injection",
+    "Export in-flight/failure",
+    "Saved/dirty navigation mutation",
+    "Long dataset stress",
+    "Cancelled opt-in workspace prototype is excluded from this original-UI acceptance."
+  ],
+  "stability_observation": "After native file chooser cancellation the main view was briefly not mapped. Implementer verified the process was still running and restored the window from the AIVORA taskbar icon. Record as a window-visibility observation, not a crash. No data loss observed.",
+  "remaining_layout_findings": [
+    {
+      "severity": "P2",
+      "page": "script/characters/storyboard/assembly",
+      "description": "The retained original UI still separates core editing, properties and related actions vertically, especially at minimum size. Content is reachable in tested representative flows, but scroll reachability is not a mature desktop-workflow usability pass. Prototype adoption was cancelled; no further redesign is implied."
+    }
+  ],
+  "second_pass_summary": "Reported sidebar, assistant offset/footer, character selection viewport, frame-rate truncation, asset toolbar/import, generic footer, home stage cards, floating AI overlap, and asset hash overflow are visually corrected in tested sizes. Service and project settings scroll defects are visually corrected. Production inspector/review/changes now disclose real availability rather than exposing fixture-only controls. Full professional creative workflow remains incomplete.",
+  "handoff": "2026-10-08 06:38:15 UTC: desktop returned to implementer at 1178×814, window41943044 x93,y117, ordinary mode, test project episode 1, source input/import-text tab; no content changes, dirty values, running tasks or dialogs.",
+  "final_result": "All specifically reported clipping/overlap defects were corrected and visually rechecked on their affected native pages and window sizes. 21 production-UI-reachable routes were viewed; character alias and unexposed voice route were not forced through hidden navigation. This is layout/interaction coverage, not full production capability, Windows, provider, or release acceptance.",
+  "scope": "Native navigation and visual layout audit, not full functionality, auth, media-generation, or Windows release acceptance.",
+  "screenshots_in_source_delta": false
+}

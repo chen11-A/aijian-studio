@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { ScenePage, AssetsPage } from "./SceneAndAssets";
 import { WorldPage } from "./WorldPage";
 import { CharacterPage } from "./CharacterPage";
+import { ManualCreativePage } from "./ManualCreativeEditor";
 import { useVisualLayout } from "./VisualLayoutSwitch";
 import { Dropdown } from "./Dropdown";
 import front from "./assets/v2/front.png";
@@ -20,6 +21,7 @@ export function VisualPages() {
   if (d.page === "character") return <CharacterPage />;
   if (d.page === "scenes") return <ScenePage />;
   if (d.page === "assets") return <AssetsPage />;
+  if (!d.isFixture) return <ManualCreativePage kind="characters" />;
   if (!d.characters.length) {
     return (
       <section className="v2-visual-page">

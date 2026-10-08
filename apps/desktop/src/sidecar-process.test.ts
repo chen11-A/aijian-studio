@@ -45,7 +45,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 });
 
 import { createLocalApiClient } from "./api-client";
-import { startSidecar, type SidecarHandle } from "./sidecar-process";
+import { SidecarStartupError, startSidecar, type SidecarHandle } from "./sidecar-process";
 
 let activeSidecar: SidecarHandle | null = null;
 const repositoryRoot = resolve(__dirname, "../../..");
@@ -256,15 +256,15 @@ test(
 );
 
 test("rejects malformed startup output and terminates the child without exposing it", async () => {
-  await expect(
-    startSidecar({
-      command: process.execPath,
-      args: ["-e", nodeHandshakeScript({ line: "not-json", remainAlive: true })],
-      cwd: repositoryRoot,
-      startupTimeoutMs: 1_000,
-      shutdownTimeoutMs: 25,
-    }),
-  ).rejects.toThrow(new Error("Sidecar failed to start"));
+  const startup = startSidecar({
+    command: process.execPath,
+    args: ["-e", nodeHandshakeScript({ line: "not-json", remainAlive: true })],
+    cwd: repositoryRoot,
+    startupTimeoutMs: 1_000,
+    shutdownTimeoutMs: 25,
+  });
+  await expect(startup).rejects.toThrow(SidecarStartupError);
+  await expect(startup).rejects.toMatchObject({ message: "Sidecar failed to start" });
 });
 
 test("force-stops a controlled mock child that ignores parent-pipe EOF", async () => {

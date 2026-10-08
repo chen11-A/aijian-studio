@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from aijian_api.app_preferences_schema import migration_25_statements
 from aijian_api.artifact_invalidation_ledger import (
     InvalidationOperationPage,
     get_invalidation_operation,
@@ -56,18 +57,38 @@ from aijian_api.domain import (
     SourceSpanRole,
     TrustedReviewActor,
 )
+from aijian_api.engineering_test_export_schema import ENGINEERING_TEST_EXPORT_MIGRATION
 from aijian_api.episode_schema import MIGRATION_17
+from aijian_api.episode_script_confirmation_schema import EPISODE_SCRIPT_CONFIRMATION_MIGRATION
+from aijian_api.episode_script_schema import EPISODE_SCRIPT_MIGRATION
+from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
+from aijian_api.episode_storyboard_schema import EPISODE_STORYBOARD_MIGRATION
+from aijian_api.draft_export_schema import DRAFT_EXPORT_MIGRATION
+from aijian_api.draft_review_schema import DRAFT_REVIEW_MIGRATION
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
+from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
+from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
+from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
-from aijian_api.provider_schema import MIGRATION_7, migration_20_statements
+from aijian_api.project_creative_library_schema import PROJECT_CREATIVE_LIBRARY_MIGRATION
+from aijian_api.project_settings_schema import PROJECT_SETTINGS_MIGRATION
+from aijian_api.provider_credential_ref_schema import PROVIDER_CREDENTIAL_REF_MIGRATION
+from aijian_api.provider_origin_mode_schema import PROVIDER_ORIGIN_MODE_MIGRATION
+from aijian_api.provider_schema import (
+    MIGRATION_7,
+    migration_20_statements,
+    migration_22_statements,
+)
 from aijian_api.remote_settlement_contracts import migration_21_statements
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
     SourceManifestContentV1,
     SourceManifestDocumentV1,
 )
+from aijian_api.sub2api_source_extract_schema import migration_23_statements
 from aijian_api.workflow_schema import (
     MIGRATION_4,
     MIGRATION_5,
@@ -83,7 +104,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 38
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -801,6 +822,23 @@ _MIGRATIONS = {
     19: migration_19_statements(),
     20: migration_20_statements(),
     21: migration_21_statements(),
+    22: migration_22_statements(),
+    23: migration_23_statements(),
+    24: EPISODE_SCRIPT_MIGRATION,
+    25: migration_25_statements(),
+    26: MEDIA_ASSET_MIGRATION,
+    27: RIGHTS_DECISION_MIGRATION,
+    28: PRODUCT_EXPORT_MIGRATION,
+    29: EPISODE_SCRIPT_CONFIRMATION_MIGRATION,
+    30: MEDIA_ASSET_PROBE_MIGRATION,
+    31: PROVIDER_CREDENTIAL_REF_MIGRATION + ENGINEERING_TEST_EXPORT_MIGRATION,
+    32: PROJECT_SETTINGS_MIGRATION,
+    33: PROVIDER_ORIGIN_MODE_MIGRATION,
+    34: PROJECT_CREATIVE_LIBRARY_MIGRATION,
+    35: EPISODE_STORYBOARD_MIGRATION,
+    36: DRAFT_EXPORT_MIGRATION,
+    37: OFFICIAL_TEXT_MIGRATION,
+    38: DRAFT_REVIEW_MIGRATION,
 }
 
 
@@ -1124,7 +1162,7 @@ class StudioRepository:
             while version < SCHEMA_VERSION:
                 next_version = version + 1
                 statements = _MIGRATIONS[next_version]
-                rebuild_with_foreign_keys_disabled = next_version in {19, 20}
+                rebuild_with_foreign_keys_disabled = next_version in {19, 20, 22, 24, 31, 33}
                 if next_version == 3:
                     challenge_columns = {
                         str(row["name"])
@@ -1136,9 +1174,14 @@ class StudioRepository:
                         statements = _LEGACY_V2_CHALLENGE_COLUMNS + statements
                 if next_version == 5:
                     self._validate_v5_enqueue_keys(connection)
+                original_legacy_alter = int(
+                    connection.execute("PRAGMA legacy_alter_table").fetchone()[0]
+                )
                 try:
                     if rebuild_with_foreign_keys_disabled:
                         connection.execute("PRAGMA foreign_keys = OFF")
+                        # Preserve cross-table trigger references during create/copy/drop/rename.
+                        connection.execute("PRAGMA legacy_alter_table = ON")
                         if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 0:
                             raise RuntimeError(
                                 f"Migration v{next_version} could not disable foreign keys"
@@ -1167,6 +1210,7 @@ class StudioRepository:
                     raise
                 finally:
                     if rebuild_with_foreign_keys_disabled:
+                        connection.execute(f"PRAGMA legacy_alter_table = {original_legacy_alter}")
                         connection.execute("PRAGMA foreign_keys = ON")
                         if int(connection.execute("PRAGMA foreign_keys").fetchone()[0]) != 1:
                             raise RuntimeError(
@@ -1551,7 +1595,7 @@ class StudioRepository:
         artifact_row = connection.execute(
             """
             SELECT * FROM artifacts
-            WHERE project_id = ? AND artifact_type = 'source_manifest'
+            WHERE project_id = ? AND artifact_type = 'source_manifest' AND episode_id IS NULL
             """,
             (project_id,),
         ).fetchone()
@@ -1561,7 +1605,8 @@ class StudioRepository:
             version_number = 1
             parent_version_id = None
             connection.execute(
-                "INSERT INTO artifacts VALUES (?, ?, 'source_manifest', ?)",
+                "INSERT INTO artifacts (artifact_id, project_id, artifact_type, created_at) "
+                "VALUES (?, ?, 'source_manifest', ?)",
                 (artifact_id, project_id, _timestamp(created_at)),
             )
         else:
@@ -1709,6 +1754,7 @@ class StudioRepository:
         producer_attempt_id: str | None = None,
         _transaction_connection: sqlite3.Connection | None = None,
         _manage_transaction: bool = True,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an immutable artifact version and conditionally move its latest head."""
 
@@ -1728,6 +1774,15 @@ class StudioRepository:
                 ).fetchone()
                 if project is None:
                     raise ProjectNotFoundError("Project was not found")
+                if (
+                    episode_id is not None
+                    and connection.execute(
+                        "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
+                        (project_id, episode_id),
+                    ).fetchone()
+                    is None
+                ):
+                    raise EpisodeNotFoundError("Episode was not found")
                 if producer_attempt_id is not None:
                     producer = connection.execute(
                         """
@@ -1852,8 +1907,9 @@ class StudioRepository:
                 version_id = self._id_factory("ver")
 
                 artifact_row = connection.execute(
-                    "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ?",
-                    (project_id, artifact_type),
+                    "SELECT * FROM artifacts WHERE project_id = ? AND artifact_type = ? "
+                    "AND episode_id IS ?",
+                    (project_id, artifact_type, episode_id),
                 ).fetchone()
                 if artifact_row is None:
                     if expected_revision is not None or parent_version_id is not None:
@@ -1861,8 +1917,16 @@ class StudioRepository:
                     artifact_id = self._id_factory("art")
                     version_number = 1
                     connection.execute(
-                        "INSERT INTO artifacts VALUES (?, ?, ?, ?)",
-                        (artifact_id, project_id, artifact_type, _timestamp(created_at)),
+                        "INSERT INTO artifacts "
+                        "(artifact_id, project_id, artifact_type, created_at, episode_id) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (
+                            artifact_id,
+                            project_id,
+                            artifact_type,
+                            _timestamp(created_at),
+                            episode_id,
+                        ),
                     )
                 else:
                     artifact_id = str(artifact_row["artifact_id"])
@@ -2045,11 +2109,13 @@ class StudioRepository:
         content_resolver: ArtifactContentResolver | None = None,
         record_validator: ArtifactRecordValidator | None = None,
         producer_attempt_id: str | None = None,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         """Append an ArtifactVersion inside an already-owned transaction."""
 
         return self.create_artifact_version(
             project_id=project_id,
+            episode_id=episode_id,
             artifact_type=artifact_type,
             schema_version=schema_version,
             content=content,
@@ -2214,7 +2280,9 @@ class StudioRepository:
                 "ProductionBrief focus blocks are outside the accepted SourceManifest"
             )
 
-    def get_artifact_head(self, project_id: str, artifact_type: str) -> ArtifactHead:
+    def get_artifact_head(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactHead:
         with self._connection() as connection:
             row = connection.execute(
                 """
@@ -2222,8 +2290,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
         if row is None:
             raise ArtifactConflictError("Artifact was not found")
@@ -2235,6 +2304,8 @@ class StudioRepository:
         artifact_type: str,
         version_id: str,
         payload_metrics_validator: ArtifactPayloadMetricsValidator | None = None,
+        *,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         with self._connection() as connection:
             try:
@@ -2246,6 +2317,7 @@ class StudioRepository:
                             project_id=project_id,
                             artifact_type=artifact_type,
                             version_id=version_id,
+                            episode_id=episode_id,
                         )
                     )
                 record = self._get_artifact_version_in_connection(
@@ -2253,6 +2325,7 @@ class StudioRepository:
                     project_id=project_id,
                     artifact_type=artifact_type,
                     version_id=version_id,
+                    episode_id=episode_id,
                 )
                 connection.commit()
             except Exception:
@@ -2267,6 +2340,7 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         version_id: str,
+        episode_id: str | None = None,
     ) -> ArtifactVersionPayloadMetrics:
         row = connection.execute(
             """
@@ -2285,9 +2359,9 @@ class StudioRepository:
             FROM artifact_versions
             JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
             WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
-                AND artifact_versions.version_id = ?
+                AND artifact_versions.version_id = ? AND artifacts.episode_id IS ?
             """,
-            (project_id, artifact_type, version_id),
+            (project_id, artifact_type, version_id, episode_id),
         ).fetchone()
         if row is None:
             raise ArtifactConflictError("Artifact version was not found")
@@ -2304,6 +2378,7 @@ class StudioRepository:
         project_id: str,
         artifact_type: str,
         version_id: str,
+        episode_id: str | None = None,
     ) -> ArtifactVersionRecord:
         version_row = connection.execute(
             """
@@ -2311,9 +2386,9 @@ class StudioRepository:
             FROM artifact_versions
             JOIN artifacts ON artifacts.artifact_id = artifact_versions.artifact_id
             WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
-                AND artifact_versions.version_id = ?
+                AND artifact_versions.version_id = ? AND artifacts.episode_id IS ?
             """,
-            (project_id, artifact_type, version_id),
+            (project_id, artifact_type, version_id, episode_id),
         ).fetchone()
         if version_row is None:
             raise ArtifactConflictError("Artifact version was not found")
@@ -2344,7 +2419,9 @@ class StudioRepository:
             dependencies=tuple(self._artifact_dependency_from_row(row) for row in dependency_rows),
         )
 
-    def get_latest_artifact(self, project_id: str, artifact_type: str) -> ArtifactVersionRecord:
+    def get_latest_artifact(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactVersionRecord:
         with self._connection() as connection:
             connection.execute("BEGIN")
             row = connection.execute(
@@ -2353,8 +2430,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
             if row is None:
                 connection.rollback()
@@ -2366,11 +2444,14 @@ class StudioRepository:
                 project_id=project_id,
                 artifact_type=artifact_type,
                 version_id=str(row["latest_version_id"]),
+                episode_id=episode_id,
             )
             connection.commit()
         return record
 
-    def get_artifact_role_index(self, project_id: str, artifact_type: str) -> ArtifactRoleIndex:
+    def get_artifact_role_index(
+        self, project_id: str, artifact_type: str, *, episode_id: str | None = None
+    ) -> ArtifactRoleIndex:
         """Read role pointers and their lightweight immutable metadata in one snapshot."""
         with self._connection() as connection:
             connection.execute("BEGIN")
@@ -2380,8 +2461,9 @@ class StudioRepository:
                 FROM artifact_heads
                 JOIN artifacts ON artifacts.artifact_id = artifact_heads.artifact_id
                 WHERE artifacts.project_id = ? AND artifacts.artifact_type = ?
+                    AND artifacts.episode_id IS ?
                 """,
-                (project_id, artifact_type),
+                (project_id, artifact_type, episode_id),
             ).fetchone()
             if head_row is None:
                 connection.rollback()

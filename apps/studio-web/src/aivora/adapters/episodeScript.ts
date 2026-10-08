@@ -226,6 +226,19 @@ export function closeScriptJournal(
   } catch { return false; }
 }
 
+/** JSON object key order may differ between the write receipt and stored readback. */
+function sameScriptJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length &&
+      left.every((item, index) => sameScriptJson(item, right[index]));
+  }
+  if (!record(left) || !record(right)) return false;
+  const fields = Object.keys(left);
+  return fields.length === Object.keys(right).length && fields.every((field) =>
+    Object.hasOwn(right, field) && sameScriptJson(left[field], right[field]));
+}
+
 export async function saveScriptVersion(
   gateway: ScriptGateway, storage: StoragePort, projectId: string, episodeId: string,
   command: ScriptWriteCommand,
@@ -259,7 +272,7 @@ export async function saveScriptVersion(
         exact.receipt.data.version_id !== version.version_id ||
         exact.receipt.data.head_revision !== version.head_revision ||
         exact.receipt.data.content_hash !== version.content_hash ||
-        JSON.stringify(exact.receipt.data.content) !== JSON.stringify(version.content))
+        !sameScriptJson(exact.receipt.data.content, version.content))
       return { kind: "UNKNOWN" };
     if (!closeScriptJournal(storage, projectId, episodeId, command.operation_id))
       return { kind: "UNKNOWN" };

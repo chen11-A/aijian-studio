@@ -8,6 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: [
+        "src/chatgpt-auth-{oauth,callback,http,inference,storage,ipc,runtime,generation}.ts",
         "src/api-client.ts",
         "src/api-contract-guards.ts",
         "src/health-contract.ts",

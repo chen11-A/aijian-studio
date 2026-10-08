@@ -80,6 +80,8 @@ class Sub2APISourceExtractInvocationBuilder:
         ):
             raise PermissionError("Sub2API source context is detached from queued truth")
         connection = self._connections.get(selection.connection_id)
+        if connection.origin_mode is None:
+            raise PermissionError("Sub2API provider origin mode is missing")
         origin_hash = canonical_sha256(
             sub2api_origin_binding(
                 connection.base_url, connection.origin_mode, connection.revision

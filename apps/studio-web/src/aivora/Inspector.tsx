@@ -1,7 +1,9 @@
 import { Button, Tabs } from "./Common";
 import { Logo } from "./Icon";
 import { pages } from "./data";
-import { shotAtTime } from "./model";
+import { ManualCreativeInspector } from "./ManualCreativeEditor";
+import { ProductionInspector } from "./ProductionInspector";
+import { shotAtTime, useDemo } from "./model";
 import { mediaTimecode } from "./MediaPages";
 import { useCurrentObject } from "./useCurrentObject";
 import "./v2-inspector.css";
@@ -28,6 +30,14 @@ const spec = (key: string, label: string, fallback: string, options?: string[]):
 });
 
 export function Inspector() {
+  const d = useDemo();
+  if (!d.isFixture && ["characters", "character", "world", "scenes"].includes(d.page))
+    return <ManualCreativeInspector />;
+  if (!d.isFixture) return <ProductionInspector />;
+  return <CurrentObjectInspector />;
+}
+
+function CurrentObjectInspector() {
   const o = useCurrentObject();
   const { d, shot, person, family, field, putField } = o;
   const tabs =

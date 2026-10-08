@@ -303,24 +303,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("web transport routes ProductionBrief reads to public GET endpoints without a write fallback", async () => {
+test("web transport routes ProductionBrief reads through guarded local endpoints and offers draft writes", async () => {
   delete window.aijian;
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce(
-      Response.json({ error: { code: "ARTIFACT_NOT_FOUND" } }, { status: 404 }),
+      Response.json({ error: { code: "ARTIFACT_NOT_FOUND", message: "Not found", retryable: false,
+        details: {} }, request_id: requestId }, { status: 404, headers: { "X-Request-ID": requestId } }),
     )
     .mockResolvedValueOnce(Response.json({ data: { version: { id: `ver_${"b".repeat(32)}` } } }));
   vi.stubGlobal("fetch", fetchMock);
   const transport = createStudioTransport();
   await expect(transport.getProductionBrief!(project.id)).resolves.toBeNull();
-  await transport.getProductionBriefVersion!(project.id, `ver_${"b".repeat(32)}`);
+  await expect(transport.getProductionBriefVersion!(project.id, `ver_${"b".repeat(32)}`))
+    .rejects.toThrow("Production brief read could not be verified");
   expect(fetchMock.mock.calls[0]![0]).toBe(`/api/v1/projects/${project.id}/production-brief`);
   expect(fetchMock.mock.calls[0]![1]).not.toMatchObject({ method: "POST" });
   expect(fetchMock.mock.calls[1]![0]).toBe(
     `/api/v1/projects/${project.id}/production-brief/versions/ver_${"b".repeat(32)}`,
   );
-  expect(transport.createProductionBriefVersion).toBeUndefined();
+  expect(transport.createProductionBriefVersion).toBeTypeOf("function");
 });
 
 describe("studio transport", () => {
@@ -1133,10 +1135,10 @@ describe("studio transport", () => {
     expect(window.aijian!.createFakeTimelineRun).toHaveBeenCalledOnce();
   });
 
-  test("does not offer a partial or browser episode capability", async () => {
+  test("offers browser episodes while rejecting a partial desktop capability", async () => {
     const fetcher = vi.fn().mockResolvedValue(Response.json(health));
     vi.stubGlobal("fetch", fetcher);
-    expect(createStudioTransport().episodes).toBeUndefined();
+    expect(createStudioTransport().episodes).toBeDefined();
 
     const bridge = {
       listEpisodes: vi.fn(),

@@ -1,6 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
+import { readChatGPTStatus } from "./chatgpt-auth/transport";
+import {
+  FirstRunServiceChoice,
+  hasServiceEntryChoice,
+  rememberServiceEntryChoice,
+  type FirstRunServiceChoiceKind,
+} from "./FirstRunServiceChoice";
 import { stages } from "./data";
 import { useDemo } from "./model";
 import { Button, FlowFooter, Pill } from "./Common";
@@ -35,6 +42,41 @@ export function HomePages() {
   const file = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("全部");
+  const [serviceChoiceOpen, setServiceChoiceOpen] = useState(false);
+  const [serviceChoiceNotice, setServiceChoiceNotice] = useState("");
+  const [checkingServiceEntry, setCheckingServiceEntry] = useState(false);
+  const loadingServiceEntry = !d.isFixture && d.providerSettings.state.kind === "loading";
+  const enterWorkbench = async () => {
+    if (checkingServiceEntry) return;
+    if (d.isFixture || hasServiceEntryChoice() ||
+      (d.providerSettings.state.kind === "ready" && d.providerSettings.state.response.data.length > 0)) {
+      d.go("home");
+      return;
+    }
+    setCheckingServiceEntry(true);
+    let alreadyConnected = false;
+    try {
+      const status = await readChatGPTStatus();
+      alreadyConnected = status.state === "CONNECTED" || status.state === "IDENTITY_ONLY";
+    } catch {
+      // Reading status never grants access and failure must not block local work.
+    }
+    setCheckingServiceEntry(false);
+    if (live.current.page !== "launch") return;
+    if (alreadyConnected) d.go("home");
+    else {
+      setServiceChoiceNotice(d.providerSettings.state.kind === "error"
+        ? "已有 API 配置暂时无法读取；可继续本地创作，或到 AI 服务中重新读取。" : "");
+      setServiceChoiceOpen(true);
+    }
+  };
+  const selectServiceEntry = (choice: FirstRunServiceChoiceKind) => {
+    const remembered = rememberServiceEntryChoice(choice);
+    setServiceChoiceOpen(false);
+    d.put("serviceEntry", choice);
+    if (!remembered) d.notify("本机无法保存入口偏好，下次启动可能再次显示选择；作品数据不受影响。");
+    d.go(choice === "offline" ? "home" : "services");
+  };
   const newProject = () =>
     d.edit(
       "新建项目",
@@ -55,7 +97,12 @@ export function HomePages() {
           target_duration_seconds: 60,
           source_language: "zh-CN",
         });
-        if (outcome.kind === "SUCCEEDED") d.go("source");
+        if (outcome.kind === "SUCCEEDED") {
+          const inspiration = data.input?.trim() ?? "";
+          d.put("input", inspiration);
+          d.put("c3DraftIntent", inspiration ? "original" : "");
+          d.go("source");
+        }
         return outcome.kind === "SUCCEEDED" ? undefined : false;
       },
     );
@@ -64,21 +111,28 @@ export function HomePages() {
       title: "新建剧集",
       fields: [{ key: "title", label: "剧集名称", value: "", required: true }],
       confirm: "创建剧集",
-      save: (data) => {
+      save: async (data) => {
         const title = data.title?.trim();
         if (!title) return false;
-        void d.createRealEpisode({ title });
+        const outcome = await d.createRealEpisode({ title });
+        if (outcome.kind !== "SUCCEEDED") {
+          d.notify(outcome.kind === "REMOTE_UNKNOWN"
+            ? "创建结果待确认，请关闭窗口并刷新剧集列表核对。"
+            : "剧集未创建，请核对名称和工作区连接后重试。");
+          return false;
+        }
+        d.notify("剧集已创建并读回，可以开始编写剧本。");
+        d.go("script");
       },
     });
-  const openProject = (id: number) => {
+  const openProject = async (id: number) => {
     const project = d.projects.find((item) => item.id === id);
     if (!project) return;
     if (!project.backendId) {
       d.notify("该项目没有本地工作区标识，无法打开。");
       return;
     }
-    void d.selectRealProject(id);
-    d.go("project");
+    if (await d.selectRealProject(id)) d.go("project");
   };
   const showManagedProject = (project: ProjectData) => {
     const current = live.current;
@@ -175,7 +229,7 @@ export function HomePages() {
             : "收藏尚无持久合同；未修改项目或界面状态。");
           return false;
         }
-        if (!targetName || [...targetName].length > 80 || /[\u0000-\u001f\u007f]/.test(targetName)) {
+        if (!targetName || [...targetName].length > 80 || [...targetName].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
           d.notify("项目名称需为 1 至 80 个字符且不能含控制字符。");
           return false;
         }
@@ -240,10 +294,16 @@ export function HomePages() {
       onChange={(event) => {
         const selected = event.target.files?.[0];
         if (selected) void d.importRealSource(selected);
+        event.target.value = "";
       }}
     />
   );
-  const importOptions = () =>
+  const importOptions = () => {
+    if (!d.isFixture) {
+      if (!d.backendProjectId) newProject();
+      else d.go("source");
+      return;
+    }
     d.setEditor({
       title: "从已有内容开始",
       description: "选择一个已有入口。导入来源需要先连接本地工作区。",
@@ -273,6 +333,7 @@ export function HomePages() {
         }
       },
     });
+  };
   const header = (title: string) => (
     <header className="page-title v2-home-heading">
       <div>
@@ -291,7 +352,7 @@ export function HomePages() {
             项目中心
           </Button>
         )}
-        <Button onClick={() => d.go("project")}>
+        <Button onClick={() => d.go(d.page === "project" ? "projectSettings" : "project")}>
           {d.page === "project" ? "项目设置" : "返回项目"}
         </Button>
       </div>
@@ -353,10 +414,10 @@ export function HomePages() {
           </div>
           <h1>把故事，变成看得见的世界。</h1>
           <p>一个创作入口，走完故事、角色与世界、分镜、制作和审片。</p>
-          <Button primary disabled={d.scenario === "loading"} onClick={() => d.go("home")}>
-            {d.scenario === "loading" ? "正在初始化" : "进入 UI 演示"}
+          <Button primary disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry} onClick={() => void enterWorkbench()}>
+            {checkingServiceEntry || loadingServiceEntry ? "正在读取连接状态" : d.scenario === "loading" ? "正在初始化" : d.isFixture ? "进入 UI 演示" : "进入创作工作台"}
           </Button>
-          <Pill>本地样例 · 不调用生成服务</Pill>
+          <Pill>{d.isFixture ? "本地样例 · 不调用生成服务" : "本地作品 · 创作内容保存在工作区"}</Pill>
           {d.scenario === "error" && (
             <div className="v2-launch-error" role="alert">
               初始化失败，入口仍保留。<Button onClick={() => d.setScenario("normal")}>重试</Button>
@@ -364,6 +425,11 @@ export function HomePages() {
           )}
           <small>DESKTOP CREATOR / V2.0</small>
         </div>
+        {serviceChoiceOpen && <FirstRunServiceChoice
+          onSelect={selectServiceEntry}
+          onClose={() => setServiceChoiceOpen(false)}
+          notice={serviceChoiceNotice}
+        />}
       </div>
     );
   if (d.page === "home")
@@ -378,8 +444,9 @@ export function HomePages() {
               欢迎回来，{d.value("userName", "陈")}
             </h2>
             <button className="v2-welcome-copy" onClick={importOptions}>
-              继续已有的演示项目，或从一段故事开始。
+              {d.isFixture ? "继续已有的演示项目，或从一段故事开始。" : "打开已有作品，或从原创灵感和来源文本开始。"}
             </button>
+            <div className="v2-welcome-actions">
             <Button primary onClick={newProject}>
               新建项目
             </Button>
@@ -393,6 +460,7 @@ export function HomePages() {
                   ? "正在连接"
                   : "连接本地工作区"}
             </Button>
+            </div>
           </section>
           <div className="v2-recent-heading">
             <h2>最近项目</h2>
@@ -406,7 +474,7 @@ export function HomePages() {
                     <button className="v2-recent-art" onClick={() => openProject(project.id)}>
                       <img
                         src={projectImages[project.id - 1] ?? project.image}
-                        alt={`${project.name}封面`}
+                        alt={d.isFixture ? `${project.name}封面` : "项目占位插画（非作品产物）"}
                       />
                     </button>
                     <div>
@@ -423,7 +491,7 @@ export function HomePages() {
                 </div>
               ))}
           </div>
-          <p className="v2-home-foot">项目列表来自本地工作区；界面不声明视频、费用或发布状态。</p>
+          <p className="v2-home-foot">项目列表来自本地工作区；封面为占位插画，制作状态以已保存产物为准。</p>
         </div>
       </div>
     );
@@ -581,10 +649,12 @@ export function HomePages() {
             {state("还没有视觉参考") ?? (
               <button
                 onClick={() =>
-                  d.setEditor({ title: `${d.value("title")} · 参考插画`, image: storyArt })
+                  d.setEditor({ title: d.isFixture ? `${d.value("title")} · 参考插画`
+                    : "界面占位插画（非作品产物）", image: storyArt })
                 }
               >
-                <img src={storyArt} alt={`${d.value("title")}参考插画`} />
+                <img src={storyArt} alt={d.isFixture ? `${d.value("title")}参考插画`
+                  : "界面占位插画（非作品产物）"} />
               </button>
             )}
           </div>
@@ -601,6 +671,7 @@ export function HomePages() {
               </p>
             </section>
             <Button onClick={() => d.go("projectSettings")}>项目设置</Button>
+            <Button onClick={() => d.go("source")}>来源与原创灵感</Button>
             <Button onClick={() => d.go("script")}>查看剧本</Button>
           </div>
         </div>
@@ -618,7 +689,9 @@ export function HomePages() {
             <ul>
               {d.episodes.map((episode) => (
                 <li key={episode.id}>
-                  <Button onClick={() => void d.selectRealEpisode(episode.id)}>
+                  <Button onClick={async () => {
+                    if (await d.selectRealEpisode(episode.id)) d.go("script");
+                  }}>
                     {episode.title}
                   </Button>
                   {d.selectedEpisodeId === episode.id ? " · 当前剧集" : ""}
@@ -630,7 +703,8 @@ export function HomePages() {
           )}
           <div className="actions">
             <Button onClick={() => void d.refreshRealEpisodes()}>刷新剧集列表</Button>
-            <Button onClick={newEpisode} disabled={d.episodeState === "storage-error"}>
+            <Button onClick={newEpisode} disabled={d.episodeState === "storage-error" ||
+              d.episodeState === "loading" || d.episodeCreateInFlight || !!d.episodeCreateMarker}>
               新建剧集
             </Button>
             {d.episodeCreateMarker && d.episodeState === "ready" && (
@@ -657,22 +731,24 @@ export function HomePages() {
                 <Icon name={["book", "users", "film", "spark", "review"][index]!} size={16} />
                 {stage.label}
               </h2>
-              <span>{["样例初稿", "参考样例", "静帧预演", "未接入服务", "批注示例"][index]}</span>
+              <span>{d.isFixture
+                ? ["样例初稿", "参考样例", "静帧预演", "未接入服务", "批注示例"][index]
+                : "以已保存产物与任务为准"}</span>
               <p>
-                可浏览界面
+                {d.isFixture ? "可浏览界面" : "打开阶段工作区"}
                 <br />
-                不触发生成
+                {d.isFixture ? "不触发生成" : "任务需另行确认"}
               </p>
             </button>
           ))}
         </div>
       </div>
       <FlowFooter
-        label="继续故事理解"
-        action={() => d.go("story")}
+        label={d.isFixture ? "继续故事理解" : "继续编写剧本"}
+        action={() => d.go(d.isFixture ? "story" : "script")}
         secondaryLabel="项目中心"
         secondaryAction={() => d.go("projects")}
-        reason="保持五阶段 · 演示数据独立"
+        reason={d.isFixture ? "保持五阶段 · 演示数据独立" : "按当前作品与剧集保存版本"}
       />
     </div>
   );

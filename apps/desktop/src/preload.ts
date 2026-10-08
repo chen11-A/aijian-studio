@@ -1,3 +1,10 @@
+import type { CreateDraftReviewNoteRequest, ResolveDraftReviewNoteRequest, DraftReviewResult } from "./draft-review-contract";
+import type { OfficialTextBridge } from "@aijian/contracts/official-text";
+import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
+import type { DraftExportPreviewResult, DraftExportRevealResult, DraftExportCommand, DraftExportListResult, DraftExportResult, DraftExportSubmitResult } from "./draft-export-contract";
+import type {
+  CreateEpisodeMediaAssemblyVersionRequest, EpisodeMediaAssemblyResult, EpisodeMediaAssemblyWriteResult,
+} from "./episode-media-assembly-contract";
 import type { components } from "@aijian/contracts";
 import type {
   CreateEpisodeInput,
@@ -43,6 +50,14 @@ import type {
   RotateSub2APIKeyCommand,
   Sub2APIConnectionMutationResult,
   Sub2APIRotationReadResult,
+  CreateProjectCreativeLibraryVersionRequest,
+  ProjectCreativeLibraryLatestResult,
+  ProjectCreativeLibraryVersionResult,
+  ProjectCreativeLibraryCreateResult,
+  CreateEpisodeStoryboardVersionRequest,
+  EpisodeStoryboardCreateResult,
+  EpisodeStoryboardLatestResult,
+  EpisodeStoryboardVersionResult,
   CreateEpisodeScriptVersionRequest,
   EpisodeScriptCreateResult,
   EpisodeScriptLatestResult,
@@ -125,6 +140,25 @@ type ProductionBriefCreateResult =
   | { kind: "SUCCEEDED"; receipt: ProductionBriefResponse }
   | { kind: "DEFINITE_SERVER_ERROR"; status: 409 | 422 | 428; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
+
+// Separate renderer-safe official login surface. Credentials and callback values never cross IPC.
+contextBridge.exposeInMainWorld("aijianChatGPT", {
+  status: () => ipcRenderer.invoke("chatgpt-auth:status"),
+  signIn: (scope, profileId) => ipcRenderer.invoke("chatgpt-auth:sign-in", scope, profileId),
+  cancel: () => ipcRenderer.invoke("chatgpt-auth:cancel"),
+  selectProfile: (profileId) => ipcRenderer.invoke("chatgpt-auth:select", profileId),
+  signOut: () => ipcRenderer.invoke("chatgpt-auth:sign-out"),
+  models: () => ipcRenderer.invoke("chatgpt-auth:models"),
+  openHelp: (topic) => ipcRenderer.invoke("chatgpt-auth:help", topic),
+} satisfies ChatGPTBridge);
+
+// Trusted proposal surface. There is deliberately no renderer completion/reservation endpoint.
+contextBridge.exposeInMainWorld("aijianOfficialText", {
+  list: (project, episode) => ipcRenderer.invoke("official-text:list", project, episode),
+  get: (project, episode, operation) => ipcRenderer.invoke("official-text:get", project, episode, operation),
+  generate: (command) => ipcRenderer.invoke("official-text:generate", command),
+  adopt: (project, episode, operation, input) => ipcRenderer.invoke("official-text:adopt", project, episode, operation, input),
+} satisfies OfficialTextBridge);
 
 contextBridge.exposeInMainWorld("aijian", {
   getAppPreferences: (): Promise<AppPreferencesReadResult> =>
@@ -449,6 +483,70 @@ contextBridge.exposeInMainWorld("aijian", {
   ): Promise<Sub2APIRotationReadResult> =>
     ipcRenderer.invoke("providers:read-sub2api-rotation", connectionId, operationId) as
       Promise<Sub2APIRotationReadResult>,
+  getProjectCreativeLibrary: (
+    projectId: string,
+  ): Promise<ProjectCreativeLibraryLatestResult> =>
+    ipcRenderer.invoke("project-creative-library:latest", projectId) as
+      Promise<ProjectCreativeLibraryLatestResult>,
+  getProjectCreativeLibraryVersion: (
+    projectId: string, versionId: string,
+  ): Promise<ProjectCreativeLibraryVersionResult> =>
+    ipcRenderer.invoke("project-creative-library:version", projectId, versionId) as
+      Promise<ProjectCreativeLibraryVersionResult>,
+  createProjectCreativeLibraryVersion: (
+    projectId: string, idempotencyKey: string,
+    payload: CreateProjectCreativeLibraryVersionRequest,
+  ): Promise<ProjectCreativeLibraryCreateResult> =>
+    ipcRenderer.invoke("project-creative-library:create-version", projectId,
+      idempotencyKey, payload) as Promise<ProjectCreativeLibraryCreateResult>,
+  readDraftExportPreview: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportPreviewResult> =>
+    ipcRenderer.invoke("draft-exports:preview", projectId, episodeId, operationId) as Promise<DraftExportPreviewResult>,
+  revealDraftExportOutput: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportRevealResult> =>
+    ipcRenderer.invoke("draft-exports:reveal-output", projectId, episodeId, operationId) as Promise<DraftExportRevealResult>,
+  listDraftReviewNotes: (projectId: string, episodeId: string, operationId: string): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke("draft-review:list", projectId, episodeId, operationId) as Promise<DraftReviewResult>,
+  createDraftReviewNote: (projectId: string, episodeId: string, operationId: string, command: CreateDraftReviewNoteRequest): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke("draft-review:create-note", projectId, episodeId, operationId, command) as Promise<DraftReviewResult>,
+  resolveDraftReviewNote: (projectId: string, episodeId: string, operationId: string, noteId: string, command: ResolveDraftReviewNoteRequest): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke("draft-review:resolve-note", projectId, episodeId, operationId, noteId, command) as Promise<DraftReviewResult>,
+  listDraftExports: (projectId: string, episodeId: string): Promise<DraftExportListResult> =>
+    ipcRenderer.invoke("draft-exports:list", projectId, episodeId) as Promise<DraftExportListResult>,
+  getDraftExport: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportResult> =>
+    ipcRenderer.invoke("draft-exports:get", projectId, episodeId, operationId) as Promise<DraftExportResult>,
+  createDraftCompositionPreview: (projectId: string, episodeId: string, command: DraftExportCommand): Promise<DraftExportSubmitResult> =>
+    ipcRenderer.invoke("draft-exports:create-composition-preview", projectId, episodeId, command) as Promise<DraftExportSubmitResult>,
+  createDraftExportFromPicker: (projectId: string, episodeId: string, command: DraftExportCommand): Promise<DraftExportSubmitResult> =>
+    ipcRenderer.invoke("draft-exports:create-from-picker", projectId, episodeId, command) as Promise<DraftExportSubmitResult>,
+  cancelDraftExport: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportResult> =>
+    ipcRenderer.invoke("draft-exports:cancel", projectId, episodeId, operationId) as Promise<DraftExportResult>,
+  readLatestEpisodeMediaAssembly: (
+    projectId: string, episodeId: string,
+  ): Promise<EpisodeMediaAssemblyResult> =>
+    ipcRenderer.invoke("episode-media-assembly:latest", projectId, episodeId) as Promise<EpisodeMediaAssemblyResult>,
+  getEpisodeMediaAssemblyVersion: (
+    projectId: string, episodeId: string, versionId: string,
+  ): Promise<EpisodeMediaAssemblyResult> =>
+    ipcRenderer.invoke("episode-media-assembly:version", projectId, episodeId, versionId) as Promise<EpisodeMediaAssemblyResult>,
+  createEpisodeMediaAssemblyVersion: (
+    projectId: string, episodeId: string, payload: CreateEpisodeMediaAssemblyVersionRequest,
+  ): Promise<EpisodeMediaAssemblyWriteResult> =>
+    ipcRenderer.invoke("episode-media-assembly:create-version", projectId, episodeId, payload) as Promise<EpisodeMediaAssemblyWriteResult>,
+  getEpisodeStoryboard: (
+    projectId: string, episodeId: string,
+  ): Promise<EpisodeStoryboardLatestResult> =>
+    ipcRenderer.invoke("episode-storyboard:latest", projectId, episodeId) as
+      Promise<EpisodeStoryboardLatestResult>,
+  getEpisodeStoryboardVersion: (
+    projectId: string, episodeId: string, versionId: string,
+  ): Promise<EpisodeStoryboardVersionResult> =>
+    ipcRenderer.invoke("episode-storyboard:version", projectId, episodeId, versionId) as
+      Promise<EpisodeStoryboardVersionResult>,
+  createEpisodeStoryboardVersion: (
+    projectId: string, episodeId: string, idempotencyKey: string,
+    payload: CreateEpisodeStoryboardVersionRequest,
+  ): Promise<EpisodeStoryboardCreateResult> =>
+    ipcRenderer.invoke("episode-storyboard:create-version", projectId, episodeId,
+      idempotencyKey, payload) as Promise<EpisodeStoryboardCreateResult>,
   getEpisodeScript: (
     projectId: string, episodeId: string,
   ): Promise<EpisodeScriptLatestResult> =>
