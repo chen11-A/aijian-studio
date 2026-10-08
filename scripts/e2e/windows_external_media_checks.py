@@ -27,12 +27,13 @@ import urllib.error
 import urllib.request
 import wave
 import zlib
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 _STAGE = "startup"
+_COMPLETED_CHECKS: dict = {}
 sys.path.insert(0, str(ROOT / "services/api/src"))
 from aijian_api import external_media_process as media  # noqa: E402
 from aijian_api.product_export_windows_job import ProductExportJobManager  # noqa: E402
@@ -458,6 +459,15 @@ def request(handshake: dict, method: str, path: str, body=None) -> tuple[int, di
         return response.status, json.loads(raw)
 
 
+def assert_empty_formal_ledger(database: Path) -> None:
+    # sqlite3.Connection.__exit__ ends transactions but does not close handles.
+    # Close before the enclosing Windows TemporaryDirectory removes the DB.
+    with closing(sqlite3.connect(database)) as connection:
+        assert (
+            connection.execute("SELECT COUNT(*) FROM product_export_operations").fetchone()[0] == 0
+        )
+
+
 def frozen_policy(resources: Path, root: Path) -> dict:
     helper = load_component_smoke()
     results = []
@@ -523,11 +533,7 @@ def frozen_policy(resources: Path, root: Path) -> dict:
                 },
             )
             assert status == 409 and body["error"]["code"] == "RELEASE_TOOLCHAIN_NOT_APPROVED"
-        with sqlite3.connect(workspace / "workspace.sqlite3") as connection:
-            assert (
-                connection.execute("SELECT COUNT(*) FROM product_export_operations").fetchone()[0]
-                == 0
-            )
+        assert_empty_formal_ledger(workspace / "workspace.sqlite3")
     return {
         "result": "PASS",
         "frozen_override_variables_rejected": results,
@@ -697,8 +703,10 @@ def main() -> None:
             raise ValueError("Refuse pre-existing machine media settings")
         _STAGE = "actual_windows_process_boundary"
         boundary = process_boundary(root)
+        _COMPLETED_CHECKS["process_boundary"] = boundary
         _STAGE = "actual_frozen_policy_refusal"
         policy = frozen_policy(resources, root)
+        _COMPLETED_CHECKS["frozen_policy_refusal"] = policy
         _STAGE = "generate_synthetic_inputs"
         files = generate_inputs(root, work)
         value = {
@@ -771,6 +779,7 @@ if __name__ == "__main__":
                         "stage": _STAGE,
                         "failure_type": type(error).__name__,
                         "message": str(error)[:500],
+                        "completed_checks": _COMPLETED_CHECKS,
                         "candidate_head": os.environ.get("GITHUB_SHA"),
                         "release_approved": False,
                     },

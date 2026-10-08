@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import sqlite3
 import struct
 import tempfile
 import unittest
@@ -26,6 +27,25 @@ installed = load("installed_external_media", ROOT / "packaging/windows/test-inst
 
 
 class HostChecks(unittest.TestCase):
+    def test_formal_ledger_handle_closes_before_temporary_workspace_cleanup(self):
+        for row_count in (0, 1):
+            with self.subTest(row_count=row_count), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary).resolve(strict=True) / "workspace.sqlite3"
+                connection = sqlite3.connect(path)
+                connection.execute("CREATE TABLE product_export_operations(id INTEGER)")
+                if row_count:
+                    connection.execute("INSERT INTO product_export_operations VALUES (1)")
+                connection.commit()
+                with patch.object(checks.sqlite3, "connect", return_value=connection):
+                    if row_count:
+                        with self.assertRaises(AssertionError):
+                            checks.assert_empty_formal_ledger(path)
+                    else:
+                        checks.assert_empty_formal_ledger(path)
+                with self.assertRaises(sqlite3.ProgrammingError):
+                    connection.execute("SELECT 1")
+                path.unlink()  # Windows must release the actual DB file before cleanup.
+
     def test_nonwindows_host_never_admits_execution(self):
         with patch.object(checks.sys, "platform", "linux"):
             with self.assertRaises(RuntimeError):
@@ -122,6 +142,7 @@ class HostChecks(unittest.TestCase):
                             "stage": "actual_windows_process_boundary",
                             "failure_type": "ExternalMediaProcessError",
                             "message": "Private media directory DACL cannot be verified",
+                            "completed_checks": {"prior_check": {"result": "PASS"}},
                         }
                     )
                 )
@@ -146,6 +167,9 @@ class HostChecks(unittest.TestCase):
             self.assertEqual(receipt["result"], "FAIL")
             self.assertEqual(receipt["helper_failure"]["stage"], "actual_windows_process_boundary")
             self.assertFalse(receipt["release_approved"])
+            self.assertEqual(
+                receipt["helper_failure"]["completed_checks"], {"prior_check": {"result": "PASS"}}
+            )
 
 
 if __name__ == "__main__":

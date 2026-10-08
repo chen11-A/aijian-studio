@@ -120,7 +120,8 @@ def external_media_phase(args, executable: Path) -> dict | None:
                 details = json.loads(inputs.read_text(encoding="utf-8"))
                 if details.get("result") == "FAIL":
                     failure["helper_failure"] = {
-                        key: details.get(key) for key in ("stage", "failure_type", "message")
+                        key: details.get(key)
+                        for key in ("stage", "failure_type", "message", "completed_checks")
                     }
             with report.open("x", encoding="utf-8") as stream:
                 stream.write(json.dumps(failure, indent=2) + "\n")
