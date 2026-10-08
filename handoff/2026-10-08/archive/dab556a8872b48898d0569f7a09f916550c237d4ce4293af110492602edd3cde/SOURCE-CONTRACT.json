@@ -1,0 +1,70 @@
+{
+  "status": "STATIC_SOURCE_CAPTURE_RUNTIME_CONFIG_PENDING_NO_BUILD",
+  "author_root": "C:/Users/Administrator/.codex/worktrees/s2-q1-g1-d00-default-deny-59f-20260923/sp",
+  "inputs": [
+    {
+      "path": "packages/contracts/package.json",
+      "sha256": "0250A7EAFD2313FDE605D0F2D4069B174E1AE11743C4BFE4F22741947C6BF628",
+      "owner": "DEV01",
+      "modified": false
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "63BFC93F8F8FF68D34ABFED524C7EB75CCAFC76965B409368A740BF43A7B944F",
+      "owner": "DEV01",
+      "modified": false
+    },
+    {
+      "path": "packages/contracts/src/generated.ts",
+      "sha256": "EF283C663DEAA7CE90FF997A08B5186166F594C926A62F99611BEC15F91C3BA2",
+      "owner": "DEV01",
+      "modified": false
+    },
+    {
+      "path": "packages/contracts/src/artifact-proposal.ts",
+      "sha256": "687574B27677484885B6281DFDE64BA8505C93C25361AC0866D257F13571C7DF",
+      "owner": "DEV01",
+      "modified": false
+    },
+    {
+      "path": "packages/contracts/src/invalidation-operation.ts",
+      "sha256": "1C6E5981A794E5F462E93BA262C79CC8A7AD8EE75AAA38E991BDF4DDE425636F",
+      "owner": "DEV01",
+      "modified": false
+    }
+  ],
+  "runtime_config_owner": "DEV07",
+  "runtime_config_paths": [
+    "packages/contracts/tsconfig.runtime.json",
+    "scripts/build-contracts-runtime.mjs"
+  ],
+  "environment": {
+    "pnpm_lock_sha256": "B7BAC2466E4F52C7FAF23536041EC6F23BD7B0F7CC05898F4BF0E07A782603D1",
+    "node": ">=24 <25",
+    "pnpm": "11.9.0",
+    "compiler": "workspace lock-resolved TypeScript, QA must record actual version"
+  },
+  "required_outputs": [
+    "generated.js",
+    "generated.d.ts",
+    "artifact-proposal.js",
+    "artifact-proposal.d.ts",
+    "invalidation-operation.js",
+    "invalidation-operation.d.ts",
+    "package.json"
+  ],
+  "destination": "app/node_modules/@aijian/contracts",
+  "output_sha256": null,
+  "required_consumption": [
+    "CommonJS require @aijian/contracts/artifact-proposal and invalidation-operation",
+    "ESM named import same subpaths",
+    "TypeScript declaration resolution at all three package exports"
+  ],
+  "qa_gates": [
+    "fresh output directory; compilation exit zero; exact seven regular files",
+    "packaged exports resolve output js/d.ts not src.ts or workspace symlinks",
+    "actual desktop Node/Electron CJS require and ESM named imports both load expected validator functions",
+    "invalid validator fixture rejected; accepted shape fixture remains accepted",
+    "source hashes and output hashes recorded; preserve raw failed package/runtime evidence"
+  ]
+}

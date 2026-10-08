@@ -1,0 +1,21 @@
+{
+  "kind": "DEV08_MLT_RESOLVER_LONG_PATH_STATIC_REVIEW",
+  "status": "STATIC_REVIEW_ONLY_PENDING_CORE_QA_AND_NEGATIVE_QA",
+  "source_before_sha256": "8FC38278F13955526E9010475F8EE1189C15319362E9882B3B3D9E59F4D24BD3",
+  "source_after_sha256": "1D80A540465A4AF2F6F768A49E1193E4ADEA6A351814DE4EEE486153FED3ED45",
+  "helper_sha256": "78FCCE4F28FF720F6610AB72EEC2C5C5AB179E7BEB758B980610303B7CA9D7AC",
+  "conclusions": [
+    "Managed blob check uses helper for is_file/stat; MltFileIdentity keeps logical path.",
+    "DB path plus journal suffix over 259 UTF-16 code units fails DATABASE_UNAVAILABLE before SQLite and sidecar reads.",
+    "External fixture path over 259 UTF-16 code units fails FIXTURE_PATH_UNSAFE before local file read.",
+    "Existing frozen database handle and reader revalidation remain read-only.",
+    "No import test build MLT encode or provider execution was performed."
+  ],
+  "qa_cases": [
+    "Short closed DB and fixture plus managed blob above MAX_PATH: verify selected readback and logical identity.",
+    "DB path plus -journal suffix over 259 UTF-16 units: DATABASE_UNAVAILABLE with no SQLite read.",
+    "External fixture path over 259 UTF-16 units: FIXTURE_PATH_UNSAFE with no fixture read.",
+    "Non-BMP component crossing the UTF-16 boundary: fail closed before DB or fixture read.",
+    "Reparse or missing managed blob: ASSET_SELECTION_CONFLICT without an MLT task."
+  ]
+}

@@ -1,0 +1,587 @@
+{
+  "listed_request_id": "91d78fa9-7579-40db-a10a-53b1e4760cf7",
+  "project": {
+    "data": {
+      "id": "prj_26ec12c6299e4dce894172ef691cdacf",
+      "name": "QA02 capability qa02-capability-2026-09-24T02-48-53.178Z-22656",
+      "aspect_ratio": "9:16",
+      "target_duration_seconds": 60,
+      "source_language": "zh-CN",
+      "status": "active",
+      "revision": 2,
+      "created_at": "2026-09-24T02:48:57.672062Z",
+      "updated_at": "2026-09-24T02:48:57.920062Z"
+    },
+    "request_id": "e40b7e7d-5b31-48fd-b6d8-86eefcc46ab5"
+  },
+  "manifest": {
+    "data": {
+      "project_id": "prj_26ec12c6299e4dce894172ef691cdacf",
+      "head": {
+        "artifact_id": "art_367c0ccd26034efdaee0f8ca6f84dd56",
+        "latest_version_id": "ver_61cbfa959b274eb9afe9dc46f215500e",
+        "review_version_id": null,
+        "review_submission_id": null,
+        "accepted_version_id": null,
+        "revision": 1,
+        "review_evidence_revision": 0,
+        "updated_at": "2026-09-24T02:48:57.920062Z"
+      },
+      "latest_version": {
+        "id": "ver_61cbfa959b274eb9afe9dc46f215500e",
+        "artifact_id": "art_367c0ccd26034efdaee0f8ca6f84dd56",
+        "version_number": 1,
+        "schema_version": "1.0.0",
+        "content": {
+          "scope_type": "full_work",
+          "documents": [
+            {
+              "source_document_id": "src_c3c2eac3961347ab98ee0772d9d157dc",
+              "import_order": 1,
+              "filename": "pasted-source.txt",
+              "media_type": "text/plain",
+              "encoding": "utf-8",
+              "byte_size": 6826,
+              "raw_sha256": "466f23b789b47fa1231b0891e80385a13e530b02de2f74481c4e98f5732de008",
+              "normalized_sha256": "466f23b789b47fa1231b0891e80385a13e530b02de2f74481c4e98f5732de008",
+              "chapter_count": 1,
+              "blocks": [
+                {
+                  "source_block_id": "srcb_18c74c8fcc9b4c56aece11fb774bb3e6",
+                  "ordinal": 0,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 0,
+                  "end_byte": 53,
+                  "content_sha256": "025fcaabaa89122a384fe6f7297240148498203916215628ce0bb5bf2320271c"
+                },
+                {
+                  "source_block_id": "srcb_57d079456d68447db510a703481364a2",
+                  "ordinal": 1,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 55,
+                  "end_byte": 70,
+                  "content_sha256": "500d27fd987787e5d72fd9906723f39db39b18f88a4ef873d57866ca60180eed"
+                },
+                {
+                  "source_block_id": "srcb_8ba553c89efa439dabff984c000fa845",
+                  "ordinal": 2,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 72,
+                  "end_byte": 131,
+                  "content_sha256": "2fb5000ad661f53ebbdfa9d5536d9a46f92c9fa4614919a5cce35ab92757b6bc"
+                },
+                {
+                  "source_block_id": "srcb_bd2e9a0172764015aba63a2741678fb5",
+                  "ordinal": 3,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 132,
+                  "end_byte": 230,
+                  "content_sha256": "869f94440bf4ab29ab774c1a5d944bd18f7555394d262cbb25d1faa8167b7d6f"
+                },
+                {
+                  "source_block_id": "srcb_df3257028da949dab426514513e55ce4",
+                  "ordinal": 4,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 231,
+                  "end_byte": 386,
+                  "content_sha256": "aabf2d0f54e59a1186562163d83fde3d1b07fbf97ed564087d8ffeb11718af02"
+                },
+                {
+                  "source_block_id": "srcb_13c228bdadbf44209ce9cc0b202b939d",
+                  "ordinal": 5,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 387,
+                  "end_byte": 432,
+                  "content_sha256": "27c2809bd72ef0084d75ee328c8cc2a5fa5ff64c72d05e1b0da78235d4906fba"
+                },
+                {
+                  "source_block_id": "srcb_d92dfb12ddba4e4ab25a577bcd482bc5",
+                  "ordinal": 6,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 433,
+                  "end_byte": 579,
+                  "content_sha256": "7fff59aa72c1370236d7bc02d551b4e4d64d83b7f50eed775bb580dddd340992"
+                },
+                {
+                  "source_block_id": "srcb_be7263ccad884cf5b1bf8c66f9842394",
+                  "ordinal": 7,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 580,
+                  "end_byte": 816,
+                  "content_sha256": "8aac2f8b1730daf8074b36a697bd614b90783809800c458c89390a8dfdede5e3"
+                },
+                {
+                  "source_block_id": "srcb_60e6d7e7c1f64224acfadc15c9b0add8",
+                  "ordinal": 8,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 817,
+                  "end_byte": 1064,
+                  "content_sha256": "238e19d279c639d584b3d83cd204b0c4810979b860372412b2d3eaaaa6e5156d"
+                },
+                {
+                  "source_block_id": "srcb_94623d80558d4bb8b663ecc6b8d7bb3a",
+                  "ordinal": 9,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1066,
+                  "end_byte": 1078,
+                  "content_sha256": "b865b8a88feed3888078a140f1df8a8a0b318ceb38e15ccfc7d9279701f6d74f"
+                },
+                {
+                  "source_block_id": "srcb_d232c46e960c463f97ec24d12f8803e9",
+                  "ordinal": 10,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1080,
+                  "end_byte": 1097,
+                  "content_sha256": "245e257dbdc9800991e2fa39d1d69aedd64a1cdc4b673d222f0a88edb38a0bdb"
+                },
+                {
+                  "source_block_id": "srcb_89ffacf6d6d3441582c1ed30307bc3fd",
+                  "ordinal": 11,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1099,
+                  "end_byte": 1159,
+                  "content_sha256": "bdd0d8f8ff750ec01f847cb6a346571b6efc5575aef1584b011f9126ca2b6ab2"
+                },
+                {
+                  "source_block_id": "srcb_3edfc946e42f43f983b20d658882973a",
+                  "ordinal": 12,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1160,
+                  "end_byte": 1291,
+                  "content_sha256": "4ed3cd0897f134c046b5c7f5e72cbd56d419ca852545f6405594b17cfc22b83b"
+                },
+                {
+                  "source_block_id": "srcb_6b196a05c48f490f870de16719e3e08a",
+                  "ordinal": 13,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1292,
+                  "end_byte": 1435,
+                  "content_sha256": "eb8412b7ede7ad65cf993ccec03fa22ec9c7bc7362bc9d0d61e7bf820331ab65"
+                },
+                {
+                  "source_block_id": "srcb_22ce04539f8c4085b58d54eb9f6f4263",
+                  "ordinal": 14,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1436,
+                  "end_byte": 1603,
+                  "content_sha256": "4a35bd391fab1c2b14dc9da4cb16a2fa7b372771bd38c0c131f65bde748eb997"
+                },
+                {
+                  "source_block_id": "srcb_98345436d4ee4fa88d9c2da5b8fbc2df",
+                  "ordinal": 15,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1604,
+                  "end_byte": 1690,
+                  "content_sha256": "61dacb99a1b7ae3eeaa4827690ba242210b6b5ebe1ce89db412c09c37a7f57bc"
+                },
+                {
+                  "source_block_id": "srcb_d6c9860b89734b53b466514bcf57326f",
+                  "ordinal": 16,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1691,
+                  "end_byte": 1771,
+                  "content_sha256": "5862136f14842abc0b72deee9e7dbf9f67763a5cffad612280da1d4083fd4223"
+                },
+                {
+                  "source_block_id": "srcb_fb216de518e245a7be98f25a5e7f84a3",
+                  "ordinal": 17,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1773,
+                  "end_byte": 1793,
+                  "content_sha256": "d49b46cb05bd35d9ad71c3e7650b2af348d09ae5df4c2d78fe8e77f96f27f0ab"
+                },
+                {
+                  "source_block_id": "srcb_1c19d4d3ec9b4324af1324b48e5605cd",
+                  "ordinal": 18,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1795,
+                  "end_byte": 1857,
+                  "content_sha256": "553ea2a88407266a08bff4615889193bbe6b62c2bf7bf1c3511f33ae44e3d93b"
+                },
+                {
+                  "source_block_id": "srcb_8547edc543a94562845dff437f22888d",
+                  "ordinal": 19,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1858,
+                  "end_byte": 1957,
+                  "content_sha256": "f48a7bfb5b443cba7101beeaf9986d52a1fb3539718da34393c2b98849fbccd7"
+                },
+                {
+                  "source_block_id": "srcb_ac20e85fb88143e0aab914695de1fbd6",
+                  "ordinal": 20,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 1958,
+                  "end_byte": 2086,
+                  "content_sha256": "cbf0728694e3a64ac381b25ed380e372cea087b9d7353aacaa845eb134563c20"
+                },
+                {
+                  "source_block_id": "srcb_82a65d70708f4a1082387d5f5b459073",
+                  "ordinal": 21,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2087,
+                  "end_byte": 2209,
+                  "content_sha256": "0195630f836d72c8d760fdd0796f1327c2fe0abe5de9694a97a4429d979e78e7"
+                },
+                {
+                  "source_block_id": "srcb_0b8061a5cd2841f6beb7099c43cb4c17",
+                  "ordinal": 22,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2210,
+                  "end_byte": 2316,
+                  "content_sha256": "b8496642739c9af3ea6d9e2d287fb142fd6133981a7b5ea4a91fd7064db5fb84"
+                },
+                {
+                  "source_block_id": "srcb_4a47c82010b7431ba007d25d2142e548",
+                  "ordinal": 23,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2317,
+                  "end_byte": 2397,
+                  "content_sha256": "4eb32f9037996e0174816425df4a512bffc28c5df5edeeaac872e2715579f71b"
+                },
+                {
+                  "source_block_id": "srcb_acf340eef7ad475d87616ef23363eb6c",
+                  "ordinal": 24,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2399,
+                  "end_byte": 2413,
+                  "content_sha256": "29bc43512748091ef974b98d6b8bdf8f16a93b33bea8325124e06800750e17ca"
+                },
+                {
+                  "source_block_id": "srcb_16ca33caead343969d5d0c2977d2c109",
+                  "ordinal": 25,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2415,
+                  "end_byte": 2477,
+                  "content_sha256": "a0d3a41b9dc3f1f7b03c21efaea5ee0872740e163a0d0357e0617219e68f5c06"
+                },
+                {
+                  "source_block_id": "srcb_4442f72c132f4d46b3d6bd6fc722d114",
+                  "ordinal": 26,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2478,
+                  "end_byte": 2627,
+                  "content_sha256": "156f6aa9a8cc8e8b29e121ddcc6e675b828bb1b9404baf3509c8659af162b9be"
+                },
+                {
+                  "source_block_id": "srcb_b3a8e9f7544b4c6b8dd8bf13e6d70f05",
+                  "ordinal": 27,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2628,
+                  "end_byte": 2831,
+                  "content_sha256": "bdb3818d4a4602e4478049c186f26e731ed780a9c705ca2f201a4e105dd4d3b7"
+                },
+                {
+                  "source_block_id": "srcb_92886109659c427e9b5f084ce20ee50b",
+                  "ordinal": 28,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 2832,
+                  "end_byte": 3101,
+                  "content_sha256": "677e88f25db8d877883e6787aef6b87299c844851c98252e77011f17503123b8"
+                },
+                {
+                  "source_block_id": "srcb_38e68241de774f6d903ba10b8d434d30",
+                  "ordinal": 29,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3102,
+                  "end_byte": 3315,
+                  "content_sha256": "0d25839d0c644f6522ce22aeec72443adc8376ea69a3f796545cfd54a2eb6fa4"
+                },
+                {
+                  "source_block_id": "srcb_94ea99b24b294161a8077595baabb6e5",
+                  "ordinal": 30,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3316,
+                  "end_byte": 3402,
+                  "content_sha256": "03ecbdfd0a458773922eb9cb9b59e22e28f7562ec6376cd85656b5a5ad29c697"
+                },
+                {
+                  "source_block_id": "srcb_bc9b02093e2f4cada3e750014d962647",
+                  "ordinal": 31,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3404,
+                  "end_byte": 3427,
+                  "content_sha256": "1904b6cd2a6188689e430ba5c84615fe8c3ddf975287176cb8e74dd9166cd14d"
+                },
+                {
+                  "source_block_id": "srcb_d0f864d27d354340be96b2d1f7aa349f",
+                  "ordinal": 32,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3429,
+                  "end_byte": 3491,
+                  "content_sha256": "459d742399a3486cd2e15ba69a1bc9c545a3d3314c2769dd8fe277aa062f84c1"
+                },
+                {
+                  "source_block_id": "srcb_4200cd8ab5f44e9dbe7a1df4c752566c",
+                  "ordinal": 33,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3492,
+                  "end_byte": 3611,
+                  "content_sha256": "847f8e395584a68b9e0a33d9630abc5d323085d69a32ffd0d2829d5f68745f46"
+                },
+                {
+                  "source_block_id": "srcb_3fbd0bdbf34b49489946ff4e8c0246d4",
+                  "ordinal": 34,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3612,
+                  "end_byte": 3779,
+                  "content_sha256": "85eedd03f3a4e2317dd9c7b69a01f1a1c7f9967f9b77cdb310191424d99bf6e9"
+                },
+                {
+                  "source_block_id": "srcb_1beb8cfc6b3740e680d3d02337a25426",
+                  "ordinal": 35,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3780,
+                  "end_byte": 3941,
+                  "content_sha256": "1c776d9edfd10501cb572dba238370bf9f1031787ab585c330fe7ad3e0cab916"
+                },
+                {
+                  "source_block_id": "srcb_31ec0015b468489cba54366de033a47d",
+                  "ordinal": 36,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 3942,
+                  "end_byte": 4075,
+                  "content_sha256": "af2caca43dbfd74fb083a52e38f784f01ffb7b0ffe6a9cb92559a98e3a2f6080"
+                },
+                {
+                  "source_block_id": "srcb_31df9eb8cd414289ae40203e2f392842",
+                  "ordinal": 37,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4076,
+                  "end_byte": 4171,
+                  "content_sha256": "8fe5eef616c6048e698cf002a0f9cebbf137617fa9dfc6af5d05c20a8b4b2aa5"
+                },
+                {
+                  "source_block_id": "srcb_122ff2a4253a41d4ba75484f6dc469d6",
+                  "ordinal": 38,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4173,
+                  "end_byte": 4187,
+                  "content_sha256": "8c4cbaf6aac60b3747d2befc4f4cc1c0bbeb7609a9eb4a7d591bb739fbea4069"
+                },
+                {
+                  "source_block_id": "srcb_ce1c5c5702d74e1fb00e617bdb055e95",
+                  "ordinal": 39,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4189,
+                  "end_byte": 4251,
+                  "content_sha256": "aa26b3dc606ac61409177a2e67cd8a3e610d03948387c3905b3f513e7ff220b8"
+                },
+                {
+                  "source_block_id": "srcb_b33875366eda4849b697664269b0505d",
+                  "ordinal": 40,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4252,
+                  "end_byte": 4360,
+                  "content_sha256": "7e7da34927956d7dd7bd44a3d19ff7d646d0579a2ce7038fe83de5da418e18c0"
+                },
+                {
+                  "source_block_id": "srcb_659e81d63558451db049dc8d50370282",
+                  "ordinal": 41,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4361,
+                  "end_byte": 4536,
+                  "content_sha256": "6adb6c31d4d2b8f603fd63de94742331dbd11d27984c797be9cd8e9c34dffc0e"
+                },
+                {
+                  "source_block_id": "srcb_ccf754c4e0294a27a8ff70b5e164760a",
+                  "ordinal": 42,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4537,
+                  "end_byte": 4803,
+                  "content_sha256": "51e37d28457783566b747ce18cfce8bd931bc65123334e640187b19f47c691c6"
+                },
+                {
+                  "source_block_id": "srcb_df0705e238e24701bf4c665e1fdc69f6",
+                  "ordinal": 43,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4804,
+                  "end_byte": 4936,
+                  "content_sha256": "60a57653464200da9432b397243e309a121b2623b86dfc4561f408e80003fe3a"
+                },
+                {
+                  "source_block_id": "srcb_591efcf249ad41e291dacec053afbce2",
+                  "ordinal": 44,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 4937,
+                  "end_byte": 5029,
+                  "content_sha256": "915430ea84bf2a5fcfad01d91dc10ee7862a83493cce1e63a41d9cc2c91c26aa"
+                },
+                {
+                  "source_block_id": "srcb_975884116231414b99bd9b11b6ebf7bc",
+                  "ordinal": 45,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5031,
+                  "end_byte": 5054,
+                  "content_sha256": "37ada53fca4d262c4f43646cc35767724f2ffc800e607f89369a4e6ac20af377"
+                },
+                {
+                  "source_block_id": "srcb_40b9954cf53f48a8b78b75973f94f099",
+                  "ordinal": 46,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5056,
+                  "end_byte": 5118,
+                  "content_sha256": "111ea808ceef4a9a3832ee8a81729aad273bcdbf74c60df7fa48e223d174b46b"
+                },
+                {
+                  "source_block_id": "srcb_d7635b10b17546f1b751a13af03e06ab",
+                  "ordinal": 47,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5119,
+                  "end_byte": 5325,
+                  "content_sha256": "db4fe8ee031fea47e82afe02a12b5dd5b917b052f74aac97d817a141dfa7ce69"
+                },
+                {
+                  "source_block_id": "srcb_2bc6a6d3c66e44bc9b4d2349a665905c",
+                  "ordinal": 48,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5326,
+                  "end_byte": 5520,
+                  "content_sha256": "d78ba1011299dcdeef38bb49acbec3d3e54a3b92936ede9f55f74c79a1c18ae4"
+                },
+                {
+                  "source_block_id": "srcb_61314e413e14454b91c33ff0fe38e48c",
+                  "ordinal": 49,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5521,
+                  "end_byte": 5799,
+                  "content_sha256": "9152007be381f800cead55164d9691d98d616f5186d20cea48cbd539a511e210"
+                },
+                {
+                  "source_block_id": "srcb_e1b9409421544de2aa69b343c87ba78c",
+                  "ordinal": 50,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 5800,
+                  "end_byte": 6028,
+                  "content_sha256": "999eabe265b0ae2dff774c90788d18bc4675e523b7435f9ccabb428a8b6d0915"
+                },
+                {
+                  "source_block_id": "srcb_e343574117504d21a0d301fc6e06a8c6",
+                  "ordinal": 51,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6029,
+                  "end_byte": 6148,
+                  "content_sha256": "95340a6be4550c7bbe753242887e1c6f984a62849902b4b31c90a7f40ced0264"
+                },
+                {
+                  "source_block_id": "srcb_e7e2b6ca76e9455cad0918ec3093a1b4",
+                  "ordinal": 52,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6150,
+                  "end_byte": 6165,
+                  "content_sha256": "83e347bcf2691656e3bf672366e2e30f82d991fc0e8d07dfd82624849d6ad55d"
+                },
+                {
+                  "source_block_id": "srcb_3b9ba77430b64aa18f414c49d016a39e",
+                  "ordinal": 53,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6167,
+                  "end_byte": 6278,
+                  "content_sha256": "3d9bb2ac8b9714bdfee11ac032762b2b8a7a11781a176999caf970ad06632959"
+                },
+                {
+                  "source_block_id": "srcb_a832702d182c42e2b29693bc286ab6a0",
+                  "ordinal": 54,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6279,
+                  "end_byte": 6390,
+                  "content_sha256": "fadf07b956f064aac4ddf02dc0c14a65fe8df0eb26e24cabbc95304f1ad88976"
+                },
+                {
+                  "source_block_id": "srcb_2794d1385807484bb2e4ef76d958f475",
+                  "ordinal": 55,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6391,
+                  "end_byte": 6643,
+                  "content_sha256": "a01559c9a109d15ecaa018c765be93f157a8056cb3b73e1a32517893f7edebd3"
+                },
+                {
+                  "source_block_id": "srcb_2defa4fd3f7146959ed8d3edcf1d5012",
+                  "ordinal": 56,
+                  "kind": "paragraph",
+                  "chapter_index": 1,
+                  "start_byte": 6644,
+                  "end_byte": 6825,
+                  "content_sha256": "e87cdbfc9f03a0c10c7acfbc7a5929b01605861551b799b044ed83c6a50478ff"
+                }
+              ]
+            }
+          ],
+          "exclusions": []
+        },
+        "content_hash": "sha256:fcb8ae8f5a537b70a49798d6dae00b6ca1e7f8e6502ff1a96fde06dc6fd7f430",
+        "parent_version_id": null,
+        "change_summary": "同步不可变来源清单",
+        "created_at": "2026-09-24T02:48:57.920062Z"
+      },
+      "review_version": null,
+      "accepted_version": null
+    },
+    "request_id": "aa58dc5c-a3f9-4a5a-9bdd-9bf77e5f4bab"
+  },
+  "sourceText": {
+    "data": {
+      "id": "src_c3c2eac3961347ab98ee0772d9d157dc",
+      "project_id": "prj_26ec12c6299e4dce894172ef691cdacf",
+      "raw_sha256": "466f23b789b47fa1231b0891e80385a13e530b02de2f74481c4e98f5732de008",
+      "normalized_text": "# 《潮汐把名字写在玻璃上》片段：离别\n\n## 基本设定\n\n- 时长：30 秒；1080×1920；25 fps；总计 750 帧。\n- 人物：沈砚，二十七岁，灯塔值班员；林渺，二十六岁，记忆室整理员。\n- 关系：两人共同守护临海城的记忆室。林渺已获外地修复师工作，明早离开；沈砚知道她必须走，却一直没有先问。\n- 情绪线：克制 → 破绽 → 选择。\n- 表演原则：只给演员可见、可执行的动作。眼神、眉眼、嘴角、下颌和呼吸服务于转折；不靠旁白解释内心。\n- 站位与轴线：第 1 镜两人同侧并肩；第 2 镜林渺转身面对沈砚，固定为沈砚左、林渺右。后续镜头均在轴线同侧；第 6 镜林渺沿画面右侧走向门并出画，沈砚留在画面左侧窗边。\n- 光线与遮挡：窗外冷主光从画面左前方照脸，纸灯提供低位暖补光；眼神光保持在双眼上方。第 3、5、6 镜的关键表情帧中，肩线、头发、纸灯、包带和手均不得遮住眉眼、嘴角和下颌。\n\n## 逐镜表\n\n### 1｜雨停前\n\n- 时间：00:00–00:05；帧：0–124；时长：5 秒。\n- 景别 / 机位：中近景，胸口以上；固定机位，轴线沈砚左、林渺右。窗上雨痕虚焦，人物在前景。\n- 动作起止：两人并肩收拾桌上的纸灯。沈砚把最后一张卡片压平；林渺拉好并背上帆布包，手停在包带上。\n- 可见表演：沈砚抿唇，眉心短暂收紧后放开；他吸气到一半，改成轻轻吐气。林渺看包，不看沈砚，右手拇指反复摩挲包带。\n- 对白 / 声音：无对白。雨声、纸张摩擦声、帆布拉链一声轻响。\n- 表演目标：两人都知道离别将发生，但都把动作做成日常。\n\n### 2｜先说的人\n\n- 时间：00:05–00:09；帧：125–224；时长：4 秒。\n- 景别 / 机位：林渺近景，正面略偏右；镜头缓慢向前推 10 厘米，不越轴。\n- 动作起止：林渺转身面对沈砚，抬眼看他；沈砚仍整理卡片。林渺开口后，手从包带滑到身侧。\n- 可见表演：林渺先眨一次眼，嘴角试图上扬但没有成形；下颌轻收，保持目光两秒后移开。\n- 对白 / 声音：林渺：“我明早走。”自然停顿约 0.5 秒；随后只留雨檐滴水声。\n- 表演目标：语气平稳，句子短，像在报告已经决定的行程。\n\n### 3｜破绽\n\n- 时间：00:09–00:15；帧：225–374；时长：6 秒。\n- 景别 / 机位：沈砚面部近景，正面略偏左；整镜不切反打，林渺只用画外音回复。镜内只承担沈砚脸部可读性。\n- 动作起止：先完成卡片边角被捏弯，卡片声留在画内；沈砚再抬头，用眼神接住画外的林渺。对白结束后才吞咽、压回卡角，掌心不要求同时清晰入镜。\n- 可见表演：沈砚眉梢先抬，随即压下；嘴角向一侧动了一下，没有笑出来。吞咽清楚可见，下颌绷住后松开。眼神光稳定，发丝不落眉眼，面部关键侧不被高光或阴影吃掉。林渺不设镜内面部表演要求。\n- 对白 / 声音：沈砚：“去多久？”约 1 秒。林渺画外音：“不知道。”约 0.8 秒。两句之间留 0.7 秒表演静默；这些是拍摄计划区间，不是锁定音频或口型证据。\n- 表演目标：沈砚第一次暴露在意，但仍把问题伪装成时间确认。\n\n### 4｜留下的东西\n\n- 时间：00:15–00:20；帧：375–499；时长：5 秒。\n- 景别 / 机位：双人中近景固定机位，纸灯在画面下方作暖补光，不切手部特写、不上摇。\n- 动作起止：林渺拿起桌上的小圆表，直接放到沈砚掌心；沈砚合拢手指后停住，林渺保持手在画面外，避免遮住两人的嘴角。\n- 可见表演：林渺说话前先看一眼圆表，再看沈砚；眉峰下压，嘴唇抿成直线。沈砚眼神落到掌心，鼻翼轻动，最后抬眼。\n- 对白 / 声音：林渺：“替我看着它。别替我等。”约 3 秒，中间停顿 0.5 秒。纸灯轻碰桌面的声音。\n- 表演目标：林渺把“照顾”与“等待”分开，语气不责备，选择明确。\n\n### 5｜选择\n\n- 时间：00:20–00:25；帧：500–624；时长：5 秒。\n- 景别 / 机位：双人中近景，正侧 45 度；固定机位，门在画面后右方，窗在左方。\n- 动作起止：沈砚向前半步，像要拥抱；停住。林渺也向前半步，两人额头相抵并保持 0.8 秒；完成一次共同静默后，二人分开半步。\n- 可见表演：额头相抵时两人保持眼睛睁开，先完成静默观察；分开半步后，沈砚再长呼气。沈砚嘴角下压，林渺眉眼放松，嘴角出现很小的真实笑意。面部关键侧保持可读，不被纸灯高光或阴影吃掉。\n- 对白 / 声音：沈砚：“我不送你。”约 1.2 秒。林渺看着他：“好。”约 0.4 秒。衣料摩擦声清晰。\n- 表演目标：沈砚选择不把离别变成挽留；林渺听懂并接受这个选择。\n\n### 6｜门外还有路\n\n- 时间：00:25–00:30；帧：625–749；时长：5 秒。\n- 景别 / 机位：中远景，固定在室内；林渺从右侧走向门，沈砚留在左侧窗边，保持同一轴线方向。面部高潮留在第 5 镜，本镜只要求回身姿态和停顿清楚。\n- 动作起止：林渺已背好包，走到门口，回身一次；沈砚没有追，只抬起手里的圆表。林渺点头，转身出门。门合上前留一道窄缝，暖光落到走廊。\n- 可见表演：林渺回身时停住 1 秒，头发和门框不遮脸；她的回望用轮廓、停顿和肩线表达，不要求中远景读出细小喉结或嘴角。回身这一秒不让门缝高光吞掉面部关键侧。沈砚保持静止，手指握紧圆表后放松。\n- 对白 / 声音：林渺：“沈砚。”沈砚看她。林渺：“开灯。”两句合计约 1.6 秒。脚步声远去，门锁轻响，灯塔低频转动声进入。最后 0.8 秒保留窗外风声与未完成的呼吸。\n- 表演目标：结尾不解释未来；两人完成一次清楚的告别，情绪停在仍会继续生活的位置。\n\n## 自核结果\n\n- 帧段连续：0–124、125–224、225–374、375–499、500–624、625–749，无重叠、无空帧。\n- 时长合计：5 + 4 + 6 + 5 + 5 + 5 = 30 秒；帧数合计：125 + 100 + 150 + 125 + 125 + 125 = 750 帧。\n- 台词按拍摄计划分散在 6 镜中；第 4 镜最长一句“替我看着它。别替我等。”约 3 秒并保留停顿。逐句锁定人声时间码和真实视频/口型样片属于后续声音与表演验收，不在本稿宣称范围内。\n- 这是可拍剧本，不是已生成片。Fake 静帧和占位音只能承载构图、时长与声音位置，不能证明面部表演、情绪转折或真实视频生成能力。\n",
+      "normalized_sha256": "466f23b789b47fa1231b0891e80385a13e530b02de2f74481c4e98f5732de008"
+    },
+    "request_id": "462eab5b-3807-463a-a26d-d9815d80e6ca"
+  }
+}

@@ -1,0 +1,689 @@
+import type { components } from "@aijian/contracts";
+import {
+  isArtifactProposalResponse,
+  type ArtifactProposalResponse,
+} from "@aijian/contracts/artifact-proposal";
+import {
+  isInvalidationOperationPageResponse,
+  isInvalidationOperationResponse,
+  validateInvalidationOperationPageQuery,
+  type InvalidationOperationPageQuery,
+  type InvalidationOperationPageResponse,
+  type InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
+
+export type HealthResponse = components["schemas"]["HealthResponse"];
+export type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
+export type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
+export type ProjectData = components["schemas"]["ProjectData"];
+export type ProjectListResponse = components["schemas"]["ProjectListResponse"];
+export type ProjectResponse = components["schemas"]["ProjectResponse"];
+export type CreateEpisodeInput = components["schemas"]["CreateEpisodeRequest"];
+export type EpisodeListResponse = components["schemas"]["EpisodeListResponse"];
+export type EpisodeResponse = components["schemas"]["EpisodeResponse"];
+export type EpisodeListQuery = { limit?: number; offset?: string };
+export type EpisodeCreateErrorCode =
+  | "SIDECAR_AUTH_REQUIRED"
+  | "SIDECAR_REQUEST_REJECTED"
+  | "PROJECT_NOT_FOUND"
+  | "EPISODE_NOT_FOUND"
+  | "EPISODE_CREATE_CONFLICT"
+  | "VALIDATION_ERROR";
+export type EpisodeCreateResult =
+  | { kind: "SUCCEEDED"; receipt: EpisodeResponse }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 422;
+      code: EpisodeCreateErrorCode;
+      request_id: string;
+    }
+  | { kind: "REMOTE_UNKNOWN" };
+export type ProductionBriefResponse = components["schemas"]["ProductionBriefResponse"];
+export type ProductionBriefCreateCommand = {
+  operation_id: string;
+  input: {
+    content: components["schemas"]["ProductionBriefContentV1"];
+    parent_version_id: string | null;
+    expected_revision: number | null;
+    change_summary: string;
+  };
+};
+export type ProductionBriefCreateResult =
+  | { kind: "SUCCEEDED"; receipt: ProductionBriefResponse }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: 409 | 422 | 428; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
+export type SourceDocumentListResponse = components["schemas"]["SourceDocumentListResponse"];
+export type SourceDocumentResponse = components["schemas"]["SourceDocumentResponse"];
+export type SourceManifestResponse = components["schemas"]["SourceManifestResponse"];
+/** Renderer-safe business DTOs; native confirmation and authorization stay in main. */
+export type SourceManifestReviewIdentity = {
+  project_id: string;
+  version_id: string;
+  content_hash: string;
+  expected_revision: number;
+};
+export type SourceManifestReviewAction = "submit" | "signoff" | "decision" | "copy_draft";
+export type SourceManifestReviewPhase =
+  | "input"
+  | "preflight"
+  | "prepare_submit"
+  | "confirm_submit"
+  | "submit"
+  | "prepare_signoff"
+  | "confirm_signoff"
+  | "signoff"
+  | "prepare_decision"
+  | "confirm_decision"
+  | "decision"
+  | "confirm_copy_draft"
+  | "copy_draft";
+export type SourceManifestReviewSafeReceipt = {
+  action: SourceManifestReviewAction;
+  request_id: string;
+  project_id: string;
+  artifact_id: string;
+  version_id: string;
+  content_hash: string;
+  head_revision: number;
+  review_evidence_revision: number;
+  latest_version_id: string;
+  review_version_id: string | null;
+  review_submission_id: string | null;
+  accepted_version_id: string | null;
+  report_id: string | null;
+  report_hash: string | null;
+};
+export type SourceManifestReviewOperationResult = {
+  kind:
+    | "SUCCEEDED"
+    | "CANCELLED"
+    | "EXPIRED"
+    | "BUSY"
+    | "INVALID_INPUT"
+    | "STATE_CHANGED"
+    | "DEFINITE_SERVER_ERROR"
+    | "REMOTE_UNKNOWN";
+  phase: SourceManifestReviewPhase;
+  identity: SourceManifestReviewIdentity | null;
+  completed_actions: SourceManifestReviewAction[];
+  receipts: SourceManifestReviewSafeReceipt[];
+  error?: {
+    status: number;
+    code:
+      | "SIDECAR_AUTH_REQUIRED"
+      | "SIDECAR_REQUEST_REJECTED"
+      | "PROJECT_NOT_FOUND"
+      | "SOURCE_MANIFEST_NOT_FOUND"
+      | "GATE_NOT_READY"
+      | "REVIEW_INVALID"
+      | "PRECONDITION_FAILED"
+      | "VALIDATION_ERROR"
+      | "PRECONDITION_REQUIRED";
+    request_id: string;
+  };
+};
+export interface SourceManifestReviewCapability {
+  submit(input: SourceManifestReviewIdentity): Promise<SourceManifestReviewOperationResult>;
+  confirmBaseline(
+    input: SourceManifestReviewIdentity & { rationale: string },
+  ): Promise<SourceManifestReviewOperationResult>;
+  copyDraft(input: SourceManifestReviewIdentity): Promise<SourceManifestReviewOperationResult>;
+}
+export type StoryBibleIndexResponse = components["schemas"]["StoryBibleIndexResponse"];
+export type StoryBibleVersionResponse = components["schemas"]["StoryBibleVersionResponse"];
+export type TaskQueueResponse = components["schemas"]["TaskQueueResponse"];
+export type { ArtifactProposalResponse } from "@aijian/contracts/artifact-proposal";
+export type {
+  InvalidationOperationPageQuery,
+  InvalidationOperationPageResponse,
+  InvalidationOperationResponse,
+} from "@aijian/contracts/invalidation-operation";
+export type ArtifactProposalDraftAcceptanceInput =
+  components["schemas"]["CreateArtifactProposalDraftAcceptanceRequest"];
+export type ArtifactProposalDraftAcceptanceResponse =
+  components["schemas"]["ArtifactProposalDraftAcceptanceResponse"];
+export type ArtifactProposalRejectionInput =
+  components["schemas"]["CreateArtifactProposalRejectionRequest"];
+export type ArtifactProposalRejectionResponse =
+  components["schemas"]["ArtifactProposalRejectionResponse"];
+export type ArtifactProposalDecisionResult<TReceipt> =
+  | { kind: "SUCCEEDED"; receipt: TReceipt }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
+export type ProposalRunCreateInput = components["schemas"]["CreateProposalRunRequest"];
+export type CreatedProposalRunResponse = components["schemas"]["CreatedProposalRunResponse"];
+export type ProposalRunCreateCommand = {
+  operation_id: string;
+  input: ProposalRunCreateInput;
+};
+export type ProposalRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: CreatedProposalRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
+export type FakeTimelineRunCreateInput = components["schemas"]["CreateFakeTimelineRunRequest"];
+export type FakeTimelineRunResponse = components["schemas"]["FakeTimelineRunResponse"];
+export type FakeTimelineRunCreateCommand = {
+  operation_id: string;
+  input: FakeTimelineRunCreateInput;
+};
+export type FakeTimelineRunCreateResult =
+  | { kind: "SUCCEEDED"; receipt: FakeTimelineRunResponse; replayed: boolean }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
+  | { kind: "REMOTE_UNKNOWN" };
+export type AgentCatalogResponse = components["schemas"]["AgentCatalogResponse"];
+export type SkillCatalogResponse = components["schemas"]["SkillCatalogResponse"];
+export type TimelineResponse = components["schemas"]["TimelineResponse"];
+export type TrimTimelineClipInput = components["schemas"]["TrimTimelineClipRequest"];
+export type ReorderTimelineClipInput = components["schemas"]["ReorderTimelineClipRequest"];
+export type ReplaceTimelineClipInput = components["schemas"]["ReplaceTimelineClipRequest"];
+export type CreateProviderConnectionInput =
+  components["schemas"]["CreateProviderConnectionRequest"];
+export type ProviderConnectionListResponse =
+  components["schemas"]["ProviderConnectionListResponse"];
+export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
+
+export interface ProposalDecisionCapability {
+  acceptAsDraft(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalDraftAcceptanceInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>>;
+  reject(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalRejectionInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>>;
+}
+
+export interface ProposalRunCapability {
+  create(projectId: string, command: ProposalRunCreateCommand): Promise<ProposalRunCreateResult>;
+}
+
+export interface FakeTimelineRunCapability {
+  create(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
+}
+
+export interface EpisodeCapability {
+  list(projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse>;
+  get(projectId: string, episodeId: string): Promise<EpisodeResponse>;
+  create(projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult>;
+}
+
+export interface StudioTransport {
+  getHealth(): Promise<HealthResponse>;
+  listProjects(): Promise<ProjectListResponse>;
+  createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  getProject(projectId: string): Promise<ProjectResponse>;
+  listSources(projectId: string): Promise<SourceDocumentListResponse>;
+  getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
+  importTextSource(
+    projectId: string,
+    input: ImportTextSourceInput,
+  ): Promise<SourceDocumentResponse>;
+  getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
+  getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
+  getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  getProductionBrief?: (projectId: string) => Promise<ProductionBriefResponse | null>;
+  getProductionBriefVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<ProductionBriefResponse>;
+  createProductionBriefVersion?: (
+    projectId: string,
+    command: ProductionBriefCreateCommand,
+  ) => Promise<ProductionBriefCreateResult>;
+  listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse>;
+  proposalDecisions?: ProposalDecisionCapability;
+  proposalRuns?: ProposalRunCapability;
+  fakeTimelineRuns?: FakeTimelineRunCapability;
+  episodes?: EpisodeCapability;
+  sourceManifestReview?: SourceManifestReviewCapability;
+  listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
+  listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
+  startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
+  getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
+  trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
+  reorderTimelineClip(
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  replaceTimelineClip(
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  listProviderConnections(): Promise<ProviderConnectionListResponse>;
+  createProviderConnection(
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse>;
+  deleteProviderConnection(connectionId: string): Promise<void>;
+}
+
+export interface AijianDesktopBridge {
+  submitSourceManifest?: SourceManifestReviewCapability["submit"];
+  confirmSourceManifestBaseline?: SourceManifestReviewCapability["confirmBaseline"];
+  copySourceManifestDraft?: SourceManifestReviewCapability["copyDraft"];
+  health(): Promise<HealthResponse>;
+  listProjects(): Promise<ProjectListResponse>;
+  createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  getProject(projectId: string): Promise<ProjectResponse>;
+  listEpisodes?: EpisodeCapability["list"];
+  getEpisode?: EpisodeCapability["get"];
+  createEpisode?: EpisodeCapability["create"];
+  listSources(projectId: string): Promise<SourceDocumentListResponse>;
+  getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
+  importTextSource(
+    projectId: string,
+    input: ImportTextSourceInput,
+  ): Promise<SourceDocumentResponse>;
+  getSourceManifest(projectId: string): Promise<SourceManifestResponse | null>;
+  getStoryBibleIndex(projectId: string): Promise<StoryBibleIndexResponse | null>;
+  getStoryBibleVersion(projectId: string, versionId: string): Promise<StoryBibleVersionResponse>;
+  getProductionBrief?: (projectId: string) => Promise<ProductionBriefResponse | null>;
+  getProductionBriefVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<ProductionBriefResponse>;
+  createProductionBriefVersion?: (
+    projectId: string,
+    command: ProductionBriefCreateCommand,
+  ) => Promise<ProductionBriefCreateResult>;
+  listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
+  getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
+  listInvalidationOperations(
+    projectId: string,
+    query?: InvalidationOperationPageQuery,
+  ): Promise<InvalidationOperationPageResponse>;
+  getInvalidationOperation(
+    projectId: string,
+    operationId: string,
+  ): Promise<InvalidationOperationResponse>;
+  acceptArtifactProposalAsDraft(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalDraftAcceptanceInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalDraftAcceptanceResponse>>;
+  rejectArtifactProposal(
+    projectId: string,
+    proposalId: string,
+    input: ArtifactProposalRejectionInput,
+  ): Promise<ArtifactProposalDecisionResult<ArtifactProposalRejectionResponse>>;
+  createProposalRun(
+    projectId: string,
+    command: ProposalRunCreateCommand,
+  ): Promise<ProposalRunCreateResult>;
+  createFakeTimelineRun(
+    projectId: string,
+    command: FakeTimelineRunCreateCommand,
+  ): Promise<FakeTimelineRunCreateResult>;
+  listProjectAgents(projectId: string): Promise<AgentCatalogResponse>;
+  listProjectSkills(projectId: string): Promise<SkillCatalogResponse>;
+  startFakeTimelineWorkflow(projectId: string): Promise<TimelineResponse>;
+  getProjectTimeline(projectId: string): Promise<TimelineResponse | null>;
+  trimTimelineClip(projectId: string, input: TrimTimelineClipInput): Promise<TimelineResponse>;
+  reorderTimelineClip(
+    projectId: string,
+    input: ReorderTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  replaceTimelineClip(
+    projectId: string,
+    input: ReplaceTimelineClipInput,
+  ): Promise<TimelineResponse>;
+  listProviderConnections(): Promise<ProviderConnectionListResponse>;
+  createProviderConnection(
+    input: CreateProviderConnectionInput,
+  ): Promise<ProviderConnectionResponse>;
+  deleteProviderConnection(connectionId: string): Promise<void>;
+}
+
+declare global {
+  interface Window {
+    aijian?: AijianDesktopBridge;
+  }
+}
+
+function isHealthResponse(value: unknown): value is HealthResponse {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.request_id !== "string") return false;
+  if (typeof candidate.data !== "object" || candidate.data === null) return false;
+  const data = candidate.data as Record<string, unknown>;
+  return data.status === "ok" && data.service === "aijian-api" && typeof data.version === "string";
+}
+
+async function browserRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init);
+  if (!response.ok) {
+    let code = "";
+    try {
+      const payload: unknown = await response.json();
+      code = isErrorResponse(payload) ? ` (${payload.error.code})` : "";
+    } catch {
+      // Preserve the stable HTTP status when an intermediary returned a non-JSON body.
+    }
+    throw new Error(`Studio API request failed with status ${response.status}${code}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function browserHealth(): Promise<HealthResponse> {
+  const payload = await browserRequest<unknown>("/api/v1/health", {
+    headers: { Accept: "application/json" },
+  });
+  if (!isHealthResponse(payload)) {
+    throw new Error("Health response does not match the published contract");
+  }
+  return payload;
+}
+
+function getRequest<T>(path: string): Promise<T> {
+  return browserRequest<T>(path, { headers: { Accept: "application/json" } });
+}
+
+const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
+const PROPOSAL_ID_PATTERN = /^prp_[0-9a-f]{32}$/;
+const INVALIDATION_OPERATION_ID_PATTERN = /^ivo_[0-9a-f]{32}$/;
+
+async function browserArtifactProposal(
+  projectId: string,
+  proposalId: string,
+): Promise<ArtifactProposalResponse> {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  if (!PROPOSAL_ID_PATTERN.test(proposalId)) {
+    throw new Error("Studio transport requires a valid proposal id");
+  }
+  const payload = await getRequest<unknown>(
+    `/api/v1/projects/${projectId}/proposals/${proposalId}`,
+  );
+  if (!isArtifactProposalResponse(payload, projectId, proposalId)) {
+    throw new Error("Artifact proposal response does not match the published contract");
+  }
+  return payload;
+}
+
+function validateInvalidationOperationInput(projectId: string, operationId: string): void {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  if (!INVALIDATION_OPERATION_ID_PATTERN.test(operationId)) {
+    throw new Error("Studio transport requires a valid invalidation operation id");
+  }
+}
+
+function validateInvalidationOperationPageInput(
+  projectId: string,
+  query: unknown,
+): InvalidationOperationPageQuery {
+  if (!PROJECT_ID_PATTERN.test(projectId)) {
+    throw new Error("Studio transport requires a valid project id");
+  }
+  try {
+    return validateInvalidationOperationPageQuery(query);
+  } catch {
+    throw new Error("Studio transport requires a valid invalidation operation page query");
+  }
+}
+
+function validateInvalidationOperationResponse(
+  payload: unknown,
+  projectId: string,
+  operationId: string,
+): InvalidationOperationResponse {
+  if (!isInvalidationOperationResponse(payload, projectId, operationId)) {
+    throw new Error("Invalidation operation response does not match the published contract");
+  }
+  return payload;
+}
+
+function validateInvalidationOperationPageResponse(
+  payload: unknown,
+  projectId: string,
+  query: InvalidationOperationPageQuery,
+): InvalidationOperationPageResponse {
+  if (!isInvalidationOperationPageResponse(payload, projectId, query)) {
+    throw new Error("Invalidation operation page response does not match the published contract");
+  }
+  return payload;
+}
+
+function invalidationOperationPagePath(
+  projectId: string,
+  query: InvalidationOperationPageQuery,
+): string {
+  const search = new URLSearchParams();
+  if (query.limit !== undefined) search.set("limit", String(query.limit));
+  if (typeof query.cursor === "string") search.set("cursor", query.cursor);
+  const suffix = search.size === 0 ? "" : `?${search.toString()}`;
+  return `/api/v1/projects/${projectId}/invalidation-operations${suffix}`;
+}
+
+async function browserInvalidationOperations(
+  projectId: string,
+  query: InvalidationOperationPageQuery = {},
+): Promise<InvalidationOperationPageResponse> {
+  const normalizedQuery = validateInvalidationOperationPageInput(projectId, query);
+  const payload = await getRequest<unknown>(
+    invalidationOperationPagePath(projectId, normalizedQuery),
+  );
+  return validateInvalidationOperationPageResponse(payload, projectId, normalizedQuery);
+}
+
+async function browserInvalidationOperation(
+  projectId: string,
+  operationId: string,
+): Promise<InvalidationOperationResponse> {
+  validateInvalidationOperationInput(projectId, operationId);
+  const payload = await getRequest<unknown>(
+    `/api/v1/projects/${projectId}/invalidation-operations/${operationId}`,
+  );
+  return validateInvalidationOperationResponse(payload, projectId, operationId);
+}
+
+function isErrorResponse(value: unknown): value is { error: { code: string } } {
+  if (typeof value !== "object" || value === null) return false;
+  const error = (value as Record<string, unknown>).error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    typeof (error as Record<string, unknown>).code === "string"
+  );
+}
+
+async function getOptionalRequest<T>(path: string, absentCode: string): Promise<T | null> {
+  const response = await fetch(path, { headers: { Accept: "application/json" } });
+  if (response.status === 404) {
+    const payload: unknown = await response.json();
+    if (isErrorResponse(payload) && payload.error.code === absentCode) return null;
+    const errorCode = isErrorResponse(payload) ? payload.error.code : "INVALID_ERROR_RESPONSE";
+    throw new Error(`Studio API request failed with status 404 (${errorCode})`);
+  }
+  if (!response.ok) {
+    throw new Error(`Studio API request failed with status ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+function postRequest<T>(path: string, payload: unknown): Promise<T> {
+  return browserRequest<T>(path, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function postActionRequest<T>(path: string): Promise<T> {
+  return browserRequest<T>(path, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+}
+
+async function deleteRequest(path: string): Promise<void> {
+  const response = await fetch(path, { method: "DELETE", headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error(`Studio API request failed with status ${response.status}`);
+}
+
+export function createStudioTransport(): StudioTransport {
+  const bridge = window.aijian;
+  if (bridge) {
+    return {
+      getHealth: () => bridge.health(),
+      listProjects: () => bridge.listProjects(),
+      createProject: (input) => bridge.createProject(input),
+      getProject: (projectId) => bridge.getProject(projectId),
+      listSources: (projectId) => bridge.listSources(projectId),
+      getSource: (projectId, sourceId) => bridge.getSource(projectId, sourceId),
+      importTextSource: (projectId, input) => bridge.importTextSource(projectId, input),
+      getSourceManifest: (projectId) => bridge.getSourceManifest(projectId),
+      getStoryBibleIndex: (projectId) => bridge.getStoryBibleIndex(projectId),
+      getStoryBibleVersion: (projectId, versionId) =>
+        bridge.getStoryBibleVersion(projectId, versionId),
+      getProductionBrief:
+        typeof bridge.getProductionBrief === "function"
+          ? (projectId) => bridge.getProductionBrief!(projectId)
+          : undefined,
+      getProductionBriefVersion:
+        typeof bridge.getProductionBriefVersion === "function"
+          ? (projectId, versionId) => bridge.getProductionBriefVersion!(projectId, versionId)
+          : undefined,
+      createProductionBriefVersion:
+        typeof bridge.createProductionBriefVersion === "function"
+          ? (projectId, command) => bridge.createProductionBriefVersion!(projectId, command)
+          : undefined,
+      listProjectTasks: (projectId) => bridge.listProjectTasks(projectId),
+      getArtifactProposal: (projectId, proposalId) =>
+        bridge.getArtifactProposal(projectId, proposalId),
+      listInvalidationOperations: async (projectId, query = {}) => {
+        const normalizedQuery = validateInvalidationOperationPageInput(projectId, query);
+        const payload = await bridge.listInvalidationOperations(projectId, normalizedQuery);
+        return validateInvalidationOperationPageResponse(payload, projectId, normalizedQuery);
+      },
+      getInvalidationOperation: async (projectId, operationId) => {
+        validateInvalidationOperationInput(projectId, operationId);
+        const payload = await bridge.getInvalidationOperation(projectId, operationId);
+        return validateInvalidationOperationResponse(payload, projectId, operationId);
+      },
+      proposalDecisions: {
+        acceptAsDraft: (projectId, proposalId, input) =>
+          bridge.acceptArtifactProposalAsDraft(projectId, proposalId, input),
+        reject: (projectId, proposalId, input) =>
+          bridge.rejectArtifactProposal(projectId, proposalId, input),
+      },
+      proposalRuns: {
+        create: (projectId, command) => bridge.createProposalRun(projectId, command),
+      },
+      fakeTimelineRuns:
+        typeof bridge.createFakeTimelineRun === "function"
+          ? {
+              create: (projectId, command) => bridge.createFakeTimelineRun(projectId, command),
+            }
+          : undefined,
+      episodes:
+        typeof bridge.listEpisodes === "function" &&
+        typeof bridge.getEpisode === "function" &&
+        typeof bridge.createEpisode === "function"
+          ? {
+              list: (projectId, query) => bridge.listEpisodes!(projectId, query),
+              get: (projectId, episodeId) => bridge.getEpisode!(projectId, episodeId),
+              create: (projectId, input) => bridge.createEpisode!(projectId, input),
+            }
+          : undefined,
+      sourceManifestReview:
+        typeof bridge.submitSourceManifest === "function" &&
+        typeof bridge.confirmSourceManifestBaseline === "function" &&
+        typeof bridge.copySourceManifestDraft === "function"
+          ? {
+              submit: (input) => bridge.submitSourceManifest!(input),
+              confirmBaseline: (input) => bridge.confirmSourceManifestBaseline!(input),
+              copyDraft: (input) => bridge.copySourceManifestDraft!(input),
+            }
+          : undefined,
+      listProjectAgents: (projectId) => bridge.listProjectAgents(projectId),
+      listProjectSkills: (projectId) => bridge.listProjectSkills(projectId),
+      startFakeTimelineWorkflow: (projectId) => bridge.startFakeTimelineWorkflow(projectId),
+      getProjectTimeline: (projectId) => bridge.getProjectTimeline(projectId),
+      trimTimelineClip: (projectId, input) => bridge.trimTimelineClip(projectId, input),
+      reorderTimelineClip: (projectId, input) => bridge.reorderTimelineClip(projectId, input),
+      replaceTimelineClip: (projectId, input) => bridge.replaceTimelineClip(projectId, input),
+      listProviderConnections: () => bridge.listProviderConnections(),
+      createProviderConnection: (input) => bridge.createProviderConnection(input),
+      deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
+    };
+  }
+  return {
+    getHealth: browserHealth,
+    listProjects: () => getRequest<ProjectListResponse>("/api/v1/projects"),
+    createProject: (input) => postRequest<ProjectResponse>("/api/v1/projects", input),
+    getProject: (projectId) => getRequest<ProjectResponse>(`/api/v1/projects/${projectId}`),
+    listSources: (projectId) =>
+      getRequest<SourceDocumentListResponse>(`/api/v1/projects/${projectId}/sources`),
+    getSource: (projectId, sourceId) =>
+      getRequest<SourceDocumentResponse>(`/api/v1/projects/${projectId}/sources/${sourceId}`),
+    importTextSource: (projectId, input) =>
+      postRequest<SourceDocumentResponse>(`/api/v1/projects/${projectId}/sources`, input),
+    getSourceManifest: (projectId) =>
+      getOptionalRequest<SourceManifestResponse>(
+        `/api/v1/projects/${projectId}/source-manifest`,
+        "SOURCE_MANIFEST_NOT_FOUND",
+      ),
+    getStoryBibleIndex: (projectId) =>
+      getOptionalRequest<StoryBibleIndexResponse>(
+        `/api/v1/projects/${projectId}/story-bible`,
+        "STORY_BIBLE_NOT_FOUND",
+      ),
+    getStoryBibleVersion: (projectId, versionId) =>
+      getRequest<StoryBibleVersionResponse>(
+        `/api/v1/projects/${projectId}/story-bible/versions/${versionId}`,
+      ),
+    listProjectTasks: (projectId) =>
+      getRequest<TaskQueueResponse>(`/api/v1/projects/${projectId}/tasks`),
+    getArtifactProposal: browserArtifactProposal,
+    listInvalidationOperations: browserInvalidationOperations,
+    getInvalidationOperation: browserInvalidationOperation,
+    listProjectAgents: (projectId) =>
+      getRequest<AgentCatalogResponse>(`/api/v1/projects/${projectId}/agents`),
+    listProjectSkills: (projectId) =>
+      getRequest<SkillCatalogResponse>(`/api/v1/projects/${projectId}/skills`),
+    startFakeTimelineWorkflow: (projectId) =>
+      postActionRequest<TimelineResponse>(`/api/v1/projects/${projectId}/workflows/fake-timeline`),
+    getProjectTimeline: (projectId) =>
+      getOptionalRequest<TimelineResponse>(
+        `/api/v1/projects/${projectId}/timeline`,
+        "TIMELINE_NOT_FOUND",
+      ),
+    getProductionBrief: (projectId) =>
+      getOptionalRequest<ProductionBriefResponse>(
+        `/api/v1/projects/${projectId}/production-brief`,
+        "ARTIFACT_NOT_FOUND",
+      ),
+    getProductionBriefVersion: (projectId, versionId) =>
+      getRequest<ProductionBriefResponse>(
+        `/api/v1/projects/${projectId}/production-brief/versions/${versionId}`,
+      ),
+    trimTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/trim`, input),
+    reorderTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/reorder`, input),
+    replaceTimelineClip: (projectId, input) =>
+      postRequest<TimelineResponse>(`/api/v1/projects/${projectId}/timeline/replace`, input),
+    listProviderConnections: () =>
+      getRequest<ProviderConnectionListResponse>("/api/v1/provider-connections"),
+    createProviderConnection: (input) =>
+      postRequest<ProviderConnectionResponse>("/api/v1/provider-connections", input),
+    deleteProviderConnection: (connectionId) =>
+      deleteRequest(`/api/v1/provider-connections/${connectionId}`),
+  };
+}

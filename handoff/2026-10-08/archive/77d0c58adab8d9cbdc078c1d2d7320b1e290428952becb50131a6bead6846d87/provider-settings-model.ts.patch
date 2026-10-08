@@ -1,0 +1,18 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\provider-settings-model.ts.before" "b/apps\\studio-web\\src\\domain\\provider-settings-model.ts"
+index 2be5a2c..2dee1d7 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\provider-settings-model.ts.before"
++++ "b/apps\\studio-web\\src\\domain\\provider-settings-model.ts"
+@@ -2,6 +2,13 @@ import type { CreateProviderConnectionInput } from "../api/studio";
+ 
+ export type ProviderKind = CreateProviderConnectionInput["provider_kind"];
+ export type Capability = "TEXT" | "IMAGE" | "VIDEO" | "SPEECH";
++export type Sub2APIOriginMode = "PUBLIC_HTTPS" | "LOCAL_LOOPBACK_HTTP";
++
++/** Candidate UI guard; the backend and desktop must enforce the same mode before writes are enabled. */
++export function isLiteralSub2APILoopbackOrigin(value: string): boolean {
++  const match = /^http:\/\/(?:127\.0\.0\.1|\[::1\]):([1-9][0-9]{0,4})$/.exec(value);
++  return match !== null && Number(match[1]) <= 65535;
++}
+ 
+ export const capabilityLabels: Record<Capability, string> = {
+   TEXT: "剧本",

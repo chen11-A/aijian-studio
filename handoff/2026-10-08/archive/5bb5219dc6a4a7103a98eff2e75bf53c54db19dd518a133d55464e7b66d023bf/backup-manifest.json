@@ -1,0 +1,37 @@
+{
+  "timeUtc": "2026-09-24T06:51:45.9435272Z",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "statusCount": 51,
+  "files": [
+    {
+      "path": "packages/contracts/openapi.json",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\packages\\contracts\\openapi.json",
+      "sourceSha256": "EDB34B24106D157B0A0D3CD550909676C013E542A030DB57327967D1D9D83E13",
+      "sourceBytes": 396629,
+      "sourceMtimeUtc": "2026-09-24T01:29:14.1919095Z",
+      "backup": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa03-sub2api-contracts-20260924\\run-01\\backup-0-openapi.json",
+      "backupSha256": "EDB34B24106D157B0A0D3CD550909676C013E542A030DB57327967D1D9D83E13",
+      "backupBytes": 396629
+    },
+    {
+      "path": "packages/contracts/src/generated.ts",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\packages\\contracts\\src\\generated.ts",
+      "sourceSha256": "28EE0F30FA3F694AA91E83A324A6BB381A2DC682E37C380C3ABAF5D7FD3105EC",
+      "sourceBytes": 228893,
+      "sourceMtimeUtc": "2026-09-24T01:29:15.3854097Z",
+      "backup": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa03-sub2api-contracts-20260924\\run-01\\backup-1-generated.ts",
+      "backupSha256": "28EE0F30FA3F694AA91E83A324A6BB381A2DC682E37C380C3ABAF5D7FD3105EC",
+      "backupBytes": 228893
+    },
+    {
+      "path": "scripts/export_openapi.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\scripts\\export_openapi.py",
+      "sourceSha256": "C0707D4C719C347667113222FF7211AC4EA00132A89D6F4EB19A2159300F3F5E",
+      "sourceBytes": 4903,
+      "sourceMtimeUtc": "2026-09-23T11:51:08.2615361Z",
+      "backup": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa03-sub2api-contracts-20260924\\run-01\\backup-2-export_openapi.py",
+      "backupSha256": "C0707D4C719C347667113222FF7211AC4EA00132A89D6F4EB19A2159300F3F5E",
+      "backupBytes": 4903
+    }
+  ]
+}

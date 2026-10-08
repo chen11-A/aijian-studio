@@ -1,0 +1,59 @@
+diff --git a/apps/desktop/src/sub2api-connection-mutation-contract.ts b/apps/desktop/src/sub2api-connection-mutation-contract.ts
+index 95475dd..5a15f14 100644
+--- a/apps/desktop/src/sub2api-connection-mutation-contract.ts
++++ b/apps/desktop/src/sub2api-connection-mutation-contract.ts
+@@ -62,6 +62,7 @@ export function isSub2APIRotationOperationId(value: unknown): value is string {
+   return typeof value === "string" && OPERATION.test(value);
+ }
+ function isOrigin(value: unknown): value is string {
++  // This is syntax preflight. The sidecar decides whether the IP is globally reachable.
+   if (typeof value !== "string" || value.length < 1 || value.length > 2048 ||
+       /[\s\\@%?#]/.test(value)) return false;
+   try {
+@@ -110,6 +111,32 @@ export function isSub2APIMutationReceipt(
+   return isProviderConnectionResponse(value) && value.request_id === requestId &&
+     value.data.id === connectionId && value.data.provider_kind === "SUB2API";
+ }
++export function isSub2APIMetadataReceipt(
++  value: unknown, connectionId: string, command: EditSub2APIMetadataCommand,
++  requestId: string | null,
++): value is ProviderConnectionResponse {
++  if (!isSub2APIMutationReceipt(value, connectionId, requestId) ||
++      !Number.isSafeInteger(command.expected_revision + 1) ||
++      value.data.revision !== command.expected_revision + 1 ||
++      value.data.display_name !== command.display_name ||
++      value.data.base_url !== command.base_url.replace(/\/+$/, "") ||
++      value.data.enabled !== command.enabled ||
++      value.data.models.length !== command.models.length) return false;
++  return command.models.every((model, index) =>
++    value.data.models[index]?.model_id === model.model_id &&
++    value.data.models[index]?.capabilities.length === 1 &&
++    value.data.models[index]?.capabilities[0] === "TEXT",
++  );
++}
++export function isSub2APIKeyRotationReceipt(
++  value: unknown, connectionId: string, command: RotateSub2APIKeyCommand,
++  requestId: string | null,
++): value is ProviderConnectionResponse {
++  return isSub2APIMutationReceipt(value, connectionId, requestId) &&
++    Number.isSafeInteger(command.expected_revision + 1) &&
++    value.data.revision === command.expected_revision + 1 &&
++    value.data.credential_status === "CONFIGURED";
++}
+ export function isSub2APIRotationOperationResponse(
+   value: unknown, connectionId: string, operationId: string, requestId: string | null,
+ ): value is Sub2APIRotationOperationResponse {
+@@ -124,9 +151,10 @@ export function isSub2APIRotationOperationResponse(
+     revision(data.expected_revision) &&
+     (data.status === "PREPARED" || data.status === "APPLIED" ||
+       data.status === "CONFLICT" || data.status === "UNKNOWN") &&
+-    (data.applied_revision === null ||
+-      (revision(data.applied_revision) && data.applied_revision > data.expected_revision)) &&
+-    (data.status !== "APPLIED" || data.applied_revision !== null) &&
++    (data.status === "APPLIED"
++      ? Number.isSafeInteger(data.expected_revision + 1) &&
++        data.applied_revision === data.expected_revision + 1
++      : data.applied_revision === null) &&
+     typeof data.created_at === "string" && typeof data.updated_at === "string";
+ }
+ export function sub2APIMutationDefiniteError(

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "purpose": "Release",
+  "candidate_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "inputs": [
+    { "role": "runtime-layout", "path": "packaging/windows/runtime-layout.json", "destination": "resources/config/runtime-layout.json", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "desktop-package", "path": "packaging/windows/app-runtime.package.json", "destination": "app/package.json", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "installer-hook", "path": "packaging/windows/installer.nsh", "destination": "build/installer.nsh", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "installer-config", "path": "packaging/windows/electron-builder.v26.json", "destination": "build/electron-builder.json", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "desktop-main", "path": "apps/desktop/dist/main.js", "destination": "app/dist/main.js", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "desktop-preload", "path": "apps/desktop/dist/preload.js", "destination": "app/dist/preload.js", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-package", "path": "__BUILD__/contracts-runtime/package.json", "destination": "app/node_modules/@aijian/contracts/package.json", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-generated-js", "path": "__BUILD__/contracts-runtime/generated.js", "destination": "app/node_modules/@aijian/contracts/generated.js", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-generated-types", "path": "__BUILD__/contracts-runtime/generated.d.ts", "destination": "app/node_modules/@aijian/contracts/generated.d.ts", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-artifact-js", "path": "__BUILD__/contracts-runtime/artifact-proposal.js", "destination": "app/node_modules/@aijian/contracts/artifact-proposal.js", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-artifact-types", "path": "__BUILD__/contracts-runtime/artifact-proposal.d.ts", "destination": "app/node_modules/@aijian/contracts/artifact-proposal.d.ts", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-invalidation-js", "path": "__BUILD__/contracts-runtime/invalidation-operation.js", "destination": "app/node_modules/@aijian/contracts/invalidation-operation.js", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "contracts-invalidation-types", "path": "__BUILD__/contracts-runtime/invalidation-operation.d.ts", "destination": "app/node_modules/@aijian/contracts/invalidation-operation.d.ts", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "renderer-index", "path": "apps/studio-web/dist/index.html", "destination": "resources/renderer/index.html", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "sidecar-runtime", "path": "__BUILD__/sidecar/aijian-sidecar.exe", "destination": "resources/sidecar/aijian-sidecar.exe", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "media-lock", "path": "config/media-toolchain-lock.json", "destination": "resources/config/media-toolchain-lock.json", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "ffmpeg", "path": "__RELEASE_MEDIA__/ffmpeg.exe", "destination": "resources/media/ffmpeg.exe", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "ffprobe", "path": "__RELEASE_MEDIA__/ffprobe.exe", "destination": "resources/media/ffprobe.exe", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "project-license", "path": "LICENSE", "destination": "resources/licenses/AIVORA-LICENSE", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "project-notice", "path": "NOTICE", "destination": "resources/licenses/AIVORA-NOTICE", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "media-license", "path": "__RELEASE_MEDIA__/LICENSE", "destination": "resources/licenses/ffmpeg/LICENSE", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" },
+    { "role": "media-notice", "path": "__RELEASE_MEDIA__/NOTICE", "destination": "resources/licenses/ffmpeg/NOTICE", "sha256": null, "distribution_status": "RELEASE_REVIEW_REQUIRED", "approval_reference": "" }
+  ]
+}

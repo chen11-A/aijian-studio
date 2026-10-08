@@ -1,0 +1,32 @@
+--- c19/main.py
++++ staged/main.py
+@@ -117,6 +117,8 @@
+ from aijian_api.media_asset_routes import create_media_asset_router
+ from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
+ from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
++from aijian_api.product_export_operation_routes import create_product_export_operation_router
++from aijian_api.product_export_runtime import ProductExportRuntime
+ from aijian_api.production_brief_routes import (
+     create_production_brief_public_router,
+     create_production_brief_write_router,
+@@ -247,6 +249,7 @@
+     agent_skill_registry: AgentSkillRegistry | None = None,
+     fake_timeline_run_factory: FakeTimelineRunFactory | None = None,
+     development_timeline_export_service: DevelopmentTimelineExportService | None = None,
++    product_export_runtime: ProductExportRuntime | None = None,
+     sub2api_runtime_availability: Callable[[], str] | None = None,
+ ) -> FastAPI:
+     """Create an isolated application instance for runtime and tests."""
+@@ -1078,6 +1081,12 @@
+     app.include_router(create_timeline_router(get_repository))
+     app.include_router(create_fake_timeline_workflow_router(get_repository))
+     if sidecar_security is not None:
++        if product_export_runtime is not None:
++            app.include_router(
++                create_product_export_operation_router(
++                    lambda: cast(ProductExportRuntime, product_export_runtime)
++                )
++            )
+         app.include_router(create_app_preferences_router(get_app_preferences_store))
+         app.include_router(create_media_asset_router(get_repository))
+         app.include_router(

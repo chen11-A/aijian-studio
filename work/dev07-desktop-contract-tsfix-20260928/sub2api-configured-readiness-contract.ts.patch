@@ -1,0 +1,14 @@
+diff --git a/apps/desktop/src/sub2api-configured-readiness-contract.ts b/apps/desktop/src/sub2api-configured-readiness-contract.ts
+index 13812c3..5cb76d0 100644
+--- a/apps/desktop/src/sub2api-configured-readiness-contract.ts
++++ b/apps/desktop/src/sub2api-configured-readiness-contract.ts
+@@ -75,7 +75,8 @@ export function sub2APIReadinessDefiniteError(
+ ): Extract<Sub2APIConfiguredReadinessResult, { kind: "DEFINITE_SERVER_ERROR" }> | null {
+   if (status !== 401 && status !== 403 && status !== 404 && status !== 422) return null;
+   if (!isRecord(value) || !exact(value, ["error", "request_id"]) ||
+-      !hasRequestId(value) || value.request_id !== requestId ||
++      typeof value.request_id !== "string" || !hasRequestId(value) ||
++      value.request_id !== requestId ||
+       !isRecord(value.error) ||
+       !exact(value.error, ["code", "message", "details", "retryable"]) ||
+       typeof value.error.code !== "string" ||

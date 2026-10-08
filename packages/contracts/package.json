@@ -1,0 +1,27 @@
+{
+  "name": "@aijian/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/generated.ts",
+  "exports": {
+    ".": {
+      "types": "./src/generated.ts",
+      "default": "./src/generated.ts"
+    },
+    "./artifact-proposal": {
+      "types": "./src/artifact-proposal.ts",
+      "default": "./src/artifact-proposal.ts"
+    },
+    "./invalidation-operation": {
+      "types": "./src/invalidation-operation.ts",
+      "default": "./src/invalidation-operation.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

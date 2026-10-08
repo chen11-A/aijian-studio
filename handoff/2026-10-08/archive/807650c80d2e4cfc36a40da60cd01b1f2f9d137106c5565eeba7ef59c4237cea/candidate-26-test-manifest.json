@@ -1,0 +1,39 @@
+{
+  "candidate": "20260924-export03-layout04-26",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "snapshotSha256": "B40C41001ADAE5EFCA206E12BE0043EFD9A8E5AB6893AF5B644F77DFF7EE2854",
+  "productFingerprintSha256": "188EF1F50AEA7EF5E89699398EDDFB965024616748C0841BAA0192C18266F595",
+  "qaFiles": [
+    {
+      "path": "services/api/tests/test_fake_timeline_run_api.py",
+      "sha256": "F59424DC5BF0F923270BE31A8575044B744F88DCF36557D31263CB3F4D7DCD09"
+    },
+    {
+      "path": "services/api/tests/test_development_timeline_export_api.py",
+      "sha256": "1904D4A0B7E96FBC24F49AE7DB058A8E9FBC2154F884DC70C008F36C04C3ACEF"
+    },
+    {
+      "path": "apps/desktop/src/fake-timeline-run-contract.test.ts",
+      "sha256": "A463D513304FCB9AE107A2B622A7FACAF6A0005A8508AF88D4C6F7C28AF40BC6"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+      "sha256": "9BC51A4440F8A2C8DC192B9291AA134F48FA965F096C7609B951F3B2EA33B58A"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+      "sha256": "E16C220EFE87EDB54D42A7027CBCAEB40333474B7D141B4DF23C822E2BCDC1AF"
+    }
+  ],
+  "commands": [
+    "uv run pytest services/api/tests/test_fake_timeline_run_api.py services/api/tests/test_development_timeline_export_api.py -q",
+    "pnpm --filter @aijian/desktop exec vitest run src/fake-timeline-run-contract.test.ts",
+    "pnpm --filter @aijian/studio-web exec vitest run src/aivora/adapters/developmentFakeTimeline.test.ts src/aivora/adapters/developmentExport.test.ts"
+  ],
+  "rawOutputs": [
+    "pytest-raw.txt",
+    "desktop-vitest-raw.txt",
+    "web-vitest-raw.txt"
+  ],
+  "note": "These outputs precede BUILD05 27-file deployment and establish only targeted API/contract behavior for the 26-file candidate."
+}

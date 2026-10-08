@@ -1,0 +1,46 @@
+{
+  "appId": "com.aivora.studio",
+  "productName": "AIVORA",
+  "electronVersion": "43.2.0",
+  "electronDownload": {
+    "checksums": {
+      "electron-v43.2.0-win32-x64.zip": "eba5f5088af40ecb364fe258809c79a5234c6ece5a75c64722772eba01b02786"
+    }
+  },
+  "directories": {
+    "app": "app",
+    "output": "installer-output"
+  },
+  "npmRebuild": false,
+  "nodeGypRebuild": false,
+  "allowMissingDependencies": false,
+  "files": [
+    "**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "resources",
+      "to": ".",
+      "filter": ["**/*"]
+    }
+  ],
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "executableName": "AIVORA"
+  },
+  "nsis": {
+    "include": "build/installer.nsh",
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": false,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": false,
+    "artifactName": "AIVORA-Setup-${version}-win-${arch}.${ext}"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "check": "phase0-web-e2e-skeleton-electron",
+  "passed": true,
+  "novelCharacterCount": 25098,
+  "persisted": {
+    "projectId": "prj_988dbb79d6c548c181eaca7a1b21a393",
+    "sourceByteSize": 69748,
+    "sourceCount": 1,
+    "taskSummary": {
+      "total": 1,
+      "attention": 0,
+      "active": 0,
+      "completed": 1
+    },
+    "taskStatus": "SUCCEEDED",
+    "timelineVersionId": "ver_cf4dad619712484daa87ff49012eda68",
+    "timelineRevision": 2,
+    "clipCount": 3,
+    "firstClip": {
+      "schema_version": 1,
+      "clip_id": "fake-shot-01",
+      "asset_id": "fake-asset-01",
+      "source_in_frame": 4,
+      "duration_frames": 40
+    },
+    "bridgeKeys": [
+      "acceptArtifactProposalAsDraft",
+      "createProject",
+      "createProposalRun",
+      "createProviderConnection",
+      "deleteProviderConnection",
+      "getArtifactProposal",
+      "getProject",
+      "getProjectTimeline",
+      "getSource",
+      "getSourceManifest",
+      "getStoryBibleIndex",
+      "getStoryBibleVersion",
+      "health",
+      "importTextSource",
+      "listProjectAgents",
+      "listProjectSkills",
+      "listProjectTasks",
+      "listProjects",
+      "listProviderConnections",
+      "listSources",
+      "rejectArtifactProposal",
+      "reorderTimelineClip",
+      "replaceTimelineClip",
+      "startFakeTimelineWorkflow",
+      "trimTimelineClip"
+    ],
+    "nodeGlobals": {
+      "process": "undefined",
+      "require": "undefined"
+    }
+  },
+  "viewport": {
+    "innerWidth": 1424,
+    "innerHeight": 881,
+    "scrollWidth": 1409,
+    "clientWidth": 1409
+  },
+  "rendererDiagnostics": [],
+  "screenshot": "web-e2e-skeleton-electron-1440x920.png",
+  "regressionLayout": {
+    "scrollWidth": 1409,
+    "clientWidth": 1409,
+    "railButton": [271.71875, 213.765625, 112.828125, 44],
+    "inspectorButton": [1220.453125, 213.765625, 140.828125, 44],
+    "toolbarBottom": 262.765625,
+    "stageTop": 278.765625,
+    "sourceBodyFontSize": "14px",
+    "sourceBodyContrast": 9.103268410549644,
+    "stageMetaFontSize": "12px",
+    "stageMetaContrast": 9.103268410549644
+  },
+  "regressionScreenshot": "production-shell-regression-electron-1440x920.png"
+}

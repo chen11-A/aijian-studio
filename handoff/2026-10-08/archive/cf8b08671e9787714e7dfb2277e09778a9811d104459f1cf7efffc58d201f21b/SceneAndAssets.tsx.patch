@@ -1,0 +1,161 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\SceneAndAssets.tsx.before" "b/apps\\studio-web\\src\\aivora\\SceneAndAssets.tsx"
+index c1bda5a..d9c306d 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\SceneAndAssets.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\SceneAndAssets.tsx"
+@@ -263,9 +263,16 @@ export function ScenePage() {
+ 
+ export function AssetsPage() {
+   const d = useDemo();
+-  return d.backendProjectId && !d.isFixture
+-    ? <RealAssetsPage projectId={d.backendProjectId} />
+-    : <SampleAssetsPage />;
++  if (d.isFixture) return <SampleAssetsPage />;
++  if (d.backendProjectId)
++    return <RealAssetsPage key={d.backendProjectId} projectId={d.backendProjectId} />;
++  return <>
++    <PageTitle />
++    <div className="v2-assets-body" role="status">
++      <p>请先选择真实项目，再读取项目素材。</p>
++      <Button onClick={() => d.go("project")}>选择项目</Button>
++    </div>
++  </>;
+ }
+ 
+ function SampleAssetsPage() {
+@@ -480,6 +487,15 @@ function imageDataUrl(bytes: Uint8Array, mimeType: string): Promise<string> {
+   });
+ }
+ 
++function assetUnknownKey(projectId: string): string {
++  return `aivora:project-media-assets:unknown:${projectId}`;
++}
++
++function assetWriteUnknown(projectId: string): boolean {
++  try { return window.localStorage.getItem(assetUnknownKey(projectId)) !== null; }
++  catch { return true; }
++}
++
+ function RealAssetsPage({ projectId }: { projectId: string }) {
+   const d = useDemo();
+   const gateway = useMemo(() => createStudioTransport().assetLibrary, []);
+@@ -490,12 +506,17 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+   const [state, setState] = useState<AssetLibraryListState>({ kind: "LOADING" });
+   const [selectedId, setSelectedId] = useState("");
+   const [busy, setBusy] = useState(false);
+-  const [writeUnknown, setWriteUnknown] = useState(false);
++  const [writeUnknown, setWriteUnknown] = useState(() => assetWriteUnknown(projectId));
+   const [notice, setNotice] = useState("");
+   const [mediaPreview, setMediaPreview] = useState<{
+     url: string; filename: string; kind: "video" | "audio";
+   } | null>(null);
+   const [mediaNotice, setMediaNotice] = useState("");
++  const lockUnknownWrite = () => {
++    try { window.localStorage.setItem(assetUnknownKey(projectId), "1"); }
++    catch { /* An unavailable journal must leave this page locked. */ }
++    setWriteUnknown(true);
++  };
+   useEffect(() => {
+     if (!mediaPreview) return;
+     const dialog = mediaDialog.current;
+@@ -514,8 +535,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+     if (request !== epoch.current) return next;
+     setState(next);
+     if (next.kind === "READY" && manual) {
+-      setWriteUnknown(false);
+-      setNotice("已重新读取项目素材；请核对资产 ID、版本和文件状态后决定下一步。");
++      setNotice("已重新读取项目素材；请核对资产 ID、版本和文件状态。若有未知写入，仍保持锁定。");
+     }
+     return next;
+   }, [gateway, projectId]);
+@@ -525,10 +545,10 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+     setBusy(false);
+     setMediaPreview(null);
+     setMediaNotice("");
+-    setWriteUnknown(false);
++    setWriteUnknown(assetWriteUnknown(projectId));
+     setNotice("");
+     void refresh();
+-    return () => { epoch.current += 1; };
++    return () => { epoch.current += 1; activeProject.current = ""; };
+   }, [refresh]);
+ 
+   const assets = state.kind === "READY" ? state.assets : [];
+@@ -541,7 +561,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+   const episodeId = d.selectedEpisodeId;
+ 
+   async function importAsset(asset?: MediaAsset) {
+-    if (!gateway || busy || writeUnknown) return;
++    if (!gateway || busy || writeUnknown || activeProject.current !== projectId) return;
+     setBusy(true);
+     const result = await (asset
+       ? gateway.importProjectMediaAssetVersionFromPicker(projectId, asset.id)
+@@ -550,7 +570,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+     setBusy(false);
+     if (result.kind === "CANCELLED") return;
+     if (result.kind === "REMOTE_UNKNOWN") {
+-      setWriteUnknown(true);
++      lockUnknownWrite();
+       setNotice("导入结果未知；请先刷新并核对项目素材，不能自动重复导入。");
+       return;
+     }
+@@ -565,7 +585,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+     const importedId = result.receipt.data.id;
+     const imported = parseAssetReceipt(result.receipt, projectId, importedId);
+     if (!imported || (asset && imported.id !== asset.id)) {
+-      setWriteUnknown(true);
++      lockUnknownWrite();
+       setNotice("导入回执身份不符；请只读刷新并核对项目素材。");
+       return;
+     }
+@@ -642,7 +662,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+       ...(episodeId && gateway ? {
+         confirm: reference ? "解除本集引用" : "引用最新版本到本集",
+         save: async () => {
+-          if (busy || writeUnknown) return false;
++          if (busy || writeUnknown || activeProject.current !== projectId) return false;
+           setBusy(true);
+           const result = await (reference
+             ? gateway.removeProjectMediaAssetEpisodeReference(projectId, asset.id,
+@@ -653,7 +673,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+                     ({ kind: "REMOTE_UNKNOWN" as const }));
+           setBusy(false);
+           if (result.kind === "REMOTE_UNKNOWN") {
+-            setWriteUnknown(true);
++            lockUnknownWrite();
+             setNotice("引用操作结果未知；请先刷新项目素材，不自动重试。");
+             return false;
+           }
+@@ -662,6 +682,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+             return false;
+           }
+           if (!parseAssetReceipt(result.receipt, projectId, asset.id)) {
++            lockUnknownWrite();
+             setNotice("引用回执身份不符；请刷新项目素材。");
+             return false;
+           }
+@@ -673,7 +694,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+   }
+ 
+   async function deleteSelected() {
+-    if (!gateway || !selected || busy || writeUnknown ||
++    if (!gateway || !selected || busy || writeUnknown || activeProject.current !== projectId ||
+         selected.episode_references.length) return false;
+     setBusy(true);
+     const result = await gateway.deleteProjectMediaAsset(projectId, selected.id)
+@@ -684,7 +705,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+       setNotice("素材已软删除；正在重新读取项目素材。");
+       await refresh();
+     } else {
+-      if (result.kind === "REMOTE_UNKNOWN") setWriteUnknown(true);
++      if (result.kind === "REMOTE_UNKNOWN") lockUnknownWrite();
+       setNotice(result.kind === "DEFINITE_SERVER_ERROR"
+         ? "删除被拒绝：" + result.status + " / " + result.code +
+           "。被引用的素材不可删除。"
+@@ -726,6 +747,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
+         })}>删除素材</Button>
+     </>} />
+     <div className="v2-assets-body">
++      {writeUnknown && <p role="alert">先前素材写入结果未知或本地记录不可用；已锁定新写入。请保留原始回执并核对权威记录。</p>}
+       <div className="v2-assets-toolbar">
+         <div role="group" aria-label="素材类型">
+           {["全部", "图片", "视频", "音频", "文档"].map((type) => <button key={type}

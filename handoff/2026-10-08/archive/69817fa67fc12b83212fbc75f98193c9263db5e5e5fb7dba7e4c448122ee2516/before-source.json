@@ -1,0 +1,65 @@
+{
+    "checked_utc":  "2026-09-24T05:24:19.1954871Z",
+    "probe_pid":  12740,
+    "probe_session_id":  1,
+    "probe_desktop_name":  "Default",
+    "last_input_tick":  20207125,
+    "idle_ms":  76468,
+    "expected_pid":  19264,
+    "expected_session_id":  1,
+    "expected_window":  {
+                            "handle":  461324,
+                            "is_window":  true,
+                            "pid":  19264,
+                            "thread_id":  21536,
+                            "class_name":  "Chrome_WidgetWin_1",
+                            "title":  "AIVORA",
+                            "root":  461324,
+                            "root_owner":  461324,
+                            "owner":  0,
+                            "desktop_name":  "Default",
+                            "session_id":  1,
+                            "process_name":  "electron"
+                        },
+    "foreground":  {
+                       "handle":  65820,
+                       "is_window":  true,
+                       "pid":  7744,
+                       "thread_id":  7768,
+                       "class_name":  "Progman",
+                       "title":  "Program Manager",
+                       "root":  65820,
+                       "root_owner":  65820,
+                       "owner":  0,
+                       "desktop_name":  "Default",
+                       "session_id":  1,
+                       "process_name":  "explorer"
+                   },
+    "related_processes":  [
+                              {
+                                  "pid":  19264,
+                                  "name":  "electron.exe",
+                                  "executable_path":  "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\node_modules\\electron\\dist\\electron.exe"
+                              },
+                              {
+                                  "pid":  18012,
+                                  "name":  "electron.exe",
+                                  "executable_path":  "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\node_modules\\electron\\dist\\electron.exe"
+                              },
+                              {
+                                  "pid":  6292,
+                                  "name":  "python.exe",
+                                  "executable_path":  "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\.venv\\Scripts\\python.exe"
+                              },
+                              {
+                                  "pid":  17740,
+                                  "name":  "electron.exe",
+                                  "executable_path":  "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\node_modules\\electron\\dist\\electron.exe"
+                              },
+                              {
+                                  "pid":  10348,
+                                  "name":  "electron.exe",
+                                  "executable_path":  "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\node_modules\\electron\\dist\\electron.exe"
+                              }
+                          ]
+}

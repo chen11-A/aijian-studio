@@ -1,0 +1,91 @@
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index 2b70899..37e5be2 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -1,4 +1,5 @@
+-import { join, resolve } from "node:path";
++import { lstatSync } from "node:fs";
++import { isAbsolute, join, resolve } from "node:path";
+ 
+ import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from "electron";
+ 
+@@ -99,12 +100,42 @@ function developmentSidecarOptions(): StartSidecarOptions {
+   };
+ }
+ 
+-function packagedSidecarOptions(): StartSidecarOptions {
++function plainResource(path: string, kind: "directory" | "file"): boolean {
++  try {
++    const info = lstatSync(path);
++    return !info.isSymbolicLink() &&
++      (kind === "directory" ? info.isDirectory() : info.isFile());
++  } catch {
++    return false;
++  }
++}
++
++function packagedResourceRoot(): string {
+   if (!app.isPackaged || process.platform !== "win32") {
+-    throw new Error("Packaged sidecar requires a Windows installation");
++    throw new Error("Packaged resources require a Windows installation");
++  }
++  const rawRoot = process.resourcesPath;
++  if (typeof rawRoot !== "string" || rawRoot.length === 0 ||
++      !isAbsolute(rawRoot) || rawRoot.startsWith("\\\\") ||
++      rawRoot.split(/[\\/]/).includes("..")) {
++    throw new Error("Packaged resource root is invalid");
++  }
++  const root = resolve(rawRoot);
++  if (!plainResource(root, "directory")) {
++    throw new Error("Packaged resource root is unavailable");
+   }
+-  const resourceRoot = resolve(process.resourcesPath);
++  return root;
++}
++
++function packagedSidecarOptions(): StartSidecarOptions {
++  const resourceRoot = packagedResourceRoot();
+   const sidecarDirectory = join(resourceRoot, "sidecar");
++  if (!plainResource(sidecarDirectory, "directory") ||
++      !plainResource(join(resourceRoot, "config"), "directory") ||
++      !plainResource(join(resourceRoot, "config", "media-toolchain-lock.json"), "file") ||
++      !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")) {
++    throw new Error("Packaged sidecar resources are unavailable");
++  }
+   const workspaceDirectory = join(app.getPath("userData"), "workspace");
+   let extraction: SidecarExtractionTemp;
+   try {
+@@ -128,6 +159,16 @@ function packagedSidecarOptions(): StartSidecarOptions {
+   };
+ }
+ 
++function packagedRendererIndex(): string {
++  const rendererDirectory = join(packagedResourceRoot(), "renderer");
++  const index = join(rendererDirectory, "index.html");
++  if (!plainResource(rendererDirectory, "directory") ||
++      !plainResource(index, "file")) {
++    throw new Error("Packaged renderer is unavailable");
++  }
++  return index;
++}
++
+ function createMainWindow(): BrowserWindow {
+   const window = new BrowserWindow({
+     width: 1440,
+@@ -155,7 +196,7 @@ function createMainWindow(): BrowserWindow {
+   });
+ 
+   void window.loadFile(app.isPackaged
+-    ? join(process.resourcesPath, "renderer", "index.html")
++    ? packagedRendererIndex()
+     : join(__dirname, "../../studio-web/dist/index.html"));
+   return window;
+ }
+@@ -358,6 +399,7 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
+ async function startApplication(): Promise<void> {
+   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
+   await app.whenReady();
++  if (app.isPackaged) packagedRendererIndex();
+   sidecar = await startSidecar(
+     app.isPackaged ? packagedSidecarOptions() : developmentSidecarOptions(),
+   );

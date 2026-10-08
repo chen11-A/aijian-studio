@@ -1,0 +1,9 @@
+{
+  "extends": "../../apps/studio-web/tsconfig.app.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "tsBuildInfoFile": "../../.aijian-dev/c20-headless-harness.tsbuildinfo"
+  },
+  "include": ["headless-harness/recovery.ts"]
+}

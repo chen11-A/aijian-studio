@@ -1,0 +1,50 @@
+{
+  "status": "ENVELOPE_APPROVED_WAITING_EXTERNAL_ONE_SHOT_NOT_RUN",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 1703,
+      "sha256": "3AACD1187CB5812527680707A2473DDEDC3A267787D8B38451C2B21BB10A04D2"
+    },
+    {
+      "name": "CASE-MATRIX.md",
+      "bytes": 2635,
+      "sha256": "D6E46B77E8A936EE8649CC2F5C032309281608F031E4287F8C32F6AFF2825547"
+    },
+    {
+      "name": "resolver-envelope.json",
+      "bytes": 4712,
+      "sha256": "EB3E8D86F47B92DB3679F209198140A61D9B86FB5F0C0A1977C3F8CD889BDFE9"
+    },
+    {
+      "name": "path-layout.py",
+      "bytes": 2918,
+      "sha256": "75B62A8766A4E6755B9A8DFA27880C3EC56139DAA70FED581FB25F2511F0DE7C"
+    },
+    {
+      "name": "PATH-LAYOUT.json",
+      "bytes": 2545,
+      "sha256": "111F18CDFFB3F20FF521AF3492BFB57B012AF9831F2400B0E25D6089870FFB37"
+    },
+    {
+      "name": "resolver-path-once.py",
+      "bytes": 14882,
+      "sha256": "0862D9637E1CA69457ABF5414C435545DF5B1DD9977501A0546382E946EC96C6"
+    },
+    {
+      "name": "invoke-resolver-path-once.py",
+      "bytes": 10730,
+      "sha256": "369C3CE1FB0F73797F68EC83A484593AD2AFFD15EF6388C52B0CF55EC1DCE71F"
+    },
+    {
+      "name": "approval-template.json",
+      "bytes": 1507,
+      "sha256": "7D6C43418D2FEC940FC315625C65A30C399790C773B34C6CF9916CACDAA5169F"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 1669,
+      "sha256": "915F369B91EFAB9EE4B164D199138BA189FB3FA2DBC781A889316FDBDDE4B296"
+    }
+  ]
+}

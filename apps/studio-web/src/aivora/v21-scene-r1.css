@@ -1,0 +1,137 @@
+/* AIVORA V2.1 · local review R1
+   Integrated after the existing demo styles; scoped to the compact scene.
+   Only the compact scene CONTENT area is adjusted. Character overview retained.
+   The supplied workspace has 68px title + 64px footer allocation = 132px.
+   Scene content reserves 36px toolbar + 24px gaps + 100px references = 160px.
+   Therefore maximum image height = 100cqh - (132 + 160)px.
+*/
+@container v21-workspace (min-width: 721px) {
+  .demo-root .v21-scenes {
+    --v21-local-max-height: calc(100cqh - 292px);
+    --v21-local-image-width: min(
+      calc(100cqw - 280px),
+      calc(var(--v21-local-max-height) * var(--v21-local-media-aspect, 1.7777777778))
+    );
+    --v21-local-image-height: calc(
+      var(--v21-local-image-width) / var(--v21-local-media-aspect, 1.7777777778)
+    );
+    grid-template-columns: var(--v21-local-image-width) minmax(0, 1fr);
+    grid-template-rows: 36px var(--v21-local-image-height) 100px;
+    align-content: start;
+    gap: 12px 16px;
+  }
+  .demo-root .v21-scenes .v21-scene-stage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .demo-root .v21-scenes .v2-scenes-hero.v2-visual-image {
+    width: 100%;
+    height: 100%;
+    /* Retain the source's contain behavior and original media. */
+    object-fit: contain;
+  }
+  .demo-root .v21-scenes .v2-scenes-references {
+    grid-column: 1;
+    grid-row: 3;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .demo-root .v21-scenes .v21-scene-info {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    display: flex;
+    align-self: start;
+    max-height: 100%;
+    /* Do not stretch a short metadata card into an empty full-height well. */
+    height: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .demo-root .v21-scenes .v21-scene-description,
+  .demo-root .v21-scenes .v21-scene-confirmation {
+    display: block;
+  }
+  .demo-root .v21-scenes .v21-scene-info > * {
+    flex-shrink: 0;
+  }
+}
+/* Narrow content areas: retain the original right-hand reference rail.
+   The image keeps the same size; recover the unused row height for metadata.
+   The metadata scrolls rather than dropping description / confirmation fields. */
+@container v21-workspace (min-width: 721px) and (max-width: 960px) {
+  .demo-root .v21-scenes {
+    --v21-local-image-width: min(
+      calc(100cqw - 124px),
+      calc(var(--v21-local-max-height) * var(--v21-local-media-aspect, 1.7777777778))
+    );
+    grid-template-columns: minmax(0, 1fr) 112px;
+    grid-template-rows: 36px var(--v21-local-image-height) minmax(100px, 1fr);
+    gap: 12px;
+  }
+  .demo-root .v21-scenes .v21-scene-stage {
+    width: var(--v21-local-image-width);
+  }
+  .demo-root .v21-scenes .v2-scenes-references {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .demo-root .v21-scenes .v21-scene-info {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+  }
+  .demo-root .v21-scenes .v21-scene-info-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface);
+  }
+}
+/* Tall, medium-width content area (1920×1080 professional in the supplied shell):
+   Keep the full-width image. Place references and scrollable settings side by side
+   BELOW it. This reuses the existing nodes; it adds no cards or fabricated fields. */
+@container v21-workspace (min-width: 961px) and (max-width: 1150px) and (min-height: 800px) {
+  .demo-root .v21-scenes {
+    --v21-local-image-width: min(
+      100cqw,
+      calc(var(--v21-local-max-height) * var(--v21-local-media-aspect, 1.7777777778))
+    );
+    grid-template-columns: minmax(0, 1fr) 328px;
+    grid-template-rows: 36px var(--v21-local-image-height) minmax(100px, 1fr);
+  }
+  .demo-root .v21-scenes .v21-scene-stage {
+    grid-column: 1 / -1;
+  }
+  .demo-root .v21-scenes .v21-scene-stage {
+    width: var(--v21-local-image-width);
+  }
+  .demo-root .v21-scenes .v21-scene-info {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: stretch;
+    padding: 10px 12px;
+    gap: 8px;
+    scrollbar-width: thin;
+  }
+  .demo-root .v21-scenes .v21-scene-info dl {
+    gap: 8px;
+  }
+  .demo-root .v21-scenes .v21-scene-info-heading {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface);
+  }
+}
+
+.demo-root .v21-scenes .v21-scene-info:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -3px;
+}

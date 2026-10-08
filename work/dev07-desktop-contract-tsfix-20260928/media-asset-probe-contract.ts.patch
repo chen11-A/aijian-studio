@@ -1,0 +1,14 @@
+diff --git a/apps/desktop/src/media-asset-probe-contract.ts b/apps/desktop/src/media-asset-probe-contract.ts
+index 3e9d7d4..ffbc14e 100644
+--- a/apps/desktop/src/media-asset-probe-contract.ts
++++ b/apps/desktop/src/media-asset-probe-contract.ts
+@@ -148,7 +148,8 @@ export function mediaAssetProbeDefiniteError(
+   if (status !== 401 && status !== 403 && status !== 404 && status !== 409 &&
+       status !== 422) return null;
+   if (!isRecord(value) || !exact(value, ["error", "request_id"]) ||
+-      !hasRequestId(value) || value.request_id !== requestId ||
++      typeof value.request_id !== "string" || !hasRequestId(value) ||
++      value.request_id !== requestId ||
+       !isRecord(value.error) || !exact(value.error, [
+         "code", "message", "details", "retryable",
+       ]) || typeof value.error.code !== "string" ||

@@ -1,0 +1,159 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-source-ui-20260929\\StoryPages.tsx.before" "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\StoryPages.tsx"
+index ed3dc19..f8588e4 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-source-ui-20260929\\StoryPages.tsx.before"
++++ "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\StoryPages.tsx"
+@@ -9,6 +9,7 @@ import { SourceExtractionPanel } from "./SourceExtractionPanel";
+ import { EpisodeScriptEditor } from "./EpisodeScriptEditor";
+ import { Icon } from "./Icon";
+ import { selectProductionSourceStage } from "./adapters/productionSourceStage";
++import { sourceReviewIdentity } from "./adapters/sourceManifest";
+ import {
+   closePendingProjectUpdate,
+   readPendingProjectUpdate,
+@@ -321,11 +322,17 @@ function LegacyStoryPages() {
+   const pastedTextRef = useRef(pastedText);
+   pastedTextRef.current = pastedText;
+   useEffect(() => {
+-    if (d.page === "story" && d.value("sourceReviewSubmitted") === "true")
++    if (d.page === "story" && !d.isFixture && d.backendProjectId)
+       void d.readRealStoryWorkspace();
+-  }, [d.page]);
++  }, [d.page, d.backendProjectId, d.isFixture]);
+   const sourceVersion = d.value("sourceVersion", "1");
+   const sourceNavigation = selectProductionSourceStage(d.sourceStage);
++  const realSourcePage = d.page === "source" && !d.isFixture;
++  const latestSource = d.sourceManifest?.data.project_id === d.backendProjectId
++    ? d.sourceManifest.data.latest_version : null;
++  const sourceDocumentInLatest = !!d.sourceDocument && !!latestSource?.content.documents.some(
++    (document) => document.source_document_id === d.sourceDocument?.data.id,
++  );
+   const showSourceStage = () => {
+     if (sourceNavigation.target === "story") d.go("story");
+     else if (sourceNavigation.target) d.go("source");
+@@ -358,8 +365,13 @@ function LegacyStoryPages() {
+   }
+   function reviewSource() {
+     const reviewedSource = d.value("source");
++    const reviewedProjectId = d.backendProjectId;
++    const reviewedSourceId = d.sourceDocument?.data.id;
++    const reviewedIdentity = reviewedProjectId
++      ? sourceReviewIdentity(d.sourceManifest, reviewedProjectId) : null;
+     d.setEditor({
+-      title: `来源审核 · v${sourceVersion}`,
++      title: d.isFixture ? `来源审核 · v${sourceVersion}` :
++        `来源审核 · V${latestSource?.version_number ?? "待核实"}`,
+       description: reviewedSource,
+       presentation: "drawer",
+       confirm: "提交真实来源审核",
+@@ -373,10 +385,22 @@ function LegacyStoryPages() {
+           current.value("source") !== reviewedSource
+         )
+           return "来源已变化，请关闭抽屉并重新核对。";
++        if (!current.isFixture) {
++          const identity = current.backendProjectId
++            ? sourceReviewIdentity(current.sourceManifest, current.backendProjectId) : null;
++          if (!reviewedProjectId || !reviewedSourceId || !reviewedIdentity ||
++              current.backendProjectId !== reviewedProjectId ||
++              current.sourceStage.kind !== "draft" ||
++              current.sourceDocument?.data.id !== reviewedSourceId ||
++              !identity || identity.version_id !== reviewedIdentity.version_id ||
++              identity.content_hash !== reviewedIdentity.content_hash ||
++              identity.expected_revision !== reviewedIdentity.expected_revision)
++            return "项目或待审核来源已变化；请关闭抽屉并重新核对。";
++        }
+       },
+       save: () => {
+-        void d.reviewRealSource().then((submitted) => {
+-          if (submitted) d.go("story");
++        void d.reviewRealSource(reviewedIdentity ?? undefined, reviewedSourceId).then((submitted) => {
++          if (submitted && d.isFixture) d.go("story");
+         });
+       },
+     });
+@@ -964,6 +988,7 @@ function LegacyStoryPages() {
+         <p className="v2-source-support" role="status">
+           来源状态：{sourceNavigation.status}。
+           {sourceNavigation.baselineNote ?? "当前状态来自本地工作区。"}
++          {!d.isFixture && " 下方故事卡片为演示内容，尚无真实故事设定确认接口。"}
+           {d.storyWorkspaceState === "loading"
+             ? " 正在读取故事工作区。"
+             : d.storyWorkspaceState === "error"
+@@ -1016,7 +1041,9 @@ function LegacyStoryPages() {
+                 <Icon name="export" size={40} />
+                 <h3>将小说或剧本拖到这里</h3>
+                 <p>仅支持 UTF-8 TXT；通过本地工作区导入，来源审核前不会推进故事。</p>
+-                <Button onClick={() => file.current?.click()}>选择样例文本</Button>
++                <Button onClick={() => file.current?.click()}>
++                  {d.isFixture ? "选择样例文本" : "选择本地文本"}
++                </Button>
+               </div>
+             )}
+             {paste && (
+@@ -1198,8 +1225,8 @@ function LegacyStoryPages() {
+               <div className="v2-source-excerpt">
+                 {d.scenario === "empty" ? "尚未选择文本。" : d.value("source")}
+               </div>
+-              <Pill tone={d.value("importedName") ? "" : "v2-source-built-in"}>
+-                {d.value("importedName", "内置文本 · 样例")}
++              <Pill tone={d.value("importedName") || !d.isFixture ? "" : "v2-source-built-in"}>
++                {d.value("importedName", d.isFixture ? "内置文本 · 样例" : "尚未导入真实来源")}
+               </Pill>
+               <p className="v2-source-support" role="status">
+                 来源状态：{sourceNavigation.status}。
+@@ -1210,7 +1237,7 @@ function LegacyStoryPages() {
+                 {d.sourceStage.kind === "review" && (
+                   <Button onClick={confirmSourceBaseline}>确认来源审核基线</Button>
+                 )}
+-                {sourceNavigation.target && (
++                {sourceNavigation.target && (d.isFixture || sourceNavigation.target === "story") && (
+                   <Button onClick={showSourceStage}>{sourceNavigation.label}</Button>
+                 )}
+               </div>
+@@ -1441,24 +1468,40 @@ function LegacyStoryPages() {
+         }
+         label={
+           d.page === "source"
+-            ? "开始理解故事"
++            ? !realSourcePage ? "开始理解故事"
++              : d.sourceStage.kind === "draft" ? "提交来源审核"
++              : d.sourceStage.kind === "review" ? "确认来源审核基线"
++              : d.sourceStage.kind === "approved" ? "查看故事工作区"
++              : "来源暂不可推进"
+             : d.page === "story"
+-              ? "确认故事理解"
++              ? d.isFixture ? "确认故事理解" : "故事设定确认未接入"
+               : "确认样例剧本"
+         }
+         reason={
+           d.page === "source"
+-            ? "当前选择：内置故事样例"
++            ? !realSourcePage ? "当前选择：内置故事样例"
++              : d.sourceStage.kind === "draft" && !sourceDocumentInLatest
++                ? "尚未核实当前来源文档与最新清单一致"
++                : `真实来源状态：${sourceNavigation.status}；审核与批准以本地清单读回为准`
+             : d.page === "story"
+-              ? "样例初稿 · 确认仅改变演示状态"
++              ? d.isFixture ? "样例初稿 · 确认仅改变演示状态"
++                : "故事卡片为演示内容；来源批准状态以本地清单读回为准"
+               : "剧本文本可局部滚动 · 画布与操作栏固定"
+         }
+-        disabled={d.page === "source" && !d.value("source").trim()}
++        disabled={(d.page === "story" && !d.isFixture) ||
++          d.page === "source" && (realSourcePage
++          ? d.sourceStage.kind === "draft"
++            ? !sourceDocumentInLatest || !d.value("source").trim() ||
++              d.sourceImportState.kind === "pending" || d.sourceImportState.kind === "unknown"
++            : d.sourceStage.kind !== "review" && d.sourceStage.kind !== "approved"
++          : !d.value("source").trim())}
+         action={
+           d.page === "source"
+-            ? reviewSource
++            ? !realSourcePage || d.sourceStage.kind === "draft" ? reviewSource
++              : d.sourceStage.kind === "review" ? confirmSourceBaseline
++              : d.sourceStage.kind === "approved" ? () => d.go("story") : () => {}
+             : d.page === "story"
+-              ? confirmStory
++              ? d.isFixture ? confirmStory : () => {}
+               : () => {
+                   d.put("scriptSaved", "true");
+                   d.notify("剧本演示版本已确认");

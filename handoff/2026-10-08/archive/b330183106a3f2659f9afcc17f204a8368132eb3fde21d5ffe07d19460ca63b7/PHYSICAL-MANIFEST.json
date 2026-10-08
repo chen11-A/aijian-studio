@@ -1,0 +1,1103 @@
+{
+  "state": "QA_COPY_STATIC_NO_IMPORT_NO_RUN",
+  "package_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-repository-policy-prep-01\\qa-physical-package",
+  "file_count": 156,
+  "overlay_count": 16,
+  "new_file_count": 1,
+  "v4_composition_sha256": "D9985C46A2942DD606D2583141787010EEF7435E697922AD97C6ABB93ECB90E1",
+  "base_manifest_sha256": "81EC636D9DC6324862EED77A0EAD0FAD62E520B171794DF2CA2EEDD596A9504C",
+  "files": [
+    {
+      "target": "aijian_api/__init__.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\__init__.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 56,
+      "sha256": "333A85461A874678AC3C4FA0ABF4AE0F415BAAB2015384C85976E7EE42690D2A"
+    },
+    {
+      "target": "aijian_api/agent_context_builder.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_context_builder.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13932,
+      "sha256": "1CE3ED94750FEF71BD499E72A72B4B0E64B3012DCD4B8600622BAA26E28FFE95"
+    },
+    {
+      "target": "aijian_api/agent_proposal_validator.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_proposal_validator.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 14136,
+      "sha256": "6D811D6DFD4CD69B6AA8BAF31772F5C1AE7E0979532FBB73E4D40B9AE2D79C66"
+    },
+    {
+      "target": "aijian_api/agent_run_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_run_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 22981,
+      "sha256": "E18BDC6CD8037E266C4ACB3DADED8D316AC2F3917B754BBD4573A6D23318760C"
+    },
+    {
+      "target": "aijian_api/agent_skill_builtins.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_skill_builtins.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9099,
+      "sha256": "2E3B815CE62A6A64E1C01228512F4C9D764BCF7E0A6DEBB6331C8C90042637E4"
+    },
+    {
+      "target": "aijian_api/agent_skill_catalog_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_skill_catalog_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2310,
+      "sha256": "E68384023FA803A991CF29B03FAFB152D90FC924287DC0E7EFD9A1C2FDCD6BFB"
+    },
+    {
+      "target": "aijian_api/agent_skill_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_skill_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 23331,
+      "sha256": "399344D4DE546FBCCADA7656517EB01E4DFD0BDDE0F2248A189B0A9FA5E8C891"
+    },
+    {
+      "target": "aijian_api/agent_skill_registry.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\agent_skill_registry.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 8230,
+      "sha256": "AB55500B1541219A7432B3780983B2958D7AA89783AAFC04FCA710C6886DCF60"
+    },
+    {
+      "target": "aijian_api/app_preferences_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\app_preferences_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3301,
+      "sha256": "20D04DA1EBA19DBA6415A3DB1392D4F8A17F2326C3C244241E21461A59833313"
+    },
+    {
+      "target": "aijian_api/app_preferences_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\app_preferences_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3429,
+      "sha256": "FFA9E0C73DB2DEB03A405CFCE44C3C5FEBBF71C13EC265A7C749AC1E0FE87E43"
+    },
+    {
+      "target": "aijian_api/app_preferences_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\app_preferences_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 761,
+      "sha256": "9DC55503D88D26539500D56D3671C29FF6D08CEAF786BE5D21EA7AF4A15DCF69"
+    },
+    {
+      "target": "aijian_api/app_preferences_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\app_preferences_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 5552,
+      "sha256": "3D193ACA7B8567DB36F94E602C67875F856FC408292139A8EA51A78C53DA7719"
+    },
+    {
+      "target": "aijian_api/application_errors.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\application_errors.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 554,
+      "sha256": "5221FC1140AA11E95795D2244D49D8DA3F30DC5690754483F78F4CDD43CFA667"
+    },
+    {
+      "target": "aijian_api/artifact_invalidation_domain.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_invalidation_domain.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 14221,
+      "sha256": "509627A8223E508867B2B26C527EC95193856865BE5CFA3DC05D2CE57734ACE3"
+    },
+    {
+      "target": "aijian_api/artifact_invalidation_ledger.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_invalidation_ledger.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 38672,
+      "sha256": "9162476F2CFDE2DD5FB1357D61CC444BCC4EDD11601C26B89DD75E672F49BB2C"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_acceptance.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_acceptance.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 21364,
+      "sha256": "C3F2C63D898931512B6182B7EFFFCD612478266752557347680542619F8246A5"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_rejection.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_rejection.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13988,
+      "sha256": "07CAD74FBA5AFF0F79288F48D3037A3C53C0EA371C5B89B42E86AAC9593E9932"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_rejection_input.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_rejection_input.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1097,
+      "sha256": "9B49A20ADC67BF7395EA8F92F5881BED78BE6EA4E85C1A90454B444CB6D49278"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_review_truth.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_review_truth.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 17265,
+      "sha256": "E79E02929D356AFFD9FB08A862D17612EEBC254866C07F1E1BAF224839AEAFB2"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7054,
+      "sha256": "D56D7B85130D7BBE41DFD1F01D4A34CBD59B1208091609C21E7B0F8A6721C6C8"
+    },
+    {
+      "target": "aijian_api/artifact_proposal_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifact_proposal_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 17474,
+      "sha256": "1605E6A7596334094750FFE83BCBC5287FD1EB76532A7AD9A765F38D4928E9CD"
+    },
+    {
+      "target": "aijian_api/artifacts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\artifacts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 638,
+      "sha256": "397AB81E1F5D2120D67C67E0E0AC92FD69CB77169FF936EEF6AE29ACE8DFDA74"
+    },
+    {
+      "target": "aijian_api/contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 32763,
+      "sha256": "75834E1CF61ED99D27C8B29557B27FCD979A8725583E5535CEB5543851F3C9BC"
+    },
+    {
+      "target": "aijian_api/credential_vault.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\credential_vault.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2623,
+      "sha256": "84E7D0E7F0F6DF3FE8D645BB1E981148CC1A4DD030320416CB4E6571466F6C4E"
+    },
+    {
+      "target": "aijian_api/development_timeline_export.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\development_timeline_export.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 26050,
+      "sha256": "A98EBC17ACB5398BA0D552292889094B24135E9806ADA4FC4EC9C1BB6576D4E9"
+    },
+    {
+      "target": "aijian_api/development_timeline_export_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\development_timeline_export_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2564,
+      "sha256": "BF61AA17899CA0A32BBFCDADF868F99D0C7E4A3EED6E7932509B598EAC25CD55"
+    },
+    {
+      "target": "aijian_api/domain.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\domain.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 8220,
+      "sha256": "235CF98F1E597F48B28DACBD6C781ADF938E37A9D5192451B71CB8497BDA8508"
+    },
+    {
+      "target": "aijian_api/episode_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3610,
+      "sha256": "03A3615B73C08545F2FC21580FE775BDE448ECA6799EB850204FF2659E5E1009"
+    },
+    {
+      "target": "aijian_api/episode_media_assembly_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_media_assembly_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7583,
+      "sha256": "DBC5661A1721B9CFD8A27B95490DB0DDE759C5439AA9C6A463C51D6023E5B0E8"
+    },
+    {
+      "target": "aijian_api/episode_media_assembly_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_media_assembly_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 19367,
+      "sha256": "5C87BF2220FA4EC0C1A4FB77F2FCD8972B1A816977A6E65095AD0D2D1A25CB3D"
+    },
+    {
+      "target": "aijian_api/episode_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4833,
+      "sha256": "564C7C4B3A9F7AECA610B4FD521269907E11ACFEC83A92C1CB149693128633B9"
+    },
+    {
+      "target": "aijian_api/episode_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1266,
+      "sha256": "C3E7A64BA3AE43553331D800A0CDD81544DFE9C74168B9949ACE7A7963AE2720"
+    },
+    {
+      "target": "aijian_api/episode_script_confirmation_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_script_confirmation_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3211,
+      "sha256": "498B350F96D12DEFFE18A05CCECDD3143A2DB0EBEDCA4E1BB8F3FEB942F3AB3E"
+    },
+    {
+      "target": "aijian_api/episode_script_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_script_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7232,
+      "sha256": "0028DB1DB4F2EC9C488E8E58F41BA361EF373E3CFD9617DCD4372C4648E25426"
+    },
+    {
+      "target": "aijian_api/episode_script_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_script_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7205,
+      "sha256": "27FBCECDF973F318F4AF747ACBE9061E757252402C2DC9D9C687E8E7934838A8"
+    },
+    {
+      "target": "aijian_api/episode_script_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_script_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2570,
+      "sha256": "5D3F5D27777673EB301DD6EDD284E56CDCB767143D01C1D0F9922E8626E8F63A"
+    },
+    {
+      "target": "aijian_api/episode_script_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\episode_script_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 18594,
+      "sha256": "CD58D0B0F7CE6B1CEAB32D233544246B67A14722F84E4FBD8ACB54C4C651A65E"
+    },
+    {
+      "target": "aijian_api/fake_agent_executor.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_agent_executor.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 18297,
+      "sha256": "0002DEAE36DE2BF24B5F98AA5CF2FDA30262FAF2434270A5B41A8E1A9002802A"
+    },
+    {
+      "target": "aijian_api/fake_media_package.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_media_package.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 49894,
+      "sha256": "5AA34B796C4D26CEF6BDEBA878FCD5767C98755C128567956B0E5217A62C18DD"
+    },
+    {
+      "target": "aijian_api/fake_timeline_run.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_run.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 30730,
+      "sha256": "15DF6684E108B4603E19695C958CBE257F3E5B37133441FBEAE0377924637641"
+    },
+    {
+      "target": "aijian_api/fake_timeline_run_query.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_run_query.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9434,
+      "sha256": "F9FB12683B21637BCF680D375C8C82196647FC2BD3A60B4B2155926011709359"
+    },
+    {
+      "target": "aijian_api/fake_timeline_run_query_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_run_query_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2459,
+      "sha256": "D7B9073882B29CEA622A595AA5274D98E739EF3686FB610A8ACE7A4BA441B4A8"
+    },
+    {
+      "target": "aijian_api/fake_timeline_run_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_run_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3235,
+      "sha256": "F9965A95CB58CEF8654881BA5D9F7E9FA7155D67976B1CE911D8A6801944875C"
+    },
+    {
+      "target": "aijian_api/fake_timeline_workflow.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_workflow.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3956,
+      "sha256": "DE7BB5110D44875A0C393DB2709A08053C4DF6945BE66181B2EC39FA36DE0E5E"
+    },
+    {
+      "target": "aijian_api/fake_timeline_workflow_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\fake_timeline_workflow_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1560,
+      "sha256": "6901FAE109A177148E13C5E95D5077ABDDF9F5E08909373CDDE56724321239F7"
+    },
+    {
+      "target": "aijian_api/gate_policy.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\gate_policy.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4048,
+      "sha256": "80C6D3F1FF3A6D3112AE7EE3DF19048316D904E4D6601FB37D966E6828E06654"
+    },
+    {
+      "target": "aijian_api/gateway_transport.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\gateway_transport.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 12639,
+      "sha256": "F8E4BC8768F1626B77847336E8EB54948DAAD4A906C55CFA509945FE38F65919"
+    },
+    {
+      "target": "aijian_api/ingestion.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\ingestion.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4196,
+      "sha256": "20D52E00EE6309F1A5E7549ACA138E3E20506267C4A57C585AF5170132515B4C"
+    },
+    {
+      "target": "aijian_api/invalidation_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\invalidation_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4096,
+      "sha256": "83F1D8EE3DBD1D2EE0C85123EA8E57F07D9F736EA93AA786600B0BA9840BBC22"
+    },
+    {
+      "target": "aijian_api/invalidation_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\invalidation_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7025,
+      "sha256": "4027587206B5D6890DE3D50DB49D5FA02918474559A22F673E9D6B346D579F73"
+    },
+    {
+      "target": "aijian_api/invalidation_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\invalidation_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 8922,
+      "sha256": "EECCBCCE4C3D1D399DD06ABD15468FE649A22166D67DCE39D9116853DCD4D348"
+    },
+    {
+      "target": "aijian_api/main.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\main.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 47056,
+      "sha256": "81C1F2FE18B16D4EE9EAEDE7DD96DA60856400E51B6D8187C0741B26DA086AFC"
+    },
+    {
+      "target": "aijian_api/media_asset_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2456,
+      "sha256": "B2363B030BF20B17BBFD1BA3127D4B4B2E09F0CBC00D4A9D17A74A39334DF73A"
+    },
+    {
+      "target": "aijian_api/media_asset_probe_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_probe_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1775,
+      "sha256": "BCCC47943DCDCDA87DED8CD218EEEFF20F19F461CD7E85FEFE9BD3E52EB36A4A"
+    },
+    {
+      "target": "aijian_api/media_asset_probe_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_probe_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9392,
+      "sha256": "0676F19120C20A272543CD94C3AB06DFDDA45FC559814852B3CEF52CDF00ADDD"
+    },
+    {
+      "target": "aijian_api/media_asset_rights_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_rights_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 6256,
+      "sha256": "E6DA0D812E6E46B51E4EFEC5EF2A5955EE3A054E1865966A2038EB9AF301EDDB"
+    },
+    {
+      "target": "aijian_api/media_asset_rights_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_rights_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4288,
+      "sha256": "3F875459907319E7365A3D021D2803E5146DDB71C73E99DF44E2E38DF82C91FE"
+    },
+    {
+      "target": "aijian_api/media_asset_rights_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_rights_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 18022,
+      "sha256": "86A5F851E71ECCC5D75E7AC66B03D240C3E9CB0B606D56762A682E4C777A9079"
+    },
+    {
+      "target": "aijian_api/media_asset_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 11056,
+      "sha256": "931D14F8B3D3069ED89E224C6BF4EBF2EE4CA9CA34DAFC9A6415CD2E1B3B8770"
+    },
+    {
+      "target": "aijian_api/media_asset_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2817,
+      "sha256": "85217B98DC473B177E7DD551AED195D95EB60C263E03E55DCE995495DE104CF2"
+    },
+    {
+      "target": "aijian_api/media_asset_selected_reader.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_selected_reader.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13466,
+      "sha256": "9A3268DA438BEB6E1085F4BECDC5DDF289AA9CB1BC906D875D2FBD4E84E96B68"
+    },
+    {
+      "target": "aijian_api/media_asset_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_asset_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 24601,
+      "sha256": "E2B2002D157DEBA5F2E03F5340AD83BE9B09BE4F5D77E1ACF614D3617A60AF8D"
+    },
+    {
+      "target": "aijian_api/media_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9555,
+      "sha256": "04F629B9A4D1BEFF938BD4CF159C8133C9603C0250FB54A1106971357F6545B8"
+    },
+    {
+      "target": "aijian_api/media_probe.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_probe.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 28082,
+      "sha256": "EF36AF69D830176D34398486F68A06AF670E8FBA2B5D3C049E63D0A90104626D"
+    },
+    {
+      "target": "aijian_api/media_proxy.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_proxy.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 14484,
+      "sha256": "4CCFDB161509F5FF3950177F8F9E41C0BC3C6ECC0DC6C9935F6A212D6416132D"
+    },
+    {
+      "target": "aijian_api/media_toolchain.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\media_toolchain.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 11788,
+      "sha256": "36D791F1B4E47FB8BACE4920F38C0AC5DE99DEA1082ED1633AEB4F6062AEB7AC"
+    },
+    {
+      "target": "aijian_api/product_export_claim.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_claim.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 18514,
+      "sha256": "F1C068AF981A555166312B9EB47ABE5A36D476949A61A342C6DB5C2180019DBE"
+    },
+    {
+      "target": "aijian_api/product_export_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4992,
+      "sha256": "080FA93C9B78D156350609841117BE96DA67101750425A66A163F22191185B10"
+    },
+    {
+      "target": "aijian_api/product_export_encoder.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_encoder.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9784,
+      "sha256": "6DB31BA0542B074853A5F86833B2719AE2524B02ADCF95A5592DD3FA36EB59B8"
+    },
+    {
+      "target": "aijian_api/product_export_operation_coordinator.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_operation_coordinator.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9891,
+      "sha256": "E6A8C912709CB9EA4C4458E785FF41C03D4A41D28D62710236CF68C80411D994"
+    },
+    {
+      "target": "aijian_api/product_export_operation_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_operation_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7689,
+      "sha256": "8158A7FD35B32FA492C7393B407DDD1EA6020044B49E5224C3437AE50DFFE9CE"
+    },
+    {
+      "target": "aijian_api/product_export_output_verify.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_output_verify.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7262,
+      "sha256": "769B6EB6DCD7C7235523E7F3832B48E41840E16859CB2A2393BD4228B0B88F8A"
+    },
+    {
+      "target": "aijian_api/product_export_render_plan.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_render_plan.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7137,
+      "sha256": "74675F4EC7D92D94A8AC8F2440630B48F88E6D844FA9F8CDFCC331D2FE7FFC1C"
+    },
+    {
+      "target": "aijian_api/product_export_runtime.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_runtime.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3500,
+      "sha256": "294B0A911193B36A2D62D8427D982E210966A6569341DA0D12A5C6057385249E"
+    },
+    {
+      "target": "aijian_api/product_export_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 16811,
+      "sha256": "5FE02402F77DEF10B0DA1CFE4FDEBE548F568EBE42FE3B1A471F7123D4E07EFE"
+    },
+    {
+      "target": "aijian_api/product_export_single_video_service.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_single_video_service.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 10426,
+      "sha256": "A241DEBF74F791B808C84FD0BBDD6F5E0C876366E49B84EC9B173CB71028AD30"
+    },
+    {
+      "target": "aijian_api/product_export_store.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_store.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 23314,
+      "sha256": "58FBF5CB525283CDF18FFD5A197AD6C58E867DEBF63A3477AE13A22F7574E9E4"
+    },
+    {
+      "target": "aijian_api/product_export_windows_job.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_export_windows_job.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 18303,
+      "sha256": "11A5762844F0C79471DFB46719E00ACC0D951A71FAC4E11F9C58202A2DBACFA2"
+    },
+    {
+      "target": "aijian_api/product_timeline_export.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_timeline_export.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7516,
+      "sha256": "7BC471EF4494897A7C534C55375F274A66CC6E96D806CCF220FF6DED77A2C8D6"
+    },
+    {
+      "target": "aijian_api/product_timeline_export_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_timeline_export_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3654,
+      "sha256": "69B353D5483D9E511526FF47D57741A0B0C8B240216F7AF04D02477CAD7425F0"
+    },
+    {
+      "target": "aijian_api/product_timeline_export_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\product_timeline_export_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1758,
+      "sha256": "95683D41F23925A0E3E47C879D909BD9B46059A1795010C7045F1E744B649D29"
+    },
+    {
+      "target": "aijian_api/production_brief.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\production_brief.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 8676,
+      "sha256": "C9C784BD4C85595AA62AE4EF806DF4F5B9BCA32FCC6C8A91E8B2E906FF0897E4"
+    },
+    {
+      "target": "aijian_api/production_brief_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\production_brief_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 5708,
+      "sha256": "72B80143F7A14D1F46B0B566555C108A42745220E9D452BE3344A399D0C33D6D"
+    },
+    {
+      "target": "aijian_api/project_management.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\project_management.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2812,
+      "sha256": "270D4B0CB004AA4478191FE029DCE7999F06EAC27863DB71C4C7CF231BA07472"
+    },
+    {
+      "target": "aijian_api/project_management_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\project_management_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1310,
+      "sha256": "06F70E221669272CFA632C77DDB8C53D644D9B09E770B570E8418C707CB24059"
+    },
+    {
+      "target": "aijian_api/project_management_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\project_management_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4413,
+      "sha256": "ED572705AE3717C074CF7D4B0F66B6DB39762D377513A9C98E602735F5B21CD4"
+    },
+    {
+      "target": "aijian_api/project_settings_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\project_settings_schema.py",
+      "owner": "DEV01",
+      "bytes": 2638,
+      "sha256": "B9269DA4A76FB26B7409B235F0779C7FA18B4C6842C3A3C76719AA0049A4EF53"
+    },
+    {
+      "target": "aijian_api/proposal_run_factory.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\proposal_run_factory.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2531,
+      "sha256": "C77C594F0F4703C04DE5488B03A46E65F5F70519C6BD2415BA6F19BF48D5A1CC"
+    },
+    {
+      "target": "aijian_api/proposal_run_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\proposal_run_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 10193,
+      "sha256": "1FAD6DC08E9329F59B277DCA1E6414201F2661216015F283B8D6A7BDB5511229"
+    },
+    {
+      "target": "aijian_api/provider_connection_repository.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_connection_repository.py",
+      "owner": "DEV01",
+      "bytes": 17001,
+      "sha256": "A1E73830FBCCF52335D59249A48290C8836B89AA46AD9D98A000AE690619FB57"
+    },
+    {
+      "target": "aijian_api/provider_connection_routes.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connection_routes.py",
+      "owner": "DEV05",
+      "bytes": 7859,
+      "sha256": "155CB21B02BCB1B4A7790E21D959787450AA00ED55B42D1B034D91EA3A1C9D37"
+    },
+    {
+      "target": "aijian_api/provider_connections.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connections.py",
+      "owner": "DEV05",
+      "bytes": 8374,
+      "sha256": "D02727B3102B27478B22659470956A922BC973364C41B81F52D9FCA9C50BE83F"
+    },
+    {
+      "target": "aijian_api/provider_contracts.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_contracts.py",
+      "owner": "DEV05",
+      "bytes": 12566,
+      "sha256": "E904C154E0527DB6F1548048DBE58EADD89E591CA559225A9F5D643395C6FD49"
+    },
+    {
+      "target": "aijian_api/provider_credential_ref_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_credential_ref_schema.py",
+      "owner": "DEV01",
+      "bytes": 6438,
+      "sha256": "B170FFC0C157D3C46109A7511BF10D9217B178EF05CFA77FD749C4C19C20932C"
+    },
+    {
+      "target": "aijian_api/provider_origin_mode_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_origin_mode_schema.py",
+      "owner": "DEV01",
+      "bytes": 3845,
+      "sha256": "7986A35C0C0E8F437A3CFAB1E6A0B3275AE49CB06B59C8C28E0B05A74550A873"
+    },
+    {
+      "target": "aijian_api/provider_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\provider_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4638,
+      "sha256": "B73AE4DCE744B517001BFA416E86C0ACBE3DC83264B88E149ECA8735B507D143"
+    },
+    {
+      "target": "aijian_api/remote_call_accounting.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_call_accounting.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 11800,
+      "sha256": "446D7B10AACD172649AF5CF73E4FD70BFCD15D423050D9AC05783B9020812660"
+    },
+    {
+      "target": "aijian_api/remote_execution_authorization.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_execution_authorization.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 72932,
+      "sha256": "65B61C5E6CC6B89DF993CD0F49B34E7BA632331DE9364A3E77BAA5D8EB84A7C9"
+    },
+    {
+      "target": "aijian_api/remote_execution_evidence_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_execution_evidence_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9045,
+      "sha256": "69C018D1332481A5CCB6C721679E34417AC70E1CB5D04C96E658312FA4A692D5"
+    },
+    {
+      "target": "aijian_api/remote_execution_evidence_verifier.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_execution_evidence_verifier.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7517,
+      "sha256": "7DAEA3584D96EAECD2E56696127196A0DB2E0ACB35E230157794F2DEDAAE12B6"
+    },
+    {
+      "target": "aijian_api/remote_settlement_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_settlement_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 6696,
+      "sha256": "3EBC7C2BF908681645100B7B6119463522B7736AA8D9C9672E92F9909C6C99CC"
+    },
+    {
+      "target": "aijian_api/remote_source_extract_operation_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_source_extract_operation_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3001,
+      "sha256": "78873B347892E471DBB31BFCE889B5FE1C32E2F589FBBE2E3639F72453D95443"
+    },
+    {
+      "target": "aijian_api/remote_source_extract_operation_query.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_source_extract_operation_query.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 14186,
+      "sha256": "54921D9AD9F97AFCAB8A7CAE8C15E61B7C6D347567869062474139B2BA59DB64"
+    },
+    {
+      "target": "aijian_api/remote_source_extract_operation_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_source_extract_operation_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3571,
+      "sha256": "F0A1994504BD3988C638DB376087FFF684200C0975DED87AA42E452AC0AD3815"
+    },
+    {
+      "target": "aijian_api/remote_source_extract_runtime.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_source_extract_runtime.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9245,
+      "sha256": "B5991ED8E8EFE2E5E9318256C60C4CD3EE65E0D438FDCFA73F7C9753C28166DD"
+    },
+    {
+      "target": "aijian_api/remote_source_extract_worker.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\remote_source_extract_worker.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 21889,
+      "sha256": "EBA6F0A91A0A66A87BE9D1DAF07B545C3CC9252D2C02517798DA4084598238A1"
+    },
+    {
+      "target": "aijian_api/repository.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\repository.py",
+      "owner": "DEV01",
+      "bytes": 155702,
+      "sha256": "B43D812F79F2EB44FCAB829CFD66F13EA1A8A8439C63B5FA9D3BD785BAC80EC4"
+    },
+    {
+      "target": "aijian_api/runtime_resources.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\runtime_resources.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2594,
+      "sha256": "E93FC66B03FB4CF9B2969EC2AF453BCF3DA54C4B2C5E9B7E8D481BC7D72EFA0B"
+    },
+    {
+      "target": "aijian_api/security.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\security.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1872,
+      "sha256": "889080BB557CFB9F6C5BD321451400F918FA2986B7261503352CB99853BC1148"
+    },
+    {
+      "target": "aijian_api/shot_outline_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\shot_outline_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 5879,
+      "sha256": "353F1641F3CB9C3FAD94E9FB9EB2B276EB7D92E1AA30289781A9839C1865F992"
+    },
+    {
+      "target": "aijian_api/shot_outline_run_factory.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\shot_outline_run_factory.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 14181,
+      "sha256": "293436A395FE9FBD074722CD3EF8EFCF5268A1493F4EC6392A52814F49222332"
+    },
+    {
+      "target": "aijian_api/shot_outline_worker.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\shot_outline_worker.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 16642,
+      "sha256": "A3DB2AACE247F7113C920929053003899EC36A7DE83F4638E075CA1888D3E66F"
+    },
+    {
+      "target": "aijian_api/sidecar.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\sidecar.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13974,
+      "sha256": "8B0596AD0C9B948E72180D52AE23E809FC32EA04933CD0E361AEB3DF07F833DF"
+    },
+    {
+      "target": "aijian_api/source_extract_run_factory.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_extract_run_factory.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 32649,
+      "sha256": "3600C566A8EA817B0897E14E2F738778DEC0BCB91C525B90F9B1433401E9A777"
+    },
+    {
+      "target": "aijian_api/source_extract_worker.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_extract_worker.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 23995,
+      "sha256": "850D7B840CC0D3C0EC171505D7A6CC310C4BB343142C95C9F81AA991D2378F59"
+    },
+    {
+      "target": "aijian_api/source_extraction_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_extraction_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2753,
+      "sha256": "BE5C5A4B70F7160DE39FAE2948F71397A799C6334DC993D3C20ADD8EAEA9E7CF"
+    },
+    {
+      "target": "aijian_api/source_extraction_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_extraction_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 15836,
+      "sha256": "8F74ABB43723D14152E35993A486747472C54F8F3B40BF22A1BDCF9D254FB78C"
+    },
+    {
+      "target": "aijian_api/source_manifest.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_manifest.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 2781,
+      "sha256": "956D9694861A7073D22DDAF326D12BA319D90F1AC25667412437A3D7608C1500"
+    },
+    {
+      "target": "aijian_api/source_manifest_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_manifest_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 15896,
+      "sha256": "C3DEAA562A81A8244E4EB0AF927BA566FA703B17938E9F069D74C04CAE87EE09"
+    },
+    {
+      "target": "aijian_api/source_text_contracts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\source_text_contracts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 630,
+      "sha256": "A28711C2735AF0F8A2C564FB37E5F664212BB0FDADDA443C41353C4D07D1971E"
+    },
+    {
+      "target": "aijian_api/story_bible.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\story_bible.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 31747,
+      "sha256": "8B4CD9B0BF779C5B50873AD4A87D3934B5431DC2D63339966B5C674876089FD5"
+    },
+    {
+      "target": "aijian_api/story_bible_drafts.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\story_bible_drafts.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13166,
+      "sha256": "AAD208FE5F9889A3B40BE6C28023F471445C8BA240022FBB18B296E109C9C61E"
+    },
+    {
+      "target": "aijian_api/story_bible_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\story_bible_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13742,
+      "sha256": "E50BE75909AC5469484EBF03E993532404D7D5597CA096CEAA52A915CFB36F3C"
+    },
+    {
+      "target": "aijian_api/story_bible_validation.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\story_bible_validation.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4520,
+      "sha256": "F83361BFAE760C47C5B2F4FE86082EC77454316D46D624DCC555893FC0C0BA58"
+    },
+    {
+      "target": "aijian_api/sub2api_connection_readiness.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_connection_readiness.py",
+      "owner": "DEV05",
+      "bytes": 4167,
+      "sha256": "0BACB3CF7F445749D082880395E8D0FC24B1E81128E19ED91767C17AD468F3B0"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_contracts.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_contracts.py",
+      "owner": "DEV05",
+      "bytes": 5803,
+      "sha256": "B86BD3A8EDE0A894FA5F43E285A158F39F83C0167F8ADF82180DD7A0AF8FD761"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_invocation.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_invocation.py",
+      "owner": "DEV05",
+      "bytes": 7886,
+      "sha256": "630E02FDC14CDF9ED21F845530FFA083468A8FEE3AA193C6F81F29C460FC858A"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_policy.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_policy.py",
+      "owner": "DEV05",
+      "bytes": 5116,
+      "sha256": "4652EE51D9C01DA86B5DF14AC3871178619FB0C0DA2DAB1D73084D57FF4F4270"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_proposal.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\sub2api_source_extract_proposal.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4690,
+      "sha256": "EF2F3139F2076DDD53F55CDFB2482F53E101DA605C3874608811171FC64EAC55"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\sub2api_source_extract_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 11398,
+      "sha256": "BE46ECA515EE944554D1DBE8C11F0944C6A68A2A9C4FAA5D737C8ACE9C67D259"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_run_factory.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_run_factory.py",
+      "owner": "DEV05",
+      "bytes": 20756,
+      "sha256": "162FD5C6C475AB8569BA6570CF9D0339C500694E3AA48FB3B02D9C95C8433F96"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_runtime.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\sub2api_source_extract_runtime.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 7187,
+      "sha256": "D69D963B63BBB1F3E59208511F9879604AB3B314CB14F6198E68269730D63917"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\sub2api_source_extract_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 5860,
+      "sha256": "EF54374B348774ED6FE0D369EE59B3418C1085911F5F80F014C6A57FA5566100"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_store.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_store.py",
+      "owner": "DEV05",
+      "bytes": 58776,
+      "sha256": "FFDC07FC50465DBDA973EA708108D55DD4F333FAB47BD98D287CE4ECD16585EC"
+    },
+    {
+      "target": "aijian_api/sub2api_source_extract_worker.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_worker.py",
+      "owner": "DEV05",
+      "bytes": 10342,
+      "sha256": "A2A68FF3B5000F8B82E17B9C0CCD32EA922CE4EC844DD334C83453C376D8A6F3"
+    },
+    {
+      "target": "aijian_api/sub2api_text_transport.py",
+      "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_text_transport.py",
+      "owner": "DEV05",
+      "bytes": 15199,
+      "sha256": "3D38F97400001347DF65A614611F009882E707799C83EE40A9AE99634233914E"
+    },
+    {
+      "target": "aijian_api/task_ledger.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 24261,
+      "sha256": "3FE555401AE09A1E7A27114955E377E2E9C818EC84259D1ECB7F199935B1EAAA"
+    },
+    {
+      "target": "aijian_api/task_ledger_agent_runs.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_agent_runs.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 6467,
+      "sha256": "CDDA14031BD1B5B834D37A3DC0790249253377347D37D29C7EC0138331C341EA"
+    },
+    {
+      "target": "aijian_api/task_ledger_cancellation.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_cancellation.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 13031,
+      "sha256": "5ED3C71991F4F8985C7ECF2E475B9A21DEC0245F8ABC3686A69470B0C6F0F1F1"
+    },
+    {
+      "target": "aijian_api/task_ledger_completion.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_completion.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 6047,
+      "sha256": "6534670F1422BAA59D863399821A6A9DC5069BF23730E630485BCDA9A054F2F6"
+    },
+    {
+      "target": "aijian_api/task_ledger_enqueue.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_enqueue.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 21745,
+      "sha256": "B5DAEEBCC19701211AF289200CFF46E420137BAE4F2EA42039A5FEAFCABAD8C8"
+    },
+    {
+      "target": "aijian_api/task_ledger_events.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_events.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1360,
+      "sha256": "9EE8346695C72177168D675BDA81209BACACBA645CDEC8E58D68BC99CD5F32DF"
+    },
+    {
+      "target": "aijian_api/task_ledger_failure.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_failure.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 3555,
+      "sha256": "719C8F991877D08DB1CC41AABE2ED9C6FBFF81DC7C3D461D203E69CDDB344105"
+    },
+    {
+      "target": "aijian_api/task_ledger_models.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_models.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1785,
+      "sha256": "FFFA34375CBB491F111725AC330E848CF62130D12299F19C69103E2C7AA4776E"
+    },
+    {
+      "target": "aijian_api/task_ledger_proposal_completion.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_proposal_completion.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4842,
+      "sha256": "AB0383A2880577B53BBCD62DA628F957885FB4985B46CA04D0BECBE357CD991D"
+    },
+    {
+      "target": "aijian_api/task_ledger_recovery.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_recovery.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 26096,
+      "sha256": "955C616DC8F18268770548E35971EF7EDDA9ACC090A645D7FEBE60DE9A525C10"
+    },
+    {
+      "target": "aijian_api/task_ledger_snapshots.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_ledger_snapshots.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9047,
+      "sha256": "55C7905D4BC5FE143A0763291C673D9942766DE5A21C7C050CCB6C2E864C97A8"
+    },
+    {
+      "target": "aijian_api/task_queue_presentation.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_queue_presentation.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 1666,
+      "sha256": "D00887860EE580EFB18081261A0D7C5AB1BA5B8F12933DABDD21786E79813292"
+    },
+    {
+      "target": "aijian_api/task_queue_read.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_queue_read.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 9020,
+      "sha256": "8C85FD4D3DDEF157F6E541A9F8DA58BCB2B2AA3E400B00E4A7BF04427F383C95"
+    },
+    {
+      "target": "aijian_api/task_queue_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\task_queue_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 4295,
+      "sha256": "66F0FB69ECE674357B441C9142F23FE797317A0C31AAEAA02D43502CD315BA08"
+    },
+    {
+      "target": "aijian_api/timeline.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\timeline.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 11253,
+      "sha256": "FB0DAC27F461FB83A5CDE17F400592B663192CD9BF7747AD3B0DC25E0F756024"
+    },
+    {
+      "target": "aijian_api/timeline_export.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\timeline_export.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 27514,
+      "sha256": "EDDEDFE1AA06C69678C5666E9D93E83266B0EA8B9112B703A65B7B6D01BAF8FA"
+    },
+    {
+      "target": "aijian_api/timeline_routes.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\timeline_routes.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 8388,
+      "sha256": "A77D578A2F0E209EAF3C4B7488D4213C2B6E37F14FFF050B349F27B23344A9BD"
+    },
+    {
+      "target": "aijian_api/workflow_schema.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\workflow_schema.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 44652,
+      "sha256": "46B8C6361E719B7B8C93D4E21FB1A0ABEC699ADBEA55C04B38946BF3DE69095B"
+    },
+    {
+      "target": "aijian_api/workflow_tasks.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\workflow_tasks.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 15301,
+      "sha256": "F9F50DD5A93AD94FEC57D58ECA122602FBF2F40715F283CD3C29BBC4E666246B"
+    },
+    {
+      "target": "aijian_api/workspace_owner_lock.py",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa01-mlt-20260928\\origin-mode33-migration-prep-01\\qa-physical-package\\aijian_api\\workspace_owner_lock.py",
+      "owner": "PRIOR_QA_BASE",
+      "bytes": 6205,
+      "sha256": "94F62129EE9253425BBFE932D8822B032B7AF587D6DAB16DD0AE6870ABF410F6"
+    }
+  ]
+}

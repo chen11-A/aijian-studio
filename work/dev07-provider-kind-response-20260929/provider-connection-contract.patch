@@ -1,0 +1,32 @@
+diff --git a/apps/desktop/src/provider-connection-contract.ts b/apps/desktop/src/provider-connection-contract.ts
+index 1954537..9344028 100644
+--- a/apps/desktop/src/provider-connection-contract.ts
++++ b/apps/desktop/src/provider-connection-contract.ts
+@@ -9,7 +9,8 @@ export type ProviderConnectionListResponse =
+ export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
+ 
+ const PROVIDER_CONNECTION_ID_PATTERN = /^pcn_[0-9a-f]{32}$/;
+-const PROVIDER_KINDS = ["OPENAI", "XAI", "OPENAI_COMPATIBLE", "OLLAMA", "SUB2API"] as const;
++const CREATE_PROVIDER_KINDS = ["OPENAI", "XAI", "OPENAI_COMPATIBLE", "OLLAMA", "SUB2API"] as const;
++const RESPONSE_PROVIDER_KINDS = [...CREATE_PROVIDER_KINDS, "CPA_LOOPBACK"] as const;
+ const PROVIDER_CAPABILITIES = ["TEXT", "IMAGE", "VIDEO", "SPEECH"] as const;
+ 
+ function isNonPublicLiteralHost(hostname: string): boolean {
+@@ -61,7 +62,7 @@ function isProviderConnection(value: unknown): boolean {
+       "updated_at",
+     ]) &&
+     isProviderConnectionId(value.id) &&
+-    PROVIDER_KINDS.some((kind) => kind === value.provider_kind) &&
++    RESPONSE_PROVIDER_KINDS.some((kind) => kind === value.provider_kind) &&
+     typeof value.display_name === "string" &&
+     typeof value.base_url === "string" &&
+     typeof value.enabled === "boolean" &&
+@@ -103,7 +104,7 @@ export function isCreateProviderConnectionInput(
+   const allowedKeys = ["provider_kind", "display_name", "base_url", "enabled", "models", "api_key"];
+   if (!hasOnlyKeys(value, allowedKeys)) return false;
+   if (
+-    !PROVIDER_KINDS.some((kind) => kind === value.provider_kind) ||
++    !CREATE_PROVIDER_KINDS.some((kind) => kind === value.provider_kind) ||
+     typeof value.display_name !== "string" ||
+     value.display_name.trim().length === 0 ||
+     value.display_name.length > 80 ||

@@ -1,0 +1,20 @@
+{
+  "kind": "DEV08_D_SAFE_INTEGRATION_RELEASE_GATE_CANDIDATE",
+  "status": "STATIC_SOURCE_CANDIDATE_PENDING_C19_COMPOSITION_AND_LOCAL_QA",
+  "entries": [
+    {
+      "name": "product_export_claim.py",
+      "before_sha256": "F1C068AF981A555166312B9EB47ABE5A36D476949A61A342C6DB5C2180019DBE",
+      "after_sha256": "7AD9D77CA9F5E041F9AEFA053A8696CCE9AADE257A3B7A6E388D2928F9159BC5"
+    },
+    {
+      "name": "product_export_runtime.py",
+      "before_sha256": "294B0A911193B36A2D62D8427D982E210966A6569341DA0D12A5C6057385249E",
+      "after_sha256": "1A543BEAE9FF4CD42AC70F5C4704EE857D2E23EC11BBDD6C251AE197F9ECF1D3"
+    }
+  ],
+  "paired_import": "product_export_runtime.py imports require_release_profile_configured from product_export_claim.py; both versions must be composed together",
+  "ordering": "same-key replay before empty release allowlist rejection before toolchain discovery",
+  "package_boundary": "D/repo30 frozen service encoder output verifier remain their D hashes; DEV08 managed long-path downstream candidate is separate pending QA",
+  "runtime_qa": "NOT_RUN_BY_DEV08"
+}

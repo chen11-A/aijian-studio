@@ -1,0 +1,303 @@
+[
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\outputs\\AIVORA-停工记录与明日任务-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/project-plans/AIVORA-停工记录与明日任务-20260924.md",
+    "sha256": "69abf843d553578cd63d73acab32107567bfb79b95da06273e54dcca04c4e30e",
+    "bytes": 8166,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\outputs\\AIVORA-总工程计划与岗位配置-20260923.md",
+    "repository_path": "handoff/2026-10-08/materials/project-plans/AIVORA-总工程计划与岗位配置-20260923.md",
+    "sha256": "f43e178ab23377ec0e6dcb1d3d67903b9c4a1f79f0d52638cb1496ded26478f5",
+    "bytes": 12440,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\outputs\\AIVORA-新岗位对话与目标-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/project-plans/AIVORA-新岗位对话与目标-20260924.md",
+    "sha256": "f072495e19d3aef287809cdae8b8fb0b6e31815fe059f0997876d6ab48717afa",
+    "bytes": 6462,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\outputs\\AIVORA-明日任务计划-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/project-plans/AIVORA-明日任务计划-20260924.md",
+    "sha256": "0583d1616bbe2a455b950e63338851761a9d98eeab1a6269e69c4486907cf636",
+    "bytes": 8784,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\outputs\\AIVORA-目标模式核验-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/project-plans/AIVORA-目标模式核验-20260924.md",
+    "sha256": "b70adbcdf2467e8ca4a52f5214c52004e04816479b5dc8fe1139c90440d35aee",
+    "bytes": 2240,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\ACTIVE-GOALS-20260917.md",
+    "repository_path": "handoff/2026-10-08/materials/management/ACTIVE-GOALS-20260917.md",
+    "sha256": "3fb0f9043ae32c0ce6c28fc8ce26d70ee572dabe13a7f1b499c2fba5e005caf7",
+    "bytes": 6561,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\CLEANUP-20260917.md",
+    "repository_path": "handoff/2026-10-08/materials/management/CLEANUP-20260917.md",
+    "sha256": "973a43744524266ee5c8469d31e55f922e4f4ce1f91fa8089c0d261a2ca1acc8",
+    "bytes": 3110,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\CLEANUP-REPORT.md",
+    "repository_path": "handoff/2026-10-08/materials/management/CLEANUP-REPORT.md",
+    "sha256": "fb5c72f600ae56e5fd11ba89f15febe379068753935f7b792bd550a3c67bb4cd",
+    "bytes": 2453,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\DELIVERY-PLAN.md",
+    "repository_path": "handoff/2026-10-08/materials/management/DELIVERY-PLAN.md",
+    "sha256": "174626695588daaf8012d31696329c77a79218e0cd8477b99f2f39e53c0d2fc3",
+    "bytes": 6226,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\desktop-delivery-backlog.md",
+    "repository_path": "handoff/2026-10-08/materials/management/desktop-delivery-backlog.md",
+    "sha256": "a2eca5aac95142a9e8c24023b23c36d58000852762b56a4f93f498e30cb21b7a",
+    "bytes": 9525,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\issue-project-create.md",
+    "repository_path": "handoff/2026-10-08/materials/management/issue-project-create.md",
+    "sha256": "d70069d75fa8e2268e77a71cbc29b3d7991733ca05764a2d174e8abf3f4ba16c",
+    "bytes": 7175,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\K01-PARALLEL-PLAN-20260921.md",
+    "repository_path": "handoff/2026-10-08/materials/management/K01-PARALLEL-PLAN-20260921.md",
+    "sha256": "080726ed04258013f3ee1671239e528d3e6b69f3720c1ce7a64df954aeba48d8",
+    "bytes": 5233,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\ONE-SOFTWARE-PLAN-20260923.md",
+    "repository_path": "handoff/2026-10-08/materials/management/ONE-SOFTWARE-PLAN-20260923.md",
+    "sha256": "dd4bd678d819622ed1d3448235c76d8baf0b6a59cda6a8221d1f25a5732a06b3",
+    "bytes": 6080,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\OPERATING-MODEL.md",
+    "repository_path": "handoff/2026-10-08/materials/management/OPERATING-MODEL.md",
+    "sha256": "519ca6cee0205cb6bb302e9dc88c8fd46febcbc143d0fe4b8881ebe6d14dd85a",
+    "bytes": 610,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\ORGANIZATION-AUDIT.md",
+    "repository_path": "handoff/2026-10-08/materials/management/ORGANIZATION-AUDIT.md",
+    "sha256": "10fd9754b5f99104f7978ab6930ab4a531e7fb12bd69657e585cc67fa967fc85",
+    "bytes": 11814,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\PROJECT-CHARTER.md",
+    "repository_path": "handoff/2026-10-08/materials/management/PROJECT-CHARTER.md",
+    "sha256": "b33a5de6957eb05524aef5b91a9fdc9488849a8374187cba03c8ab05ff5a0556",
+    "bytes": 5951,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\QUALITY-STRATEGY.md",
+    "repository_path": "handoff/2026-10-08/materials/management/QUALITY-STRATEGY.md",
+    "sha256": "f3a758ba79bfae99906856e89d45e758b17273096c7275b8d7597672735bfd56",
+    "bytes": 10463,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\RESUME-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/management/RESUME-20260924.md",
+    "sha256": "ee8110cc87c9cd68ebf13b41cba1144611bf908ddd992aebefd7a33a5db02e25",
+    "bytes": 3456,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\S1-ACCEPTANCE.md",
+    "repository_path": "handoff/2026-10-08/materials/management/S1-ACCEPTANCE.md",
+    "sha256": "44b36c49b88aa1028f6ccf6f53c72ce35ee5b1bd7fb3d2b54d73a9cedf988994",
+    "bytes": 3593,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\S2-PAUSE-HANDOFF-20260917.md",
+    "repository_path": "handoff/2026-10-08/materials/management/S2-PAUSE-HANDOFF-20260917.md",
+    "sha256": "ba98629fe199b1c6b7e34eb1f5fe332d50a1da5285a2d9471fe73e88a9a24ac4",
+    "bytes": 1432,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\S2-PLAN.md",
+    "repository_path": "handoff/2026-10-08/materials/management/S2-PLAN.md",
+    "sha256": "1b044a7238170d223dc27cd6252d4e1dbce80da09db332d0c11b6862b6a70ce6",
+    "bytes": 2364,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\TEAM-REGISTER-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/management/TEAM-REGISTER-20260924.md",
+    "sha256": "f072495e19d3aef287809cdae8b8fb0b6e31815fe059f0997876d6ab48717afa",
+    "bytes": 6462,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\ui-project-create-task.md",
+    "repository_path": "handoff/2026-10-08/materials/management/ui-project-create-task.md",
+    "sha256": "4b96bd361db196b97093d37a2d8732e0ce13bbdece269d7a75b618be3c7e0a8a",
+    "bytes": 9200,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\production-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/production-20260924.md",
+    "sha256": "ae4c5b9d09e58fbe45dae9f43fb10383ccb62daf2b0399a524e4f4dcfeebd07f",
+    "bytes": 94156,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\production.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/production.md",
+    "sha256": "34583902d1c48af0d8f20db9c6e65fed4f4dbc2174f7c5e6623c5e0071bd07a0",
+    "bytes": 4760,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-c19-r1-four-path-overlay-review-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-c19-r1-four-path-overlay-review-20260928.md",
+    "sha256": "442d7b8a2cf50ce3f915e6393e406bc5ab2149065d0f84d907108874b4bef36b",
+    "bytes": 4387,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-candidate-map-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-candidate-map-20260924.md",
+    "sha256": "e5387926b7830caa728e4465c15827d9efd238a074f2a4710d3e22c4fc43c32a",
+    "bytes": 7159,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-d-longpath-composition-review-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-d-longpath-composition-review-20260928.md",
+    "sha256": "8fe0a0a7328e461d9785d18e89a1e991dd7abc9abf636cb2f4854417c80e9604",
+    "bytes": 22671,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-local-sub2api-version-addendum-20260929.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-local-sub2api-version-addendum-20260929.md",
+    "sha256": "e5da33b493f5653fb376c673796cce8362c7e0973aa6283d3809774a1d8cfcd3",
+    "bytes": 4264,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-m1-production-handoff-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-m1-production-handoff-20260924.md",
+    "sha256": "070cc71f03042886e1223561e8642b8ea0447865cb1b7557d5d53bbd72e903c6",
+    "bytes": 5737,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-next-window-pickup-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-next-window-pickup-20260928.md",
+    "sha256": "3cd9f3f7a5ef25a72069cbde731b8bb79a674f2c574509daacad7f5c787299ff",
+    "bytes": 33179,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-packaged-74-readonly-review-20260929.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-packaged-74-readonly-review-20260929.md",
+    "sha256": "db3bb415814b727e5c3f9dda60e4703088bf62ea1112090943b814ceb0cc193d",
+    "bytes": 6666,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-resume-merge-boundary-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-resume-merge-boundary-20260928.md",
+    "sha256": "9dc77f5d6a4f1723a7a4c090867650a82ed26aa21d0d972bf75259fa97039bd8",
+    "bytes": 8403,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-s2-b31-future-composition-readonly-20260929.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-s2-b31-future-composition-readonly-20260929.md",
+    "sha256": "d926f53db7d29cf39c797b6717450e1074dc206e34c29e141f2e8c8bc43d6107",
+    "bytes": 7342,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel01-web-single-file-queue-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel01-web-single-file-queue-20260928.md",
+    "sha256": "7d62e0bc9c8fcdd9a0cde3eda2119dfece59479bbbad4db5d9f568af08841867",
+    "bytes": 6295,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\rel02-install-preflight-20260928.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/rel02-install-preflight-20260928.md",
+    "sha256": "9958255bb97eb27b34ec76c3187ac26eab99aef547f4ef543c42aedecff92a2a",
+    "bytes": 69242,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/release-20260924.md",
+    "sha256": "cd819e9c6de5484421a2f2ab120ca30bc278a6e70c02a8cff956e902e2459530",
+    "bytes": 406990,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-candidate-manifest-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/release-candidate-manifest-20260924.md",
+    "sha256": "b6e63998bf4fc205b1a66c6d314e5b71039c2ac79496cc98f3119160433e2582",
+    "bytes": 6696,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/release.md",
+    "sha256": "4fc2164293084e8b19d827efbf00c90ce723593ec1191524dfdd59ff71f4eea9",
+    "bytes": 4253,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\software-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/software-20260924.md",
+    "sha256": "607868e988ec7020e952b984ba5a53e8535023bfec582a37d854ff36399081a3",
+    "bytes": 213772,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\software.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/software.md",
+    "sha256": "a318fa45160d284eff302f1373ffc83217d2a8dce181764066015672b501f945",
+    "bytes": 3496,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\test-20260924.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/test-20260924.md",
+    "sha256": "a2e323bf30256d393b3967883079c1e2ad489978bb3e470627d9d65ad89bdf60",
+    "bytes": 407805,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  },
+  {
+    "source": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\test.md",
+    "repository_path": "handoff/2026-10-08/materials/manager-handoffs/test.md",
+    "sha256": "0775a8b979d57afcf12e9db909e5d287bb5c16867bbf79cc3fb10426a85aea50",
+    "bytes": 2683,
+    "status": "HISTORICAL_REFERENCE_NOT_CURRENT_EXECUTION_AUTHORITY"
+  }
+]

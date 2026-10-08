@@ -1,0 +1,33 @@
+{
+  "schema": "qa02.media-http-headless.r01.package-index.v1",
+  "status": "CANDIDATE_AWAITING_MGR02_SINGLE_SIGN",
+  "files": [
+    {
+      "name": "RUNBOOK.md",
+      "bytes": 2713,
+      "sha256": "5BC8C0E6A9051540289B112B3E3078B8B77646D64AB0FDB5F40756B94CDBE3CB"
+    },
+    {
+      "name": "run-once.mjs",
+      "bytes": 20522,
+      "sha256": "D8EC57BE2820BC8711743328BF7B6CF400963B056D38A7CB8EDFE4D91C86065C"
+    },
+    {
+      "name": "SOURCE-FILES.json",
+      "bytes": 33573,
+      "sha256": "B9F25197890DA1478A71CA8742581487ACAC50C41504A4B663AD2B475C34F071"
+    },
+    {
+      "name": "RUN-ENVELOPE.json",
+      "bytes": 4192,
+      "sha256": "1ABDAF7C0A70FEF20D987897F28C3CCB752C2BD03A2BF8D314DA646641A33B1F"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 729,
+      "sha256": "7BDFF47D012B876647B4F837904887D3181AAA148E7C655E51DB26E3E55E6B26"
+    }
+  ],
+  "self_excluded": "PACKAGE-SHA256.json",
+  "approval_template_excluded": true
+}

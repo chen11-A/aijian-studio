@@ -1,0 +1,100 @@
+[
+  {
+    "name": "hero",
+    "source": "word/media/image9.png",
+    "crop": [222, 301, 660, 207],
+    "sha256": "AD8749CC638125B769FDA044DEEBCA59A84EC061F37468E95B777FC90E12890D",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "portrait",
+    "source": "word/media/image5.png",
+    "crop": [1012, 250, 183, 86],
+    "sha256": "CD04EAFA805D9588311A0C50AE2874D6FD6A30D630A608760266AF8F5DB67C8B",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "character",
+    "source": "word/media/image5.png",
+    "crop": [529, 262, 84, 280],
+    "sha256": "CB627845058D88D948308F7ABBCEC839CCCC358E73E3A0266A854AA3AD86E204",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "multiview",
+    "source": "word/media/image5.png",
+    "crop": [527, 258, 438, 284],
+    "sha256": "E0F98E153654E21B2FD6BED13136FA4F3607178ABFFFE82F91A69850D2ECC955",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "city",
+    "source": "word/media/image6.png",
+    "crop": [220, 197, 1094, 225],
+    "sha256": "8CDA6D7B8F59DEBAF28E255081A4F1ACA71333476CAA2A502AC5D9BF8E4E26C8",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "street",
+    "source": "word/media/image7.png",
+    "crop": [270, 209, 670, 290],
+    "sha256": "377975CFF45215D6EDC0ACD1515683D1672413A128E9FA962378521CDDB38BF7",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "morning",
+    "source": "word/media/image2.png",
+    "crop": [404, 640, 182, 95],
+    "sha256": "50F9EA003C000FF58F5FA8091530B41710320840837D0BD7F975202E321D11DC",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "sea",
+    "source": "word/media/image2.png",
+    "crop": [607, 640, 182, 95],
+    "sha256": "DC7D66FD6DD64CB8560B30BDB61422E1D18102F80B0F52CBE49692561160A251",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "town",
+    "source": "word/media/image2.png",
+    "crop": [810, 640, 181, 95],
+    "sha256": "33B555E07F226A28E8CB569AC1E4C33B419BE445D76ED89CD6F77B3EFBF39D58",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "male",
+    "source": "word/media/image5.png",
+    "crop": [230, 335, 69, 62],
+    "sha256": "319579B5A322BEE16B59953D76615948B835583AF8157B4339BEEA2EBAEB8E51",
+    "purpose": "User-authorized design-reference crop; demo only"
+  },
+  {
+    "name": "street-wide",
+    "source": "word/media/image7.png",
+    "crop": [337, 650, 81, 47],
+    "sha256": "F065455A56E912597DF56F74F1E2E183A8F1C52A741E203E78E899EC6D0D6E76",
+    "purpose": "Same-location view thumbnail from figure 8; demo only"
+  },
+  {
+    "name": "street-forward",
+    "source": "word/media/image7.png",
+    "crop": [439, 650, 77, 47],
+    "sha256": "7AC450E40C956D72FCCAED59A6F7C0033AF5AE7F17CCC71415387DA2A6E808B7",
+    "purpose": "Same-location view thumbnail from figure 8; demo only"
+  },
+  {
+    "name": "street-reverse",
+    "source": "word/media/image7.png",
+    "crop": [541, 650, 76, 47],
+    "sha256": "FE2C08F3288233FA3123ADAE82ADDAD1EC2293BE1A795DB8EE2C291132EF8B3B",
+    "purpose": "Same-location view thumbnail from figure 8; demo only"
+  },
+  {
+    "name": "street-high",
+    "source": "word/media/image7.png",
+    "crop": [851, 650, 76, 47],
+    "sha256": "DA5B798461877EA54095E1D346780A0984C6410DB33AF7F295278D25D0624FC7",
+    "purpose": "Same-location view thumbnail from figure 8; demo only"
+  }
+]

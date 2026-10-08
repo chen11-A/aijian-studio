@@ -1,0 +1,57 @@
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index 2017807..3bee19f 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -45,7 +45,12 @@ import {
+   resolveProductionBriefTopFrameClient,
+ } from "./production-brief-ipc";
+ import { resolveE2EUserDataDirectory } from "./e2e-user-data";
+-import { startSidecar, type SidecarHandle, type StartSidecarOptions } from "./sidecar-process";
++import {
++  createSidecarExtractionTemp, type SidecarExtractionTemp,
++} from "./sidecar-extraction-temp";
++import {
++  SidecarStartupError, startSidecar, type SidecarHandle, type StartSidecarOptions,
++} from "./sidecar-process";
+ import { createSourceManifestReviewController } from "./source-manifest-review";
+ import { registerSourceManifestReviewHandlers } from "./source-manifest-review-ipc";
+ 
+@@ -126,14 +131,26 @@ function packagedSidecarOptions(): StartSidecarOptions {
+       !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")) {
+     throw new Error("Packaged sidecar resources are unavailable");
+   }
++  const workspaceDirectory = join(app.getPath("userData"), "workspace");
++  let extraction: SidecarExtractionTemp;
++  try {
++    extraction = createSidecarExtractionTemp(
++      process.env.LOCALAPPDATA, process.env.USERPROFILE,
++    );
++  } catch {
++    throw new SidecarStartupError("STARTUP_UNKNOWN");
++  }
+   return {
+     command: join(sidecarDirectory, "aijian-sidecar.exe"),
+     args: [],
+     cwd: sidecarDirectory,
+     env: {
+-      AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
++      AIJIAN_DATA_DIR: workspaceDirectory,
+       AIJIAN_RESOURCE_ROOT: root,
++      TEMP: extraction.directory,
++      TMP: extraction.directory,
+     },
++    cleanupAfterClose: extraction.cleanupAfterClose,
+   };
+ }
+ 
+@@ -383,7 +400,9 @@ async function startApplication(): Promise<void> {
+   });
+ }
+ 
+-void startApplication().catch(() => {
++void startApplication().catch((error: unknown) => {
++  console.error(error instanceof SidecarStartupError
++    ? error.classification : "STARTUP_UNKNOWN");
+   app.quit();
+ });
+ 

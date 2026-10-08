@@ -1,0 +1,16 @@
+# QA03 v4 G: one offline OpenAPI and TypeScript generation claim
+
+Status: DRAFT_FOR_MGR01_EXACT_SCOPE_REVIEW_AND_MGR02_NEW_SINGLE_CALL_APPROVAL. The formal G run-01 and approval are absent.
+
+Call ID: QA03-LOCAL-OPENAPI-GENERATE-V4-01. Scope: ONE_OFFLINE_TWO_OUTPUT_GENERATION_NO_MIGRATION.
+Stage: C:\Users\Administrator\Documents\Codex\2026-09-23\qa03-local-sub2api-source-v4-01. S result SHA-256 DAA2FCDD9A49384DB84C2CB7019147A9F6F57DC9816D547B6AAA639AD0D692D6 and independent MGR04 review SHA-256 AB8876DC19E2F71B398C33491292D87FFFBA0537A0A83D248710B2F5B61E6FDA pin the same 14,466 regular files and 771 internal links; this packet's STAGE-BASE-MANIFEST.json pins every path, byte count, SHA-256 and link target/resolution.
+
+Only two stage files may change: source/packages/contracts/openapi.json through the pinned Python exporter, and source/packages/contracts/src/generated.ts through the pinned stage-local openapi-typescript CLI. Both must differ from their old baseline SHA. The validation gate checks the Sub2API origin_mode enum and synthetic omitted-public, explicit-null-rejection and explicit-local-loopback behavior. No provider request occurs.
+
+The fixed author Python 3.12.13 is invoked with -I -B -S. Its pinned resolved base directory is included in the Python import allowlist because this .venv keeps the standard library outside .venv/Scripts. The wrapper denies network, process, unexpected writes and six keyring/Vault entry points before importing the API. Node 24.15.0 uses its stage-local CLI, stage-relative input, preload guard, permission flags, realpath import audit and exact-output write boundary. These guards are bounded checks for trusted code, not a hostile-code sandbox.
+
+The runner requires MGR02-APPROVAL.json bound to exact PACKAGE.json SHA-256, call ID, scope and stage. It creates one exclusive CLAIM, hashes the complete stage before execution, captures each child PID, actual process image, raw stdout/stderr and exit code, then hashes the complete stage after each successful child and in finally after any outcome. It checks isolated APPDATA, LOCALAPPDATA, TEMP, home and cache roots. First RED or UNKNOWN stops; no automatic retry, cleanup or further gate.
+
+Pure QA lineage: QA-FIXTURE-RECEIPT-v4-01.json is retained RED because the first guard omitted the interpreter's resolved standard-library root and rejected configparser before any real generator call. QA-FIXTURE-RECEIPT-v4-02.json is PASS_PURE_QA_NO_REAL_GENERATOR after pinning that root; it covers keyring classification, forbidden network/Vault/process/extra writes, partial-output failure readback, and complete stage readback before and after. Both receipts and their raw fixture files are pinned in the package. This is fixture evidence only.
+
+A formal PASS_OFFLINE_GENERATION_ONLY proves the two isolated generated outputs and local readback. Migration 32/33, backend API/database behavior, provider, Web/desktop build, Electron, native and product acceptance remain separate. A same-source Web/desktop build is planned as a later exact scope; desktop/native input must wait for DEV07's bounded main.ts safety merge.

@@ -1,0 +1,28 @@
+{
+  "check": "web-task-queue-evidence",
+  "passed": true,
+  "browser": "Microsoft Edge Chromium",
+  "taskCount": 3,
+  "listRequestCompleted": true,
+  "layouts": {
+    "1440x900": {
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    "390x844": {
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "clientWidth": 390
+    }
+  },
+  "horizontalOverflow": false,
+  "rendererConsoleErrors": [],
+  "screenshots": [
+    "task-queue-1440x900.png",
+    "task-queue-390x844.png",
+    "task-queue-card-390x844.png"
+  ]
+}

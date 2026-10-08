@@ -1,0 +1,8 @@
+{
+  "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api\\product_export_windows_job.py",
+  "preserved_copy": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev08-product-export-windows-job-20260928\\product_export_windows_job.py",
+  "sha256": "B5CAC03653669E35DDF1BB00031618D3C6605024E0A6DECC5CD4D9BBFC99EA40",
+  "status": "STATIC_CANDIDATE_NO_IMPORT_NO_TEST_NO_PROCESS_EXECUTION",
+  "runtime_scope": "Windows 10+",
+  "integration": "not imported by product_export_encoder or sidecar"
+}

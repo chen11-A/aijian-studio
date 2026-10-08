@@ -1,0 +1,101 @@
+{
+  "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+  "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+  "action_version": {
+    "version_id": "ver_f4923db93f50455faa63efd54ad30f9d",
+    "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+    "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+    "version_number": 1,
+    "head_revision": 1,
+    "parent_version_id": null,
+    "content": {
+      "schema_version": "1.0.0",
+      "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+      "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+      "production_brief_version_id": null,
+      "scenes": [
+        {
+          "scene_id": "scn_fe2dbe1bd98f4a118e376bf0708e2862",
+          "ordinal": 1,
+          "heading": "旧稿测试场",
+          "blocks": [
+            {
+              "block_id": "sblk_32aa3066d9e94a6e9c97b40c04b696b8",
+              "ordinal": 1,
+              "kind": "ACTION",
+              "text": "测试角色走入画面。",
+              "speaker": null
+            }
+          ]
+        }
+      ]
+    },
+    "content_hash": "sha256:104026af4e2437a237588330ac131add6f88b5bebf42458abb79449b4caae1bd",
+    "author_actor_id": "local-user",
+    "change_summary": "Legacy ACTION fixture",
+    "created_at": "2026-09-28T03:15:38.448204Z"
+  },
+  "dialogue_version": {
+    "version_id": "ver_7b0c36536e574c88bde978668659d9f7",
+    "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+    "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+    "version_number": 2,
+    "head_revision": 2,
+    "parent_version_id": "ver_f4923db93f50455faa63efd54ad30f9d",
+    "content": {
+      "schema_version": "1.0.0",
+      "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+      "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+      "production_brief_version_id": null,
+      "scenes": [
+        {
+          "scene_id": "scn_fe2dbe1bd98f4a118e376bf0708e2862",
+          "ordinal": 1,
+          "heading": "旧稿测试场",
+          "blocks": [
+            {
+              "block_id": "sblk_a9e0066afa6a464f92b6a9ff1e3af1c4",
+              "ordinal": 1,
+              "kind": "DIALOGUE",
+              "text": "旧版提示语。",
+              "speaker": "测试说话人"
+            }
+          ]
+        }
+      ]
+    },
+    "content_hash": "sha256:c4ba83792da3fc649f3647d8ae17bd36b94dbca148c31bf98036ea72156128d4",
+    "author_actor_id": "local-user",
+    "change_summary": "Legacy DIALOGUE fixture",
+    "created_at": "2026-09-28T03:15:38.459203Z"
+  },
+  "dialogue_request": {
+    "content": {
+      "schema_version": "1.0.0",
+      "project_id": "prj_302af39c479e47fbb947ef2bf33dec2a",
+      "episode_id": "ep_1011f7d1000543e793c0110279ab303b",
+      "scenes": [
+        {
+          "scene_id": "scn_fe2dbe1bd98f4a118e376bf0708e2862",
+          "ordinal": 1,
+          "heading": "旧稿测试场",
+          "blocks": [
+            {
+              "block_id": "sblk_a9e0066afa6a464f92b6a9ff1e3af1c4",
+              "ordinal": 1,
+              "kind": "DIALOGUE",
+              "text": "旧版提示语。",
+              "speaker": "测试说话人"
+            }
+          ]
+        }
+      ]
+    },
+    "parent_version_id": "ver_f4923db93f50455faa63efd54ad30f9d",
+    "expected_revision": 1,
+    "change_summary": "Legacy DIALOGUE fixture"
+  },
+  "dialogue_key": "qa-legacy-dialogue:c821650a-729e-4dc9-bfc3-035c9add9100",
+  "scene_id": "scn_fe2dbe1bd98f4a118e376bf0708e2862",
+  "dialogue_block_id": "sblk_a9e0066afa6a464f92b6a9ff1e3af1c4"
+}

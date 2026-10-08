@@ -1,0 +1,8 @@
+# QA03 AC05 CONSUMED adapter old-baseline RED, 2026-09-28
+
+- MGR02 granted an exclusive, bounded c19 window after QA02's normal close and release receipt. QA03 ran one external test file once and released the window.
+- Input: c19 HEAD `211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2`, status 87, old adapter SHA256 `7B06E2814A0CCE68D065960E859E35A3DD0CED0DEE49FD6A9A7BAA28BFA8A2DF`. External test SHA256 `31808CADC36319EB025DD1C9B3A06A11B35E669870CDBFF60AB4E2AD391527BD`; QA01 real sidecar POST 200/CONSUMED fixture SHA256 `B8570FE14FCF774BAAB7688AF5E4887E5307102BD468AEB4E6DBFCC4078F1251`.
+- `pnpm --filter @aijian/studio-web exec vitest run --config vitest.config.mjs ac05-consumed-adapter.test.mjs`: one test failed, exit 1. The queue and pending-operation read reached `queueBinding=VERIFIED`; at line 92, `approveSub2APIOneCall` returned `UNKNOWN` for the genuine CONSUMED response where the test expected `CONSUMED`. This is the old adapter's behavioral RED. The later journal-lock and readback assertions were not reached and remain unverified until the fixed-source run.
+- Raw: `red.stdout.txt` SHA256 `86FCEFD9DC7B9680E2B7F3B383559850B4D7522BFDBED90575DAD489F33BBE52`; `red.stderr.txt` SHA256 `2424E3CB8B04E7F02527022DC17D8AFD34074E1143D96D05654D2E6701486B47`; `red.exit.txt` contains `1`.
+- `preflight.json` and `postflight.json` retain the HEAD, status count, and input hashes. Postflight equals preflight; c19 related processes: none. QA03 made no c19 source edit, sync, build, or further test in this window.
+- This is adapter-level evidence only. It does not establish native UI wording, a real provider call, cost, installation, or whole-product acceptance.

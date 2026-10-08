@@ -1,0 +1,110 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-script-compat-20260928\\episodeScript.ts.before" "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\adapters\\episodeScript.ts"
+index caa8136..fdd8efd 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-script-compat-20260928\\episodeScript.ts.before"
++++ "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\adapters\\episodeScript.ts"
+@@ -4,7 +4,7 @@ export type ScriptBlock = {
+   kind: "ACTION" | "DIALOGUE";
+   text: string;
+   speaker: string | null;
+-  delivery: "ON_SCREEN" | "OFF_SCREEN" | null;
++  delivery?: "ON_SCREEN" | "OFF_SCREEN" | null;
+ };
+ export type ScriptScene = {
+   scene_id: string;
+@@ -16,11 +16,24 @@ export type ScriptContent = {
+   schema_version: "1.0.0";
+   project_id: string;
+   episode_id: string;
++  production_brief_version_id?: string | null;
++  story_bible_version_id?: string | null;
++  source_extraction_version_id?: string | null;
++  source_proposal_acceptance_id?: string | null;
++  scenes: ScriptScene[];
++};
++export type ScriptWriteBlock = ScriptBlock & {
++  delivery: "ON_SCREEN" | "OFF_SCREEN" | null;
++};
++export type ScriptWriteScene = Omit<ScriptScene, "blocks"> & {
++  blocks: ScriptWriteBlock[];
++};
++export type ScriptWriteContent = ScriptContent & {
+   production_brief_version_id: string | null;
+   story_bible_version_id: string | null;
+   source_extraction_version_id: string | null;
+   source_proposal_acceptance_id: string | null;
+-  scenes: ScriptScene[];
++  scenes: ScriptWriteScene[];
+ };
+ export type ScriptVersion = {
+   version_id: string;
+@@ -43,7 +56,7 @@ export type ScriptCreatedResponse = {
+ export type ScriptWriteCommand = {
+   operation_id: string;
+   payload: {
+-    content: ScriptContent;
++    content: ScriptWriteContent;
+     parent_version_id: string | null;
+     expected_revision: number | null;
+     change_summary: string;
+@@ -93,7 +106,8 @@ const record = (value: unknown): value is Record<string, unknown> =>
+ const positive = (value: unknown) => typeof value === "number" &&
+   Number.isSafeInteger(value) && value > 0;
+ 
+-function validContent(value: unknown, projectId: string, episodeId: string):
++function validContent(value: unknown, projectId: string, episodeId: string,
++  requireDelivery = false):
+   value is ScriptContent {
+   if (!record(value) || value.schema_version !== "1.0.0" ||
+       value.project_id !== projectId || value.episode_id !== episodeId ||
+@@ -101,13 +115,14 @@ function validContent(value: unknown, projectId: string, episodeId: string):
+   for (const field of ["production_brief_version_id", "story_bible_version_id",
+     "source_extraction_version_id"] as const) {
+     const fieldValue = value[field];
+-    if (fieldValue !== null &&
++    if (fieldValue !== null && fieldValue !== undefined &&
+         (typeof fieldValue !== "string" || !VERSION.test(fieldValue))) return false;
+   }
+   const acceptance = value.source_proposal_acceptance_id;
+-  if (value.source_extraction_version_id === null
+-    ? acceptance !== null
+-    : typeof acceptance !== "string" || !ACCEPTANCE.test(acceptance)) return false;
++  if (acceptance != null &&
++      (typeof acceptance !== "string" || !ACCEPTANCE.test(acceptance))) return false;
++  if (requireDelivery &&
++      (value.source_extraction_version_id == null) !== (acceptance == null)) return false;
+   const ids = new Set<string>();
+   return value.scenes.every((scene, index) => {
+     if (!record(scene) || typeof scene.scene_id !== "string" ||
+@@ -125,10 +140,11 @@ function validContent(value: unknown, projectId: string, episodeId: string):
+           [...block.text].length > 20_000) return false;
+       ids.add(block.block_id);
+       return block.kind === "ACTION"
+-        ? block.speaker === null && block.delivery === null
++        ? block.speaker == null && block.delivery == null
+         : typeof block.speaker === "string" && !!block.speaker.trim() &&
+           [...block.speaker].length <= 120 &&
+-          (block.delivery === "ON_SCREEN" || block.delivery === "OFF_SCREEN");
++          (!requireDelivery && block.delivery == null ||
++            block.delivery === "ON_SCREEN" || block.delivery === "OFF_SCREEN");
+     });
+   });
+ }
+@@ -167,7 +183,7 @@ function validPending(value: unknown, projectId: string, episodeId: string): val
+   if (typeof command.operation_id !== "string" || !UUID.test(command.operation_id) ||
+       !record(command.payload)) return false;
+   const input = command.payload;
+-  return validContent(input.content, projectId, episodeId) &&
++  return validContent(input.content, projectId, episodeId, true) &&
+     typeof input.change_summary === "string" && input.change_summary.length > 0 &&
+     (input.parent_version_id === null ||
+       (typeof input.parent_version_id === "string" && VERSION.test(input.parent_version_id))) &&
+@@ -463,7 +479,8 @@ export async function confirmScriptVersion(
+       expected_head_revision: version.head_revision, confirm: true },
+   };
+   if (!validPendingConfirmation(pending, projectId, episodeId) ||
+-      !validScriptVersion(version, projectId, episodeId))
++      !validScriptVersion(version, projectId, episodeId) ||
++      !validContent(version.content, projectId, episodeId, true))
+     return { kind: "BLOCKED", message: "待确认剧本身份无效。" };
+   if (readConfirmationJournal(storage, projectId, episodeId).kind !== "EMPTY")
+     return { kind: "BLOCKED", message: "已有待核对的确认操作，未重复发送。" };

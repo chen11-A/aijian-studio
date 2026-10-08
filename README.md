@@ -1,8 +1,8 @@
-# Aijian Studio（阿健漫剧工场，暂定名）
+# AIVORA（代码包名 Aijian Studio）
 
 面向小说、漫画和原创故事的 AI 原生漫剧/短剧制作工作台。目标不是“一键抽卡式生成视频”，而是把制片、编剧、导演、美术、摄影、声音和剪辑真正连接成可审阅、可回退、可协作的生产流程。
 
-> 项目目前处于规格与架构阶段。公开仓库已确定为 `chen11-A/aijian-studio`；“阿健漫剧工场”仍是暂定产品展示名。
+> 2026-10-08：本仓库 `main` 是个人电脑独立重建起点，不是完整迁移或已验收发行版。399 个受保护版本未上传，其中两个路径保留旧版、397 个路径缺失；先读 [个人电脑接手步骤](PERSONAL_COMPUTER_START.md) 和 [缺口清单](handoff/2026-10-08/TRANSFER-EXCLUSIONS.json)。接手先读 [DOTS_HANDOFF.md](DOTS_HANDOFF.md) 和 [完整产品需求与验收基线](docs/product/AIVORA-完整产品需求与验收基线.md)。目标是同一个可直接使用的 Windows 桌面软件，不另建网页产品。演示残留、真实 AI 调用、完整制作流程和安装交付仍需完成；不能把编译或局部测试通过当成整体验收。
 
 ## 产品主流程
 
@@ -21,13 +21,17 @@
 
 AI Agent 负责提出方案和生成结构化产物；确定性工作流负责状态、依赖、版本、审批、重试和恢复。任何 Agent 都不能绕过审批门直接发布成片。
 
-## 三种使用方式
+默认决策岗位是“AI 制片协调员”：只理解制作目标、拆解任务、管理预算/风险/阻塞升级，并提出委派和 Gate 建议；不写专业产物、不审批、不直接调用 Provider、不读取密钥。执行与监督岗位使用编剧 Agent、连续性监督 Agent、导演 Agent、美术与资产 Agent、提示词 Agent、剪辑 Agent 和 QC Agent。显示名未来可以自定义，但持久化的稳定 `definition_id` 不依赖中文名称。
 
-| 形态 | 面向人群 | 部署方式 | 数据与计算 |
-| --- | --- | --- | --- |
-| Windows 桌面版 | 个人创作者、小团队单机制作 | Electron 壳 + 本机后端，仅监听随机 `127.0.0.1` 端口 | SQLite、本地素材库、云端 AI API |
-| 工作室服务器 | 局域网团队、私有云、公开云 | HTTPS 域名 + 认证 API + Worker | PostgreSQL、S3/MinIO、Redis、集中算力 |
-| 手机审片 PWA | 导演、制片、客户、外出审批 | 浏览器或安装到 Android/iOS 桌面 | 连接工作室服务器，只做审阅、批注、审批和轻量上传 |
+## 历史架构设想（当前交付仅 Windows 桌面）
+
+下面的服务器/PWA 设想保留作背景，不属于当前交付授权，不应据此扩建另一套产品。
+
+| 形态           | 面向人群                   | 部署方式                                            | 数据与计算                                       |
+| -------------- | -------------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| Windows 桌面版 | 个人创作者、小团队单机制作 | Electron 壳 + 本机后端，仅监听随机 `127.0.0.1` 端口 | SQLite、本地素材库、云端 AI API                  |
+| 工作室服务器   | 局域网团队、私有云、公开云 | HTTPS 域名 + 认证 API + Worker                      | PostgreSQL、S3/MinIO、Redis、集中算力            |
+| 手机审片 PWA   | 导演、制片、客户、外出审批 | 浏览器或安装到 Android/iOS 桌面                     | 连接工作室服务器，只做审阅、批注、审批和轻量上传 |
 
 桌面版里的随机本机端口只是 Electron 与本机后端的进程间通信，不是给其他人访问的服务器。多人使用必须部署“工作室服务器”，不能把无鉴权的 FastAPI/Express 直接绑定到 `0.0.0.0`。
 
@@ -51,6 +55,29 @@ AI Agent 负责提出方案和生成结构化产物；确定性工作流负责�
 - [首个 8 周可执行任务](docs/roadmap/phase-0-backlog.md)
 - [安全模型](docs/security/security-model.md)
 - [质量基线](docs/quality/quality-baseline-v0.md)
+
+## 本地开发
+
+基础要求：Windows 11、Git、Node.js 24、pnpm 11、Python 3.12、uv 0.12。首次克隆后执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-windows.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-windows.ps1
+```
+
+第二条命令同时启动 FastAPI、Vite 与 Electron。开发阶段的 `8000`/`5173` 仅用于本机调试；交付版会由 Electron main 启动 Python sidecar，使用操作系统分配的随机 `127.0.0.1` 端口和一次性令牌。
+
+常用质量命令：
+
+```powershell
+pnpm contracts:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+当前 walking skeleton 的实施边界和验收标准见 [Phase 0 实施规格](docs/specs/phase0-walking-skeleton.md)。
 
 ## 当前原则
 

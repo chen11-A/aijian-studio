@@ -1,0 +1,117 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\Sub2APIConnectionManagement.tsx.before" "b/apps\\studio-web\\src\\aivora\\Sub2APIConnectionManagement.tsx"
+index f27ad17..8c98739 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\Sub2APIConnectionManagement.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\Sub2APIConnectionManagement.tsx"
+@@ -8,6 +8,9 @@ import {
+   clearProviderWrite, newRotationOperationId, persistProviderWrite,
+   readProviderJournal, type ProviderPendingWrite,
+ } from "../domain/sub2api-provider-journal";
++import {
++  isLiteralSub2APILoopbackOrigin, type Sub2APIOriginMode,
++} from "../domain/provider-settings-model";
+ import { Button } from "./Common";
+ 
+ type Connection = ProviderConnectionListResponse["data"][number];
+@@ -38,6 +41,7 @@ export function Sub2APIConnectionManagement({
+   const [journal, setJournal] = useState(() => readProviderJournal(connection.id));
+   const [busy, setBusy] = useState(false);
+   const [notice, setNotice] = useState("");
++  const [mode, setMode] = useState<Sub2APIOriginMode>("PUBLIC_HTTPS");
+   const [name, setName] = useState(connection.display_name);
+   const [origin, setOrigin] = useState(connection.base_url);
+   const [enabled, setEnabled] = useState(connection.enabled);
+@@ -49,6 +53,7 @@ export function Sub2APIConnectionManagement({
+   useEffect(() => {
+     activeScope.current = scope;
+     setJournal(readProviderJournal(connection.id));
++    setMode("PUBLIC_HTTPS");
+     setName(connection.display_name);
+     setOrigin(connection.base_url);
+     setEnabled(connection.enabled);
+@@ -132,7 +137,14 @@ export function Sub2APIConnectionManagement({
+   }
+ 
+   async function saveMetadata() {
+-    if (!transport.editSub2APIMetadata || !canWrite) return;
++    if (!canWrite) return;
++    if (mode === "LOCAL_LOOPBACK_HTTP") {
++      setNotice(isLiteralSub2APILoopbackOrigin(origin.trim())
++        ? "本机地址格式已核对；部署模式尚未进入同版本 CAS 合同，未发送 PATCH。"
++        : "本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口，端口须显式填写 1–65535；未发送 PATCH。");
++      return;
++    }
++    if (!transport.editSub2APIMetadata) return;
+     const parsedModels = textModels(models);
+     const displayName = name.trim();
+     const baseUrl = origin.trim();
+@@ -172,7 +184,7 @@ export function Sub2APIConnectionManagement({
+   }
+ 
+   async function rotateKey() {
+-    if (!transport.rotateSub2APIKey || !canWrite) return;
++    if (!transport.rotateSub2APIKey || !canWrite || mode !== "PUBLIC_HTTPS") return;
+     if (apiKey.length < 8 || apiKey.length > 8192 || /\s/.test(apiKey)) {
+       setNotice("新业务密钥须为 8–8192 字符且不含空白。");
+       return;
+@@ -211,7 +223,8 @@ export function Sub2APIConnectionManagement({
+   }
+ 
+   async function readReadiness() {
+-    if (!transport.readSub2APIConfiguredReadiness || !modelId || busy) return;
++    if (!transport.readSub2APIConfiguredReadiness || !modelId || busy ||
++        mode !== "PUBLIC_HTTPS") return;
+     setBusy(true);
+     const requestedModel = modelId;
+     const result = await transport.readSub2APIConfiguredReadiness(connection.id, requestedModel)
+@@ -241,27 +254,45 @@ export function Sub2APIConnectionManagement({
+       {pending.kind === "rotation" ? ` · ${pending.operationId}` :
+         ` · 原修订 ${pending.command.expected_revision}`}；禁止再次提交。</p>}
+     {pending && <Button disabled={busy} onClick={() => void readPending()}>只读核对原操作</Button>}
+-    <fieldset disabled={!transport.editSub2APIMetadata || !canWrite}>
++    <fieldset disabled={!canWrite}>
+       <legend>编辑连接元数据 · CAS</legend>
++      <div role="group" aria-label="Sub2API 部署模式">
++        <Button aria-pressed={mode === "PUBLIC_HTTPS"}
++          onClick={() => { setMode("PUBLIC_HTTPS"); setOrigin(connection.base_url); setApiKey(""); }}>
++          公网 HTTPS
++        </Button>
++        <Button aria-pressed={mode === "LOCAL_LOOPBACK_HTTP"}
++          onClick={() => { setMode("LOCAL_LOOPBACK_HTTP"); setOrigin(""); setApiKey(""); }}>
++          本机 loopback · 候选
++        </Button>
++      </div>
+       <label>连接名称<input value={name} maxLength={80}
+         onChange={(event) => setName(event.target.value)} /></label>
+-      <label>公网 HTTPS origin<input value={origin} maxLength={2048}
++      <label>{mode === "LOCAL_LOOPBACK_HTTP" ? "本机 IP 与显式端口" : "公网 HTTPS origin"}
++        <input value={origin} maxLength={2048}
+         onChange={(event) => setOrigin(event.target.value)} /></label>
+       <label>TEXT 模型 ID（逗号分隔）<input value={models}
+         onChange={(event) => setModels(event.target.value)} /></label>
+       <label><input type="checkbox" checked={enabled}
+         onChange={(event) => setEnabled(event.target.checked)} />启用连接</label>
+-      <Button disabled={!transport.editSub2APIMetadata || !canWrite}
+-        onClick={() => void saveMetadata()}>保存元数据</Button>
++      <Button disabled={!canWrite ||
++        (mode === "PUBLIC_HTTPS" && !transport.editSub2APIMetadata)}
++        onClick={() => void saveMetadata()}>
++        {mode === "LOCAL_LOOPBACK_HTTP" ? "核对本机地址 · 不保存" : "保存元数据"}
++      </Button>
+     </fieldset>
+-    <fieldset disabled={!transport.rotateSub2APIKey || !canWrite}>
++    {mode === "LOCAL_LOOPBACK_HTTP" &&
++      <p role="status">仅接受 127.0.0.1 或 [::1] 加显式端口；localhost、私网、路径及重定向目标不可用。当前连接仍是权威读回的公网配置；本机网关不代表上游 AI 离线。</p>}
++    <fieldset disabled={!transport.rotateSub2APIKey || !canWrite ||
++      mode === "LOCAL_LOOPBACK_HTTP"}>
+       <legend>轮换业务密钥</legend>
+       <label>新密钥<input type="password" value={apiKey} autoComplete="off"
+         onChange={(event) => setApiKey(event.target.value)} /></label>
+       <Button disabled={!transport.rotateSub2APIKey || !canWrite || !apiKey}
+         onClick={() => void rotateKey()}>明确轮换一次</Button>
+     </fieldset>
+-    <fieldset disabled={!transport.readSub2APIConfiguredReadiness || busy}>
++    <fieldset disabled={!transport.readSub2APIConfiguredReadiness || busy ||
++      mode === "LOCAL_LOOPBACK_HTTP"}>
+       <legend>本地配置 readiness · 不调用供应商</legend>
+       <label>TEXT 模型<select value={modelId}
+         onChange={(event) => { setModelId(event.target.value); setReadiness(""); }}>

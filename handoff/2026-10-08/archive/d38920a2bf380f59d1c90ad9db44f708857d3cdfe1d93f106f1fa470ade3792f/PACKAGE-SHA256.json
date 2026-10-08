@@ -1,0 +1,38 @@
+{
+  "schema": "qa02.media-short-headless.r04.package-index.v1",
+  "status": "CANDIDATE_AWAITING_MGR02_SINGLE_SIGN",
+  "files": [
+    {
+      "name": "RUNBOOK.md",
+      "bytes": 2702,
+      "sha256": "32F7A65505CCFA78B6A9F594F6FD5917117C3E6840C316AA820507BEBA009E31"
+    },
+    {
+      "name": "run-once.mjs",
+      "bytes": 25742,
+      "sha256": "E30D01A810144D11225DA856E0049FB55CB69847A126C3AB2A23C05B790AC5E3"
+    },
+    {
+      "name": "inspect-db.py",
+      "bytes": 867,
+      "sha256": "EFAF67AA1633B13893E9D764F900A29B3340EDDF26CC87AE506C0650D8F5A58B"
+    },
+    {
+      "name": "SOURCE-FILES.json",
+      "bytes": 33006,
+      "sha256": "D328D607F0976DC3888EBB26602EBC26447B147AA899245EE2AC5A68206AA514"
+    },
+    {
+      "name": "RUN-ENVELOPE.json",
+      "bytes": 7986,
+      "sha256": "5A13EA1EEA29DB66D144DF492B6135F65F95AF48750AA937716F5C5D2264DDBB"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 1270,
+      "sha256": "BD364F25980187350E78A2BA962C07322AC45BBD681D3A627EEC479B076EEAED"
+    }
+  ],
+  "self_excluded": "PACKAGE-SHA256.json",
+  "approval_template_excluded": true
+}

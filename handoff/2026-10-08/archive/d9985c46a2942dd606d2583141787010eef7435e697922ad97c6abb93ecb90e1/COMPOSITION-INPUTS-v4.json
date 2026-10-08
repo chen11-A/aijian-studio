@@ -1,0 +1,287 @@
+{
+  "schema": "AIVORA_LOCAL_SUB2API_STATIC_COMPOSITION_INPUTS_V4",
+  "state": "STATIC_INPUTS_ONLY_UNTESTED_NO_STAGE_READER_BOUNDARY_RECORDED",
+  "date_local": "2026-10-08",
+  "supersedes_v3_sha256": "648AC433988F82A97935BB2AB5F2A5F21388ED8EBC1CF1822978715B32C36912",
+  "supersedes_invalid_draft_sha256": "29CE0AC7B9494591D320734D6B446736CAA00D80325182ABD0CAE3294B3F2B69",
+  "supersedes_wrong_reader_draft_sha256": "4999DB917D81E365673F902C6BE149F2B0B366CF7464318F6899F1F403241F6C",
+  "stage_exists": false,
+  "source_readback_contract": {
+    "fixed_consumer_python": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\.venv\\Scripts\\python.exe",
+    "fixed_consumer_python_sha256": "461D6E5F9A0DCB724798D2B6DBD57555A9EB3084522CC5DC5B2347934F5A4060",
+    "fixed_consumer_version": "3.12.13",
+    "fixed_consumer_flags": [
+      "-I",
+      "-B",
+      "-S"
+    ],
+    "method": "Read each physical_path using this fixed Python consumer and flags, verify SHA-256 and bytes, then copy only under the approved QA stage writer plan. Record resolved paths, consumer __file__, and output SHA. Do not use a PowerShell raw-file hash to diagnose author-source drift.",
+    "observed_reader_difference": {
+      "source_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connection_routes.py",
+      "python_source_sha256": "155CB21B02BCB1B4A7790E21D959787450AA00ED55B42D1B034D91EA3A1C9D37",
+      "powershell_raw_sha256": "334FB54EC018C6340F7CE4F09041CC3006AC6843CFBFA382F77C771C29328098",
+      "powershell_prefix": "E-SafeNet LOCK",
+      "interpretation": "Reader-specific protected view; not evidence of source drift"
+    }
+  },
+  "input_manifests": [
+    {
+      "owner": "DEV01",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\CANDIDATE.json",
+      "sha256": "2BB2F303B1D3B83D6AE3DF0832EE42A28A91C6AFBCAC47225CBDDA2BCB7C45F5"
+    },
+    {
+      "owner": "DEV05",
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\MANIFEST.json",
+      "sha256": "56E09F7BE264316474FEA6F78EF7560D53266AE394C0DA314803BA34E40FDF24"
+    },
+    {
+      "owner": "DEV07",
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev07-sub2api-local-mode-20260929\\MANIFEST.json",
+      "sha256": "E166BC890EF11C843EC9035957B660AB2E84FCE099411D8E957FC3FB92985442",
+      "handoff_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev07-sub2api-local-mode-20260929\\QA-HANDOFF.md",
+      "handoff_sha256": "9968C41DF6ACB17186CFD667853B8D50C8ED74296D930B2E4E12BBD1A1BFC2FF"
+    },
+    {
+      "owner": "DEV04",
+      "path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\HANDOFF.md",
+      "sha256": "0EB92A759B637080574E99A1CBA03CC35197786290379F6F8DB972C1FD574380"
+    },
+    {
+      "owner": "DEV04",
+      "path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-generated-consumer-20261008\\HANDOFF.md",
+      "sha256": "286A946431DB7A3DBC05711D6ECE5AEF367117E444DA9DF5D3ED6AC759A50EFC"
+    }
+  ],
+  "selected_count": 26,
+  "selected": [
+    {
+      "owner": "DEV01",
+      "relative_path": "services/api/src/aijian_api/project_settings_schema.py",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\project_settings_schema.py",
+      "sha256": "B9269DA4A76FB26B7409B235F0779C7FA18B4C6842C3A3C76719AA0049A4EF53",
+      "bytes": 2638,
+      "state": "DEV01_FROZEN_MIGRATION_CANDIDATE"
+    },
+    {
+      "owner": "DEV01",
+      "relative_path": "services/api/src/aijian_api/provider_connection_repository.py",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_connection_repository.py",
+      "sha256": "A1E73830FBCCF52335D59249A48290C8836B89AA46AD9D98A000AE690619FB57",
+      "bytes": 17001,
+      "state": "DEV01_FROZEN_MIGRATION_CANDIDATE"
+    },
+    {
+      "owner": "DEV01",
+      "relative_path": "services/api/src/aijian_api/provider_credential_ref_schema.py",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_credential_ref_schema.py",
+      "sha256": "B170FFC0C157D3C46109A7511BF10D9217B178EF05CFA77FD749C4C19C20932C",
+      "bytes": 6438,
+      "state": "DEV01_FROZEN_MIGRATION_CANDIDATE"
+    },
+    {
+      "owner": "DEV01",
+      "relative_path": "services/api/src/aijian_api/provider_origin_mode_schema.py",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_origin_mode_schema.py",
+      "sha256": "7986A35C0C0E8F437A3CFAB1E6A0B3275AE49CB06B59C8C28E0B05A74550A873",
+      "bytes": 3845,
+      "state": "DEV01_FROZEN_MIGRATION_CANDIDATE"
+    },
+    {
+      "owner": "DEV01",
+      "relative_path": "services/api/src/aijian_api/repository.py",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\repository.py",
+      "sha256": "B43D812F79F2EB44FCAB829CFD66F13EA1A8A8439C63B5FA9D3BD785BAC80EC4",
+      "bytes": 155702,
+      "state": "DEV01_FROZEN_MIGRATION_CANDIDATE"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/provider_connection_routes.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connection_routes.py",
+      "sha256": "155CB21B02BCB1B4A7790E21D959787450AA00ED55B42D1B034D91EA3A1C9D37",
+      "bytes": 7859,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/provider_connections.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connections.py",
+      "sha256": "D02727B3102B27478B22659470956A922BC973364C41B81F52D9FCA9C50BE83F",
+      "bytes": 8374,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/provider_contracts.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_contracts.py",
+      "sha256": "E904C154E0527DB6F1548048DBE58EADD89E591CA559225A9F5D643395C6FD49",
+      "bytes": 12566,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_connection_readiness.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_connection_readiness.py",
+      "sha256": "0BACB3CF7F445749D082880395E8D0FC24B1E81128E19ED91767C17AD468F3B0",
+      "bytes": 4167,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_contracts.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_contracts.py",
+      "sha256": "B86BD3A8EDE0A894FA5F43E285A158F39F83C0167F8ADF82180DD7A0AF8FD761",
+      "bytes": 5803,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_invocation.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_invocation.py",
+      "sha256": "630E02FDC14CDF9ED21F845530FFA083468A8FEE3AA193C6F81F29C460FC858A",
+      "bytes": 7886,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_policy.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_policy.py",
+      "sha256": "4652EE51D9C01DA86B5DF14AC3871178619FB0C0DA2DAB1D73084D57FF4F4270",
+      "bytes": 5116,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_run_factory.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_run_factory.py",
+      "sha256": "162FD5C6C475AB8569BA6570CF9D0339C500694E3AA48FB3B02D9C95C8433F96",
+      "bytes": 20756,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_store.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_store.py",
+      "sha256": "FFDC07FC50465DBDA973EA708108D55DD4F333FAB47BD98D287CE4ECD16585EC",
+      "bytes": 58776,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_source_extract_worker.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_worker.py",
+      "sha256": "A2A68FF3B5000F8B82E17B9C0CCD32EA922CE4EC844DD334C83453C376D8A6F3",
+      "bytes": 10342,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV05",
+      "relative_path": "services/api/src/aijian_api/sub2api_text_transport.py",
+      "physical_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_text_transport.py",
+      "sha256": "3D38F97400001347DF65A614611F009882E707799C83EE40A9AE99634233914E",
+      "bytes": 15199,
+      "state": "DEV05_FROZEN_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV07",
+      "relative_path": "apps/desktop/src/provider-connection-contract.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-local-sub2api-composition-4\\frozen-dev07\\provider-connection-contract.ts",
+      "sha256": "75E341279A7E787EE196940FB637D3534C7B66093D32B5E2A613AC7C37353DBF",
+      "bytes": 7821,
+      "state": "DEV07_FROZEN_SOURCE_CONSUMER_V3"
+    },
+    {
+      "owner": "DEV07",
+      "relative_path": "apps/desktop/src/sub2api-connection-mutation-contract.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-local-sub2api-composition-4\\frozen-dev07\\sub2api-connection-mutation-contract.ts",
+      "sha256": "17392F8629550F1A6C495E68901721C528C05D6CCB538D49273959DC661151F7",
+      "bytes": 9140,
+      "state": "DEV07_FROZEN_SOURCE_CONSUMER_V3"
+    },
+    {
+      "owner": "DEV07",
+      "relative_path": "apps/desktop/src/api-client.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-local-sub2api-composition-4\\frozen-dev07\\api-client.ts",
+      "sha256": "B59AA696E059E64B3167DCBA52993010D21F67F9849ADA74C105282AC189396E",
+      "bytes": 173638,
+      "state": "DEV07_FROZEN_SOURCE_CONSUMER_V3"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/api/studio.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-generated-consumer-20261008\\studio.ts.after",
+      "sha256": "536C156C9FF37936759CDC20FC02366B7CFBFA949DA39E601C611217689BC9BD",
+      "bytes": 60692,
+      "state": "DEV04_GENERATED_CONSUMER_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/domain/provider-settings-model.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__domain__provider-settings-model.ts.after",
+      "sha256": "D4ED822CEFF78EC8CA635B5249160C2C1695EF679CD3486FEC6C2A3F9A35DAF8",
+      "bytes": 2520,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/domain/use-provider-connection-form.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__domain__use-provider-connection-form.ts.after",
+      "sha256": "E6F6403EC10E4B32B1F5A4E0CD29065C5AB804DBCC7D9B62E60557AE11D2EDDC",
+      "bytes": 4632,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/domain/use-provider-settings.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__domain__use-provider-settings.ts.after",
+      "sha256": "FAE5FB67F70A681F6CA85695AF522CBF3DDC9930E4471C5FC6CFD3751949E93C",
+      "bytes": 5238,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/domain/sub2api-provider-journal.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__domain__sub2api-provider-journal.ts.after",
+      "sha256": "AB38D8BE7AA8A8585DEB19925B22184EFD48F7FA54C3BF12488738B06ED75FA9",
+      "bytes": 3778,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/aivora/ProviderConnectionForm.tsx",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__aivora__ProviderConnectionForm.tsx.after",
+      "sha256": "AA9C9066EC87732604179F9C7931087268CB964024C33D14171F5FC41B88FA9F",
+      "bytes": 6269,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    },
+    {
+      "owner": "DEV04",
+      "relative_path": "apps/studio-web/src/aivora/Sub2APIConnectionManagement.tsx",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-save-preflight-20260929\\apps__studio-web__src__aivora__Sub2APIConnectionManagement.tsx.after",
+      "sha256": "AAC9B02A6534698760C779807E7457C734D90EC4EE39CB4AE1D12D1079BA7656",
+      "bytes": 17965,
+      "state": "DEV04_LOCAL_SAVE_AFTER_SNAPSHOT"
+    }
+  ],
+  "qa_test_inputs": [
+    {
+      "owner": "DEV07",
+      "relative_path": "apps/desktop/src/api-client-local-mode-deadline.test.ts",
+      "physical_path": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-local-sub2api-composition-4\\frozen-dev07\\api-client-local-mode-deadline.test.ts",
+      "sha256": "B18187304B871B876DCCDF70BA8B1D02CEA196F4A3DDDC15105B5248EC5F80C1",
+      "bytes": 2816,
+      "state": "DEV07_UNRUN_QA_TEST_SOURCE"
+    }
+  ],
+  "physical_owner_overlap_count": 0,
+  "prior_signed_stage_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-stage-01",
+  "prior_stage_state": "PRESERVE_SIGNED_STAGE_DO_NOT_MUTATE",
+  "required_holds": [
+    "DEV01 migration32/33 not independently accepted",
+    "DEV05 policy and DEV04/DEV07 consumers not independently tested together",
+    "Generated OpenAPI/TypeScript must be regenerated from the same isolated backend version",
+    "G4/G5 Vault and rotation acceptance open",
+    "No live gateway, paid provider, installer, c19, or runtime acceptance"
+  ]
+}

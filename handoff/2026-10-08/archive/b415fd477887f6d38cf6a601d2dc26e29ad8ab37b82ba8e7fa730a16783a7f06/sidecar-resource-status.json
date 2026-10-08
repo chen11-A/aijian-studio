@@ -1,0 +1,7 @@
+{
+  "development_python_exists": false,
+  "packaged_lock_exists": false,
+  "packaged_sidecar_exe_produced": false,
+  "packaged_executable_produced": false,
+  "status": "STATIC_BUILD_ONLY"
+}

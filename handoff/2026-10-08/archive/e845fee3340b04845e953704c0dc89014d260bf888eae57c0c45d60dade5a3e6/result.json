@@ -1,0 +1,12 @@
+{
+  "call_id": "QA03-V4-NATIVE-MAIN-DERIVATIVE-01",
+  "copy_counts": {
+    "base_files": 14466,
+    "links": 771,
+    "main_replacements": 1
+  },
+  "phase": "DERIVATIVE_READBACK_PASS",
+  "status": "PASS_STATIC_DERIVATIVE_COPY_ONLY",
+  "target": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01",
+  "utc": 1791420277.9253922
+}

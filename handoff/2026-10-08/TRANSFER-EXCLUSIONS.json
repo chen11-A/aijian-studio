@@ -1,0 +1,2818 @@
+{
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "remote_main": "e3fc30e8c3958eaacb5cff5663c3b6be32f34136",
+  "staged_files": 2233,
+  "selected_files": 1836,
+  "excluded_versions": 399,
+  "retained_old_versions": 2,
+  "exclusions": [
+    {
+      "path": "handoff/2026-10-08/archive/0053e07ad5556c8855603919253dea45d5402addd47af53f3ddb4e87de149ada/runtime_resources.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/00ae31b22df99bf8df77bd85758a3d649c1a847254758c5612b74469a4c5f355/probe-readonly.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/011cf948e5c929e8254c0c80beba396f79e2940208fd95fcef93adda8855f358/repository_policy_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/020102be3fe0a80defbb850ba9591b2de3cf5d40905586f80ed35107bc5aae3a/run_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0227dca55b686a9f112526ecf86790f2003e0ff8ee3e0d8425e643222ac4b04f/audit-five-inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/033a867d540717ddbf65cb4372e7b40cce324e9d8fead7a49304483535ab2c8a/color.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/038bb952174b8b1e1d0ef51c505108ec85439fe1b6d631fc296aaf3611642ab7/invoke-stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/03d557c2d465d36018fa31f40b4a2ecb954dc377e2e85fe9933b870e380000e3/env_settings.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/049b5daa2651b5abfd55114298ec6863e2889909a33f2f80fcda288e21546716/parse.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/053d0b3de082866292e20aa1c993e20a4665d330cedd0e8a0a1b0ab97a041cad/static_review.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/057dc8290593356cd941bf0d2e34dc721bd1bea4392fa387eded8cfae1f0554d/episode_script_contracts.c19-original.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/06c9cf9e72ecc7775f58d15395dd8d21d0e16e6345434960e94810a68a071e29/prepare_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/07397e45c9e2b4f0479eac308fd8afec98c7b8dd46a67587db874a905de5f5ef/types.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/079506bce37069d831af4e1798dcf3216276624c11b49c18e47e5281657c6488/g0_import_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0857e8e67f6c00057365b93a0250232ac35598d43ade6f112536a1bf72e507c2/verify_g1_postflight.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0862d9637e1ca69457abf5414c435545df5b1dd9977501a0546382e946ec96c6/resolver-path-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0978dc22796f722f157a36969f57f7f64bf401c7c92f4479db7a912c56550feb/_generics.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0a0546a9fc2e8c77dfa57729083b8557173ccac3a27e51ab106a277624a9de2d/repository_policy_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0a5d9b5632cc814011ed89a0d08b2b188567bf5a5c75419c5a6d9ee92a8333fa/test_k01_ingest_exception_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0a5f1745f0a621c544de3e40114e760bc88387c95c5fffc3de1cf68c85b1300b/mypy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0d107781f281aedb62e940fa500f86f0d121e78236311fb6b3549d067f4dd30b/preflight.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0d6e0f58a4ab2b5db5189733ad70a9731b95a8bf4c9877afd56681915bc891ca/agent_skill_builtins.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0dc61a22ab026f61a5fbaf995006f7286263214f9f3ef226a21f1beae2f36d61/stage_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0e00c4cc089398c1f0de3b34d35b32e3da341d09dacaa18b2dfde8b9ace47530/unsafe-gate.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0e1d1dcedaf204f910f870f44ebc3da46a9d9dab8d91510f7bdba9b57129ecf3/fingerprint.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0e84e214341b864c2b38f2b5e05a4750344d70a5b376ad4ebb91683afc5ddeb7/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0eb1023c25a1498ad0f016b83bc84acc800cda2f460474d75802f36850e92dfe/errors.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0eb3686cbedd7eac21812f10c81379704f7183359cd84d95d89650b640e5088c/static_review.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/0f13703c1562efcec820a0fbfb6314749c4d82907f34b34fb467a05cf238956a/stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/10210b447e425fa3bda7a4300b8a54dc801f61fbca1c6983b9b2c091ec94ac30/prepare_packets.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1059e35ffba5a7eb4fc948d05f9a6642dba0d4e14bfc071cf1b70c6cb77e7d56/arguments_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1089d83836ba03f41dae86d0cda0cee472034d7a6263cab2dfe1c5dc346197bf/python_export_guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/10a6bde32791c32751cecd1c47af3cf4da5aec482de0b14b2366efd5e412724b/wal_lifecycle_probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/11964c990e2de021510ed490755ec9f49b13285832702b9582a31f1725685eba/sidecar.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/141b9e0570a22b98e2b54db4ef480b3a933486697d34894fdc434864593cc8e8/verify-dev06-rights-negative-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/14368602663e2040ca721174cc58c80c3de10c29e0524b26dbdae64c488794b3/compare-fingerprints.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/14c627795ae3851c0c0ffafd68580b70f3c82828270264ea9f85b114c1e8c711/build_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/154afc3fa97948e14f35cfa56893c9e30bd09f8ae1e9f5f0bbb5c47de43f0019/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/15a092804d32ef7cc037b01e7f9ae327aee2938bc331cad6e585212cae89c5c0/capture_ac05_http_chain_run02.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1740cccea7351ef635c3ec97a1e1e25707c90977a07959dff9deb1ce066ac03d/test_k01_media_ingest_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/17d8f9fe1817a1362700576bd8df938ccfcc3413e03f8c554a3db61bb22bb5b2/run_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/17fadb41bae4a289a0c6cb24747a4fd23509ed309f7b40400c0124aba089e273/_schema_generation_shared.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/18dea99f7a7cc0a2429fc26d4e1809612742ab34e8074ef45ff4b1d88f4820a0/prepare_v4_copy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/18f42c9394f989ecf6555f642ffb5c25c94f7cd4320ddc19b557bb40306a64be/pure_contract_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1904d4a0b7e96fbc24f49ae7db058a8e9fbc2154f884dc70c008f36c04c3acef/test_development_timeline_export_api.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/19c7d314a10ca0b40ea7c75fd80dcf2052a7ec5e50f0683514d2d3e8a39624b9/sqlite-fixture.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1a177ebe431de446020a0c821ad3ca3b9f27a7d704281402eaa9017881052368/copy_internals.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1a4293ef7782ebeacfeb17c8ac29ea02b0cd5e9ffc65eea13475941117643782/artifact_proposal_review_truth.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1b377a6ff83ccc95dcb84ed046ae5a761c7f10c25a8577dca57085d1182baaa2/parse.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1c25d35096695c4f7021a38de3173f88ff22edac845e32f3021c16424342bece/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1d836d2807ce98e9ca269b0383583a488923f563e153ffa2f25e5ed89281a46e/networks.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1e55821b7e5146bc72cee4d2e8b4d089907046198365699ea901fcacb5bac00f/json.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/1e5a62c324be6418df7230c2b811e8bd229fa69273030e683f48ed0a89538dc2/verify_dev_commands.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/200aa89b0e3645fdaec5c52fe3e8110c4e67ba65e9472371b27abce43b2ef153/stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/203d1f45eaa4741001d1c32abb0d17a9378a34020c586b91a611d171ff25b381/g1_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/21c1d54dc69aff55fc4365410192da5967571c4d0ee5a6addfac9c4184052a90/capture_ac05_http_chain_run03.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2303e1dc33df6b65eadeb06e07d371f25b91d80d62ebd41d7937d659722e0958/_git.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/233478a21adc7e39c1fdb6c8f4ae6b30e687dc821ae58aeab0e1e41991af83dd/test_v3_packet_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/23c02d0df065b079a270a819f088f7b542ab88ddf0592482dd3dfda2d60949dd/g1_behavior_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/24bc7f3152dea7b331975cdba5d3598ef1c3733f89dce116e9671d575f3875c3/_discriminated_union.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/25e45ed2f49f100a2dc64c642e75c2b4b25cd0cea33fb1ef106b3715680f1287/diagnose_run02_readonly.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2682a663826b0c1bb79c6fed088ac982d249135baaeafdbd4ef4f3e449471398/_model_construction.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2720f5d8a8bc079c1584dca3f1e3d88640b1f7ed5b02006baae3c8952ecf152b/sub2api_text_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/28cd67deee097cb48197552e620de1a181f35c90fecaf82b9eaf2ed5c73087f0/alias_generators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/291daa8f6811c0dfcc545e3afaaf65209d0244fda277496b7bf4c0d33d4cf4ad/qa_media_worker_capture.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2998521940496230424361950861e93964182486aeaf035d8f33cb0efa105eb0/g3_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2a99d7b9825b7ca818d83f0bed2e54cf89aaaf92bbdd11302f3bcc94660911fd/restore-old-semantic.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2b8317cefb3fdd1373847e6d6cdf45e12658cfbbfd778f1a9e6a44b978417d07/test_selected_media_reader_v2.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2dd861b1ad1d4d161cb7e1d750a6cd52e390e974915933cfc57f08169118064b/derive_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/2f1ed73cf9136b4dd518a21bdfb6e0da060d2f0ee8c12cc47a500a3c3de3712f/verify-d-windows-job-lifecycle-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/31928f281b899d0ec049b9e50f0dbb9486d4c74c7b623a29160163fc4a872108/consume_probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3317b4bf160b9f151852b839225f34a3e01dc9a9a957af6363533abac5512c7f/freeze_evidence.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3373193ccb233588705dfd5b3b268b57e07e995c63b63a41db12457140675310/test_launcher_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/341e7e6beee5a421f46d61ab576c8206cd3c4920b7dd709be5fd806c185cf2f6/OSLINK-PRIMITIVE-v1.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/342c598c106569cb3db8d6e5dbf998147ed48f6e4d4e0d3adf9ad5bd7b604096/prepare_fixtures.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/346b0fc24a6c3bf5cbc607ef24312638ea5d97e1c5ed47a2d92e4c0300956809/test_gateway_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/34bdc7e785fe8a6dd11a9edc7c31674517980dc9f178ec823d25d9d4ed7e6a37/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/35b842cfe92ef300e060b40c062ef93afee1cb075cf0b7b0037a1434867c2554/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/36017bfab98462e29df11af75a4a08188ed555bb4836035cbde0284d2a87e96f/launch_lock_r2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/369c3ce1fb0f73797f68ec83a484593ad2affd15ef6388c52b0cf55ec1dce71f/invoke-resolver-path-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/36b9bda054595a9f3e8e57ef3e02482c4b32c29e18cd90f9d972063c32f11dc2/tools.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/372e90ff227f1040a114cc4c33f1ae5f8ee0db129803e1e4d083ad63a9751b0a/activate_this.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/37459abdfa58bea8dbcbc1ea1f7d49d08bf222a1a1f1c8732401cec14f7a522c/stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/377929ac91b01dffaa55124956cc7ed6ea7f1a2ecb41da675efae6c3e0180f7c/lock_r2_inner.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3786d4d75eb8b2f69d3c0ba910603d164a48c3eafa6d12b51597280f702d23e4/stage_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/379c6782cef4f9fa6107d9dd092d7279c8c9978f6144740232f475f7aa02ffdb/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/383fc1b291da2fd14acd9f57ae7761884b8c9e3177491209507b70bfac947df5/_validate_call.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3867a63f9d12bd4e7212e2b2195c902fe42fdd47bddece804816e00bc8df113a/prepare_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/38f7f8ca7e2c7e2434adbfa28dcf7d713bb6bf935c40d138f452c7a51c2c82c1/qa02-windows-job-manager-local-once-v2.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/39285065b25fac62301d867cbcadc01a2328eb66de24315b21248dcae76b67d1/stage_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3a5e27e1cbbf85ed5ab4d193b38600b9e44b973879b983b2c60c4ded53d8302c/prepare_v2_copy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3a860f76f92b5a9370263bd55af6be620a84662fc8ec02e22d21304595ea9f34/test_invalidation_migration_process_recovery.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3d43e02e358c6d50bc969b8e3afc98951187d04454a46f9480c59f99ced3fdbd/media_asset_probe_routes.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3e3a2051ac085e67fc2ee2cd7bdb1e26987b58b5b8309efe181b17c02b100bd4/_generate_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3eb68680504327025b9faeb7bb0f77d6ace4c6a114bc2cefcf6aa12af6596b2f/test_sub2api_protocol.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3f29d020543ad7fff819caf39f40f910d96583b8cfabf731a0b4e6b8540163cf/_known_annotated_metadata.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/3fb7de037e4cc1370bb11d6e2fb75bd12fa8c9d071a1b9976b9e580e80606a34/typing.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/402f9680cc4caffc10fe6357512ec055ffb684b121befb0f6353d0ca148639d9/datetime_parse.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4032f9c2e319aabe02fec9badc53b5f81e5bd4a592c6effa7622eff07afd7dd9/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4040ca1a1ecbee00d1385c12a93084d1c5bd46f0b774f07e5ae7e91c4f55e696/typing_extensions.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/436dc73e15fbc60bc7331a494bdd4a1679af3df55d6b39f50c7981d8f028132b/test_v4_packet_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/44207c46053d31e17b9a93bc0b6dff1ecdd427e14f49788f63da39d0bd15e562/core_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/443106fc96aee4d88971f3b4c60753ec43a0b14d4b816218957ef0379ad8b55b/_decorators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/44aea6a804dcf72303f8a043f48252f47a4a0a9ad61ddf30a3ce019e6fb77d1f/error_wrappers.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/452d1c6b0105b8e8cf3b9f504fe994089b377a6d82bf9c0a8c709a50dde2d65f/postrun_review.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/454a7bf75fc65d05deb288f4678aeadefb0e61acc1d12c1ee2175f4d0863567e/review_v4_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/45e2bbd18474e84028c7da2ea38965cbc9888d3f0c6b88f55d768ef86b99812d/test_source_extraction_readback.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/473cacd49a1f7e7e097331257180eab192d18018079f69585aa0d1e79a0048f0/_config.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/479b2556e6fe36daa82d1bf08a46b10b56b300a360eb0486852ca7d090e439fc/prepare_v2_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/48292c21800e1268451d67fa9671e97e565579d7f417cf27ccd8ff5df6bab2ec/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4b140f925801b385c727013a059f6aa1ec18a0688dc98527987cc414265b7e72/__init__.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4bb69c7113570b1ac0aab54b642addcd54f00e2d000e32c6796c914578f0cdba/episode_script_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4c19ba6c9ef026c36287ff16ab92330dcc0fdf69bdfef7f1b3de9d7ac2ee934d/decorator.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4cc8ff6943eb20b290178d044b7ab24dcd94af36961e5b06274b520b77c9cc71/read-source-preview-db-ro.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4d18710f93ae63a094a2c8a805d05c254b34a26ec820e36265d60057bcd0f233/_import_utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4e2d6441532458412ba8f5891e3e1487fbb46facf21a9932e7f788b180fb877c/test_input_save_independent_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4f4e60f1641ccc1b1553fdf945d2b1823222ed8ecb222a7aee9177348ed7e061/type_adapter.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/4f9af38b00cfacc8df694d17fbee5f05d195be1f784339cd43b4230f82df8260/version.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5011dbbbb33d6c14e7827efebc14751fdae33326ad2b9f2ef5c1430ba4fa5d4e/keyring_classification_probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/50a88bbf50c05d76fba6ff731b1149696962f23c68873d8a61d45e9c3d14fc1e/test_remote_operation.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/50b39a21481850306c1cbec411511aadc33e52e6ca52082837c8526c3a27b051/class_validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/50fad13cd2a0a40d173ac6bbf712d0be4c5f063578ccbc5c84ffb0bddedb21c4/test_classifier_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/51141bf6ecbc8c516e6adb0153ffe8939839eac95110ca2be40f2a9b3993b21a/wal_snapshot_probe_v3.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5198f414b6c57364e32de493dc6634a1bfb738199cbb02712f49a31aa3834aad/test_k01_recovery_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/51d5dbddef7a38b8bc00f21114414fdbb15694b1a462a1ab28eb6ea603bf37ea/copy_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/51e1c587779ab8f471aa83414a3e6a2fd713c350bd0a17a22edc7705a6f41f62/verify-repo30-isolated-migrations.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5282425ece4cc720a39265401938a06187fcd902fef2f08765894f6b9701cf79/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5324672d0f1fb5e534e62386cb84398814351b0ee8bff59da20035aafc6362bc/make-local-remote-receipt.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/537d39f569c1d08873e532d2b9be11b2baf05eb5dbb3b0ac951242c2f35280f9/diagnose_post_consume_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/545ef72d1094cf722b6f9c55b75de36f7340717567105e93d7e27438b7de6790/_migration.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/54b022e21a05a630bed5e2f41e2c5869a59a1053ba86d19c0dcb60b2a6b95482/validate_call_decorator.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/56a5890ab894362132a6d5eba03549e74d49a550347a7d9500d724b2a5cbd9bf/fields.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/56aaa3beafcb9daa5592779b51ddc1a7f275a768176599d94602f8f1b5441bba/schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/56bbf3eaf6a15aacb7e1683e83521ba4578b1d18c64900dbba5eede13e214a9e/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/585f114e862ffc88571abd0d6efe16c7086a433decdb8b13bf883083c13aaa8a/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/590e47cbf848a5f751dd84bc93a37613a28c273b1d6c18bf95d58e3c9695f353/json.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5919d86eecd564da34b61b5dcb742d2b91f767d61bd426173205dce5d1f35b55/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/593b0ca812b6405e35e1e20364d750c4a75cd73c769ec87d64eb0b4a4e94aadb/prepare_physical.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/59ee3dad4702f39636992a3e22925296cb048b9b211164823c8e94549553494e/lock_r2_inner.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/59fc854aac28108157061ed3ef73f270a9682350e25f8e465a2d3e24eb024786/annotated_handlers.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5adaa93f9fc908ea502f776a0ec5b11567646052ea6425999fd72dcaf969eb27/run_once_v2.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5aef0f8da91ebc73f5eda689a490f5d4ffce4e015add20f75091116b357251eb/gate_common.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5bbf78412d7a0070d0a31c7a9b7224eac804f40a6feee9b841a7c901c801a00c/launch_lock_r2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5bc2fcb1894ea28110d47fc93e2569a98a09f56345bab719e40ece5b518dc926/gateway_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5c0477c375ba2a25358a9f05e79df8206c9496d715210e55b6320440e2fe9aab/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5c47ecefd61fc323e856202810b69ecda1cb6c71f477efaee4bc00e5eb964922/preserve-script-compat-new-state.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5d365d757c1068b2ef00605f104bef6021c3967bda0b51b1be9d6bb9ddc75331/test_media_generation_worker.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5dbc45b7b65f136e988cb3a8950a91250d8f693eb29ca0ee2b5880d5f92b70a7/g3_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/5f1d7f05536ccd1e9d5e0caf8e32cf30f5b5317fde12a784699cf3c6a07d120b/g1_v2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6085af4a6011e5f9db19258239076e5add72078650638d9e02bb9cf9e9eb6fa7/_serializers.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/613a0bd8ad93b7d4d46b96fbbe5bf91b73adeb9dbf4580067d7c209d57112b48/compare-contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/614fbed4adb3446c8c59b91a74b59e8f69cdeba8e43a3e9bf44ecb819dbb132a/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/617fa3500a6ee4029a55628fa1a57e9fee25ed46d2ebd184b7d45ade1b3398a2/decorator.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6291d63902ad1a8c5fca29331ab7265c954a515601f4405da0247df784314a71/version.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/633c8a4d937ac79435446277590f6337ebb01c9c4bdd6e2aa19ab07195eac568/generics.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/63f836b778bbba5b8afb05c266fcc97d114c3d4336dda0582df69ee05cc13f2d/_core_metadata.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/647f11908ee1e01cfece9f0e7530316c952856f72853e8e131d459d01fa4d317/json.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/660a9c9b559a24b0704d0402e6618a368c23953817de67d7fc9e5edaf776e253/_dataclasses.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/662ad4af800a5915ec5e62ab7c2ed33e168d16d2b2c8ac7d4b3efc0d5926755c/test_k01_export_service_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6856dad7efa9effa0a41da16528b4f387fd70560c64e57fef62a812a00bc9a2e/g2_once_draft01.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6aa06e03ef9cabc8005648a6e4124f140487cce67c745b66157fdf346afa8a9e/schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6aa2d75e4e3cda825846a840eef1ed66da3f9e565b73cf39a76de607e682fe20/episode_script_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6aea16ea5ea0d450b8d4b7223e6b08d4cea771fd344b375ef41dc2fb2bdbf662/pipeline.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6b025a736b9bc791c758b0ccb2d72eaa1a99b2495dd46b387e032d0c3926b40e/invoke-stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6ba3f459eafdc7871bc0a5bb5eff29a1252a33858ff912d6c17e9832962af400/config.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6bb4f0dfae94e8ade496d08235963bea773db2cfbbb86190e344d769df4eca94/__init__.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6bc66125f23c143e934030fbf9c58c9b5657950bdad3031d4f6132e55bd57be3/fields.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6c174bfd6a022af9b3bc9f06023271ddd09ce09cf667014f994acb9c62cd24fa/test_qa_media_generation_worker_runtime.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6c689a50a7a66b5befa0e1f8d51091318925ce0846db36371657d2c70609b590/migration_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6c6f8d70b1b209abc4b6e8f43d221fcd833c890e2caf91b26f90ce909854e61c/prepare_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6e0121ba1d3dc02be8d0f50c57edc2326304705bec58782a449bfc81e39c8a3e/sql_storage_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6f1c0308092089f23b64075b48f45fc848a0a2ea5694a9289a118ea5eed8a57b/episode_script_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6f1e1da05e92868f836aa57122991a6dba4b8bb20df8b5e57530ad55bcc2845a/probe-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/6f829356584b1d9249ececb9cf249db806a2b560f3e1b3305a3bd475f98b6e77/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/704c7a0c2773b1c0d06ad23f662ad1ac3b3d418c4020609088384b3173b70f67/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/70e328796769e77e8a17ce6e448716fa8cf53bb7791910a9c7d1d34b8fb5b9ff/root_model.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/71ecfcb782e206b2cdc70137b7198b23efde2ec3049b5ee8c5a6c1cab8fed4cf/verify-script-compat-new.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/724b4fd2b281f8c84dc9a649f2cb6dabcb6e802e14ef0bbca3b7494f5fd09c90/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/729b476c9d9de7b1a2cec734908bcbf5454fb67d84307a11404ca2c312b7c29a/remote_execution_authorization.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/72f72cfa08349396d3853c92cce63a3a66c77cf531544124563b15e44838af89/episode_media_assembly_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/73c20a3495c1772611aead2253bc19179895beac9e82212347d9ea2482a6c939/g1_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/73eddc5aa581d03a99107bb1e5c35dce070dfe5c91a66e7ce70ca1496c0d6b46/invoke-probe-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/743c6a178ea5ceea82a0a2eb007fe4f791036dac8478a6f69478ee4c9e4e0686/_typing_extra.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/743e4077827a8407c5e9407304ee2ca92b35876c9b4154e1910a1f2d659504fd/introspection.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/74c5a1a3d02244f5d4fa50eb2b01ce8fb9ea01cac9613d90f1b24f025b504c59/freeze_red.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/75ade143dbd03cb1213ecac39d49628df4357ee0825621959d4cceac064b803b/json_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/75b62a8766a4e6755b9a8dfa27880c3ec56139daa70fed581fb25f2511f0de7c/path-layout.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/774eafb805bff02778b407033c48de5c4d05a257f9d711ae5351e0f24045fb46/test_g1_fixed_candidate_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/77a81cf88849ac002cbcb1af7f7812d0b4154c4137b5661196feb5ea2be2e869/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7986a35c0c0e8f437a3cfab1e6a0b3275ae49cb06b59c8c28e0b05a74550a873/provider_origin_mode_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7a0c536ad5033dbdea60e703060a9442ada52f5c3170363dfbbefe0d13b469c1/test_export_dimensions_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7ab9d4c1a0690a35a8ec31fe9a2f81b1dfdb3a86e8fe457aabd211af67a4ab72/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7bb64014621319ead4fd1c2dc26cdcdf21c40ac9e3ff7abcb030e5f410e333b7/media_asset_audio_inspection.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7d1487dd3b2de84b893f0286158def24cee826e89545c47894d1d0019257fd97/g3_once_draft01.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7d5435391e72155251a2fafc3a7af683aca24727651920b5c25345a678aeed5d/audit-four-media.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7e961c1a702770ae108da166de366da98c31258cc1eeb2493df025f3d7a6cf24/types.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7ecdd63da64c2a73f9c17e53fa5a2b08659b454bec513278fb788ca2e6951d6e/make-local-accepted-draft.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/7f2ce74801e1e40ce88675d94ad5741ef1fe9d16dabcd1cfca0fa49f1f92fc41/_docs_extraction.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/80207dea0b741bbb625438559c97e92abd4044be6a907f923d992e364986d8ee/networks.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/80421fffca449aacfeb15d03066faba80acd545080b944e2c01895dd10dc2b57/prepare_v3_copy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/80de3c06c47e143ac90e26c29a8ebdb6d420ebb59bb85addcbfd4d40bddcbcb2/_utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8316867ddf483e84d7960d1e9e04159ba010dace54eceeee28a6dd6fa4382c8f/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8408e04a58e82211b1dc0569229baac3948fb6d04d35e181493aea48c9cd8899/_loader.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8433abf410a384db01a0c3ace7a1adad08b10971ab03ef900b9be22df400efd9/gateway_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/85779bfb3a1d1b04c3bc6f4e2b5ba6d7c3fae1bedca876f418e9e03f88eb81c6/_fields.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/865dfe4d102bf365368d3c8f3f7b7e42ab2f28b8abc6d90b7cd7eb37e7e9d31f/_namespace_utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/867f3eff5131bda6fe590f1c4831527d2dedce9f432fef8d5d48e881bb63cf7d/verify-script-compat-phases.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/87aa53454a5198a02e262162f7c91ba9908c396f26f9033618fa70c41e3ec33b/g0_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/87fa441dd0b959d8becfe2a1f538e3e232ecdd3a90f38ef561553accb85b6801/verify_red_postflight.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/88742977c489e43093b4f5796ad015d3a4fcf5b8d268c15e659d8b5fd95ab196/tools.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/88bffb3e6c04a0322a15aa727c332b4959c75e53204c3a65d53fcf26506bfaf5/capture-media-routes-after-fix.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/893343c667adf07d9e346771fa1d699bcba76a1e29b24be5ed8a323dc5bfc1d8/capture_ac05_http_chain.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8990012d8a7a395a28d801643fd229ae2ff049cebe2a496ef18ba149aaed7798/color.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/89a673d59c1a10265664560b07f0389577f0436ee4fc2a9ba2728919933dabef/qa_project01_backend.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8b3d6d0ea0ec1b6faaceeb16d12fea5cd73ffd4284461c2fbaebba3a2e26b170/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8bbe8a7853e4c50ea169c322771f13471f2ac53e82d2de7c2cee683ea1d136ed/probe-readonly.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8bf5778fe3d87462d22e68ff20965e913463ba73bc488573f0b325aae3f23fb1/class_validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8bf6fac2d96e895599461d5963c52f076519ce23f52a3a925d9802f87c70393d/_signature.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8d07e726ec83c50a5244d846dbd208f4f5fc7b836fdaa599ac4c3696a8a1dd41/_repr.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8da3e959be69d6fad9595467b9ca85bfd15a6b99ff97bcb0860cd6cb45bfd428/artifact_proposal_acceptance.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8dbabb1f17531b9175c105688a2d03e7282217e1c3c008e1980f259c3950d3c9/prepare_stage.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8ea97a5fc417336355a265519535a48012b4c489c164fea707bac2b3d2206019/readback_v4.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/8ff72011b414bae830f2d58a760bdb51aef386865d4910498255e8d29ae5f46e/audit-test-identity-db.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/903d8ff74f9f9f9edeee1266b5192a35cc9963ca9def473daa2dfcb1da890818/g2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/91a8d5821f09ed467bc1389d571cc53298f04a71460680e84ea7d5000bce1d9f/typing_objects.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/929bd24da9cb8f16a9f1f5ef6007e3f4598c1b1829dc2488f6894cf3eebdc5fc/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/93b16a4d76e65387e34d9498424bcec4ebce17b98167fa501f5e22188f8aaedb/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/93f96c564e7ba5ac4b24e701b9e1f4edcbb53a012059d541c66ea57da0b70825/config.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/94a89addb828e8b17b0f4bc2f0bb5437880eb3b99f376748b788904c5533e8cd/prepare_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/94b7a00e39980ada617a9005625fadde2a89c36e998854e728da158fcb9fb428/verify_stage_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/96bcd287b84a81b504dd5a48d29ef49a915a0ff149a48ccdd808703d9eb19c40/g1_behavior_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/96dae6694953485c2a5fdd997e19d811b00a713e00efd5559bf7b1fd1123f053/provider_connection_repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/96ff0f4a2edf596ebefddc426e6dafbe9c8dba6f3e03be78f9b978c81a07dcd0/prepare_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9725249f5316847c65097e597c48058ff0801e88e888f71a41e31d10cf57be25/validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/97800821d939a02906a4123978ed4c6597bc3ba9319297a65cb744db0c08563a/prepare_cases.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9841077189bb14148d85585b5fe6620d13b6e071be55781346073e8581540ab0/test_selected_media_reader.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/984906389f9e72cd087b92b278a89b9112cee29a3021ce4cb4db1979a45cd9ec/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/988c0f103e6f18ce50e6fe02e19d493e5753447fa89af132947ea4b0c84e98fc/errors.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9964cb53611002128dda76c1238882408fe12cd93c237f8065cdf5be7c2bfa57/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/998a20bf0fb0e51cd9fd2ec9180460076228fc0cb12189e7dfea1bee9d017e83/artifact_proposal_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9a318b22a7a7b0b9bebeb17d476d54416dd537d1e240ba2584e167f9ad754543/pure_guard_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9bdd149b9b2c4c63db4181780ebe3eb1b103aabf795946260d8e607768e1effc/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9d2afe0f222b86e7f81792980fe45f2b129fd98c530640a382195362104a3d59/g1_v2c_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9e105fad698392a385cf2c6883eb6bb1ff3d5079b1c2f178ae1397ac68b515b1/prepare_v2_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/9f48d840e71be58422c346fb617ca2ecd3e261d57bba3591e0ac99ba68d33e89/class_validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a1e73830fbccf52335d59249a48290c8836b89aa46ad9d98a000ae690619fb57/provider_connection_repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a27780579ce10c4972daf877dbeaeb6e509aa0093c5c7bf21672e365d3f1606c/g2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a2fc2d2e911909b9e08596877d2349ba9cdeb731cd90b5e39ffeba9204e7215e/typing.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a353faec53162101befd17c6b4a8ac9641f0a38a579bfea37ec478d4ff3cbfbf/config.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a3bd1b2b1301b1eaa680adb2a2c02a22c823e2f6ebf1fa98514616c819b2382b/g0_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a44ce89623cdc2786f50b57e097db64d6918cb6019d87e615d27b60d90deadf3/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a57b0dec700ad8409e27a1a880e86795ac89706744855a91de33bb025dc6af53/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a60dd10b78ae7d1e361b5af9da885217de8239e148b2c5958143d7c09bc020c1/python_export_guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a706c825755bd42576980138c3f1067cd8fb0f0cec29a5b0fed4cbe9cbe24eeb/validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a7104a4d439b27a9f74fc0be236b9ba1b7831e6044026802a205abc1298a9bc8/__init__.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a8f4a034243434de340324180e39ed738bc329fdefb8b23b887719eba7eb6615/test_migrations.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/a92bb3ee04b0e19d2d50ccc707e1be1a200f3fcbbc3c9de89b297cbeb8547067/test_remote_execution_authorization.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/aae4649b081982283f27551830577c38f6104034ff2a96a97feb0a717d421f11/seed_v30_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ab8642fc4c7c78a6fbf06bd123cfcfc01f151b6d5c24745d6db42b7664f36035/verify-d-repo30-import-replay.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/add3e4758815f57057a259d5c49ccce470168f58401e7bbd728db1c920bd177d/prepare_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ae87deda94c9e91ea4faa97c76da3653e4150617537b7d759f7c7e580d7c0e7e/review_physical.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/afea1515443e20dfc4e5b798fdb3ae672cd9dce1f1ef586b156cac376f80a621/audit-c19-two-source-static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b0724595db5abfab45ef2435853dd262c1028d5913d1187bf1392c4d2419ec02/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b189a666b2ff1afa1848b701b8f4510df49f81059e864cf0fd9bcd9300d8d8c1/mypy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b18da59cd50ea491802d715201e1a6fa1bfbe207e8dc253f0de0047c88080e71/qa02-windows-job-local-once-v1.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b2451fe47f387ec87f6e8a77acbee3118e290313bdb3c7b6f20fd8a2c02208ad/episode_script_confirmation_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b3967e5e6cb9723ae77caab70e1c5449e6018d1edf182e0941043143a7253489/fixture_test.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b43d812f79f2eb44fcab829cfd66f13ea1a8a8439c63b5fa9d3bd785bac80ec4/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b5bd0b9537515c29c478b6a3637ab904734f6f2b375e6a7b0bf88f4294e05622/diagnose_second.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b5f75f76940a6384765c23b0a876d97a840cbabe95362811adf86e757047c77f/_decorators_v1.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b75e14b0bb48d4977b06f37e0c9664209c51da8293d416810be907b4a5e36a69/test_rel03_backend.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b78e31331ce38eb3fecfbcb27d7cbe383ff66777f94b1997361baaffe98f1285/build-guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b7baad6d50ee9f9097f440e62b2b6b43f3f1961565714485ed2916d5c88035eb/keyring_classification_probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/b867d659a57123ac02a8a94495d880fd588c07b712accc6e520ed7c3a35ba15d/prepare_successor_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ba2c877ca76a1185f5424a26ba1f61119168a992693df87421b1ec3332dec884/compare.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ba4d8d000c6a88d10b2a388787287129a20e87c1759585bf2f3ad6dd7ee86417/annotated_types.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/bbda847462e9daf44812ca2289eda261919abb5d55164a80cd38047f8c3ace56/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/bc4141005abfdfe882b3659ca3016b5320c2dace421a1d31a53caa342e206b52/test_ac05_chain_draft.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/bcc744ccd2bb486f320486e3b74368e0665b7e5f4f83e9c29eeb48f0f832227d/static_review.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/bd10754dba64ccf3773f98a326573e72336e3be1dc88d3a90b86fc2b7cd99df7/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/be09f710da2359775e9dc26b1b640438d41a079d1f0b88cd75a97c29c191cfe9/test_g1_fixed_candidate_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/be1087ca84969d7f8427ec166f9aa3e31c91b2c8065a74d07f3429e06499f6e8/aliases.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/be442dfd06c5c95e827a2cbc2c143520367cc5a7b6e3d83e09f6046d19860166/provider_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/bef0218c75fd9f7f4a8f9ce9c205ccc62e4060640e91453addea9bda65e8086c/copy_deps_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c0654b870b581e3152ef22ebc7764d7201c5dcd4b4488967db5edf3ad4eb5fba/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c2477cd9d82dbd6b43f3de54fc8e84d61b6a3251a1052604577f5cb8149ea370/parse.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c2645115206fa9f70b6c8e353ec165881e2ed80677989a597a21116c3df1293a/_mock_val_ser.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c5b18f583e344cf98b20c5b71925be8f5ec5743d945bc5b768de1799dbcfd815/test_ac05_chain_run02.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c6583de3d7bf88fbce9a8e0952a546a08e0b5989e2c054d157f82e13ba6a8f2d/gate_common.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/c6fc97dceed68259ce0e18179116c82d2811592d87b6ea1ae9e47390c333e5ad/wal_snapshot_probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/cad15a9ce858b88fac50c9debfa45b1fb30951558529fbeb3c7397b87709def0/pure_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/cda6b1c71a163c29bcd7c0f56ecd3285aa518d79b7d95f06d191d609d335b970/decorator.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/cdcf6fbaa1f537307d30228fea7e71a38e7f81a06c22a7b6a0d5218ca19af31c/capture_ac05_http_chain_run01.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/cf04408d9bac391b446edc69554db4920f05a5e9b2673e05abac099359a9c184/functional_serializers.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d008a874e993ca29aaf5888e3c7d72d52fb29e52cb6affadb368d42922ec5b1d/python_export_guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d0e5297973d01d0611c7f358a8610a3799f1dd4d96b5e3842f41231029f1232a/prepare_v2_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d133dda35bcb35ced48628d06ffbc1e3fc4260775730f72cfdb8b742bf93efa4/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d19a99f4ef5a9e7223ff7986051aa9b3886d7b2ddbe65575f9ddad5313cc3270/generics.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d210ec7936267bf56b7b8cbb5de33d30153629cc1d72a63ccf23e44baade72e5/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d26e78752ae71e8986431f2efc8ab91b89bf4d677a45f99d5e4b0318b35180dc/prepare_v3_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d4dc3034ab9d3126a1119574057c85f1ededd09ad896ef629bcd7f1aa7842ad4/test_k01_export_exception_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d4fa8e225cfa3955b019db371c12a5c3812de9ab05a2ed1452902da3b8c5382b/utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d60d35d5fea00b2c0804565fb039135306386669ee4d1a921807f0d085c5d939/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d63aeee156c9d31eb747a76d55cb8e23e74a4130bf77f9529c9584050cc63444/_core_utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d650dd5c79348cbe6e3f7bb9442600bd402518296000efb8e6592af63edfc810/tools.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d799d1d90a6a4c1165415e1336d4c8b4cc93271fdf6f257e80f988118d46a287/utils.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d867472acb57b81ce97f78972828e6bc5669ca4db33fd1e6f645c6183846068e/test_cases.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/d9aebc6cbe92d1a3e57ac69e9b9b6098403d733ae6af296bacbdb6fa6b9dd6d6/verify-workspace-owner-lock.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/db77d94787cf8b379d02552275ab22e43d034645d4a3390bb09a3aa5cdfa4435/verify_manifest_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/dc9ced0d87795f4aa102ca51bf2fa96e871fe3ffdceb7cf5b7a05c278645967a/python-probe.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/dce5c4ca52561eaeedbacf011d88958da425bf2c496057a8996e148d1c39e9c1/api_host.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/dd0c90a3a94ddf970eece5c36c511759c35a3e518245aade815640f86fa56702/warnings.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/dd516677bd99441c6fa49d8832d01f4e0b9826f41d371a262cf3e5f1aaf82de6/qa_project01_backend.r01.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/de23d555db26006959dc0713773f5cc1e382b6b7a5db565da505fe412305161c/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/de88831128d73b77237cc6d2d82b7e45672e96a4a4a3484ad0772c05250653b2/prepare_successor_inputs.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/df0c057b33cf901faca8ebf1ca52132999f187b7018fdad208398115a9ae7579/g2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/df954446b28e3093f59dcd54f2eb2c317bab463e74c4c27becfdb8b5a4334e05/generate_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e0854610f81831dfbfff6eca72214e7d4825b72e2e86a0c4f18d6c4d5c6f5403/contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e10cb5910a6adeb3556497881de48f0e9b92d81be1a7528fb73246d71bbe1f4d/datetime_parse.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e16ee642fb64ec063af5122368068ff74aa7d6c1d5883f5f235fee096e3252ac/probe_python_sources.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e17f567b48e3d4a2f006dbd84a40055cda27e3aceba4199164035fe0b7f06d78/dataclasses.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e2674b5fc907be933a554271032ef9ce6340c05542b02edfaa17ce8a6e489b50/diagnose_run01.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e2b2002d157deba5f2e03f5340ad83be9b09be4f5d77e1acf614d3617a60af8d/media_asset_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e2cb0cb4d17bca40408083b618ce80c2266b33c43cfe14b97b6626c17903050c/sidecar.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e444b9c56bb0d45400b3298b7b3cbc4209d5cf466955f5378e4993ef81f6ed54/_hypothesis_plugin.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e4527458610c1629a202100bdb92ddeb2bdd96382cb401c39441c8bdd5b333e5/build-guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e482d59ca085edb252efc336c5229ea90303bc9c4c24d70c0e5066f2b0c51126/qa_media_worker_capture.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e4ce487356d99e384d0f1b510d529b44f4d0ea9a3a42e28c63b320b8c907796d/_schema_validator.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e552664de4b1b230181e303803b46af8ee08becf7e4abee945c2d2b60650c6e3/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e62127278c07bf5384cdd2903f368a69929f3b8a524000bae4e0eb608ebf4bc6/__init__.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e644150a9eac4372c4ff826c8f614df288a561e39250e96c58e447f17806c6bf/__init__.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e67dd8efedc028b9fcfc54b761cecabad2e23d48725e602d90464e6859e89f03/_forward_ref.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e69780436103658b5fce462da53b5790e165764c60001c2f362b323bf2174680/prepare_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e8801136897565bee278a2d2af3d91ba77b19a74887eaf817dfa7fbae82288a7/verify_static_v2.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/e881de79612a9543d152fdd5f805e217f5bdd5f836270fccdced25df827f7b20/env_settings.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ea4a005981dd003c54fbde9bb5613d8f0892d70b1390cdac575511b70280afe8/prepare_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/eb965cf038ce52a99367c5ee77960816a1dcb8efcacd62365fdf87501c15d29c/verify-script-history-restart.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ebadb931fc3daa40b63708ad07f2450167bc07e5efeb3054eeb2fd936f2d7f2a/error_wrappers.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ec64e35d758530b89be1dc50f8779a8879406624760761bc6f2098306ae6438f/_validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ed1b815ccbeafd39ff4bde74082028ceeb63a2b3ed28f01af43e48a865f27301/sub2api_source_extract_policy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ed96fe49c2e3325298393d1c3c3efeee0f7fb122e4bfc0f359af2fc3cf689dc8/g3_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/edf107d956a0bd355e33032231b46ea7d721ce16058ecebb3ce7e3180b680c59/repository_policy_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/edf5e1a2eda3330642d3040e80cccd5533d97d6687983557a506c3b0db4e2e12/compose-source.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ee9fb88ef3ffffd8d9caf71d5e289d7b9a406bf26533b7c9d41824a9b8f14963/functional_validators.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/eee1e209e4a68fba9f53c48ee1079c73b5a22285341de2a46a2cd59cf152d341/test_v2_static.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/efaf67aa1633b13893e9d764f900a29b3340eddf26cc87ae506c0650d8f5a58b/inspect-db.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/efce1caaf2276f020f5abf6eb1fa57ddc87bcf8b77276b532ba374ebbff0935a/dataclasses.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/efe7e5f7249a90264a0241f0c020f4e1161d8009114e50faa9e05ea7717179ca/qa_sub2api_v22_migration.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f02e53d8bb4bb95457204db6b9a951163185a6a534d62e06478e0cdf90cdff33/g2_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f19ccc91341f8089bc97fcd5d0ee654aef77c0b1e3816bf89e0d86dbb85254d7/salvage-script-compat-old.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f2727eb8ce98e33eb1a5ab271a89c432e6ed3555ff9b179e44316677fa8c54b0/_schema_gather.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f2971300eac5672312dafca5334abe4582aca6e898d2922b7f85567e678b0f9f/digest-case-selfcheck.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f30e0c7348a169ab0737a1a080ffa7149a7727940562a351b3253b7a4203d735/prepare_v4_packet.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f3b19e6030db383c85c240fe43cf8a5c124b1406384bea9e9682d004238e1337/invoke-stage-a-once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f42f9db165a5916d7a40e8bf3d1eaaaa6f8793cc11b19f8d605eecf6ec8fbcfe/agent_skill_registry.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f4e947cb069382ee1bf37714254b16fe0e4b1159e9e302a090720c4f3e6c4e0e/make-d-repo30-c19-file-diff.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f5809a08198c6d7ac9c3ef8979761803912c59ea9e3b729bf31c8a2f1b241441/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f59424dc5bf0f923270be31a8575044b744f88dcf36557d31263cb3f4d7dcd09/test_fake_timeline_run_api.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f63c9e557204deff70a18f80b2854ad6565bf6ae3a32657d28875306fa405370/claim_fault_qa.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f6fb6fc891bd5f0c537f4c8832eeeb557c95694988351c8876bf833aff70452c/task_ledger.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f768ddb858b252698066a22aae0210efc56ac35f5c8af662013d86efd86c0f88/api_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f79156d4bfdf9bba2c2d49c3d162b61c4a8312a3df1054b46f76d2feee1197d4/prepare-fixtures.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f7cf26f3f1108d2e94362e52cf0a75084b5d9de4876a1f0a5156af8cd0124374/g1_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f7f768af6108a9395e9b19c940d26c506f5cb9f366d0214a2ca03faa54827996/prepare_toolchain.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f95794b598fb323c336dd5352acb49d0f308c671829540c7aa2cb1e1bfadbdad/freeze_red.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/f9bdf966675a1acc0c24e78897596ff3728c53f8ac30314220cc9fa50b0a9633/python_export_guard.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/fa3d7d4f70e694d27b52dd219c4603f896a91126e5274f3c362953e89be03a38/seed_v30_once.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/fa77392c5bf35df852ad385bca13ceb0f7150dfd5b09aaf7605006c165e2baa2/task_ledger_enqueue.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/fbff8bc59bf1322c2434742bc10946d4c8f48e2343b0da37f81eeb5fe4c441b2/test_ac05_chain_run03.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/fea2119a73742faae1e20b70ebe094faef4988ea4c4e2578ff1cec3f50cdde6f/compare.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ff105789ae6027b01f1261755137771c38da09abf5374939459b5999153d1bc1/test_proposal_run_create_api.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "handoff/2026-10-08/archive/ff62def0df607b0e2b79418b6a65d0ef9bb02ef0e675db18c7072732cc8fb627/main.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "retained_previous_committed_version",
+      "fallback_commit": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+      "fallback_blob": "ed120ae5e8ba4b93c07f85270769c1c8151cdcd5"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_origin_mode_schema.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "services/api/src/aijian_api/repository.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "retained_previous_committed_version",
+      "fallback_commit": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+      "fallback_blob": "199b4a4f7bb749d9a3e6fa56a489fb107b2bdeba"
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/provider_connection_routes.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/provider_connections.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/provider_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_connection_readiness.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_invocation.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_policy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_run_factory.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_source_extract_worker.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/after-local-mode/sub2api_text_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/provider_connection_routes.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/provider_connections.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/provider_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_connection_readiness.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_contracts.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_invocation.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_policy.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_run_factory.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_store.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_source_extract_worker.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-local-mode/sub2api_text_transport.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-omit-guard/provider_connection_routes.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    },
+    {
+      "path": "work/dev05-b31-local-gates-20260929/backup-before-omit-guard/provider_connections.py",
+      "reason": "Git reads protected container; protected version not exported",
+      "action": "omitted_missing",
+      "fallback_commit": null,
+      "fallback_blob": null
+    }
+  ],
+  "development_history_not_attached": true,
+  "protected_historical_objects_not_attached": [
+    {
+      "object": "b2d76ea50d988199e7d6f362480600f8fe0b104a",
+      "path": "services/api/src/aijian_api/gateway_transport.py"
+    },
+    {
+      "object": "80118e1bf8a450c16d2aebd56e968dd00ed46f8a",
+      "path": "services/api/tests/test_gateway_transport.py"
+    }
+  ],
+  "status": "INDEPENDENT_REBUILD_STARTING_POINT_NOT_FULL_MIGRATION",
+  "validation": "Git-readable snapshot only; build/runtime NOT_RUN",
+  "missing_paths": 397,
+  "note": "Protected file contents were not exported or rewritten. Source workspace and original index remain intact."
+}

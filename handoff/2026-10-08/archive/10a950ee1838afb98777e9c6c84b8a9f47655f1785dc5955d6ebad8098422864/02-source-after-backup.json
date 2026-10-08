@@ -1,0 +1,12 @@
+[
+  {
+    "path": "media-assets/中文/样本.bin",
+    "size": 47,
+    "sha256": "E1896E58D17C5277446EA49A165CAEE70152047393CC771D6BBB5EE12B9FD7A9"
+  },
+  {
+    "path": "workspace.sqlite3",
+    "size": 1048576,
+    "sha256": "0DA265A793C62584FC246B0B8C3A63FBCC72B635E536E284E27A9459F86E0E95"
+  }
+]

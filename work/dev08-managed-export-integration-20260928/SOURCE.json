@@ -1,0 +1,29 @@
+{
+  "schema": "dev08-managed-export-integration-static-v1",
+  "status": "AUTHOR_CANDIDATE_NO_IMPORT_NO_TEST_NO_RUNTIME",
+  "entries": [
+    {
+      "relative_path": "services/api/src/aijian_api/product_export_windows_job.py",
+      "sha256": "11A5762844F0C79471DFB46719E00ACC0D951A71FAC4E11F9C58202A2DBACFA2",
+      "bytes": 18303
+    },
+    {
+      "relative_path": "services/api/src/aijian_api/product_export_encoder.py",
+      "sha256": "6DB31BA0542B074853A5F86833B2719AE2524B02ADCF95A5592DD3FA36EB59B8",
+      "bytes": 9784
+    },
+    {
+      "relative_path": "services/api/src/aijian_api/product_export_operation_coordinator.py",
+      "sha256": "696754FFADE0FEA4235E28FD131DF9D6DAB6AE40A49C104A3A58E3F3057E3D09",
+      "bytes": 7415
+    },
+    {
+      "relative_path": "services/api/src/aijian_api/product_export_single_video_service.py",
+      "sha256": "C627B78393F0A1344A4DD21A43DDFF99A89C0C9AA379396D62A8D28FB00654DE",
+      "bytes": 5762
+    }
+  ],
+  "prior_encoder_sha256": "26634F0C2C831EAF3CD723121BF638D62E58B2028210948EF2EB08ED6CDA775A",
+  "prior_job_sha256": "B5CAC03653669E35DDF1BB00031618D3C6605024E0A6DECC5CD4D9BBFC99EA40",
+  "note": "main sidecar repo untouched; release allowlist empty; startup recovery not wired"
+}

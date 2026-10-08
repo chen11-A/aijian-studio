@@ -1,0 +1,28 @@
+{
+  "schema": "qa02.media-preview.native-r01.package-index.v1",
+  "status": "STATIC_READY_FRONT_WINDOW_AUTH_REQUIRED",
+  "files": [
+    {
+      "name": "RUNBOOK.md",
+      "bytes": 1929,
+      "sha256": "F733B0E37B933D3AE2668662727752A709CAB9589D871910F29291E02C1360F1"
+    },
+    {
+      "name": "RUN-ENVELOPE.json",
+      "bytes": 5772,
+      "sha256": "345EC0F163DB70208E19828CDD54907BB0A33571A08E18BAA4C02C4225E3D170"
+    },
+    {
+      "name": "preflight.py",
+      "bytes": 6407,
+      "sha256": "0D107781F281AEDB62E940FA500F86F0D121E78236311FB6B3549D067F4DD30B"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 683,
+      "sha256": "3044C50717005552D8A1D5FF5FB399C04A231FE5D5C716E458892ABBC7724619"
+    }
+  ],
+  "self_excluded": "PACKAGE-SHA256.json",
+  "approval_template_excluded": true
+}

@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.12
+
+      - name: Verify generated contracts
+        run: pnpm contracts:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Fault injection
+        run: >-
+          uv run pytest
+          services/api/tests/test_fault_injection.py
+          services/api/tests/test_fake_provider.py
+          services/api/tests/test_fake_provider_worker.py
+          services/api/tests/test_local_executor.py
+          services/api/tests/test_task_ledger_recovery.py
+
+      - name: Reproduce fault-injection evidence
+        run: uv run python scripts/fault_injection_evidence.py verify
+
+      - name: Reproduce media contract evidence
+        run: pnpm evidence:media-contract
+
+      - name: Verify evidence hashes
+        run: pnpm evidence:check
+
+      - name: Audit production JavaScript dependencies
+        run: pnpm audit --prod
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify clean generated state
+        run: git diff --exit-code

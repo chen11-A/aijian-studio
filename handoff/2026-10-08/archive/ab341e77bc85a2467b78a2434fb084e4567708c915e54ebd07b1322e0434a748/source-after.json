@@ -1,0 +1,23 @@
+{
+  "counts": {
+    "dev07_sidecar": 1,
+    "generator": 1,
+    "overlays": 26,
+    "s2_deps_files": 596,
+    "s2_source_files": 187,
+    "w0_files": 13681,
+    "w0_links": 771
+  },
+  "expected_counts": {
+    "dev07_sidecar": 1,
+    "generator": 1,
+    "overlays": 26,
+    "s2_deps_files": 596,
+    "s2_source_files": 187,
+    "w0_files": 13681,
+    "w0_links": 771
+  },
+  "mismatches": [],
+  "status": "PASS",
+  "utc": 1791418492.8605113
+}

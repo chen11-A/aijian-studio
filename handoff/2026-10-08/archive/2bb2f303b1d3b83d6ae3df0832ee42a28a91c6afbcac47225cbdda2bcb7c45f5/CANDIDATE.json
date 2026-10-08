@@ -1,0 +1,45 @@
+{
+  "files": [
+    {
+      "path": "services/api/src/aijian_api/project_settings_schema.py",
+      "bytes": 2638,
+      "snapshot": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\project_settings_schema.py",
+      "sha256": "B9269DA4A76FB26B7409B235F0779C7FA18B4C6842C3A3C76719AA0049A4EF53"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_repository.py",
+      "bytes": 17001,
+      "snapshot": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_connection_repository.py",
+      "sha256": "A1E73830FBCCF52335D59249A48290C8836B89AA46AD9D98A000AE690619FB57"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_credential_ref_schema.py",
+      "bytes": 6438,
+      "snapshot": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_credential_ref_schema.py",
+      "sha256": "B170FFC0C157D3C46109A7511BF10D9217B178EF05CFA77FD749C4C19C20932C"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_origin_mode_schema.py",
+      "bytes": 3845,
+      "snapshot": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\provider_origin_mode_schema.py",
+      "sha256": "7986A35C0C0E8F437A3CFAB1E6A0B3275AE49CB06B59C8C28E0B05A74550A873"
+    },
+    {
+      "path": "services/api/src/aijian_api/repository.py",
+      "bytes": 155702,
+      "snapshot": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-origin-mode33-candidate-20260929\\after\\repository.py",
+      "sha256": "B43D812F79F2EB44FCAB829CFD66F13EA1A8A8439C63B5FA9D3BD785BAC80EC4"
+    }
+  ],
+  "status": "SOURCE_CANDIDATE_ONLY_INTEGRATION_HOLD_FOR_MIGRATION32",
+  "owner": "DEV01",
+  "runtime_validation": "NOT_RUN",
+  "migration_order": [
+    31,
+    32,
+    33
+  ],
+  "baseline": "BASELINE.json",
+  "hold": "Migration32 remains required per DEV03; service CAS/receipt/bridge/UI consumer closure and independent QA must clear before provisional runner execution",
+  "qa_handoff_sha256": "946A34E73DD3DE5EF67D4EA82A71CC2F31A8E251BA7CC627F8549AB12A2A8178"
+}

@@ -10,6 +10,13 @@
 4. PR 同时更新文档、迁移、权限、日志脱敏和失败恢复测试。
 5. 代码审核与电影流程验收分开：测试通过不等于镜头/剧本质量通过。
 
+## 工程规范
+
+- 所有变更遵循 [编码规范](docs/development/coding-standards.md)。
+- 所有用户界面遵循 [UI 工程规范](docs/development/ui-engineering-standards.md)，并经过真实浏览器验收。
+- 提交前运行 `pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test` 和 `pnpm build`。
+- 评审覆盖正确性、可读性、架构、安全和性能五个维度；Critical/Important 问题解决前不得合并。
+
 ## 上游代码
 
 不要直接从 GitHub 复制代码片段。先在 Issue 记录仓库 URL、固定提交、文件、SPDX 许可证、NOTICE 和采用理由，再更新 `third_party/provenance.yml`。AGPL/GPL、无许可证、非商业条款或源码不完整的项目不能进入 Apache 核心。

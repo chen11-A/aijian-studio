@@ -1,0 +1,19 @@
+{
+  "kind": "DEV08_MANAGED_EXPORT_ASYNC_SERVICE_SOURCE",
+  "status": "STATIC_CANDIDATE_NO_RUNTIME_QA",
+  "coordinator_source": "services/api/src/aijian_api/product_export_operation_coordinator.py",
+  "coordinator_sha256": "E6A8C912709CB9EA4C4458E785FF41C03D4A41D28D62710236CF68C80411D994",
+  "service_source": "services/api/src/aijian_api/product_export_single_video_service.py",
+  "service_sha256": "A241DEBF74F791B808C84FD0BBDD6F5E0C876366E49B84EC9B173CB71028AD30",
+  "previous_coordinator_sha256": "696754FFADE0FEA4235E28FD131DF9D6DAB6AE40A49C104A3A58E3F3057E3D09",
+  "previous_service_sha256": "C627B78393F0A1344A4DD21A43DDFF99A89C0C9AA379396D62A8D28FB00654DE",
+  "job_manager_sha256": "11A5762844F0C79471DFB46719E00ACC0D951A71FAC4E11F9C58202A2DBACFA2",
+  "release_allowlist": "EMPTY",
+  "startup_recovery": "DISABLED",
+  "note": "Background worker only for new claim; no retry; stop_accepting then JobManager shutdown_and_wait then join_workers then workspace lock release",
+  "encoder_sha256": "6DB31BA0542B074853A5F86833B2719AE2524B02ADCF95A5592DD3FA36EB59B8",
+  "claim_sha256": "F1C068AF981A555166312B9EB47ABE5A36D476949A61A342C6DB5C2180019DBE",
+  "store_sha256": "58FBF5CB525283CDF18FFD5A197AD6C58E867DEBF63A3477AE13A22F7574E9E4",
+  "claim_source": "services/api/src/aijian_api/product_export_claim.py",
+  "previous_claim_sha256": "A5EB43D6A2356EDA0C9A66424247DA9437D66AE19C6CE1CE7DD52CE626693BCF"
+}

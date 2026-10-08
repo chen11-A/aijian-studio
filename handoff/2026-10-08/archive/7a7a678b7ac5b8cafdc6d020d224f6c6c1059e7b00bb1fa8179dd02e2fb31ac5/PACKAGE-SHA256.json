@@ -1,0 +1,73 @@
+{
+  "schema": "qa02.media-preview.static-package-index.v1",
+  "status": "STATIC_PACKAGE_READY_RUNTIME_NOT_RUN",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 1674,
+      "sha256": "420BE4350B6508D3FA73BE807FFFF0DE47345935E6AECC5E9B71CEA6F54570E0"
+    },
+    {
+      "name": "RUNTIME-QA-PLAN.md",
+      "bytes": 5432,
+      "sha256": "B21A50B15A4D70C32991AF6042D2FDCCFC3BBB85C4FC2BED754F5FEAB96E65E6"
+    },
+    {
+      "name": "EVIDENCE-TEMPLATE.json",
+      "bytes": 1547,
+      "sha256": "B2F7375EFA7009AE44C1A4061954428509571F5CBD4581A6037BC560AFE73659"
+    },
+    {
+      "name": "prepare-fixtures.py",
+      "bytes": 4298,
+      "sha256": "F79156D4BFDF9BBA2C2D49C3D162B61C4A8312A3DF1054B46F76D2FEEE1197D4"
+    },
+    {
+      "name": "FIXTURE-PREPARATION-RECEIPT.json",
+      "bytes": 3483,
+      "sha256": "677749F2E45075E24B11D5F4E2215767993ACFCEBD95C8971805B121DDF3D4AC"
+    },
+    {
+      "name": "SOURCE-LOCK.json",
+      "bytes": 2753,
+      "sha256": "0EDB0B0350C22C82FC56351C647B5936FA161E20EA8CF564D8B4F9F357A60060"
+    },
+    {
+      "name": "INPUT-MANIFEST.json",
+      "bytes": 3430,
+      "sha256": "B066DAEF044C2671CC6C1B72E59ADDA082FD84305941F5683BFB95506CBAFDF9"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 767,
+      "sha256": "F0DB2637B7CC0D6DA80FA54D851B50379EB9E93F488EE9FAFEF498E7A1F32B2E"
+    },
+    {
+      "name": "fixtures/dialogue-test.mp3",
+      "bytes": 5061,
+      "sha256": "EC9306467AAFF6DCCE26E5B2656A0D773367FB439817BD65148D9A55DA7E81B7"
+    },
+    {
+      "name": "fixtures/oversize-test.wav",
+      "bytes": 33555500,
+      "sha256": "C627D2B19EE320EC800D2CE06B3196F912ED52444EC811D7CB2650D2C2A1A374"
+    },
+    {
+      "name": "fixtures/decoder-invalid.mp3",
+      "bytes": 1024,
+      "sha256": "0E47E975000D03EB05D473B9A9106D1CF01E6E3F7875FF4AE86950B15C7CF1B2"
+    },
+    {
+      "name": "fixtures/mp3-encode.stdout.bin",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "name": "fixtures/mp3-encode.stderr.bin",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    }
+  ],
+  "self_excluded": "PACKAGE-SHA256.json",
+  "count": 13
+}

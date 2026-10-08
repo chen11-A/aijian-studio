@@ -1,0 +1,30 @@
+[
+  {
+    "name": "repository.py",
+    "last_write_utc": "2026-09-28T02:11:47.7438820Z",
+    "attributes": "Archive",
+    "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api\\repository.py",
+    "sha256": "4032F9C2E319AABE02FEC9BADC53B5F81E5BD4A592C6EFFA7622EFF07AFD7DD9"
+  },
+  {
+    "name": "provider_connection_repository.py",
+    "last_write_utc": "2026-09-28T02:19:42.2192108Z",
+    "attributes": "Archive",
+    "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api\\provider_connection_repository.py",
+    "sha256": "96DAE6694953485C2A5FDD997E19D811B00A713E00EFD5559BF7B1FD1123F053"
+  },
+  {
+    "name": "provider_credential_ref_schema.py",
+    "last_write_utc": "2026-09-28T02:11:24.2545198Z",
+    "attributes": "Archive",
+    "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api\\provider_credential_ref_schema.py",
+    "sha256": "B170FFC0C157D3C46109A7511BF10D9217B178EF05CFA77FD749C4C19C20932C"
+  },
+  {
+    "name": "project_settings_schema.py",
+    "last_write_utc": "2026-09-28T05:24:53.5908003Z",
+    "attributes": "Archive",
+    "source": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api\\project_settings_schema.py",
+    "sha256": "B9269DA4A76FB26B7409B235F0779C7FA18B4C6842C3A3C76719AA0049A4EF53"
+  }
+]

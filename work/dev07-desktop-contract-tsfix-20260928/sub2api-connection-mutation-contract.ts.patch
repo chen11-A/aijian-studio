@@ -1,0 +1,34 @@
+diff --git a/apps/desktop/src/sub2api-connection-mutation-contract.ts b/apps/desktop/src/sub2api-connection-mutation-contract.ts
+index 9856c9d..95475dd 100644
+--- a/apps/desktop/src/sub2api-connection-mutation-contract.ts
++++ b/apps/desktop/src/sub2api-connection-mutation-contract.ts
+@@ -132,15 +132,17 @@ export function isSub2APIRotationOperationResponse(
+ export function sub2APIMutationDefiniteError(
+   status: number, value: unknown, requestId: string | null,
+ ): Extract<Sub2APIConnectionMutationResult, { kind: "DEFINITE_SERVER_ERROR" }> | null {
+-  if (![401, 403, 404, 409, 422].includes(status) ||
+-      !isRecord(value) || !exact(value, ["error", "request_id"]) ||
+-      !hasRequestId(value) || value.request_id !== requestId ||
++  if (status !== 401 && status !== 403 && status !== 404 &&
++      status !== 409 && status !== 422) return null;
++  if (!isRecord(value) || !exact(value, ["error", "request_id"]) ||
++      typeof value.request_id !== "string" || !hasRequestId(value) ||
++      value.request_id !== requestId ||
+       !isRecord(value.error) || !exact(value.error, [
+         "code", "message", "details", "retryable",
+       ]) || typeof value.error.code !== "string" || !CODE.test(value.error.code) ||
+       typeof value.error.message !== "string" || !isRecord(value.error.details) ||
+       value.error.retryable !== false) return null;
+-  return { kind: "DEFINITE_SERVER_ERROR", status: status as 401 | 403 | 404 | 409 | 422,
++  return { kind: "DEFINITE_SERVER_ERROR", status,
+     code: value.error.code, request_id: value.request_id };
+ }
+ export function sub2APIRotationReadDefiniteError(
+@@ -149,5 +151,6 @@ export function sub2APIRotationReadDefiniteError(
+   if (status === 409) return null;
+   const error = sub2APIMutationDefiniteError(status, value, requestId);
+   if (error === null || error.status === 409) return null;
+-  return error;
++  return { kind: "DEFINITE_SERVER_ERROR", status: error.status,
++    code: error.code, request_id: error.request_id };
+ }

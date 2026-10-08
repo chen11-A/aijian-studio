@@ -1,0 +1,10 @@
+{
+  "kind": "DEV08_MLT_WORKER_REVALIDATION_SOURCE",
+  "status": "STATIC_CANDIDATE_NO_RUNTIME_QA",
+  "source_path": "services/api/src/aijian_api/mlt_execution_worker.py",
+  "source_sha256": "9E8E874A983CB4CA98A6D44805570E111E796D031FCE202B7C18F026092D0EA0",
+  "previous_author_freeze_sha256": "1B262570AEF12D7DDBD08CE593A330E73A7498058A2E3EE751EE8FC30C9CB20C",
+  "resolver_required_sha256": "F394BC10ED3F102D86D0F73BE992D2ACC9B05F346AC0E4711D9E73CC0EA25CE3",
+  "change": "Required revalidate_selection callback immediately before MLT render launch; failure blocks Popen",
+  "scope": "ENGINEERING_TEST_ONLY"
+}

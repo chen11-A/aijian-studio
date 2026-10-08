@@ -1,0 +1,518 @@
+{
+  "clicked_story_workspace": true,
+  "clicked_source_context": true,
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "metrics": {
+        "document": [1425, 1425, 1525],
+        "body": [1425, 1425],
+        "h1": ["故事工坊"],
+        "h2": ["故事圣经"],
+        "evidence": ["“旧信在港口被发现。”"],
+        "sourceDocuments": [
+          "#1雾城来信.txt1 章src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "#2港口补遗.txt1 章src_66666666666666666666666666666666"
+        ],
+        "evidenceSource": ["港口补遗.txt第 1 章src_66666666666666666666666666666666"],
+        "contextActions": ["打开《港口补遗.txt》上下文"],
+        "activeSourceBlock": "旧信在港口被发现。",
+        "activeVersion": "LATEST",
+        "reviewTouchTargets": [
+          {
+            "height": 32,
+            "fontSize": 10
+          },
+          {
+            "height": 32,
+            "fontSize": 10
+          },
+          {
+            "height": 32,
+            "fontSize": 10
+          }
+        ],
+        "disabledReview": true
+      }
+    },
+    {
+      "viewport": "980x680",
+      "metrics": {
+        "document": [965, 965, 2457],
+        "body": [965, 965],
+        "h1": ["故事工坊"],
+        "h2": ["故事圣经"],
+        "evidence": ["“旧信在港口被发现。”"],
+        "sourceDocuments": [
+          "#1雾城来信.txt1 章src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "#2港口补遗.txt1 章src_66666666666666666666666666666666"
+        ],
+        "evidenceSource": ["港口补遗.txt第 1 章src_66666666666666666666666666666666"],
+        "contextActions": ["打开《港口补遗.txt》上下文"],
+        "activeSourceBlock": "旧信在港口被发现。",
+        "activeVersion": "LATEST",
+        "reviewTouchTargets": [
+          {
+            "height": 32,
+            "fontSize": 10
+          },
+          {
+            "height": 32,
+            "fontSize": 10
+          },
+          {
+            "height": 32,
+            "fontSize": 10
+          }
+        ],
+        "disabledReview": true
+      }
+    },
+    {
+      "viewport": "390x844",
+      "metrics": {
+        "document": [390, 390, 3754],
+        "body": [390, 390],
+        "h1": ["故事工坊"],
+        "h2": ["故事圣经"],
+        "evidence": ["“旧信在港口被发现。”"],
+        "sourceDocuments": [
+          "#1雾城来信.txt1 章src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "#2港口补遗.txt1 章src_66666666666666666666666666666666"
+        ],
+        "evidenceSource": ["港口补遗.txt第 1 章src_66666666666666666666666666666666"],
+        "contextActions": ["打开《港口补遗.txt》上下文"],
+        "activeSourceBlock": "旧信在港口被发现。",
+        "activeVersion": "LATEST",
+        "reviewTouchTargets": [
+          {
+            "height": 44,
+            "fontSize": 12
+          },
+          {
+            "height": 44,
+            "fontSize": 12
+          },
+          {
+            "height": 44,
+            "fontSize": 12
+          }
+        ],
+        "disabledReview": true
+      }
+    }
+  ],
+  "focus_order": [
+    {
+      "tag": "A",
+      "text": "剪AIJIANSTUDIO",
+      "aria": "Aijian Studio 首页",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "01项目",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "02故事工坊",
+      "current": "page"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "＋ 新建项目",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "01雾城来信9:16 · 90 秒8月3日",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "LATESTV02ver_77777777…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "LATESTV1ver_22222222…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "ACCEPTEDV1ver_22222222…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "#1雾城来信.txt1 章src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "#2港口补遗.txt1 章src_66666666666666666666666666666666",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "打开《港口补遗.txt》上下文",
+      "current": null
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "aria": "搜索实体",
+      "current": null
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "aria": "搜索事实",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "证据 1",
+      "aria": "查看 林见 · 职业：记者 的来源证据",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "证据 1",
+      "aria": "查看 林见 → 曾是搭档 → 周野 的来源证据",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "林见 · 职业：记者 · 证据 1",
+      "current": null,
+      "container": "conflict-facts"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "林见 → 曾是搭档 → 周野 · 证据 1",
+      "current": null,
+      "container": "conflict-facts"
+    },
+    {
+      "tag": "BODY",
+      "text": "剪AIJIANSTUDIO工作区01项目02故事工坊03分镜导演即将推出04素材中心即将推出05剪辑台即将推出06任务队列即将推出LOCAL WORKSPACE",
+      "current": null
+    },
+    {
+      "tag": "A",
+      "text": "剪AIJIANSTUDIO",
+      "aria": "Aijian Studio 首页",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "01项目",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "02故事工坊",
+      "current": "page"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "＋ 新建项目",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "01雾城来信9:16 · 90 秒8月3日",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "LATESTV02ver_77777777…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "LATESTV1ver_22222222…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "ACCEPTEDV1ver_22222222…",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "#1雾城来信.txt1 章src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "#2港口补遗.txt1 章src_66666666666666666666666666666666",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "打开《港口补遗.txt》上下文",
+      "current": null
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "aria": "搜索实体",
+      "current": null
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "aria": "搜索事实",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "证据 1",
+      "aria": "查看 林见 · 职业：记者 的来源证据",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "证据 1",
+      "aria": "查看 林见 → 曾是搭档 → 周野 的来源证据",
+      "current": null
+    },
+    {
+      "tag": "SUMMARY",
+      "text": "完整字段",
+      "current": null
+    },
+    {
+      "tag": "BUTTON",
+      "text": "林见 · 职业：记者 · 证据 1",
+      "current": null,
+      "container": "conflict-facts"
+    }
+  ],
+  "accessibility": [
+    {
+      "role": "navigation",
+      "name": "创作模块"
+    },
+    {
+      "role": "button",
+      "name": "01 项目"
+    },
+    {
+      "role": "button",
+      "name": "02 故事工坊"
+    },
+    {
+      "role": "button",
+      "name": "03 分镜导演 即将推出"
+    },
+    {
+      "role": "button",
+      "name": "04 素材中心 即将推出"
+    },
+    {
+      "role": "button",
+      "name": "05 剪辑台 即将推出"
+    },
+    {
+      "role": "button",
+      "name": "06 任务队列 即将推出"
+    },
+    {
+      "role": "heading",
+      "name": "故事工坊"
+    },
+    {
+      "role": "button",
+      "name": " 新建项目"
+    },
+    {
+      "role": "button",
+      "name": "01 雾城来信 9:16 · 90 秒 8月3日"
+    },
+    {
+      "role": "heading",
+      "name": "故事圣经"
+    },
+    {
+      "role": "heading",
+      "name": "来源预览"
+    },
+    {
+      "role": "heading",
+      "name": "结构化正典"
+    },
+    {
+      "role": "heading",
+      "name": "雾城来信"
+    },
+    {
+      "role": "searchbox",
+      "name": "搜索实体"
+    },
+    {
+      "role": "searchbox",
+      "name": "搜索事实"
+    },
+    {
+      "role": "heading",
+      "name": "编剧审阅"
+    },
+    {
+      "role": "button",
+      "name": "提交 G2 审阅尚未开放"
+    },
+    {
+      "role": "button",
+      "name": "LATEST V02 ver_77777777…"
+    },
+    {
+      "role": "button",
+      "name": "REVIEW — —"
+    },
+    {
+      "role": "button",
+      "name": "ACCEPTED — —"
+    },
+    {
+      "role": "button",
+      "name": "LATEST V1 ver_22222222…"
+    },
+    {
+      "role": "button",
+      "name": "REVIEW — —"
+    },
+    {
+      "role": "button",
+      "name": "ACCEPTED V1 ver_22222222…"
+    },
+    {
+      "role": "button",
+      "name": "#1 雾城来信.txt 1 章 src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "role": "button",
+      "name": "#2 港口补遗.txt 1 章 src_66666666666666666666666666666666"
+    },
+    {
+      "role": "button",
+      "name": "林见 · 职业：记者 · 证据 1"
+    },
+    {
+      "role": "button",
+      "name": "林见 → 曾是搭档 → 周野 · 证据 1"
+    },
+    {
+      "role": "heading",
+      "name": "逐事实证据"
+    },
+    {
+      "role": "button",
+      "name": "打开《港口补遗.txt》上下文"
+    },
+    {
+      "role": "button",
+      "name": "查看 林见 · 职业：记者 的来源证据"
+    },
+    {
+      "role": "button",
+      "name": "查看 故事时序 1 · 林见 · 雾城 的来源证据"
+    },
+    {
+      "role": "button",
+      "name": "查看 林见 → 曾是搭档 → 周野 的来源证据"
+    }
+  ],
+  "reduced_motion": {
+    "matches": true,
+    "maxAnimationMs": 0.01,
+    "maxTransitionMs": 0.01
+  },
+  "api_requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/health",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/health",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/sources",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/sources",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/sources/src_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/source-manifest",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/story-bible",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/story-bible/versions/ver_77777777777777777777777777777777",
+      "response_code": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:5173/api/v1/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/sources/src_66666666666666666666666666666666",
+      "response_code": 200
+    }
+  ],
+  "console_warning_error_count": 0,
+  "meaningful_network_failure_count": 0
+}

@@ -1,0 +1,113 @@
+{
+  "kind": "DEV05_SUB2API_LOCAL_MODE_SOURCE_CANDIDATE",
+  "status": "SOURCE_ONLY_INTEGRATION_HOLD",
+  "date": "2026-09-29",
+  "source_root": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp",
+  "baseline_r2_composite_sha256": "3A3DA222E44622DA5803AE80D9867FF69296BD394E7AC2132921F3C9C30FAE7B",
+  "baseline_b31_manifest_sha256": "B91EE1F989B73E23B4740224643B95F48517F006448DCFD375F91E67C11E35B9",
+  "origin_mode_contract": [
+    "PUBLIC_HTTPS",
+    "LOCAL_LOOPBACK_HTTP"
+  ],
+  "origin_binding_fields": [
+    "origin",
+    "origin_mode",
+    "connection_revision"
+  ],
+  "existing_local_edit_omitted_mode": "REJECT_WITHOUT_CAS",
+  "repository_dependency": "DEV01 migration33 candidate; migration32 independently unverified",
+  "known_local_port_blocker": "Windows portproxy 0.0.0.0:8080 -> 192.168.254.115:80",
+  "files": [
+    {
+      "path": "services/api/src/aijian_api/provider_connection_routes.py",
+      "before_sha256": "8591532DFF70DDB78C7BFF2FFCD1162A1801393F01F3B1C0E90040098EE40C2C",
+      "after_sha256": "155CB21B02BCB1B4A7790E21D959787450AA00ED55B42D1B034D91EA3A1C9D37",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connection_routes.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connections.py",
+      "before_sha256": "81CF871D80B7013DE46DEAA140664FB9B954F736E0F8A2FEE702ED36F056A946",
+      "after_sha256": "D02727B3102B27478B22659470956A922BC973364C41B81F52D9FCA9C50BE83F",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_connections.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_contracts.py",
+      "before_sha256": "8C69AAFA39B13253FA46CC43622AD2EAD2A7CFF6596CAFC76A23EFD8CB1BB284",
+      "after_sha256": "E904C154E0527DB6F1548048DBE58EADD89E591CA559225A9F5D643395C6FD49",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\provider_contracts.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_connection_readiness.py",
+      "before_sha256": "B664D3C848B8651A8B4CF9A8B401A2B87E1E1C29778EE1C89F03C38E3467B299",
+      "after_sha256": "0BACB3CF7F445749D082880395E8D0FC24B1E81128E19ED91767C17AD468F3B0",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_connection_readiness.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_contracts.py",
+      "before_sha256": "5A187B55B06FF03C2DFAAD795FD475B358C4C57036A6943B2D82C10D69584413",
+      "after_sha256": "B86BD3A8EDE0A894FA5F43E285A158F39F83C0167F8ADF82180DD7A0AF8FD761",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_contracts.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_invocation.py",
+      "before_sha256": "0BEFB3DC9BDE81B8C2CA3DDB46EE99D18E90A31F92C53D252BED16132A7EA1F2",
+      "after_sha256": "630E02FDC14CDF9ED21F845530FFA083468A8FEE3AA193C6F81F29C460FC858A",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_invocation.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_policy.py",
+      "before_sha256": "07A2C0887DE561FBE8076E5BF69A71BE1D58CCAB11642344D3DCAFAAED784423",
+      "after_sha256": "4652EE51D9C01DA86B5DF14AC3871178619FB0C0DA2DAB1D73084D57FF4F4270",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_policy.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_run_factory.py",
+      "before_sha256": "A507921159327CD413178DE5B553B51F2A0C3EFA1EF7074BF5E3F31E1733E00C",
+      "after_sha256": "162FD5C6C475AB8569BA6570CF9D0339C500694E3AA48FB3B02D9C95C8433F96",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_run_factory.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_store.py",
+      "before_sha256": "1743B148B38CEB26DDF3A0630CEDA05A61DADDFF5BF4EA4A933022B144DAAFFA",
+      "after_sha256": "FFDC07FC50465DBDA973EA708108D55DD4F333FAB47BD98D287CE4ECD16585EC",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_store.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_worker.py",
+      "before_sha256": "30F301A5BDD2BA74B09681A2CF922D6F44C59738E3F5DFFB211C73012D98FEC9",
+      "after_sha256": "A2A68FF3B5000F8B82E17B9C0CCD32EA922CE4EC844DD334C83453C376D8A6F3",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_source_extract_worker.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_text_transport.py",
+      "before_sha256": "22722588A013B5A0B1C11A2D8D83792A68D264E0453CFF7B73A20750550BF385",
+      "after_sha256": "3D38F97400001347DF65A614611F009882E707799C83EE40A9AE99634233914E",
+      "after_snapshot_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\after-local-mode\\sub2api_text_transport.py",
+      "changed": true,
+      "syntax_parse": "PASS"
+    }
+  ],
+  "patch_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev05-b31-local-gates-20260929\\DEV05-LOCAL-MODE.patch",
+  "patch_sha256": "342A4106E2F0F3BEAE503F0513C4AFCA39586FAA5A2195D5A109175139DC63A8",
+  "verification": "AST parse only; no build, tests, migration, service, provider call, or EXE run"
+}

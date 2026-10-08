@@ -1,0 +1,95 @@
+{
+  "call_id": "MGR04-V4-SAME-SOURCE-WEB-DESKTOP-BUILD-02",
+  "status": "RED",
+  "phase": "DESKTOP_TYPECHECK",
+  "error": "RuntimeError:BUILD_STEP_FAILED:desktop-typecheck",
+  "steps": [
+    {
+      "name": "web-tsc-app",
+      "args": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web\\node_modules\\typescript\\lib\\tsc.js",
+        "-p",
+        "tsconfig.app.json",
+        "--noEmit",
+        "--tsBuildInfoFile",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\mgr04-v4-web-desktop-build-packet-20261008\\run-01\\web-app.tsbuildinfo",
+        "--pretty",
+        "false"
+      ],
+      "cwd": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web",
+      "started_utc": 1791421654.2292387,
+      "pid": 14892,
+      "exit_code": 0,
+      "ended_utc": 1791421658.7548132,
+      "stdout_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "stderr_sha256": "4741992B0E75876FD9F655CBA7D0A12CAC497B15F7800D0C0CA309F3590F8913",
+      "network_guard_loaded": true,
+      "vite_net_use_probe_count": 0
+    },
+    {
+      "name": "web-tsc-node",
+      "args": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web\\node_modules\\typescript\\lib\\tsc.js",
+        "-p",
+        "tsconfig.node.json",
+        "--noEmit",
+        "--tsBuildInfoFile",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\mgr04-v4-web-desktop-build-packet-20261008\\run-01\\web-node.tsbuildinfo",
+        "--pretty",
+        "false"
+      ],
+      "cwd": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web",
+      "started_utc": 1791421658.7568135,
+      "pid": 9796,
+      "exit_code": 0,
+      "ended_utc": 1791421659.7513132,
+      "stdout_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "stderr_sha256": "4346311BE641B2BDC5838734519A0C6F823958DBB5F1E97C26CF7EDE2EB4CD0C",
+      "network_guard_loaded": true,
+      "vite_net_use_probe_count": 0
+    },
+    {
+      "name": "web-build",
+      "args": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web\\node_modules\\vite\\bin\\vite.js",
+        "build",
+        "--config",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\mgr04-v4-web-desktop-build-packet-20261008\\run-01\\vite.build.config.ts",
+        "--configLoader",
+        "bundle"
+      ],
+      "cwd": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01\\source\\apps\\studio-web",
+      "started_utc": 1791421659.7548132,
+      "pid": 14180,
+      "exit_code": 0,
+      "ended_utc": 1791421660.48851,
+      "stdout_sha256": "374AB9F952EE57A8CF218703774EF42805B214BF1F6E66CD39DBD812B678DE80",
+      "stderr_sha256": "84E17F8DBC1DC5EE6E6DFF57709232360106E962AA7CDB1D81387B8B7A8F3B9F",
+      "network_guard_loaded": true,
+      "vite_net_use_probe_count": 1
+    }
+  ],
+  "source_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01",
+  "build_outputs": null,
+  "source_after_any_outcome": {
+    "regular_files": 14491,
+    "links": 771,
+    "directories": 2304,
+    "changed_existing_files": [],
+    "changed_links": [],
+    "new_files": 25,
+    "new_files_outside_build_dirs": []
+  },
+  "input_mismatches": [],
+  "sidecar_resources": {
+    "development_python_exists": false,
+    "packaged_lock_exists": false,
+    "packaged_sidecar_exe_produced": false,
+    "packaged_executable_produced": false,
+    "status": "STATIC_BUILD_ONLY"
+  },
+  "note": "No Electron runtime, sidecar runtime, API, provider, c19, or final acceptance."
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_CANDIDATE_STATIC_ONLY",
+  "author_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "author_worktree_clean": false,
+  "c19_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "c19_workspace_owner_lock": "ABSENT_AT_AUDIT",
+  "author_source": "services/api/src/aijian_api/workspace_owner_lock.py",
+  "old_sha256": "94F62129EE9253425BBFE932D8822B032B7AF587D6DAB16DD0AE6870ABF410F6",
+  "new_sha256": "103ED055A19839179977C6792E58619E71ADF724037560106837DCA9B798D427",
+  "backup": "work/dev05-workspace-lock-longpath-backup-20260928/workspace_owner_lock.py",
+  "patch": "work/dev05-workspace-lock-longpath-20260928/workspace_owner_lock.patch",
+  "patch_sha256": "00CCAFEDCD01DAEEA9B9722AA13284C2F8D593C2551CBA5B67645BEC5596343E",
+  "r2_original_receipt_sha256": "A5B699C08F20AE6C6B53759A1F7CCCB4093A6EBFF06DE63100A7102B932CEA59",
+  "r2_original_stderr_sha256": "ED53D2C188380EB0E80E0FAA116101422E338B86D7D15552044269299A77C23B",
+  "r2_original_receipt_path": "C:/Users/Administrator/Documents/Codex/2026-09-23/aivora-git-c-users-administrator-documents/work/qa03-project-name-source-20260928/backend-exe-runtime-shorttemp-gate-v1/run-01/RECEIPT.json",
+  "r2_original_stderr_path": "C:/Users/Administrator/Documents/Codex/2026-09-23/aivora-git-c-users-administrator-documents/work/qa03-project-name-source-20260928/backend-exe-runtime-shorttemp-gate-v1/run-01/01-sidecar.stderr.raw",
+  "r2_old_build_source_receipt_path": "C:/Users/Administrator/Documents/AIVORA/management/manager-handoffs/tool-review/sidecar-py312-win-x64-1/source-freeze-receipt.json",
+  "r2_old_build_source_receipt_sha256": "7376390D93A9BF55E155C160480D6C83CFBCBB5D8EB3752FC3103C1FAA5CAB86",
+  "static_ast": "PASS",
+  "runtime_build_and_qa": "NOT_RUN_BY_AUTHOR"
+}

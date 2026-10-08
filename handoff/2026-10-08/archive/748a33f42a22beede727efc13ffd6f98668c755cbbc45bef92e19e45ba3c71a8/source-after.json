@@ -1,0 +1,21 @@
+{
+  "counts": {
+    "generator": 1,
+    "overlays": 24,
+    "s2_deps_files": 596,
+    "s2_source_files": 187,
+    "w0_files": 13681,
+    "w0_links": 771
+  },
+  "expected_counts": {
+    "generator": 1,
+    "overlays": 24,
+    "s2_deps_files": 596,
+    "s2_source_files": 187,
+    "w0_files": 13681,
+    "w0_links": 771
+  },
+  "mismatches": [],
+  "status": "PASS",
+  "utc": 1790680368.3114655
+}

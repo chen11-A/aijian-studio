@@ -1,0 +1,24 @@
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index e399de3..2b70899 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -20,6 +20,7 @@ import { registerEpisodeScriptHandlers } from "./episode-script-ipc";
+ import { registerEpisodeScriptConfirmationHandlers } from "./episode-script-confirmation-ipc";
+ import { registerSourceProposalAcceptanceHandler } from "./source-proposal-acceptance-ipc";
+ import { registerSub2APIConfiguredReadinessHandler } from "./sub2api-configured-readiness-ipc";
++import { registerSub2APIConnectionMutationHandlers } from "./sub2api-connection-mutation-ipc";
+ import { registerArtifactProposalHandlers } from "./artifact-proposal-contract";
+ import { createTopLevelEpisodeClientFor, registerEpisodeHandlers } from "./episode-ipc";
+ import {
+@@ -192,6 +193,11 @@ registerSub2APIConfiguredReadinessHandler<IpcMainInvokeEvent>(
+   clientFor,
+   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+ );
++registerSub2APIConnectionMutationHandlers<IpcMainInvokeEvent>(
++  (channel, listener) => ipcMain.handle(channel, listener),
++  clientFor,
++  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
++);
+ registerEpisodeScriptHandlers<IpcMainInvokeEvent>(
+   (channel, listener) => ipcMain.handle(channel, listener),
+   clientFor,

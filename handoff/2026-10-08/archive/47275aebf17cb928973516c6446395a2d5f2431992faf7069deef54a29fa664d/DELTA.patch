@@ -1,0 +1,79 @@
+--- before/aijian_api/media_asset_probe_routes.py
++++ after/aijian_api/media_asset_probe_routes.py
+@@ -125,12 +125,20 @@
+     ) -> MediaAssetProbeEvidenceResponse | JSONResponse:
+         if "writer" not in trusted_actor.roles:
+             return _error(request, "PROBE_ACTOR_FORBIDDEN", "Local user cannot probe media", 403)
++        store = MediaAssetProbeEvidenceStore(repository_provider())
++        try:
++            store.read(project_id, asset_id, version_id)
++        except MediaAssetProbeEvidenceError as error:
++            code = 404 if error.code == "ASSET_VERSION_NOT_FOUND" else 409
++            return _error(request, error.code, str(error), code)
++        except sqlite3.Error:
++            return _error(request, "PROBE_READ_UNKNOWN", "Selected media could not be read", 503)
+         try:
+             toolchain = toolchain_provider()
+         except (MediaToolchainError, PackagedResourceError):
+             return _error(request, "TOOLCHAIN_UNAVAILABLE", "Pinned media tools are unavailable", 503)
+         try:
+-            evidence = MediaAssetProbeEvidenceStore(repository_provider()).probe_selected_video(
++            evidence = store.probe_selected_video(
+                 project_id, asset_id, version_id, toolchain,
+             )
+         except MediaAssetProbeEvidenceError as error:
+--- before/aijian_api/episode_media_assembly_store.py
++++ after/aijian_api/episode_media_assembly_store.py
+@@ -25,6 +25,7 @@
+ from aijian_api.managed_local_paths import managed_local_io_path
+ from aijian_api.media_asset_store import MAX_INLINE_PREVIEW_BYTES
+ from aijian_api.media_asset_probe_store import MediaAssetProbeEvidenceError, _from_row
++from aijian_api.media_asset_rights_store import RightsDecisionError, _validated_history
+ from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
+ from aijian_api.repository import ArtifactConflictError, StudioRepository
+ 
+@@ -197,7 +198,7 @@
+     for media, expected_kind in _media_refs(content):
+         row = connection.execute(
+             """SELECT version.kind, version.sha256, version.byte_size,
+-                      version.rights_status, version.source_kind, version.technical_json
++                      version.source_kind, version.technical_json
+                FROM media_asset_versions AS version
+                JOIN media_assets AS asset ON asset.project_id = version.project_id
+                  AND asset.id = version.asset_id
+@@ -225,23 +226,18 @@
+             raise EpisodeMediaAssemblyError("MEDIA_RECORD_CORRUPT", "Selected media version metadata is invalid") from None
+         if not isinstance(technical, dict):
+             raise EpisodeMediaAssemblyError("MEDIA_RECORD_CORRUPT", "Selected media technical metadata is invalid")
+-        rights_row = connection.execute(
+-            """SELECT decision.id, decision.decision, decision.asset_sha256
+-               FROM media_asset_rights_heads AS head
+-               JOIN media_asset_rights_decisions AS decision
+-                 ON decision.id = head.decision_id AND decision.revision = head.revision
+-               WHERE head.project_id = ? AND head.asset_id = ? AND head.version_id = ?""",
+-            (content.project_id, media.asset_id, media.asset_version_id),
+-        ).fetchone()
+-        rights_status = str(row["rights_status"])
+-        decision_id = None
+-        if rights_row is not None:
+-            if str(rights_row["asset_sha256"]) != digest:
+-                raise EpisodeMediaAssemblyError("RIGHTS_IDENTITY_CONFLICT", "Rights decision does not bind selected media bytes")
+-            rights_status = str(rights_row["decision"])
+-            decision_id = str(rights_row["id"])
+-        if rights_status not in {"PENDING_REVIEW", "CLEARED", "RESTRICTED"}:
+-            raise EpisodeMediaAssemblyError("RIGHTS_RECORD_CORRUPT", "Media rights status is invalid")
++        try:
++            rights_history = _validated_history(
++                connection, content.project_id, media.asset_id,
++                media.asset_version_id, digest,
++            )
++        except RightsDecisionError:
++            raise EpisodeMediaAssemblyError(
++                "RIGHTS_CHAIN_INVALID", "Selected media rights history is invalid",
++            ) from None
++        latest_rights = rights_history[-1] if rights_history else None
++        rights_status = latest_rights.decision if latest_rights is not None else "PENDING_REVIEW"
++        decision_id = latest_rights.decision_id if latest_rights is not None else None
+         if rights_status == "RESTRICTED" and writing:
+             raise EpisodeMediaAssemblyError("RIGHTS_RESTRICTED", "Restricted media cannot be added to an assembly")
+         availability = _availability(database_path, digest, byte_size)

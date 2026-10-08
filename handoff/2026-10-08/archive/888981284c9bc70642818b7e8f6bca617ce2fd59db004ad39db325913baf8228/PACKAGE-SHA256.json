@@ -1,0 +1,43 @@
+{
+  "schema": "qa02.media-longpath-http.r03.package-index.v1",
+  "status": "CANDIDATE_AWAITING_MGR02_SINGLE_SIGN",
+  "files": [
+    {
+      "name": "RUNBOOK.md",
+      "bytes": 2986,
+      "sha256": "C9DDD61BA33B94D7BA8BC0CBCC856259407EB35380E02F956EE5210A161200B1"
+    },
+    {
+      "name": "run-once.mjs",
+      "bytes": 18678,
+      "sha256": "26B89CC4DBB4ACF80C8F8B24F7DCEA13397ED4FFBD4EE428B73686A28425A4E5"
+    },
+    {
+      "name": "inspect-db.py",
+      "bytes": 867,
+      "sha256": "EFAF67AA1633B13893E9D764F900A29B3340EDDF26CC87AE506C0650D8F5A58B"
+    },
+    {
+      "name": "unsafe-gate.py",
+      "bytes": 1157,
+      "sha256": "0E00C4CC089398C1F0DE3B34D35B32E3DA341D09DACAA18B2DFDE8B9ACE47530"
+    },
+    {
+      "name": "SOURCE-FILES.json",
+      "bytes": 33005,
+      "sha256": "E213C5AA3836B58141911EAD11F46F25E511E62DAF543F4F801B8BAE18E641DE"
+    },
+    {
+      "name": "RUN-ENVELOPE.json",
+      "bytes": 7035,
+      "sha256": "C20089D75759A5C15B156E32D58442FB181F98B401BCB4A023F711C791685359"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 1543,
+      "sha256": "CA4D56324FA7943DF2F8BEF409BE3B456E3FBF60CABF279BF573308EC606300E"
+    }
+  ],
+  "self_excluded": "PACKAGE-SHA256.json",
+  "approval_template_excluded": true
+}

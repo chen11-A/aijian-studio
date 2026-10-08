@@ -1,0 +1,70 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-episode-media-ts-red-20260929\\episodeMediaAssembly.ts.before" "b/apps\\studio-web\\src\\aivora\\adapters\\episodeMediaAssembly.ts"
+index 4ec367c..9f3c090 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-episode-media-ts-red-20260929\\episodeMediaAssembly.ts.before"
++++ "b/apps\\studio-web\\src\\aivora\\adapters\\episodeMediaAssembly.ts"
+@@ -89,6 +89,16 @@ function mediaRef(value: unknown): value is AssemblyMediaRef {
+     typeof value.sha256 === "string" && HASH.test(value.sha256);
+ }
+ 
++function mediaCheck(value: unknown): value is AssemblyVersion["media_checks"][number] {
++  return record(value) && mediaRef(value.media) &&
++    ["image", "video", "audio"].includes(String(value.kind)) &&
++    ["VERIFIED", "MISSING", "CORRUPT", "UNVERIFIED_SIZE_LIMIT",
++      "UNKNOWN_UNSAFE_PATH"].includes(String(value.availability)) &&
++    ["STILL_HEADER_ONLY", "PENDING_MEDIA_PROBE", "PROBED_CFR_VIDEO",
++      "INVALID_MEDIA_PROBE"].includes(String(value.technical_status)) &&
++    ["PENDING_REVIEW", "CLEARED", "RESTRICTED"].includes(String(value.rights_status));
++}
++
+ function frame(value: unknown, minimum = 0): value is number {
+   return Number.isSafeInteger(value) && Number(value) >= minimum;
+ }
+@@ -100,13 +110,14 @@ export function parseAssemblyReceipt(
+   if (!PROJECT.test(projectId) || !EPISODE.test(episodeId) || !record(value) ||
+       typeof value.request_id !== "string" || !record(value.data)) return null;
+   const data = value.data;
++  const rawMediaChecks = data.media_checks;
+   if (typeof data.artifact_id !== "string" || !/^art_[0-9a-f]{32}$/.test(data.artifact_id) ||
+       typeof data.version_id !== "string" || !ARTIFACT_VERSION.test(data.version_id) ||
+       typeof data.content_hash !== "string" || !/^sha256:[0-9a-f]{64}$/.test(data.content_hash) ||
+       !frame(data.head_revision, 1) ||
+       !(data.parent_version_id === null ||
+         (typeof data.parent_version_id === "string" && ARTIFACT_VERSION.test(data.parent_version_id))) ||
+-      !record(data.content) || !Array.isArray(data.media_checks) ||
++      !record(data.content) || !Array.isArray(rawMediaChecks) ||
+       !["DRAFT_STATIC_ANIMATIC", "DRAFT_VIDEO_PREVIEW", "BLOCKED_MEDIA_PROBE",
+         "BLOCKED_MEDIA_BYTES", "BLOCKED_RIGHTS"].includes(String(data.playback_status)) ||
+       data.export_status !== "NO_EXPORT_CLAIM") return null;
+@@ -142,25 +153,21 @@ export function parseAssemblyReceipt(
+         Number(item.end_frame) > cursor) return null;
+     ids.add(item.segment_id);
+   }
+-  for (const check of data.media_checks) {
+-    if (!record(check) || !mediaRef(check.media) ||
+-        !["image", "video", "audio"].includes(String(check.kind)) ||
+-        !["VERIFIED", "MISSING", "CORRUPT", "UNVERIFIED_SIZE_LIMIT",
+-          "UNKNOWN_UNSAFE_PATH"].includes(String(check.availability)) ||
+-        !["STILL_HEADER_ONLY", "PENDING_MEDIA_PROBE", "PROBED_CFR_VIDEO",
+-          "INVALID_MEDIA_PROBE"].includes(String(check.technical_status)) ||
+-        !["PENDING_REVIEW", "CLEARED", "RESTRICTED"].includes(String(check.rights_status)))
+-      return null;
++  const mediaChecks: AssemblyVersion["media_checks"] = [];
++  const mediaCheckInputs: unknown[] = rawMediaChecks;
++  for (const check of mediaCheckInputs) {
++    if (!mediaCheck(check)) return null;
++    mediaChecks.push(check);
+   }
+   if (content.visual_segments.some((segment) =>
+-    !data.media_checks.some((check) => check.kind === segment.media_kind &&
++    !mediaChecks.some((check) => check.kind === segment.media_kind &&
+       check.media.asset_id === segment.media.asset_id &&
+       check.media.asset_version_id === segment.media.asset_version_id &&
+       check.media.sha256 === segment.media.sha256))) return null;
+   if (data.playback_status === "DRAFT_STATIC_ANIMATIC" &&
+       (content.visual_segments.some((segment) => segment.media_kind !== "image") ||
+         content.audio_segments.length > 0 ||
+-        data.media_checks.some((check) => check.availability !== "VERIFIED" ||
++        mediaChecks.some((check) => check.availability !== "VERIFIED" ||
+           check.rights_status === "RESTRICTED"))) return null;
+   return data as unknown as AssemblyVersion;
+ }

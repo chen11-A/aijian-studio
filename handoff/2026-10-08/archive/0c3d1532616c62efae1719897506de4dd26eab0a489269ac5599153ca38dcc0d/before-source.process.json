@@ -1,0 +1,9 @@
+{
+  "label": "before-source",
+  "child_pid": 12740,
+  "code": 0,
+  "signal": null,
+  "spawn_error": null,
+  "stdout_sha256": "1bce076b6a7e1a8ddca3ca75d7ddfb5888fb2ddc104fbe2312f72cb596d4f239",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

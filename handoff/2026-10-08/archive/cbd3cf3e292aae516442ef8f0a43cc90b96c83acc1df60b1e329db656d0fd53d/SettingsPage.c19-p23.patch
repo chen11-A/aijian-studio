@@ -1,0 +1,292 @@
+diff --git "a/C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\studio-web\\src\\aivora\\SettingsPage.tsx" "b/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-p23-settings-c19-overlay-20260928\\SettingsPage.tsx"
+index f9a4c87..fa2e077 100644
+--- "a/C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\studio-web\\src\\aivora\\SettingsPage.tsx"
++++ "b/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-p23-settings-c19-overlay-20260928\\SettingsPage.tsx"
+@@ -1,5 +1,6 @@
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import { createStudioTransport } from "../api/studio";
++import type { ProjectData } from "../api/studio";
+ import { useDemo } from "./model";
+ import { Button, FlowFooter } from "./Common";
+ import { Icon } from "./Icon";
+@@ -12,11 +13,21 @@ import type {
+   AppPreferencesGateway,
+   AppPreferencesResponse,
+ } from "./adapters/appPreferences";
++import {
++  closePendingProjectUpdate,
++  readPendingProjectUpdate,
++  readProjectUpdateJournal,
++  updateManagedProject,
++} from "./adapters/projectManagement";
++import type { ProjectJournalState } from "./adapters/projectManagement";
+ 
+ export function SettingsPage() {
+   const d = useDemo();
+-  return d.page === "settings" && !d.isFixture
+-    ? <PersistedUserSettings /> : <FixtureSettingsPage />;
++  if (!d.isFixture && d.page === "settings") return <PersistedUserSettings />;
++  if (!d.isFixture && d.page === "projectSettings")
++    return <PersistedProjectSettings key={d.backendProjectId ?? "none"}
++      projectId={d.backendProjectId} />;
++  return <FixtureSettingsPage />;
+ }
+ 
+ function FixtureSettingsPage() {
+@@ -350,6 +361,256 @@ function FixtureSettingsPage() {
+   );
+ }
+ 
++function validProject(value: unknown, projectId: string): value is ProjectData {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
++  const project = value as Partial<ProjectData>;
++  return project.id === projectId && typeof project.name === "string" &&
++    project.name.length > 0 && project.aspect_ratio === "9:16" &&
++    Number.isSafeInteger(project.target_duration_seconds) &&
++    (project.target_duration_seconds ?? 0) >= 30 &&
++    project.source_language === "zh-CN" &&
++    (project.status === "active" || project.status === "archived") &&
++    Number.isSafeInteger(project.revision) && (project.revision ?? 0) >= 1 &&
++    typeof project.updated_at === "string";
++}
++
++function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
++  const d = useDemo();
++  const live = useRef(d);
++  live.current = d;
++  const transport = useMemo(createStudioTransport, []);
++  const storage = useMemo(() => {
++    try { return window.localStorage; } catch { return null; }
++  }, []);
++  const epoch = useRef(0);
++  const inFlight = useRef(false);
++  const [current, setCurrent] = useState<ProjectData | null>(null);
++  const [draft, setDraft] = useState("");
++  const [journal, setJournal] = useState<ProjectJournalState>({ kind: "EMPTY" });
++  const [loading, setLoading] = useState(true);
++  const [readError, setReadError] = useState(false);
++  const [notice, setNotice] = useState("");
++  const dirty = !!current && draft !== current.name;
++  const episode = d.episodes.find((item) => item.id === d.selectedEpisodeId);
++
++  function showProject(project: ProjectData) {
++    const active = live.current;
++    if (active.backendProjectId !== project.id) return;
++    const card = active.projects.find((item) => item.backendId === project.id);
++    if (card && (card.revision ?? 0) > project.revision) return;
++    active.setProjects((old) => old.map((item) =>
++      item.backendId === project.id && (item.revision ?? 0) <= project.revision
++        ? { ...item, name: project.name, revision: project.revision,
++            status: project.status === "archived" ? "已归档" : "进行中",
++            updated: project.updated_at, episode: `REV ${project.revision}` }
++        : item));
++    active.put("title", project.name);
++  }
++
++  useEffect(() => {
++    const request = ++epoch.current;
++    setCurrent(null);
++    setDraft("");
++    setLoading(true);
++    setReadError(false);
++    setNotice("");
++    if (!projectId || !storage) {
++      setLoading(false);
++      setReadError(true);
++      return () => { epoch.current += 1; };
++    }
++    setJournal(readProjectUpdateJournal(storage, projectId));
++    void transport.getProject(projectId).then((response) => {
++      if (epoch.current !== request) return;
++      setLoading(false);
++      if (!validProject(response.data, projectId)) {
++        setReadError(true);
++        setNotice("项目读取内容无效；未填入演示默认设置。");
++        return;
++      }
++      setCurrent(response.data);
++      setDraft(response.data.name);
++      showProject(response.data);
++    }, () => {
++      if (epoch.current !== request) return;
++      setLoading(false);
++      setReadError(true);
++      setNotice("项目设置读取失败；未填入演示默认设置。");
++    });
++    return () => { epoch.current += 1; };
++  }, [projectId, storage, transport]);
++
++  async function readProject(closePending: boolean) {
++    if (!projectId || !storage || inFlight.current) return;
++    const request = ++epoch.current;
++    inFlight.current = true;
++    setLoading(true);
++    const pending = readProjectUpdateJournal(storage, projectId);
++    const result = pending.kind === "PENDING"
++      ? closePending
++        ? await closePendingProjectUpdate(transport, storage, projectId)
++        : await readPendingProjectUpdate(transport, storage, projectId)
++      : await (async () => {
++        try {
++          const response = await transport.getProject(projectId);
++          return validProject(response.data, projectId)
++            ? { kind: "CURRENT" as const, project: response.data, targetReached: false }
++            : { kind: "UNKNOWN" as const };
++        } catch { return { kind: "UNKNOWN" as const }; }
++      })();
++    inFlight.current = false;
++    if (epoch.current !== request) return;
++    setLoading(false);
++    setJournal(readProjectUpdateJournal(storage, projectId));
++    if (result.kind !== "CURRENT" || !validProject(result.project, projectId)) {
++      setReadError(true);
++      setNotice(result.kind === "UNAVAILABLE" ? result.message :
++        "项目当前状态无法核实，仍阻止保存。");
++      return;
++    }
++    const hadDirtyDraft = dirty;
++    setCurrent(result.project);
++    showProject(result.project);
++    if (!hadDirtyDraft || closePending && result.targetReached) setDraft(result.project.name);
++    setReadError(false);
++    setNotice(pending.kind === "PENDING"
++      ? closePending
++        ? "未知记录已结束；当前项目已读回，无法归因原 PATCH。"
++        : "已只读核对当前项目；原更新仍锁定，无法归因。"
++      : hadDirtyDraft ? "已读取最新项目；未保存草稿保留，请核对后提交。"
++        : "已从本地工作区读取当前项目设置。");
++  }
++
++  async function save() {
++    if (!projectId || !storage || !current || !transport.updateProject ||
++      !dirty || loading || readError || journal.kind !== "EMPTY" || inFlight.current) return;
++    const name = draft.trim();
++    if (!name || [...name].length > 80 || /[\u0000-\u001f\u007f]/.test(name)) {
++      setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
++      return;
++    }
++    if (name === current.name) { setDraft(name); return; }
++    const request = ++epoch.current;
++    inFlight.current = true;
++    setLoading(true);
++    setNotice("正在保存项目名称并从本地工作区读回…");
++    const result = await updateManagedProject(transport, storage, projectId, {
++      expectedRevision: current.revision, name,
++    });
++    inFlight.current = false;
++    if (epoch.current !== request) return;
++    setLoading(false);
++    setJournal(readProjectUpdateJournal(storage, projectId));
++    if (result.kind === "APPLIED" && validProject(result.project, projectId)) {
++      setCurrent(result.project);
++      setDraft(result.project.name);
++      showProject(result.project);
++      setNotice("项目名称已保存，并从本地工作区读回确认。");
++    } else if (result.kind === "APPLIED") {
++      setReadError(true);
++      setNotice("项目更新回执不符合当前项目合同，未宣称保存；请重新读取。 ");
++    } else if (result.kind === "REJECTED") {
++      if (result.project && validProject(result.project, projectId)) {
++        setCurrent(result.project);
++        showProject(result.project);
++      }
++      setReadError(true);
++      setNotice(`项目更新被拒绝（${result.status} / ${result.code}）；草稿保留，请重新读取。`);
++    } else if (result.kind === "UNKNOWN") {
++      if (result.current && validProject(result.current, projectId)) {
++        setCurrent(result.current);
++        showProject(result.current);
++      }
++      setNotice("项目更新结果未知；原操作已锁定，草稿保留且不会自动重试。请只读核对。");
++    } else if (result.kind === "TRACKED") {
++      setNotice("已有原项目更新待核对，未重复提交。");
++    } else setNotice(result.message);
++  }
++
++  const leave = () => {
++    if (inFlight.current) {
++      setNotice("项目设置正在核对，请等待当前操作结束。");
++      return;
++    }
++    const target = projectId ? "project" : "projects";
++    if (!dirty) { d.go(target); return; }
++    d.setEditor({ title: "离开未保存的项目名称？",
++      description: "离开会丢弃当前草稿；已保存的项目名称不会变化。",
++      confirm: "放弃草稿并返回", save: () => d.go(target) });
++  };
++
++  return <div className="v2-utility-page v2-settings-page v2-project-settings">
++    <header className="page-title v2-utility-heading">
++      <div><h1>项目设置</h1>
++        <p>{current ? `《${current.name}》 · 本地工作区项目 · 修订 ${current.revision}` :
++          "正在核对本地工作区项目。"}</p></div>
++      <Button onClick={leave}>返回{projectId ? "项目" : "项目中心"}</Button>
++    </header>
++    <div className="v2-settings-body">
++      <section className="v2-utility-card v2-project-settings-card">
++        <h2><Icon name="settings" size={16} />项目基础设置</h2>
++        <div className="v2-project-settings-fields">
++          <label>项目名称
++            <input value={draft} disabled={!current || loading || journal.kind !== "EMPTY"}
++              onChange={(event) => setDraft(event.target.value)} />
++          </label>
++          <label>画幅（创建时确定）<input readOnly value={current?.aspect_ratio ?? "待读取"} /></label>
++          <label>目标时长（创建时确定）
++            <input readOnly value={current ? `${current.target_duration_seconds} 秒` : "待读取"} />
++          </label>
++          <label>来源语言（创建时确定）
++            <input readOnly value={current?.source_language === "zh-CN" ? "简体中文" : "待读取"} />
++          </label>
++          <label>时基<input readOnly value="未提供项目持久设置" /></label>
++          <label>当前剧集（独立选择）
++            <input readOnly value={episode?.title ?? "尚未选择剧集"} />
++          </label>
++          <label>项目说明<input readOnly value="未提供项目持久设置" /></label>
++          <Button disabled title="项目说明尚无持久保存接口">编辑项目说明 · 待接入</Button>
++        </div>
++      </section>
++      <section className="v2-utility-card v2-project-settings-card">
++        <h2><Icon name="settings" size={16} />创作与隐私策略</h2>
++        <div className="v2-project-settings-fields">
++          <label>项目状态<input readOnly value={current?.status === "archived" ? "已归档" :
++            current ? "进行中" : "待读取"} /></label>
++          <label>生成策略<input readOnly value="暂无可变的项目持久设置" /></label>
++          <label>第三方发送<input readOnly value="暂无可变的项目持久设置" /></label>
++          <label>版本策略<input readOnly value="暂无可变的项目持久设置" /></label>
++          <label>预算<input readOnly value="请在创作简报核对预算意向；费用服务未接入" /></label>
++        </div>
++        <p>归档与恢复请在项目中心管理；本页仅保存项目名称。</p>
++      </section>
++      <section className="v2-utility-card" aria-label="项目设置状态">
++        {loading && <p role="status" aria-busy="true">正在读取或保存项目设置…</p>}
++        {readError && <p role="alert">项目状态无法核实，保存已暂停。</p>}
++        {!projectId && <p role="alert">请先选择真实项目。</p>}
++        {!storage && <p role="alert">本地更新记录不可用，无法安全保存。</p>}
++        {!transport.updateProject && <p role="alert">桌面版本缺少项目更新接口。</p>}
++        {journal.kind === "PENDING" && <p role="alert">上次项目更新结果未知，不会自动重试。</p>}
++        {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取。</p>}
++        {notice && <p role="status">{notice}</p>}
++        <Button disabled={loading || !projectId || !storage}
++          onClick={() => void readProject(false)}>重新读取项目</Button>
++        {journal.kind === "PENDING" &&
++          <Button disabled={loading} onClick={() => void readProject(true)}>
++            核对并结束未知记录
++          </Button>}
++      </section>
++    </div>
++    <FlowFooter secondaryLabel="取消" secondaryAction={() => {
++      if (inFlight.current) return;
++      if (current) setDraft(current.name);
++      setNotice("已取消未保存的项目名称草稿。");
++    }} label="保存项目名称" action={() => void save()}
++      disabled={!current || !dirty || loading || readError || !storage ||
++        !transport.updateProject || journal.kind !== "EMPTY"}
++      reason={journal.kind !== "EMPTY" ? "原更新待核对，已阻止再次提交" :
++        readError ? "请重新读取项目" : dirty ? "有未保存的项目名称草稿" :
++          current ? `已读取项目修订 ${current.revision}` : "尚未读取项目"} />
++  </div>;
++}
++
+ type PreferenceDraft = { user_name: string; display_bio: string };
+ 
+ function PersistedUserSettings() {

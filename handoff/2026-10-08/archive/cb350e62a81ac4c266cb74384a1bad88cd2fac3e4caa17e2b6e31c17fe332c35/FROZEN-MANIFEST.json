@@ -1,0 +1,347 @@
+{
+  "schema": "qa02.c19-r1b-frozen-packet.v1",
+  "state": "PREPARED_UNSIGNED",
+  "c19Head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "snapshotSha256": "2E4EB5B707A1BC1BFEE33CDF71C373F61D0CCC4A0BA8DD80F434D34C64496987",
+  "priorRed": {
+    "rawConsoleSha256": "B9F7FAAED676E7807B54D026694FAA8EB80258B31A6B7BA0EB5C158CEFF6B57B",
+    "resultSha256": "8BA9ABF1B98B734ECC92B18B7BF2F9E6A0C683DE06006E6ECEAD4399414D9405"
+  },
+  "files": [
+    {
+      "path": "CLOSURE-PREFLIGHT.json",
+      "sha256": "82FFD9B90F34AE1F883A6A2520A5828B20156F059C3C30C0E5E3FC685DA2B4A1",
+      "bytes": 63017
+    },
+    {
+      "path": "closure-preflight.mjs",
+      "sha256": "1E566ED3C858FB6B601B3BA4DE4E8CA43F8EB5189B0F8DC5FCC61B8FC53A31B1",
+      "bytes": 3037
+    },
+    {
+      "path": "fake-child.cjs",
+      "sha256": "802575B5659B453453AD098D18D0D3C3EC6056A0C6A546A1CA0316EA0EC3F0C7",
+      "bytes": 1481
+    },
+    {
+      "path": "overlay/apps/desktop/package.json",
+      "sha256": "B32C71AB978689B3ADBF0F34F68D3A079A4FEE7E91614DCC450478FF641C9E47",
+      "bytes": 587
+    },
+    {
+      "path": "overlay/apps/desktop/src/agent-skill-catalog-contract.ts",
+      "sha256": "1D4C28284F9081F3E75C3892E033C152CAE0F07F3DEABA80667B765425E33935",
+      "bytes": 7851
+    },
+    {
+      "path": "overlay/apps/desktop/src/agent-skill-catalog-ipc.ts",
+      "sha256": "AC0F236E89264036E914347DEDCE9DB8059F257E5D85C8E65BF56EC451354009",
+      "bytes": 1489
+    },
+    {
+      "path": "overlay/apps/desktop/src/api-client.test.ts",
+      "sha256": "F9D60ED152AB8F19C21CAABD3A3D27B4471D81BED78CE23339FC0B67BDF6138E",
+      "bytes": 157100
+    },
+    {
+      "path": "overlay/apps/desktop/src/api-client.ts",
+      "sha256": "D694B1B1C6EF96D55DB941ABF221214634F45065DB07C99207A5C48660E7EA3C",
+      "bytes": 153464
+    },
+    {
+      "path": "overlay/apps/desktop/src/api-contract-guards.ts",
+      "sha256": "7573C6CA20B1E6D6C8E2F7AE59E321B068544ACE99994A1AF301C94C86F41945",
+      "bytes": 1454
+    },
+    {
+      "path": "overlay/apps/desktop/src/app-preferences-contract.ts",
+      "sha256": "002C279CEF5A05EF4114D2172096B3EA13405EC23B848F556C25DD6DD647F273",
+      "bytes": 5077
+    },
+    {
+      "path": "overlay/apps/desktop/src/app-preferences-ipc.ts",
+      "sha256": "26990CF6112F2A6FA19E811AF037B5283BC61044D95AD7BB464B640EAC684F0A",
+      "bytes": 1476
+    },
+    {
+      "path": "overlay/apps/desktop/src/artifact-proposal-contract.test.ts",
+      "sha256": "6CEC405D7D1079737AB9EE2D27C276A018A756F4C75637D0D5B29CC072B31A8D",
+      "bytes": 8051
+    },
+    {
+      "path": "overlay/apps/desktop/src/artifact-proposal-contract.ts",
+      "sha256": "A8BAD71F2DCA255117755580DF6518D9CBF259B1BC41CED16C3AB096B578756C",
+      "bytes": 9063
+    },
+    {
+      "path": "overlay/apps/desktop/src/contract-boundaries.test.ts",
+      "sha256": "B7566982DC5490F72CFDE4E71E9CDADA15C23612E67289D89FC4E8F208046ECE",
+      "bytes": 12688
+    },
+    {
+      "path": "overlay/apps/desktop/src/development-export-contract.ts",
+      "sha256": "224839ED627BE64EF5341D21AF9972437A31634CDD98345A58D0F72412198C43",
+      "bytes": 7841
+    },
+    {
+      "path": "overlay/apps/desktop/src/development-export-ipc.ts",
+      "sha256": "2EE5505E49D2367BA760610ADE3CE84239C7B3E243F1B8A1729D2BCD9A44FD12",
+      "bytes": 10403
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-fake-timeline-run-response-fault.test.ts",
+      "sha256": "D42EE229F42DB74722B6640D264610539FB92B3E9BC5E9DC2C552AC52D12E32F",
+      "bytes": 5213
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-fake-timeline-run-response-fault.ts",
+      "sha256": "49D2F4816E494947AA84FC325149F5A39C4E7BB76E08791FC56A347710562DAA",
+      "bytes": 1467
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-proposal-run-response-fault.test.ts",
+      "sha256": "DD59425F38DF5C874522379F002729AF819C02541A5077FBE591B277D1E4D4C3",
+      "bytes": 2853
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-proposal-run-response-fault.ts",
+      "sha256": "8261C5635A5C6BE39459768C94A3884BA4BADB082E366EB050413CF8F4B6A45B",
+      "bytes": 1434
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-user-data.test.ts",
+      "sha256": "BEF4B89C2C7CF1A48529181D9A67F561892688460809E7F24A1BBEA9091AC967",
+      "bytes": 998
+    },
+    {
+      "path": "overlay/apps/desktop/src/e2e-user-data.ts",
+      "sha256": "FBDD0AFD5F8D65763ACE2E4B55841EFF8DF22A4BC7FAD23B5E7A00E47C2A8870",
+      "bytes": 662
+    },
+    {
+      "path": "overlay/apps/desktop/src/episode-contract.test.ts",
+      "sha256": "D16AEDC6584C9B5C92F11BB375BA39059B9E61BAC0DF6B43CC5BB2DCC609DD07",
+      "bytes": 6757
+    },
+    {
+      "path": "overlay/apps/desktop/src/episode-contract.ts",
+      "sha256": "1EF6A77B1912301152AFE5AB7BED745A6B16973E624F11494BF16CBD9DC6CCEE",
+      "bytes": 8147
+    },
+    {
+      "path": "overlay/apps/desktop/src/episode-ipc.test.ts",
+      "sha256": "F197E5ECB20071C7F3C892BE7E4A9304029CC9E23F333E3690868CC1CC479618",
+      "bytes": 4620
+    },
+    {
+      "path": "overlay/apps/desktop/src/episode-ipc.ts",
+      "sha256": "2F4DF748E42474AC941C4C905D0F798B06EC2A935D6569396C4F9C08F30F4719",
+      "bytes": 2420
+    },
+    {
+      "path": "overlay/apps/desktop/src/fake-timeline-run-contract.test.ts",
+      "sha256": "A463D513304FCB9AE107A2B622A7FACAF6A0005A8508AF88D4C6F7C28AF40BC6",
+      "bytes": 20753
+    },
+    {
+      "path": "overlay/apps/desktop/src/fake-timeline-run-contract.ts",
+      "sha256": "23E65353886BFEED339DD4EE4EE930C4CCE5E8C5DC7DA913D0ED8616A1AA0EF3",
+      "bytes": 9540
+    },
+    {
+      "path": "overlay/apps/desktop/src/health-contract.ts",
+      "sha256": "479F44741BD56CE6F08D4685EFACB9689D27CD505012EF803DB7D099030CE7AF",
+      "bytes": 644
+    },
+    {
+      "path": "overlay/apps/desktop/src/invalidation-operation-ipc.test.ts",
+      "sha256": "E571C8C1A75B2C0C753BA50FD60EFF6674DB12B9000F3526D1AAA8D003B773CD",
+      "bytes": 6337
+    },
+    {
+      "path": "overlay/apps/desktop/src/invalidation-operation-ipc.ts",
+      "sha256": "728738A90B6DB2596F495FCD0E3A6B06FA4F12B32B1A5A38F35080A602CB917F",
+      "bytes": 2974
+    },
+    {
+      "path": "overlay/apps/desktop/src/main.ts",
+      "sha256": "BDAB4361B5D0671735253C8A57258FC48005165F07969DCD9D56C3BDC5636DAC",
+      "bytes": 15836
+    },
+    {
+      "path": "overlay/apps/desktop/src/media-asset-contract.ts",
+      "sha256": "6D5C0FA402DC737AB3FEBF0494B2A5F48A6A944E5003A5470F17DCE1B34A6871",
+      "bytes": 9123
+    },
+    {
+      "path": "overlay/apps/desktop/src/media-asset-ipc.ts",
+      "sha256": "D0D6AD576850B85365861FE555DAAFCCBB2E1D2A0A7B3924673E27622A07D4CE",
+      "bytes": 5243
+    },
+    {
+      "path": "overlay/apps/desktop/src/preload.ts",
+      "sha256": "794006467A751EA1AE1F438EAE392BB7CE6082ADAE73C8D601A376EDF81340B1",
+      "bytes": 20724
+    },
+    {
+      "path": "overlay/apps/desktop/src/production-brief-contract.test.ts",
+      "sha256": "23FB6E648E790919D83A5BEB6A1FAFB6A1973A2F2E045D75DE7E81AB6847A2E9",
+      "bytes": 12202
+    },
+    {
+      "path": "overlay/apps/desktop/src/production-brief-contract.ts",
+      "sha256": "8BCF1B0489BB4C006E39B09812855ABA8DF05D63E791B420AFC585472FFA000E",
+      "bytes": 15292
+    },
+    {
+      "path": "overlay/apps/desktop/src/production-brief-ipc.test.ts",
+      "sha256": "99ED4B6EB65D52E19904141181E48B5EEA02EF7CE6F3D162F1BD52BDEC647B76",
+      "bytes": 1671
+    },
+    {
+      "path": "overlay/apps/desktop/src/production-brief-ipc.ts",
+      "sha256": "B2FD2315FE0A37D359A9B75436616D245C3EE150ADA3E60B59BAB621B5C42FAE",
+      "bytes": 2353
+    },
+    {
+      "path": "overlay/apps/desktop/src/production-brief-preload.test.ts",
+      "sha256": "D6B781AB4A85D4CBA92D10A1C5DBBD260755BB787DB0EC5E462DAEEBC5A94000",
+      "bytes": 1856
+    },
+    {
+      "path": "overlay/apps/desktop/src/project-update-contract.ts",
+      "sha256": "0E650BCD380AF0B36FFDDB25B4F74891D4B010FEFFF83CBD3EE2102DDDE2EC4B",
+      "bytes": 4788
+    },
+    {
+      "path": "overlay/apps/desktop/src/proposal-run-contract.test.ts",
+      "sha256": "C2DBDA96C10DF6C8B858B2A7BAA5D1B6335CE44E9E9A5CDB8BCB1BD73324F4FA",
+      "bytes": 9532
+    },
+    {
+      "path": "overlay/apps/desktop/src/proposal-run-contract.ts",
+      "sha256": "658BF2C0CEAB46860F75C5BDDD836E6A76C7693E87D59F85555E6609FCF476C1",
+      "bytes": 18920
+    },
+    {
+      "path": "overlay/apps/desktop/src/proposal-run-test-fixture.ts",
+      "sha256": "5A7CC0BB8B9E77181BA926A188519D71499F43F65C6814E5B29084429EADC8A9",
+      "bytes": 6764
+    },
+    {
+      "path": "overlay/apps/desktop/src/provider-connection-contract.ts",
+      "sha256": "1BAD7DF94F2C5ABC4758A2887CE92AB69D4DA8E075CCAA14051DB6413BD4A5F3",
+      "bytes": 6505
+    },
+    {
+      "path": "overlay/apps/desktop/src/remote-source-extract-contract.ts",
+      "sha256": "EF475ED326B93E52FD93EEDC5B4B759EC74211425AB29CAA04D7AAD1140FFC30",
+      "bytes": 22886
+    },
+    {
+      "path": "overlay/apps/desktop/src/remote-source-extract-ipc.ts",
+      "sha256": "3FBC73F3A08585137E39BC2D3864D815E9DC7DB8FD5C2FA4CB39E5133A93DFCE",
+      "bytes": 2659
+    },
+    {
+      "path": "overlay/apps/desktop/src/remote-source-extract-v2-contract.ts",
+      "sha256": "868AF718D49934ADE9E11A2C48152C22AA966565EB4F7E2CC29540EE19056639",
+      "bytes": 32572
+    },
+    {
+      "path": "overlay/apps/desktop/src/remote-source-extract-v2-ipc.ts",
+      "sha256": "38ECA8A660722E34277F9B9C046BBC9E10CBCDA5AA1D5EDD70FE66E67B47DE43",
+      "bytes": 4464
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-extraction-temp.ts",
+      "sha256": "6EA5A2BA8ACD40F46CEE5F8A6F035C824A5A3479D93DD1565FF0C550511F7821",
+      "bytes": 3095
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-origin.ts",
+      "sha256": "8E4847F5069460CA0A91D912397F50890EB237F57C762A76B7144428DB79C76F",
+      "bytes": 600
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-process.test.ts",
+      "sha256": "E55385C695E80B6C41C26E1A599A7F508A897CA0D3417165A064B3ABF80EA314",
+      "bytes": 11620
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-process.ts",
+      "sha256": "DE5D46DCE9CEB276F67A968F0B271B37498814CECECAF7AD7712FB6DBE22710F",
+      "bytes": 6042
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-protocol.test.ts",
+      "sha256": "5A03AB2C94A10641C26B15EAD2C2622BA94A68FB46F1A8DFC6E6540D9220624C",
+      "bytes": 1482
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-protocol.ts",
+      "sha256": "EA24A205A7BBC7964FDB78F9B39016B3E4C1246816D855426B628ABFAF2839C7",
+      "bytes": 1747
+    },
+    {
+      "path": "overlay/apps/desktop/src/sidecar-startup-diagnostic.ts",
+      "sha256": "2B2147A6480824B6FBBC0489CB7A74780D04FE994C6C2F285E76308533FDABA6",
+      "bytes": 1536
+    },
+    {
+      "path": "overlay/apps/desktop/src/source-manifest-review-ipc.test.ts",
+      "sha256": "1AC0710A7E7EEFCA1D7151D699927179A030A2C9AB6D91A2765F3B029495925B",
+      "bytes": 24005
+    },
+    {
+      "path": "overlay/apps/desktop/src/source-manifest-review-ipc.ts",
+      "sha256": "A397F9544240C6A384342EB74ADDE28BB0B9CB41E9772623167C18DB406B4ACB",
+      "bytes": 6007
+    },
+    {
+      "path": "overlay/apps/desktop/src/source-manifest-review.generated.ts",
+      "sha256": "076529FE118A379CADA6EC5AF8DECA59C7DB822D28357BC96E242013A5EC05F6",
+      "bytes": 7854
+    },
+    {
+      "path": "overlay/apps/desktop/src/source-manifest-review.test.ts",
+      "sha256": "07FA2F5F5034CE35CA5913BC6B38DD7FB44AD3F9218414D86D11B5E4E9807182",
+      "bytes": 45112
+    },
+    {
+      "path": "overlay/apps/desktop/src/source-manifest-review.ts",
+      "sha256": "813F4C7652FA038DAF180D2277E221567BCF242026BEFB8BCF9CF2B67F81B0D7",
+      "bytes": 21127
+    },
+    {
+      "path": "overlay/apps/desktop/src/task-queue-contract.ts",
+      "sha256": "DA59DBAFA3C38287FFD3E19C38AA5DA834E1E53EB3DC94694CDFBAB2B2D85DE7",
+      "bytes": 6556
+    },
+    {
+      "path": "overlay/apps/desktop/src/timeline-contract.ts",
+      "sha256": "6D2B6440E35848DD57D304653CB562A4480594951FF10505F5CCC25B5E703F2D",
+      "bytes": 11293
+    },
+    {
+      "path": "overlay/apps/desktop/tsconfig.json",
+      "sha256": "239AA023A9AE23F3247265E4D3828BEE4C1D32F1814F2B3A625449986D2A9E4B",
+      "bytes": 395
+    },
+    {
+      "path": "PACKET.md",
+      "sha256": "5AB1EEB21481FE971579D2CF2F8365D656C239438A97DF02A0C6F38C42B55045",
+      "bytes": 3800
+    },
+    {
+      "path": "path-canonical.cjs",
+      "sha256": "F08E64F836C85B1A3C4C4E719A2FEE11A2795833AF0804BBA7F15D20E921F264",
+      "bytes": 280
+    },
+    {
+      "path": "r1-gate.mjs",
+      "sha256": "9E3799246C91AD35EF1BC6237275A79D4B4B58DB732D2292B1F733D27D72435C",
+      "bytes": 12987
+    }
+  ]
+}

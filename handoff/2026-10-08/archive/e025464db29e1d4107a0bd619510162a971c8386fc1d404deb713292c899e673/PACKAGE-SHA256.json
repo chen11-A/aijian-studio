@@ -1,0 +1,50 @@
+{
+  "status": "ENVELOPE_APPROVED_WAITING_EXTERNAL_ONE_SHOT",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 1946,
+      "sha256": "434F441CB73E8DD191EE77095C47CF3B8287B6F91FB8F3334502C547E5B9E679"
+    },
+    {
+      "name": "SHA-EQUALITY-AUDIT.md",
+      "bytes": 2088,
+      "sha256": "C52FF49BC41BD40B688B31DFEF84DBBC085C1ECACDE2F44D10AAAC2C6033B5B6"
+    },
+    {
+      "name": "stage-a-envelope.json",
+      "bytes": 4239,
+      "sha256": "E44AE080F54905A06F252311567CFF13AA8289DC54C76FD67A8F2399E7122F85"
+    },
+    {
+      "name": "stage-a-once.py",
+      "bytes": 20418,
+      "sha256": "37459ABDFA58BEA8DBCBC1EA1F7D49D08BF222A1A1F1C8732401CEC14F7A522C"
+    },
+    {
+      "name": "invoke-stage-a-once.py",
+      "bytes": 10866,
+      "sha256": "038BB952174B8B1E1D0EF51C505108EC85439FE1B6D631FC296AAF3611642AB7"
+    },
+    {
+      "name": "approval-template.json",
+      "bytes": 1421,
+      "sha256": "0E69700A3628F8A83DF814F030B7B9328F5ED45D6AEE1E987AFEF0E802086404"
+    },
+    {
+      "name": "digest-case-selfcheck.py",
+      "bytes": 2004,
+      "sha256": "F2971300EAC5672312DAFCA5334ABE4582ACA6E898D2922B7F85567E678B0F9F"
+    },
+    {
+      "name": "SELF-CHECK.json",
+      "bytes": 465,
+      "sha256": "4DE32F27BAE1F87CEFAAB48C7537B0BEAB4584311978CF7F3F87DCF80489452D"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 1758,
+      "sha256": "EA233C0B3296C1FB491EFF590C669CF0EF6E7DF57F5C26B36E68333C76F0C49C"
+    }
+  ]
+}

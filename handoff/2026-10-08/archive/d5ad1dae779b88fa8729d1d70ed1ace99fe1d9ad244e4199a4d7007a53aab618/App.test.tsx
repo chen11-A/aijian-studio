@@ -1,0 +1,2915 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { expect, test, vi } from "vitest";
+
+import { App } from "./App";
+import { createProposalRunOperationJournal } from "./proposal-run-operation-journal";
+import { createFakeTimelineRunOperationJournal } from "./fake-timeline-run-operation-journal";
+import type {
+  ArtifactProposalResponse,
+  HealthResponse,
+  ProjectData,
+  SourceDocumentListResponse,
+  SourceDocumentResponse,
+  SourceManifestResponse,
+  SourceManifestReviewOperationResult,
+  StoryBibleIndexResponse,
+  StoryBibleVersionResponse,
+  StudioTransport,
+  TaskQueueResponse,
+  TimelineResponse,
+} from "./api/studio";
+
+type StoryBibleResponse = StoryBibleVersionResponse;
+
+const requestId = "9e049ad6-2b22-4e2d-8d48-e5bd78ee0e11";
+const healthyResponse: HealthResponse = {
+  data: { status: "ok", service: "aijian-api", version: "0.1.0" },
+  request_id: requestId,
+};
+const project: ProjectData = {
+  id: `prj_${"a".repeat(32)}`,
+  name: "雾城来信",
+  aspect_ratio: "9:16",
+  target_duration_seconds: 90,
+  source_language: "zh-CN",
+  status: "active",
+  revision: 1,
+  created_at: "2026-08-03T03:00:00Z",
+  updated_at: "2026-08-03T03:00:00Z",
+};
+const sourceResponse: SourceDocumentResponse = {
+  data: {
+    id: `src_${"b".repeat(32)}`,
+    project_id: project.id,
+    filename: "雾城来信.txt",
+    media_type: "text/plain",
+    encoding: "utf-8",
+    byte_size: 28,
+    raw_sha256: "c".repeat(64),
+    imported_at: "2026-08-03T03:10:00Z",
+    chapter_count: 1,
+    block_count: 2,
+    blocks: [
+      {
+        id: `srcb_${"d".repeat(32)}`,
+        ordinal: 0,
+        kind: "chapter_heading",
+        chapter_index: 1,
+        text: "第一章 初见",
+        normalized_start_byte: 0,
+        normalized_end_byte: 16,
+        content_sha256: "e".repeat(64),
+      },
+      {
+        id: `srcb_${"f".repeat(32)}`,
+        ordinal: 1,
+        kind: "paragraph",
+        chapter_index: 1,
+        text: "雨落在霓虹灯下。",
+        normalized_start_byte: 17,
+        normalized_end_byte: 41,
+        content_sha256: "1".repeat(64),
+      },
+    ],
+  },
+  request_id: requestId,
+};
+const sourceSummary: SourceDocumentListResponse["data"][number] = {
+  id: sourceResponse.data.id,
+  project_id: sourceResponse.data.project_id,
+  filename: sourceResponse.data.filename,
+  media_type: sourceResponse.data.media_type,
+  encoding: sourceResponse.data.encoding,
+  byte_size: sourceResponse.data.byte_size,
+  raw_sha256: sourceResponse.data.raw_sha256,
+  imported_at: sourceResponse.data.imported_at,
+  chapter_count: sourceResponse.data.chapter_count,
+  block_count: sourceResponse.data.block_count,
+};
+const fakeTimelineResponse = {
+  data: {
+    project_id: project.id,
+    version_id: `ver_${"0".repeat(32)}`,
+    content_hash: `sha256:${"1".repeat(64)}`,
+    created_at: "2026-08-10T09:00:00Z",
+    total_duration_frames: 50,
+    timeline: {
+      schema_version: 1,
+      timeline_id: "preview-golden",
+      revision: 1,
+      sequence_timebase: {
+        frame_rate: { num: 25, den: 1 },
+        timecode_mode: "NON_DROP_FRAME",
+      },
+      width: 1080,
+      height: 1920,
+      assets: [
+        {
+          schema_version: 1,
+          asset_id: "fake-asset-01",
+          source_asset_sha256: `sha256:${"2".repeat(64)}`,
+          source_frame_count: 100,
+          proxy: null,
+        },
+      ],
+      clips: [
+        {
+          schema_version: 1,
+          clip_id: "fake-shot-01",
+          asset_id: "fake-asset-01",
+          source_in_frame: 0,
+          duration_frames: 50,
+        },
+      ],
+    },
+  },
+  request_id: requestId,
+} satisfies TimelineResponse;
+const sourceManifestVersion: SourceManifestResponse["data"]["latest_version"] = {
+  artifact_id: `art_${"1".repeat(32)}`,
+  id: `ver_${"2".repeat(32)}`,
+  parent_version_id: null,
+  version_number: 1,
+  schema_version: "1.0.0",
+  content_hash: `sha256:${"4".repeat(64)}`,
+  change_summary: "冻结小说来源",
+  created_at: "2026-08-03T04:00:00Z",
+  content: {
+    scope_type: "full_work",
+    documents: [
+      {
+        source_document_id: sourceResponse.data.id,
+        filename: sourceResponse.data.filename,
+        media_type: "text/plain",
+        encoding: "utf-8",
+        byte_size: sourceResponse.data.byte_size,
+        chapter_count: sourceResponse.data.chapter_count,
+        raw_sha256: sourceResponse.data.raw_sha256,
+        normalized_sha256: "5".repeat(64),
+        import_order: 1,
+        blocks: sourceResponse.data.blocks.map((block) => ({
+          source_block_id: block.id,
+          ordinal: block.ordinal,
+          kind: block.kind,
+          chapter_index: block.chapter_index,
+          start_byte: block.normalized_start_byte,
+          end_byte: block.normalized_end_byte,
+          content_sha256: block.content_sha256,
+        })),
+      },
+    ],
+  },
+};
+const sourceManifestResponse: SourceManifestResponse = {
+  data: {
+    project_id: project.id,
+    head: {
+      artifact_id: sourceManifestVersion.artifact_id,
+      latest_version_id: sourceManifestVersion.id,
+      review_version_id: sourceManifestVersion.id,
+      review_submission_id: `sub_${"3".repeat(32)}`,
+      accepted_version_id: sourceManifestVersion.id,
+      revision: 3,
+      review_evidence_revision: 1,
+      updated_at: "2026-08-03T04:00:00Z",
+    },
+    latest_version: sourceManifestVersion,
+    review_version: sourceManifestVersion,
+    accepted_version: sourceManifestVersion,
+  },
+  request_id: requestId,
+};
+const storyBibleResponse: StoryBibleResponse = {
+  data: {
+    project_id: project.id,
+    head: {
+      ...sourceManifestResponse.data.head,
+      artifact_id: `art_${"6".repeat(32)}`,
+      latest_version_id: `ver_${"7".repeat(32)}`,
+      review_version_id: null,
+      review_submission_id: null,
+      accepted_version_id: null,
+    },
+    version: {
+      artifact_id: `art_${"6".repeat(32)}`,
+      id: `ver_${"7".repeat(32)}`,
+      parent_version_id: null,
+      version_number: 2,
+      schema_version: "1.0.0",
+      content_hash: `sha256:${"8".repeat(64)}`,
+      change_summary: "补充人物关系",
+      created_at: "2026-08-03T04:10:00Z",
+      content: {
+        title: "雾城来信",
+        logline: "失忆记者循着一封旧信追查雾城真相。",
+        source_scope: {
+          scope_type: "full_work",
+          source_manifest_version_id: sourceManifestResponse.data.latest_version.id,
+          documents: [],
+        },
+        entities: [
+          { entity_id: `ent_${"9".repeat(32)}`, kind: "character", name: "林见" },
+          { entity_id: `ent_${"a".repeat(32)}`, kind: "location", name: "雾城" },
+          { entity_id: `ent_${"c".repeat(32)}`, kind: "character", name: "周野" },
+          {
+            entity_id: `ent_${"b".repeat(32)}`,
+            kind: "organization",
+            name: "雾城档案馆",
+          },
+          { entity_id: `ent_${"d".repeat(32)}`, kind: "prop", name: "旧信" },
+          { entity_id: `ent_${"e".repeat(32)}`, kind: "costume", name: "灰色风衣" },
+        ],
+        facts: [
+          {
+            fact_id: `fact_${"d".repeat(32)}`,
+            kind: "character_fact",
+            character_id: `ent_${"9".repeat(32)}`,
+            attribute: "职业",
+            value: "记者",
+            importance: "core",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"e".repeat(32)}`,
+            kind: "relationship_fact",
+            subject_entity_id: `ent_${"9".repeat(32)}`,
+            object_entity_id: `ent_${"c".repeat(32)}`,
+            predicate: "曾是搭档",
+            importance: "core",
+            canon_status: "contested",
+            canon_certainty: "ambiguous",
+            origin: "source_interpretation",
+            source_reliability: "uncertain",
+          },
+          {
+            fact_id: `fact_${"1".repeat(32)}`,
+            kind: "location_fact",
+            location_id: `ent_${"a".repeat(32)}`,
+            attribute: "天气",
+            value: "常年多雾",
+            importance: "supporting",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"2".repeat(32)}`,
+            kind: "organization_fact",
+            organization_id: `ent_${"b".repeat(32)}`,
+            attribute: "职责",
+            value: "保存城市档案",
+            importance: "supporting",
+            canon_status: "confirmed",
+            canon_certainty: "likely",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"3".repeat(32)}`,
+            kind: "event_fact",
+            participants: [`ent_${"9".repeat(32)}`, `ent_${"c".repeat(32)}`],
+            source_narrative_order: 1,
+            story_time_order: 1,
+            location_id: `ent_${"a".repeat(32)}`,
+            importance: "core",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"4".repeat(32)}`,
+            kind: "world_rule_fact",
+            rule: "雾会干扰电子记录",
+            rule_scope: "雾城区",
+            importance: "core",
+            canon_status: "proposed",
+            canon_certainty: "ambiguous",
+            origin: "source_interpretation",
+            source_reliability: "uncertain",
+          },
+          {
+            fact_id: `fact_${"5".repeat(32)}`,
+            kind: "prop_fact",
+            prop_id: `ent_${"d".repeat(32)}`,
+            property_key: "holder",
+            value: { kind: "entity_ref", entity_id: `ent_${"9".repeat(32)}` },
+            importance: "supporting",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+          {
+            fact_id: `fact_${"0".repeat(32)}`,
+            kind: "costume_fact",
+            costume_id: `ent_${"e".repeat(32)}`,
+            property_key: "appearance",
+            value: { kind: "text", value: "灰色、长及膝部" },
+            importance: "detail",
+            canon_status: "confirmed",
+            canon_certainty: "certain",
+            origin: "source_explicit_assertion",
+            source_reliability: "reliable",
+          },
+        ],
+        questions: [
+          {
+            question_id: `qst_${"b".repeat(32)}`,
+            question: "旧信是谁寄出的？",
+            blocking: true,
+            responsible_role: "编剧",
+            scope_type: "artifact",
+            severity: "blocking",
+            status: "open",
+          },
+        ],
+        conflicts: [
+          {
+            conflict_id: `cfl_${"f".repeat(32)}`,
+            conflict_type: "relationship",
+            fact_ids: [`fact_${"e".repeat(32)}`],
+            responsible_role: "编剧",
+            severity: "major",
+            status: "unresolved",
+          },
+        ],
+      },
+      source_spans: [
+        {
+          id: `spn_${"1".repeat(32)}`,
+          fact_id: `fact_${"d".repeat(32)}`,
+          source_document_id: sourceResponse.data.id,
+          source_block_id: sourceResponse.data.blocks[1]!.id,
+          role: "supports",
+          start_byte: sourceResponse.data.blocks[1]!.normalized_start_byte,
+          end_byte: sourceResponse.data.blocks[1]!.normalized_end_byte,
+          claim: "林见的职业是记者",
+          quote_hash: `sha256:${"2".repeat(64)}`,
+        },
+        {
+          id: `spn_${"3".repeat(32)}`,
+          fact_id: `fact_${"e".repeat(32)}`,
+          source_document_id: sourceResponse.data.id,
+          source_block_id: sourceResponse.data.blocks[1]!.id,
+          role: "context",
+          start_byte: sourceResponse.data.blocks[1]!.normalized_start_byte,
+          end_byte: sourceResponse.data.blocks[1]!.normalized_end_byte,
+          claim: "两人曾经共同行动",
+          quote_hash: `sha256:${"4".repeat(64)}`,
+        },
+      ],
+    },
+  },
+  request_id: requestId,
+};
+
+function storySummary(version: StoryBibleVersionResponse["data"]["version"]) {
+  return {
+    artifact_id: version.artifact_id,
+    id: version.id,
+    parent_version_id: version.parent_version_id,
+    version_number: version.version_number,
+    schema_version: version.schema_version,
+    content_hash: version.content_hash,
+    change_summary: version.change_summary,
+    created_at: version.created_at,
+  };
+}
+
+type StoryVersion = StoryBibleVersionResponse["data"]["version"];
+
+function mockStoryBible(
+  transport: StudioTransport,
+  options: {
+    latest?: StoryVersion;
+    review?: StoryVersion | null;
+    accepted?: StoryVersion | null;
+    head?: StoryBibleIndexResponse["data"]["head"];
+  } = {},
+) {
+  const latest = options.latest ?? storyBibleResponse.data.version;
+  const review = options.review ?? null;
+  const accepted = options.accepted ?? null;
+  const head =
+    options.head ??
+    ({
+      ...storyBibleResponse.data.head,
+      latest_version_id: latest.id,
+      review_version_id: review?.id ?? null,
+      review_submission_id: review ? `sub_${"a".repeat(32)}` : null,
+      accepted_version_id: accepted?.id ?? null,
+    } satisfies StoryBibleIndexResponse["data"]["head"]);
+  const index: StoryBibleIndexResponse = {
+    data: {
+      project_id: project.id,
+      head,
+      latest_version: storySummary(latest),
+      review_version: review ? storySummary(review) : null,
+      accepted_version: accepted ? storySummary(accepted) : null,
+    },
+    request_id: requestId,
+  };
+  const versions = new Map(
+    [latest, review, accepted]
+      .filter((version): version is StoryVersion => version !== null)
+      .map((version) => [version.id, version]),
+  );
+  vi.mocked(transport.getStoryBibleIndex).mockResolvedValue(index);
+  vi.mocked(transport.getStoryBibleVersion).mockImplementation(async (_projectId, versionId) => {
+    const version = versions.get(versionId);
+    if (!version) throw new Error("version missing from test fixture");
+    return { data: { project_id: project.id, head, version }, request_id: requestId };
+  });
+  return index;
+}
+
+function studioTransport(projects: ProjectData[] = []): StudioTransport {
+  return {
+    getHealth: vi.fn().mockResolvedValue(healthyResponse),
+    listProjects: vi.fn().mockResolvedValue({ data: projects, request_id: requestId }),
+    createProject: vi.fn().mockResolvedValue({ data: project, request_id: requestId }),
+    getProject: vi
+      .fn()
+      .mockResolvedValue({ data: { ...project, revision: 2 }, request_id: requestId }),
+    listSources: vi.fn().mockResolvedValue({ data: [], request_id: requestId }),
+    getSource: vi.fn().mockResolvedValue(sourceResponse),
+    importTextSource: vi.fn().mockResolvedValue(sourceResponse),
+    getSourceManifest: vi.fn().mockResolvedValue(null),
+    getStoryBibleIndex: vi.fn().mockResolvedValue(null),
+    getStoryBibleVersion: vi.fn().mockResolvedValue(storyBibleResponse),
+    listProjectTasks: vi.fn().mockResolvedValue({
+      data: {
+        project_id: project.id,
+        summary: { total: 0, attention: 0, active: 0, completed: 0 },
+        tasks: [],
+      },
+      request_id: requestId,
+    } satisfies TaskQueueResponse),
+    getArtifactProposal: vi.fn(),
+    getInvalidationOperation: vi.fn(),
+    listInvalidationOperations: vi.fn().mockResolvedValue({
+      data: { items: [], next_cursor: null },
+      request_id: requestId,
+    }),
+    listProjectAgents: vi.fn().mockResolvedValue({
+      data: { project_id: project.id, agents: [] },
+      request_id: requestId,
+    }),
+    listProjectSkills: vi.fn().mockResolvedValue({
+      data: { project_id: project.id, skills: [] },
+      request_id: requestId,
+    }),
+    startFakeTimelineWorkflow: vi.fn().mockResolvedValue(fakeTimelineResponse),
+    getProjectTimeline: vi.fn().mockResolvedValue(null),
+    trimTimelineClip: vi.fn(),
+    reorderTimelineClip: vi.fn(),
+    replaceTimelineClip: vi.fn(),
+    listProviderConnections: vi.fn().mockResolvedValue({ data: [], request_id: requestId }),
+    createProviderConnection: vi.fn(),
+    deleteProviderConnection: vi.fn(),
+  };
+}
+
+async function openProjectPage(label: "概览" | "原文" | "来源审核" | "试制") {
+  const navigation = await screen.findByRole("navigation", { name: "项目工作台" });
+  fireEvent.click(within(navigation).getByRole("button", { name: label }));
+}
+
+function reviewManifest(role: "draft" | "review" | "accepted" = "draft"): SourceManifestResponse {
+  return {
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      head: {
+        ...sourceManifestResponse.data.head,
+        revision: role === "draft" ? 1 : role === "review" ? 2 : 4,
+        review_version_id: role === "review" ? sourceManifestVersion.id : null,
+        review_submission_id: role === "review" ? `sub_${"3".repeat(32)}` : null,
+        accepted_version_id: role === "accepted" ? sourceManifestVersion.id : null,
+      },
+      review_version: role === "review" ? sourceManifestVersion : null,
+      accepted_version: role === "accepted" ? sourceManifestVersion : null,
+    },
+  };
+}
+
+test("discovers the exact source review independently from story loading and submits only its identity", async () => {
+  const transport = studioTransport([{ ...project, revision: 99 }]);
+  const manifest = reviewManifest();
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  vi.mocked(transport.getStoryBibleIndex).mockRejectedValue(new Error("private story failure"));
+  const submit = vi.fn().mockResolvedValue({
+    kind: "CANCELLED",
+    phase: "confirm_submit",
+    identity: null,
+    completed_actions: [],
+    receipts: [],
+  });
+  transport.sourceManifestReview = { submit, confirmBaseline: vi.fn(), copyDraft: vi.fn() };
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  expect(
+    await within(card).findByText(manifest.data.latest_version.content_hash),
+  ).toBeInTheDocument();
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText(/已取消/);
+  expect(submit).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    expected_revision: 1,
+  });
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+function reviewResult(
+  kind: SourceManifestReviewOperationResult["kind"],
+): SourceManifestReviewOperationResult {
+  return {
+    kind,
+    phase: "confirm_submit",
+    identity: {
+      project_id: project.id,
+      version_id: sourceManifestVersion.id,
+      content_hash: sourceManifestVersion.content_hash,
+      expected_revision: 1,
+    },
+    completed_actions: [],
+    receipts: [],
+  };
+}
+
+function attachReview(
+  transport: StudioTransport,
+  result: SourceManifestReviewOperationResult = reviewResult("CANCELLED"),
+) {
+  const capability = {
+    submit: vi.fn().mockResolvedValue(result),
+    confirmBaseline: vi.fn().mockResolvedValue(result),
+    copyDraft: vi.fn().mockResolvedValue(result),
+  };
+  transport.sourceManifestReview = capability;
+  return capability;
+}
+
+test.each([
+  "SUCCEEDED",
+  "CANCELLED",
+  "EXPIRED",
+  "BUSY",
+  "INVALID_INPUT",
+  "STATE_CHANGED",
+  "DEFINITE_SERVER_ERROR",
+  "REMOTE_UNKNOWN",
+] as const)("presents the %s source review outcome without silently retrying", async (kind) => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const result = reviewResult(kind);
+  if (kind === "DEFINITE_SERVER_ERROR")
+    result.error = { status: 409, code: "GATE_NOT_READY", request_id: requestId };
+  const capability = attachReview(transport, result);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  const output = await within(card).findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent(`结果：${kind}`);
+  expect(output).toHaveTextContent("阶段：confirm_submit");
+  expect(output).toHaveTextContent("已完成动作：无");
+  expect(output).toHaveTextContent("安全回执：0 条");
+  if (result.error)
+    expect(output).toHaveTextContent(`错误 code：GATE_NOT_READY · request_id：${requestId}`);
+  expect(capability.submit).toHaveBeenCalledOnce();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(capability.copyDraft).not.toHaveBeenCalled();
+});
+
+test("keeps UNKNOWN locked across readonly refresh, workspace navigation and project switches", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  vi.mocked(transport.getSourceManifest).mockImplementation(async (id) => ({
+    ...reviewManifest(),
+    data: { ...reviewManifest().data, project_id: id },
+  }));
+  const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  let card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText("审核结果未知");
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "只读刷新来源" })).toBeEnabled(),
+  );
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  expect(card).toHaveTextContent("不核实旧未知操作");
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "前往来源审核" }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  expect(card).toHaveTextContent("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "送审来源版本" }));
+  await within(card).findByText("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /雾城来信/ }));
+  card = await screen.findByRole("region", { name: "来源审核" });
+  expect(card).toHaveTextContent("审核结果未知");
+  expect(within(card).getByRole("button", { name: "复制为新草稿" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  expect(await screen.findByText("审核结果未知")).toBeInTheDocument();
+  expect(capability.submit).toHaveBeenCalledTimes(2);
+});
+
+test("retains partial signoff receipts without claiming approval and trims Unicode rationale", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest("review"));
+  const receipt = {
+    action: "signoff" as const,
+    request_id: requestId,
+    project_id: project.id,
+    artifact_id: sourceManifestVersion.artifact_id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    head_revision: 3,
+    review_evidence_revision: 1,
+    latest_version_id: sourceManifestVersion.id,
+    review_version_id: sourceManifestVersion.id,
+    review_submission_id: `sub_${"3".repeat(32)}`,
+    accepted_version_id: null,
+    report_id: `rpt_${"a".repeat(32)}`,
+    report_hash: `sha256:${"b".repeat(64)}`,
+    token: "PRIVATE_TOKEN_MUST_NOT_RENDER",
+    body: "PRIVATE_REPORT_BODY",
+  };
+  const result: SourceManifestReviewOperationResult = {
+    ...reviewResult("CANCELLED"),
+    phase: "confirm_decision",
+    completed_actions: ["signoff"],
+    receipts: [receipt],
+  };
+  const capability = attachReview(transport, result);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  const reason = within(card).getByRole("textbox", { name: /确认基线的理由/ });
+  const confirm = within(card).getByRole("button", { name: "确认来源基线" });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: "  " } });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: "😀".repeat(1001) } });
+  expect(confirm).toBeDisabled();
+  fireEvent.change(reason, { target: { value: `  ${"😀".repeat(1000)}  ` } });
+  await waitFor(() => expect(confirm).toBeEnabled());
+  fireEvent.click(confirm);
+  const output = await within(card).findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent("已签署，但尚未收到批准成功回执");
+  expect(output).toHaveTextContent("已完成动作：签署");
+  expect(output).toHaveTextContent(receipt.report_hash);
+  expect(output).not.toHaveTextContent("PRIVATE_");
+  expect(capability.confirmBaseline).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: sourceManifestVersion.id,
+    content_hash: sourceManifestVersion.content_hash,
+    expected_revision: 2,
+    rationale: "😀".repeat(1000),
+  });
+  expect(capability.submit).not.toHaveBeenCalled();
+});
+
+test("treats a rejected desktop bridge as possibly submitted and never displays its raw error", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  capability.copyDraft.mockRejectedValue(new Error("token=PRIVATE_ERROR"));
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const button = await screen.findByRole("button", { name: "复制为新草稿" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  const output = await screen.findByLabelText("来源审核结果");
+  expect(output).toHaveTextContent("审核结果未知");
+  expect(output).toHaveTextContent("不能据此断言未提交");
+  expect(output).toHaveTextContent("已完成动作：无法确定");
+  expect(output).not.toHaveTextContent("PRIVATE_ERROR");
+  expect(button).toBeDisabled();
+});
+
+test("keeps approved v1 visible when copying latest v2 and never auto-submits the copy", async () => {
+  const transport = studioTransport([project]);
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  const manifest = reviewManifest("accepted");
+  manifest.data.latest_version = latest;
+  manifest.data.head.latest_version_id = latest.id;
+  manifest.data.head.revision = 5;
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  const capability = attachReview(transport, {
+    ...reviewResult("SUCCEEDED"),
+    phase: "copy_draft",
+    completed_actions: ["copy_draft"],
+  });
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText("V2 · 草稿，尚未批准");
+  expect(within(card).getByRole("article", { name: "已批准基线" })).toHaveTextContent(
+    sourceManifestVersion.content_hash,
+  );
+  fireEvent.click(within(card).getByRole("button", { name: "复制为新草稿" }));
+  await within(card).findByText("操作成功");
+  expect(capability.copyDraft).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: latest.id,
+    content_hash: latest.content_hash,
+    expected_revision: 5,
+  });
+  expect(capability.submit).not.toHaveBeenCalled();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+});
+
+test("can submit latest v3 while separately displaying review v2 and accepted v1", async () => {
+  const transport = studioTransport([project]);
+  const manifest = reviewManifest("accepted");
+  const review = {
+    ...sourceManifestVersion,
+    id: `ver_${"6".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"7".repeat(64)}`,
+  };
+  const latest = {
+    ...review,
+    id: `ver_${"8".repeat(32)}`,
+    parent_version_id: review.id,
+    version_number: 3,
+    content_hash: `sha256:${"9".repeat(64)}`,
+  };
+  manifest.data.review_version = review;
+  manifest.data.latest_version = latest;
+  manifest.data.head = {
+    ...manifest.data.head,
+    latest_version_id: latest.id,
+    review_version_id: review.id,
+    review_submission_id: `sub_${"3".repeat(32)}`,
+    revision: 7,
+  };
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  const capability = attachReview(transport);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText("V3 · 草稿，尚未批准");
+  expect(within(card).getByRole("article", { name: "送审版本" })).toHaveTextContent(
+    review.content_hash,
+  );
+  expect(within(card).getByRole("article", { name: "已批准基线" })).toHaveTextContent(
+    sourceManifestVersion.content_hash,
+  );
+  const submit = within(card).getByRole("button", { name: "送审来源版本" });
+  expect(submit).toBeEnabled();
+  fireEvent.click(submit);
+  await within(card).findByText("已取消");
+  expect(capability.submit).toHaveBeenCalledExactlyOnceWith({
+    project_id: project.id,
+    version_id: latest.id,
+    content_hash: latest.content_hash,
+    expected_revision: 7,
+  });
+});
+
+test("handles missing sources, read failures, mismatched identities and readonly recovery without G2", async () => {
+  const transport = studioTransport([project]);
+  attachReview(transport);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const card = await screen.findByRole("region", { name: "来源审核" });
+  await within(card).findByText(/尚无来源清单/);
+  vi.mocked(transport.getSourceManifest).mockRejectedValueOnce(new Error("PRIVATE_READ_ERROR"));
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await within(card).findByText(/来源审核暂时无法读取/);
+  expect(card).not.toHaveTextContent("PRIVATE_READ_ERROR");
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  const mismatched = reviewManifest();
+  mismatched.data.head.latest_version_id = `ver_${"0".repeat(32)}`;
+  vi.mocked(transport.getSourceManifest)
+    .mockResolvedValueOnce(mismatched)
+    .mockResolvedValue(reviewManifest());
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await within(card).findByText(/来源身份不一致/);
+  fireEvent.click(within(card).getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() =>
+    expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeEnabled(),
+  );
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+test("ignores a late manifest from a different project and makes no empty-project requests", async () => {
+  const empty = studioTransport();
+  const rendered = render(<App transport={empty} />);
+  await screen.findByRole("button", { name: "创建第一个项目" });
+  expect(empty.getSourceManifest).not.toHaveBeenCalled();
+  rendered.unmount();
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  let finish: (value: SourceManifestResponse) => void = () => {};
+  vi.mocked(transport.getSourceManifest)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    )
+    .mockResolvedValue(null);
+  attachReview(transport);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  await openProjectPage("来源审核");
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  await screen.findByText(/尚无来源清单/);
+  finish(reviewManifest());
+  await waitFor(() => expect(transport.getSourceManifest).toHaveBeenCalledTimes(2));
+  const card = screen.getByRole("region", { name: "来源审核" });
+  expect(card).not.toHaveTextContent(sourceManifestVersion.content_hash);
+  expect(within(card).getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+});
+
+test("disables duplicate source actions while native confirmation is pending", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  let finish: (value: SourceManifestReviewOperationResult) => void = () => {};
+  capability.submit.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const button = await screen.findByRole("button", { name: "送审来源版本" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(button).toBeDisabled();
+  expect(screen.getByRole("button", { name: "只读刷新来源" })).toBeDisabled();
+  finish(reviewResult("EXPIRED"));
+  await screen.findByText("确认已超时");
+  expect(capability.submit).toHaveBeenCalledOnce();
+});
+
+test("rereads both existing launchers after baseline approval without auto-creating tasks", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  let manifest = reviewManifest("review");
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => manifest);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  transport.proposalRuns = { create: vi.fn() };
+  transport.fakeTimelineRuns = { create: vi.fn() };
+  const capability = attachReview(transport);
+  capability.confirmBaseline.mockImplementation(async () => {
+    manifest = reviewManifest("accepted");
+    return {
+      ...reviewResult("SUCCEEDED"),
+      phase: "decision",
+      completed_actions: ["signoff", "decision"],
+    };
+  });
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await openProjectPage("试制");
+  await screen.findByText("需要先由具名人员批准来源清单，才能启动来源提取。");
+  await screen.findByText("需要先由具名人员批准来源清单，才能生成 Fake 时间线。");
+  await openProjectPage("来源审核");
+  const readsBefore = vi.mocked(transport.getSourceManifest).mock.calls.length;
+  fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
+    target: { value: "已逐段核对" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确认来源基线" }));
+  await openProjectPage("试制");
+  await screen.findByRole("button", { name: "启动来源提取" });
+  await screen.findByRole("button", { name: "生成 Fake 分镜时间线" });
+  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBe(readsBefore + 3);
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  await openProjectPage("来源审核");
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "只读刷新来源" })).toBeEnabled());
+  expect(vi.mocked(transport.getSourceManifest).mock.calls.length).toBeGreaterThan(readsBefore);
+  await openProjectPage("试制");
+  // Returning to trial rereads both launchers without auto-creating either task.
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+});
+
+test("keeps both existing pending journals and their exact old inputs after a new baseline is approved", async () => {
+  localStorage.clear();
+  const proposalInput = {
+    agent_definition: { definition_id: "writer.source-analyst", version: "1.0.0" },
+    skill_definition: { definition_id: "source.extract", version: "1.0.0" },
+    source_manifest_version_id: sourceManifestVersion.id,
+    source_document_id: sourceResponse.data.id,
+    source_block_id: sourceResponse.data.blocks[1]!.id,
+    start_byte: 17,
+    end_byte: 41,
+  };
+  const timelineInput = {
+    source_manifest_version_id: sourceManifestVersion.id,
+    source_document_id: sourceResponse.data.id,
+  };
+  const proposalPending = createProposalRunOperationJournal(localStorage).begin(
+    project.id,
+    proposalInput,
+  );
+  const timelinePending = createFakeTimelineRunOperationJournal(localStorage).begin(
+    project.id,
+    timelineInput,
+  );
+  const frozen = { ...localStorage };
+  const transport = studioTransport([project]);
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  let manifest = reviewManifest("review");
+  manifest.data.latest_version = latest;
+  manifest.data.review_version = latest;
+  manifest.data.accepted_version = sourceManifestVersion;
+  manifest.data.head = {
+    ...manifest.data.head,
+    latest_version_id: latest.id,
+    review_version_id: latest.id,
+    accepted_version_id: sourceManifestVersion.id,
+    revision: 6,
+  };
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => manifest);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  transport.proposalRuns = { create: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }) };
+  transport.fakeTimelineRuns = { create: vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" }) };
+  const capability = attachReview(transport);
+  capability.confirmBaseline.mockImplementation(async () => {
+    manifest = {
+      ...manifest,
+      data: {
+        ...manifest.data,
+        head: {
+          ...manifest.data.head,
+          accepted_version_id: latest.id,
+          review_version_id: null,
+          review_submission_id: null,
+          revision: 8,
+        },
+        accepted_version: latest,
+        review_version: null,
+      },
+    };
+    return {
+      ...reviewResult("SUCCEEDED"),
+      phase: "decision",
+      completed_actions: ["signoff", "decision"],
+    };
+  });
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await openProjectPage("试制");
+  expect(await screen.findAllByRole("button", { name: "恢复同一操作" })).toHaveLength(2);
+  await openProjectPage("来源审核");
+  fireEvent.change(screen.getByRole("textbox", { name: /确认基线的理由/ }), {
+    target: { value: "核对新版本" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确认来源基线" }));
+  await screen.findByText("V2 · 已批准");
+  expect({ ...localStorage }).toEqual(frozen);
+  expect(transport.proposalRuns.create).not.toHaveBeenCalled();
+  expect(transport.fakeTimelineRuns.create).not.toHaveBeenCalled();
+  await openProjectPage("试制");
+  const restoreButtons = screen.getAllByRole("button", { name: "恢复同一操作" });
+  fireEvent.click(restoreButtons[0]!);
+  fireEvent.click(restoreButtons[1]!);
+  await waitFor(() =>
+    expect(transport.proposalRuns!.create).toHaveBeenCalledExactlyOnceWith(project.id, {
+      operation_id: proposalPending.operation_id,
+      input: proposalInput,
+    }),
+  );
+  expect(transport.fakeTimelineRuns.create).toHaveBeenCalledExactlyOnceWith(project.id, {
+    operation_id: timelinePending.operation_id,
+    input: timelineInput,
+  });
+  expect({ ...localStorage }).toEqual(frozen);
+  localStorage.clear();
+});
+
+test("keeps the top next step on source review when import succeeded but G1 is not approved", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await screen.findByText("V1 · 草稿，尚未批准");
+  const stages = screen.getByRole("region", { name: "创作导航与来源状态" });
+  expect(within(stages).getByRole("button", { name: "G1 来源：待审核" })).toBeInTheDocument();
+  expect(within(stages).getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  expect(
+    within(stages).queryByRole("button", { name: "下一步：审阅故事证据" }),
+  ).not.toBeInTheDocument();
+});
+
+test("offers import for no manifest and keeps G0 a project entry", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：未导入" });
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  await screen.findByRole("heading", { name: "导演工作区尚未实现" });
+  fireEvent.click(screen.getByRole("button", { name: "下一步：导入小说原文" }));
+  expect(await screen.findByLabelText("选择 TXT 文件")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "来源尚未验收" });
+  fireEvent.click(screen.getByRole("button", { name: "G0 立项：项目概览" }));
+  expect(await screen.findByRole("heading", { name: project.name })).toBeInTheDocument();
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+test.each(["review", "accepted"] as const)(
+  "uses the actual %s manifest without requiring the latest source preview",
+  async (role) => {
+    const transport = studioTransport([project]);
+    vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest(role));
+    render(<App transport={transport} />);
+    await screen.findByRole("button", {
+      name: role === "review" ? "G1 来源：审核中" : "G1 来源：已批准",
+    });
+    expect(screen.queryByText(sourceResponse.data.filename)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: role === "review" ? "下一步：审核来源版本" : "下一步：审阅故事证据",
+      }),
+    );
+    if (role === "review") {
+      await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+      expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+    } else {
+      expect(await screen.findByRole("heading", { name: "可以开始拆解小说" })).toBeInTheDocument();
+      expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
+    }
+    expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  },
+);
+
+test("does not reuse an approved label during loading, failed reads or inconsistent identities", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest("accepted"));
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await screen.findByRole("button", { name: "G1 来源：已批准" });
+  let rejectRead: (error: Error) => void = () => {};
+  vi.mocked(transport.getSourceManifest).mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        rejectRead = reject;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "下一步：正在读取来源状态" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
+  await act(async () => rejectRead(new Error("private read failure")));
+  await screen.findByRole("button", { name: "G1 来源：读取失败" });
+  const reads = vi.mocked(transport.getSourceManifest).mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  fireEvent.click(screen.getByRole("button", { name: "下一步：恢复来源审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(transport.getSourceManifest).toHaveBeenCalledTimes(reads);
+  const inconsistent = reviewManifest("accepted");
+  inconsistent.data.head.latest_version_id = `ver_${"0".repeat(32)}`;
+  vi.mocked(transport.getSourceManifest).mockResolvedValueOnce(inconsistent);
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await screen.findByRole("button", { name: "G1 来源：身份不一致" });
+  expect(screen.getByRole("button", { name: "下一步：核对来源审核" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "下一步：审阅故事证据" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  await screen.findByRole("button", { name: "G1 来源：已批准" });
+});
+
+test("keeps an old approved baseline readable while the latest draft routes back to review", async () => {
+  const transport = studioTransport([project]);
+  const manifest = reviewManifest("accepted");
+  const latest = {
+    ...sourceManifestVersion,
+    id: `ver_${"7".repeat(32)}`,
+    parent_version_id: sourceManifestVersion.id,
+    version_number: 2,
+    content_hash: `sha256:${"8".repeat(64)}`,
+  };
+  manifest.data.latest_version = latest;
+  manifest.data.head.latest_version_id = latest.id;
+  manifest.data.head.revision = 5;
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(manifest);
+  render(<App transport={transport} />);
+  await screen.findByRole("button", { name: "G1 来源：新版待审核" });
+  expect(screen.getByText(/旧批准基线 V1 仍可用于故事阅读/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "可以开始拆解小说" });
+  expect(screen.getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "G1 来源：新版待审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  const approved = within(screen.getByRole("region", { name: "来源审核" })).getByRole("article", {
+    name: "已批准基线",
+  });
+  expect(approved).toHaveTextContent(sourceManifestVersion.content_hash);
+});
+
+test("does not let a late old-project approval update the selected project's top navigation", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  const transport = studioTransport([project, second]);
+  let finishFirst: (manifest: SourceManifestResponse) => void = () => {};
+  let finishSecond: (manifest: SourceManifestResponse) => void = () => {};
+  vi.mocked(transport.getSourceManifest)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSecond = resolve;
+        }),
+    );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /第二个项目/ }));
+  await screen.findByRole("heading", { name: second.name });
+  await act(async () => finishFirst(reviewManifest("accepted")));
+  expect(screen.getByRole("button", { name: "G1 来源：读取中" })).toBeDisabled();
+  const secondManifest = reviewManifest("review");
+  secondManifest.data.project_id = second.id;
+  await act(async () => finishSecond(secondManifest));
+  expect(await screen.findByRole("button", { name: "G1 来源：审核中" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "下一步：审核来源版本" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "G1 来源：已批准" })).not.toBeInTheDocument();
+});
+
+test("top next-step and G1 navigation focus the same card without clearing or resending UNKNOWN", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport, reviewResult("REMOTE_UNKNOWN"));
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  await screen.findByRole("button", { name: "G1 来源：待审核" });
+  fireEvent.click(screen.getByRole("button", { name: "送审来源版本" }));
+  await screen.findByText("审核结果未知");
+  fireEvent.click(screen.getByRole("button", { name: /^03导演/ }));
+  await screen.findByRole("heading", { name: "导演工作区尚未实现" });
+  fireEvent.click(screen.getByRole("button", { name: "下一步：审核来源版本" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(screen.getByText("审核结果未知")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "来源尚未验收" });
+  fireEvent.click(screen.getByRole("button", { name: "G1 来源：待审核" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "来源审核" })).toHaveFocus());
+  expect(screen.getByRole("button", { name: "送审来源版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "复制为新草稿" })).toBeDisabled();
+  expect(capability.submit).toHaveBeenCalledOnce();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(capability.copyDraft).not.toHaveBeenCalled();
+});
+
+test("opens the project-scoped production task queue", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
+
+  expect(await screen.findByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
+  expect(await screen.findByText("还没有制作任务")).toBeInTheDocument();
+  expect(transport.listProjectTasks).toHaveBeenCalledWith(project.id);
+});
+
+test("R2 stage navigation keeps existing workspaces separate from unavailable review", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: project.name });
+  const stages = screen.getByRole("navigation", { name: "创作五阶段" });
+  expect(
+    within(stages)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["1故事", "2角色与世界", "3分镜", "4制作", "5审片"]);
+  fireEvent.click(within(stages).getByRole("button", { name: /角色与世界/ }));
+  expect(screen.getByRole("heading", { name: "资产工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(within(stages).getByRole("button", { name: /分镜/ }));
+  expect(screen.getByRole("heading", { name: "导演工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(within(stages).getByRole("button", { name: /制作/ }));
+  expect(screen.getByRole("heading", { name: "生成工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /剪辑台/ }));
+  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+  expect(within(stages).getByRole("button", { name: /制作/ })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  fireEvent.click(within(stages).getByRole("button", { name: /审片/ }));
+  expect(screen.getByRole("heading", { name: "审片工作区尚未实现" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /^07发布$/ }));
+  expect(screen.getByRole("heading", { name: "发布工作区尚未实现" })).toBeInTheDocument();
+  expect(stages.querySelector('[aria-current="step"]')).toBeNull();
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  expect(transport.createProject).not.toHaveBeenCalled();
+});
+
+test("R2 modes retain the mounted source review and proposal access without making decisions", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(reviewManifest());
+  const capability = attachReview(transport);
+  render(<App transport={transport} />);
+  await openProjectPage("来源审核");
+  const proposal = await screen.findByRole("region", { name: "AI 提案" });
+  const rationale = await screen.findByRole("textbox", { name: /确认基线的理由/ });
+  fireEvent.change(rationale, { target: { value: "保留尚未提交的审核理由" } });
+  const reads = vi.mocked(transport.listProjectTasks).mock.calls.length;
+  const sourceCard = screen.getByRole("region", { name: "来源审核" });
+  const version = within(sourceCard).getByText(sourceManifestVersion.id);
+  const hash = within(sourceCard).getByText(sourceManifestVersion.content_hash);
+  expect(screen.getByRole("button", { name: "普通模式" })).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["专业模式", "普通模式"]) {
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toBe(rationale);
+    expect(rationale).toHaveValue("保留尚未提交的审核理由");
+    expect(screen.getByRole("region", { name: "AI 提案" })).toBe(proposal);
+    expect(within(sourceCard).getByText(sourceManifestVersion.id)).toBe(version);
+    expect(within(sourceCard).getByText(sourceManifestVersion.content_hash)).toBe(hash);
+    expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(project.id);
+    expect(screen.getByRole("button", { name: "送审来源版本" })).toBeEnabled();
+  }
+  expect(transport.listProjectTasks).toHaveBeenCalledTimes(reads);
+  expect(capability.submit).not.toHaveBeenCalled();
+  expect(capability.confirmBaseline).not.toHaveBeenCalled();
+  expect(screen.getByText("助手尚未接入")).toBeInTheDocument();
+  expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "打开模型与 API" }));
+  fireEvent.click(screen.getByRole("button", { name: "返回上一页" }));
+  const restored = screen.getByRole("region", { name: "来源审核" });
+  expect(within(restored).getByText(sourceManifestVersion.id)).toBeInTheDocument();
+  expect(within(restored).getByText(sourceManifestVersion.content_hash)).toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(project.id);
+});
+
+test("R2 modes preserve real proposal rejection fields and pending acceptance identity", async () => {
+  const transport = studioTransport([project]);
+  const proposalId = `prp_${"2".repeat(32)}`;
+  const attemptId = `att_${"8".repeat(32)}`;
+  const timestamp = "2026-08-11T09:00:00Z";
+  const proposal: ArtifactProposalResponse = {
+    data: {
+      project_id: project.id,
+      proposal_id: proposalId,
+      producer_attempt_id: attemptId,
+      proposal_hash: `sha256:${"a".repeat(64)}`,
+      created_at: timestamp,
+      proposal: {
+        schema_version: "1.0.0",
+        proposal_id: proposalId,
+        project_id: project.id,
+        target_artifact_type: "SourceExtraction",
+        payload: { summary: "真实传输路径的提案测试" },
+        payload_hash: `sha256:${"b".repeat(64)}`,
+        source_spans: [],
+        claims: [],
+        diff: [],
+        dependencies: [],
+        impacts: [],
+        cost: { currency: "USD", estimated_micros: 0, actual_micros: 0 },
+        confidence_basis_points: 9000,
+        capability_losses: [],
+        qc: [],
+        producer_agent_run_id: `agr_${"1".repeat(32)}`,
+        producer_skill_run_id: `skr_${"2".repeat(32)}`,
+      },
+    },
+    request_id: requestId,
+  };
+  vi.mocked(transport.getArtifactProposal).mockResolvedValue(proposal);
+  vi.mocked(transport.listProjectTasks).mockResolvedValue({
+    data: {
+      project_id: project.id,
+      summary: { total: 1, attention: 0, active: 0, completed: 0 },
+      tasks: [
+        {
+          proposal_id: proposalId,
+          node: {
+            workflow_run_id: `wfr_${"3".repeat(32)}`,
+            node_run_id: `node_${"4".repeat(32)}`,
+            node_key: "source.extract",
+            node_type: "source.extract",
+            status: "NEEDS_REVIEW",
+            responsible_role: "编剧 Agent",
+            upstream_gate: "G1",
+            input_hash: `sha256:${"5".repeat(64)}`,
+            input_version_ids: [sourceManifestVersion.id],
+            output_version_id: null,
+            attempt_count: 1,
+            max_attempts: 2,
+            updated_at: timestamp,
+          },
+          attempt: {
+            attempt_id: attemptId,
+            number: 1,
+            execution_mode: "local",
+            status: "RUNNING",
+            provider_model: null,
+            provider_job_id: null,
+            retry_disposition: null,
+            error_code: null,
+            output_version_id: null,
+            started_at: timestamp,
+            finished_at: null,
+            updated_at: timestamp,
+          },
+          task: {
+            task_id: `task_${"9".repeat(32)}`,
+            kind: "local.source.extract",
+            status: "COMPLETED",
+            priority: 70,
+            available_at: timestamp,
+            lease_generation: 1,
+            lease_expires_at: null,
+            heartbeat_at: null,
+            updated_at: timestamp,
+          },
+          cost: {
+            status: "NOT_RECORDED",
+            currency: null,
+            reserved: null,
+            accrued: null,
+            billed: null,
+            budget_limit: null,
+            retry_increment_limit: null,
+          },
+          presentation: {
+            status_label: "等待人工审阅",
+            next_action_label: "查看提案",
+            allowed_actions: ["VIEW_DETAILS"],
+          },
+        },
+      ],
+    },
+    request_id: requestId,
+  });
+  const acceptAsDraft = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  const reject = vi.fn();
+  transport.proposalDecisions = { acceptAsDraft, reject };
+  render(<App transport={transport} />);
+  const card = await screen.findByRole("region", { name: "来源提取提案" });
+  fireEvent.click(within(card).getByRole("button", { name: "退回并填写意见" }));
+  const reason = within(card).getByRole("combobox", { name: "退回原因" });
+  const comment = within(card).getByRole("textbox", { name: "退回意见" });
+  fireEvent.change(reason, { target: { value: "CONTINUITY" } });
+  fireEvent.change(comment, { target: { value: "保留人物连续性的具体意见" } });
+  for (const mode of ["专业模式", "普通模式"]) {
+    fireEvent.click(screen.getByRole("button", { name: mode }));
+    expect(screen.getByRole("region", { name: "来源提取提案" })).toBe(card);
+    expect(within(card).getByRole("combobox", { name: "退回原因" })).toBe(reason);
+    expect(reason).toHaveValue("CONTINUITY");
+    expect(within(card).getByRole("textbox", { name: "退回意见" })).toBe(comment);
+    expect(comment).toHaveValue("保留人物连续性的具体意见");
+  }
+  fireEvent.click(within(card).getByRole("button", { name: "取消" }));
+  fireEvent.click(within(card).getByRole("button", { name: "接受为 DRAFT" }));
+  const confirm = within(card).getByRole("button", { name: "确认创建 DRAFT" });
+  fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
+  fireEvent.click(screen.getByRole("button", { name: "普通模式" }));
+  expect(within(card).getByRole("button", { name: "确认创建 DRAFT" })).toBe(confirm);
+  expect(acceptAsDraft).not.toHaveBeenCalled();
+  expect(reject).not.toHaveBeenCalled();
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(acceptAsDraft).toHaveBeenCalledExactlyOnceWith(project.id, proposalId, {
+      parent_version_id: null,
+      expected_head_revision: null,
+    }),
+  );
+  expect(transport.getArtifactProposal).toHaveBeenCalledExactlyOnceWith(project.id, proposalId);
+  expect(transport.listProjectTasks).toHaveBeenCalledTimes(1);
+});
+
+test("R2 return restores the preceding project page and clears history on project change", async () => {
+  const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+  render(<App transport={studioTransport([project, second])} />);
+  await openProjectPage("原文");
+  fireEvent.click(screen.getByRole("button", { name: "打开模型与 API" }));
+  expect(await screen.findByRole("heading", { name: "模型与 API", level: 1 })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "返回上一页" }));
+  expect(screen.getByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "原文" })).toHaveAttribute("aria-current", "page");
+  fireEvent.change(screen.getByRole("combobox", { name: "当前项目" }), {
+    target: { value: second.id },
+  });
+  expect(await screen.findByRole("heading", { name: second.name })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "返回上一页" })).toBeDisabled();
+});
+
+test.each(["index", "version"] as const)(
+  "R2 project selector ignores a late story %s from the previous project",
+  async (late) => {
+    const second = { ...project, id: `prj_${"9".repeat(32)}`, name: "第二个项目" };
+    const transport = studioTransport([project, second]);
+    vi.mocked(transport.getSourceManifest).mockImplementation(async (id) =>
+      id === project.id ? sourceManifestResponse : null,
+    );
+    let finishIndex: (value: StoryBibleIndexResponse) => void = () => {};
+    const index = mockStoryBible(transport);
+    let finishVersion: (value: StoryBibleVersionResponse) => void = () => {};
+    if (late === "index") {
+      vi.mocked(transport.getStoryBibleIndex).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishIndex = resolve;
+          }),
+      );
+    } else {
+      vi.mocked(transport.getStoryBibleVersion).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishVersion = resolve;
+          }),
+      );
+    }
+    render(<App transport={transport} />);
+    await screen.findByRole("heading", { name: project.name });
+    fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+    await waitFor(() => expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id));
+    if (late === "version")
+      await waitFor(() =>
+        expect(transport.getStoryBibleVersion).toHaveBeenCalledWith(
+          project.id,
+          storyBibleResponse.data.version.id,
+        ),
+      );
+    fireEvent.change(screen.getByRole("combobox", { name: "当前项目" }), {
+      target: { value: second.id },
+    });
+    await waitFor(() => expect(transport.getSourceManifest).toHaveBeenCalledWith(second.id));
+    await act(async () => {
+      if (late === "index") finishIndex(index);
+      else finishVersion(storyBibleResponse);
+    });
+    expect(screen.getByRole("combobox", { name: "当前项目" })).toHaveValue(second.id);
+    expect(screen.queryByText("失忆记者循着一封旧信追查雾城真相。")).not.toBeInTheDocument();
+    expect(transport.getStoryBibleVersion).toHaveBeenCalledTimes(late === "index" ? 0 : 1);
+    expect(screen.getByRole("button", { name: "返回上一页" })).toBeDisabled();
+  },
+);
+
+test("presents the seven production areas and G0-G8 as the desktop shell", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const navigation = screen.getByRole("navigation", { name: "制作流程" });
+  for (const label of ["项目", "故事", "导演", "资产", "生成", "剪辑", "发布"]) {
+    expect(within(navigation).getByRole("button", { name: new RegExp(label) })).toBeInTheDocument();
+  }
+  expect(within(navigation).queryByRole("button", { name: /任务/ })).not.toBeInTheDocument();
+  expect(within(navigation).queryByRole("button", { name: /模型与 API/ })).not.toBeInTheDocument();
+
+  const stages = screen.getByRole("navigation", { name: "创作五阶段" });
+  expect(within(stages).getAllByRole("button")).toHaveLength(5);
+  expect(screen.getByRole("button", { name: /G0 立项/ })).toBeEnabled();
+  expect(screen.getByRole("button", { name: /G1 来源/ })).toBeInTheDocument();
+  expect(screen.getByText("G2–G8 状态未接入 · 导航不代表批准")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /下一步/ })).toHaveLength(1);
+});
+
+test("switches project content through real secondary pages", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const subnavigation = screen.getByRole("navigation", { name: "项目工作台" });
+  for (const label of ["概览", "原文", "来源审核", "试制"]) {
+    expect(within(subnavigation).getByRole("button", { name: label })).toBeInTheDocument();
+  }
+  expect(screen.getByRole("button", { name: "概览" })).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("heading", { name: "来源追踪" })).not.toBeInTheDocument();
+
+  fireEvent.click(within(subnavigation).getByRole("button", { name: "原文" }));
+  expect(await screen.findByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "雾城来信" })).not.toBeInTheDocument();
+
+  fireEvent.click(within(subnavigation).getByRole("button", { name: "来源审核" }));
+  expect(screen.getByRole("region", { name: "来源审核" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "来源追踪" })).not.toBeInTheDocument();
+});
+
+test("preserves rationale for one source version but isolates a later version", async () => {
+  const secondVersion = {
+    ...sourceManifestVersion,
+    id: `ver_${"5".repeat(32)}`,
+    content_hash: `sha256:${"6".repeat(64)}`,
+  };
+  let manifestVersion: "v1" | "v2" = "v1";
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockImplementation(async () => {
+    const response = reviewManifest();
+    if (manifestVersion === "v1") return response;
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        head: {
+          ...response.data.head,
+          latest_version_id: secondVersion.id,
+          review_version_id: secondVersion.id,
+        },
+        latest_version: secondVersion,
+        review_version: secondVersion,
+      },
+    };
+  });
+  attachReview(transport);
+  render(<App transport={transport} />);
+
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("来源审核");
+  const rationale = await screen.findByRole("textbox", { name: /确认基线的理由/ });
+  fireEvent.change(rationale, { target: { value: "先核对来源，再批准基线" } });
+  await openProjectPage("原文");
+  await openProjectPage("来源审核");
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
+
+  manifestVersion = "v2";
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
+  expect(await screen.findAllByText(secondVersion.content_hash)).not.toHaveLength(0);
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue("");
+
+  await openProjectPage("原文");
+  await openProjectPage("来源审核");
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue("");
+
+  manifestVersion = "v1";
+  fireEvent.click(screen.getByRole("button", { name: "只读刷新来源" }));
+  expect(await screen.findAllByText(sourceManifestVersion.content_hash)).not.toHaveLength(0);
+  expect(screen.getByRole("textbox", { name: /确认基线的理由/ })).toHaveValue(
+    "先核对来源，再批准基线",
+  );
+});
+
+test("opens the production control center with task and impact-report tabs", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const trigger = screen.getByRole("button", { name: /打开制作控制中心/ });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  const closeButton = within(drawer).getByRole("button", { name: "关闭制作控制中心" });
+  expect(closeButton).toHaveFocus();
+  expect(within(drawer).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(within(drawer).getByRole("tab", { name: "影响报告" })).toHaveAttribute(
+    "aria-selected",
+    "false",
+  );
+  const taskTab = within(drawer).getByRole("tab", { name: "制作任务" });
+  const reportTab = within(drawer).getByRole("tab", { name: "影响报告" });
+  expect(taskTab).toHaveAttribute("tabindex", "0");
+  expect(reportTab).toHaveAttribute("tabindex", "-1");
+  expect(transport.listInvalidationOperations).not.toHaveBeenCalled();
+  fireEvent.keyDown(taskTab, { key: "ArrowRight" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "ArrowLeft" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(taskTab, { key: "End" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "Home" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(taskTab, { key: "ArrowLeft" });
+  expect(reportTab).toHaveFocus();
+  expect(reportTab).toHaveAttribute("aria-selected", "true");
+  fireEvent.keyDown(reportTab, { key: "ArrowRight" });
+  expect(taskTab).toHaveFocus();
+  expect(taskTab).toHaveAttribute("aria-selected", "true");
+  expect(within(drawer).getByRole("heading", { name: "制作任务总览" })).toBeInTheDocument();
+  const hiddenFocusTrap = document.createElement("div");
+  hiddenFocusTrap.style.display = "none";
+  const hiddenButton = document.createElement("button");
+  hiddenButton.type = "button";
+  hiddenButton.textContent = "隐藏焦点诱饵";
+  hiddenFocusTrap.append(hiddenButton);
+  drawer.append(hiddenFocusTrap);
+  closeButton.focus();
+  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  fireEvent(document, reverseTab);
+  expect(reverseTab.defaultPrevented).toBe(true);
+  expect(taskTab).toHaveFocus();
+  expect(reportTab).not.toHaveFocus();
+  expect(hiddenButton).not.toHaveFocus();
+  const forwardTab = createEvent.keyDown(document, { key: "Tab" });
+  fireEvent(document, forwardTab);
+  expect(forwardTab.defaultPrevented).toBe(true);
+  expect(closeButton).toHaveFocus();
+  fireEvent.click(reportTab);
+  await waitFor(() =>
+    expect(transport.listInvalidationOperations).toHaveBeenCalledWith(project.id, { limit: 20 }),
+  );
+  expect(document.querySelector("main")).toHaveAttribute("inert");
+  fireEvent.mouseDown(drawer);
+  expect(screen.getByRole("dialog", { name: "制作控制中心" })).toBeInTheDocument();
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog", { name: "制作控制中心" })).not.toBeInTheDocument(),
+  );
+  await waitFor(() => expect(trigger).toHaveFocus());
+  expect(screen.getByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
+
+  fireEvent.click(trigger);
+  const reopened = await screen.findByRole("dialog", { name: "制作控制中心" });
+  expect(within(reopened).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(within(reopened).queryByText("暂无影响报告")).not.toBeInTheDocument();
+  fireEvent.mouseDown(reopened.parentElement as HTMLElement);
+  expect(screen.queryByRole("dialog", { name: "制作控制中心" })).not.toBeInTheDocument();
+});
+
+test("includes technical-detail summary in the production-control keyboard loop", async () => {
+  const operation = {
+    operation_id: `ivo_${"c".repeat(32)}`,
+    project_id: project.id,
+    changed_artifact_id: `art_${"d".repeat(32)}`,
+    old_accepted_version_id: `ver_${"e".repeat(32)}`,
+    new_accepted_version_id: `ver_${"f".repeat(32)}`,
+    gate_decision_id: `dec_${"1".repeat(32)}`,
+    assessment_hash: `sha256:${"2".repeat(64)}`,
+    created_at: "2026-08-03T03:00:00Z",
+  };
+  const transport = {
+    ...studioTransport([project]),
+    listInvalidationOperations: vi.fn().mockResolvedValue({
+      data: { items: [{ ...operation, reason_path_count: 0 }], next_cursor: null },
+      request_id: requestId,
+    }),
+    getInvalidationOperation: vi.fn().mockResolvedValue({
+      data: { ...operation, paths: [] },
+      request_id: requestId,
+    }),
+  };
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  const closeButton = within(drawer).getByRole("button", { name: "关闭制作控制中心" });
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  fireEvent.click(await screen.findByRole("button", { name: /内容版本发生变更/ }));
+  const summary = await screen.findByText("技术详情");
+  closeButton.focus();
+  const reverseTab = createEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  fireEvent(document, reverseTab);
+  expect(reverseTab.defaultPrevented).toBe(true);
+  expect(summary).toHaveFocus();
+  const forwardTab = createEvent.keyDown(document, { key: "Tab" });
+  fireEvent(document, forwardTab);
+  expect(forwardTab.defaultPrevented).toBe(true);
+  expect(closeButton).toHaveFocus();
+});
+
+test("resets to tasks when the project changes and does not retain the prior report", async () => {
+  const nextProject = { ...project, id: `prj_${"b".repeat(32)}`, name: "第二制作项目" };
+  const listInvalidationOperations = vi.fn((projectId: string) =>
+    Promise.resolve({
+      data: {
+        items:
+          projectId === project.id
+            ? [
+                {
+                  operation_id: `ivo_${"c".repeat(32)}`,
+                  project_id: project.id,
+                  changed_artifact_id: `art_${"d".repeat(32)}`,
+                  old_accepted_version_id: `ver_${"e".repeat(32)}`,
+                  new_accepted_version_id: `ver_${"f".repeat(32)}`,
+                  gate_decision_id: `dec_${"1".repeat(32)}`,
+                  assessment_hash: `sha256:${"2".repeat(64)}`,
+                  created_at: "2026-08-03T03:00:00Z",
+                  reason_path_count: 0,
+                },
+              ]
+            : [],
+        next_cursor: null,
+      },
+      request_id: requestId,
+    }),
+  );
+  const transport = { ...studioTransport([project, nextProject]), listInvalidationOperations };
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /打开制作控制中心/ }));
+  const drawer = await screen.findByRole("dialog", { name: "制作控制中心" });
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  expect(await screen.findByText("内容版本发生变更")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /第二制作项目/ }));
+  expect(
+    await screen.findByRole("heading", { name: "制作控制中心 · 第二制作项目" }),
+  ).toBeInTheDocument();
+  expect(within(drawer).getByRole("tab", { name: "制作任务" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.queryByText("内容版本发生变更")).not.toBeInTheDocument();
+  expect(listInvalidationOperations).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(within(drawer).getByRole("tab", { name: "影响报告" }));
+  await waitFor(() =>
+    expect(listInvalidationOperations).toHaveBeenLastCalledWith(nextProject.id, { limit: 20 }),
+  );
+  expect(await screen.findByText("暂无影响报告")).toBeInTheDocument();
+  expect(screen.queryByText("内容版本发生变更")).not.toBeInTheDocument();
+});
+
+test("opens the real project timeline workspace", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /剪辑台/ }));
+
+  expect(await screen.findByRole("heading", { name: "时间线尚未生成" })).toBeInTheDocument();
+  expect(transport.getProjectTimeline).toHaveBeenCalledWith(project.id);
+});
+
+test("starts a deterministic preview from the restored imported source", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  render(<App transport={transport} />);
+  await openProjectPage("原文");
+  await waitFor(() =>
+    expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id),
+  );
+  expect(await screen.findByText(sourceResponse.data.filename)).toBeInTheDocument();
+  await openProjectPage("试制");
+  expect(screen.queryByRole("button", { name: "生成 Fake 分镜时间线" })).not.toBeInTheDocument();
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+});
+
+test("uses the optional Fake Timeline capability instead of the deprecated sync route", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  const create = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  transport.fakeTimelineRuns = { create };
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  render(<App transport={transport} />);
+  await openProjectPage("试制");
+  await waitFor(() =>
+    expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id),
+  );
+
+  expect(await screen.findAllByText(sourceResponse.data.filename)).toHaveLength(1);
+  fireEvent.click(await screen.findByRole("button", { name: "生成 Fake 分镜时间线" }));
+
+  expect(await screen.findByText("提交结果未知")).toBeInTheDocument();
+  expect(create).toHaveBeenCalledWith(
+    project.id,
+    expect.objectContaining({
+      operation_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      input: {
+        source_manifest_version_id: sourceManifestVersion.id,
+        source_document_id: sourceResponse.data.id,
+      },
+    }),
+  );
+  expect(transport.startFakeTimelineWorkflow).not.toHaveBeenCalled();
+  const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+  expect(appSource).not.toContain("startFakeTimelineWorkflow");
+  expect(appSource).toContain("capability={studio.fakeTimelineRuns}");
+  expect(appSource).toContain("source={importState.response}");
+  expect(appSource).toContain("getSourceManifest={loadLauncherManifest}");
+});
+
+test("starts the Electron-only source extraction through a recoverable operation", async () => {
+  localStorage.clear();
+  const transport = studioTransport([project]);
+  const create = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  transport.proposalRuns = { create };
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  render(<App transport={transport} />);
+  await openProjectPage("试制");
+
+  fireEvent.click(await screen.findByRole("button", { name: "启动来源提取" }));
+
+  expect(await screen.findByText("提交结果未知")).toBeInTheDocument();
+  expect(create).toHaveBeenCalledWith(
+    project.id,
+    expect.objectContaining({
+      operation_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      input: expect.objectContaining({
+        source_manifest_version_id: sourceManifestVersion.id,
+        source_document_id: sourceResponse.data.id,
+        source_block_id: sourceResponse.data.blocks[1]?.id,
+        start_byte: 17,
+        end_byte: 41,
+      }),
+    }),
+  );
+});
+
+test("collapses production context and keeps planned areas honest", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  const collapseRail = screen.getByRole("button", { name: "收起项目栏" });
+  expect(collapseRail).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(collapseRail);
+  const expandRail = screen.getByRole("button", { name: "展开项目栏" });
+  expect(expandRail).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(expandRail);
+
+  fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
+  const collapseInspector = screen.getByRole("button", { name: "收起属性检查器" });
+  expect(collapseInspector).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(collapseInspector);
+  const expandInspector = screen.getByRole("button", { name: "展开属性检查器" });
+  expect(expandInspector).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(expandInspector);
+
+  for (const [label, heading] of [
+    ["导演", "导演工作区尚未实现"],
+    ["资产", "资产工作区尚未实现"],
+    ["生成", "生成工作区尚未实现"],
+    ["发布", "发布工作区尚未实现"],
+  ]) {
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^\\d+${label}$`) }));
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+  }
+});
+
+test("uses neutral source-tracing copy for a numeric project name", async () => {
+  render(<App transport={studioTransport([{ ...project, name: "1" }])} />);
+  await screen.findByRole("heading", { name: "1" });
+  await openProjectPage("原文");
+
+  expect(screen.getByRole("heading", { name: "来源追踪" })).toBeInTheDocument();
+  expect(
+    screen.getByText("导入原文后，这里会显示文件、章节、段落和引用关系。"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("1 的来源台账")).not.toBeInTheDocument();
+  const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+  expect(styles).toContain("--font-meta: 12px");
+  expect(styles).toContain("--font-ui: 14px");
+  expect(styles).toMatch(/\.preview-placeholder p,[\s\S]*font-size: var\(--font-ui\)/);
+  expect(styles).toMatch(/\.project-card-copy small,[\s\S]*font-size: var\(--font-meta\)/);
+  expect(styles).toMatch(
+    /\.manifest-summary dt,[\s\S]*\.severity,[\s\S]*font-size: var\(--font-meta\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-card-copy strong,[\s\S]*\.source-block p,[\s\S]*font-size: var\(--font-ui\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-hero p,[\s\S]*\.preview-disclaimer,[\s\S]*\.question-scope > button,[\s\S]*\.story-empty-state p,[\s\S]*font-size: var\(--font-ui\)/,
+  );
+  expect(styles).toMatch(
+    /\.project-status,[\s\S]*\.gate-chip,[\s\S]*\.project-dialog label > span,[\s\S]*font-size: var\(--font-meta\)/,
+  );
+});
+
+test("opens model and API settings without requiring a selected project", async () => {
+  const transport = studioTransport();
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "还没有制作项目" });
+
+  const trigger = screen.getByRole("button", { name: /^打开模型与 API$/ });
+  expect(trigger).toHaveTextContent("模型与 API");
+  fireEvent.click(trigger);
+
+  expect(
+    await screen.findByRole("heading", { name: "统一模型连接", level: 2 }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("会员与 API 是两套账户体系")).toBeInTheDocument();
+  expect(transport.listProviderConnections).toHaveBeenCalledTimes(1);
+});
+
+test("shows a connected, actionable empty workspace", async () => {
+  render(<App transport={studioTransport()} />);
+
+  expect(screen.getByText("正在连接创作引擎…")).toBeInTheDocument();
+  expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "创建第一个项目" })).toBeEnabled();
+  expect(screen.getByText("本地工作区服务已连接")).toBeInTheDocument();
+});
+
+test("keeps project entry unavailable until the project list is ready", async () => {
+  const transport = studioTransport();
+  let resolveProjects: ((value: { data: ProjectData[]; request_id: string }) => void) | undefined;
+  vi.mocked(transport.listProjects).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveProjects = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+
+  expect(await screen.findByText("本地工作区服务已连接")).toBeInTheDocument();
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+  expect(trigger).toBeDisabled();
+  fireEvent.click(trigger);
+  expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull();
+  expect(transport.createProject).not.toHaveBeenCalled();
+
+  await act(async () => resolveProjects?.({ data: [], request_id: requestId }));
+  expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
+  expect(trigger).toBeEnabled();
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+});
+
+test("does not expose an empty project entry when project listing fails", async () => {
+  const transport = studioTransport();
+  vi.mocked(transport.listProjects).mockRejectedValueOnce(new Error("list unavailable"));
+  render(<App transport={transport} />);
+
+  expect(await screen.findByRole("heading", { name: "创作引擎未连接" })).toBeInTheDocument();
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+  expect(trigger).toBeDisabled();
+  fireEvent.click(trigger);
+  expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull();
+  expect(transport.createProject).not.toHaveBeenCalled();
+});
+
+test("adds a created project without selecting it until the user explicitly opens it", async () => {
+  const transport = studioTransport();
+  render(<App transport={transport} />);
+  await screen.findByText("还没有制作项目");
+
+  fireEvent.click(screen.getByRole("button", { name: "创建第一个项目" }));
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  const name = screen.getByRole("textbox", { name: "作品名称" });
+  fireEvent.change(name, { target: { value: "雾城来信" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
+
+  await waitFor(() => expect(transport.createProject).toHaveBeenCalledOnce());
+  expect(await screen.findByText("已创建“雾城来信”。")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "打开新作品" }));
+  expect(await screen.findByRole("heading", { name: "雾城来信" })).toBeInTheDocument();
+});
+
+test("imports a TXT file and shows traceable chapter blocks", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
+  const file = new File(["第一章 初见\n雨落在霓虹灯下。"], "雾城来信.txt", {
+    type: "text/plain",
+  });
+
+  fireEvent.change(screen.getByLabelText("选择 TXT 文件"), { target: { files: [file] } });
+
+  await waitFor(() => expect(transport.importTextSource).toHaveBeenCalledOnce());
+  expect(await screen.findByText("已解析 1 章 · 2 个文本块")).toBeInTheDocument();
+  expect(screen.getByText("第一章 初见")).toBeInTheDocument();
+  expect(screen.getByText("雨落在霓虹灯下。")).toBeInTheDocument();
+});
+
+test("restores the latest persisted source when a project opens", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValueOnce({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  render(<App transport={transport} />);
+  await openProjectPage("原文");
+
+  await waitFor(() => expect(transport.listSources).toHaveBeenCalledWith(project.id));
+  expect(await screen.findByText("已解析 1 章 · 2 个文本块")).toBeInTheDocument();
+  expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id);
+});
+
+test("shows a recoverable connection error", async () => {
+  const transport = studioTransport();
+  vi.mocked(transport.getHealth)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(healthyResponse);
+  render(<App transport={transport} />);
+
+  expect(await screen.findByRole("heading", { name: "创作引擎未连接" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "重新连接" }));
+
+  await waitFor(() => expect(transport.getHealth).toHaveBeenCalledTimes(2));
+  expect(await screen.findByText("还没有制作项目")).toBeInTheDocument();
+});
+
+test("maps a failed create to an unknown result and keeps its draft blocked", async () => {
+  const transport = studioTransport();
+  vi.mocked(transport.createProject).mockRejectedValueOnce(new Error("conflict"));
+  render(<App transport={transport} />);
+  await screen.findByText("还没有制作项目");
+
+  fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+  await screen.findByRole("heading", { name: "近期作品" });
+  fireEvent.change(screen.getByRole("textbox", { name: "作品名称" }), {
+    target: { value: "失败后保留" },
+  });
+  fireEvent.change(screen.getByLabelText("作品默认目标时长"), { target: { value: "120" } });
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
+
+  expect(await screen.findByText(/创建结果待核对/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "作品名称" })).toHaveValue("失败后保留");
+  expect(transport.createProject).toHaveBeenCalledWith(
+    expect.objectContaining({ target_duration_seconds: 120 }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑草稿" }));
+  expect(screen.getByRole("button", { name: "创建新请求" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "创建新的请求" }));
+  fireEvent.click(screen.getByRole("button", { name: "仍然创建新请求" }));
+  expect(screen.getByRole("button", { name: "创建新请求" })).toBeEnabled();
+  expect(transport.createProject).toHaveBeenCalledOnce();
+});
+
+test("adds a delayed create without automatically replacing the selected project", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+  };
+  let resolveCreate: ((value: { data: ProjectData; request_id: string }) => void) | undefined;
+  const transport = studioTransport([project, second]);
+  vi.mocked(transport.createProject).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+  await screen.findByRole("heading", { name: "近期作品" });
+  fireEvent.change(screen.getByRole("textbox", { name: "作品名称" }), {
+    target: { value: "迟到创建" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "创建作品" }));
+  expect(await screen.findByRole("button", { name: "正在创建…" })).toBeDisabled();
+  await act(async () =>
+    resolveCreate?.({
+      data: { ...project, id: `prj_${"3".repeat(32)}`, name: "迟到创建" },
+      request_id: requestId,
+    }),
+  );
+  expect(await screen.findByText("已创建“迟到创建”。")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "近期作品列表" })).getByRole("button", {
+      name: /夜航/,
+    }),
+  );
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+});
+
+test("makes the workspace inert while project entry is open and restores its trigger on cancel", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  const trigger = screen.getByRole("button", { name: "新建项目" });
+
+  fireEvent.click(trigger);
+  expect(await screen.findByRole("heading", { name: "近期作品" })).toBeInTheDocument();
+  expect(document.querySelector("main.workspace")).toHaveAttribute("inert");
+  expect(document.querySelector("aside.sidebar")).toHaveAttribute("inert");
+
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(screen.queryByRole("heading", { name: "近期作品" })).toBeNull());
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+test("rejects unsupported and oversized files before transport", async () => {
+  const transport = studioTransport([project]);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
+  const input = screen.getByLabelText("选择 TXT 文件");
+
+  fireEvent.change(input, {
+    target: { files: [new File(["text"], "story.md", { type: "text/markdown" })] },
+  });
+  expect(await screen.findByRole("alert")).toHaveTextContent("扩展名为 .txt");
+
+  fireEvent.change(input, {
+    target: { files: [new File([new Uint8Array(5 * 1024 * 1024 + 1)], "large.txt")] },
+  });
+  expect(await screen.findByRole("alert")).toHaveTextContent("超过 5 MiB");
+  expect(transport.importTextSource).not.toHaveBeenCalled();
+});
+
+test("shows an actionable import error and accepts drag-and-drop", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.importTextSource).mockRejectedValueOnce(new Error("duplicate"));
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
+  const dropZone = screen.getByText("拖入 TXT，或点击选择").closest("label");
+  expect(dropZone).not.toBeNull();
+
+  fireEvent.drop(dropZone!, {
+    dataTransfer: { files: [new File(["第一章"], "story.txt", { type: "text/plain" })] },
+  });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("UTF-8 文本且尚未导入");
+});
+
+test("switches between project cards and tolerates an invalid legacy date", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+    updated_at: "invalid-date",
+  };
+  render(<App transport={studioTransport([project, second])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /夜航/ }));
+
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+  expect(screen.getByText("刚刚更新")).toBeInTheDocument();
+});
+
+test("ignores a stale source restore after the user switches projects", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+  };
+  const transport = studioTransport([project, second]);
+  let resolveFirstRestore: ((value: SourceDocumentListResponse) => void) | undefined;
+  vi.mocked(transport.listSources)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirstRestore = resolve;
+        }),
+    )
+    .mockResolvedValueOnce({ data: [], request_id: requestId });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /夜航/ }));
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+  resolveFirstRestore?.({ data: [sourceSummary], request_id: requestId });
+
+  await waitFor(() => expect(transport.listSources).toHaveBeenCalledTimes(2));
+  expect(transport.getSource).not.toHaveBeenCalled();
+});
+
+test("does not show an imported source under a project selected while upload was pending", async () => {
+  const second = {
+    ...project,
+    id: `prj_${"2".repeat(32)}`,
+    name: "夜航",
+  };
+  const transport = studioTransport([project, second]);
+  let resolveImport: ((value: SourceDocumentResponse) => void) | undefined;
+  vi.mocked(transport.importTextSource).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveImport = resolve;
+      }),
+  );
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  await openProjectPage("原文");
+
+  fireEvent.change(screen.getByLabelText("选择 TXT 文件"), {
+    target: { files: [new File(["第一章 初见"], "story.txt", { type: "text/plain" })] },
+  });
+  await waitFor(() => expect(transport.importTextSource).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: /夜航/ }));
+  expect(await screen.findByRole("heading", { name: "夜航" })).toBeInTheDocument();
+  resolveImport?.(sourceResponse);
+
+  await waitFor(() => expect(transport.listSources).toHaveBeenCalledTimes(2));
+  expect(screen.queryByText("第一章 初见")).not.toBeInTheDocument();
+});
+
+test("opens the professional story workshop and presents source, canon, and review together", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  mockStoryBible(transport);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByRole("heading", { name: "故事圣经" })).toBeInTheDocument();
+  expect(screen.getByText("G1 来源已验收")).toBeInTheDocument();
+  expect(screen.getByText("失忆记者循着一封旧信追查雾城真相。")).toBeInTheDocument();
+  expect(screen.getAllByText("林见").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("林见 · 职业：记者")).toHaveLength(2);
+  expect(screen.getByRole("heading", { name: "逐事实证据" })).toBeInTheDocument();
+  expect(screen.getByText("林见的职业是记者")).toBeInTheDocument();
+  expect(screen.getByText("字节 17–41")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "查看 林见 · 职业：记者 的来源证据" }));
+  expect(screen.getByText("候选 / 争议 / 已拒绝")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "查看 林见 → 曾是搭档 → 周野 的来源证据" }));
+  expect(screen.getByText("两人曾经共同行动")).toBeInTheDocument();
+  expect(screen.getByText("旧信是谁寄出的？")).toBeInTheDocument();
+  expect(screen.getByText(/relationship · 1 条关联事实/)).toBeInTheDocument();
+  const conflictCard = screen.getByText(/relationship · 1 条关联事实/).closest("article");
+  expect(conflictCard).not.toBeNull();
+  expect(
+    within(conflictCard!).getByRole("button", { name: /林见 → 曾是搭档 → 周野/ }),
+  ).toHaveTextContent("证据 1");
+  fireEvent.click(within(conflictCard!).getByRole("button", { name: /林见 → 曾是搭档 → 周野/ }));
+  expect(screen.getByText("原文叙事序")).toBeInTheDocument();
+  expect(screen.getByText("状态变化")).toBeInTheDocument();
+  expect(screen.getByText("等待 G2 审阅")).toBeInTheDocument();
+  expect(transport.getSourceManifest).toHaveBeenCalledWith(project.id);
+  expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
+  expect(transport.getStoryBibleVersion).toHaveBeenCalledWith(
+    project.id,
+    storyBibleResponse.data.version.id,
+  );
+});
+
+test("defaults to the exact review version and can switch accepted and latest baselines", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  const reviewVersion = {
+    ...storyBibleResponse.data.version,
+    id: `ver_${"8".repeat(32)}`,
+    version_number: 1,
+    change_summary: "送审版本",
+    content: {
+      ...storyBibleResponse.data.version.content,
+      title: "审阅版故事圣经",
+    },
+  };
+  const acceptedVersion = {
+    ...storyBibleResponse.data.version,
+    id: `ver_${"9".repeat(32)}`,
+    version_number: 1,
+    change_summary: "已验收基线",
+    content: {
+      ...storyBibleResponse.data.version.content,
+      title: "验收版故事圣经",
+    },
+  };
+  mockStoryBible(transport, {
+    latest: storyBibleResponse.data.version,
+    review: reviewVersion,
+    accepted: acceptedVersion,
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByRole("heading", { name: "审阅版故事圣经" })).toBeInTheDocument();
+  expect(screen.getByText("正在查看 REVIEW")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /ACCEPTEDV01/ }));
+  expect(await screen.findByRole("heading", { name: "验收版故事圣经" })).toBeInTheDocument();
+  expect(screen.getByText("G2 已验收基线")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /LATESTV02/ }));
+  await waitFor(() =>
+    expect(screen.getAllByRole("heading", { name: "雾城来信" }).length).toBeGreaterThan(0),
+  );
+  expect(screen.getByText("正在查看 LATEST")).toBeInTheDocument();
+});
+
+test("switches the source preview among the exact G1 latest, review, and accepted versions", async () => {
+  const latestVersion = {
+    ...sourceManifestVersion,
+    id: `ver_${"a".repeat(32)}`,
+    version_number: 3,
+    change_summary: "最新来源草稿",
+  };
+  const reviewVersion = {
+    ...sourceManifestVersion,
+    id: `ver_${"b".repeat(32)}`,
+    version_number: 2,
+    change_summary: "正在审阅的来源",
+  };
+  const acceptedVersion = {
+    ...sourceManifestVersion,
+    id: `ver_${"c".repeat(32)}`,
+    version_number: 1,
+    change_summary: "下游采用的来源基线",
+  };
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue({
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      head: {
+        ...sourceManifestResponse.data.head,
+        latest_version_id: latestVersion.id,
+        review_version_id: reviewVersion.id,
+        accepted_version_id: acceptedVersion.id,
+      },
+      latest_version: latestVersion,
+      review_version: reviewVersion,
+      accepted_version: acceptedVersion,
+    },
+  });
+  mockStoryBible(transport, {
+    latest: {
+      ...storyBibleResponse.data.version,
+      content: {
+        ...storyBibleResponse.data.version.content,
+        source_scope: {
+          ...storyBibleResponse.data.version.content.source_scope,
+          source_manifest_version_id: acceptedVersion.id,
+        },
+      },
+    },
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByText("正在查看 ACCEPTED 来源清单")).toBeInTheDocument();
+  expect(screen.getByText("下游采用的来源基线")).toBeInTheDocument();
+  const selector = screen.getByLabelText("来源清单版本");
+  fireEvent.click(within(selector).getByRole("button", { name: /REVIEWV2/ }));
+  expect(screen.getByText("正在审阅的来源")).toBeInTheDocument();
+  fireEvent.click(within(selector).getByRole("button", { name: /LATESTV3/ }));
+  expect(screen.getByText("最新来源草稿")).toBeInTheDocument();
+});
+
+test("loads evidence from the exact referenced document instead of the latest preview", async () => {
+  let referencedOffset = 0;
+  const referencedBlocks = [
+    "上下文段落 1",
+    "上下文段落 2",
+    "上下文段落 3",
+    "上下文段落 4",
+    "上下文段落 5",
+    "上下文段落 6",
+    "上下文段落 7",
+    "上下文段落 8",
+    "旧信在港口被发现。",
+  ].map((text, index) => {
+    const start = referencedOffset;
+    referencedOffset += new TextEncoder().encode(text).length;
+    const block = {
+      ...sourceResponse.data.blocks[1]!,
+      id: `srcb_${String(index + 1).repeat(32)}`,
+      ordinal: index,
+      text,
+      normalized_start_byte: start,
+      normalized_end_byte: referencedOffset,
+    };
+    referencedOffset += 1;
+    return block;
+  });
+  const referencedBlock = referencedBlocks.at(-1)!;
+  const referencedSource: SourceDocumentResponse = {
+    data: {
+      ...sourceResponse.data,
+      id: `src_${"6".repeat(32)}`,
+      filename: "港口旧信.txt",
+      raw_sha256: "7".repeat(64),
+      byte_size: referencedOffset - 1,
+      block_count: referencedBlocks.length,
+      blocks: referencedBlocks,
+    },
+    request_id: requestId,
+  };
+  const exactStory: StoryBibleResponse = {
+    ...storyBibleResponse,
+    data: {
+      ...storyBibleResponse.data,
+      version: {
+        ...storyBibleResponse.data.version,
+        content: {
+          ...storyBibleResponse.data.version.content,
+          source_scope: {
+            ...storyBibleResponse.data.version.content.source_scope,
+            documents: [
+              {
+                source_document_id: referencedSource.data.id,
+                raw_sha256: referencedSource.data.raw_sha256,
+                source_block_ids: [referencedBlock.id],
+                chapter_indices: [1],
+              },
+            ],
+          },
+        },
+        source_spans: [
+          {
+            ...storyBibleResponse.data.version.source_spans[0]!,
+            source_document_id: referencedSource.data.id,
+            source_block_id: referencedBlock.id,
+            start_byte: referencedBlock.normalized_start_byte,
+            end_byte: referencedBlock.normalized_end_byte,
+          },
+        ],
+      },
+    },
+  };
+  const manifestWithSecondSource = {
+    ...sourceManifestVersion,
+    content: {
+      ...sourceManifestVersion.content,
+      documents: [
+        ...sourceManifestVersion.content.documents,
+        {
+          source_document_id: referencedSource.data.id,
+          filename: referencedSource.data.filename,
+          media_type: "text/plain" as const,
+          encoding: "utf-8" as const,
+          byte_size: referencedSource.data.byte_size,
+          chapter_count: referencedSource.data.chapter_count,
+          raw_sha256: referencedSource.data.raw_sha256,
+          normalized_sha256: "9".repeat(64),
+          import_order: 2,
+          blocks: [],
+        },
+      ],
+    },
+  };
+  const transport = studioTransport([project]);
+  vi.mocked(transport.listSources).mockResolvedValue({
+    data: [sourceSummary],
+    request_id: requestId,
+  });
+  vi.mocked(transport.getSource).mockImplementation(async (_projectId, sourceId) =>
+    sourceId === referencedSource.data.id ? referencedSource : sourceResponse,
+  );
+  vi.mocked(transport.getSourceManifest).mockResolvedValue({
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      latest_version: manifestWithSecondSource,
+      review_version: manifestWithSecondSource,
+      accepted_version: manifestWithSecondSource,
+    },
+  });
+  mockStoryBible(transport, { latest: exactStory.data.version });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByText("“旧信在港口被发现。”")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /#2港口旧信\.txt1 章src_66666666/ }),
+  ).toBeInTheDocument();
+  expect(screen.getAllByText(referencedSource.data.id).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "打开《港口旧信.txt》上下文" }));
+  await waitFor(() => {
+    const preview = document.querySelector(".evidence-document");
+    expect(preview).not.toBeNull();
+    expect(within(preview as HTMLElement).getByText("港口旧信.txt")).toBeInTheDocument();
+  });
+  const targetBlock = await screen.findByText("旧信在港口被发现。", {
+    selector: ".evidence-block p",
+  });
+  expect(targetBlock.closest(".evidence-block")).toHaveClass("active");
+  expect(targetBlock.closest(".evidence-block")).toHaveFocus();
+  expect(screen.queryByText("上下文段落 1")).not.toBeInTheDocument();
+  expect(transport.getSource).toHaveBeenCalledWith(project.id, sourceResponse.data.id);
+  expect(transport.getSource).toHaveBeenCalledWith(project.id, referencedSource.data.id);
+  expect(screen.queryByText(/无法从绑定的来源文档恢复/)).not.toBeInTheDocument();
+});
+
+test("keeps unreliable confirmed claims out of effective canon and supports fact search", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  const unreliableFacts = storyBibleResponse.data.version.content.facts.map((fact) =>
+    fact.kind === "location_fact"
+      ? {
+          ...fact,
+          canon_certainty: "intentionally_unreliable" as const,
+          source_reliability: "unreliable" as const,
+        }
+      : fact,
+  );
+  mockStoryBible(transport, {
+    latest: {
+      ...storyBibleResponse.data.version,
+      content: {
+        ...storyBibleResponse.data.version.content,
+        facts: unreliableFacts,
+      },
+    },
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "故事圣经" });
+
+  const canonList = screen.getByText("有效正典").closest<HTMLElement>(".fact-list");
+  const reviewList = screen.getByText("候选 / 争议 / 已拒绝").closest<HTMLElement>(".fact-list");
+  expect(canonList).not.toBeNull();
+  expect(reviewList).not.toBeNull();
+  expect(within(canonList!).queryByText("雾城 · 天气：常年多雾")).not.toBeInTheDocument();
+  expect(within(reviewList!).getByText("雾城 · 天气：常年多雾")).toBeInTheDocument();
+  const search = screen.getByLabelText("搜索事实");
+  fireEvent.change(search, { target: { value: "电子记录" } });
+  expect(search).toHaveValue("电子记录");
+  expect(screen.getByText("雾城区 · 雾会干扰电子记录")).toBeInTheDocument();
+  await waitFor(() => {
+    const currentCanon = screen.getByText("有效正典").closest<HTMLElement>(".fact-list");
+    const currentReview = screen
+      .getByText("候选 / 争议 / 已拒绝")
+      .closest<HTMLElement>(".fact-list");
+    expect(within(currentCanon!).queryByText("林见 · 职业：记者")).not.toBeInTheDocument();
+    expect(within(currentReview!).queryByText("林见 · 职业：记者")).not.toBeInTheDocument();
+  });
+});
+
+test("paginates long fact and review queues without silently truncating them", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  const factIds = Array.from(
+    { length: 21 },
+    (_, index) => `fact_${index.toString(16).padStart(32, "0")}`,
+  );
+  const facts: StoryBibleResponse["data"]["version"]["content"]["facts"] = factIds.map(
+    (factId, index) => ({
+      fact_id: factId,
+      kind: "world_rule_fact",
+      rule: `长列表规则 ${index + 1}`,
+      rule_scope: "雾城区",
+      importance: "supporting",
+      canon_status: "proposed",
+      canon_certainty: "likely",
+      origin: "ai_inference",
+      source_reliability: "uncertain",
+    }),
+  );
+  const questions: NonNullable<StoryBibleResponse["data"]["version"]["content"]["questions"]> =
+    Array.from({ length: 21 }, (_, index) => ({
+      question_id: `qst_${index.toString(16).padStart(32, "0")}`,
+      question: `长列表问题 ${index + 1}`,
+      blocking: false,
+      responsible_role: "编剧",
+      scope_type: "artifact",
+      severity: "minor",
+      status: "open",
+    }));
+  const conflicts: NonNullable<StoryBibleResponse["data"]["version"]["content"]["conflicts"]> =
+    Array.from({ length: 21 }, (_, index) => ({
+      conflict_id: `cfl_${index.toString(16).padStart(32, "0")}`,
+      conflict_type: `长列表冲突 ${index + 1}`,
+      fact_ids: [factIds[0]!, factIds[1]!],
+      responsible_role: "连续性审阅",
+      severity: "major",
+      status: "unresolved",
+    }));
+  const entities: StoryBibleResponse["data"]["version"]["content"]["entities"] = Array.from(
+    { length: 21 },
+    (_, index) => ({
+      entity_id: `ent_${index.toString(16).padStart(32, "0")}`,
+      kind: "character",
+      name: `长列表角色 ${index + 1}`,
+      aliases: [`别名 ${index + 1}`],
+    }),
+  );
+  mockStoryBible(transport, {
+    latest: {
+      ...storyBibleResponse.data.version,
+      content: {
+        ...storyBibleResponse.data.version.content,
+        entities,
+        facts,
+        questions,
+        conflicts,
+      },
+      source_spans: [],
+    },
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "故事圣经" });
+
+  expect(screen.queryByText("长列表角色 21")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "再显示 20 个实体" }));
+  expect(screen.getByText("长列表角色 21")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("搜索实体"), { target: { value: "别名 21" } });
+  expect(screen.getByText("长列表角色 21")).toBeInTheDocument();
+  expect(screen.queryByText("雾城区 · 长列表规则 21")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "再显示 20 条事实" }));
+  expect(screen.getByText("雾城区 · 长列表规则 21")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "再显示 20 个问题" }));
+  expect(screen.getByText("长列表问题 21")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "再显示 20 个冲突" }));
+  expect(screen.getByText(/长列表冲突 21 · 2 条关联事实/)).toBeInTheDocument();
+});
+
+test("exposes scoped questions, typed fact links, and resolved conflict decisions", async () => {
+  const characterFactId = `fact_${"d".repeat(32)}`;
+  const relationshipFactId = `fact_${"e".repeat(32)}`;
+  const worldRuleFactId = `fact_${"4".repeat(32)}`;
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  mockStoryBible(transport, {
+    latest: {
+      ...storyBibleResponse.data.version,
+      content: {
+        ...storyBibleResponse.data.version.content,
+        facts: storyBibleResponse.data.version.content.facts.map((fact) =>
+          fact.fact_id === relationshipFactId
+            ? { ...fact, derived_from_fact_ids: [characterFactId] }
+            : fact,
+        ),
+        questions: [
+          {
+            ...storyBibleResponse.data.version.content.questions![0]!,
+            scope_type: "fact",
+            scope_id: relationshipFactId,
+          },
+          {
+            question_id: `qst_${"2".repeat(32)}`,
+            question: "林见的人物小传是否完整？",
+            blocking: true,
+            responsible_role: "主编剧",
+            scope_type: "entity",
+            scope_id: `ent_${"9".repeat(32)}`,
+            severity: "major",
+            status: "open",
+          },
+          {
+            question_id: `qst_${"3".repeat(32)}`,
+            question: "需要核对原文上下文吗？",
+            blocking: true,
+            responsible_role: "连续性审阅",
+            scope_type: "source_document",
+            scope_id: sourceResponse.data.id,
+            severity: "major",
+            status: "open",
+          },
+        ],
+        conflicts: [
+          ...storyBibleResponse.data.version.content.conflicts!,
+          {
+            conflict_id: `cfl_${"1".repeat(32)}`,
+            conflict_type: "职业归属",
+            fact_ids: [characterFactId],
+            responsible_role: "主编剧",
+            severity: "minor",
+            status: "resolved_by_user_decision",
+            resolution_reason: "用户确认林见是调查记者。",
+            resolution_fact_id: characterFactId,
+          },
+          {
+            conflict_id: `cfl_${"2".repeat(32)}`,
+            conflict_type: "世界规则证据不足",
+            fact_ids: [worldRuleFactId],
+            responsible_role: "连续性审阅",
+            severity: "major",
+            status: "unresolved",
+          },
+        ],
+      },
+    },
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByRole("heading", { name: "故事圣经" });
+
+  expect(screen.getAllByText("BLOCKING")).toHaveLength(3);
+  expect(screen.getByText("fact")).toBeInTheDocument();
+  const relationshipCard = screen
+    .getByRole("button", { name: "查看 林见 → 曾是搭档 → 周野 的来源证据" })
+    .closest("article");
+  expect(relationshipCard).not.toBeNull();
+  const derivedLink = within(relationshipCard!).getByRole("button", {
+    name: new RegExp(`派生自.*林见 · 职业：记者.*${characterFactId}`),
+  });
+  fireEvent.click(derivedLink);
+  expect(derivedLink).toHaveTextContent(characterFactId);
+  expect(screen.getByText("resolved_by_user_decision")).toBeInTheDocument();
+  expect(screen.getByText("决议依据：用户确认林见是调查记者。")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /决议事实 · 林见 · 职业：记者/ })).toBeEnabled();
+  const noEvidenceConflictLink = screen.getByRole("button", {
+    name: /雾城区 · 雾会干扰电子记录.*证据 0/,
+  });
+  expect(noEvidenceConflictLink).toBeEnabled();
+  fireEvent.click(noEvidenceConflictLink);
+  const noEvidenceFactCard = screen
+    .getByRole("button", { name: "查看 雾城区 · 雾会干扰电子记录 的来源证据" })
+    .closest("article");
+  expect(noEvidenceFactCard).toHaveClass("active");
+  expect(noEvidenceFactCard).toHaveFocus();
+  expect(screen.getByText("当前事实没有绑定可核对的精确引文。")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("搜索事实"), { target: { value: "不存在的事实" } });
+  const factQuestion = screen.getByText("旧信是谁寄出的？").closest("article");
+  fireEvent.click(within(factQuestion!).getByRole("button", { name: "林见 → 曾是搭档 → 周野" }));
+  expect(screen.getByLabelText("搜索事实")).toHaveValue("");
+  const navigatedFactCard = screen
+    .getByRole("button", { name: "查看 林见 → 曾是搭档 → 周野 的来源证据" })
+    .closest("article");
+  expect(navigatedFactCard).toHaveClass("active");
+  expect(navigatedFactCard).toHaveFocus();
+  const entityQuestion = screen.getByText("林见的人物小传是否完整？").closest("article");
+  fireEvent.click(within(entityQuestion!).getByRole("button", { name: "林见" }));
+  expect(document.getElementById(`entity-ent_${"9".repeat(32)}`)).toHaveClass("active");
+  const sourceQuestion = screen.getByText("需要核对原文上下文吗？").closest("article");
+  fireEvent.click(within(sourceQuestion!).getByRole("button", { name: "雾城来信.txt" }));
+  await waitFor(() => {
+    const preview = document.querySelector(".evidence-document");
+    expect(within(preview as HTMLElement).getByText("雾城来信.txt")).toBeInTheDocument();
+    expect(document.querySelector(".evidence-excerpts")).toHaveFocus();
+  });
+});
+
+test("marks unavailable evidence explicitly instead of substituting another source", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  mockStoryBible(transport);
+  vi.mocked(transport.getSource).mockRejectedValue(new Error("source offline"));
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByText(/无法从绑定的来源文档恢复该引文/)).toBeInTheDocument();
+  expect(screen.getByText(/1 份证据文档读取失败/)).toBeInTheDocument();
+});
+
+test("shows an honest G1 dependency state instead of a fake story action", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue({
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      head: { ...sourceManifestResponse.data.head, accepted_version_id: null },
+    },
+  });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByRole("heading", { name: "来源尚未验收" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "前往来源审核" }));
+  expect(await screen.findByRole("region", { name: "来源审核" })).toBeInTheDocument();
+  expect(transport.getStoryBibleIndex).not.toHaveBeenCalled();
+});
+
+test("recovers the story workshop after a local read failure", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  vi.mocked(transport.getStoryBibleIndex)
+    .mockRejectedValueOnce(new Error("sidecar restarting"))
+    .mockResolvedValueOnce(null);
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  expect(await screen.findByRole("heading", { name: "故事工坊暂时无法读取" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
+
+  expect(await screen.findByRole("heading", { name: "可以开始拆解小说" })).toBeInTheDocument();
+  expect(transport.getSourceManifest).toHaveBeenCalledTimes(3);
+  expect(transport.getStoryBibleIndex).toHaveBeenCalledWith(project.id);
+});
+
+test("distinguishes latest drafts from accepted versions and marks stale G1 bindings", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue(sourceManifestResponse);
+  const staleVersion: StoryVersion = {
+    ...storyBibleResponse.data.version,
+    content: {
+      ...storyBibleResponse.data.version.content,
+      source_scope: {
+        ...storyBibleResponse.data.version.content.source_scope,
+        source_manifest_version_id: `ver_${"f".repeat(32)}`,
+      },
+    },
+  };
+  mockStoryBible(transport, { latest: staleVersion, accepted: staleVersion });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+
+  expect(await screen.findByText("故事圣经来源已过期")).toBeInTheDocument();
+  expect(screen.getByText("G2 来源已过期")).toBeInTheDocument();
+  expect(screen.queryByText("G2 最新版已验收")).not.toBeInTheDocument();
+});
+
+test("labels a newer draft separately from the accepted downstream baseline", async () => {
+  const transport = studioTransport([project]);
+  vi.mocked(transport.getSourceManifest).mockResolvedValue({
+    ...sourceManifestResponse,
+    data: {
+      ...sourceManifestResponse.data,
+      head: {
+        ...sourceManifestResponse.data.head,
+        accepted_version_id: `ver_${"e".repeat(32)}`,
+      },
+    },
+  });
+  const latestDraft: StoryVersion = {
+    ...storyBibleResponse.data.version,
+    content: {
+      ...storyBibleResponse.data.version.content,
+      source_scope: {
+        ...storyBibleResponse.data.version.content.source_scope,
+        source_manifest_version_id: `ver_${"e".repeat(32)}`,
+      },
+    },
+  };
+  const acceptedStory: StoryVersion = {
+    ...latestDraft,
+    id: `ver_${"d".repeat(32)}`,
+    version_number: 1,
+    change_summary: "下游已验收故事基线",
+  };
+  mockStoryBible(transport, { latest: latestDraft, accepted: acceptedStory });
+  render(<App transport={transport} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+
+  fireEvent.click(screen.getByRole("button", { name: /故事工坊/ }));
+  await screen.findByText("正在查看 ACCEPTED");
+  fireEvent.click(screen.getByRole("button", { name: /LATESTV02/ }));
+
+  expect(await screen.findByText("G1 最新草稿未验收")).toBeInTheDocument();
+  expect(screen.getByText("G2 最新草稿未验收")).toBeInTheDocument();
+  expect(screen.getByText(/下游仍使用 ver_eeeeeeee/)).toBeInTheDocument();
+});
+
+test("keeps one restored workbench shell around real navigation", async () => {
+  render(<App transport={studioTransport([project])} />);
+  await screen.findByRole("heading", { name: "雾城来信" });
+  const shell = document.querySelector(".studio-shell");
+  expect(shell).toHaveAttribute("data-layout", "ordinary");
+  expect(shell?.querySelectorAll(".topbar")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
+  expect(shell).toHaveAttribute("data-layout", "professional");
+});

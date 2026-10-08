@@ -1,0 +1,47 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\use-provider-settings.ts.before" "b/apps\\studio-web\\src\\domain\\use-provider-settings.ts"
+index ebf3a44..086169f 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\use-provider-settings.ts.before"
++++ "b/apps\\studio-web\\src\\domain\\use-provider-settings.ts"
+@@ -5,6 +5,7 @@ import type {
+   ProviderConnectionListResponse,
+   StudioTransport,
+ } from "../api/studio";
++import { readProviderJournal } from "./sub2api-provider-journal";
+ 
+ export type ProviderSettingsState =
+   | { kind: "loading" }
+@@ -60,7 +61,7 @@ export function useProviderSettings(transport: ProviderSettingsTransport) {
+         setSaveError(
+           cleanupRequired
+             ? "系统凭据可能需要清理。已显示本次保留的连接，请确认连接 ID 后移除。"
+-            : "连接未保存。已重新读取配置，请检查名称、地址和系统凭据库后重试。",
++            : "连接保存结果未知。已重新读取配置；请核对连接 ID 和修订，不要直接重复提交。",
+         );
+         throw error;
+       } finally {
+@@ -74,15 +75,23 @@ export function useProviderSettings(transport: ProviderSettingsTransport) {
+   const remove = useCallback(
+     async (connectionId: string) => {
+       if (confirmingId !== connectionId) return;
++      const connection = state.kind === "ready"
++        ? state.response.data.find((item) => item.id === connectionId) : null;
++      if (connection?.provider_kind === "SUB2API" &&
++          readProviderJournal(connectionId).kind !== "empty") {
++        setSaveError("该连接有待核对的 B31 操作或本地记录不可用；已阻止移除。");
++        return;
++      }
+       try {
+         await deleteConnection(connectionId);
+         setConfirmingId(null);
+         await load();
+       } catch {
+-        setSaveError("无法移除连接；原配置未被界面隐藏。");
++        await load();
++        setSaveError("移除结果未知。已重新读取连接列表；请核对原连接 ID，不要直接重复移除。");
+       }
+     },
+-    [confirmingId, deleteConnection, load],
++    [confirmingId, deleteConnection, load, state],
+   );
+ 
+   return { state, saving, saveError, confirmingId, setConfirmingId, load, create, remove };

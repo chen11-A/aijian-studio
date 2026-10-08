@@ -1,0 +1,800 @@
+--- a/services/api/src/aijian_api/provider_connection_routes.py
++++ b/services/api/src/aijian_api/provider_connection_routes.py
+@@ -35,6 +35,7 @@
+         provider_kind=connection.provider_kind,
+         display_name=connection.display_name,
+         base_url=connection.base_url,
++        origin_mode=connection.origin_mode,
+         enabled=connection.enabled,
+         models=[
+             ProviderModelData(model_id=model.model_id, capabilities=list(model.capabilities))
+@@ -96,6 +97,7 @@
+                 for model in payload.models
+             ],
+             api_key=api_key,
++            origin_mode=payload.origin_mode,
+         )
+         return ProviderConnectionResponse(
+             data=_public_connection(view),
+@@ -131,6 +133,8 @@
+             expected_revision=payload.expected_revision,
+             display_name=payload.display_name,
+             base_url=payload.base_url,
++            origin_mode=payload.origin_mode,
++            origin_mode_explicit="origin_mode" in payload.model_fields_set,
+             enabled=payload.enabled,
+             models=[
+                 ProviderModel(model_id=model.model_id, capabilities=tuple(model.capabilities))
+--- a/services/api/src/aijian_api/provider_connections.py
++++ b/services/api/src/aijian_api/provider_connections.py
+@@ -22,6 +22,7 @@
+     ProviderRotationOperation,
+     ProviderRotationOperationExistsError,
+ )
++from aijian_api.provider_contracts import Sub2APIOriginMode, validate_sub2api_origin
+ 
+ type CredentialStatus = Literal["CONFIGURED", "MISSING", "UNAVAILABLE"]
+ 
+@@ -54,6 +55,7 @@
+         enabled: bool,
+         models: Sequence[ProviderModel],
+         api_key: str | None,
++        origin_mode: Sub2APIOriginMode | None = None,
+     ) -> ProviderConnectionView:
+         if provider_kind == "CPA_LOOPBACK" and (
+             api_key is None
+@@ -67,12 +69,18 @@
+             or any(character.isspace() for character in api_key)
+         ):
+             raise ValueError("Sub2API requires a dedicated user API key")
++        if provider_kind == "SUB2API":
++            origin_mode = origin_mode or "PUBLIC_HTTPS"
++            validate_sub2api_origin(base_url, origin_mode)
++        elif origin_mode is not None:
++            raise ValueError("origin_mode is only valid for Sub2API")
+         connection = self._repository.create(
+             provider_kind=provider_kind,
+             display_name=display_name,
+             base_url=base_url,
+             enabled=enabled,
+             models=models,
++            origin_mode=origin_mode,
+         )
+         if api_key is None:
+             return ProviderConnectionView(connection=connection, credential_status="MISSING")
+@@ -98,13 +106,19 @@
+     def edit_sub2api(
+         self, *, connection_id: str, expected_revision: int, display_name: str,
+         base_url: str, enabled: bool, models: Sequence[ProviderModel],
++        origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS",
++        origin_mode_explicit: bool = False,
+     ) -> ProviderConnectionView:
+         current = self._repository.get(connection_id)
+         if current.provider_kind != "SUB2API" or current.revision != expected_revision:
+             raise ProviderConnectionVersionConflictError("provider revision changed")
++        if current.origin_mode == "LOCAL_LOOPBACK_HTTP" and not origin_mode_explicit:
++            raise ValueError("editing a local Sub2API connection requires explicit origin_mode")
++        validate_sub2api_origin(base_url, origin_mode)
+         updated = self._repository.update_metadata_cas(
+             connection_id=connection_id, expected_revision=expected_revision,
+             display_name=display_name, base_url=base_url, enabled=enabled, models=models,
++            origin_mode=origin_mode,
+         )
+         return ProviderConnectionView(
+             connection=updated,
+--- a/services/api/src/aijian_api/provider_contracts.py
++++ b/services/api/src/aijian_api/provider_contracts.py
+@@ -14,16 +14,29 @@
+ OPENAI_BASE_URL = "https://api.openai.com/v1"
+ XAI_BASE_URL = "https://api.x.ai/v1"
+ CPA_LOOPBACK_BASE_URL = "http://127.0.0.1:8317"
+-
+-
+-def validate_sub2api_origin(base_url: str) -> None:
+-    """Require an explicit public HTTPS origin, never a gateway API path."""
++Sub2APIOriginMode = Literal["PUBLIC_HTTPS", "LOCAL_LOOPBACK_HTTP"]
++
++
++def validate_sub2api_origin(
++    base_url: str, origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
++) -> None:
++    """Validate one explicitly selected Sub2API origin without widening public policy."""
++    if origin_mode not in {"PUBLIC_HTTPS", "LOCAL_LOOPBACK_HTTP"}:
++        raise ValueError("Sub2API origin mode is invalid")
+     try:
+         parsed = urlsplit(base_url)
+         hostname = parsed.hostname or ""
+         port = parsed.port
+     except ValueError as error:
+         raise ValueError("Sub2API origin is invalid") from error
++    if origin_mode == "LOCAL_LOOPBACK_HTTP":
++        allowed = (
++            f"http://127.0.0.1:{port}",
++            f"http://[::1]:{port}",
++        ) if port is not None and 1 <= port <= 65535 else ()
++        if parsed.scheme != "http" or base_url not in allowed:
++            raise ValueError("Sub2API local mode requires a literal loopback HTTP origin and port")
++        return
+     if (
+         parsed.scheme != "https"
+         or not hostname
+@@ -52,6 +65,20 @@
+             raise ValueError("Sub2API cannot use a non-public IP origin")
+ 
+ 
++def sub2api_origin_binding(
++    base_url: str, origin_mode: Sub2APIOriginMode, connection_revision: int
++) -> dict[str, object]:
++    """Immutable non-secret binding included in run and approval scope hashes."""
++    validate_sub2api_origin(base_url, origin_mode)
++    if type(connection_revision) is not int or connection_revision < 1:
++        raise ValueError("Sub2API connection revision is invalid")
++    return {
++        "origin": base_url,
++        "origin_mode": origin_mode,
++        "connection_revision": connection_revision,
++    }
++
++
+ def _normalize_base_url(value: object) -> object:
+     if not isinstance(value, str):
+         return value
+@@ -104,6 +131,16 @@
+     enabled: bool = True
+     models: list[ProviderModelData] = Field(min_length=1, max_length=100)
+     api_key: SecretStr | None = Field(default=None, min_length=8, max_length=8192)
++    origin_mode: Sub2APIOriginMode | None = None
++
++    @model_validator(mode="before")
++    @classmethod
++    def reject_noncanonical_local_origin(cls, value: object) -> object:
++        if isinstance(value, dict) and value.get("origin_mode") == "LOCAL_LOOPBACK_HTTP":
++            base_url = value.get("base_url")
++            if not isinstance(base_url, str) or base_url != base_url.strip().rstrip("/"):
++                raise ValueError("Sub2API local origin must be canonical")
++        return value
+ 
+     @field_validator("display_name", mode="before")
+     @classmethod
+@@ -150,9 +187,13 @@
+                         "OpenAI-compatible connections cannot use a non-public IP origin"
+                     )
+         if self.provider_kind == "SUB2API":
+-            validate_sub2api_origin(self.base_url)
++            if "origin_mode" in self.model_fields_set and self.origin_mode is None:
++                raise ValueError("Sub2API origin_mode cannot be null")
++            validate_sub2api_origin(self.base_url, self.origin_mode or "PUBLIC_HTTPS")
+             if any(model.capabilities != ["TEXT"] for model in self.models):
+                 raise ValueError("Sub2API connections currently require text-only models")
++        elif self.origin_mode is not None:
++            raise ValueError("origin_mode is only valid for Sub2API")
+         model_ids = [model.model_id for model in self.models]
+         if len(model_ids) != len(set(model_ids)):
+             raise ValueError("model IDs must be unique within a connection")
+@@ -169,6 +210,16 @@
+     base_url: str = Field(min_length=1, max_length=2048)
+     enabled: bool
+     models: list[ProviderModelData] = Field(min_length=1, max_length=100)
++    origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
++
++    @model_validator(mode="before")
++    @classmethod
++    def reject_noncanonical_local_origin(cls, value: object) -> object:
++        if isinstance(value, dict) and value.get("origin_mode") == "LOCAL_LOOPBACK_HTTP":
++            base_url = value.get("base_url")
++            if not isinstance(base_url, str) or base_url != base_url.strip().rstrip("/"):
++                raise ValueError("Sub2API local origin must be canonical")
++        return value
+ 
+     @field_validator("display_name", mode="before")
+     @classmethod
+@@ -182,7 +233,7 @@
+ 
+     @model_validator(mode="after")
+     def enforce_sub2api_policy(self) -> "EditSub2APIConnectionRequest":
+-        validate_sub2api_origin(self.base_url)
++        validate_sub2api_origin(self.base_url, self.origin_mode)
+         if any(model.capabilities != ["TEXT"] for model in self.models):
+             raise ValueError("Sub2API connections currently require text-only models")
+         model_ids = [model.model_id for model in self.models]
+@@ -238,6 +289,7 @@
+     ]
+     display_name: str
+     base_url: str
++    origin_mode: Sub2APIOriginMode | None = None
+     enabled: bool
+     models: list[ProviderModelData]
+     credential_status: Literal["CONFIGURED", "MISSING", "UNAVAILABLE"]
+--- a/services/api/src/aijian_api/sub2api_connection_readiness.py
++++ b/services/api/src/aijian_api/sub2api_connection_readiness.py
+@@ -13,8 +13,10 @@
+ )
+ from aijian_api.provider_contracts import (
+     PROVIDER_CONNECTION_ID_PATTERN,
++    Sub2APIOriginMode,
+     validate_sub2api_origin,
+ )
++from aijian_api.sub2api_text_transport import local_loopback_route_clear
+ 
+ type CredentialState = Literal["CONFIGURED", "MISSING", "UNAVAILABLE"]
+ type LocalReadinessReason = Literal[
+@@ -35,6 +37,7 @@
+ 
+     connection_id: str = Field(pattern=PROVIDER_CONNECTION_ID_PATTERN)
+     connection_revision: int = Field(strict=True, ge=1)
++    origin_mode: Sub2APIOriginMode | None = None
+     model_id: str = Field(min_length=1, max_length=200)
+     credential_status: CredentialState
+     runtime_status: str
+@@ -63,7 +66,11 @@
+             reasons.append("NOT_SUB2API")
+         else:
+             try:
+-                validate_sub2api_origin(connection.base_url)
++                validate_sub2api_origin(connection.base_url, connection.origin_mode)
++                if connection.origin_mode == "LOCAL_LOOPBACK_HTTP" and not local_loopback_route_clear(
++                    connection.base_url
++                ):
++                    raise ValueError("local Sub2API route is not verified")
+             except ValueError:
+                 reasons.append("ORIGIN_INVALID")
+         if not connection.enabled:
+@@ -92,6 +99,7 @@
+         return Sub2APIConfiguredReadinessData(
+             connection_id=connection.id,
+             connection_revision=connection.revision,
++            origin_mode=connection.origin_mode,
+             model_id=model_id,
+             credential_status=credential_status,
+             runtime_status=runtime_status,
+--- a/services/api/src/aijian_api/sub2api_source_extract_contracts.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_contracts.py
+@@ -21,7 +21,7 @@
+     TASK_ID_PATTERN,
+     CreateProposalRunRequest,
+ )
+-from aijian_api.provider_contracts import PROVIDER_CONNECTION_ID_PATTERN
++from aijian_api.provider_contracts import PROVIDER_CONNECTION_ID_PATTERN, Sub2APIOriginMode
+ 
+ 
+ class _ClosedContract(BaseModel):
+@@ -56,6 +56,7 @@
+     selection: Sub2APISourceExtractSelectionData
+     source: CreateProposalRunRequest
+     origin_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
++    origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
+     input_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+     context_manifest_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+     attempt_fingerprint: str = Field(pattern=CONTENT_HASH_PATTERN)
+--- a/services/api/src/aijian_api/sub2api_source_extract_invocation.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_invocation.py
+@@ -13,6 +13,7 @@
+ )
+ from aijian_api.agent_skill_contracts import AttemptSnapshotV1, canonical_sha256
+ from aijian_api.provider_connection_repository import ProviderConnectionRepository
++from aijian_api.provider_contracts import sub2api_origin_binding
+ from aijian_api.repository import StudioRepository
+ from aijian_api.source_extract_run_factory import resolve_source_extract_context
+ from aijian_api.source_extract_worker import FakeSourceExtractInvocationV1
+@@ -79,11 +80,16 @@
+         ):
+             raise PermissionError("Sub2API source context is detached from queued truth")
+         connection = self._connections.get(selection.connection_id)
+-        origin_hash = canonical_sha256({"origin": connection.base_url})
++        origin_hash = canonical_sha256(
++            sub2api_origin_binding(
++                connection.base_url, connection.origin_mode, connection.revision
++            )
++        )
+         if (
+             connection.provider_kind != "SUB2API"
+             or not connection.enabled
+             or connection.revision != selection.connection_revision
++            or connection.origin_mode != scope.origin_mode
+             or origin_hash != scope.origin_hash
+             or not any(
+                 model.model_id == selection.model_id and model.capabilities == ("TEXT",)
+--- a/services/api/src/aijian_api/sub2api_source_extract_policy.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_policy.py
+@@ -15,7 +15,11 @@
+ 
+ from aijian_api.agent_skill_contracts import canonical_sha256
+ from aijian_api.contracts import TASK_ID_PATTERN
+-from aijian_api.provider_contracts import validate_sub2api_origin
++from aijian_api.provider_contracts import (
++    Sub2APIOriginMode,
++    sub2api_origin_binding,
++    validate_sub2api_origin,
++)
+ 
+ _HASH = r"^sha256:[0-9a-f]{64}$"
+ _ID = r"^[a-z]{3}_[0-9a-f]{32}$"
+@@ -39,6 +43,7 @@
+     connection_revision: int = Field(ge=1)
+     model_id: str = Field(min_length=1, max_length=200, pattern=r"^\S(?:.*\S)?$")
+     origin_hash: str = Field(pattern=_HASH)
++    origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
+     input_hash: str = Field(pattern=_HASH)
+     context_manifest_hash: str = Field(pattern=_HASH)
+     allowed_calls: Literal[1]
+@@ -72,6 +77,7 @@
+     provider_kind: str
+     connection_enabled: bool
+     base_url: str
++    origin_mode: Sub2APIOriginMode
+     model_id: str
+     model_capabilities: tuple[str, ...]
+     input_hash: str
+@@ -110,7 +116,7 @@
+     ):
+         return Sub2APIPolicyMatch("REJECTED", "EXECUTION_CONTEXT_INVALID")
+     try:
+-        validate_sub2api_origin(facts.base_url)
++        validate_sub2api_origin(facts.base_url, facts.origin_mode)
+     except ValueError:
+         return Sub2APIPolicyMatch("REJECTED", "ORIGIN_INVALID")
+     if (
+@@ -120,7 +126,12 @@
+         or approval.connection_id != facts.connection_id
+         or approval.connection_revision != facts.connection_revision
+         or approval.model_id != facts.model_id
+-        or approval.origin_hash != canonical_sha256({"origin": facts.base_url})
++        or approval.origin_mode != facts.origin_mode
++        or approval.origin_hash != canonical_sha256(
++            sub2api_origin_binding(
++                facts.base_url, facts.origin_mode, facts.connection_revision
++            )
++        )
+         or approval.input_hash != facts.input_hash
+         or approval.context_manifest_hash != facts.context_manifest_hash
+     ):
+--- a/services/api/src/aijian_api/sub2api_source_extract_run_factory.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_run_factory.py
+@@ -43,7 +43,11 @@
+     ProviderConnectionNotFoundError,
+     ProviderConnectionRepository,
+ )
+-from aijian_api.provider_contracts import validate_sub2api_origin
++from aijian_api.provider_contracts import (
++    Sub2APIOriginMode,
++    sub2api_origin_binding,
++    validate_sub2api_origin,
++)
+ from aijian_api.repository import StudioRepository
+ from aijian_api.source_extract_run_factory import (
+     CreatedProposalRun,
+@@ -67,6 +71,7 @@
+ _DEFINITION_ID = "agent-skill-sub2api-runtime"
+ _DEFINITION_HASH = canonical_sha256(_GRAPH)
+ _ENDPOINT_BINDING = "SUB2API_EXTERNAL_HTTPS_CHAT_V1"
++_LOCAL_ENDPOINT_BINDING = "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
+ _TRANSPORT_CONTRACT_HASH = canonical_sha256(
+     {
+         "method": "POST",
+@@ -84,6 +89,7 @@
+     source: CreateProposalRunRequest
+     context_manifest_id: str = Field(pattern=CONTEXT_ID_PATTERN)
+     origin_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
++    origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
+     input_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+     context_manifest_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+     accepted_manifest_content_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+@@ -117,7 +123,9 @@
+     task_kind: Literal["sub2api.source.extract"]
+     priority: int = Field(ge=0, le=100)
+     attempt_snapshot: dict[str, object]
+-    endpoint_binding: Literal["SUB2API_EXTERNAL_HTTPS_CHAT_V1"]
++    endpoint_binding: Literal[
++        "SUB2API_EXTERNAL_HTTPS_CHAT_V1", "SUB2API_LOCAL_LOOPBACK_HTTP_CHAT_V1"
++    ]
+     transport_contract_hash: str = Field(pattern=CONTENT_HASH_PATTERN)
+     sub2api_scope: Sub2APISourceExtractScopeIntentV1
+ 
+@@ -135,6 +143,7 @@
+         source=scope.source,
+         context_manifest_id=scope.context_manifest_id,
+         origin_hash=scope.origin_hash,
++        origin_mode=scope.origin_mode,
+         input_hash=scope.input_hash,
+         context_manifest_hash=scope.context_manifest_hash,
+         accepted_manifest_content_hash=scope.accepted_manifest_content_hash,
+@@ -155,7 +164,11 @@
+         or intent.agent_run_id != persisted.agent_run_id
+         or intent.definition_hash != _DEFINITION_HASH
+         or intent.graph != _GRAPH
+-        or intent.endpoint_binding != _ENDPOINT_BINDING
++        or intent.endpoint_binding != (
++            _LOCAL_ENDPOINT_BINDING
++            if intent.sub2api_scope.origin_mode == "LOCAL_LOOPBACK_HTTP"
++            else _ENDPOINT_BINDING
++        )
+         or intent.transport_contract_hash != _TRANSPORT_CONTRACT_HASH
+         or intent.sub2api_scope.context_manifest_id != intent.context_manifest_id
+         or intent.sub2api_scope.input_hash != intent.node_input_hash
+@@ -273,7 +286,7 @@
+             connection = ProviderConnectionRepository(self._repository.database_path).get(
+                 selection.connection_id
+             )
+-            validate_sub2api_origin(connection.base_url)
++            validate_sub2api_origin(connection.base_url, connection.origin_mode)
+         except (ProviderConnectionNotFoundError, ValueError) as error:
+             raise ProposalRunInputRejectedError("Sub2API connection is unavailable") from error
+         if (
+@@ -334,7 +347,11 @@
+             ),
+         )
+         built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
+-        origin_hash = canonical_sha256({"origin": connection.base_url})
++        origin_hash = canonical_sha256(
++            sub2api_origin_binding(
++                connection.base_url, connection.origin_mode, connection.revision
++            )
++        )
+         input_hash = canonical_sha256(
+             {
+                 "project_id": project_id,
+@@ -407,6 +424,7 @@
+             source=source,
+             context_manifest_id=built_context.manifest.context_manifest_id,
+             origin_hash=origin_hash,
++            origin_mode=connection.origin_mode,
+             input_hash=input_hash,
+             context_manifest_hash=built_context.manifest.manifest_hash,
+             accepted_manifest_content_hash=str(approved_metadata["content_hash"]),
+@@ -443,7 +461,11 @@
+             task_kind="sub2api.source.extract",
+             priority=50,
+             attempt_snapshot=attempt_template,
+-            endpoint_binding=_ENDPOINT_BINDING,
++            endpoint_binding=(
++                _LOCAL_ENDPOINT_BINDING
++                if connection.origin_mode == "LOCAL_LOOPBACK_HTTP"
++                else _ENDPOINT_BINDING
++            ),
+             transport_contract_hash=_TRANSPORT_CONTRACT_HASH,
+             sub2api_scope=scope,
+         )
+--- a/services/api/src/aijian_api/sub2api_source_extract_store.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_store.py
+@@ -12,7 +12,11 @@
+ 
+ from aijian_api.agent_skill_contracts import ArtifactProposalV2, canonical_sha256
+ from aijian_api.contracts import CreateProposalRunRequest
+-from aijian_api.provider_contracts import validate_sub2api_origin
++from aijian_api.provider_contracts import (
++    Sub2APIOriginMode,
++    sub2api_origin_binding,
++    validate_sub2api_origin,
++)
+ from aijian_api.repository import StudioRepository
+ from aijian_api.sub2api_source_extract_contracts import (
+     Sub2APICallApprovalData,
+@@ -52,6 +56,7 @@
+     selection: Sub2APISourceExtractSelectionData
+     source: CreateProposalRunRequest
+     origin_hash: str
++    origin_mode: Sub2APIOriginMode
+     input_hash: str
+     context_manifest_id: str
+     context_manifest_hash: str
+@@ -68,6 +73,7 @@
+             selection=self.selection,
+             source=self.source,
+             origin_hash=self.origin_hash,
++            origin_mode=self.origin_mode,
+             input_hash=self.input_hash,
+             context_manifest_hash=self.context_manifest_hash,
+             attempt_fingerprint=attempt_fingerprint,
+@@ -89,6 +95,7 @@
+     connection_revision: int
+     model_id: str
+     origin_hash: str
++    origin_mode: Sub2APIOriginMode
+     input_hash: str
+     context_manifest_hash: str
+     lease_token_hash: str
+@@ -120,8 +127,13 @@
+         raise Sub2APISourceExtractConflictError("Sub2API connection is unavailable")
+     if int(metadata["revision"]) != draft.selection.connection_revision:
+         raise Sub2APISourceExtractConflictError("Sub2API connection revision changed")
+-    validate_sub2api_origin(str(metadata["base_url"]))
+-    if draft.origin_hash != canonical_sha256({"origin": str(metadata["base_url"])}):
++    validate_sub2api_origin(str(metadata["base_url"]), str(metadata["origin_mode"]))
++    if draft.origin_mode != str(metadata["origin_mode"]) or draft.origin_hash != canonical_sha256(
++        sub2api_origin_binding(
++            str(metadata["base_url"]), str(metadata["origin_mode"]),
++            int(metadata["revision"]),
++        )
++    ):
+         raise Sub2APISourceExtractConflictError("Sub2API origin differs from frozen scope")
+     if _model_capabilities(metadata, draft.selection.model_id) != ("TEXT",):
+         raise Sub2APISourceExtractConflictError("Sub2API model is not text-only")
+@@ -242,6 +254,7 @@
+                     or approval.connection_id != scope.selection.connection_id
+                     or approval.connection_revision != scope.selection.connection_revision
+                     or approval.model_id != scope.selection.model_id
++                    or approval.origin_mode != scope.origin_mode
+                     or approval.origin_hash != scope.origin_hash
+                     or approval.input_hash != scope.input_hash
+                     or approval.context_manifest_hash != scope.context_manifest_hash):
+@@ -329,7 +342,25 @@
+             ).fetchone()
+             if row is None or str(row["attempt_fingerprint"]) != expected_attempt_fingerprint:
+                 raise Sub2APISourceExtractConflictError("approval scope changed")
+-            _verified_scope(row)
++            scope = _scope_contract(_verified_scope(row))
++            metadata = connection.execute(
++                "SELECT * FROM provider_connections WHERE connection_id = ?",
++                (scope.selection.connection_id,),
++            ).fetchone()
++            if (
++                metadata is None
++                or str(metadata["provider_kind"]) != "SUB2API"
++                or int(metadata["enabled"]) != 1
++                or int(metadata["revision"]) != scope.selection.connection_revision
++                or str(metadata["origin_mode"]) != scope.origin_mode
++                or canonical_sha256(
++                    sub2api_origin_binding(
++                        str(metadata["base_url"]), scope.origin_mode,
++                        int(metadata["revision"]),
++                    )
++                ) != scope.origin_hash
++            ):
++                raise Sub2APISourceExtractConflictError("approval origin binding changed")
+             key_hash = canonical_sha256({"idempotency_key": idempotency_key})
+             previous = connection.execute(
+                 "SELECT * FROM sub2api_call_approvals WHERE task_id = ? OR (project_id = ? AND idempotency_key_hash = ?)",
+@@ -356,6 +387,7 @@
+                 attempt_id=attempt_id, connection_id=str(row["connection_id"]),
+                 connection_revision=int(row["connection_revision"]),
+                 model_id=str(row["model_id"]), origin_hash=str(row["origin_hash"]),
++                origin_mode=scope.origin_mode,
+                 input_hash=str(row["input_hash"]),
+                 context_manifest_hash=str(row["context_manifest_hash"]),
+                 allowed_calls=1, cost_decision="UNKNOWN_COST_ACCEPTED",
+@@ -386,6 +418,7 @@
+         try:
+             connection.execute("BEGIN IMMEDIATE")
+             row = _read_claim_scope(connection, claim, now_text=now_text, expected_status="RUNNING")
++            scope = _scope_contract(_verified_scope(row))
+             _assert_frozen_source(connection, json.loads(str(row["scope_json"])))
+             approval_row = connection.execute(
+                 "SELECT * FROM sub2api_call_approvals WHERE approval_id = ? AND task_id = ? AND attempt_id = ?",
+@@ -404,15 +437,26 @@
+                 connection_revision=int(metadata["revision"]),
+                 provider_kind=str(metadata["provider_kind"]),
+                 connection_enabled=bool(metadata["enabled"]),
+-                base_url=str(metadata["base_url"]), model_id=str(row["model_id"]),
++                base_url=str(metadata["base_url"]),
++                origin_mode=str(metadata["origin_mode"]),
++                model_id=str(row["model_id"]),
+                 model_capabilities=_model_capabilities(metadata, str(row["model_id"])),
+                 input_hash=str(row["input_hash"]),
+                 context_manifest_hash=str(row["context_manifest_hash"]),
+                 attempt_status=str(row["attempt_status"]), task_kind=str(row["task_kind"]),
+             )
+             match = match_sub2api_approval(approval=approval, facts=facts, now=now)
+-            if match.status != "MATCHED" or approval_row is None or approval_row["revoked_at"] is not None:
+-                raise Sub2APISourceExtractConflictError(match.code)
++            if (
++                match.status != "MATCHED"
++                or approval_row is None
++                or approval_row["revoked_at"] is not None
++                or approval is None
++                or approval.origin_mode != scope.origin_mode
++                or approval.origin_hash != scope.origin_hash
++            ):
++                raise Sub2APISourceExtractConflictError(
++                    match.code if match.status != "MATCHED" else "APPROVAL_SCOPE_MISMATCH"
++                )
+             if (int(row["connection_revision"]) != int(metadata["revision"])
+                     or connection.execute("SELECT 1 FROM sub2api_call_consumptions WHERE attempt_id = ?", (claim.attempt_id,)).fetchone()):
+                 raise Sub2APISourceExtractConflictError("approval was consumed or connection changed")
+@@ -445,6 +489,7 @@
+                 approval_id=approval_id, connection_id=str(row["connection_id"]),
+                 connection_revision=int(row["connection_revision"]),
+                 model_id=str(row["model_id"]), origin_hash=str(row["origin_hash"]),
++                origin_mode=scope.origin_mode,
+                 input_hash=str(row["input_hash"]),
+                 context_manifest_hash=str(row["context_manifest_hash"]),
+                 lease_token_hash=token_hash,
+@@ -663,7 +708,7 @@
+ 
+ def _scope_contract(payload: dict[str, object]) -> Sub2APISourceExtractScopeData:
+     return Sub2APISourceExtractScopeData.model_validate({
+-        key: payload[key] for key in Sub2APISourceExtractScopeData.model_fields
++        key: payload[key] for key in Sub2APISourceExtractScopeData.model_fields if key in payload
+     })
+ 
+ 
+--- a/services/api/src/aijian_api/sub2api_source_extract_worker.py
++++ b/services/api/src/aijian_api/sub2api_source_extract_worker.py
+@@ -24,8 +24,17 @@
+     GatewayTextSuccess,
+ )
+ from aijian_api.provider_connection_repository import ProviderConnectionRepository
++from aijian_api.provider_contracts import (
++    Sub2APIOriginMode,
++    sub2api_origin_binding,
++    validate_sub2api_origin,
++)
+ from aijian_api.source_extract_worker import FakeSourceExtractInvocationV1
+-from aijian_api.sub2api_text_transport import Sub2APITextSuccess, Sub2APITextTransport
++from aijian_api.sub2api_text_transport import (
++    Sub2APITextSuccess,
++    Sub2APITextTransport,
++    local_loopback_route_clear,
++)
+ from aijian_api.task_ledger import LocalTaskLedger
+ from aijian_api.task_ledger_models import ClaimedTask
+ 
+@@ -45,6 +54,7 @@
+     connection_revision: int
+     model_id: str
+     origin_hash: str
++    origin_mode: Sub2APIOriginMode
+     input_hash: str
+     context_manifest_hash: str
+ 
+@@ -145,6 +155,11 @@
+                 )
+             ):
+                 raise ValueError("Sub2API provider or text model is unavailable")
++            validate_sub2api_origin(connection.base_url, connection.origin_mode)
++            if connection.origin_mode == "LOCAL_LOOPBACK_HTTP" and not local_loopback_route_clear(
++                connection.base_url
++            ):
++                raise ValueError("Sub2API local route is not verified")
+             credential = self._credentials.get(connection.credential_ref)
+             if credential is None:
+                 raise ValueError("Sub2API user credential is unavailable")
+@@ -185,11 +200,20 @@
+                 or permit.connection_id != connection.id
+                 or permit.connection_revision != connection.revision
+                 or permit.model_id != snapshot.model_id
+-                or permit.origin_hash != canonical_sha256({"origin": connection.base_url})
++                or permit.origin_mode != connection.origin_mode
++                or permit.origin_hash != canonical_sha256(
++                    sub2api_origin_binding(
++                        connection.base_url, connection.origin_mode, connection.revision
++                    )
++                )
+                 or permit.input_hash != snapshot.input_hash
+             ):
+                 raise ValueError("Sub2API consumed permit is detached from the request")
+-            outcome = self._transport.dispatch(base_url=connection.base_url, request=request)
++            outcome = self._transport.dispatch(
++                base_url=connection.base_url,
++                origin_mode=connection.origin_mode,
++                request=request,
++            )
+             if isinstance(outcome, (GatewayNotDispatched, GatewayRemoteError, GatewayRemoteUnknown)):
+                 self._store.quarantine_unknown(
+                     permit=permit, provider_response_id=None, code=outcome.code
+--- a/services/api/src/aijian_api/sub2api_text_transport.py
++++ b/services/api/src/aijian_api/sub2api_text_transport.py
+@@ -13,6 +13,8 @@
+ import queue
+ import socket
+ import ssl
++import subprocess
++import sys
+ from dataclasses import dataclass, field
+ from ipaddress import ip_address
+ from threading import Thread
+@@ -28,7 +30,7 @@
+     GatewayTextResult,
+     GatewayTextSuccess,
+ )
+-from aijian_api.provider_contracts import validate_sub2api_origin
++from aijian_api.provider_contracts import Sub2APIOriginMode, validate_sub2api_origin
+ 
+ SUB2API_CHAT_PATH = "/v1/chat/completions"
+ _MAX_RESPONSE_BYTES = 1024 * 1024
+@@ -58,6 +60,50 @@
+         except BaseException:
+             raw_socket.close()
+             raise
++
++
++class _LiteralLoopbackHTTPConnection(http.client.HTTPConnection):
++    """Connect to an already validated numeric loopback address without DNS."""
++
++    def connect(self) -> None:
++        family = socket.AF_INET6 if self.host == "::1" else socket.AF_INET
++        raw_socket = socket.socket(family, socket.SOCK_STREAM)
++        try:
++            raw_socket.settimeout(self.timeout)
++            raw_socket.connect((self.host, self.port))
++            self.sock = raw_socket
++        except BaseException:
++            raw_socket.close()
++            raise
++
++
++def local_loopback_route_clear(base_url: str) -> bool:
++    """Reject Windows portproxy mappings before a local bearer token can be sent."""
++    try:
++        validate_sub2api_origin(base_url, "LOCAL_LOOPBACK_HTTP")
++        port = urlsplit(base_url).port
++        if port is None:
++            return False
++        if sys.platform != "win32":
++            return True
++        result = subprocess.run(
++            ["netsh", "interface", "portproxy", "show", "all"],
++            capture_output=True,
++            text=True,
++            timeout=2.0,
++            check=False,
++            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
++        )
++        if result.returncode != 0:
++            return False
++        for line in result.stdout.splitlines():
++            fields = line.split()
++            if len(fields) == 4 and fields[1].isdigit() and fields[3].isdigit():
++                if int(fields[1]) == port:
++                    return False
++        return True
++    except (OSError, UnicodeError, ValueError, subprocess.TimeoutExpired):
++        return False
+ 
+ 
+ class _ResponseTooLarge(Exception):
+@@ -93,10 +139,13 @@
+         self._read_timeout = float(read_timeout_seconds)
+         self._total_timeout = float(total_timeout_seconds)
+ 
+-    def dispatch(self, *, base_url: str, request: GatewayTextRequest) -> GatewayTextResult:
++    def dispatch(
++        self, *, base_url: str, request: GatewayTextRequest,
++        origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS",
++    ) -> GatewayTextResult:
+         """Return an explicit outcome; ambiguity after sending is never a retry signal."""
+         try:
+-            validate_sub2api_origin(base_url)
++            validate_sub2api_origin(base_url, origin_mode)
+             parsed = urlsplit(base_url)
+             hostname = parsed.hostname
+             port = parsed.port or 443
+@@ -125,17 +174,19 @@
+ 
+         deadline = monotonic() + self._total_timeout
+         try:
+-            address = self._resolve_public_address(hostname, port, deadline)
+-        except (TimeoutError, OSError, ValueError):
+-            return GatewayNotDispatched(kind="NOT_DISPATCHED", code="CONNECTION_FAILED")
+-
+-        try:
+-            connection = _PinnedHTTPSConnection(
+-                hostname,
+-                port,
+-                address,
+-                timeout=min(self._connect_timeout, self._remaining(deadline)),
+-            )
++            if origin_mode == "LOCAL_LOOPBACK_HTTP":
++                if not local_loopback_route_clear(base_url):
++                    return GatewayNotDispatched(kind="NOT_DISPATCHED", code="CONNECTION_FAILED")
++                connection: http.client.HTTPConnection = _LiteralLoopbackHTTPConnection(
++                    hostname, port,
++                    timeout=min(self._connect_timeout, self._remaining(deadline)),
++                )
++            else:
++                address = self._resolve_public_address(hostname, port, deadline)
++                connection = _PinnedHTTPSConnection(
++                    hostname, port, address,
++                    timeout=min(self._connect_timeout, self._remaining(deadline)),
++                )
+         except (TimeoutError, OSError, ValueError):
+             return GatewayNotDispatched(kind="NOT_DISPATCHED", code="CONNECTION_FAILED")
+         try:
+@@ -231,7 +282,7 @@
+     def _read_limited(
+         self,
+         response: http.client.HTTPResponse,
+-        connection: _PinnedHTTPSConnection,
++        connection: http.client.HTTPConnection,
+         deadline: float,
+     ) -> bytes:
+         declared_length = response.getheader("Content-Length")

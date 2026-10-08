@@ -1,9 +1,10 @@
 Aijian Studio
 Copyright 2026 Aijian Studio contributors
 
-This product is currently in the specification phase and does not yet bundle
-third-party source code, models, fonts, media, or binaries.
+This product uses the keyring Python package (MIT License) to access operating-
+system credential storage. Its source and license metadata are available at
+https://pypi.org/project/keyring/.
 
-Third-party notices will be added here before any such component is distributed.
+Additional third-party notices will be added before further components are distributed.
 Research repositories named in docs/research are references only and are not
 included in this software.

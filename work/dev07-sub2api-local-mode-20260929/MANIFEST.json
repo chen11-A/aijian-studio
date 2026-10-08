@@ -1,0 +1,78 @@
+{
+  "schema": "dev07.sub2api.local-mode.desktop-source-candidate.v1",
+  "state": "AUTHOR_SOURCE_ONLY_NO_BUILD_NO_TEST_NO_PROVIDER_NO_C19_SYNC",
+  "created_local": "2026-09-29",
+  "author_root": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp",
+  "edited": [
+    {
+      "path": "apps/desktop/src/provider-connection-contract.ts",
+      "old_sha256": "B69804B482B58F35785525EC3348BB9569D181D8BA80B689C95DD92497582952",
+      "new_sha256": "75E341279A7E787EE196940FB637D3534C7B66093D32B5E2A613AC7C37353DBF",
+      "patch_sha256": "F99DF8E916026DBC1170067682BE17034F761A5729B0A577200649DFDAD31376"
+    },
+    {
+      "path": "apps/desktop/src/sub2api-connection-mutation-contract.ts",
+      "old_sha256": "85F0D1FC41ED3CF5BF839335F63FFA2D0A27B86EAC79ED5B0D095B878CF3A844",
+      "new_sha256": "17392F8629550F1A6C495E68901721C528C05D6CCB538D49273959DC661151F7",
+      "patch_sha256": "0D7CD8C088229FAE343B3E7217ACF7996A699111F2E36F831067EC019C7B8051"
+    },
+    {
+      "path": "apps/desktop/src/api-client.ts",
+      "old_sha256": "BA060B639EF67B5EB9906D0F83746270C8F44CF902E95E7E031C7B313E8AFC61",
+      "new_sha256": "7B4475800364301EDE5EA09AD9CAFD1A5E518F1BB54E5BF9D74AD7AF96D0AF3C",
+      "patch_sha256": "04E1EA1329B8CF8F2ECA9E640141525CE644D09F865DE445153F2439C58315E3"
+    }
+  ],
+  "unchanged_desktop": [
+    {
+      "path": "apps/desktop/src/main.ts",
+      "sha256": "A1359F9EBC54090AD882C12B85E5CFB36917060D20D6B2DE245D9E364EA04C32"
+    },
+    {
+      "path": "apps/desktop/src/preload.ts",
+      "sha256": "77C06E152301829A2C46C3786BA6BA5F727AB189A2078D761C78993F16CD04F9"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-process.ts",
+      "sha256": "DE5D46DCE9CEB276F67A968F0B271B37498814CECECAF7AD7712FB6DBE22710F"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-startup-diagnostic.ts",
+      "sha256": "2B2147A6480824B6FBBC0489CB7A74780D04FE994C6C2F285E76308533FDABA6"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-extraction-temp.ts",
+      "sha256": "6EA5A2BA8ACD40F46CEE5F8A6F035C824A5A3479D93DD1565FF0C550511F7821"
+    }
+  ],
+  "c19_r1_map": "work/dev07-b31-desktop-bridge-20260929/C19-R1-STATIC-INTEGRATION.md",
+  "contract": "SUB2API origin_mode PUBLIC_HTTPS or LOCAL_LOOPBACK_HTTP; omitted request mode defaults public; SUB2API response mode required; other provider response mode null",
+  "boundary": "No backend, UI, generated contract, c19, build, test, Electron, service, or provider operation in this candidate",
+  "consumer_v2": {
+    "dependency_backend_manifest_sha256": "56E09F7BE264316474FEA6F78EF7560D53266AE394C0DA314803BA34E40FDF24",
+    "generated_contract_state": "old author-tree generated.ts unchanged; new same-version generation pending",
+    "path": "apps/desktop/src/api-client.ts",
+    "before_snapshot": "work/dev07-sub2api-local-mode-20260929/api-client.ts.before-consumer-v2",
+    "before_sha256": "7B4475800364301EDE5EA09AD9CAFD1A5E518F1BB54E5BF9D74AD7AF96D0AF3C",
+    "after_sha256": "07D2373EDF175773A5DFBB7B1661A9D05CF8147283FAC2D50B555BA2B7A70B52",
+    "patch": "work/dev07-sub2api-local-mode-20260929/api-client.ts.consumer-v2.patch",
+    "patch_sha256": "E9FC8264A9EF09F8EAA4C2DE2E3510FAD01671AC7F61D06785A3B761CDE6B21B",
+    "qa_handoff_before_sha256": "4438D5E4A58C9196FEA6BD2DA2E1CBCAC4332C7F8E472040C241634FA234174E",
+    "qa_handoff_after_sha256": "D257AE72E5524D19ECE18BD77C09CC6E23D2B168E2B07878537AE8FA69ABD980",
+    "checks": "patch reverse check and git diff --check only; no build, tests, runtime, or provider call"
+  },
+  "consumer_v3": {
+    "dependency_backend_manifest_sha256": "56E09F7BE264316474FEA6F78EF7560D53266AE394C0DA314803BA34E40FDF24",
+    "path": "apps/desktop/src/api-client.ts",
+    "before_snapshot": "work/dev07-sub2api-local-mode-20260929/api-client.ts.before-consumer-v3",
+    "before_sha256": "07D2373EDF175773A5DFBB7B1661A9D05CF8147283FAC2D50B555BA2B7A70B52",
+    "after_sha256": "B59AA696E059E64B3167DCBA52993010D21F67F9849ADA74C105282AC189396E",
+    "patch": "work/dev07-sub2api-local-mode-20260929/api-client.ts.consumer-v3.patch",
+    "patch_sha256": "5ABEF14A37A9D9B606C2E07E153367C24AF65D567E31CCF7197773B6C5E90CEA",
+    "unrun_test_path": "apps/desktop/src/api-client-local-mode-deadline.test.ts",
+    "unrun_test_sha256": "B18187304B871B876DCCDF70BA8B1D02CEA196F4A3DDDC15105B5248EC5F80C1",
+    "qa_handoff_sha256": "9968C41DF6ACB17186CFD667853B8D50C8ED74296D930B2E4E12BBD1A1BFC2FF",
+    "contract": "Pre- and post-PATCH authoritative list reads each have a 15-second cancellation and Promise deadline; no automatic retry; pre-read timeout sends zero PATCH, post-read timeout follows one PATCH and stays REMOTE_UNKNOWN",
+    "checks": "Static SHA readback, patch reverse check, diff check, manifest parse only; no build, test execution, runtime, c19, or provider call"
+  }
+}

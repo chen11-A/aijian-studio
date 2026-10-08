@@ -1,0 +1,21 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\MediaPages.tsx.before" "b/apps\\studio-web\\src\\aivora\\MediaPages.tsx"
+index a29a87a..bfad387 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\MediaPages.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\MediaPages.tsx"
+@@ -1225,6 +1225,16 @@ export function MediaPages() {
+   const d = useDemo();
+   const actions = useMediaActions();
+   const transport = useMemo(createStudioTransport, []);
++  if (d.page === "assembly" && !d.isFixture &&
++      (!d.backendProjectId || !d.selectedEpisodeId)) {
++    return <>
++      <PageTitle />
++      <section className="v2-media-body" role="status">
++        <p>请先在项目页选择真实项目和剧集，再读取该集的媒体装配。</p>
++        <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
++      </section>
++    </>;
++  }
+   if (d.page === "assembly" && d.backendProjectId && d.selectedEpisodeId && !d.isFixture) {
+     return <>
+       <PageTitle />

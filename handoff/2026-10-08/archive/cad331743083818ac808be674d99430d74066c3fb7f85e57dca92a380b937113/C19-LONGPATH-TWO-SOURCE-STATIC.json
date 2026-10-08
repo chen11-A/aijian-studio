@@ -1,0 +1,95 @@
+{
+  "status": "PASS_STATIC_TWO_SOURCE_COMPATIBILITY",
+  "paths": {
+    "old_store": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\media_asset_store.py",
+    "new_store": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev06-c19-managed-longpath-minimal-20260928-v1\\aijian_api\\media_asset_store.py",
+    "new_helper": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev06-c19-managed-longpath-minimal-20260928-v1\\aijian_api\\managed_local_paths.py",
+    "route": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\media_asset_routes.py",
+    "repository": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\repository.py"
+  },
+  "sha256": {
+    "old_store": "E2B2002D157DEBA5F2E03F5340AD83BE9B09BE4F5D77E1ACF614D3617A60AF8D",
+    "new_store": "2954042D87754211526891A5CC3506DD55DCA78CBB349FC44D19D54FDDC105B8",
+    "new_helper": "78FCCE4F28FF720F6610AB72EEC2C5C5AB179E7BEB758B980610303B7CA9D7AC",
+    "route": "931D14F8B3D3069ED89E224C6BF4EBF2EE4CA9CA34DAFC9A6415CD2E1B3B8770",
+    "repository": "BB366B214157007E2CB906EEADDC895E1ED60AE95DC97D86BEE686F137710E69"
+  },
+  "c19_helper_absent": true,
+  "schema_versions": [
+    26
+  ],
+  "store_top_level_definitions_same": true,
+  "store_all_method_signatures_same": true,
+  "store_public_method_signatures_same": true,
+  "store_public_methods": [
+    "add_episode_reference",
+    "get_asset",
+    "import_local",
+    "list_assets",
+    "read_verified_preview",
+    "remove_episode_reference",
+    "soft_delete"
+  ],
+  "import_identity_and_commit_tail_same": true,
+  "soft_delete_ast_same": true,
+  "read_identity_methods_same": {
+    "get_asset": true,
+    "list_assets": true,
+    "add_episode_reference": true,
+    "remove_episode_reference": true
+  },
+  "reference_identity_helper_same": true,
+  "sql_literal_count_old": 22,
+  "sql_literal_count_new": 22,
+  "sql_literals_same_order": true,
+  "store_imports_added": [
+    "aijian_api.managed_local_paths"
+  ],
+  "store_imports_removed": [],
+  "helper_imports": [
+    "__future__",
+    "pathlib",
+    "os",
+    "re",
+    "stat"
+  ],
+  "store_direct_aijian_import_files": {
+    "aijian_api.contracts": {
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\contracts.py",
+      "exists": true
+    },
+    "aijian_api.managed_local_paths": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev06-c19-managed-longpath-minimal-20260928-v1\\aijian_api\\managed_local_paths.py",
+      "exists": true
+    },
+    "aijian_api.media_asset_contracts": {
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\media_asset_contracts.py",
+      "exists": true
+    },
+    "aijian_api.media_probe": {
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\media_probe.py",
+      "exists": true
+    },
+    "aijian_api.repository": {
+      "path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\services\\api\\src\\aijian_api\\repository.py",
+      "exists": true
+    }
+  },
+  "route_store_imports": [
+    "_ASSET_ID",
+    "_PROJECT_ID",
+    "_media_root",
+    "_require_id",
+    "MediaAssetError",
+    "MediaAssetStore"
+  ],
+  "route_imports_available": [
+    "MediaAssetError",
+    "MediaAssetStore",
+    "_ASSET_ID",
+    "_PROJECT_ID",
+    "_media_root",
+    "_require_id"
+  ],
+  "route_imports_missing": []
+}

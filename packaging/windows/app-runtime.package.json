@@ -1,0 +1,11 @@
+{
+  "name": "@aijian/desktop",
+  "productName": "AIVORA",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "dependencies": {
+    "@aijian/contracts": "0.1.0"
+  }
+}

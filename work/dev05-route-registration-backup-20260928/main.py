@@ -1,0 +1,1171 @@
+"""FastAPI application composition root."""
+
+import hashlib
+import os
+import sys
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from threading import Lock
+from typing import Any, cast
+from uuid import UUID, uuid4
+
+from fastapi import FastAPI, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from aijian_api import __version__
+from aijian_api.agent_proposal_validator import ProposalValidationError
+from aijian_api.agent_run_store import AgentRunStore
+from aijian_api.agent_skill_builtins import (
+    built_in_agent_skill_registry,
+    built_in_proposal_schema_registry,
+    proposal_acceptance_agent_skill_registry,
+    sub2api_source_extract_registry,
+)
+from aijian_api.agent_skill_catalog_routes import create_agent_skill_catalog_router
+from aijian_api.agent_skill_registry import AgentSkillRegistry
+from aijian_api.app_preferences_routes import create_app_preferences_router
+from aijian_api.app_preferences_store import AppPreferencesStore
+from aijian_api.application_errors import (
+    ArtifactProposalNotFoundError,
+    IdempotencyKeyReusedError,
+    PreconditionFailedError,
+    PreconditionRequiredError,
+    ProposalRunCancellationConflictError,
+    ProposalRunInputRejectedError,
+    ProposalRunNotFoundError,
+    StoryBiblePayloadTooLargeError,
+)
+from aijian_api.artifact_invalidation_ledger import (
+    InvalidationOperationNotFoundError,
+)
+from aijian_api.artifact_proposal_acceptance import (
+    ArtifactProposalAcceptanceConflictError,
+    ArtifactProposalAcceptanceService,
+)
+from aijian_api.artifact_proposal_rejection import (
+    ArtifactProposalRejectionConflictError,
+    ArtifactProposalRejectionService,
+)
+from aijian_api.artifact_proposal_routes import (
+    create_artifact_proposal_router,
+    create_artifact_proposal_write_router,
+)
+from aijian_api.artifact_proposal_store import ArtifactProposalStore
+from aijian_api.contracts import (
+    CreateProjectRequest,
+    ErrorBody,
+    ErrorResponse,
+    HealthData,
+    HealthResponse,
+    ImportTextSourceRequest,
+    ProjectData,
+    ProjectListResponse,
+    ProjectResponse,
+    SourceBlockData,
+    SourceDocumentData,
+    SourceDocumentListResponse,
+    SourceDocumentResponse,
+    SourceDocumentSummaryData,
+)
+from aijian_api.credential_vault import (
+    CredentialCleanupRequiredError,
+    CredentialVault,
+    CredentialVaultUnavailableError,
+    SystemCredentialVault,
+)
+from aijian_api.development_timeline_export import (
+    DevelopmentTimelineExportConflictError,
+    DevelopmentTimelineExportInvalidError,
+    DevelopmentTimelineExportNotFoundError,
+    DevelopmentTimelineExportPreflightRejectedError,
+    DevelopmentTimelineExportService,
+    DevelopmentTimelineExportUnknownError,
+)
+from aijian_api.development_timeline_export_routes import (
+    create_development_timeline_export_router,
+)
+from aijian_api.domain import SourceDocument, TrustedReviewActor
+from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
+from aijian_api.episode_script_routes import (
+    create_episode_script_public_router,
+    create_episode_script_write_router,
+)
+from aijian_api.fake_timeline_run import (
+    FakeTimelineRunConflictError,
+    FakeTimelineRunFactory,
+    FakeTimelineRunInputError,
+    FakeTimelineRuntimeUnavailableError,
+)
+from aijian_api.fake_timeline_run_query import (
+    FakeTimelineRunOperationConflictError,
+    FakeTimelineRunOperationNotFoundError,
+    FakeTimelineRunOperationReader,
+)
+from aijian_api.fake_timeline_run_query_routes import create_fake_timeline_run_query_router
+from aijian_api.fake_timeline_run_routes import create_fake_timeline_run_write_router
+from aijian_api.fake_timeline_workflow import (
+    FakeTimelineWorkflowNotReadyError,
+    SourceRequiredError,
+)
+from aijian_api.fake_timeline_workflow_routes import create_fake_timeline_workflow_router
+from aijian_api.ingestion import MAX_SOURCE_BYTES, SourceValidationError, ingest_text_file
+from aijian_api.invalidation_routes import (
+    InvalidationReportCorruptError,
+    InvalidationReportTooLargeError,
+    create_invalidation_router,
+)
+from aijian_api.media_asset_routes import create_media_asset_router
+from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
+from aijian_api.media_contracts import MediaCapabilitiesData, MediaCapabilitiesResponse
+from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
+from aijian_api.production_brief_routes import (
+    create_production_brief_public_router,
+    create_production_brief_write_router,
+)
+from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
+from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
+from aijian_api.project_management_routes import create_project_management_router
+from aijian_api.proposal_run_factory import ProposalRunFactory
+from aijian_api.proposal_run_routes import (
+    create_proposal_run_router,
+    create_proposal_run_write_router,
+)
+from aijian_api.provider_connection_repository import (
+    ProviderConnectionConflictError,
+    ProviderConnectionNotFoundError,
+    ProviderConnectionRepository,
+)
+from aijian_api.provider_connection_routes import create_provider_connection_router
+from aijian_api.provider_connections import (
+    ProviderConnectionService,
+)
+from aijian_api.repository import (
+    ArtifactConflictError,
+    ArtifactDependencyInvalidError,
+    ArtifactNotFoundError,
+    EpisodeNotFoundError,
+    GateNotReadyError,
+    ProjectNotFoundError,
+    ReviewInvalidError,
+    SourceAlreadyImportedError,
+    SourceSpanInvalidError,
+    StudioRepository,
+)
+from aijian_api.runtime_resources import media_tool_root, media_toolchain_lock_path
+from aijian_api.remote_source_extract_operation_routes import (
+    create_remote_source_extract_operation_router,
+)
+from aijian_api.security import SecurityFailure, SidecarSecurity
+from aijian_api.source_extraction_routes import create_source_extraction_router
+from aijian_api.source_manifest_routes import (
+    create_source_manifest_internal_router,
+    create_source_manifest_public_router,
+)
+from aijian_api.source_text_contracts import SourceDocumentTextData, SourceDocumentTextResponse
+from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
+from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.sub2api_connection_readiness import Sub2APIConfiguredReadiness
+from aijian_api.sub2api_connection_readiness_routes import (
+    create_sub2api_connection_readiness_router,
+)
+from aijian_api.sub2api_source_extract_routes import create_sub2api_source_extract_router
+from aijian_api.sub2api_source_extract_run_factory import Sub2APISourceExtractRunFactory
+from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractStore
+from aijian_api.task_ledger import LocalTaskLedger
+from aijian_api.task_queue_read import TaskQueueReader
+from aijian_api.task_queue_routes import create_task_queue_router
+from aijian_api.timeline import TimelineEditError
+from aijian_api.timeline_routes import (
+    TimelineAlreadyExistsError,
+    TimelineRevisionConflictError,
+    create_timeline_router,
+)
+
+REQUEST_ID_HEADER = "X-Request-ID"
+
+
+def _request_id(value: str | None) -> UUID:
+    if value is None:
+        return uuid4()
+    try:
+        return UUID(value)
+    except (ValueError, AttributeError):
+        return uuid4()
+
+
+def _error_response(*, status_code: int, code: str, message: str, request_id: UUID) -> JSONResponse:
+    error = ErrorResponse(
+        error=ErrorBody(code=code, message=message, details={}, retryable=False),
+        request_id=request_id,
+    )
+    return JSONResponse(status_code=status_code, content=error.model_dump(mode="json"))
+
+
+def _security_error(code: SecurityFailure, request_id: UUID) -> JSONResponse:
+    status_code = 401 if code == "SIDECAR_AUTH_REQUIRED" else 403
+    message = (
+        "Local sidecar authentication failed" if status_code == 401 else "Local request rejected"
+    )
+    return _error_response(
+        status_code=status_code,
+        code=code,
+        message=message,
+        request_id=request_id,
+    )
+
+
+def _apply_security_headers(response: Response, request_id: UUID) -> None:
+    response.headers[REQUEST_ID_HEADER] = str(request_id)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+
+
+def default_database_path() -> Path:
+    configured = os.environ.get("AIJIAN_DATA_DIR")
+    if bool(getattr(sys, "frozen", False)):
+        if os.name != "nt" or not configured or configured != configured.strip():
+            raise RuntimeError("packaged workspace directory is missing")
+        data_directory = Path(configured)
+        roaming_roots = [
+            Path(value).resolve(strict=False)
+            for key in ("APPDATA", "LOCALAPPDATA")
+            if (value := os.environ.get(key)) and Path(value).is_absolute()
+        ]
+        if (
+            not data_directory.is_absolute()
+            or str(data_directory).startswith("\\\\")
+            or ".." in data_directory.parts
+            or data_directory.name != "workspace"
+            or data_directory.resolve(strict=False) != data_directory
+            or not any(root in data_directory.parents for root in roaming_roots)
+        ):
+            raise RuntimeError("packaged workspace directory is unsafe")
+        return data_directory / "workspace.sqlite3"
+    data_directory = Path(configured) if configured else Path.cwd() / ".aijian-dev"
+    return data_directory / "workspace.sqlite3"
+
+
+def _source_document_data(document: SourceDocument) -> SourceDocumentData:
+    return SourceDocumentData(
+        id=document.id,
+        project_id=document.project_id,
+        filename=document.filename,
+        media_type="text/plain",
+        encoding="utf-8",
+        byte_size=document.byte_size,
+        raw_sha256=document.raw_sha256,
+        imported_at=document.imported_at,
+        chapter_count=document.chapter_count,
+        block_count=len(document.blocks),
+        blocks=[SourceBlockData.model_validate(block) for block in document.blocks],
+    )
+
+
+def create_app(
+    *,
+    sidecar_security: SidecarSecurity | None = None,
+    repository: StudioRepository | None = None,
+    review_actor: TrustedReviewActor | None = None,
+    credential_vault: CredentialVault | None = None,
+    agent_skill_registry: AgentSkillRegistry | None = None,
+    fake_timeline_run_factory: FakeTimelineRunFactory | None = None,
+    development_timeline_export_service: DevelopmentTimelineExportService | None = None,
+    sub2api_runtime_availability: Callable[[], str] | None = None,
+) -> FastAPI:
+    """Create an isolated application instance for runtime and tests."""
+
+    app = FastAPI(
+        title="Aijian Studio API",
+        version=__version__,
+        docs_url="/api/docs",
+        openapi_url="/api/openapi.json",
+    )
+    repository_holder = [repository]
+    repository_lock = Lock()
+    trusted_review_actor = review_actor or TrustedReviewActor(
+        subject_id="local-user",
+        roles=("writer", "continuity_reviewer", "producer"),
+    )
+    resolved_credential_vault = credential_vault or SystemCredentialVault()
+    resolved_agent_skill_registry = agent_skill_registry or built_in_agent_skill_registry()
+    resolved_acceptance_registry = (
+        proposal_acceptance_agent_skill_registry()
+        if agent_skill_registry is None and sidecar_security is not None
+        else resolved_agent_skill_registry
+    )
+    resolved_proposal_schema_registry = built_in_proposal_schema_registry()
+    resolved_fake_timeline_run_factory = fake_timeline_run_factory
+    resolved_development_timeline_export_service = development_timeline_export_service
+
+    def get_repository() -> StudioRepository:
+        with repository_lock:
+            repository_instance = repository_holder[0]
+            if repository_instance is None:
+                repository_instance = StudioRepository(default_database_path())
+                repository_holder[0] = repository_instance
+            return repository_instance
+
+    def get_task_queue_reader() -> TaskQueueReader:
+        return TaskQueueReader(get_repository().database_path)
+
+    def get_task_ledger() -> LocalTaskLedger:
+        return LocalTaskLedger(get_repository().database_path)
+
+    def get_agent_run_store() -> AgentRunStore:
+        return AgentRunStore(get_repository().database_path)
+
+    def get_artifact_proposal_store() -> ArtifactProposalStore:
+        return ArtifactProposalStore(get_repository().database_path)
+
+    def get_artifact_proposal_acceptance_service() -> ArtifactProposalAcceptanceService:
+        return ArtifactProposalAcceptanceService(
+            get_repository(),
+            resolved_acceptance_registry,
+            resolved_proposal_schema_registry,
+        )
+
+    def get_artifact_proposal_rejection_service() -> ArtifactProposalRejectionService:
+        return ArtifactProposalRejectionService(get_repository().database_path)
+
+    def get_proposal_run_factory() -> ProposalRunFactory:
+        return ProposalRunFactory(get_repository(), resolved_agent_skill_registry)
+
+    def get_fake_timeline_run_operation_reader() -> FakeTimelineRunOperationReader:
+        return FakeTimelineRunOperationReader(get_repository().database_path)
+
+    def get_fake_timeline_run_factory() -> FakeTimelineRunFactory:
+        if resolved_fake_timeline_run_factory is None:
+            raise FakeTimelineRuntimeUnavailableError
+        return resolved_fake_timeline_run_factory
+
+    def get_development_timeline_export_service() -> DevelopmentTimelineExportService:
+        nonlocal resolved_development_timeline_export_service
+        if resolved_development_timeline_export_service is None:
+            lock = load_media_toolchain_lock(media_toolchain_lock_path())
+            toolchain = discover_media_toolchain(lock, explicit_root=media_tool_root())
+            repository_instance = get_repository()
+            resolved_development_timeline_export_service = DevelopmentTimelineExportService(
+                repository_instance,
+                repository_instance.database_path.parent,
+                toolchain,
+            )
+        return resolved_development_timeline_export_service
+
+    def get_provider_connection_service() -> ProviderConnectionService:
+        return ProviderConnectionService(
+            ProviderConnectionRepository(get_repository().database_path),
+            resolved_credential_vault,
+        )
+
+    def get_sub2api_configured_readiness() -> Sub2APIConfiguredReadiness:
+        return Sub2APIConfiguredReadiness(
+            ProviderConnectionRepository(get_repository().database_path),
+            resolved_credential_vault,
+            sub2api_runtime_availability or (lambda: "UNAVAILABLE"),
+        )
+
+    def get_app_preferences_store() -> AppPreferencesStore:
+        return AppPreferencesStore(get_repository().database_path)
+
+    def get_product_timeline_export_preflight_service() -> ProductTimelineExportPreflightService:
+        return ProductTimelineExportPreflightService(
+            get_repository(), media_toolchain_lock_path()
+        )
+
+    def get_sub2api_source_extract_factory() -> Sub2APISourceExtractRunFactory:
+        return Sub2APISourceExtractRunFactory(
+            get_repository(), sub2api_source_extract_registry()
+        )
+
+    def get_sub2api_source_extract_store() -> Sub2APISourceExtractStore:
+        return Sub2APISourceExtractStore(get_repository().database_path)
+
+    def request_id(request: Request) -> UUID:
+        return cast(UUID, request.state.request_id)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, _error: RequestValidationError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="VALIDATION_ERROR",
+            message="Request validation failed",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProjectNotFoundError)
+    async def project_not_found(request: Request, _error: ProjectNotFoundError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="PROJECT_NOT_FOUND",
+            message="The requested project or source was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(EpisodeNotFoundError)
+    async def episode_not_found(request: Request, _error: EpisodeNotFoundError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="EPISODE_NOT_FOUND",
+            message="The requested Episode was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(EpisodeStorageError)
+    async def episode_storage_failed(request: Request, _error: EpisodeStorageError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="EPISODE_STORAGE_FAILED",
+            message="The Episode request could not be completed",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationOperationNotFoundError)
+    async def invalidation_operation_not_found(
+        request: Request, _error: InvalidationOperationNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="INVALIDATION_OPERATION_NOT_FOUND",
+            message="The requested invalidation operation was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationReportCorruptError)
+    async def invalidation_ledger_corrupt(
+        request: Request, _error: InvalidationReportCorruptError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="INVALIDATION_LEDGER_CORRUPT",
+            message="The invalidation ledger is corrupt",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(InvalidationReportTooLargeError)
+    async def invalidation_report_too_large(
+        request: Request, _error: InvalidationReportTooLargeError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            code="INVALIDATION_REPORT_TOO_LARGE",
+            message="The invalidation report is too large",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunNotFoundError)
+    async def proposal_run_not_found(
+        request: Request, _error: ProposalRunNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="PROPOSAL_RUN_NOT_FOUND",
+            message="The requested proposal run was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunInputRejectedError)
+    async def proposal_run_input_rejected(
+        request: Request, _error: ProposalRunInputRejectedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROPOSAL_RUN_INPUT_REJECTED",
+            message="The proposal run input was rejected",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(IdempotencyKeyReusedError)
+    async def idempotency_key_reused(
+        request: Request, _error: IdempotencyKeyReusedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="IDEMPOTENCY_KEY_REUSED",
+            message="Idempotency-Key was reused with different input",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalRunCancellationConflictError)
+    async def proposal_run_cancellation_conflict(
+        request: Request, _error: ProposalRunCancellationConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROPOSAL_RUN_NOT_CANCELLABLE",
+            message="The proposal run cannot be cancelled in its current state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalNotFoundError)
+    async def artifact_proposal_not_found(
+        request: Request, _error: ArtifactProposalNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="ARTIFACT_PROPOSAL_NOT_FOUND",
+            message="The requested ArtifactProposal was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalAcceptanceConflictError)
+    async def artifact_proposal_acceptance_conflict(
+        request: Request, _error: ArtifactProposalAcceptanceConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_ACCEPTANCE_CONFLICT",
+            message="The ArtifactProposal cannot be accepted as DRAFT",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactProposalRejectionConflictError)
+    async def artifact_proposal_rejection_conflict(
+        request: Request, _error: ArtifactProposalRejectionConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_REJECTION_CONFLICT",
+            message="The ArtifactProposal cannot be rejected",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProposalValidationError)
+    async def artifact_proposal_validation_failed(
+        request: Request, _error: ProposalValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_PROPOSAL_VALIDATION_FAILED",
+            message="The ArtifactProposal failed DRAFT validation",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactNotFoundError)
+    async def artifact_not_found(request: Request, error: ArtifactNotFoundError) -> JSONResponse:
+        code = {
+            "source_manifest": "SOURCE_MANIFEST_NOT_FOUND",
+            "story_bible": "STORY_BIBLE_NOT_FOUND",
+            "timeline": "TIMELINE_NOT_FOUND",
+        }.get(error.artifact_type, "ARTIFACT_NOT_FOUND")
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=code,
+            message="The requested artifact was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineAlreadyExistsError)
+    async def timeline_already_exists(
+        request: Request, _error: TimelineAlreadyExistsError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_ALREADY_EXISTS",
+            message="The project timeline already exists",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineRevisionConflictError)
+    async def timeline_revision_conflict(
+        request: Request, _error: TimelineRevisionConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_REVISION_CONFLICT",
+            message="The timeline revision has changed",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(TimelineEditError)
+    async def timeline_edit_rejected(request: Request, error: TimelineEditError) -> JSONResponse:
+        revision_conflict = str(error) == "timeline revision conflict"
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="TIMELINE_REVISION_CONFLICT" if revision_conflict else "TIMELINE_EDIT_REJECTED",
+            message=(
+                "The timeline revision has changed"
+                if revision_conflict
+                else "The timeline edit was rejected"
+            ),
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(DevelopmentTimelineExportPreflightRejectedError)
+    async def development_timeline_export_preflight_rejected(
+        request: Request, error: DevelopmentTimelineExportPreflightRejectedError
+    ) -> JSONResponse:
+        response = ErrorResponse(
+            error=ErrorBody(
+                code="DEVELOPMENT_EXPORT_PREFLIGHT_REJECTED",
+                message="This export request was rejected before claiming an export operation",
+                details={
+                    "project_id": error.project_id,
+                    "operation_id": error.operation_id,
+                    "timeline_version_id": error.timeline_version_id,
+                    "expected_revision": str(error.expected_revision),
+                    "request_effect": "NO_EXPORT_CLAIM",
+                },
+                retryable=False,
+            ),
+            request_id=request_id(request),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content=response.model_dump(mode="json"),
+        )
+
+    @app.exception_handler(DevelopmentTimelineExportInvalidError)
+    async def development_timeline_export_invalid(
+        request: Request, _error: DevelopmentTimelineExportInvalidError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="DEVELOPMENT_EXPORT_INVALID",
+            message="The development timeline export request was rejected",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(DevelopmentTimelineExportConflictError)
+    async def development_timeline_export_conflict(
+        request: Request, _error: DevelopmentTimelineExportConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="DEVELOPMENT_EXPORT_CONFLICT",
+            message="The development timeline export operation conflicts with existing state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(DevelopmentTimelineExportNotFoundError)
+    async def development_timeline_export_not_found(
+        request: Request, _error: DevelopmentTimelineExportNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="DEVELOPMENT_EXPORT_NOT_FOUND",
+            message="The development timeline export receipt was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(DevelopmentTimelineExportUnknownError)
+    async def development_timeline_export_unknown(
+        request: Request, _error: DevelopmentTimelineExportUnknownError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="DEVELOPMENT_EXPORT_UNKNOWN",
+            message="Development export result is unknown; query the operation before retrying",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceRequiredError)
+    async def source_required(request: Request, _error: SourceRequiredError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="SOURCE_REQUIRED",
+            message="Import a source before starting the preview workflow",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineWorkflowNotReadyError)
+    async def fake_workflow_not_ready(
+        request: Request,
+        _error: FakeTimelineWorkflowNotReadyError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ASYNC_WORKFLOW_REQUIRED",
+            message="Create the preview through the authenticated asynchronous runtime",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunInputError)
+    async def fake_timeline_run_input_error(
+        request: Request, _error: FakeTimelineRunInputError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_TIMELINE_RUN_INPUT_REJECTED",
+            message="The Fake Timeline run input is not current and accepted",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunConflictError)
+    async def fake_timeline_run_conflict(
+        request: Request, _error: FakeTimelineRunConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_TIMELINE_RUN_CONFLICT",
+            message="The Fake Timeline run conflicts with durable state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunOperationNotFoundError)
+    async def fake_timeline_run_operation_not_found(
+        request: Request, _error: FakeTimelineRunOperationNotFoundError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="FAKE_TIMELINE_OPERATION_NOT_FOUND",
+            message="The Fake Timeline operation was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRunOperationConflictError)
+    async def fake_timeline_run_operation_conflict(
+        request: Request, _error: FakeTimelineRunOperationConflictError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="FAKE_TIMELINE_OPERATION_CONFLICT",
+            message="The Fake Timeline operation conflicts with durable state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(FakeTimelineRuntimeUnavailableError)
+    async def fake_timeline_runtime_unavailable(
+        request: Request, _error: FakeTimelineRuntimeUnavailableError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="FAKE_TIMELINE_RUNTIME_UNAVAILABLE",
+            message="The development Fake Timeline runtime is unavailable",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceAlreadyImportedError)
+    async def source_already_imported(
+        request: Request,
+        _error: SourceAlreadyImportedError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="SOURCE_ALREADY_IMPORTED",
+            message="This source is already part of the project",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(PreconditionRequiredError)
+    async def precondition_required(
+        request: Request, _error: PreconditionRequiredError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            code="PRECONDITION_REQUIRED",
+            message="If-Match is required for this artifact action",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(PreconditionFailedError)
+    async def precondition_failed(
+        request: Request, _error: PreconditionFailedError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            code="PRECONDITION_FAILED",
+            message="The artifact revision no longer matches",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactConflictError)
+    async def artifact_conflict(request: Request, _error: ArtifactConflictError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            code="PRECONDITION_FAILED",
+            message="The artifact revision no longer matches",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ArtifactDependencyInvalidError)
+    async def artifact_dependency_invalid(
+        request: Request, _error: ArtifactDependencyInvalidError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ARTIFACT_DEPENDENCY_INVALID",
+            message="The required accepted upstream artifact is not available",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(StoryBibleDraftInvalidError)
+    async def story_bible_draft_invalid(
+        request: Request, _error: StoryBibleDraftInvalidError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="STORY_BIBLE_INVALID",
+            message="The StoryBible draft violates the canonical content rules",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(StoryBiblePayloadTooLargeError)
+    async def story_bible_too_large(
+        request: Request, _error: StoryBiblePayloadTooLargeError
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            code="STORY_BIBLE_TOO_LARGE",
+            message="The StoryBible version exceeds the local desktop safety limit",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceSpanInvalidError)
+    async def source_span_invalid(request: Request, _error: SourceSpanInvalidError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="SOURCE_SPAN_INVALID",
+            message="A StoryBible source span is invalid",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(GateNotReadyError)
+    async def gate_not_ready(request: Request, _error: GateNotReadyError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="GATE_NOT_READY",
+            message="The artifact has blocking readiness checks",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ReviewInvalidError)
+    async def review_invalid(request: Request, _error: ReviewInvalidError) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="REVIEW_INVALID",
+            message="The review action is not valid for the current artifact state",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(SourceValidationError)
+    async def invalid_source(request: Request, error: SourceValidationError) -> JSONResponse:
+        status_code = (
+            status.HTTP_413_CONTENT_TOO_LARGE
+            if error.code == "SOURCE_TOO_LARGE"
+            else status.HTTP_400_BAD_REQUEST
+        )
+        return _error_response(
+            status_code=status_code,
+            code=error.code,
+            message="The source file could not be imported",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProviderConnectionConflictError)
+    async def provider_connection_conflict(
+        request: Request,
+        _error: ProviderConnectionConflictError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code="PROVIDER_CONNECTION_CONFLICT",
+            message="A provider connection with this name already exists",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(ProviderConnectionNotFoundError)
+    async def provider_connection_not_found(
+        request: Request,
+        _error: ProviderConnectionNotFoundError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="PROVIDER_CONNECTION_NOT_FOUND",
+            message="The provider connection was not found",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(CredentialCleanupRequiredError)
+    async def credential_cleanup_required(
+        request: Request,
+        _error: CredentialCleanupRequiredError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="CREDENTIAL_CLEANUP_REQUIRED",
+            message="A provider credential may require explicit cleanup",
+            request_id=request_id(request),
+        )
+
+    @app.exception_handler(CredentialVaultUnavailableError)
+    async def credential_vault_unavailable(
+        request: Request,
+        _error: CredentialVaultUnavailableError,
+    ) -> JSONResponse:
+        return _error_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="CREDENTIAL_VAULT_UNAVAILABLE",
+            message="The operating-system credential vault is unavailable",
+            request_id=request_id(request),
+        )
+
+    @app.middleware("http")
+    async def enforce_request_boundary(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        request.state.request_id = _request_id(request.headers.get(REQUEST_ID_HEADER))
+        if sidecar_security is not None:
+            failure = sidecar_security.authorize(request)
+            if failure is not None:
+                security_response = _security_error(failure, request.state.request_id)
+                _apply_security_headers(security_response, request.state.request_id)
+                return security_response
+
+        response = await call_next(request)
+        _apply_security_headers(response, request.state.request_id)
+        return response
+
+    @app.get(
+        "/api/v1/health",
+        operation_id="getHealth",
+        response_model=HealthResponse,
+        responses={
+            401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+            403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+        },
+    )
+    async def health(request: Request) -> HealthResponse:
+        return HealthResponse(
+            data=HealthData(version=__version__),
+            request_id=request.state.request_id,
+        )
+
+    @app.get(
+        "/api/v1/media/capabilities",
+        operation_id="getMediaCapabilities",
+        response_model=MediaCapabilitiesResponse,
+        responses={
+            401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+            403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+        },
+    )
+    async def media_capabilities(request: Request) -> MediaCapabilitiesResponse:
+        return MediaCapabilitiesResponse(
+            data=MediaCapabilitiesData.phase0(),
+            request_id=request.state.request_id,
+        )
+
+    shared_errors: dict[int | str, dict[str, Any]] = {
+        401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+        403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+        422: {"description": "Request validation failed", "model": ErrorResponse},
+    }
+
+    @app.get(
+        "/api/v1/projects",
+        operation_id="listProjects",
+        response_model=ProjectListResponse,
+        responses=shared_errors,
+    )
+    def list_projects(request: Request) -> ProjectListResponse:
+        projects = [
+            ProjectData.model_validate(project) for project in get_repository().list_projects()
+        ]
+        return ProjectListResponse(data=projects, request_id=request_id(request))
+
+    @app.post(
+        "/api/v1/projects",
+        operation_id="createProject",
+        response_model=ProjectResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses=shared_errors,
+    )
+    def create_project(request: Request, payload: CreateProjectRequest) -> ProjectResponse:
+        project = get_repository().create_project(
+            name=payload.name,
+            aspect_ratio=payload.aspect_ratio,
+            target_duration_seconds=payload.target_duration_seconds,
+            source_language=payload.source_language,
+        )
+        return ProjectResponse(
+            data=ProjectData.model_validate(project),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}",
+        operation_id="getProject",
+        response_model=ProjectResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project not found", "model": ErrorResponse},
+        },
+    )
+    def get_project(request: Request, project_id: str) -> ProjectResponse:
+        project = get_repository().get_project(project_id)
+        return ProjectResponse(
+            data=ProjectData.model_validate(project),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/sources",
+        operation_id="listSources",
+        response_model=SourceDocumentListResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project not found", "model": ErrorResponse},
+        },
+    )
+    def list_sources(request: Request, project_id: str) -> SourceDocumentListResponse:
+        sources = [
+            SourceDocumentSummaryData.model_validate(source)
+            for source in get_repository().list_sources(project_id)
+        ]
+        return SourceDocumentListResponse(data=sources, request_id=request_id(request))
+
+    @app.post(
+        "/api/v1/projects/{project_id}/sources",
+        operation_id="importTextSource",
+        response_model=SourceDocumentResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses={
+            **shared_errors,
+            400: {"description": "Invalid source file", "model": ErrorResponse},
+            404: {"description": "Project not found", "model": ErrorResponse},
+            409: {"description": "Source already imported", "model": ErrorResponse},
+            413: {"description": "Source file too large", "model": ErrorResponse},
+        },
+    )
+    def import_text_source(
+        request: Request,
+        project_id: str,
+        payload: ImportTextSourceRequest,
+    ) -> SourceDocumentResponse:
+        parsed = ingest_text_file(filename=payload.filename, content=payload.decoded_content())
+        document = get_repository().import_source(project_id, parsed)
+        return SourceDocumentResponse(
+            data=_source_document_data(document),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/sources/{source_id}",
+        operation_id="getSource",
+        response_model=SourceDocumentResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project or source not found", "model": ErrorResponse},
+        },
+    )
+    def get_source(request: Request, project_id: str, source_id: str) -> SourceDocumentResponse:
+        document = get_repository().get_source(project_id, source_id)
+        return SourceDocumentResponse(
+            data=_source_document_data(document),
+            request_id=request_id(request),
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/sources/{source_id}/text",
+        operation_id="getSourceText",
+        response_model=SourceDocumentTextResponse,
+        responses={
+            **shared_errors,
+            404: {"description": "Project or source not found", "model": ErrorResponse},
+            413: {"description": "Source text exceeds the supported size", "model": ErrorResponse},
+        },
+    )
+    def get_source_text(
+        request: Request,
+        project_id: str,
+        source_id: str,
+    ) -> SourceDocumentTextResponse:
+        document = get_repository().get_source(project_id, source_id)
+        normalized_bytes = document.normalized_text.encode("utf-8")
+        if len(normalized_bytes) > MAX_SOURCE_BYTES:
+            raise SourceValidationError("SOURCE_TOO_LARGE")
+        return SourceDocumentTextResponse(
+            data=SourceDocumentTextData(
+                id=document.id,
+                project_id=document.project_id,
+                raw_sha256=document.raw_sha256,
+                normalized_text=document.normalized_text,
+                normalized_sha256=hashlib.sha256(normalized_bytes).hexdigest(),
+            ),
+            request_id=request_id(request),
+        )
+
+    app.include_router(create_source_manifest_public_router(get_repository))
+    app.include_router(create_project_management_router(get_repository))
+    app.include_router(create_source_extraction_router(get_repository))
+    app.include_router(create_remote_source_extract_operation_router(get_repository))
+    app.include_router(create_episode_router(get_repository))
+    app.include_router(create_episode_script_public_router(get_repository))
+    app.include_router(create_story_bible_public_router(get_repository, trusted_review_actor))
+    app.include_router(create_production_brief_public_router(get_repository))
+    app.include_router(create_task_queue_router(get_task_queue_reader))
+    app.include_router(create_invalidation_router(get_repository))
+    app.include_router(
+        create_agent_skill_catalog_router(
+            get_repository,
+            lambda: resolved_agent_skill_registry,
+        )
+    )
+    app.include_router(create_proposal_run_router(get_agent_run_store))
+    app.include_router(create_artifact_proposal_router(get_artifact_proposal_store))
+    app.include_router(create_provider_connection_router(get_provider_connection_service))
+    app.include_router(create_timeline_router(get_repository))
+    app.include_router(create_fake_timeline_workflow_router(get_repository))
+    if sidecar_security is not None:
+        app.include_router(create_app_preferences_router(get_app_preferences_store))
+        app.include_router(
+            create_sub2api_connection_readiness_router(get_sub2api_configured_readiness)
+        )
+        app.include_router(create_media_asset_router(get_repository))
+        app.include_router(create_media_asset_rights_router(get_repository, trusted_review_actor))
+        app.include_router(
+            create_product_timeline_export_router(get_product_timeline_export_preflight_service)
+        )
+        app.include_router(
+            create_episode_script_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_sub2api_source_extract_router(
+                factory_provider=get_sub2api_source_extract_factory,
+                store_provider=get_sub2api_source_extract_store,
+                availability_provider=(
+                    sub2api_runtime_availability
+                    if sub2api_runtime_availability is not None
+                    else lambda: "UNAVAILABLE"
+                ),
+                trusted_actor_id=trusted_review_actor.subject_id,
+            )
+        )
+        app.include_router(
+            create_development_timeline_export_router(get_development_timeline_export_service)
+        )
+        app.include_router(
+            create_fake_timeline_run_query_router(get_fake_timeline_run_operation_reader)
+        )
+        app.include_router(create_fake_timeline_run_write_router(get_fake_timeline_run_factory))
+        app.include_router(
+            create_proposal_run_write_router(
+                get_proposal_run_factory,
+                get_agent_run_store,
+                get_task_ledger,
+                trusted_review_actor.subject_id,
+                remote_source_extract_enabled=True,  # Queue only; no remote worker is started here.
+            )
+        )
+        app.include_router(
+            create_source_manifest_internal_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_production_brief_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
+            create_artifact_proposal_write_router(
+                get_artifact_proposal_acceptance_service,
+                get_artifact_proposal_rejection_service,
+                trusted_review_actor,
+            )
+        )
+
+    return app
+
+
+app = create_app()

@@ -1,0 +1,31 @@
+{
+  "schema": "AIVORA_LOCAL_SUB2API_NATIVE_OVERLAY_READY_INPUT_V2",
+  "state": "REVIEWABLE_INPUT_ONLY_NO_DERIVATIVE_STAGE_NO_BUILD",
+  "date_local": "2026-10-08",
+  "native_main_overlay_v1_path": "C:/Users/Administrator/Documents/AIVORA/management/manager-handoffs/release-snapshots/20260929-local-sub2api-composition-4/NATIVE-MAIN-OVERLAY-INPUT-v1.json",
+  "native_main_overlay_v1_sha256": "AA477515A3F583AB8BAD1859F166FA78DE7199A9A1D9F3229B6255761F4842AB",
+  "fixed_qa_stage_root": "C:/Users/Administrator/Documents/Codex/2026-09-23/qa03-local-sub2api-source-v4-01",
+  "fixed_qa_stage_copy_result_sha256": "DAA2FCDD9A49384DB84C2CB7019147A9F6F57DC9816D547B6AAA639AD0D692D6",
+  "fixed_qa_g_package_sha256": "EEF2F5ED04AA38C142861EF85CBEB15EBF511CD3BC8E01BA71B52298E5ACEF83",
+  "fixed_qa_g_result_sha256": "2CAD6E895105B03680E9CD8C6064F8AFAEF8E3DB72859E43A3F563B62743482C",
+  "mgr04_g_full_tree_review_sha256": "29EE14FF5881FBED90D169CB11E62E7AB7166A352F0A28F0D1C2D6FA00D46F0A",
+  "stage_generated_outputs": {
+    "packages/contracts/openapi.json": {
+      "sha256": "5DB5480A7CDFC5AADECECD9D9F6835148B289ED32427289250AAAEE3623C8AFE",
+      "bytes": 634396
+    },
+    "packages/contracts/src/generated.ts": {
+      "sha256": "DE2B2F58314658A21576AE7E850CB93016A8A419F021E8E294F026FD95EAE8A0",
+      "bytes": 404368
+    }
+  },
+  "required_single_native_source_overlay": {
+    "relative_path": "apps/desktop/src/main.ts",
+    "stage_sha256": "A1359F9EBC54090AD882C12B85E5CFB36917060D20D6B2DE245D9E364EA04C32",
+    "owner_snapshot_path": "C:/Users/Administrator/.codex/worktrees/s2-q1-g1-d00-default-deny-59f-20260923/sp/work/dev07-main-resource-safety-20261008/main.ts.after",
+    "owner_snapshot_sha256": "51076243C1E39B544196D01EFDB76A1567138C255AAAC79D31131418ADD68D40",
+    "owner_snapshot_bytes": 17466
+  },
+  "handoff_rule": "Create a separately reviewed and signed derivative isolated stage from the fixed G stage, changing only desktop main.ts. Preserve the S/G stage and c19. Bind the fixed generated outputs, unchanged StoryPages/CSS/model/preload/sidecar-process, Node/dependencies and final Web/desktop dist hashes in one build receipt. Do not use author or c19 dist artifacts.",
+  "acceptance_boundary": "Source/G inputs are fixed; derivative stage, Web/desktop build, sidecar package, QA02 Electron and release acceptance remain unrun. Visible Electron requires user window permission."
+}

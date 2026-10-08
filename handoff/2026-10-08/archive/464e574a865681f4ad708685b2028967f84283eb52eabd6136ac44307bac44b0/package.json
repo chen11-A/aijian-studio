@@ -1,0 +1,20 @@
+{
+  "name": "@aijian/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./generated.d.ts",
+      "default": "./generated.js"
+    },
+    "./artifact-proposal": {
+      "types": "./artifact-proposal.d.ts",
+      "default": "./artifact-proposal.js"
+    },
+    "./invalidation-operation": {
+      "types": "./invalidation-operation.d.ts",
+      "default": "./invalidation-operation.js"
+    }
+  }
+}

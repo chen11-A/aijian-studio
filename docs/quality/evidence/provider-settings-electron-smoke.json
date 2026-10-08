@@ -1,0 +1,38 @@
+{
+  "check": "desktop-provider-smoke",
+  "passed": true,
+  "createdIdMatchedContract": true,
+  "credentialStatus": "MISSING",
+  "listed": true,
+  "taskQueueProjectIdMatched": true,
+  "taskQueueCount": 0,
+  "bridgeKeys": [
+    "createProject",
+    "createProviderConnection",
+    "deleteProviderConnection",
+    "getProject",
+    "getSource",
+    "getSourceManifest",
+    "getStoryBibleIndex",
+    "getStoryBibleVersion",
+    "health",
+    "importTextSource",
+    "listProjectTasks",
+    "listProjects",
+    "listProviderConnections",
+    "listSources"
+  ],
+  "nodeGlobals": {
+    "process": "undefined",
+    "require": "undefined"
+  },
+  "viewport": {
+    "innerWidth": 1424,
+    "innerHeight": 881,
+    "scrollWidth": 1409,
+    "clientWidth": 1409
+  },
+  "horizontalOverflow": false,
+  "rendererConsoleErrors": [],
+  "screenshot": "provider-settings-electron-1424x881.png"
+}

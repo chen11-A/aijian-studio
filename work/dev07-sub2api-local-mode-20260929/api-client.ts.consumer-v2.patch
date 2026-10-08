@@ -1,0 +1,70 @@
+diff --git a/apps/desktop/src/api-client.ts b/apps/desktop/src/api-client.ts
+index 65a01cf..1d23d9e 100644
+--- a/apps/desktop/src/api-client.ts
++++ b/apps/desktop/src/api-client.ts
+@@ -148,6 +148,7 @@ import {
+   isProviderConnectionId,
+   isProviderConnectionListResponse,
+   isProviderConnectionResponse,
++  isSub2APIOriginMode,
+   type CreateProviderConnectionInput,
+   type ProviderConnectionListResponse,
+   type ProviderConnectionResponse,
+@@ -4403,15 +4404,55 @@ export function createLocalApiClient(
+           !isEditSub2APIMetadataCommand(command)) {
+         throw new Error("Sub2API metadata edit requires canonical arguments");
+       }
++      let before: ProviderConnectionListResponse;
++      try {
++        before = await requestJson(
++          "/api/v1/provider-connections", isProviderConnectionListResponse, { headers },
++        );
++      } catch {
++        return { kind: "REMOTE_UNKNOWN" };
++      }
++      const current = before.data.find((item) => item.id === connectionId);
++      if (!current || current.provider_kind !== "SUB2API" ||
++          current.revision !== command.expected_revision ||
++          !isRecord(current) || !isSub2APIOriginMode(current.origin_mode)) {
++        return { kind: "REMOTE_UNKNOWN" };
++      }
++      if (command.origin_mode === undefined &&
++          current.origin_mode === "LOCAL_LOOPBACK_HTTP") {
++        throw new Error("Editing a local Sub2API connection requires explicit origin_mode");
++      }
++      const explicitCommand = {
++        ...command, origin_mode: command.origin_mode ?? "PUBLIC_HTTPS",
++      };
+       const result = await requestSub2APIMutationHttp(
+         `/api/v1/provider-connections/${connectionId}`,
+         { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" },
+-          body: JSON.stringify(command) },
++          body: JSON.stringify(explicitCommand) },
+       );
+       if (result === null) return { kind: "REMOTE_UNKNOWN" };
+       const { status, payload, requestId } = result;
+       if (status === 200) {
+-        return isSub2APIMetadataReceipt(payload, connectionId, command, requestId)
++        if (!isSub2APIMetadataReceipt(payload, connectionId, explicitCommand, requestId)) {
++          return { kind: "REMOTE_UNKNOWN" };
++        }
++        let after: ProviderConnectionListResponse;
++        try {
++          after = await requestJson(
++            "/api/v1/provider-connections", isProviderConnectionListResponse, { headers },
++          );
++        } catch {
++          return { kind: "REMOTE_UNKNOWN" };
++        }
++        const persisted = after.data.find((item) => item.id === connectionId);
++        return persisted?.provider_kind === "SUB2API" &&
++          isRecord(persisted) &&
++          persisted.origin_mode === explicitCommand.origin_mode &&
++          persisted.revision === payload.data.revision &&
++          persisted.base_url === payload.data.base_url &&
++          persisted.display_name === payload.data.display_name &&
++          persisted.enabled === payload.data.enabled &&
++          JSON.stringify(persisted.models) === JSON.stringify(payload.data.models)
+           ? { kind: "UPDATED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+       }
+       return sub2APIMutationDefiniteError(status, payload, requestId) ??

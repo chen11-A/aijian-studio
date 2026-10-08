@@ -1,0 +1,39 @@
+{
+    "captured_utc":  "2026-09-24T01:46:13.0167313Z",
+    "main_pid":  18932,
+    "process_tree":  [
+                         {
+                             "ProcessId":  18932,
+                             "ParentProcessId":  15564,
+                             "Name":  "pwsh.exe",
+                             "CreationDate":  "\/Date(1790214369662)\/"
+                         },
+                         {
+                             "ProcessId":  20084,
+                             "ParentProcessId":  18932,
+                             "Name":  "powershell.exe",
+                             "CreationDate":  "\/Date(1790214370401)\/"
+                         },
+                         {
+                             "ProcessId":  17052,
+                             "ParentProcessId":  20084,
+                             "Name":  "conhost.exe",
+                             "CreationDate":  "\/Date(1790214370407)\/"
+                         }
+                     ],
+    "all_top_count":  9,
+    "all_top_handles":  [
+                            65684,
+                            65790,
+                            262296,
+                            66728,
+                            3016598,
+                            394930,
+                            525740,
+                            263196,
+                            65820
+                        ],
+    "candidate_roots":  [
+
+                        ]
+}

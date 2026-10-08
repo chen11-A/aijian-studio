@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "product": "AIVORA",
+  "platform": "win32",
+  "architecture": "x64",
+  "stage_kind": "installer-input-only",
+  "required_destinations": {
+    "desktop-package": "app/package.json",
+    "installer-hook": "build/installer.nsh",
+    "installer-config": "build/electron-builder.json",
+    "desktop-main": "app/dist/main.js",
+    "desktop-preload": "app/dist/preload.js",
+    "contracts-package": "app/node_modules/@aijian/contracts/package.json",
+    "contracts-generated-js": "app/node_modules/@aijian/contracts/generated.js",
+    "contracts-generated-types": "app/node_modules/@aijian/contracts/generated.d.ts",
+    "contracts-artifact-js": "app/node_modules/@aijian/contracts/artifact-proposal.js",
+    "contracts-artifact-types": "app/node_modules/@aijian/contracts/artifact-proposal.d.ts",
+    "contracts-invalidation-js": "app/node_modules/@aijian/contracts/invalidation-operation.js",
+    "contracts-invalidation-types": "app/node_modules/@aijian/contracts/invalidation-operation.d.ts",
+    "renderer-index": "resources/renderer/index.html",
+    "sidecar-runtime": "resources/sidecar/aijian-sidecar.exe",
+    "media-lock": "resources/config/media-toolchain-lock.json",
+    "ffmpeg": "resources/media/ffmpeg.exe",
+    "ffprobe": "resources/media/ffprobe.exe",
+    "project-license": "resources/licenses/AIVORA-LICENSE",
+    "project-notice": "resources/licenses/AIVORA-NOTICE",
+    "media-license": "resources/licenses/ffmpeg/LICENSE",
+    "media-notice": "resources/licenses/ffmpeg/NOTICE"
+  },
+  "install_policy": {
+    "scope": "per-user",
+    "requires_elevation": false,
+    "user_data": "Electron app.getPath('userData')/workspace",
+    "upgrade": "back up user data and verify backup before replacing the installed version; stop on failure",
+    "uninstall": "remove program files; preserve user data and credential references by default",
+    "data_cleanup": "separate explicit user action with reviewed scope"
+  },
+  "installer_tool": "UNSELECTED_REQUIRES_FIXED_TOOL_AND_LICENSE"
+}

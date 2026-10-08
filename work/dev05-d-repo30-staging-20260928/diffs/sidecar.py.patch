@@ -1,0 +1,143 @@
+--- c19/sidecar.py
++++ staged/sidecar.py
+@@ -17,8 +17,14 @@
+ from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
+ from aijian_api.gateway_transport import GatewayTextTransport
+ from aijian_api.main import create_app, default_database_path
+-from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
++from aijian_api.media_toolchain import (
++    MediaToolchain,
++    discover_media_toolchain,
++    load_media_toolchain_lock,
++)
+ from aijian_api.provider_connection_repository import ProviderConnectionRepository
++from aijian_api.product_export_runtime import ProductExportRuntime
++from aijian_api.product_export_windows_job import ProductExportJobManager
+ from aijian_api.remote_execution_authorization import RemoteExecutionAuthorizationStore
+ from aijian_api.remote_settlement_contracts import DenyRemoteSettlementVerifier
+ from aijian_api.remote_source_extract_runtime import (
+@@ -27,6 +33,7 @@
+ )
+ from aijian_api.remote_source_extract_worker import RemoteSourceExtractWorker
+ from aijian_api.repository import StudioRepository
++from aijian_api.runtime_resources import media_tool_root, media_toolchain_lock_path
+ from aijian_api.security import SIDECAR_ORIGIN, SidecarSecurity
+ from aijian_api.source_extract_worker import (
+     LocalFakeSourceExtractWorker,
+@@ -42,6 +49,10 @@
+ from aijian_api.sub2api_text_transport import Sub2APITextTransport
+ from aijian_api.task_ledger import LocalTaskLedger
+ from aijian_api.task_ledger_models import new_id
++from aijian_api.workspace_owner_lock import (
++    WorkspaceLockBusyError,
++    acquire_workspace_owner_lock,
++)
+ 
+ PROTOCOL_VERSION = 1
+ SIDECAR_HOST = "127.0.0.1"
+@@ -88,6 +99,12 @@
+     """Build the only explicitly enabled background runtime for the Sidecar."""
+ 
+     return LocalFakeSourceExtractWorker(database_path)
++
++
++def discover_product_export_toolchain() -> MediaToolchain:
++    """Discover a pinned toolchain only when a new claim needs it."""
++    lock = load_media_toolchain_lock(media_toolchain_lock_path())
++    return discover_media_toolchain(lock, explicit_root=media_tool_root())
+ 
+ 
+ def create_local_fake_timeline_runtime(
+@@ -208,7 +225,15 @@
+ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | None = None) -> None:
+     """Start one authenticated API process and supervise its parent pipe."""
+ 
+-    listener, port = create_listener()
++    database_path = default_database_path()
++    try:
++        workspace_owner = acquire_workspace_owner_lock(database_path)
++    except WorkspaceLockBusyError:
++        print("AIVORA_STARTUP_WORKSPACE_BUSY", file=sys.stderr, flush=True)
++        raise SystemExit(73) from None
++    listener: socket.socket | None = None
++    product_export_jobs: ProductExportJobManager | None = None
++    product_export_runtime: ProductExportRuntime | None = None
+     worker: LocalFakeSourceExtractWorker | None = None
+     timeline_worker: LocalFakeTimelineWorker | None = None
+     remote_worker: RemoteSourceExtractRuntime | None = None
+@@ -218,13 +243,21 @@
+     remote_worker_started = False
+     sub2api_worker_started = False
+     try:
++        listener, port = create_listener()
+         token = create_token()
+         security = SidecarSecurity(
+             token=token,
+             host=f"{SIDECAR_HOST}:{port}",
+             origin=SIDECAR_ORIGIN,
+         )
+-        repository = StudioRepository(default_database_path())
++        repository = StudioRepository(database_path)
++        product_export_jobs = ProductExportJobManager()
++        product_export_runtime = ProductExportRuntime(
++            repository,
++            product_export_jobs,
++            repository.database_path.parent / "exports" / "product-video",
++            discover_product_export_toolchain,
++        )
+         credentials = SystemCredentialVault()
+         worker = create_local_fake_worker(repository.database_path)
+         remote_worker = create_remote_source_extract_runtime(
+@@ -247,6 +280,7 @@
+                 repository=repository,
+                 credential_vault=credentials,
+                 fake_timeline_run_factory=timeline_factory,
++                product_export_runtime=product_export_runtime,
+                 sub2api_runtime_availability=sub2api_worker.availability,
+             ),
+             host=SIDECAR_HOST,
+@@ -278,8 +312,26 @@
+         print(json.dumps(handshake, separators=(",", ":"), sort_keys=True), flush=True)
+         server.run(sockets=[listener])
+     finally:
+-        shutdown_error: Exception | None = None
++        shutdown_error: BaseException | None = None
+         try:
++            if product_export_runtime is not None:
++                try:
++                    product_export_runtime.stop_accepting()
++                except BaseException as error:
++                    if shutdown_error is None:
++                        shutdown_error = error
++            if product_export_jobs is not None:
++                try:
++                    product_export_jobs.shutdown_and_wait()
++                except BaseException as error:
++                    if shutdown_error is None:
++                        shutdown_error = error
++            if product_export_runtime is not None:
++                try:
++                    product_export_runtime.join_workers()
++                except BaseException as error:
++                    if shutdown_error is None:
++                        shutdown_error = error
+             for started, runtime in (
+                 (sub2api_worker_started, sub2api_worker),
+                 (remote_worker_started, remote_worker),
+@@ -290,11 +342,14 @@
+                     continue
+                 try:
+                     runtime.stop()
+-                except Exception as error:
++                except BaseException as error:
+                     if shutdown_error is None:
+                         shutdown_error = error
+         finally:
+-            listener.close()
++            if listener is not None:
++                listener.close()
++            if shutdown_error is None:
++                workspace_owner.release()
+         if shutdown_error is not None:
+             raise shutdown_error
+ 

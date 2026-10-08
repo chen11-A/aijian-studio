@@ -1,0 +1,158 @@
+diff --git a/apps/desktop/src/api-client.ts b/apps/desktop/src/api-client.ts
+index 8ddb5cf..8c51120 100644
+--- a/apps/desktop/src/api-client.ts
++++ b/apps/desktop/src/api-client.ts
+@@ -60,6 +60,20 @@ import {
+   sub2APIReadinessDefiniteError,
+   type Sub2APIConfiguredReadinessResult,
+ } from "./sub2api-configured-readiness-contract";
++import {
++  isEditSub2APIMetadataCommand,
++  isRotateSub2APIKeyCommand,
++  isSub2APIMetadataReceipt,
++  isSub2APIKeyRotationReceipt,
++  isSub2APIRotationOperationId,
++  isSub2APIRotationOperationResponse,
++  sub2APIMutationDefiniteError,
++  sub2APIRotationReadDefiniteError,
++  type EditSub2APIMetadataCommand,
++  type RotateSub2APIKeyCommand,
++  type Sub2APIConnectionMutationResult,
++  type Sub2APIRotationReadResult,
++} from "./sub2api-connection-mutation-contract";
+ import {
+   episodeScriptDefiniteError,
+   isCreateEpisodeScriptVersionRequest,
+@@ -234,6 +248,12 @@ export type {
+   Sub2APIConfiguredReadinessResponse,
+   Sub2APIConfiguredReadinessResult,
+ } from "./sub2api-configured-readiness-contract";
++export type {
++  EditSub2APIMetadataCommand,
++  RotateSub2APIKeyCommand,
++  Sub2APIConnectionMutationResult,
++  Sub2APIRotationReadResult,
++} from "./sub2api-connection-mutation-contract";
+ export type {
+   CreateEpisodeScriptVersionRequest,
+   EpisodeScriptCreateResult,
+@@ -589,6 +609,15 @@ export interface LocalApiClient {
+   readSub2APIConfiguredReadiness(
+     connectionId: string, modelId: string,
+   ): Promise<Sub2APIConfiguredReadinessResult>;
++  editSub2APIMetadata(
++    connectionId: string, command: EditSub2APIMetadataCommand,
++  ): Promise<Sub2APIConnectionMutationResult>;
++  rotateSub2APIKey(
++    connectionId: string, command: RotateSub2APIKeyCommand,
++  ): Promise<Sub2APIConnectionMutationResult>;
++  readSub2APIKeyRotation(
++    connectionId: string, operationId: string,
++  ): Promise<Sub2APIRotationReadResult>;
+   createProviderConnection(
+     input: CreateProviderConnectionInput,
+   ): Promise<ProviderConnectionResponse>;
+@@ -2369,6 +2398,34 @@ export function createLocalApiClient(
+     }
+   }
+ 
++  async function requestSub2APIMutationHttp(
++    path: string, init: RequestInit,
++  ): Promise<{ status: number; payload: unknown; requestId: string | null } | null> {
++    const controller = new AbortController();
++    let timer: ReturnType<typeof setTimeout> | null = null;
++    const deadline = new Promise<never>((_, reject) => {
++      timer = setTimeout(() => {
++        controller.abort();
++        reject(new Error("Sub2API mutation deadline"));
++      }, 15_000);
++    });
++    const wait = <T>(pending: Promise<T>): Promise<T> => Promise.race([pending, deadline]);
++    try {
++      const response = await wait(fetcher(`${origin}${path}`, {
++        ...init, signal: controller.signal,
++      }));
++      const payload = await readJsonWithLimit(response, { wait });
++      return {
++        status: response.status, payload,
++        requestId: response.headers.get("X-Request-ID"),
++      };
++    } catch {
++      return null;
++    } finally {
++      if (timer !== null) clearTimeout(timer);
++    }
++  }
++
+   async function requestProductionBriefRead<T>(
+     path: string,
+     validator: (value: unknown) => value is T,
+@@ -4339,6 +4396,68 @@ export function createLocalApiClient(
+         return { kind: "READINESS_UNKNOWN" };
+       }
+     },
++    async editSub2APIMetadata(
++      connectionId: string, command: EditSub2APIMetadataCommand,
++    ): Promise<Sub2APIConnectionMutationResult> {
++      if (!isSub2APIConnectionId(connectionId) ||
++          !isEditSub2APIMetadataCommand(command)) {
++        throw new Error("Sub2API metadata edit requires canonical arguments");
++      }
++      const result = await requestSub2APIMutationHttp(
++        `/api/v1/provider-connections/${connectionId}`,
++        { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" },
++          body: JSON.stringify(command) },
++      );
++      if (result === null) return { kind: "REMOTE_UNKNOWN" };
++      const { status, payload, requestId } = result;
++      if (status === 200) {
++        return isSub2APIMetadataReceipt(payload, connectionId, command, requestId)
++          ? { kind: "UPDATED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
++      }
++      return sub2APIMutationDefiniteError(status, payload, requestId) ??
++        { kind: "REMOTE_UNKNOWN" };
++    },
++    async rotateSub2APIKey(
++      connectionId: string, command: RotateSub2APIKeyCommand,
++    ): Promise<Sub2APIConnectionMutationResult> {
++      if (!isSub2APIConnectionId(connectionId) || !isRotateSub2APIKeyCommand(command)) {
++        throw new Error("Sub2API rotation requires canonical arguments");
++      }
++      const result = await requestSub2APIMutationHttp(
++        `/api/v1/provider-connections/${connectionId}/credential-rotations`,
++        postInit(command),
++      );
++      if (result === null) return { kind: "REMOTE_UNKNOWN" };
++      const { status, payload, requestId } = result;
++      if (status === 200) {
++        return isSub2APIKeyRotationReceipt(payload, connectionId, command, requestId)
++          ? { kind: "UPDATED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
++      }
++      return sub2APIMutationDefiniteError(status, payload, requestId) ??
++        { kind: "REMOTE_UNKNOWN" };
++    },
++    async readSub2APIKeyRotation(
++      connectionId: string, operationId: string,
++    ): Promise<Sub2APIRotationReadResult> {
++      if (!isSub2APIConnectionId(connectionId) ||
++          !isSub2APIRotationOperationId(operationId)) {
++        throw new Error("Sub2API rotation read requires canonical ids");
++      }
++      const result = await requestSub2APIMutationHttp(
++        `/api/v1/provider-connections/${connectionId}` +
++          `/credential-rotations/${operationId}`,
++        { headers },
++      );
++      if (result === null) return { kind: "REMOTE_UNKNOWN" };
++      const { status, payload, requestId } = result;
++      if (status === 200) {
++        return isSub2APIRotationOperationResponse(
++          payload, connectionId, operationId, requestId,
++        ) ? { kind: "READ", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
++      }
++      return sub2APIRotationReadDefiniteError(status, payload, requestId) ??
++        { kind: "REMOTE_UNKNOWN" };
++    },
+     async createProviderConnection(
+       input: CreateProviderConnectionInput,
+     ): Promise<ProviderConnectionResponse> {

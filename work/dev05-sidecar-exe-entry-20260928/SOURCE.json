@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "STATIC_CANDIDATE_NO_BUILD",
+  "date": "2026-09-28",
+  "source_checkout": "C:/Users/Administrator/.codex/worktrees/s2-q1-g1-d00-default-deny-59f-20260923/sp",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "worktree_clean": false,
+  "requested_pyinstaller_version": "6.22.3",
+  "installed_pyinstaller": false,
+  "python_requirement": ">=3.12,<3.13",
+  "build_executed": false,
+  "exe_exists": false,
+  "sha256": {
+    "work/dev05-sidecar-exe-entry-20260928/entry.py": "888E9E99BD03221A8E5481158AD5DCA0AB0881003523E656646B628C4AD3F2C5",
+    "work/dev05-sidecar-exe-entry-20260928/aijian-sidecar.spec": "C9D4AC8617F3D4DDD2269FE0927D48C8A2FA6CB842BB9AB131D369D96D2C458B",
+    "work/dev05-sidecar-exe-entry-20260928/BUILD-NOTES.md": "B1190A5915DA772CAF9212CD0415B62900D190712F0B66171AC24AF8F70261B9",
+    "services/api/src/aijian_api/sidecar.py": "03B5EE2E3C80BF3550AA918D4825451CAEADD8FF95BEDF20759F50E8C3FBD4F2",
+    "services/api/src/aijian_api/main.py": "ECD229676AB58DCBF569730996C7D2B74CE7CC350D23CDA9505E3046D262947A",
+    "services/api/src/aijian_api/runtime_resources.py": "E93FC66B03FB4CF9B2969EC2AF453BCF3DA54C4B2C5E9B7E8D481BC7D72EFA0B",
+    "services/api/src/aijian_api/fake_agent_executor.py": "0002DEAE36DE2BF24B5F98AA5CF2FDA30262FAF2434270A5B41A8E1A9002802A",
+    "services/api/src/aijian_api/fake_agent_subprocess.py": "1C15DAC5F804BD1A97AAA05CD1CDA98AB34B7009220EA65BBC8056EC9580F1E3",
+    "services/api/src/aijian_api/fake_provider.py": "7D70B9C5C98731AC76C2CE596488F1C78E6951C072EF1757DADB02D07B74885C",
+    "services/api/src/aijian_api/fake_provider_worker.py": "56693D680028FD74D871A93F4F5B8501DECA24862EF2631E3ABF39E46330089A",
+    "apps/desktop/src/main.ts": "F6C664EF46B52ACFE827B578B6C787E43CD1EE4312A21B44640C2AA3DA92E97B",
+    "apps/desktop/src/sidecar-process.ts": "8A665F6F1746ED31E10C293BFC85D41AB530F9E248C851F823A5C37DA1E9DA86",
+    "packaging/windows/runtime-layout.json": "0F6EFF7BCAB2585A90846AA4CC9F5C70CD5D34953E902898CD2AA8D95B93516B",
+    "pyproject.toml": "11C9B9DBA2F4A389AA99A3ED4545E3792B5D950EE79CA718EF4657E5678D9BFA",
+    "uv.lock": "FB54B3AD6407A035BDC62B1321122F5FE1C24620AD075F549DCE4629F8B9CBCC"
+  }
+}

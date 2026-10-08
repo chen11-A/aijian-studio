@@ -1,0 +1,58 @@
+{
+  "schema": "dev05.s2.no-host-vault-static.v1",
+  "status": "STATIC_REACHABILITY_ONLY_S2_NOT_SIGNED_NOT_RUN",
+  "source_identity": {
+    "b31_manifest": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-b31-same-version-qa-inputs-1\\MANIFEST.json",
+    "b31_manifest_sha256": "B91EE1F989B73E23B4740224643B95F48517F006448DCFD375F91E67C11E35B9",
+    "r2_composite": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\SOURCE-COMPOSITE.json",
+    "r2_composite_sha256": "3A3DA222E44622DA5803AE80D9867FF69296BD394E7AC2132921F3C9C30FAE7B",
+    "r2_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\candidate-source",
+    "python_consumer": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\tool-review\\sidecar-py312-win-x64-1\\python-base\\python\\python.exe -I -B",
+    "r2_source_sha_and_bytes": "194/194 MATCH",
+    "b31_selected_sha_and_bytes": "50/50 MATCH",
+    "product_import_or_http_execution": false
+  },
+  "pinned_modules_sha256": {
+    "services/api/src/aijian_api/credential_vault.py": "84E7D0E7F0F6DF3FE8D645BB1E981148CC1A4DD030320416CB4E6571466F6C4E",
+    "services/api/src/aijian_api/sidecar.py": "03B5EE2E3C80BF3550AA918D4825451CAEADD8FF95BEDF20759F50E8C3FBD4F2",
+    "services/api/src/aijian_api/main.py": "ECD229676AB58DCBF569730996C7D2B74CE7CC350D23CDA9505E3046D262947A",
+    "services/api/src/aijian_api/repository.py": "4032F9C2E319AABE02FEC9BADC53B5F81E5BD4A592C6EFFA7622EFF07AFD7DD9",
+    "services/api/src/aijian_api/ingestion.py": "20D52E00EE6309F1A5E7549ACA138E3E20506267C4A57C585AF5170132515B4C",
+    "services/api/src/aijian_api/sub2api_source_extract_runtime.py": "CB9FA6567AA2A98D7373FBEA2BE944E3695FBAF3F25B8FC11BA0E94FE2536E4E",
+    "services/api/src/aijian_api/sub2api_source_extract_store.py": "1743B148B38CEB26DDF3A0630CEDA05A61DADDFF5BF4EA4A933022B144DAAFFA"
+  },
+  "pinned_keyring_package_sha256": {
+    "keyring/__init__.py": "E1B93AEA1C4EB30E49461CB2E08F54F1CFD55CAFA92EEB01F9807E692F3AA2DD",
+    "keyring/core.py": "DB310E54A8AD61AADDBEA3C31F33050917C807CD7672E5CB6C8561F6E75BC5CD",
+    "keyring/backends/Windows.py": "DA98B72D2576442C17ACB61E3699485152603CB1F9B8C9F261C481828FBA926C"
+  },
+  "selected_route_reachability": [
+    "GET /api/v1/health: main.py 977-990 -> __version__ response; no repository or Vault method",
+    "POST /api/v1/projects: main.py 1025-1042 -> get_repository().create_project; repository.py 1261-1319 SQLite/local",
+    "POST /api/v1/projects/{project_id}/sources: main.py 1076-1099 -> ingestion.py ingest_text_file 107-124 -> repository.py import_source 1425-1524, including local _append_source_manifest_draft",
+    "GET /api/v1/projects/{project_id}/sources: main.py 1060-1074 -> repository.py list_sources 1680-1694",
+    "GET /api/v1/projects/{project_id}/sources/{source_id}: main.py 1101-1115 -> repository.py get_source 1696-1721",
+    "GET /api/v1/projects/{project_id}/sources/{source_id}/text: main.py 1117-1145 -> repository.py get_source 1696-1721 and local UTF-8 hash/size check"
+  ],
+  "static_findings": [
+    "credential_vault.py imports keyring at module import; SystemCredentialVault has no __init__ and construction has no explicit get/set/delete. Its methods call keyring.get_password, set_password, or delete_password only when invoked.",
+    "Pinned keyring.core initializes _keyring_backend=None and invokes init_backend via get_keyring on keyring get/set/delete. Importing keyring/__init__.py only exports functions in the inspected package. Native module/import behavior is not an observed process trace.",
+    "main.py module import creates app=create_app() and a SystemCredentialVault object; sidecar.py run constructs another SystemCredentialVault at line 453 and injects it into create_app. Provider and readiness service providers are closures; selected S2 routes do not invoke them.",
+    "sidecar starts Sub2API runtime at line 500. On each iteration runtime first calls store.next_ready; the store requires a READY task, READY attempt, unexpired nonrevoked approval, and no consumption. With a verified brand-new empty DB this returns none before runtime credential get at line 144.",
+    "The selected health, POST project, POST source, and GET source list/detail/text handlers use __version__, ingestion, and StudioRepository local operations. Repository create_project/import_source/list_sources/get_source and ingestion have no Vault or provider transport calls in their fixed source bodies. Import source appends a local source-manifest draft.",
+    "APPDATA or LOCALAPPDATA redirection can scope application data paths but does not create a fresh Windows Credential Locker or prove host Vault isolation. No host secret was read or enumerated in this audit."
+  ],
+  "s2_scope_conditions": [
+    "Use a new isolated backend source/process and DB, pin actual imported __file__/SHA and environment; do not fall back to live sp.",
+    "Preflight DB absence or empty new schema: no provider connection, workflow task, Sub2API approval, or prior consumption; recheck after run.",
+    "Clear inherited provider/keyring-related configuration, leave remote_source_extract_composition=None and AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME unset; call only health, POST project, POST source, GET source list/detail/text. Do not call provider configuration, readiness, queue, or approval.",
+    "Set AIJIAN_DATA_DIR to an isolated workspace. For frozen EXE, main.py requires canonical absolute non-UNC path named workspace beneath APPDATA or LOCALAPPDATA; DB is workspace.sqlite3. Use a separate desktop userData/profile and record PID/path/DB identity.",
+    "No real provider address or API key; do not read, enumerate, log, or copy host credentials. Do not interpret APPDATA redirection as Vault isolation."
+  ],
+  "minimum_verifiable_no_vault_next_gate": "For an isolated source-backed S2 HTTP gate, inject a fail-closed CredentialVault spy into create_app and runtime composition, with get/set/delete counters that raise on first call, then require zero calls for the exact six routes. This proves the instrumented Python path only. For the unmodified R2 EXE, source inspection alone cannot prove absolute zero native Credential Locker access; a separate process-level observation or suitable native instrumentation is required before making that claim.",
+  "non_claims": [
+    "No S2 HTTP, SQLite behavior, EXE, native Vault, or provider run was performed.",
+    "This static reachability check cannot prove absolute zero host Vault/native access.",
+    "No Windows account or Credential Locker isolation was created or required."
+  ]
+}

@@ -1,0 +1,20 @@
+diff --git a/apps/desktop/src/api-client.ts b/apps/desktop/src/api-client.ts
+index 8c51120..65a01cf 100644
+--- a/apps/desktop/src/api-client.ts
++++ b/apps/desktop/src/api-client.ts
+@@ -4466,7 +4466,14 @@ export function createLocalApiClient(
+       }
+       return requestJson(
+         "/api/v1/provider-connections",
+-        isProviderConnectionResponse,
++        (value): value is ProviderConnectionResponse =>
++          isProviderConnectionResponse(value) &&
++          (input.provider_kind !== "SUB2API" ||
++            (isRecord(value.data) &&
++              value.data.provider_kind === "SUB2API" &&
++              value.data.origin_mode === (input.origin_mode ?? "PUBLIC_HTTPS") &&
++              value.data.base_url === input.base_url.replace(/\/+$/, "") &&
++              value.data.revision === 1)),
+         postInit(input),
+       );
+     },

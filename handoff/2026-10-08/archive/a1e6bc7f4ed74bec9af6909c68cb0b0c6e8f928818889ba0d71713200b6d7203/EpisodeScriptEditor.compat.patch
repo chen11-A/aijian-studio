@@ -1,0 +1,139 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-script-compat-20260928\\EpisodeScriptEditor.tsx.before" "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\EpisodeScriptEditor.tsx"
+index abd751c..184cee0 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-script-compat-20260928\\EpisodeScriptEditor.tsx.before"
++++ "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\EpisodeScriptEditor.tsx"
+@@ -18,12 +18,13 @@ import type {
+   ConfirmationJournal,
+   ScriptBlock,
+   ScriptConfirmationStatus,
+-  ScriptContent,
+   ScriptGateway,
+   ScriptJournal,
+   ScriptScene,
+   ScriptVersion,
+   ScriptWriteCommand,
++  ScriptWriteContent,
++  ScriptWriteScene,
+   SourceBindingGateway,
+   SourceBindingRead,
+ } from "./adapters/episodeScript";
+@@ -42,9 +43,13 @@ function prepareContent(
+   projectId: string, episodeId: string, current: ScriptVersion | null,
+   scenes: ScriptScene[], briefVersionId: string | null,
+   sourceBinding: SourceBindingRead,
+-): ScriptContent | string {
++): ScriptWriteContent | string {
+   if (!PROJECT.test(projectId) || !EPISODE.test(episodeId)) return "项目或剧集标识无效。";
+   if (scenes.length > 1_000) return "场次数量超过上限。";
++  if (current &&
++      !!current.content.source_extraction_version_id !==
++      !!current.content.source_proposal_acceptance_id)
++    return "旧稿来源版本与接纳记录不完整；需先核对权威来源绑定，不能推断后保存。";
+   const ids = new Set<string>();
+   for (const scene of scenes) {
+     if (!scene.heading.trim() || [...scene.heading].length > 240 || scene.blocks.length > 500)
+@@ -60,24 +65,29 @@ function prepareContent(
+           (!block.speaker?.trim() || [...block.speaker].length > 120 ||
+             (block.delivery !== "ON_SCREEN" && block.delivery !== "OFF_SCREEN")))
+         return "对白必须填写说话人，并明确画内或画外。";
+-      if (block.kind === "ACTION" && (block.speaker !== null || block.delivery !== null))
++      if (block.kind === "ACTION" && (block.speaker != null || block.delivery != null))
+         return "动作段不能带说话人或对白呈现方式。";
+     }
+   }
+-  const content: ScriptContent = {
++  const writeScenes: ScriptWriteScene[] = normalizeScenes(scenes).map((scene) => ({
++    ...scene, blocks: scene.blocks.map((block) => block.kind === "ACTION"
++      ? { ...block, speaker: null, delivery: null }
++      : { ...block, delivery: block.delivery! }),
++  }));
++  const content: ScriptWriteContent = {
+     schema_version: "1.0.0",
+     project_id: projectId,
+     episode_id: episodeId,
+     production_brief_version_id: current
+-      ? current.content.production_brief_version_id : briefVersionId,
++      ? current.content.production_brief_version_id ?? null : briefVersionId,
+     story_bible_version_id: current?.content.story_bible_version_id ?? null,
+     source_extraction_version_id: current
+-      ? current.content.source_extraction_version_id
++      ? current.content.source_extraction_version_id ?? null
+       : sourceBinding.kind === "BOUND" ? sourceBinding.binding.sourceVersionId : null,
+     source_proposal_acceptance_id: current
+-      ? current.content.source_proposal_acceptance_id
++      ? current.content.source_proposal_acceptance_id ?? null
+       : sourceBinding.kind === "BOUND" ? sourceBinding.binding.acceptanceId : null,
+-    scenes: normalizeScenes(scenes),
++    scenes: writeScenes,
+   };
+   if (new TextEncoder().encode(JSON.stringify(content)).length > 2_000_000)
+     return "剧本内容超过 2 MB 上限。";
+@@ -127,8 +137,16 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+   const selected = scenes.find((scene) => scene.scene_id === selectedSceneId) ?? scenes[0];
+   const dirty = JSON.stringify(normalizeScenes(scenes)) !==
+     JSON.stringify(version?.content.scenes ?? []);
++  const unknownDelivery = scenes.some((scene) => scene.blocks.some((block) =>
++    block.kind === "DIALOGUE" && block.delivery == null));
++  const incompleteSourceBinding = !!version &&
++    !!version.content.source_extraction_version_id !==
++    !!version.content.source_proposal_acceptance_id;
+   const confirmableContent = !!version?.content.scenes.length &&
+     version.content.scenes.every((scene) => scene.blocks.length > 0) &&
++    !incompleteSourceBinding &&
++    !version.content.scenes.some((scene) => scene.blocks.some((block) =>
++      block.kind === "DIALOGUE" && block.delivery == null)) &&
+     !!(version.content.production_brief_version_id ||
+       version.content.story_bible_version_id ||
+       version.content.source_extraction_version_id);
+@@ -316,7 +334,7 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+ 
+   async function confirmCurrentVersion() {
+     if (!confirmationGateway || !storage || !projectId || !episodeId || !version || dirty ||
+-      !confirmableContent ||
++      !confirmableContent || unknownDelivery ||
+       busy || inFlight.current || readState !== "ready" ||
+       confirmationReadState !== "ready" || !confirmation || confirmation.current ||
+       confirmation.latest_version_id !== version.version_id ||
+@@ -365,7 +383,7 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+     updateScene(sceneId, (scene) => ({ ...scene, blocks: [...scene.blocks, {
+       block_id: blockId, ordinal: scene.blocks.length + 1, kind, text: "",
+       speaker: kind === "DIALOGUE" ? "" : null,
+-      delivery: kind === "DIALOGUE" ? "ON_SCREEN" : null,
++      delivery: null,
+     }] }));
+   }
+ 
+@@ -440,7 +458,9 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+         重新核对已采纳来源
+       </Button>
+       {version && !confirmableContent &&
+-        <p role="status">确认需每场至少一段内容，并绑定真实创作简报、故事版本或已采纳来源。</p>}
++        <p role="status">确认需每场至少一段内容、对白呈现方式已明确，并绑定真实创作简报、故事版本或已采纳来源。</p>}
++      {unknownDelivery && <p role="alert">旧稿对白呈现方式待补齐/未知。请逐段明确画内或画外，保存为新版本后再确认；旧版本与哈希保持原样。</p>}
++      {incompleteSourceBinding && <p role="alert">旧稿来源版本与接纳记录不完整；须核对权威来源绑定，不能推断后确认。</p>}
+       {readState === "loading" && <p role="status">正在读取当前剧集剧本…</p>}
+       {readState === "error" && <p role="alert">剧本状态无法核实，已暂停编辑与提交。</p>}
+       {!gateway && <p role="alert">当前桌面版本缺少剧本接口。</p>}
+@@ -494,7 +514,7 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+                 blocks: scene.blocks.map((item) => item.block_id === block.block_id
+                   ? { ...item, kind: event.target.value as ScriptBlock["kind"],
+                       speaker: event.target.value === "DIALOGUE" ? "" : null,
+-                      delivery: event.target.value === "DIALOGUE" ? "ON_SCREEN" : null }
++                      delivery: null }
+                   : item) }))}>
+               <option value="ACTION">动作</option><option value="DIALOGUE">对白</option>
+             </select></label>
+@@ -503,11 +523,12 @@ export function EpisodeScriptEditor({ projectId, episodeId, briefVersionId }: Pr
+                 onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
+                   blocks: scene.blocks.map((item) => item.block_id === block.block_id
+                     ? { ...item, speaker: event.target.value } : item) }))} /></label>
+-              <label>对白呈现<select value={block.delivery ?? "ON_SCREEN"} disabled={locked}
++              <label>对白呈现<select value={block.delivery ?? ""} disabled={locked}
+                 onChange={(event) => updateScene(selected.scene_id, (scene) => ({ ...scene,
+                   blocks: scene.blocks.map((item) => item.block_id === block.block_id
+                     ? { ...item, delivery: event.target.value as "ON_SCREEN" | "OFF_SCREEN" }
+                     : item) }))}>
++                <option value="" disabled>待补齐/未知</option>
+                 <option value="ON_SCREEN">画内</option><option value="OFF_SCREEN">画外</option>
+               </select></label>
+             </>}

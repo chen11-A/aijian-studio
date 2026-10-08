@@ -1,0 +1,15 @@
+# AIVORA Sub2API B31 consumer QA handoff
+
+Status: static handoff only. No assembled B31 consumer, test run, desktop run, or real provider observation is claimed. Use `CONSUMPTION.json` as the exact source and SHA list. QA must pin a new isolated consumer and report its Python `__file__`, imported dependency hashes, DB path, and build identity before behavior claims. The D152 schema 30 create-only result does not accept B31 edit and rotation.
+
+| Gate | Required evidence |
+| --- | --- |
+| B31 source identity | DEV01 three migration sources plus the listed DEV05, DEV07, and DEV04 inputs. Confirm every source hash and actual consumer import. Apply only the minimal `main.py` B31 delta; review the existing sidecar wiring. |
+| Migration 31 | Exercise empty DB and existing version 30 DB. Preserve old `connection_id` as the active credential reference, revisions, and timestamps. Verify foreign keys, constraints, no credential bytes in DB, reopen idempotence, and rollback on each failed migration step. |
+| Create and metadata edit | Validate public HTTPS origin, TEXT scope, model, and credential boundary. Vault write plus readback must succeed before create commit. Metadata edit uses revision CAS; a stale revision yields conflict without a Vault write. Public DTO and logs omit credential and credential reference. |
+| Rotation | One durable operation progresses `PREPARED` to Vault candidate write/readback to DB compare-and-swap and `APPLIED`. Verify GET operation redaction, duplicate operation handling without resubmission, concurrent conflict, uncertain Vault write/readback, and crash windows. Keep the old slot available for any already claimed dispatch; define and verify later slot cleanup separately. DB rollback cannot undo a Vault write. |
+| Dispatch | Worker/runtime load the active `credential_ref` after rotation. A negative test must show old `connection.id` lookup fails after rotation. A queued task tied to an obsolete connection revision blocks with zero provider calls. Claim/consume stays at most once; uncertain remote result remains UNKNOWN with readback and no automatic retry. |
+| HTTP and desktop | Confirm authentication and route error mapping, including version conflict, rotation operation exists, and uncertain credential write. Register the mutation IPC in desktop `main.ts`; expose edit, rotate, and GET operation via `api-client.ts` and `preload.ts`; expose UI controls and UNKNOWN operation readback. Current author source has mutation IPC definitions but no registration or client/preload/UI chain. |
+| Provider acceptance | Keep offline/local QA separate from a real one-call provider run. Public HTTPS service URL, model, private API key entered locally, explicit one-call authorization, cost handling, returned proposal truth, and native installed application acceptance remain separate gates. Do not infer image, video, or speech capability from this TEXT extraction chain. |
+
+Stop on source SHA drift, an unexpected writer, missing fixed consumer evidence, a leaked credential/reference, an unaccounted Vault outcome, or an automatic remote retry. Preserve raw failures and UNKNOWN state.

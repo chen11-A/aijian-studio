@@ -1,0 +1,57 @@
+{
+  "limitations": {
+    "editingMedium": "CFR_PROXY",
+    "originalReconnectProven": false,
+    "releaseEncoderApproved": false
+  },
+  "maximumMeanAbsoluteError": 2.550787037037037,
+  "ntscAudioPhase": {
+    "durationFrames": 1,
+    "encodedAudioSampleCount": 2048,
+    "logicalAudioSampleCount": 1602,
+    "presentationPacketSampleCount": 1602,
+    "sourceAudioSampleCount": 1601,
+    "sourceStartFrame": 1
+  },
+  "ntscOutputSha256": "a978457bfe8626a800166b80c187a3bbc71dca768f0353e915498e2c4f861f9e",
+  "ntscRenderPlanSha256": "22429c9c520eb3824e8a83c076d0a7153a3b627fd03f94bf3015f800dfa4644a",
+  "operations": [
+    {
+      "command": "trim",
+      "revision": 1
+    },
+    {
+      "command": "reorder",
+      "revision": 2
+    },
+    {
+      "command": "replace",
+      "revision": 3
+    }
+  ],
+  "output": {
+    "audioSampleRateHz": 48000,
+    "codec": "h264",
+    "container": "MP4",
+    "encodedAudioSampleCount": 58368,
+    "frameCount": 30,
+    "frameRate": "25/1",
+    "height": 1920,
+    "logicalAudioSampleCount": 57600,
+    "width": 1080
+  },
+  "outputSha256": "b208d1d60d41d2f6e72e11be8ff88f4928c7a6765a29ec86f9dc0726d8fb193e",
+  "proxySha256": "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a",
+  "renderPlanSha256": "3bf87d47672fd2b05993f8b53c64e7b377f2860fb19902ab31f03e97059319ea",
+  "schemaVersion": 1,
+  "selectedSourceFrameOrder": "30-41 -> 2-9 -> 15-24",
+  "selectedSourceFramesSha256": "ca6526c046a3834aa7ac23578a948ba293adee77a22a41ece238150205375649",
+  "status": "PASS",
+  "timelineSha256": "4d2da857204b3253a18bbab341453d0165d1526200f51309d654d989dae908f6",
+  "toolchain": {
+    "distributionStatus": "DEVELOPMENT_ONLY",
+    "licenseClass": "GPL",
+    "profileId": "windows-x86_64-gyan-full-8.1.2-dev",
+    "version": "8.1.2"
+  }
+}

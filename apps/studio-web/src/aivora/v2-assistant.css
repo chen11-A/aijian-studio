@@ -1,0 +1,419 @@
+.demo-root .right-dock .assistant-panel.v2-assistant {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 0 0 50px;
+  height: 50px;
+  min-height: 50px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant > header > svg {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-top: 4px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant > header > div {
+  min-width: 0;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant > header h2 {
+  font-size: 21px;
+  line-height: 30px;
+  font-weight: 700;
+  margin: 1px 0 0;
+  white-space: nowrap;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant > header p {
+  font-size: 11px;
+  line-height: 18px;
+  color: #39d7f2;
+  margin: 1px 0 0;
+  white-space: nowrap;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-context-row {
+  height: 24px;
+  flex: 0 0 24px;
+  margin: 16px 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-context-chip {
+  display: block;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  height: 24px;
+  border: 1px solid #217ba3;
+  border-radius: 6px;
+  background: #123548;
+  padding: 2px 9px;
+  color: #39d7f2;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu {
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu summary {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
+  cursor: pointer;
+  list-style: none;
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  height: 24px;
+  color: #a8c0d5;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu summary::-webkit-details-marker {
+  display: none;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu nav {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 156px;
+  padding: 7px;
+  border: 1px solid #315f80;
+  border-radius: 8px;
+  background: #0b2238;
+  box-shadow: 0 8px 30px #020b16aa;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu nav > button {
+  height: 32px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: #a8c0d5;
+  font-size: 13px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu nav[hidden] {
+  display: none;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu:not([open]) nav {
+  display: none;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-menu nav > button[aria-pressed="true"] {
+  background: #153e61;
+  color: #f2f7ff;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .assistant-body {
+  display: block;
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  margin: 0;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-welcome {
+  display: block;
+  position: relative;
+  height: 228px;
+  min-height: 228px;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  padding: 9px 13px;
+  background: linear-gradient(#102c44, #091f33);
+  margin: 0 0 20px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-welcome h3 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-welcome h3 svg {
+  color: #39d7f2;
+  margin-right: 10px;
+  vertical-align: -3px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-welcome p {
+  font-size: 14px;
+  line-height: 24px;
+  margin: 14px 0 0;
+  color: #f2f7ff;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-sample {
+  position: absolute;
+  bottom: 19px;
+  left: 13px;
+  right: 13px;
+  height: 24px;
+  padding: 2px 9px;
+  border: 1px solid #20445f;
+  border-radius: 6px;
+  background: #10283d;
+  color: #a8c0d5;
+  font-size: 12px;
+  line-height: 18px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .suggestions > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #0b243b;
+  color: #f2f7ff;
+  font-size: 14px;
+  line-height: 22px;
+  padding: 0 6px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .message {
+  margin: 20px 0 0;
+  padding: 12px;
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #0b243b;
+  word-break: break-word;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .message small {
+  font-size: 11px;
+  color: #39d7f2;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .message p {
+  font-size: 13px;
+  line-height: 22px;
+  white-space: pre-wrap;
+  margin: 8px 0;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-message-context {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #a8c0d5;
+  font-size: 11px;
+  line-height: 20px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail {
+  padding: 12px;
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #091f33;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail h3 {
+  font-size: 15px;
+  line-height: 24px;
+  margin: 0 0 12px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail p,
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail dl {
+  font-size: 13px;
+  line-height: 22px;
+  margin: 0;
+  color: #a8c0d5;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail dt {
+  font-size: 11px;
+  color: #7695af;
+  margin-top: 12px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-ai-detail > .button {
+  margin-top: 16px;
+  width: 100%;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .task-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #0b243b;
+  color: #f2f7ff;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 0 0 126px;
+  height: 126px;
+  min-height: 126px;
+  padding: 11px 11px 9px;
+  margin: 16px 0 0;
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #061a2c;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-composer textarea {
+  display: block;
+  order: 0;
+  width: 100%;
+  min-height: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  padding: 0;
+  margin: 0;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: #f2f7ff;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-y: auto;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-composer textarea::placeholder {
+  color: #7695af;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .reference-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  order: 1;
+  gap: 6px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 24px;
+  margin: 8px 0 16px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .reference-chips > button {
+  flex: 0 0 auto;
+  max-width: 220px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px 9px;
+  border: 1px solid #217ba3;
+  border-radius: 6px;
+  background: #123548;
+  color: #39d7f2;
+  font-size: 12px;
+  line-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .ai-composer > .v2-composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  order: 2;
+  height: 36px;
+  min-height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  margin: 0;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools .icon-button,
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #a8c0d5;
+  position: relative;
+  cursor: pointer;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools .file-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools > .file-button > svg,
+.demo-root
+  .right-dock
+  .assistant-panel.v2-assistant
+  .v2-composer-tools
+  > .button:not(.send-button)
+  > svg {
+  position: absolute;
+  left: 8px;
+  top: 9px;
+  width: 18px;
+  height: 18px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools .file-button:focus-within {
+  outline: 2px solid #61d8ff;
+  outline-offset: -2px;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools .send-button {
+  margin-left: auto;
+  border: 1px solid #215173;
+  background: #183046;
+  color: #7695af;
+}
+.demo-root
+  .right-dock
+  .assistant-panel.v2-assistant
+  .v2-composer-tools
+  .send-button:not(:disabled) {
+  background: linear-gradient(90deg, #067fff, #1265ee);
+  border-color: #1789ff;
+  color: #f2f7ff;
+}
+@media (max-width: 1719px) {
+  .demo-root.is-pro .right-dock .assistant-panel.v2-assistant .v2-ai-context-chip {
+    visibility: hidden;
+  }
+  .demo-root.is-pro .right-dock .assistant-panel.v2-assistant .v2-ai-menu {
+    position: absolute;
+    right: 15px;
+    top: 16px;
+    width: 24px;
+  }
+}

@@ -1,0 +1,277 @@
+"""Project media library API; import accepts bytes, never a renderer-supplied path."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Callable
+from typing import Any, cast
+from urllib.parse import unquote
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Request, Response, status
+from fastapi.responses import JSONResponse
+
+from aijian_api.contracts import ErrorBody, ErrorResponse
+from aijian_api.media_asset_contracts import (
+    AddAssetEpisodeReferenceRequest,
+    MediaAssetListResponse,
+    MediaAssetResponse,
+)
+from aijian_api.media_asset_store import (
+    _ASSET_ID,
+    _PROJECT_ID,
+    _media_root,
+    _require_id,
+    MediaAssetError,
+    MediaAssetStore,
+)
+from aijian_api.media_probe import MAX_MEDIA_INPUT_BYTES
+from aijian_api.repository import StudioRepository
+
+type RepositoryProvider = Callable[[], StudioRepository]
+
+_CLIENT_ERRORS: dict[str, int] = {
+    "INVALID_ASSET_ID": 400,
+    "INVALID_FILENAME": 400,
+    "INVALID_ROLE": 400,
+    "SOURCE_NOT_LOCAL": 400,
+    "SOURCE_MISSING": 400,
+    "SOURCE_CHANGED": 409,
+    "MEDIA_KIND_CONFLICT": 409,
+    "SOURCE_SIZE": 413,
+    "UNSUPPORTED_MEDIA": 415,
+    "PROJECT_NOT_FOUND": 404,
+    "ASSET_NOT_FOUND": 404,
+    "EPISODE_NOT_FOUND": 404,
+    "VERSION_NOT_FOUND": 404,
+    "REFERENCE_EXISTS": 409,
+    "REFERENCE_NOT_FOUND": 404,
+    "REFERENCE_UNKNOWN": 409,
+    "ASSET_REFERENCED": 409,
+    "MEDIA_MISSING": 409,
+    "MEDIA_CORRUPT": 409,
+    "PREVIEW_TOO_LARGE": 413,
+}
+
+_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid media asset input", "model": ErrorResponse},
+    401: {"description": "Sidecar authentication required", "model": ErrorResponse},
+    403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
+    404: {"description": "Project or media asset not found", "model": ErrorResponse},
+    409: {"description": "Media asset operation rejected", "model": ErrorResponse},
+    413: {"description": "Media payload exceeds the limit", "model": ErrorResponse},
+    415: {"description": "Unsupported media format", "model": ErrorResponse},
+    422: {"description": "Request validation failed", "model": ErrorResponse},
+    500: {"description": "Managed media storage is inconsistent", "model": ErrorResponse},
+}
+
+
+def _request_id(request: Request) -> UUID:
+    return cast(UUID, request.state.request_id)
+
+
+def _error(request: Request, error: MediaAssetError) -> JSONResponse:
+    http_status = _CLIENT_ERRORS.get(error.code, 500)
+    payload = ErrorResponse(
+        error=ErrorBody(
+            code=error.code,
+            message=str(error) if http_status != 500 else "Managed media storage is unavailable",
+            details={},
+            retryable=False,
+        ),
+        request_id=_request_id(request),
+    )
+    return JSONResponse(status_code=http_status, content=payload.model_dump(mode="json"))
+
+
+def _filename(request: Request) -> str:
+    encoded = request.headers.get("x-aivora-filename")
+    if encoded is None or len(encoded) > 1024:
+        raise MediaAssetError("INVALID_FILENAME", "Media filename header is missing or too long")
+    try:
+        return unquote(encoded, encoding="utf-8", errors="strict")
+    except UnicodeError:
+        raise MediaAssetError("INVALID_FILENAME", "Media filename encoding is invalid") from None
+
+
+async def _import_bytes(
+    request: Request, repository: StudioRepository, project_id: str, asset_id: str | None,
+) -> MediaAssetResponse | JSONResponse:
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    if content_type != "application/octet-stream":
+        return _error(
+            request, MediaAssetError("UNSUPPORTED_MEDIA", "Binary media content is required")
+        )
+    try:
+        filename = _filename(request)
+        _require_id(project_id, _PROJECT_ID)
+        if asset_id is not None:
+            _require_id(asset_id, _ASSET_ID)
+        with repository._connection() as connection:
+            if connection.execute(
+                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+            ).fetchone() is None:
+                raise MediaAssetError("PROJECT_NOT_FOUND", "Project was not found")
+            if asset_id is not None and connection.execute(
+                "SELECT 1 FROM media_assets WHERE project_id = ? AND id = ? AND deleted_at IS NULL",
+                (project_id, asset_id),
+            ).fetchone() is None:
+                raise MediaAssetError("ASSET_NOT_FOUND", "Media asset was not found")
+        root = _media_root(repository)
+        staging = root / "staging"
+        staging.mkdir(mode=0o700, exist_ok=True)
+        if staging.is_symlink() or staging.resolve(strict=True) != staging:
+            raise MediaAssetError("UNSAFE_STORAGE", "Media staging is not a plain directory")
+        staged = staging / f"incoming-{uuid4().hex}"
+        try:
+            total = 0
+            with staged.open("xb") as output:
+                async for chunk in request.stream():
+                    total += len(chunk)
+                    if total > MAX_MEDIA_INPUT_BYTES:
+                        raise MediaAssetError("SOURCE_SIZE", "Media source exceeds the size limit")
+                    output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            if total == 0:
+                raise MediaAssetError("SOURCE_SIZE", "Media source is empty")
+            asset = MediaAssetStore(repository).import_local(
+                project_id, staged, asset_id=asset_id, display_filename=filename,
+            )
+        finally:
+            staged.unlink(missing_ok=True)
+        return MediaAssetResponse(data=asset, request_id=_request_id(request))
+    except MediaAssetError as error:
+        return _error(request, error)
+
+
+def create_media_asset_router(repository_provider: RepositoryProvider) -> APIRouter:
+    router = APIRouter()
+
+    @router.get(
+        "/api/v1/projects/{project_id}/assets",
+        operation_id="listProjectMediaAssets",
+        response_model=MediaAssetListResponse,
+        responses=_RESPONSES,
+    )
+    def list_assets(request: Request, project_id: str) -> MediaAssetListResponse | JSONResponse:
+        try:
+            assets = MediaAssetStore(repository_provider()).list_assets(project_id)
+            return MediaAssetListResponse(data=assets, request_id=_request_id(request))
+        except MediaAssetError as error:
+            return _error(request, error)
+
+    @router.post(
+        "/api/v1/projects/{project_id}/assets/import",
+        operation_id="importProjectMediaAsset",
+        response_model=MediaAssetResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses=_RESPONSES,
+    )
+    async def import_asset(request: Request, project_id: str) -> MediaAssetResponse | JSONResponse:
+        return await _import_bytes(request, repository_provider(), project_id, None)
+
+    @router.get(
+        "/api/v1/projects/{project_id}/assets/{asset_id}",
+        operation_id="getProjectMediaAsset",
+        response_model=MediaAssetResponse,
+        responses=_RESPONSES,
+    )
+    def get_asset(
+        request: Request, project_id: str, asset_id: str,
+    ) -> MediaAssetResponse | JSONResponse:
+        try:
+            asset = MediaAssetStore(repository_provider()).get_asset(
+                project_id, asset_id, verify=True,
+            )
+            return MediaAssetResponse(data=asset, request_id=_request_id(request))
+        except MediaAssetError as error:
+            return _error(request, error)
+
+    @router.post(
+        "/api/v1/projects/{project_id}/assets/{asset_id}/versions/import",
+        operation_id="importProjectMediaAssetVersion",
+        response_model=MediaAssetResponse,
+        status_code=status.HTTP_201_CREATED,
+        responses=_RESPONSES,
+    )
+    async def import_version(
+        request: Request, project_id: str, asset_id: str,
+    ) -> MediaAssetResponse | JSONResponse:
+        return await _import_bytes(request, repository_provider(), project_id, asset_id)
+
+    @router.get(
+        "/api/v1/projects/{project_id}/assets/{asset_id}/versions/{version_id}/content",
+        operation_id="getProjectMediaAssetContent",
+        response_model=None,
+        responses=_RESPONSES,
+    )
+    def get_content(
+        request: Request, project_id: str, asset_id: str, version_id: str,
+    ) -> Response | JSONResponse:
+        try:
+            content, mime_type, digest = MediaAssetStore(
+                repository_provider()
+            ).read_verified_preview(project_id, asset_id, version_id)
+        except MediaAssetError as error:
+            return _error(request, error)
+        return Response(
+            content=content,
+            media_type=mime_type,
+            headers={
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+                "ETag": f'"sha256-{digest}"',
+            },
+        )
+
+    @router.post(
+        "/api/v1/projects/{project_id}/assets/{asset_id}/episode-references",
+        operation_id="addProjectMediaAssetEpisodeReference",
+        response_model=MediaAssetResponse,
+        responses=_RESPONSES,
+    )
+    def add_reference(
+        request: Request, project_id: str, asset_id: str,
+        payload: AddAssetEpisodeReferenceRequest,
+    ) -> MediaAssetResponse | JSONResponse:
+        try:
+            asset = MediaAssetStore(repository_provider()).add_episode_reference(
+                project_id, asset_id, payload.episode_id, payload.version_id, payload.role,
+            )
+            return MediaAssetResponse(data=asset, request_id=_request_id(request))
+        except MediaAssetError as error:
+            return _error(request, error)
+
+    @router.delete(
+        "/api/v1/projects/{project_id}/assets/{asset_id}/episode-references/{episode_id}",
+        operation_id="removeProjectMediaAssetEpisodeReference",
+        response_model=MediaAssetResponse,
+        responses=_RESPONSES,
+    )
+    def remove_reference(
+        request: Request, project_id: str, asset_id: str, episode_id: str, role: str,
+    ) -> MediaAssetResponse | JSONResponse:
+        try:
+            asset = MediaAssetStore(repository_provider()).remove_episode_reference(
+                project_id, asset_id, episode_id, role,
+            )
+            return MediaAssetResponse(data=asset, request_id=_request_id(request))
+        except MediaAssetError as error:
+            return _error(request, error)
+
+    @router.delete(
+        "/api/v1/projects/{project_id}/assets/{asset_id}",
+        operation_id="deleteProjectMediaAsset",
+        response_model=None,
+        status_code=status.HTTP_204_NO_CONTENT,
+        responses=_RESPONSES,
+    )
+    def delete_asset(request: Request, project_id: str, asset_id: str) -> Response | JSONResponse:
+        try:
+            MediaAssetStore(repository_provider()).soft_delete(project_id, asset_id)
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        except MediaAssetError as error:
+            return _error(request, error)
+
+    return router

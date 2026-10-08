@@ -1,0 +1,1106 @@
+{
+  "label": "SOURCE_BEFORE_COPY",
+  "at_utc": "2026-09-29T03:17:05.233825+00:00",
+  "count": 157,
+  "rows": [
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/INSTALLER",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\INSTALLER",
+      "bytes": 2,
+      "sha256": "E6184CE10E266134FDCFA401E8F1A95005BCD4F18D16B62B757323E2833FE9A9",
+      "head16_hex": "7576"
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/METADATA",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\METADATA",
+      "bytes": 15009,
+      "sha256": "614985B278F601B8EF863F82783B991CC3ADA4B89F592EB71C7C48C5F2EF2298",
+      "head16_hex": "4D657461646174612D56657273696F6E"
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/RECORD",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\RECORD",
+      "bytes": 876,
+      "sha256": "5431A4D24BAB188C787A9633E6ED1F416AD8C91F400D9D390CAB27F863EFA746",
+      "head16_hex": "616E6E6F74617465645F74797065732D"
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/REQUESTED",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\REQUESTED",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/WHEEL",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\WHEEL",
+      "bytes": 87,
+      "sha256": "942926C567D0B1273D09F20295879ABD37507845F6B683EAB9F87D808DF91100",
+      "head16_hex": "576865656C2D56657273696F6E3A2031"
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\licenses\\LICENSE",
+      "bytes": 1083,
+      "sha256": "FE1049884B1A0D9342901E88E07F32925D24B3121D9972B6A6805FB9824B095D",
+      "head16_hex": "546865204D4954204C6963656E736520"
+    },
+    {
+      "relative_path": "annotated_types-0.8.0.dist-info/uv_cache.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types-0.8.0.dist-info\\uv_cache.json",
+      "bytes": 127,
+      "sha256": "46A8C99C3F04380FEE1504170E9B3281E66F14B8B3D7C0E8093E2BD4C450D13B",
+      "head16_hex": "7B2274696D657374616D70223A7B2273"
+    },
+    {
+      "relative_path": "annotated_types/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types\\__init__.py",
+      "bytes": 13273,
+      "sha256": "A7104A4D439B27A9F74FC0BE236B9BA1B7831E6044026802A205ABC1298A9BC8",
+      "head16_hex": "696D706F7274206D6174680A696D706F"
+    },
+    {
+      "relative_path": "annotated_types/py.typed",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types\\py.typed",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "annotated_types/test_cases.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\annotated_types\\test_cases.py",
+      "bytes": 6310,
+      "sha256": "D867472ACB57B81CE97F78972828E6BC5669CA4DB33FD1E6F645C6183846068E",
+      "head16_hex": "696D706F7274206D6174680A66726F6D"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/INSTALLER",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\INSTALLER",
+      "bytes": 2,
+      "sha256": "E6184CE10E266134FDCFA401E8F1A95005BCD4F18D16B62B757323E2833FE9A9",
+      "head16_hex": "7576"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/METADATA",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\METADATA",
+      "bytes": 109397,
+      "sha256": "D1E56C3412492512FB6B59A9DFC25AB7AF2A8204585CD7BCA000513023133394",
+      "head16_hex": "4D657461646174612D56657273696F6E"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/RECORD",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\RECORD",
+      "bytes": 9612,
+      "sha256": "8F7A3F04228D7269D4C09205AAF3CE8D8CEDF61D48D022B881858243ECEA9A2C",
+      "head16_hex": "707964616E7469632D322E31332E342E"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/REQUESTED",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\REQUESTED",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/WHEEL",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\WHEEL",
+      "bytes": 87,
+      "sha256": "41C708C5ADBA6E097513AB8CCB9F1D7865A2FB469E22491A9E01DCC64DA459FC",
+      "head16_hex": "576865656C2D56657273696F6E3A2031"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/licenses/LICENSE",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\licenses\\LICENSE",
+      "bytes": 1129,
+      "sha256": "A9E186F3CA16B5EEF84318E7A701721351A00CB7B8AE3A4394B67B49E3529EF3",
+      "head16_hex": "546865204D4954204C6963656E736520"
+    },
+    {
+      "relative_path": "pydantic-2.13.4.dist-info/uv_cache.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic-2.13.4.dist-info\\uv_cache.json",
+      "bytes": 127,
+      "sha256": "0B455EB77B4DB2EDB8D554DFA5669E4AAD0AC43F02BAAD0DF3F9480FEAE7A25F",
+      "head16_hex": "7B2274696D657374616D70223A7B2273"
+    },
+    {
+      "relative_path": "pydantic/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\__init__.py",
+      "bytes": 15812,
+      "sha256": "E62127278C07BF5384CDD2903F368A69929F3B8A524000BAE4E0EB608EBF4BC6",
+      "head16_hex": "66726F6D20696D706F72746C69622069"
+    },
+    {
+      "relative_path": "pydantic/_internal/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\__init__.py",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic/_internal/_config.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_config.py",
+      "bytes": 14839,
+      "sha256": "473CACD49A1F7E7E097331257180EAB192D18018079F69585AA0D1E79A0048F0",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_core_metadata.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_core_metadata.py",
+      "bytes": 5162,
+      "sha256": "63F836B778BBBA5B8AFB05C266FCC97D114C3D4336DDA0582DF69EE05CC13F2D",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_core_utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_core_utils.py",
+      "bytes": 6487,
+      "sha256": "D63AEEE156C9D31EB747A76D55CB8E23E74A4130BF77F9529C9584050CC63444",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_dataclasses.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_dataclasses.py",
+      "bytes": 13188,
+      "sha256": "660A9C9B559A24B0704D0402E6618A368C23953817DE67D7FC9E5EDAF776E253",
+      "head16_hex": "22222250726976617465206C6F676963"
+    },
+    {
+      "relative_path": "pydantic/_internal/_decorators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_decorators.py",
+      "bytes": 33620,
+      "sha256": "443106FC96AEE4D88971F3B4C60753EC43A0B14D4B816218957EF0379AD8B55B",
+      "head16_hex": "2222224C6F6769632072656C61746564"
+    },
+    {
+      "relative_path": "pydantic/_internal/_decorators_v1.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_decorators_v1.py",
+      "bytes": 6185,
+      "sha256": "B5F75F76940A6384765C23B0A876D97A840CBABE95362811ADF86E757047C77F",
+      "head16_hex": "2222224C6F67696320666F7220563120"
+    },
+    {
+      "relative_path": "pydantic/_internal/_discriminated_union.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_discriminated_union.py",
+      "bytes": 26255,
+      "sha256": "24BC7F3152DEA7B331975CDBA5D3598EF1C3733F89DCE116E9671D575F3875C3",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_docs_extraction.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_docs_extraction.py",
+      "bytes": 4127,
+      "sha256": "7F2CE74801E1E40CE88675D94AD5741EF1FE9D16DABCD1CFCA0FA49F1F92FC41",
+      "head16_hex": "2222225574696C69746965732072656C"
+    },
+    {
+      "relative_path": "pydantic/_internal/_fields.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_fields.py",
+      "bytes": 31557,
+      "sha256": "85779BFB3A1D1B04C3BC6F4E2B5BA6D7C3FAE1BEDCA876F418E9E03F88EB81C6",
+      "head16_hex": "22222250726976617465206C6F676963"
+    },
+    {
+      "relative_path": "pydantic/_internal/_forward_ref.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_forward_ref.py",
+      "bytes": 611,
+      "sha256": "E67DD8EFEDC028B9FCFC54B761CECABAD2E23D48725E602D90464E6859E89F03",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_generate_schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_generate_schema.py",
+      "bytes": 136348,
+      "sha256": "3E3A2051AC085E67FC2EE2CD7BDB1E26987B58B5B8309EFE181B17C02B100BD4",
+      "head16_hex": "222222436F6E7665727420707974686F"
+    },
+    {
+      "relative_path": "pydantic/_internal/_generics.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_generics.py",
+      "bytes": 23393,
+      "sha256": "0978DC22796F722F157A36969F57F7F64BF401C7C92F4479DB7A912C56550FEB",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_git.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_git.py",
+      "bytes": 809,
+      "sha256": "2303E1DC33DF6B65EADEB06E07D371F25B91D80D62EBD41D7937D659722E0958",
+      "head16_hex": "222222476974207574696C6974696573"
+    },
+    {
+      "relative_path": "pydantic/_internal/_import_utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_import_utils.py",
+      "bytes": 402,
+      "sha256": "4D18710F93AE63A094A2C8A805D05C254B34A26EC820E36265D60057BCD0F233",
+      "head16_hex": "66726F6D2066756E63746F6F6C732069"
+    },
+    {
+      "relative_path": "pydantic/_internal/_internal_dataclass.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_internal_dataclass.py",
+      "bytes": 144,
+      "sha256": "FDB79D7355DBBAECA044688B66A914930C05A506A847584A2E5479D359F2C926",
+      "head16_hex": "696D706F7274207379730A0A23206073"
+    },
+    {
+      "relative_path": "pydantic/_internal/_known_annotated_metadata.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_known_annotated_metadata.py",
+      "bytes": 16805,
+      "sha256": "3F29D020543AD7FFF819CAF39F40F910D96583B8CFABF731A0B4E6B8540163CF",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_mock_val_ser.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_mock_val_ser.py",
+      "bytes": 8885,
+      "sha256": "C2645115206FA9F70B6C8E353EC165881E2ED80677989A597A21116C3DF1293A",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_model_construction.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_model_construction.py",
+      "bytes": 38928,
+      "sha256": "2682A663826B0C1BB79C6FED088AC982D249135BAAEAFDBD4EF4F3E449471398",
+      "head16_hex": "22222250726976617465206C6F676963"
+    },
+    {
+      "relative_path": "pydantic/_internal/_namespace_utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_namespace_utils.py",
+      "bytes": 12878,
+      "sha256": "865DFE4D102BF365368D3C8F3F7B7E42AB2F28B8ABC6D90B7CD7EB37E7E9D31F",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_repr.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_repr.py",
+      "bytes": 5172,
+      "sha256": "8D07E726EC83C50A5244D846DBD208F4F5FC7B836FDAA599AC4C3696A8A1DD41",
+      "head16_hex": "222222546F6F6C7320746F2070726F76"
+    },
+    {
+      "relative_path": "pydantic/_internal/_schema_gather.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_schema_gather.py",
+      "bytes": 9052,
+      "sha256": "F2727EB8CE98E33EB1A5AB271A89C432E6ED3555FF9B179E44316677FA8C54B0",
+      "head16_hex": "2320707972696768743A207265706F72"
+    },
+    {
+      "relative_path": "pydantic/_internal/_schema_generation_shared.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_schema_generation_shared.py",
+      "bytes": 4842,
+      "sha256": "17FADB41BAE4A289A0C6CB24747A4FD23509ED309F7B40400C0124ABA089E273",
+      "head16_hex": "222222547970657320616E6420757469"
+    },
+    {
+      "relative_path": "pydantic/_internal/_serializers.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_serializers.py",
+      "bytes": 1491,
+      "sha256": "6085AF4A6011E5F9DB19258239076E5ADD72078650638D9E02BB9CF9E9EB6FA7",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_signature.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_signature.py",
+      "bytes": 6808,
+      "sha256": "8BF6FAC2D96E895599461D5963C52F076519CE23F52A3A925D9802F87C70393D",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_typing_extra.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_typing_extra.py",
+      "bytes": 31574,
+      "sha256": "743C6A178EA5CEEA82A0A2EB007FE4F791036DAC8478A6F69478EE4C9E4E0686",
+      "head16_hex": "2222224C6F67696320666F7220696E74"
+    },
+    {
+      "relative_path": "pydantic/_internal/_utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_utils.py",
+      "bytes": 15959,
+      "sha256": "80DE3C06C47E143AC90E26C29A8EBDB6D420EBB59BB85ADDCBFD4D40BDDCBCB2",
+      "head16_hex": "2222224275636B6574206F6620726575"
+    },
+    {
+      "relative_path": "pydantic/_internal/_validate_call.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_validate_call.py",
+      "bytes": 5366,
+      "sha256": "383FC1B291DA2FD14ACD9F57AE7761884B8C9E3177491209507B70BFAC947DF5",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/_internal/_validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_internal\\_validators.py",
+      "bytes": 20563,
+      "sha256": "EC64E35D758530B89BE1DC50F8779A8879406624760761BC6F2098306AE6438F",
+      "head16_hex": "22222256616C696461746F722066756E"
+    },
+    {
+      "relative_path": "pydantic/_migration.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\_migration.py",
+      "bytes": 12160,
+      "sha256": "545EF72D1094CF722B6F9C55B75DE36F7340717567105E93D7E27438B7DE6790",
+      "head16_hex": "696D706F7274207379730A66726F6D20"
+    },
+    {
+      "relative_path": "pydantic/alias_generators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\alias_generators.py",
+      "bytes": 2124,
+      "sha256": "28CD67DEEE097CB48197552E620DE1A181F35C90FECAF82B9EAF2ED5C73087F0",
+      "head16_hex": "222222416C6961732067656E65726174"
+    },
+    {
+      "relative_path": "pydantic/aliases.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\aliases.py",
+      "bytes": 4937,
+      "sha256": "BE1087CA84969D7F8427EC166F9AA3E31C91B2C8065A74D07F3429E06499F6E8",
+      "head16_hex": "222222537570706F727420666F722061"
+    },
+    {
+      "relative_path": "pydantic/annotated_handlers.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\annotated_handlers.py",
+      "bytes": 4407,
+      "sha256": "59FC854AAC28108157061ED3EF73F270A9682350E25F8E465A2D3E24EB024786",
+      "head16_hex": "2222225479706520616E6E6F74617469"
+    },
+    {
+      "relative_path": "pydantic/class_validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\class_validators.py",
+      "bytes": 148,
+      "sha256": "8BF5778FE3D87462D22E68FF20965E913463BA73BC488573F0B325AAE3F23FB1",
+      "head16_hex": "22222260636C6173735F76616C696461"
+    },
+    {
+      "relative_path": "pydantic/color.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\color.py",
+      "bytes": 21481,
+      "sha256": "033A867D540717DDBF65CB4372E7B40CCE324E9D8FEAD7A49304483535AB2C8A",
+      "head16_hex": "222222436F6C6F7220646566696E6974"
+    },
+    {
+      "relative_path": "pydantic/config.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\config.py",
+      "bytes": 44533,
+      "sha256": "A353FAEC53162101BEFD17C6B4A8AC9641F0A38A579BFEA37EC478D4FF3CBFBF",
+      "head16_hex": "222222436F6E66696775726174696F6E"
+    },
+    {
+      "relative_path": "pydantic/dataclasses.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\dataclasses.py",
+      "bytes": 18963,
+      "sha256": "E17F567B48E3D4A2F006DBD84A40055CDA27E3ACEBA4199164035FE0B7F06D78",
+      "head16_hex": "22222250726F7669646520616E20656E"
+    },
+    {
+      "relative_path": "pydantic/datetime_parse.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\datetime_parse.py",
+      "bytes": 150,
+      "sha256": "402F9680CC4CAFFC10FE6357512EC055FFB684B121BEFB0F6353D0CA148639D9",
+      "head16_hex": "22222254686520606461746574696D65"
+    },
+    {
+      "relative_path": "pydantic/decorator.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\decorator.py",
+      "bytes": 145,
+      "sha256": "617FA3500A6EE4029A55628FA1A57E9FEE25ED46D2EBD184B7D45ADE1B3398A2",
+      "head16_hex": "22222254686520606465636F7261746F"
+    },
+    {
+      "relative_path": "pydantic/deprecated/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\__init__.py",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic/deprecated/class_validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\class_validators.py",
+      "bytes": 10281,
+      "sha256": "9F48D840E71BE58422C346FB617CA2ECD3E261D57BBA3591E0AC99BA68D33E89",
+      "head16_hex": "2222224F6C6420604076616C69646174"
+    },
+    {
+      "relative_path": "pydantic/deprecated/config.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\config.py",
+      "bytes": 2663,
+      "sha256": "93F96C564E7BA5AC4B24E701B9E1F4EDCBB53A012059D541C66EA57DA0B70825",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/deprecated/copy_internals.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\copy_internals.py",
+      "bytes": 7618,
+      "sha256": "1A177EBE431DE446020A0C821AD3CA3B9F27A7D704281402EAA9017881052368",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/deprecated/decorator.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\decorator.py",
+      "bytes": 10845,
+      "sha256": "4C19BA6C9EF026C36287FF16AB92330DCC0FDF69BDFEF7F1B3DE9D7AC2EE934D",
+      "head16_hex": "696D706F7274207761726E696E67730A"
+    },
+    {
+      "relative_path": "pydantic/deprecated/json.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\json.py",
+      "bytes": 4657,
+      "sha256": "1E55821B7E5146BC72CEE4D2E8B4D089907046198365699EA901FCACB5BAC00F",
+      "head16_hex": "696D706F7274206461746574696D650A"
+    },
+    {
+      "relative_path": "pydantic/deprecated/parse.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\parse.py",
+      "bytes": 2511,
+      "sha256": "1B377A6FF83CCC95DCB84ED046AE5A761C7F10C25A8577DCA57085D1182BAAA2",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/deprecated/tools.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\deprecated\\tools.py",
+      "bytes": 3330,
+      "sha256": "36B9BDA054595A9F3E8E57EF3E02482C4B32C29E18CD90F9D972063C32F11DC2",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/env_settings.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\env_settings.py",
+      "bytes": 148,
+      "sha256": "E881DE79612A9543D152FDD5F805E217F5BDD5F836270FCCDCED25DF827F7B20",
+      "head16_hex": "2222225468652060656E765F73657474"
+    },
+    {
+      "relative_path": "pydantic/error_wrappers.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\error_wrappers.py",
+      "bytes": 150,
+      "sha256": "44AEA6A804DCF72303F8A043F48252F47A4A0A9AD61DDF30A3CE019E6FB77D1F",
+      "head16_hex": "22222254686520606572726F725F7772"
+    },
+    {
+      "relative_path": "pydantic/errors.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\errors.py",
+      "bytes": 6013,
+      "sha256": "0EB1023C25A1498AD0F016B83BC84ACC800CDA2F460474D75802F36850E92DFE",
+      "head16_hex": "222222507964616E7469632D73706563"
+    },
+    {
+      "relative_path": "pydantic/experimental/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\experimental\\__init__.py",
+      "bytes": 104,
+      "sha256": "413EEB298743B0289327D1848E6B107561D2730A4AAEB3641AAEAFA8E34FE914",
+      "head16_hex": "22222254686520226578706572696D65"
+    },
+    {
+      "relative_path": "pydantic/experimental/arguments_schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\experimental\\arguments_schema.py",
+      "bytes": 1866,
+      "sha256": "1059E35FFBA5A7EB4FC948D05F9A6642DBA0D4E14BFC071CF1B70C6CB77E7D56",
+      "head16_hex": "2222224578706572696D656E74616C20"
+    },
+    {
+      "relative_path": "pydantic/experimental/missing_sentinel.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\experimental\\missing_sentinel.py",
+      "bytes": 127,
+      "sha256": "8507A382D174D3052E40C9E2F78DBD7AF83E797C88C292AF8EC0FCA1FA9F8FEC",
+      "head16_hex": "2222224578706572696D656E74616C20"
+    },
+    {
+      "relative_path": "pydantic/experimental/pipeline.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\experimental\\pipeline.py",
+      "bytes": 23956,
+      "sha256": "6AEA16EA5EA0D450B8D4B7223E6B08D4CEA771FD344B375EF41DC2FB2BDBF662",
+      "head16_hex": "2222224578706572696D656E74616C20"
+    },
+    {
+      "relative_path": "pydantic/fields.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\fields.py",
+      "bytes": 82023,
+      "sha256": "6BC66125F23C143E934030FBF9C58C9B5657950BDAD3031D4F6132E55BD57BE3",
+      "head16_hex": "222222446566696E696E67206669656C"
+    },
+    {
+      "relative_path": "pydantic/functional_serializers.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\functional_serializers.py",
+      "bytes": 18117,
+      "sha256": "CF04408D9BAC391B446EDC69554DB4920F05A5E9B2673E05ABAC099359A9C184",
+      "head16_hex": "22222254686973206D6F64756C652063"
+    },
+    {
+      "relative_path": "pydantic/functional_validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\functional_validators.py",
+      "bytes": 31724,
+      "sha256": "EE9FB88EF3FFFFD8D9CAF71D5E289D7B9A406BF26533B7C9D41824A9B8F14963",
+      "head16_hex": "22222254686973206D6F64756C652063"
+    },
+    {
+      "relative_path": "pydantic/generics.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\generics.py",
+      "bytes": 144,
+      "sha256": "D19A99F4EF5A9E7223FF7986051AA9B3886D7B2DDBE65575F9DDAD5313CC3270",
+      "head16_hex": "222222546865206067656E6572696373"
+    },
+    {
+      "relative_path": "pydantic/json.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\json.py",
+      "bytes": 140,
+      "sha256": "647F11908EE1E01CFECE9F0E7530316C952856F72853E8E131D459D01FA4D317",
+      "head16_hex": "22222254686520606A736F6E60206D6F"
+    },
+    {
+      "relative_path": "pydantic/json_schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\json_schema.py",
+      "bytes": 125955,
+      "sha256": "75ADE143DBD03CB1213ECAC39D49628DF4357EE0825621959D4CCEAC064B803B",
+      "head16_hex": "22222221212120616273747261637420"
+    },
+    {
+      "relative_path": "pydantic/main.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\main.py",
+      "bytes": 85334,
+      "sha256": "35B842CFE92EF300E060B40C062EF93AFEE1CB075CF0B7B0037A1434867C2554",
+      "head16_hex": "2222224C6F67696320666F7220637265"
+    },
+    {
+      "relative_path": "pydantic/mypy.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\mypy.py",
+      "bytes": 60971,
+      "sha256": "B189A666B2FF1AFA1848B701B8F4510DF49F81059E864CF0FD9BCD9300D8D8C1",
+      "head16_hex": "22222254686973206D6F64756C652069"
+    },
+    {
+      "relative_path": "pydantic/networks.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\networks.py",
+      "bytes": 42102,
+      "sha256": "80207DEA0B741BBB625438559C97E92ABD4044BE6A907F923D992E364986D8EE",
+      "head16_hex": "222222546865206E6574776F726B7320"
+    },
+    {
+      "relative_path": "pydantic/parse.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\parse.py",
+      "bytes": 141,
+      "sha256": "C2477CD9D82DBD6B43F3DE54FC8E84D61B6A3251A1052604577F5CB8149EA370",
+      "head16_hex": "2222225468652060706172736560206D"
+    },
+    {
+      "relative_path": "pydantic/plugin/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\plugin\\__init__.py",
+      "bytes": 7333,
+      "sha256": "6BB4F0DFAE94E8ADE496D08235963BEA773DB2CFBBB86190E344D769DF4ECA94",
+      "head16_hex": "22222221212120616273747261637420"
+    },
+    {
+      "relative_path": "pydantic/plugin/_loader.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\plugin\\_loader.py",
+      "bytes": 2213,
+      "sha256": "8408E04A58E82211B1DC0569229BAAC3948FB6D04D35E181493AEA48C9CD8899",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic/plugin/_schema_validator.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\plugin\\_schema_validator.py",
+      "bytes": 5445,
+      "sha256": "E4CE487356D99E384D0F1B510D529B44F4D0EA9A3A42E28C63B320B8C907796D",
+      "head16_hex": "222222506C75676761626C6520736368"
+    },
+    {
+      "relative_path": "pydantic/py.typed",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\py.typed",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic/root_model.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\root_model.py",
+      "bytes": 6394,
+      "sha256": "70E328796769E77E8A17CE6E448716FA8CF53BB7791910A9C7D1D34B8FB5B9FF",
+      "head16_hex": "222222526F6F744D6F64656C20636C61"
+    },
+    {
+      "relative_path": "pydantic/schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\schema.py",
+      "bytes": 142,
+      "sha256": "56AAA3BEAFCB9DAA5592779B51DDC1A7F275A768176599D94602F8F1B5441BBA",
+      "head16_hex": "2222225468652060736368656D616020"
+    },
+    {
+      "relative_path": "pydantic/tools.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\tools.py",
+      "bytes": 141,
+      "sha256": "88742977C489E43093B4F5796AD015D3A4FCF5B8D268C15E659D8B5FD95AB196",
+      "head16_hex": "2222225468652060746F6F6C7360206D"
+    },
+    {
+      "relative_path": "pydantic/type_adapter.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\type_adapter.py",
+      "bytes": 36123,
+      "sha256": "4F4E60F1641CCC1B1553FDF945D2B1823222ED8ECB222A7AEE9177348ED7E061",
+      "head16_hex": "22222254797065206164617074657220"
+    },
+    {
+      "relative_path": "pydantic/types.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\types.py",
+      "bytes": 105961,
+      "sha256": "7E961C1A702770AE108DA166DE366DA98C31258CC1EEB2493DF025F3D7A6CF24",
+      "head16_hex": "222222546865207479706573206D6F64"
+    },
+    {
+      "relative_path": "pydantic/typing.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\typing.py",
+      "bytes": 138,
+      "sha256": "3FB7DE037E4CC1370BB11D6E2FB75BD12FA8C9D071A1B9976B9E580E80606A34",
+      "head16_hex": "22222260747970696E6760206D6F6475"
+    },
+    {
+      "relative_path": "pydantic/utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\utils.py",
+      "bytes": 141,
+      "sha256": "D799D1D90A6A4C1165415E1336D4C8B4CC93271FDF6F257E80F988118D46A287",
+      "head16_hex": "22222254686520607574696C7360206D"
+    },
+    {
+      "relative_path": "pydantic/v1/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\__init__.py",
+      "bytes": 2946,
+      "sha256": "4B140F925801B385C727013A059F6AA1EC18A0688DC98527987CC414265B7E72",
+      "head16_hex": "2320666C616B65383A206E6F71610A66"
+    },
+    {
+      "relative_path": "pydantic/v1/_hypothesis_plugin.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\_hypothesis_plugin.py",
+      "bytes": 14847,
+      "sha256": "E444B9C56BB0D45400B3298B7B3CBC4209D5CF466955F5378E4993EF81F6ED54",
+      "head16_hex": "2222220A526567697374657220487970"
+    },
+    {
+      "relative_path": "pydantic/v1/annotated_types.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\annotated_types.py",
+      "bytes": 3157,
+      "sha256": "BA4D8D000C6A88D10B2A388787287129A20E87C1759585BF2F3AD6DD7EE86417",
+      "head16_hex": "696D706F7274207379730A66726F6D20"
+    },
+    {
+      "relative_path": "pydantic/v1/class_validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\class_validators.py",
+      "bytes": 14672,
+      "sha256": "50B39A21481850306C1CBEC411511AADC33E52E6CA52082837C8526C3A27B051",
+      "head16_hex": "696D706F7274207761726E696E67730A"
+    },
+    {
+      "relative_path": "pydantic/v1/color.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\color.py",
+      "bytes": 16844,
+      "sha256": "8990012D8A7A395A28D801643FD229AE2FF049CEBE2A496EF18BA149AAED7798",
+      "head16_hex": "2222220A436F6C6F7220646566696E69"
+    },
+    {
+      "relative_path": "pydantic/v1/config.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\config.py",
+      "bytes": 6532,
+      "sha256": "6BA3F459EAFDC7871BC0A5BB5EFF29A1252A33858FF912D6C17E9832962AF400",
+      "head16_hex": "696D706F7274206A736F6E0A66726F6D"
+    },
+    {
+      "relative_path": "pydantic/v1/dataclasses.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\dataclasses.py",
+      "bytes": 18172,
+      "sha256": "EFCE1CAAF2276F020F5ABF6EB1FA57DDC87BCF8B77276B532BA374EBBFF0935A",
+      "head16_hex": "2222220A546865206D61696E20707572"
+    },
+    {
+      "relative_path": "pydantic/v1/datetime_parse.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\datetime_parse.py",
+      "bytes": 7724,
+      "sha256": "E10CB5910A6ADEB3556497881DE48F0E9B92D81BE1A7528FB73246D71BBE1F4D",
+      "head16_hex": "2222220A46756E6374696F6E7320746F"
+    },
+    {
+      "relative_path": "pydantic/v1/decorator.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\decorator.py",
+      "bytes": 10339,
+      "sha256": "CDA6B1C71A163C29BCD7C0F56ECD3285AA518D79B7D95F06D191D609D335B970",
+      "head16_hex": "66726F6D2066756E63746F6F6C732069"
+    },
+    {
+      "relative_path": "pydantic/v1/env_settings.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\env_settings.py",
+      "bytes": 14105,
+      "sha256": "03D557C2D465D36018FA31F40B4A2ECB954DC377E2E85FE9933B870E380000E3",
+      "head16_hex": "696D706F7274206F730A696D706F7274"
+    },
+    {
+      "relative_path": "pydantic/v1/error_wrappers.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\error_wrappers.py",
+      "bytes": 5196,
+      "sha256": "EBADB931FC3DAA40B63708AD07F2450167BC07E5EFEB3054EEB2FD936F2D7F2A",
+      "head16_hex": "696D706F7274206A736F6E0A66726F6D"
+    },
+    {
+      "relative_path": "pydantic/v1/errors.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\errors.py",
+      "bytes": 17726,
+      "sha256": "988C0F103E6F18CE50E6FE02E19D493E5753447FA89AF132947EA4B0C84E98FC",
+      "head16_hex": "66726F6D20646563696D616C20696D70"
+    },
+    {
+      "relative_path": "pydantic/v1/fields.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\fields.py",
+      "bytes": 50649,
+      "sha256": "56A5890AB894362132A6D5EBA03549E74D49A550347A7D9500D724B2A5CBD9BF",
+      "head16_hex": "696D706F727420636F70790A696D706F"
+    },
+    {
+      "relative_path": "pydantic/v1/generics.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\generics.py",
+      "bytes": 17829,
+      "sha256": "633C8A4D937AC79435446277590F6337EBB01C9C4BDD6E2AA19AB07195EAC568",
+      "head16_hex": "696D706F72742066756E63746F6F6C73"
+    },
+    {
+      "relative_path": "pydantic/v1/json.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\json.py",
+      "bytes": 3390,
+      "sha256": "590E47CBF848A5F751DD84BC93A37613A28C273B1D6C18BF95D58E3C9695F353",
+      "head16_hex": "696D706F7274206461746574696D650A"
+    },
+    {
+      "relative_path": "pydantic/v1/main.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\main.py",
+      "bytes": 45697,
+      "sha256": "BD10754DBA64CCF3773F98A326573E72336E3BE1DC88D3A90B86FC2B7CD99DF7",
+      "head16_hex": "696D706F7274207379730A696D706F72"
+    },
+    {
+      "relative_path": "pydantic/v1/mypy.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\mypy.py",
+      "bytes": 38860,
+      "sha256": "0A5F1745F0A621C544DE3E40114E760BC88387C95C5FFFC3DE1CF68C85B1300B",
+      "head16_hex": "696D706F7274207379730A66726F6D20"
+    },
+    {
+      "relative_path": "pydantic/v1/networks.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\networks.py",
+      "bytes": 22124,
+      "sha256": "1D836D2807CE98E9CA269B0383583A488923F563E153FFA2F25E5ED89281A46E",
+      "head16_hex": "696D706F72742072650A66726F6D2069"
+    },
+    {
+      "relative_path": "pydantic/v1/parse.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\parse.py",
+      "bytes": 1821,
+      "sha256": "049B5DAA2651B5ABFD55114298EC6863E2889909A33F2F80FCDA288E21546716",
+      "head16_hex": "696D706F7274206A736F6E0A696D706F"
+    },
+    {
+      "relative_path": "pydantic/v1/py.typed",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\py.typed",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic/v1/schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\schema.py",
+      "bytes": 47801,
+      "sha256": "6AA06E03EF9CABC8005648A6E4124F140487CCE67C745B66157FDF346AFA8A9E",
+      "head16_hex": "696D706F72742072650A696D706F7274"
+    },
+    {
+      "relative_path": "pydantic/v1/tools.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\tools.py",
+      "bytes": 2881,
+      "sha256": "D650DD5C79348CBE6E3F7BB9442600BD402518296000EFB8E6592AF63EDFC810",
+      "head16_hex": "696D706F7274206A736F6E0A66726F6D"
+    },
+    {
+      "relative_path": "pydantic/v1/types.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\types.py",
+      "bytes": 35455,
+      "sha256": "07397E45C9E2B4F0479EAC308FD8AFEC98C7B8DD46A67587DB874A905DE5F5EF",
+      "head16_hex": "696D706F7274206162630A696D706F72"
+    },
+    {
+      "relative_path": "pydantic/v1/typing.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\typing.py",
+      "bytes": 20102,
+      "sha256": "A2FC2D2E911909B9E08596877D2349BA9CDEB731CD90B5E39FFEBA9204E7215E",
+      "head16_hex": "696D706F72742066756E63746F6F6C73"
+    },
+    {
+      "relative_path": "pydantic/v1/utils.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\utils.py",
+      "bytes": 26014,
+      "sha256": "D4FA8E225CFA3955B019DB371C12A5C3812DE9AB05A2ED1452902DA3B8C5382B",
+      "head16_hex": "696D706F7274206B6579776F72640A69"
+    },
+    {
+      "relative_path": "pydantic/v1/validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\validators.py",
+      "bytes": 22187,
+      "sha256": "9725249F5316847C65097E597C48058FF0801E88E888F71A41E31D10CF57BE25",
+      "head16_hex": "696D706F7274206D6174680A696D706F"
+    },
+    {
+      "relative_path": "pydantic/v1/version.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\v1\\version.py",
+      "bytes": 1039,
+      "sha256": "6291D63902AD1A8C5FCA29331AB7265C954A515601F4405DA0247DF784314A71",
+      "head16_hex": "5F5F616C6C5F5F203D2027636F6D7069"
+    },
+    {
+      "relative_path": "pydantic/validate_call_decorator.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\validate_call_decorator.py",
+      "bytes": 4416,
+      "sha256": "54B022E21A05A630BED5E2F41E2C5869A59A1053BA86D19C0DCB60B2A6B95482",
+      "head16_hex": "2222224465636F7261746F7220666F72"
+    },
+    {
+      "relative_path": "pydantic/validators.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\validators.py",
+      "bytes": 146,
+      "sha256": "A706C825755BD42576980138C3F1067CD8FB0F0CEC29A5B0FED4CBE9CBE24EEB",
+      "head16_hex": "222222546865206076616C696461746F"
+    },
+    {
+      "relative_path": "pydantic/version.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\version.py",
+      "bytes": 3985,
+      "sha256": "4F9AF38B00CFACC8DF694D17FBEE5F05D195BE1F784339CD43B4230F82DF8260",
+      "head16_hex": "222222546865206076657273696F6E60"
+    },
+    {
+      "relative_path": "pydantic/warnings.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic\\warnings.py",
+      "bytes": 4822,
+      "sha256": "DD0C90A3A94DDF970EECE5C36C511759C35A3E518245AADE815640F86FA56702",
+      "head16_hex": "222222507964616E7469632D73706563"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/INSTALLER",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\INSTALLER",
+      "bytes": 2,
+      "sha256": "E6184CE10E266134FDCFA401E8F1A95005BCD4F18D16B62B757323E2833FE9A9",
+      "head16_hex": "7576"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/METADATA",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\METADATA",
+      "bytes": 6709,
+      "sha256": "E2D0298DFB8712190AD250722E11A46A4391E71D687D5C7667C09E935CADC63B",
+      "head16_hex": "4D657461646174612D56657273696F6E"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/RECORD",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\RECORD",
+      "bytes": 1186,
+      "sha256": "BD59AD14FCF893A7894061FD6579530210E910995D4C0A9476E1E739B2044F9D",
+      "head16_hex": "707964616E7469635F636F72652D322E"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/REQUESTED",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\REQUESTED",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/WHEEL",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\WHEEL",
+      "bytes": 97,
+      "sha256": "589D1D5ADDE4871DC6E2B52A0E37AE8858ED75DCD9E8C95A5C57A92A7D684194",
+      "head16_hex": "576865656C2D56657273696F6E3A2031"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/licenses/LICENSE",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\licenses\\LICENSE",
+      "bytes": 1101,
+      "sha256": "FBE7F615F18D135C07000E5A86325DB27F42C7729699EF166AC1F7A3F4586BF4",
+      "head16_hex": "546865204D4954204C6963656E736520"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/sboms/pydantic-core.cyclonedx.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\sboms\\pydantic-core.cyclonedx.json",
+      "bytes": 125340,
+      "sha256": "0A90017DCDCF6E35E4B8CF97E3937ADBD43355A7D9F4912FBC9EFB79AA0F9CCA",
+      "head16_hex": "7B0A202022626F6D466F726D6174223A"
+    },
+    {
+      "relative_path": "pydantic_core-2.46.4.dist-info/uv_cache.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core-2.46.4.dist-info\\uv_cache.json",
+      "bytes": 127,
+      "sha256": "1DBD61217A0BC9F8C7CECF0EAED16086D8FC0AA1F75DABE779B7B97F84DE8F70",
+      "head16_hex": "7B2274696D657374616D70223A7B2273"
+    },
+    {
+      "relative_path": "pydantic_core/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core\\__init__.py",
+      "bytes": 5286,
+      "sha256": "E644150A9EAC4372C4FF826C8F614DF288A561E39250E96C58E447F17806C6BF",
+      "head16_hex": "66726F6D205F5F6675747572655F5F20"
+    },
+    {
+      "relative_path": "pydantic_core/_pydantic_core.cp312-win_amd64.pyd",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core\\_pydantic_core.cp312-win_amd64.pyd",
+      "bytes": 5253120,
+      "sha256": "775BCB0CE04B93CB18410BB28E589E1DD6A441F1F93007D2DC80A305D70C74C9",
+      "head16_hex": "4D5A90000300000004000000FFFF0000"
+    },
+    {
+      "relative_path": "pydantic_core/_pydantic_core.pyi",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core\\_pydantic_core.pyi",
+      "bytes": 46988,
+      "sha256": "940AF2CC4BF6740CA19F4D5F7FAE5D7E0826BAB8096FAEE6AA33A2D96163AA04",
+      "head16_hex": "696D706F7274206461746574696D650D"
+    },
+    {
+      "relative_path": "pydantic_core/core_schema.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core\\core_schema.py",
+      "bytes": 160035,
+      "sha256": "44207C46053D31E17B9A93BC0B6DFF1ECDD427E14F49788F63DA39D0BD15E562",
+      "head16_hex": "2222220D0A54686973206D6F64756C65"
+    },
+    {
+      "relative_path": "pydantic_core/py.typed",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\pydantic_core\\py.typed",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/INSTALLER",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\INSTALLER",
+      "bytes": 2,
+      "sha256": "E6184CE10E266134FDCFA401E8F1A95005BCD4F18D16B62B757323E2833FE9A9",
+      "head16_hex": "7576"
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/METADATA",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\METADATA",
+      "bytes": 3310,
+      "sha256": "B05084CA1D50879865178D9FFF9FABEAB61BDFB1F361BFBDE95421FFC8F9BE46",
+      "head16_hex": "4D657461646174612D56657273696F6E"
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/RECORD",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\RECORD",
+      "bytes": 727,
+      "sha256": "4D269E2801B1E92A634D3173F2FC1E4C7662D38A4DF7791B913B58BAE65C4873",
+      "head16_hex": "747970696E675F657874656E73696F6E"
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/REQUESTED",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\REQUESTED",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/WHEEL",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\WHEEL",
+      "bytes": 82,
+      "sha256": "1B68144734C4B66791F27ADD5D425F3620775585718A03D0F9B110BA3A4D88DB",
+      "head16_hex": "576865656C2D56657273696F6E3A2031"
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\licenses\\LICENSE",
+      "bytes": 13936,
+      "sha256": "3B2F81FE21D181C499C59A256C8E1968455D6689D269AA85373BFB6AF41DA3BF",
+      "head16_hex": "412E20484953544F5259204F46205448"
+    },
+    {
+      "relative_path": "typing_extensions-4.16.0.dist-info/uv_cache.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions-4.16.0.dist-info\\uv_cache.json",
+      "bytes": 127,
+      "sha256": "D51C9DFA0F47F09F1D586A8D5FC9B37A7E539F611AC04FD762947BE903768B33",
+      "head16_hex": "7B2274696D657374616D70223A7B2273"
+    },
+    {
+      "relative_path": "typing_extensions.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_extensions.py",
+      "bytes": 165012,
+      "sha256": "4040CA1A1ECBEE00D1385C12A93084D1C5BD46F0B774F07E5AE7E91C4F55E696",
+      "head16_hex": "696D706F7274206162630A696D706F72"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/INSTALLER",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\INSTALLER",
+      "bytes": 2,
+      "sha256": "E6184CE10E266134FDCFA401E8F1A95005BCD4F18D16B62B757323E2833FE9A9",
+      "head16_hex": "7576"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/METADATA",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\METADATA",
+      "bytes": 2552,
+      "sha256": "61096CD0BFE3C7040B6F98C22B02D190FE01936D0FF7616C5134FED02891953A",
+      "head16_hex": "4D657461646174612D56657273696F6E"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/RECORD",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\RECORD",
+      "bytes": 1081,
+      "sha256": "F591DFA2B354B5AE2B61CABB57C25C313B0746F7CA9AE9B6D3BB3F6600309A91",
+      "head16_hex": "747970696E675F696E7370656374696F"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/REQUESTED",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\REQUESTED",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/WHEEL",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\WHEEL",
+      "bytes": 87,
+      "sha256": "AAD0B0A12256807936D52D4A6F88A1773236AE527564A688BAB4E3FE780E8724",
+      "head16_hex": "576865656C2D56657273696F6E3A2031"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/licenses/LICENSE",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\licenses\\LICENSE",
+      "bytes": 1090,
+      "sha256": "804B59B25F2C31BD278F9202A19AE49A3945AA2664387E2D0A128C7CACC61EC3",
+      "head16_hex": "4D4954204C6963656E73650A0A436F70"
+    },
+    {
+      "relative_path": "typing_inspection-0.4.2.dist-info/uv_cache.json",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection-0.4.2.dist-info\\uv_cache.json",
+      "bytes": 127,
+      "sha256": "4D15242DF6D74487A440920753FD7C2263FC143D54F4472837EA89814B13710B",
+      "head16_hex": "7B2274696D657374616D70223A7B2273"
+    },
+    {
+      "relative_path": "typing_inspection/__init__.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection\\__init__.py",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "typing_inspection/introspection.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection\\introspection.py",
+      "bytes": 22534,
+      "sha256": "743E4077827A8407C5E9407304EE2CA92B35876C9B4154E1910A1F2D659504FD",
+      "head16_hex": "222222486967682D6C6576656C20696E"
+    },
+    {
+      "relative_path": "typing_inspection/py.typed",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection\\py.typed",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "head16_hex": ""
+    },
+    {
+      "relative_path": "typing_inspection/typing_objects.py",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection\\typing_objects.py",
+      "bytes": 17166,
+      "sha256": "91A8D5821F09ED467BC1389D571CC53298F04A71460680E84EA7D5000BCE1D9F",
+      "head16_hex": "2222224C6F772D6C6576656C20696E74"
+    },
+    {
+      "relative_path": "typing_inspection/typing_objects.pyi",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\venv\\Lib\\site-packages\\typing_inspection\\typing_objects.pyi",
+      "bytes": 9401,
+      "sha256": "BB5343A65FD12459C050C00CC7E5817744812B0546EE5B8B11CF2E912BD19D9B",
+      "head16_hex": "2320537475622066696C652067656E65"
+    }
+  ]
+}

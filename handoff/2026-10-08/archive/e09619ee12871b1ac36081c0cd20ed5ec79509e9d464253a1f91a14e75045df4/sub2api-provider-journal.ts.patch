@@ -1,0 +1,88 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\empty.before" "b/apps\\studio-web\\src\\domain\\sub2api-provider-journal.ts"
+index e69de29..b5f77ae 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\empty.before"
++++ "b/apps\\studio-web\\src\\domain\\sub2api-provider-journal.ts"
+@@ -0,0 +1,83 @@
++import type { Sub2APIMetadataCommand } from "../api/studio";
++
++export type ProviderPendingWrite =
++  | { kind: "metadata"; connectionId: string; command: Sub2APIMetadataCommand }
++  | { kind: "rotation"; connectionId: string; expectedRevision: number; operationId: string };
++
++export type ProviderJournalState =
++  | { kind: "empty" }
++  | { kind: "pending"; write: ProviderPendingWrite }
++  | { kind: "blocked" };
++
++const CONNECTION = /^pcn_[0-9a-f]{32}$/;
++const OPERATION = /^pcop_[0-9a-f]{32}$/;
++
++function key(connectionId: string): string {
++  return `aivora:sub2api-provider:pending:${connectionId}`;
++}
++
++export function readProviderJournal(connectionId: string): ProviderJournalState {
++  if (!CONNECTION.test(connectionId)) return { kind: "blocked" };
++  try {
++    const raw = window.localStorage.getItem(key(connectionId));
++    if (raw === null) return { kind: "empty" };
++    const parsed: unknown = JSON.parse(raw);
++    if (!parsed || typeof parsed !== "object") return { kind: "blocked" };
++    const value = parsed as Record<string, unknown>;
++    if (value.connectionId !== connectionId) return { kind: "blocked" };
++    if (value.kind === "rotation" && typeof value.operationId === "string" &&
++        OPERATION.test(value.operationId) && Number.isSafeInteger(value.expectedRevision) &&
++        Number(value.expectedRevision) >= 1)
++      return { kind: "pending", write: value as unknown as ProviderPendingWrite };
++    if (value.kind === "metadata" && value.command && typeof value.command === "object") {
++      const command = value.command as Record<string, unknown>;
++      if (Number.isSafeInteger(command.expected_revision) &&
++          Number(command.expected_revision) >= 1 &&
++          typeof command.display_name === "string" &&
++          typeof command.base_url === "string" &&
++          typeof command.enabled === "boolean" && Array.isArray(command.models) &&
++          command.models.every((model) => model && typeof model === "object" &&
++            typeof model.model_id === "string" &&
++            Array.isArray(model.capabilities) && model.capabilities.length === 1 &&
++            model.capabilities[0] === "TEXT"))
++        return { kind: "pending", write: value as unknown as ProviderPendingWrite };
++    }
++    return { kind: "blocked" };
++  } catch {
++    return { kind: "blocked" };
++  }
++}
++
++export function persistProviderWrite(write: ProviderPendingWrite): boolean {
++  if (!CONNECTION.test(write.connectionId) ||
++      readProviderJournal(write.connectionId).kind !== "empty") return false;
++  try {
++    const serialized = JSON.stringify(write);
++    window.localStorage.setItem(key(write.connectionId), serialized);
++    return window.localStorage.getItem(key(write.connectionId)) === serialized;
++  } catch {
++    return false;
++  }
++}
++
++export function clearProviderWrite(write: ProviderPendingWrite): boolean {
++  const state = readProviderJournal(write.connectionId);
++  if (state.kind !== "pending" || JSON.stringify(state.write) !== JSON.stringify(write))
++    return false;
++  try {
++    window.localStorage.removeItem(key(write.connectionId));
++    return window.localStorage.getItem(key(write.connectionId)) === null;
++  } catch {
++    return false;
++  }
++}
++
++export function newRotationOperationId(): string | null {
++  try {
++    const bytes = new Uint8Array(16);
++    window.crypto.getRandomValues(bytes);
++    return `pcop_${Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("")}`;
++  } catch {
++    return null;
++  }
++}

@@ -1,0 +1,53 @@
+{
+  "candidate": "20260924-build05-27",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "snapshotSha256": "BE615D3AF7BB0A22777F2B1E461E14DA2A89DC3A315E92BFAC1B64869D09F115",
+  "deploymentReceiptSha256": "B0A95DB8DB70252644278EA159E208ADD61C1A5391FAE0428624D55CFC55B2FB",
+  "productFingerprintSha256": "347BF4496DBBAB770614634FC34140713C5B1E307D81237A8E567B0FFE4E82AB",
+  "productFileCount": 27,
+  "productHashMismatches": [],
+  "qaFiles": [
+    {
+      "path": "services/api/tests/test_fake_timeline_run_api.py",
+      "sha256": "F59424DC5BF0F923270BE31A8575044B744F88DCF36557D31263CB3F4D7DCD09"
+    },
+    {
+      "path": "services/api/tests/test_development_timeline_export_api.py",
+      "sha256": "1904D4A0B7E96FBC24F49AE7DB058A8E9FBC2154F884DC70C008F36C04C3ACEF"
+    },
+    {
+      "path": "apps/desktop/src/fake-timeline-run-contract.test.ts",
+      "sha256": "A463D513304FCB9AE107A2B622A7FACAF6A0005A8508AF88D4C6F7C28AF40BC6"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+      "sha256": "9BC51A4440F8A2C8DC192B9291AA134F48FA965F096C7609B951F3B2EA33B58A"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+      "sha256": "FF928C9FAE50117A19B615CB09689C72693A65A6818C6BA551D73D9096BC4090"
+    }
+  ],
+  "runs": [
+    {
+      "command": "uv run pytest services/api/tests/test_fake_timeline_run_api.py services/api/tests/test_development_timeline_export_api.py -q",
+      "rawOutput": "pytest-27-raw.txt",
+      "result": "16 passed",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter @aijian/desktop exec vitest run src/fake-timeline-run-contract.test.ts",
+      "rawOutput": "desktop-vitest-27-raw.txt",
+      "result": "33 passed",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter @aijian/studio-web exec vitest run src/aivora/adapters/developmentFakeTimeline.test.ts src/aivora/adapters/developmentExport.test.ts",
+      "rawOutput": "web-vitest-27-raw.txt",
+      "result": "12 passed",
+      "exitCode": 0
+    }
+  ],
+  "failureClassification": "NONE in targeted runs",
+  "boundary": "API/contract data QA only; no Electron, provider, full suite, native/runtime or user acceptance claim."
+}

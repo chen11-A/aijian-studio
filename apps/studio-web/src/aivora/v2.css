@@ -1,0 +1,1129 @@
+@font-face {
+  font-family: "Noto Sans CJK SC";
+  src: url("./assets/v2/NotoSansCJKsc-Regular.otf") format("opentype");
+  font-weight: 400 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Noto Sans CJK SC";
+  src: url("./assets/v2/NotoSansCJKsc-Bold.otf") format("opentype");
+  font-weight: 600 900;
+  font-display: block;
+}
+/* AIVORA V2.0: native layout, measured against the delivered coordinate JSON. */
+:root {
+  font-family: "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+  color: #f2f7ff;
+  --surface: #081d30;
+  --raised: #102d47;
+  --line: #215173;
+  --muted: #a8c0d5;
+  --accent: #1789ff;
+  --cyan: #39d7f2;
+  --text: #f2f7ff;
+}
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+.demo-root {
+  --main-right: 332px;
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-width: 1024px;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(to bottom right, #041421, #09263e 48%, #04121f);
+  font-size: 14px;
+  line-height: 22px;
+}
+.demo-root.no-rail {
+  --main-right: 12px;
+}
+.demo-root .topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 72px;
+  padding: 0;
+  display: block;
+  border: 0;
+  border-bottom: 1px solid #18394f;
+  background: #061929;
+}
+.demo-root .brand {
+  position: absolute;
+  left: 16px;
+  top: 8px;
+  height: 56px;
+  min-width: 180px;
+  gap: 12px;
+}
+.demo-root .brand > svg {
+  width: 40px;
+  height: 40px;
+}
+.demo-root .brand strong {
+  font-size: 28px;
+  line-height: 40px;
+  letter-spacing: 0;
+}
+.demo-root .brand small {
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 0;
+}
+.demo-root .topbar > select {
+  position: absolute;
+  left: 236px;
+  top: 16px;
+  width: 172px;
+  height: 40px;
+  text-align: center;
+  background: #0b243b;
+  border-color: #215173;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 0 12px;
+}
+.demo-root .topbar > .button,
+.demo-root .topbar-spacer {
+  display: none;
+}
+.demo-root .mode-switch {
+  position: absolute;
+  right: 308px;
+  top: 16px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #215173;
+  background: #081d30;
+  border-radius: 0;
+}
+.demo-root .mode-switch button {
+  width: 100px;
+  height: 34px;
+  font-size: 14px;
+  padding: 0;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #091e31;
+  color: #f2f7ff;
+}
+.demo-root .mode-switch button.active {
+  color: #f2f7ff;
+  background: #153e61;
+  border-color: #1789ff;
+}
+.demo-root .service-indicator {
+  position: absolute;
+  right: 160px;
+  top: 27px;
+  padding: 0;
+  height: 18px;
+  width: 130px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 18px;
+  color: #a8c0d5;
+  background: none;
+}
+.demo-root .service-indicator > span {
+  display: none;
+}
+.demo-root .demo-controls {
+  position: absolute;
+  left: 424px;
+  top: 24px;
+  font-size: 11px;
+}
+.demo-root .demo-controls > summary {
+  height: 24px;
+  padding: 2px 10px;
+  border: 1px solid #215173;
+  border-radius: 6px;
+  color: #a8c0d5;
+  background: #102d47;
+  list-style: none;
+  font-size: 11px;
+  line-height: 18px;
+}
+.demo-root .demo-controls > div {
+  left: 0;
+  right: auto;
+  top: 32px;
+  z-index: 20;
+}
+.demo-root .user-menu {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+}
+.demo-root .user-menu > summary {
+  gap: 12px;
+  height: 40px;
+  padding: 0;
+  font-size: 14px;
+}
+.demo-root .user-avatar {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #215173;
+  background: #102d47;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.demo-root .left-nav {
+  position: absolute;
+  left: 12px;
+  top: 84px;
+  bottom: 12px;
+  width: 184px;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 19px 7px 15px;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: #061a2a;
+  overflow: hidden;
+}
+.demo-root .left-nav > nav {
+  flex: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  min-height: 0;
+  padding: 0;
+  display: block;
+}
+.demo-root .nav-item {
+  height: 40px;
+  margin: 0 0 2px;
+  padding: 0 12px 0 15px;
+  gap: 13px;
+  border: 1px solid transparent;
+  width: 168px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #a8c0d5;
+}
+.demo-root .nav-item > svg {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  position: relative;
+  top: -0.5px;
+}
+.demo-root .nav-item.selected {
+  background: #123c60;
+  color: #f2f7ff;
+  border-color: #237eb5;
+}
+.demo-root .nav-item.nav-child {
+  padding-left: 27px;
+  margin-bottom: 0;
+}
+.demo-root .nav-label {
+  height: 40px;
+  margin: 0 0 2px;
+  padding: 8px 12px 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  color: #a8c0d5;
+  font-size: 14px;
+}
+.demo-root .nav-label:before {
+  content: none;
+}
+.demo-root .nav-label > svg {
+  width: 19px;
+  height: 19px;
+  position: relative;
+  top: -0.5px;
+}
+.demo-root .nav-label[data-group="resources"] {
+  display: none;
+}
+.demo-root .left-nav nav > div:nth-last-child(2) {
+  margin-top: 14px;
+}
+.demo-root .nav-bottom {
+  padding-top: 12px;
+  border: 0;
+  flex: none;
+  margin-top: 0;
+}
+.demo-root .local-note {
+  position: absolute;
+  bottom: 6px;
+  left: 13px;
+  right: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.demo-root .local-note > span,
+.demo-root .local-note > progress {
+  display: none;
+}
+.demo-root .local-note > small {
+  font-size: 11px;
+  display: block;
+  line-height: 21px;
+}
+.demo-root .local-note:after {
+  content: "AIVORA  /  设计母版 V2";
+  font-size: 10px;
+  line-height: 16px;
+  color: #7695af;
+}
+.demo-root .stage-bar {
+  position: absolute;
+  left: 220px;
+  right: var(--main-right);
+  top: 84px;
+  height: 44px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 5px 11px;
+  gap: 8px;
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #061b2e;
+}
+.demo-root .stage-bar button,
+.demo-root .stage-bar button.current {
+  height: 32px;
+  min-height: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  gap: 8px;
+  justify-content: center;
+  font-size: 13px;
+  background: none;
+}
+.demo-root .stage-bar button.current {
+  border: 1px solid #207fc1;
+  background: #0e3c63;
+}
+.demo-root .stage-bar button span {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  font-size: 12px;
+}
+.demo-root .stage-bar button b {
+  font-weight: 400;
+}
+.demo-root .stage-bar button i {
+  display: none;
+}
+.demo-root .main-panel {
+  position: absolute;
+  left: 220px;
+  right: var(--main-right);
+  top: 136px;
+  bottom: 12px;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: linear-gradient(#0a253c, #071a2c);
+  overflow: hidden;
+}
+.demo-root.no-stage .main-panel {
+  top: 84px;
+}
+.demo-root .page-scroll,
+.demo-root .page-scroll:has(.flow-footer) {
+  height: 100%;
+  min-height: 0;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+.demo-root .page-title {
+  height: 60px;
+  min-height: 60px;
+  flex: none;
+  margin: 0 0 8px;
+  align-items: flex-start;
+  position: relative;
+  padding: 0;
+}
+.demo-root .page-title h1 {
+  font-size: 28px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.demo-root .page-title p {
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+  color: #a8c0d5;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.demo-root .page-title > div:first-child {
+  width: 100%;
+  min-width: 0;
+}
+.demo-root .page-title .actions {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  gap: 12px;
+  display: flex;
+}
+.demo-root .page-title .actions > .button {
+  width: 120px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 14px;
+  background: #091e31;
+}
+.demo-root .page-title .actions > .button svg {
+  display: none;
+}
+.demo-root .page-title .actions > .button[data-preview] {
+  gap: 10px;
+  background: #0b243b;
+}
+.demo-root .page-title .actions > .button[data-preview] svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+.demo-root .page-scroll > :not(.page-title):not(.flow-footer) {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+.demo-root .flow-footer {
+  position: static;
+  inset: auto;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 320px;
+  gap: 12px;
+  flex: 0 0 52px;
+  height: 52px;
+  padding: 0;
+  margin: 12px 0 0;
+  background: none;
+  border: 0;
+  backdrop-filter: none;
+}
+.demo-root .flow-footer .button,
+.demo-root .flow-footer .button.primary {
+  width: auto;
+  min-width: 0;
+  height: 52px;
+  min-height: 0;
+  max-width: none;
+  font-size: 14px;
+  line-height: 22px;
+  padding: 0 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.demo-root .flow-footer .button svg,
+.demo-root .flow-footer > span > svg {
+  display: none;
+}
+.demo-root .flow-footer > span {
+  display: flex;
+  align-items: center;
+  border: 1px solid #215173;
+  background: #071f2e;
+  border-radius: 10px;
+  padding: 0 15px;
+  font-size: 12px;
+  color: #a8c0d5;
+  line-height: 20px;
+  min-width: 0;
+  overflow: hidden;
+}
+.demo-root .button {
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+  background: #0b243b;
+  color: #f2f7ff;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  box-shadow: none;
+  transform: none;
+}
+.demo-root .button.primary {
+  background: linear-gradient(90deg, #067fff, #1265ee);
+  border-color: #1789ff;
+  font-weight: 700;
+}
+.demo-root .button > svg {
+  width: 18px;
+  height: 18px;
+}
+.demo-root .flow-footer .button.primary {
+  background: linear-gradient(90deg, #067fff, #1265ee);
+  border-color: #1789ff;
+  font-weight: 700;
+}
+.demo-root .button:disabled {
+  opacity: 1;
+  color: #7695af;
+  background: #183046;
+  border-color: #215173;
+}
+.demo-root .button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  border-color: #45b7f9;
+  transform: none;
+}
+.demo-root .button:active:not(:disabled) {
+  filter: brightness(0.88);
+  transform: none;
+}
+.demo-root .pill {
+  font-size: 12px;
+  line-height: 18px;
+  height: 24px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border: 1px solid #20445f;
+  border-radius: 6px;
+  background: #10283d;
+  color: #a8c0d5;
+}
+.demo-root .section,
+.demo-root .info-card {
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: linear-gradient(#102c44, #091f33);
+  box-shadow: none;
+  padding: 11px;
+  min-width: 0;
+  min-height: 0;
+}
+.demo-root .section-heading {
+  height: 24px;
+  min-height: 24px;
+  margin: 0 0 20px;
+  gap: 8px;
+  align-items: center;
+}
+.demo-root h2 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.demo-root h3 {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.demo-root p {
+  font-size: 14px;
+  line-height: 22px;
+}
+.demo-root .right-dock {
+  position: absolute;
+  right: 12px;
+  top: 84px;
+  bottom: 12px;
+  width: 308px;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: linear-gradient(#0a253c, #071a2c);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+.demo-root.no-rail .right-dock {
+  display: none;
+}
+.demo-root .dock-tabs {
+  position: absolute;
+  z-index: 2;
+  left: 15px;
+  right: 15px;
+  top: 81px;
+  padding: 0;
+  gap: 0;
+  height: 36px;
+  flex: none;
+}
+.demo-root .dock-tabs button {
+  height: 36px;
+  width: 50%;
+  flex: 0 0 50%;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.demo-root .right-dock .assistant-panel {
+  position: relative;
+  padding: 15px;
+  height: 100%;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  background: none;
+}
+.demo-root .assistant-panel > header {
+  height: 54px;
+  min-height: 54px;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  align-items: flex-start;
+}
+.demo-root .assistant-panel > header > svg {
+  width: 40px;
+  height: 40px;
+  margin-top: 4px;
+}
+.demo-root .assistant-panel > header h2 {
+  font-size: 22px;
+  line-height: 30px;
+}
+.demo-root .assistant-panel > header p {
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.demo-root .assistant-panel > header .status-dot {
+  display: none;
+}
+.demo-root .assistant-panel > header .icon-button {
+  display: none;
+}
+.demo-root .assistant-panel > .tabs {
+  height: 32px;
+  min-height: 32px;
+  margin: 12px 0 20px;
+  gap: 4px;
+  overflow: hidden;
+  border: 0;
+  display: flex;
+}
+.demo-root .assistant-panel > .tabs button {
+  height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #215173;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 18px;
+  background: #102d47;
+  flex: none;
+}
+.demo-root .assistant-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 0;
+  margin: 0;
+}
+.demo-root .ai-welcome {
+  height: 228px;
+  padding: 9px 13px;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: linear-gradient(#102c44, #091f33);
+  position: relative;
+  display: block;
+  margin: 0 0 20px;
+}
+.demo-root .ai-welcome > img {
+  display: none;
+}
+.demo-root .ai-welcome h3 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.demo-root .ai-welcome p {
+  font-size: 14px;
+  line-height: 24px;
+  margin: 0;
+}
+.demo-root .ai-welcome .pill {
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 19px;
+}
+.demo-root .suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+.demo-root .suggestions > button {
+  height: 40px;
+  min-height: 40px;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  background: #102d47;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 0 6px;
+}
+.demo-root .suggestions svg {
+  display: none;
+}
+.demo-root .ai-context {
+  display: none;
+}
+.demo-root .ai-composer {
+  height: 126px;
+  flex: 0 0 126px;
+  padding: 10px 11px 9px;
+  margin: 12px 0 0;
+  border: 1px solid #215173;
+  border-radius: 12px;
+  background: #0b243a;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.demo-root .ai-composer textarea {
+  min-height: 25px;
+  height: 25px;
+  padding: 0;
+  line-height: 20px;
+  font-size: 12px;
+  border: 0;
+  background: none;
+  resize: none;
+  flex: none;
+}
+.demo-root .ai-composer .reference-chips {
+  height: 27px;
+  min-height: 27px;
+  order: 1;
+  overflow: auto;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  margin: 3px 0 8px;
+  padding: 0;
+}
+.demo-root .ai-composer .reference-chips:empty:before {
+  content: attr(data-context);
+  height: 24px;
+  border: 1px solid #215173;
+  border-radius: 6px;
+  display: block;
+  font-size: 11px;
+  padding: 1px 9px;
+  line-height: 20px;
+  color: #a8c0d5;
+  background: #102d47;
+}
+.demo-root .ai-composer > div:last-child {
+  order: 2;
+  height: 36px;
+  min-height: 36px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+.demo-root .ai-composer .icon-button,
+.demo-root .ai-composer .button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 7px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #102d47;
+}
+.demo-root .ai-composer .send-button {
+  margin-left: auto;
+  background: #183046;
+}
+.demo-root .ai-composer .send-button:not(:disabled) {
+  background: #1789ff;
+}
+.demo-root .management-shell .right-dock {
+  display: none;
+}
+.demo-root .management-shell .main-panel {
+  right: 12px;
+}
+.demo-root .right-dock .inspector {
+  padding: 15px;
+  gap: 12px;
+  background: none;
+}
+.demo-root .inspector-fields {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.demo-root .editor-dialog {
+  max-height: calc(100dvh - 64px);
+}
+@media (min-width: 1720px) {
+  .demo-root.is-pro.has-rail {
+    --main-right: 636px;
+  }
+  .demo-root.is-pro.has-rail .right-dock {
+    width: 612px;
+    border: 0;
+    background: none;
+    display: grid;
+    grid-template-columns: 300px 300px;
+    gap: 12px;
+    overflow: visible;
+  }
+  .demo-root.is-pro .dock-tabs {
+    display: none;
+  }
+  .demo-root.is-pro[data-right-tab] .dock-inspector,
+  .demo-root.is-pro[data-right-tab] .dock-ai {
+    display: block;
+    height: 100%;
+    border: 1px solid #215173;
+    border-radius: 12px;
+    background: linear-gradient(#0a253c, #071a2c);
+    overflow: hidden;
+  }
+}
+@media (max-width: 1719px) {
+  .demo-root.is-pro {
+    --main-right: 332px;
+  }
+  .demo-root.is-pro .right-dock {
+    width: 308px;
+  }
+}
+@media (max-width: 1200px) {
+  .demo-root .mode-switch {
+    right: 258px;
+  }
+  .demo-root .service-indicator {
+    right: 138px;
+    font-size: 10px;
+  }
+  .demo-root .demo-controls {
+    left: 414px;
+  }
+  .demo-root .flow-footer {
+    grid-template-columns: 140px minmax(0, 1fr) 240px;
+  }
+}
+
+/* Final V2 shell corrections from live border-box measurements. */
+.demo-root .flow-footer {
+  min-height: 52px;
+  align-items: stretch;
+}
+.demo-root .flow-footer > span {
+  height: 52px;
+  align-self: stretch;
+}
+.demo-root .stage-bar {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+.demo-root .stage-bar button,
+.demo-root .stage-bar button.current {
+  width: 100px;
+  flex: none;
+  justify-content: flex-start;
+  padding: 0 6px;
+  border-radius: 16px;
+  gap: 8px;
+}
+.demo-root .stage-bar button:nth-child(2) {
+  width: 160px;
+}
+.demo-root .stage-bar button span {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #346e96;
+  border-radius: 50%;
+  background: #0b263e;
+  font-size: 13px;
+  line-height: 22px;
+  flex: none;
+}
+.demo-root .stage-bar button.current span {
+  background: #1789ff;
+  border-color: #346e96;
+}
+.demo-root .stage-bar button b {
+  font-size: 14px;
+}
+.demo-root .stage-bar button.current b {
+  font-weight: 700;
+}
+.demo-root .nav-item.selected {
+  background: linear-gradient(90deg, #067fff, #1265ee);
+  border-color: transparent;
+}
+.demo-root:not(.no-stage) .left-nav:before,
+.demo-root:not(.no-stage) .left-nav:after {
+  content: "";
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  height: 1px;
+  background: #215173;
+  pointer-events: none;
+}
+.demo-root:not(.no-stage) .left-nav:before {
+  top: 397.5px;
+}
+.demo-root:not(.no-stage) .left-nav:after {
+  top: 493.5px;
+}
+.demo-root .flow-footer > .button:first-child {
+  background: #102c47;
+}
+.demo-root .user-menu > summary {
+  width: 112px;
+  gap: 12px;
+  position: relative;
+}
+.demo-root .user-avatar {
+  border: 0;
+  border-radius: 0;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  object-fit: contain;
+}
+.demo-root .user-menu > summary:after {
+  content: "";
+  position: absolute;
+  left: 48px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  background: #091e31;
+  z-index: 0;
+  pointer-events: none;
+}
+.demo-root .user-menu > summary > span {
+  position: relative;
+  z-index: 1;
+  left: 2px;
+}
+.demo-root .demo-controls > summary {
+  width: 126px;
+  border-color: #217ba3;
+  background: #123548;
+  color: #39d7f2;
+}
+.demo-root .mode-switch {
+  outline: none;
+  border-radius: 9px;
+}
+.demo-root .mode-switch button {
+  box-shadow: none;
+}
+.v2-story-card > h2 {
+  margin-bottom: 10px;
+}
+.v2-story-hero {
+  border: 0;
+  box-shadow: inset 0 0 0 1px #193e5b;
+}
+.v2-logo-mark {
+  transform-origin: 0 0;
+}
+.demo-root .brand > svg .v2-logo-mark {
+  transform: translate(2.4px, 0) scale(0.95);
+}
+.demo-root .right-dock header > svg .v2-logo-mark {
+  transform: scale(0.85);
+}
+.v2-launch-brand svg .v2-logo-mark {
+  transform: translate(0, 3px) scale(0.90625);
+}
+.v2-story-hero img {
+  border-radius: 0;
+}
+.v2-script-provenance {
+  margin-top: 2px;
+}
+.demo-root .assistant-panel.v2-assistant > header > div {
+  flex: 1;
+}
+.demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools > :not(.send-button) {
+  left: -2px;
+}
+.demo-root.no-stage.no-rail .topbar > select,
+.demo-root.no-stage.no-rail .mode-switch {
+  display: none;
+}
+.demo-root.no-stage.no-rail .demo-controls {
+  left: 236px;
+}
+.demo-root.no-stage.no-rail .demo-controls > summary {
+  width: 184px;
+  font-size: 0;
+}
+.demo-root.no-stage.no-rail .demo-controls > summary:after {
+  content: "桌面创作端 · UI 演示";
+  font-size: 12px;
+}
+.demo-root.no-stage.no-rail .service-indicator {
+  right: 260px;
+  width: auto;
+  top: 27px;
+  font-size: 0;
+}
+.demo-root.no-stage.no-rail .service-indicator:after {
+  content: "本地样例 · 未连接真实服务";
+  font-size: 12px;
+}
+.demo-root.no-stage.no-rail .left-nav {
+  padding-top: 27px;
+}
+.demo-root.no-stage.no-rail .nav-item {
+  height: 42px;
+  margin-bottom: 10px;
+}
+.demo-root.no-stage.no-rail .local-note {
+  bottom: 19px;
+  left: 15px;
+}
+.demo-root.no-stage.no-rail .local-note:after {
+  content: none;
+}
+
+/* The global episode chooser is rendered only for an active real project. */
+.demo-root .topbar .episode-select {
+  display: block;
+  position: absolute;
+  left: 424px;
+  top: 16px;
+  width: 172px;
+  height: 40px;
+  padding: 0 12px;
+  text-align: center;
+  background: #0b243b;
+  border-color: #215173;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.demo-root .demo-controls {
+  left: 612px;
+}
+@media (max-width: 1280px) {
+  .demo-root .demo-controls {
+    display: none;
+  }
+}
+@media (max-width: 1180px) {
+  .demo-root .topbar > select {
+    left: 210px;
+    width: 150px;
+  }
+  .demo-root .topbar .episode-select {
+    left: 376px;
+    width: 160px;
+  }
+  .demo-root .mode-switch {
+    right: 116px;
+  }
+  .demo-root .service-indicator {
+    display: none;
+  }
+}
+
+/* C2-r6: keep the V2 shell inside the desktop client's 964px inner viewport. */
+.demo-root {
+  min-width: 0;
+}
+@media (max-width: 1180px) {
+  .demo-root .mode-switch {
+    right: 144px;
+  }
+  .demo-root .stage-bar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 4px;
+    padding: 5px;
+  }
+  .demo-root .stage-bar button,
+  .demo-root .stage-bar button.current,
+  .demo-root .stage-bar button:nth-child(2) {
+    width: auto;
+    min-width: 0;
+    padding: 0 2px;
+    gap: 2px;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  .demo-root .stage-bar button span {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    line-height: 18px;
+  }
+  .demo-root .stage-bar button b {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* C2-r8: keep the real project title and its two header actions separate at 980px. */
+@media (max-width: 1180px) {
+  .demo-root[data-page="project"] .page-title {
+    height: 108px;
+    min-height: 108px;
+  }
+  .demo-root[data-page="project"] .page-title .actions {
+    top: 44px;
+    right: auto;
+    left: 0;
+  }
+  .demo-root[data-page="project"] .page-title p {
+    position: absolute;
+    top: 84px;
+    left: 0;
+    width: 100%;
+  }
+}
+
+/* C2-r9: project-body content scrolls between its fixed header and footer. */
+.demo-root[data-page="project"] .v2-project-home-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}

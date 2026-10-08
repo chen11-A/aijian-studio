@@ -1,0 +1,8 @@
+{
+    "captured_utc":  "2026-09-24T01:45:27.8462699Z",
+    "exception_type":  "System.ArgumentException",
+    "position_message":  "所在位置 C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\diagnose-uia.ps1:87 字符: 1\r\n+ $record = [ordered]@{\r\n+ ~~~~~~~~~~~~~~~~~~~~~",
+    "script_stack_trace":  "在 \u003cScriptBlock\u003e、C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\diagnose-uia.ps1 中: 第 87 行",
+    "error_record":  "参数类型不匹配",
+    "exception_string":  "System.ArgumentException: 参数类型不匹配\r\n   在 System.Linq.Expressions.Expression.Condition(Expression test, Expression ifTrue, Expression ifFalse)\r\n   在 System.Management.Automation.Language.PSEnumerableBinder.MaybeDebase(DynamicMetaObjectBinder binder, Func`2 generator, DynamicMetaObject target)\r\n   在 System.Management.Automation.Language.PSToObjectArrayBinder.Bind(DynamicMetaObject target, DynamicMetaObject[] args)\r\n   在 System.Dynamic.DynamicMetaObjectBinder.Bind(Object[] args, ReadOnlyCollection`1 parameters, LabelTarget returnLabel)\r\n   在 System.Runtime.CompilerServices.CallSiteBinder.BindCore[T](CallSite`1 site, Object[] args)\r\n   在 System.Dynamic.UpdateDelegates.UpdateAndExecute1[T0,TRet](CallSite site, T0 arg0)\r\n   在 System.Management.Automation.Interpreter.DynamicInstruction`2.Run(InterpretedFrame frame)\r\n   在 System.Management.Automation.Interpreter.EnterTryCatchFinallyInstruction.Run(InterpretedFrame frame)"
+}

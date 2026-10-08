@@ -1,0 +1,857 @@
+import type {
+  RemoteSourceExtractCreateCommand,
+  RemoteSourceExtractCapability,
+  Sub2APISourceExtractCapability,
+  Sub2APISourceExtractCreateCommand,
+  Sub2APISourceExtractOperationResponse,
+  Sub2APICallApprovalResponse,
+  StudioTransport,
+} from "../../api/studio";
+
+export type RemoteSourceExtractIdentity = Readonly<{
+  projectId: string;
+  manifestVersionId: string;
+  manifestContentHash: string;
+  sourceDocumentId: string;
+  sourceBlockId: string;
+  sourceBlockHash: string;
+  startByte: number;
+  endByte: number;
+  connectionId: string;
+  connectionRevision: number;
+  modelId: string;
+}>;
+
+export type RemoteSourceExtractOperation = RemoteSourceExtractIdentity & Readonly<{
+  operationId: string;
+  status: "UNKNOWN" | "QUEUED" | "REJECTED";
+  runId: string | null;
+  rejection: { status: number; code: string; requestId: string } | null;
+}>;
+
+export type RemoteSourceExtractJournalState =
+  | { kind: "EMPTY" }
+  | { kind: "VALID"; operation: RemoteSourceExtractOperation }
+  | { kind: "BLOCKED" };
+
+export type RemoteSourceExtractQueueOutcome =
+  | { kind: "QUEUED" | "UNKNOWN" | "REJECTED" | "TRACKED";
+      operation: RemoteSourceExtractOperation }
+  | { kind: "UNAVAILABLE"; message: string };
+
+export type RemoteSourceExtractReadOutcome =
+  | { kind: "FOUND_RUN"; runId: string; proposalId: string | null }
+  | { kind: "NOT_FOUND" | "REMOTE_UNKNOWN" | "UNAVAILABLE" };
+
+export type Sub2APISourceExtractReadOutcome =
+  | { kind: "FOUND"; runId: string; response: Sub2APISourceExtractOperationResponse;
+      queueBinding: "VERIFIED" | "UNVERIFIED" }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; requestId: string }
+  | { kind: "NOT_FOUND"; requestId: string }
+  | { kind: "REMOTE_UNKNOWN" | "UNAVAILABLE" };
+export type Sub2APICallApprovalJournal = Readonly<{
+  projectId: string;
+  runId: string;
+  operationId: string;
+  taskId: string;
+  attemptId: string;
+  attemptFingerprint: string;
+  status: "UNKNOWN" | "APPROVED" | "CONSUMED";
+  approvalId: string | null;
+}>;
+export type Sub2APICallApprovalJournalState =
+  | { kind: "EMPTY" }
+  | { kind: "VALID"; approval: Sub2APICallApprovalJournal }
+  | { kind: "BLOCKED" };
+export type Sub2APICallApprovalOutcome =
+  | { kind: "APPROVED" | "CONSUMED" | "TRACKED" | "UNKNOWN";
+      approval: Sub2APICallApprovalJournal; response?: Sub2APICallApprovalResponse;
+      serverError?: { status: number; code: string; requestId: string } }
+  | { kind: "UNAVAILABLE"; message: string };
+export type Sub2APICallApprovalReadOutcome =
+  | { kind: "FOUND"; response: Sub2APICallApprovalResponse }
+  | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; requestId: string }
+  | { kind: "NOT_FOUND"; requestId: string }
+  | { kind: "REMOTE_UNKNOWN" | "UNAVAILABLE" };
+
+export type SourceExtractionAcceptance = Readonly<{
+  projectId: string;
+  proposalId: string;
+  runId: string;
+  parentVersionId: string | null;
+  expectedHeadRevision: number | null;
+  status: "UNKNOWN" | "ACCEPTED";
+  draftVersionId: string | null;
+}>;
+export type SourceExtractionAcceptanceState =
+  | { kind: "EMPTY" }
+  | { kind: "VALID"; acceptance: SourceExtractionAcceptance }
+  | { kind: "BLOCKED" };
+export type SourceExtractionAcceptanceOutcome =
+  | { kind: "ACCEPTED" | "TRACKED"; acceptance: SourceExtractionAcceptance }
+  | { kind: "UNKNOWN"; acceptance: SourceExtractionAcceptance;
+      serverError?: { status: number; code: string } }
+  | { kind: "UNAVAILABLE"; message: string };
+
+type JournalStorage = Pick<Storage, "getItem" | "setItem">;
+const key = (projectId: string) => `aivora.remote-source-extract.v1.${projectId}`;
+const sub2apiKey = (projectId: string) => `aivora.sub2api-source-extract.v1.${projectId}`;
+const sub2apiApprovalKey = (projectId: string, runId: string) =>
+  `aivora.sub2api-one-call-approval.v1.${projectId}.${runId}`;
+const acceptanceKey = (projectId: string, proposalId: string) =>
+  `aivora.source-extraction-acceptance.v1.${projectId}.${proposalId}`;
+const PROJECT = /^prj_[0-9a-f]{32}$/;
+const VERSION = /^ver_[0-9a-f]{32}$/;
+const SOURCE = /^src_[0-9a-f]{32}$/;
+const BLOCK = /^srcb_[0-9a-f]{32}$/;
+const CONNECTION = /^pcn_[0-9a-f]{32}$/;
+const RUN = /^agr_[0-9a-f]{32}$/;
+const TASK = /^task_[0-9a-f]{32}$/;
+const ATTEMPT = /^att_[0-9a-f]{32}$/;
+const APPROVAL = /^[a-z]{3}_[0-9a-f]{32}$/;
+const PROPOSAL = /^prp_[0-9a-f]{32}$/;
+const HASH = /^sha256:[0-9a-f]{64}$/;
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,79}$/;
+const MAX_JOURNAL_CHARACTERS = 2048;
+
+function definiteQueueError(status: number, code: string): boolean {
+  return (status === 401 && code === "SIDECAR_AUTH_REQUIRED") ||
+    (status === 403 && code === "SIDECAR_REQUEST_REJECTED") ||
+    (status === 404 && (code === "PROJECT_NOT_FOUND" ||
+      code === "SOURCE_MANIFEST_NOT_FOUND" || code === "PROPOSAL_RUN_NOT_FOUND")) ||
+    (status === 409 && (code === "PROPOSAL_RUN_INPUT_REJECTED" ||
+      code === "IDEMPOTENCY_KEY_REUSED")) ||
+    (status === 422 && code === "VALIDATION_ERROR");
+}
+
+function definiteSub2APIQueueError(status: number, code: string): boolean {
+  return (status === 401 && code === "SIDECAR_AUTH_REQUIRED") ||
+    (status === 403 && code === "SIDECAR_REQUEST_REJECTED") ||
+    (status === 404 && code === "PROJECT_NOT_FOUND") ||
+    (status === 409 && ["SUB2API_QUEUE_CONFLICT", "SUB2API_SCOPE_CONFLICT"].includes(code)) ||
+    (status === 422 && ["VALIDATION_ERROR", "SUB2API_INPUT_REJECTED"].includes(code)) ||
+    (status === 428 && code === "IDEMPOTENCY_KEY_REQUIRED") ||
+    (status === 503 && code === "SUB2API_EXECUTION_UNAVAILABLE");
+}
+
+function isIdentity(value: unknown): value is RemoteSourceExtractIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Partial<RemoteSourceExtractIdentity>;
+  return typeof item.projectId === "string" && PROJECT.test(item.projectId) &&
+    typeof item.manifestVersionId === "string" && VERSION.test(item.manifestVersionId) &&
+    typeof item.manifestContentHash === "string" && HASH.test(item.manifestContentHash) &&
+    typeof item.sourceDocumentId === "string" && SOURCE.test(item.sourceDocumentId) &&
+    typeof item.sourceBlockId === "string" && BLOCK.test(item.sourceBlockId) &&
+    typeof item.sourceBlockHash === "string" && HASH.test(item.sourceBlockHash) &&
+    Number.isSafeInteger(item.startByte) && (item.startByte ?? -1) >= 0 &&
+    Number.isSafeInteger(item.endByte) && (item.endByte ?? 0) > (item.startByte ?? 0) &&
+    (item.endByte ?? 0) - (item.startByte ?? 0) <= 64 * 1024 &&
+    typeof item.connectionId === "string" && CONNECTION.test(item.connectionId) &&
+    Number.isSafeInteger(item.connectionRevision) && (item.connectionRevision ?? 0) > 0 &&
+    (item.connectionRevision ?? 0) <= 2_147_483_647 &&
+    typeof item.modelId === "string" && item.modelId.length > 0 &&
+    item.modelId.length <= 120 && /^\S(?:.*\S)?$/.test(item.modelId) &&
+    !/[\r\n\u0000-\u001f\u007f]/.test(item.modelId);
+}
+
+function isOperation(value: unknown, projectId: string, sub2api = false):
+  value is RemoteSourceExtractOperation {
+  if (!isIdentity(value) || value.projectId !== projectId) return false;
+  const fields = ["projectId", "manifestVersionId", "manifestContentHash",
+    "sourceDocumentId", "sourceBlockId", "sourceBlockHash", "startByte", "endByte",
+    "connectionId", "connectionRevision", "modelId", "operationId", "status", "runId",
+    "rejection"];
+  if (Object.keys(value).length !== fields.length ||
+    !fields.every((field) => Object.hasOwn(value, field))) return false;
+  const operation = value as RemoteSourceExtractOperation;
+  const rejection = operation.rejection;
+  const validRejection = rejection !== null && typeof rejection === "object" &&
+    Object.keys(rejection).length === 3 &&
+    Number.isInteger(rejection.status) &&
+    typeof rejection.code === "string" && ERROR_CODE.test(rejection.code) &&
+    (sub2api ? definiteSub2APIQueueError : definiteQueueError)(rejection.status, rejection.code) &&
+    typeof rejection.requestId === "string" && REQUEST_ID.test(rejection.requestId);
+  return typeof operation.operationId === "string" && UUID_V4.test(operation.operationId) &&
+    (operation.status === "UNKNOWN" ? operation.runId === null && rejection === null :
+      operation.status === "QUEUED" ? typeof operation.runId === "string" &&
+        RUN.test(operation.runId) && rejection === null :
+        operation.status === "REJECTED" && operation.runId === null && validRejection);
+}
+
+export function readRemoteSourceExtractJournal(
+  storage: JournalStorage,
+  projectId: string,
+): RemoteSourceExtractJournalState {
+  try {
+    if (!PROJECT.test(projectId)) return { kind: "BLOCKED" };
+    const raw = storage.getItem(key(projectId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return { kind: "BLOCKED" };
+    const parsed: unknown = JSON.parse(raw);
+    return isOperation(parsed, projectId)
+      ? { kind: "VALID", operation: parsed }
+      : { kind: "BLOCKED" };
+  } catch {
+    return { kind: "BLOCKED" };
+  }
+}
+
+/** A separate key keeps an unresolved charged-provider attempt distinct from CPA. */
+export function readSub2APISourceExtractJournal(
+  storage: JournalStorage,
+  projectId: string,
+): RemoteSourceExtractJournalState {
+  try {
+    if (!PROJECT.test(projectId)) return { kind: "BLOCKED" };
+    const raw = storage.getItem(sub2apiKey(projectId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return { kind: "BLOCKED" };
+    const parsed: unknown = JSON.parse(raw);
+    return isOperation(parsed, projectId, true)
+      ? { kind: "VALID", operation: parsed }
+      : { kind: "BLOCKED" };
+  } catch {
+    return { kind: "BLOCKED" };
+  }
+}
+
+function persistSub2API(
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+): boolean {
+  try {
+    const raw = JSON.stringify(operation);
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return false;
+    storage.setItem(sub2apiKey(operation.projectId), raw);
+    const saved = readSub2APISourceExtractJournal(storage, operation.projectId);
+    return saved.kind === "VALID" && JSON.stringify(saved.operation) === raw;
+  } catch {
+    return false;
+  }
+}
+
+function persist(storage: JournalStorage, operation: RemoteSourceExtractOperation): boolean {
+  try {
+    const raw = JSON.stringify(operation);
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return false;
+    storage.setItem(key(operation.projectId), raw);
+    const saved = readRemoteSourceExtractJournal(storage, operation.projectId);
+    return saved.kind === "VALID" && JSON.stringify(saved.operation) === raw;
+  } catch {
+    return false;
+  }
+}
+
+function sameOperation(left: RemoteSourceExtractOperation, right: RemoteSourceExtractOperation) {
+  return left.projectId === right.projectId && left.operationId === right.operationId &&
+    left.manifestVersionId === right.manifestVersionId &&
+    left.manifestContentHash === right.manifestContentHash &&
+    left.sourceDocumentId === right.sourceDocumentId &&
+    left.sourceBlockId === right.sourceBlockId &&
+    left.sourceBlockHash === right.sourceBlockHash &&
+    left.startByte === right.startByte && left.endByte === right.endByte &&
+    left.connectionId === right.connectionId &&
+    left.connectionRevision === right.connectionRevision && left.modelId === right.modelId;
+}
+
+export function originalRemoteSourceExtractCommand(
+  operation: RemoteSourceExtractOperation,
+): RemoteSourceExtractCreateCommand {
+  return {
+    operation_id: operation.operationId,
+    input: {
+      source: {
+        agent_definition: { definition_id: "writer.source-analyst", version: "1.1.0" },
+        skill_definition: { definition_id: "source.extract", version: "1.1.0" },
+        source_manifest_version_id: operation.manifestVersionId,
+        source_document_id: operation.sourceDocumentId,
+        source_block_id: operation.sourceBlockId,
+        start_byte: operation.startByte,
+        end_byte: operation.endByte,
+      },
+      selection: {
+        connection_id: operation.connectionId,
+        connection_revision: operation.connectionRevision,
+        model_id: operation.modelId,
+      },
+    },
+  };
+}
+
+export function originalSub2APISourceExtractCommand(
+  operation: RemoteSourceExtractOperation,
+): Sub2APISourceExtractCreateCommand {
+  return {
+    operation_id: operation.operationId,
+    input: {
+      source: {
+        agent_definition: { definition_id: "writer.source-analyst-sub2api", version: "1.0.0" },
+        skill_definition: { definition_id: "source.extract-sub2api", version: "1.0.0" },
+        source_manifest_version_id: operation.manifestVersionId,
+        source_document_id: operation.sourceDocumentId,
+        source_block_id: operation.sourceBlockId,
+        start_byte: operation.startByte,
+        end_byte: operation.endByte,
+      },
+      selection: {
+        connection_id: operation.connectionId,
+        connection_revision: operation.connectionRevision,
+        model_id: operation.modelId,
+      },
+    },
+  };
+}
+
+export async function queueSub2APISourceExtract(
+  capability: Sub2APISourceExtractCapability | undefined,
+  storage: JournalStorage,
+  identity: RemoteSourceExtractIdentity,
+): Promise<RemoteSourceExtractQueueOutcome> {
+  if (!capability || !isIdentity(identity) || typeof crypto === "undefined" ||
+      typeof crypto.randomUUID !== "function")
+    return { kind: "UNAVAILABLE", message: "Sub2API 入队接口或来源身份不可用。" };
+  const own = readSub2APISourceExtractJournal(storage, identity.projectId);
+  const cpa = readRemoteSourceExtractJournal(storage, identity.projectId);
+  if (own.kind === "BLOCKED" || cpa.kind === "BLOCKED")
+    return { kind: "UNAVAILABLE", message: "来源操作记录不可安全读取，已阻止入队。" };
+  if (own.kind === "VALID") return { kind: "TRACKED", operation: own.operation };
+  if (cpa.kind === "VALID")
+    return { kind: "UNAVAILABLE", message: "此项目已有 CPA 来源操作，已阻止并列入队。" };
+  const operation: RemoteSourceExtractOperation = {
+    ...identity, operationId: crypto.randomUUID(), status: "UNKNOWN", runId: null,
+    rejection: null,
+  };
+  if (!persistSub2API(storage, operation))
+    return { kind: "UNAVAILABLE", message: "Sub2API 原操作未能持久保存并回读，已阻止入队。" };
+  try {
+    const result = await capability.create(identity.projectId,
+      originalSub2APISourceExtractCommand(operation));
+    const current = readSub2APISourceExtractJournal(storage, identity.projectId);
+    if (current.kind !== "VALID" || current.operation.status !== "UNKNOWN" ||
+        !sameOperation(current.operation, operation))
+      return { kind: "UNAVAILABLE", message: "Sub2API 原操作记录期间发生变化，已丢弃旧回包。" };
+    if (result.kind === "DEFINITE_SERVER_ERROR" &&
+        definiteSub2APIQueueError(result.status, result.code) &&
+        REQUEST_ID.test(result.request_id)) {
+      const rejected: RemoteSourceExtractOperation = {
+        ...operation, status: "REJECTED",
+        rejection: { status: result.status, code: result.code, requestId: result.request_id },
+      };
+      return persistSub2API(storage, rejected)
+        ? { kind: "REJECTED", operation: rejected }
+        : { kind: "UNKNOWN", operation };
+    }
+    if (result.kind !== "QUEUED") return { kind: "UNKNOWN", operation };
+    const data = result.receipt.data;
+    if (data.project_id !== identity.projectId || !RUN.test(data.run_id) ||
+        data.agent_run.agent_run_id !== data.run_id ||
+        data.agent_run.project_id !== identity.projectId ||
+        data.agent_run.agent_definition.definition_id !== "writer.source-analyst-sub2api" ||
+        data.agent_run.agent_definition.version !== "1.0.0" ||
+        data.skill_run.agent_run_id !== data.run_id ||
+        data.skill_run.project_id !== identity.projectId ||
+        data.skill_run.skill_definition.definition_id !== "source.extract-sub2api" ||
+        data.skill_run.skill_definition.version !== "1.0.0")
+      return { kind: "UNKNOWN", operation };
+    const queued: RemoteSourceExtractOperation = {
+      ...operation, status: "QUEUED", runId: data.run_id,
+    };
+    return persistSub2API(storage, queued)
+      ? { kind: "QUEUED", operation: queued }
+      : { kind: "UNKNOWN", operation };
+  } catch {
+    return { kind: "UNKNOWN", operation };
+  }
+}
+
+function sameSub2APIScope(
+  response: Sub2APISourceExtractOperationResponse,
+  operation: RemoteSourceExtractOperation,
+): boolean {
+  const data = response.data;
+  const source = data.scope.source;
+  const selection = data.scope.selection;
+  const cost = data.cost;
+  return data.scope.project_id === operation.projectId &&
+    TASK.test(data.scope.task_id) && ATTEMPT.test(data.scope.attempt_id) &&
+    HASH.test(data.scope.attempt_fingerprint) &&
+    source.agent_definition.definition_id === "writer.source-analyst-sub2api" &&
+    source.agent_definition.version === "1.0.0" &&
+    source.skill_definition.definition_id === "source.extract-sub2api" &&
+    source.skill_definition.version === "1.0.0" &&
+    source.source_manifest_version_id === operation.manifestVersionId &&
+    source.source_document_id === operation.sourceDocumentId &&
+    source.source_block_id === operation.sourceBlockId &&
+    source.start_byte === operation.startByte && source.end_byte === operation.endByte &&
+    selection.connection_id === operation.connectionId &&
+    selection.connection_revision === operation.connectionRevision &&
+    selection.model_id === operation.modelId &&
+    cost.status === "UNKNOWN" && cost.currency === null &&
+    cost.estimated_micros === null && cost.actual_micros === null &&
+    cost.upstream_status === "UNKNOWN" && cost.upstream_actual_micros === null &&
+    ["UNVERIFIED", "UNENFORCED"].includes(cost.budget_enforcement) &&
+    data.automatic_retry_allowed === false;
+}
+
+export async function readOriginalSub2APISourceExtract(
+  capability: Sub2APISourceExtractCapability | undefined,
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+): Promise<Sub2APISourceExtractReadOutcome> {
+  if (!capability) return { kind: "UNAVAILABLE" };
+  const journal = readSub2APISourceExtractJournal(storage, operation.projectId);
+  if (journal.kind !== "VALID" || !sameOperation(journal.operation, operation) ||
+      journal.operation.status !== operation.status || journal.operation.runId !== operation.runId)
+    return { kind: "UNAVAILABLE" };
+  try {
+    const result = await capability.readOriginal(operation.projectId,
+      originalSub2APISourceExtractCommand(operation));
+    const current = readSub2APISourceExtractJournal(storage, operation.projectId);
+    if (current.kind !== "VALID" || !sameOperation(current.operation, operation) ||
+        current.operation.status !== operation.status || current.operation.runId !== operation.runId)
+      return { kind: "UNAVAILABLE" };
+    if (result.kind !== "FOUND")
+      return result.kind === "NOT_FOUND"
+        ? { kind: "NOT_FOUND", requestId: result.request_id } :
+        result.kind === "DEFINITE_SERVER_ERROR"
+          ? { kind: "DEFINITE_SERVER_ERROR", status: result.status, code: result.code,
+              requestId: result.request_id }
+          : { kind: "REMOTE_UNKNOWN" };
+    if (!RUN.test(result.runId) ||
+        (operation.runId !== null && operation.runId !== result.runId) ||
+        !sameSub2APIScope(result.receipt, operation))
+      return { kind: "REMOTE_UNKNOWN" };
+    return { kind: "FOUND", runId: result.runId,
+      response: result.receipt, queueBinding: "VERIFIED" };
+  } catch {
+    return { kind: "REMOTE_UNKNOWN" };
+  }
+}
+
+function isSub2APIApprovalJournal(
+  value: unknown, projectId: string, runId: string,
+): value is Sub2APICallApprovalJournal {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const fields = ["projectId", "runId", "operationId", "taskId", "attemptId",
+    "attemptFingerprint", "status", "approvalId"];
+  if (Object.keys(value).length !== fields.length ||
+      !fields.every((field) => Object.hasOwn(value, field))) return false;
+  const item = value as Sub2APICallApprovalJournal;
+  return item.projectId === projectId && PROJECT.test(item.projectId) &&
+    item.runId === runId && RUN.test(item.runId) &&
+    typeof item.operationId === "string" && UUID_V4.test(item.operationId) &&
+    typeof item.taskId === "string" && TASK.test(item.taskId) &&
+    typeof item.attemptId === "string" && ATTEMPT.test(item.attemptId) &&
+    typeof item.attemptFingerprint === "string" && HASH.test(item.attemptFingerprint) &&
+    (item.status === "UNKNOWN" ? item.approvalId === null :
+      (item.status === "APPROVED" || item.status === "CONSUMED") &&
+      typeof item.approvalId === "string" &&
+      APPROVAL.test(item.approvalId));
+}
+
+export function readSub2APICallApprovalJournal(
+  storage: JournalStorage, projectId: string, runId: string,
+): Sub2APICallApprovalJournalState {
+  try {
+    if (!PROJECT.test(projectId) || !RUN.test(runId)) return { kind: "BLOCKED" };
+    const raw = storage.getItem(sub2apiApprovalKey(projectId, runId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return { kind: "BLOCKED" };
+    const value: unknown = JSON.parse(raw);
+    return isSub2APIApprovalJournal(value, projectId, runId)
+      ? { kind: "VALID", approval: value } : { kind: "BLOCKED" };
+  } catch {
+    return { kind: "BLOCKED" };
+  }
+}
+
+function persistSub2APIApproval(storage: JournalStorage,
+  approval: Sub2APICallApprovalJournal): boolean {
+  try {
+    const raw = JSON.stringify(approval);
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return false;
+    storage.setItem(sub2apiApprovalKey(approval.projectId, approval.runId), raw);
+    const saved = readSub2APICallApprovalJournal(storage, approval.projectId,
+      approval.runId);
+    return saved.kind === "VALID" && JSON.stringify(saved.approval) === raw;
+  } catch {
+    return false;
+  }
+}
+
+function sameSub2APIApprovalScope(
+  response: Sub2APICallApprovalResponse,
+  operation: RemoteSourceExtractOperation,
+  read: Extract<Sub2APISourceExtractReadOutcome, { kind: "FOUND" }>,
+): boolean {
+  const original = read.response.data.scope;
+  const scope = response.data.scope;
+  const cost = response.data.cost;
+  return read.queueBinding === "VERIFIED" &&
+    scope.project_id === operation.projectId &&
+    scope.task_id === original.task_id && scope.attempt_id === original.attempt_id &&
+    scope.attempt_fingerprint === original.attempt_fingerprint &&
+    scope.origin_hash === original.origin_hash &&
+    scope.input_hash === original.input_hash &&
+    scope.context_manifest_hash === original.context_manifest_hash &&
+    scope.selection.connection_id === operation.connectionId &&
+    scope.selection.connection_revision === operation.connectionRevision &&
+    scope.selection.model_id === operation.modelId &&
+    scope.source.agent_definition.definition_id === "writer.source-analyst-sub2api" &&
+    scope.source.agent_definition.version === "1.0.0" &&
+    scope.source.skill_definition.definition_id === "source.extract-sub2api" &&
+    scope.source.skill_definition.version === "1.0.0" &&
+    scope.source.source_manifest_version_id === operation.manifestVersionId &&
+    scope.source.source_document_id === operation.sourceDocumentId &&
+    scope.source.source_block_id === operation.sourceBlockId &&
+    scope.source.start_byte === operation.startByte &&
+    scope.source.end_byte === operation.endByte &&
+    response.data.allowed_calls === 1 &&
+    response.data.cost_decision === "UNKNOWN_COST_ACCEPTED" &&
+    cost.status === "UNKNOWN" && cost.currency === null &&
+    cost.estimated_micros === null && cost.actual_micros === null &&
+    cost.upstream_status === "UNKNOWN" && cost.upstream_actual_micros === null &&
+    ["UNVERIFIED", "UNENFORCED"].includes(cost.budget_enforcement) &&
+    typeof response.data.approval_id === "string" &&
+    APPROVAL.test(response.data.approval_id);
+}
+
+/** The caller must supply a fresh human confirmation for this one paid call. */
+export async function approveSub2APIOneCall(
+  capability: Sub2APISourceExtractCapability | undefined,
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+  read: Sub2APISourceExtractReadOutcome,
+  unknownCostAccepted: boolean,
+): Promise<Sub2APICallApprovalOutcome> {
+  if (!capability || !unknownCostAccepted || read.kind !== "FOUND" ||
+      operation.status === "REJECTED" ||
+      read.queueBinding !== "VERIFIED" ||
+      read.response.data.content_status !== "PENDING" ||
+      read.response.data.approval_id !== null ||
+      !sameSub2APIScope(read.response, operation) ||
+      typeof crypto === "undefined" || typeof crypto.randomUUID !== "function")
+    return { kind: "UNAVAILABLE", message: "单次许可范围或明确同意未核实，未提交。" };
+  const current = readSub2APISourceExtractJournal(storage, operation.projectId);
+  if (current.kind !== "VALID" || !sameOperation(current.operation, operation) ||
+      current.operation.status !== operation.status || current.operation.runId !== operation.runId)
+    return { kind: "UNAVAILABLE", message: "原入队操作已变化，未提交许可。" };
+  const prior = readSub2APICallApprovalJournal(storage, operation.projectId, read.runId);
+  if (prior.kind === "BLOCKED")
+    return { kind: "UNAVAILABLE", message: "单次许可记录损坏，已阻止提交。" };
+  if (prior.kind === "VALID") return { kind: "TRACKED", approval: prior.approval };
+  const scope = read.response.data.scope;
+  const pending: Sub2APICallApprovalJournal = {
+    projectId: operation.projectId, runId: read.runId,
+    operationId: crypto.randomUUID(), taskId: scope.task_id,
+    attemptId: scope.attempt_id, attemptFingerprint: scope.attempt_fingerprint,
+    status: "UNKNOWN", approvalId: null,
+  };
+  if (!persistSub2APIApproval(storage, pending))
+    return { kind: "UNAVAILABLE", message: "单次许可意图未能持久保存并回读，已阻止提交。" };
+  try {
+    const result = await capability.approve(operation.projectId,
+      originalSub2APISourceExtractCommand(operation), {
+        operation_id: pending.operationId,
+        input: { task_id: pending.taskId, attempt_id: pending.attemptId,
+          expected_attempt_fingerprint: pending.attemptFingerprint,
+          unknown_cost_accepted: true, allowed_calls: 1 },
+      });
+    const saved = readSub2APICallApprovalJournal(storage, operation.projectId, read.runId);
+    if (saved.kind !== "VALID" || JSON.stringify(saved.approval) !== JSON.stringify(pending))
+      return { kind: "UNAVAILABLE", message: "单次许可记录期间发生变化，已丢弃旧回包。" };
+    if (result.kind !== "APPROVED" && result.kind !== "CONSUMED")
+      return { kind: "UNKNOWN", approval: pending,
+        ...(result.kind === "DEFINITE_SERVER_ERROR" ? {
+          serverError: { status: result.status, code: result.code,
+            requestId: result.request_id },
+        } : {}) };
+    if (!sameSub2APIApprovalScope(result.receipt, operation, read) ||
+        (result.kind === "CONSUMED" && result.receipt.data.status !== "CONSUMED") ||
+        (result.kind === "APPROVED" &&
+          result.receipt.data.status !== "APPROVED_ONE_CALL"))
+      return { kind: "UNKNOWN", approval: pending };
+    const approved: Sub2APICallApprovalJournal = {
+      ...pending, status: result.kind, approvalId: result.receipt.data.approval_id,
+    };
+    return persistSub2APIApproval(storage, approved)
+      ? { kind: result.kind, approval: approved, response: result.receipt }
+      : { kind: "UNKNOWN", approval: pending };
+  } catch {
+    return { kind: "UNKNOWN", approval: pending };
+  }
+}
+
+export async function readSub2APIOneCallApproval(
+  capability: Sub2APISourceExtractCapability | undefined,
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+  read: Sub2APISourceExtractReadOutcome,
+): Promise<Sub2APICallApprovalReadOutcome> {
+  if (!capability || read.kind !== "FOUND" || read.queueBinding !== "VERIFIED")
+    return { kind: "UNAVAILABLE" };
+  const journal = readSub2APISourceExtractJournal(storage, operation.projectId);
+  if (journal.kind !== "VALID" || !sameOperation(journal.operation, operation))
+    return { kind: "UNAVAILABLE" };
+  try {
+    const result = await capability.readApproval(operation.projectId,
+      originalSub2APISourceExtractCommand(operation));
+    const current = readSub2APISourceExtractJournal(storage, operation.projectId);
+    if (current.kind !== "VALID" || !sameOperation(current.operation, operation))
+      return { kind: "UNAVAILABLE" };
+    if (result.kind !== "FOUND")
+      return result.kind === "NOT_FOUND"
+        ? { kind: "NOT_FOUND", requestId: result.request_id } :
+        result.kind === "DEFINITE_SERVER_ERROR"
+          ? { kind: "DEFINITE_SERVER_ERROR", status: result.status, code: result.code,
+              requestId: result.request_id }
+          : { kind: "REMOTE_UNKNOWN" };
+    if (!sameSub2APIApprovalScope(result.receipt, operation, read))
+      return { kind: "REMOTE_UNKNOWN" };
+    const prior = readSub2APICallApprovalJournal(storage, operation.projectId, read.runId);
+    if (prior.kind === "BLOCKED") return { kind: "REMOTE_UNKNOWN" };
+    if (prior.kind === "VALID") {
+      const scope = read.response.data.scope;
+      if (prior.approval.taskId !== scope.task_id ||
+          prior.approval.attemptId !== scope.attempt_id ||
+          prior.approval.attemptFingerprint !== scope.attempt_fingerprint ||
+          (prior.approval.approvalId !== null &&
+            prior.approval.approvalId !== result.receipt.data.approval_id) ||
+          (prior.approval.status === "CONSUMED" &&
+            result.receipt.data.status === "APPROVED_ONE_CALL"))
+        return { kind: "REMOTE_UNKNOWN" };
+      const status = result.receipt.data.status === "CONSUMED" ? "CONSUMED" :
+        result.receipt.data.status === "APPROVED_ONE_CALL" ? "APPROVED" : null;
+      if (status && (prior.approval.status !== status || prior.approval.approvalId === null) &&
+          !persistSub2APIApproval(storage, {
+            ...prior.approval, status, approvalId: result.receipt.data.approval_id,
+          })) return { kind: "REMOTE_UNKNOWN" };
+    }
+    return { kind: "FOUND", response: result.receipt };
+  } catch {
+    return { kind: "REMOTE_UNKNOWN" };
+  }
+}
+
+export async function queueRemoteSourceExtract(
+  capability: RemoteSourceExtractCapability | undefined,
+  storage: JournalStorage,
+  identity: RemoteSourceExtractIdentity,
+): Promise<RemoteSourceExtractQueueOutcome> {
+  if (!capability || !isIdentity(identity) || typeof crypto === "undefined" ||
+    typeof crypto.randomUUID !== "function")
+    return { kind: "UNAVAILABLE", message: "当前版本没有可用的远程来源抽取入队接口或来源身份。" };
+  const journal = readRemoteSourceExtractJournal(storage, identity.projectId);
+  const sub2api = readSub2APISourceExtractJournal(storage, identity.projectId);
+  if (sub2api.kind !== "EMPTY")
+    return { kind: "UNAVAILABLE", message: "此项目已有 Sub2API 原操作或记录不可读，已阻止并列入队。" };
+  if (journal.kind === "BLOCKED")
+    return { kind: "UNAVAILABLE", message: "本地原操作记录无法读取，已阻止提交。" };
+  if (journal.kind === "VALID") return { kind: "TRACKED", operation: journal.operation };
+  const operation: RemoteSourceExtractOperation = {
+    ...identity, operationId: crypto.randomUUID(), status: "UNKNOWN", runId: null,
+    rejection: null,
+  };
+  if (!persist(storage, operation))
+    return { kind: "UNAVAILABLE", message: "原操作身份未能保存并回读，已阻止提交。" };
+  try {
+    const result = await capability.create(identity.projectId,
+      originalRemoteSourceExtractCommand(operation));
+    const current = readRemoteSourceExtractJournal(storage, identity.projectId);
+    if (current.kind !== "VALID" || current.operation.status !== "UNKNOWN" ||
+      !sameOperation(current.operation, operation))
+      return { kind: "UNAVAILABLE", message: "原操作记录期间发生变化，已丢弃旧回包。" };
+    if (result.kind === "DEFINITE_SERVER_ERROR" &&
+      Number.isInteger(result.status) && typeof result.code === "string" &&
+      ERROR_CODE.test(result.code) && definiteQueueError(result.status, result.code) &&
+      typeof result.request_id === "string" && REQUEST_ID.test(result.request_id)) {
+      const rejected: RemoteSourceExtractOperation = {
+        ...operation, status: "REJECTED",
+        rejection: { status: result.status, code: result.code, requestId: result.request_id },
+      };
+      return persist(storage, rejected)
+        ? { kind: "REJECTED", operation: rejected }
+        : { kind: "UNKNOWN", operation };
+    }
+    if (result.kind !== "QUEUED") return { kind: "UNKNOWN", operation };
+    const data = result.receipt.data;
+    if (data.project_id !== identity.projectId || !RUN.test(data.run_id) ||
+      data.agent_run.agent_run_id !== data.run_id ||
+      data.agent_run.project_id !== identity.projectId ||
+      data.agent_run.agent_definition.definition_id !== "writer.source-analyst" ||
+      data.agent_run.agent_definition.version !== "1.1.0" ||
+      data.skill_run.agent_run_id !== data.run_id ||
+      data.skill_run.project_id !== identity.projectId ||
+      data.skill_run.skill_definition.definition_id !== "source.extract" ||
+      data.skill_run.skill_definition.version !== "1.1.0")
+      return { kind: "UNKNOWN", operation };
+    const queued: RemoteSourceExtractOperation = {
+      ...operation, status: "QUEUED", runId: data.run_id,
+    };
+    if (!persist(storage, queued)) return { kind: "UNKNOWN", operation };
+    return { kind: "QUEUED", operation: queued };
+  } catch {
+    return { kind: "UNKNOWN", operation };
+  }
+}
+
+export async function readOriginalRemoteSourceExtract(
+  capability: RemoteSourceExtractCapability | undefined,
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+): Promise<RemoteSourceExtractReadOutcome> {
+  if (!capability) return { kind: "UNAVAILABLE" };
+  const journal = readRemoteSourceExtractJournal(storage, operation.projectId);
+  if (journal.kind !== "VALID" || !sameOperation(journal.operation, operation) ||
+    journal.operation.status !== operation.status || journal.operation.runId !== operation.runId)
+    return { kind: "UNAVAILABLE" };
+  try {
+    const result = await capability.readOriginal(operation.projectId,
+      originalRemoteSourceExtractCommand(operation));
+    const current = readRemoteSourceExtractJournal(storage, operation.projectId);
+    if (current.kind !== "VALID" || !sameOperation(current.operation, operation) ||
+      current.operation.status !== operation.status || current.operation.runId !== operation.runId)
+      return { kind: "UNAVAILABLE" };
+    if (result.kind !== "FOUND_RUN") return { kind: result.kind };
+    const data = result.receipt.data;
+    if (data.project_id !== operation.projectId || !RUN.test(data.run_id) ||
+      data.agent_run.agent_run_id !== data.run_id ||
+      data.agent_run.agent_definition.definition_id !== "writer.source-analyst" ||
+      data.agent_run.agent_definition.version !== "1.1.0" ||
+      data.skill_run.agent_run_id !== data.run_id ||
+      data.skill_run.skill_definition.definition_id !== "source.extract" ||
+      data.skill_run.skill_definition.version !== "1.1.0" ||
+      (operation.runId !== null && data.run_id !== operation.runId))
+      return { kind: "REMOTE_UNKNOWN" };
+    const proposalId = data.skill_run.proposal_id;
+    return { kind: "FOUND_RUN", runId: data.run_id,
+      proposalId: typeof proposalId === "string" && PROPOSAL.test(proposalId) ? proposalId : null };
+  } catch {
+    return { kind: "REMOTE_UNKNOWN" };
+  }
+}
+
+function isAcceptance(value: unknown, projectId: string, proposalId: string):
+  value is SourceExtractionAcceptance {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const fields = ["projectId", "proposalId", "runId", "parentVersionId",
+    "expectedHeadRevision", "status", "draftVersionId"];
+  if (Object.keys(value).length !== fields.length ||
+    !fields.every((field) => Object.hasOwn(value, field))) return false;
+  const item = value as SourceExtractionAcceptance;
+  return item.projectId === projectId && PROJECT.test(item.projectId) &&
+    item.proposalId === proposalId && PROPOSAL.test(item.proposalId) &&
+    typeof item.runId === "string" && RUN.test(item.runId) &&
+    ((item.parentVersionId === null && item.expectedHeadRevision === null) ||
+      (typeof item.parentVersionId === "string" && VERSION.test(item.parentVersionId) &&
+        Number.isSafeInteger(item.expectedHeadRevision) &&
+        (item.expectedHeadRevision ?? 0) > 0)) &&
+    (item.status === "UNKNOWN" ? item.draftVersionId === null :
+      item.status === "ACCEPTED" && typeof item.draftVersionId === "string" &&
+      VERSION.test(item.draftVersionId));
+}
+
+export function readSourceExtractionAcceptance(
+  storage: JournalStorage,
+  projectId: string,
+  proposalId: string,
+): SourceExtractionAcceptanceState {
+  try {
+    if (!PROJECT.test(projectId) || !PROPOSAL.test(proposalId)) return { kind: "BLOCKED" };
+    const raw = storage.getItem(acceptanceKey(projectId, proposalId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return { kind: "BLOCKED" };
+    const parsed: unknown = JSON.parse(raw);
+    return isAcceptance(parsed, projectId, proposalId)
+      ? { kind: "VALID", acceptance: parsed }
+      : { kind: "BLOCKED" };
+  } catch {
+    return { kind: "BLOCKED" };
+  }
+}
+
+function persistAcceptance(storage: JournalStorage, acceptance: SourceExtractionAcceptance): boolean {
+  try {
+    const raw = JSON.stringify(acceptance);
+    if (raw.length > MAX_JOURNAL_CHARACTERS) return false;
+    storage.setItem(acceptanceKey(acceptance.projectId, acceptance.proposalId), raw);
+    const saved = readSourceExtractionAcceptance(storage, acceptance.projectId, acceptance.proposalId);
+    return saved.kind === "VALID" && JSON.stringify(saved.acceptance) === raw;
+  } catch {
+    return false;
+  }
+}
+
+/** A human click is required. A lost acceptance response stays locked to the original proposal. */
+export async function acceptSourceExtractionProposal(
+  transport: Pick<StudioTransport, "proposalDecisions">,
+  storage: JournalStorage,
+  operation: RemoteSourceExtractOperation,
+  proposalId: string,
+  parentVersionId: string | null,
+  expectedHeadRevision: number | null,
+  sub2apiRead?: Sub2APISourceExtractReadOutcome,
+): Promise<SourceExtractionAcceptanceOutcome> {
+  const verifiedRead = sub2apiRead?.kind === "FOUND" &&
+    operation.status !== "REJECTED" &&
+    sub2apiRead.queueBinding === "VERIFIED" &&
+    sub2apiRead.response.data.content_status === "PROPOSAL_READY" &&
+    sub2apiRead.response.data.proposal_id === proposalId &&
+    sub2apiRead.response.data.approval_id !== null &&
+    sameSub2APIScope(sub2apiRead.response, operation) ? sub2apiRead : null;
+  const verifiedSub2API = verifiedRead !== null;
+  const runId = verifiedRead?.runId ?? operation.runId;
+  if (!transport.proposalDecisions ||
+    !(verifiedSub2API || (sub2apiRead === undefined && operation.status === "QUEUED")) ||
+    !runId ||
+    !PROPOSAL.test(proposalId) ||
+    !((parentVersionId === null && expectedHeadRevision === null) ||
+      (typeof parentVersionId === "string" && VERSION.test(parentVersionId) &&
+        Number.isSafeInteger(expectedHeadRevision) && (expectedHeadRevision ?? 0) > 0)))
+    return { kind: "UNAVAILABLE", message: "人工接纳身份或接口不可用。" };
+  const current = verifiedSub2API
+    ? readSub2APISourceExtractJournal(storage, operation.projectId)
+    : readRemoteSourceExtractJournal(storage, operation.projectId);
+  if (current.kind !== "VALID" ||
+    (!verifiedSub2API && current.operation.status !== "QUEUED") ||
+    current.operation.status !== operation.status ||
+    !sameOperation(current.operation, operation) || current.operation.runId !== operation.runId)
+    return { kind: "UNAVAILABLE", message: "原排队操作已变化，未提交人工接纳。" };
+  const prior = readSourceExtractionAcceptance(storage, operation.projectId, proposalId);
+  if (prior.kind === "BLOCKED")
+    return { kind: "UNAVAILABLE", message: "人工接纳记录损坏，已阻止提交。" };
+  if (prior.kind === "VALID") return { kind: "TRACKED", acceptance: prior.acceptance };
+  const pending: SourceExtractionAcceptance = {
+    projectId: operation.projectId, proposalId, runId,
+    parentVersionId, expectedHeadRevision, status: "UNKNOWN", draftVersionId: null,
+  };
+  if (!persistAcceptance(storage, pending))
+    return { kind: "UNAVAILABLE", message: "接纳意图未能保存并回读，已阻止提交。" };
+  try {
+    const result = await transport.proposalDecisions.acceptAsDraft(
+      operation.projectId, proposalId,
+      { parent_version_id: parentVersionId, expected_head_revision: expectedHeadRevision },
+    );
+    const saved = readSourceExtractionAcceptance(storage, operation.projectId, proposalId);
+    if (saved.kind !== "VALID" || saved.acceptance.status !== "UNKNOWN" ||
+      JSON.stringify(saved.acceptance) !== JSON.stringify(pending))
+      return { kind: "UNAVAILABLE", message: "接纳记录期间发生变化；旧回包未写入。" };
+    if (result.kind !== "SUCCEEDED") return { kind: "UNKNOWN", acceptance: pending,
+      ...(result.kind === "DEFINITE_SERVER_ERROR"
+        ? { serverError: { status: result.status, code: result.code } } : {}) };
+    const data = result.receipt.data;
+    if (data.project_id !== operation.projectId || data.proposal_id !== proposalId ||
+      !VERSION.test(data.draft_version_id))
+      return { kind: "UNKNOWN", acceptance: pending };
+    const accepted: SourceExtractionAcceptance = {
+      ...pending, status: "ACCEPTED", draftVersionId: data.draft_version_id,
+    };
+    return persistAcceptance(storage, accepted)
+      ? { kind: "ACCEPTED", acceptance: accepted }
+      : { kind: "UNKNOWN", acceptance: pending };
+  } catch {
+    return { kind: "UNKNOWN", acceptance: pending };
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "CreateProviderConnectionRequest": {
+    "default": null,
+    "generated_field": "origin_mode?: (\"PUBLIC_HTTPS\" | \"LOCAL_LOOPBACK_HTTP\") | null;",
+    "modes": [
+      "LOCAL_LOOPBACK_HTTP",
+      "PUBLIC_HTTPS"
+    ]
+  },
+  "EditSub2APIConnectionRequest": {
+    "default": "PUBLIC_HTTPS",
+    "generated_field": "origin_mode: \"PUBLIC_HTTPS\" | \"LOCAL_LOOPBACK_HTTP\";",
+    "modes": [
+      "LOCAL_LOOPBACK_HTTP",
+      "PUBLIC_HTTPS"
+    ]
+  },
+  "ProviderConnectionData": {
+    "default": null,
+    "generated_field": "origin_mode?: (\"PUBLIC_HTTPS\" | \"LOCAL_LOOPBACK_HTTP\") | null;",
+    "modes": [
+      "LOCAL_LOOPBACK_HTTP",
+      "PUBLIC_HTTPS"
+    ]
+  }
+}

@@ -1,0 +1,326 @@
+{
+  "schema": "dev05.sub2api.b31.consumer-closure.v1",
+  "status": "STATIC_SOURCE_AND_OWNER_MAP_ONLY_NOT_ASSEMBLED_NOT_QA",
+  "base": "D152 repo30; B31 is a new independent candidate",
+  "source_view": "PowerShell Get-FileHash source view; fixed Python consumer __file__/SHA and dependencies pending",
+  "owner_semantics": "owner is the handoff lane for this consumer dependency, not a new write grant; RETAIN_ANCHOR entries remain unchanged base and shared modules require their existing owners",
+  "dev01_candidate_manifest": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-b31-minimal-migration-candidate-20260929\\CANDIDATE.json",
+  "dev01_candidate_manifest_sha256": "18FD5608A46D0F3AB2DC17A38F05D777FD33A3D48127420CCD965520C20EC37B",
+  "dev01_sources": [
+    {
+      "path": "aijian_api/repository.py",
+      "base_sha256": "C21049176963798A3D0DE0748EAFD5FF41F0294C759939A31BDFD694C5C43DD8",
+      "owner": "DEV01",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-b31-minimal-migration-candidate-20260929\\after\\aijian_api\\repository.py",
+      "role": "REPLACE",
+      "source_sha256": "4032F9C2E319AABE02FEC9BADC53B5F81E5BD4A592C6EFFA7622EFF07AFD7DD9"
+    },
+    {
+      "path": "aijian_api/provider_connection_repository.py",
+      "base_sha256": "160042982AF088D49384FA928059C5D7F371241F0678BD817A50019CA96A6DE2",
+      "owner": "DEV01",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-b31-minimal-migration-candidate-20260929\\after\\aijian_api\\provider_connection_repository.py",
+      "role": "REPLACE",
+      "source_sha256": "96DAE6694953485C2A5FDD997E19D811B00A713E00EFD5559BF7B1FD1123F053"
+    },
+    {
+      "path": "aijian_api/provider_credential_ref_schema.py",
+      "base_sha256": null,
+      "owner": "DEV01",
+      "source": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\dev01-b31-minimal-migration-candidate-20260929\\after\\aijian_api\\provider_credential_ref_schema.py",
+      "role": "ADD",
+      "source_sha256": "B170FFC0C157D3C46109A7511BF10D9217B178EF05CFA77FD749C4C19C20932C"
+    }
+  ],
+  "cross_owner_sources": [
+    {
+      "path": "services/api/src/aijian_api/provider_contracts.py",
+      "owner": "DEV05",
+      "author_sha256": "8C69AAFA39B13253FA46CC43622AD2EAD2A7CFF6596CAFC76A23EFD8CB1BB284",
+      "role": "B31_REPLACE",
+      "c19_sha256": "045985B9E227DFEDBE26601669BD6410EF8C6D81F7A99E1E6A961861DC4D4762"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connections.py",
+      "owner": "DEV05",
+      "author_sha256": "81CF871D80B7013DE46DEAA140664FB9B954F736E0F8A2FEE702ED36F056A946",
+      "role": "B31_REPLACE",
+      "c19_sha256": "7A55A8B6755DFD93E51F03E546FC9F3CDCD151CF6C2C9F734EEBD3A337585127"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_routes.py",
+      "owner": "DEV05",
+      "author_sha256": "8591532DFF70DDB78C7BFF2FFCD1162A1801393F01F3B1C0E90040098EE40C2C",
+      "role": "B31_REPLACE",
+      "c19_sha256": "F9BD655D91BD1BC1D58C8F06DD0174A592A77E6F91ACEE41714C2E561F1820A2"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_connection_readiness.py",
+      "owner": "DEV05",
+      "author_sha256": "B664D3C848B8651A8B4CF9A8B401A2B87E1E1C29778EE1C89F03C38E3467B299",
+      "role": "B31_ADD",
+      "c19_sha256": null
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_connection_readiness_routes.py",
+      "owner": "DEV05",
+      "author_sha256": "3B806807340C208C705CDC361785087F59034842FB15E8834732504CD0F0393C",
+      "role": "B31_ADD",
+      "c19_sha256": null
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_worker.py",
+      "owner": "DEV05",
+      "author_sha256": "30F301A5BDD2BA74B09681A2CF922D6F44C59738E3F5DFFB211C73012D98FEC9",
+      "role": "B31_REPLACE",
+      "c19_sha256": "D94A6CBA4ABC7D98B4A967FFFB1E8EA1B40FB7B6CEB5D1443E43AC33029399FC"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_runtime.py",
+      "owner": "DEV05",
+      "author_sha256": "CB9FA6567AA2A98D7373FBEA2BE944E3695FBAF3F25B8FC11BA0E94FE2536E4E",
+      "role": "B31_REPLACE",
+      "c19_sha256": "D69D963B63BBB1F3E59208511F9879604AB3B314CB14F6198E68269730D63917"
+    },
+    {
+      "path": "services/api/src/aijian_api/credential_vault.py",
+      "owner": "DEV05",
+      "author_sha256": "84E7D0E7F0F6DF3FE8D645BB1E981148CC1A4DD030320416CB4E6571466F6C4E",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "84E7D0E7F0F6DF3FE8D645BB1E981148CC1A4DD030320416CB4E6571466F6C4E"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_schema.py",
+      "owner": "DEV05",
+      "author_sha256": "B73AE4DCE744B517001BFA416E86C0ACBE3DC83264B88E149ECA8735B507D143",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "B73AE4DCE744B517001BFA416E86C0ACBE3DC83264B88E149ECA8735B507D143"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_text_transport.py",
+      "owner": "DEV05",
+      "author_sha256": "22722588A013B5A0B1C11A2D8D83792A68D264E0453CFF7B73A20750550BF385",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "22722588A013B5A0B1C11A2D8D83792A68D264E0453CFF7B73A20750550BF385"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_run_factory.py",
+      "owner": "DEV05",
+      "author_sha256": "A507921159327CD413178DE5B553B51F2A0C3EFA1EF7074BF5E3F31E1733E00C",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "A507921159327CD413178DE5B553B51F2A0C3EFA1EF7074BF5E3F31E1733E00C"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_routes.py",
+      "owner": "DEV05",
+      "author_sha256": "BE46ECA515EE944554D1DBE8C11F0944C6A68A2A9C4FAA5D737C8ACE9C67D259",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "BE46ECA515EE944554D1DBE8C11F0944C6A68A2A9C4FAA5D737C8ACE9C67D259"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_store.py",
+      "owner": "DEV05",
+      "author_sha256": "1743B148B38CEB26DDF3A0630CEDA05A61DADDFF5BF4EA4A933022B144DAAFFA",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "1743B148B38CEB26DDF3A0630CEDA05A61DADDFF5BF4EA4A933022B144DAAFFA"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_policy.py",
+      "owner": "DEV05",
+      "author_sha256": "07A2C0887DE561FBE8076E5BF69A71BE1D58CCAB11642344D3DCAFAAED784423",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "07A2C0887DE561FBE8076E5BF69A71BE1D58CCAB11642344D3DCAFAAED784423"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_contracts.py",
+      "owner": "DEV05",
+      "author_sha256": "5A187B55B06FF03C2DFAAD795FD475B358C4C57036A6943B2D82C10D69584413",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "5A187B55B06FF03C2DFAAD795FD475B358C4C57036A6943B2D82C10D69584413"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_schema.py",
+      "owner": "DEV05",
+      "author_sha256": "EF54374B348774ED6FE0D369EE59B3418C1085911F5F80F014C6A57FA5566100",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "EF54374B348774ED6FE0D369EE59B3418C1085911F5F80F014C6A57FA5566100"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_invocation.py",
+      "owner": "DEV05",
+      "author_sha256": "0BEFB3DC9BDE81B8C2CA3DDB46EE99D18E90A31F92C53D252BED16132A7EA1F2",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "0BEFB3DC9BDE81B8C2CA3DDB46EE99D18E90A31F92C53D252BED16132A7EA1F2"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_proposal.py",
+      "owner": "DEV05",
+      "author_sha256": "EF2F3139F2076DDD53F55CDFB2482F53E101DA605C3874608811171FC64EAC55",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "EF2F3139F2076DDD53F55CDFB2482F53E101DA605C3874608811171FC64EAC55"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_store.py",
+      "owner": "DEV05",
+      "author_sha256": "1605E6A7596334094750FFE83BCBC5287FD1EB76532A7AD9A765F38D4928E9CD",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "1605E6A7596334094750FFE83BCBC5287FD1EB76532A7AD9A765F38D4928E9CD"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_review_truth.py",
+      "owner": "DEV05",
+      "author_sha256": "E79E02929D356AFFD9FB08A862D17612EEBC254866C07F1E1BAF224839AEAFB2",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "E79E02929D356AFFD9FB08A862D17612EEBC254866C07F1E1BAF224839AEAFB2"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_acceptance.py",
+      "owner": "DEV05",
+      "author_sha256": "C3F2C63D898931512B6182B7EFFFCD612478266752557347680542619F8246A5",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "C3F2C63D898931512B6182B7EFFFCD612478266752557347680542619F8246A5"
+    },
+    {
+      "path": "services/api/src/aijian_api/main.py",
+      "owner": "DEV05",
+      "author_sha256": "ECD229676AB58DCBF569730996C7D2B74CE7CC350D23CDA9505E3046D262947A",
+      "role": "MINIMAL_PATCH_REQUIRED",
+      "c19_sha256": "BBC596FDD33BDBD18A2ABEE96524CFDDCDA8A9D11AAFA76FC03FD11232D0900F"
+    },
+    {
+      "path": "services/api/src/aijian_api/sidecar.py",
+      "owner": "DEV05",
+      "author_sha256": "03B5EE2E3C80BF3550AA918D4825451CAEADD8FF95BEDF20759F50E8C3FBD4F2",
+      "role": "REVIEW_BASE_WIRING",
+      "c19_sha256": "788E3942BC061D8AC48CDD950D6663DB7C72BDBA86C372FF677260C63C764E1C"
+    },
+    {
+      "path": "apps/desktop/src/sub2api-connection-mutation-contract.ts",
+      "owner": "DEV07",
+      "author_sha256": "DC9578D9C260F8B06CAECFEFFFE9144A358C29DF37453A2B0A4AB867DBF8E400",
+      "role": "B31_ADD",
+      "c19_sha256": null
+    },
+    {
+      "path": "apps/desktop/src/sub2api-connection-mutation-ipc.ts",
+      "owner": "DEV07",
+      "author_sha256": "D77C508700AA28B00B7B334E5F533028E997F55528E20290BF6040E8B659D0AC",
+      "role": "B31_ADD_UNWIRED",
+      "c19_sha256": null
+    },
+    {
+      "path": "apps/desktop/src/sub2api-configured-readiness-contract.ts",
+      "owner": "DEV07",
+      "author_sha256": "F8843BAFAEACA506D530E4E71161D2294C03770244D58CE9584BDC9241BD3411",
+      "role": "B31_ADD",
+      "c19_sha256": null
+    },
+    {
+      "path": "apps/desktop/src/sub2api-configured-readiness-ipc.ts",
+      "owner": "DEV07",
+      "author_sha256": "4803184751A847EE3F6A7E9913FC4DD526825ADAD260060570793D6C1B63A030",
+      "role": "B31_ADD",
+      "c19_sha256": null
+    },
+    {
+      "path": "apps/desktop/src/provider-connection-contract.ts",
+      "owner": "DEV07",
+      "author_sha256": "B69804B482B58F35785525EC3348BB9569D181D8BA80B689C95DD92497582952",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "1BAD7DF94F2C5ABC4758A2887CE92AB69D4DA8E075CCAA14051DB6413BD4A5F3"
+    },
+    {
+      "path": "apps/desktop/src/remote-source-extract-v2-contract.ts",
+      "owner": "DEV07",
+      "author_sha256": "868AF718D49934ADE9E11A2C48152C22AA966565EB4F7E2CC29540EE19056639",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "868AF718D49934ADE9E11A2C48152C22AA966565EB4F7E2CC29540EE19056639"
+    },
+    {
+      "path": "apps/desktop/src/remote-source-extract-v2-ipc.ts",
+      "owner": "DEV07",
+      "author_sha256": "38ECA8A660722E34277F9B9C046BBC9E10CBCDA5AA1D5EDD70FE66E67B47DE43",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "38ECA8A660722E34277F9B9C046BBC9E10CBCDA5AA1D5EDD70FE66E67B47DE43"
+    },
+    {
+      "path": "apps/desktop/src/api-client.ts",
+      "owner": "DEV07",
+      "author_sha256": "8B770A99693D30B9DB83A8288B49F948B9A462BAE4B6BFCD8346A5373E215B8B",
+      "role": "MINIMAL_PATCH_REQUIRED",
+      "c19_sha256": "D694B1B1C6EF96D55DB941ABF221214634F45065DB07C99207A5C48660E7EA3C"
+    },
+    {
+      "path": "apps/desktop/src/main.ts",
+      "owner": "DEV07",
+      "author_sha256": "299099E3EA795874FEDB68CC68961A9BA70D0E2FE5126F53A444D1D22A61AFE1",
+      "role": "MINIMAL_PATCH_REQUIRED",
+      "c19_sha256": "BDAB4361B5D0671735253C8A57258FC48005165F07969DCD9D56C3BDC5636DAC"
+    },
+    {
+      "path": "apps/desktop/src/preload.ts",
+      "owner": "DEV07",
+      "author_sha256": "197AE552BB0199819E0B25C03893610750EE4F7B019115E01F590CDBEBC35603",
+      "role": "MINIMAL_PATCH_REQUIRED",
+      "c19_sha256": "794006467A751EA1AE1F438EAE392BB7CE6082ADAE73C8D601A376EDF81340B1"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/ProviderConnectionForm.tsx",
+      "owner": "DEV04",
+      "author_sha256": "5E2460F7AEA45F6775565737F6E15EC0A286D09B6D50DB95772358FDA9A91F87",
+      "role": "CREATE_ONLY_ANCHOR",
+      "c19_sha256": "5E2460F7AEA45F6775565737F6E15EC0A286D09B6D50DB95772358FDA9A91F87"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/UtilityPages.tsx",
+      "owner": "DEV04",
+      "author_sha256": "77BB59CCEBC594A7AAFA6D39B887C5D2FEE55E64E69BDC42FD45B9705BE9677D",
+      "role": "EDIT_ROTATE_UI_PENDING",
+      "c19_sha256": "77BB59CCEBC594A7AAFA6D39B887C5D2FEE55E64E69BDC42FD45B9705BE9677D"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/SourceExtractionPanel.tsx",
+      "owner": "DEV04",
+      "author_sha256": "61AFFCF1DEC5D555E6D94766DF68967196AFAC63277AA278BB45633089682A4B",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "61AFFCF1DEC5D555E6D94766DF68967196AFAC63277AA278BB45633089682A4B"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/remoteSourceExtract.ts",
+      "owner": "DEV04",
+      "author_sha256": "69FAC685BC3667CF3D29BEC480458450B7C4C08F40767AB5616801CD59E5646B",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "69FAC685BC3667CF3D29BEC480458450B7C4C08F40767AB5616801CD59E5646B"
+    },
+    {
+      "path": "apps/studio-web/src/api/studio.ts",
+      "owner": "DEV04",
+      "author_sha256": "5598B535490C66107F9B4E35CC1EF6011552DD970A89663895AEF769228B1953",
+      "role": "MINIMAL_PATCH_REQUIRED",
+      "c19_sha256": "7521270E03EF55B649E8B0EA150FE859CB04EADFD7D84C0886FD856FDD378679"
+    },
+    {
+      "path": "apps/studio-web/src/domain/use-provider-connection-form.ts",
+      "owner": "DEV04",
+      "author_sha256": "334F02F179E766CD4E179B99163362397E875503D5E4B5C09982B937056B12CC",
+      "role": "CREATE_ONLY_ANCHOR",
+      "c19_sha256": "334F02F179E766CD4E179B99163362397E875503D5E4B5C09982B937056B12CC"
+    },
+    {
+      "path": "apps/studio-web/src/domain/provider-settings-model.ts",
+      "owner": "DEV04",
+      "author_sha256": "D3E5170B14D69CCF8E2DA1B65DCA0303D930C173917B70ECA7897E10B1F8921E",
+      "role": "RETAIN_ANCHOR",
+      "c19_sha256": "D3E5170B14D69CCF8E2DA1B65DCA0303D930C173917B70ECA7897E10B1F8921E"
+    }
+  ],
+  "missing_wiring": [
+    "DEV05: minimal main.py B31 exception/readiness mount; do not copy full R main",
+    "DEV07: mutation IPC exists but is not registered in desktop main; api-client/preload edit/rotate/GET not implemented",
+    "DEV04: UI exposes create/list but no edit/rotate or UNKNOWN operation readback",
+    "MGR04: sole c19 writer after independent B31 QA"
+  ],
+  "unchanged_anchors": "Queue/approval/store/transport/review/acceptance source hashes are anchors only; still require fresh B31 consumer and behavior QA",
+  "provider_observation": "NOT_CHECKED",
+  "code_diff": "NONE_BY_DEV05_THIS_TURN"
+}

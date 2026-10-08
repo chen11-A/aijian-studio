@@ -1,0 +1,942 @@
+{
+  "timeUtc": "2026-09-24T07:45:35.879981+00:00",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "status": [
+    " M apps/desktop/src/api-client.ts",
+    " M apps/desktop/src/fake-timeline-run-contract.test.ts",
+    " M apps/desktop/src/fake-timeline-run-contract.ts",
+    " M apps/desktop/src/main.ts",
+    " M apps/desktop/src/preload.ts",
+    " M apps/desktop/src/provider-connection-contract.ts",
+    " M apps/studio-web/index.html",
+    " M apps/studio-web/src/aivora/DemoApp.tsx",
+    " M apps/studio-web/src/aivora/HomePages.tsx",
+    " M apps/studio-web/src/aivora/MediaPages.tsx",
+    " M apps/studio-web/src/aivora/ProviderConnectionForm.tsx",
+    " M apps/studio-web/src/aivora/StoryPages.tsx",
+    " M apps/studio-web/src/aivora/UtilityPages.tsx",
+    " M apps/studio-web/src/aivora/model.test.tsx",
+    " M apps/studio-web/src/aivora/model.tsx",
+    " M apps/studio-web/src/aivora/v2-story.css",
+    " M apps/studio-web/src/api/studio.ts",
+    " M apps/studio-web/src/domain/provider-settings-model.ts",
+    " M apps/studio-web/src/domain/use-provider-connection-form.ts",
+    " M apps/studio-web/src/fake-timeline-run-development.ts",
+    " M apps/studio-web/vite.config.ts",
+    " M package.json",
+    " M packages/contracts/openapi.json",
+    " M packages/contracts/src/generated.ts",
+    " M services/api/src/aijian_api/contracts.py",
+    " M services/api/src/aijian_api/main.py",
+    " M services/api/src/aijian_api/provider_connection_repository.py",
+    " M services/api/src/aijian_api/provider_connections.py",
+    " M services/api/src/aijian_api/provider_contracts.py",
+    " M services/api/src/aijian_api/provider_schema.py",
+    " M services/api/src/aijian_api/repository.py",
+    " M services/api/src/aijian_api/sidecar.py",
+    " M services/api/src/aijian_api/source_extract_run_factory.py",
+    " M services/api/tests/test_fake_timeline_run_api.py",
+    "?? apps/desktop/src/development-export-contract.ts",
+    "?? apps/desktop/src/development-export-ipc.ts",
+    "?? apps/desktop/src/project-update-contract.ts",
+    "?? apps/desktop/src/remote-source-extract-contract.ts",
+    "?? apps/desktop/src/remote-source-extract-ipc.ts",
+    "?? apps/studio-web/src/aivora/DevelopmentExportPanel.tsx",
+    "?? apps/studio-web/src/aivora/DevelopmentMediaPanel.tsx",
+    "?? apps/studio-web/src/aivora/SourceExtractionPanel.tsx",
+    "?? apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentExport.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentFakeTimeline.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentTimeline.ts",
+    "?? apps/studio-web/src/aivora/adapters/projectManagement.ts",
+    "?? apps/studio-web/src/aivora/adapters/remoteSourceExtract.ts",
+    "?? services/api/src/aijian_api/development_timeline_export.py",
+    "?? services/api/src/aijian_api/development_timeline_export_routes.py",
+    "?? services/api/src/aijian_api/fake_timeline_run_query.py",
+    "?? services/api/src/aijian_api/fake_timeline_run_query_routes.py",
+    "?? services/api/src/aijian_api/project_management.py",
+    "?? services/api/src/aijian_api/project_management_contracts.py",
+    "?? services/api/src/aijian_api/project_management_routes.py",
+    "?? services/api/src/aijian_api/remote_call_accounting.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_contracts.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_query.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_routes.py",
+    "?? services/api/src/aijian_api/remote_source_extract_runtime.py",
+    "?? services/api/src/aijian_api/source_extraction_contracts.py",
+    "?? services/api/src/aijian_api/source_extraction_routes.py",
+    "?? services/api/src/aijian_api/sub2api_text_transport.py",
+    "?? services/api/tests/test_dev_commands.py",
+    "?? services/api/tests/test_development_timeline_export_api.py"
+  ],
+  "sourceCount": 69,
+  "distCount": 75,
+  "source": [
+    {
+      "path": "apps/desktop/package.json",
+      "bytes": 587,
+      "sha256": "B32C71AB978689B3ADBF0F34F68D3A079A4FEE7E91614DCC450478FF641C9E47",
+      "mtimeUtc": "2026-09-23T11:57:45.227032+00:00"
+    },
+    {
+      "path": "apps/desktop/src/api-client.ts",
+      "bytes": 126068,
+      "sha256": "4B8F1CF1C0F632E44B977F6499E189A644A2462D7A384E95FE4F2E1482680E39",
+      "mtimeUtc": "2026-09-24T06:59:51.778994+00:00"
+    },
+    {
+      "path": "apps/desktop/src/development-export-contract.ts",
+      "bytes": 7841,
+      "sha256": "224839ED627BE64EF5341D21AF9972437A31634CDD98345A58D0F72412198C43",
+      "mtimeUtc": "2026-09-24T02:23:48.233932+00:00"
+    },
+    {
+      "path": "apps/desktop/src/development-export-ipc.ts",
+      "bytes": 10403,
+      "sha256": "2EE5505E49D2367BA760610ADE3CE84239C7B3E243F1B8A1729D2BCD9A44FD12",
+      "mtimeUtc": "2026-09-24T02:23:48.236432+00:00"
+    },
+    {
+      "path": "apps/desktop/src/fake-timeline-run-contract.test.ts",
+      "bytes": 20753,
+      "sha256": "A463D513304FCB9AE107A2B622A7FACAF6A0005A8508AF88D4C6F7C28AF40BC6",
+      "mtimeUtc": "2026-09-24T02:29:18.240599+00:00"
+    },
+    {
+      "path": "apps/desktop/src/fake-timeline-run-contract.ts",
+      "bytes": 9540,
+      "sha256": "23E65353886BFEED339DD4EE4EE930C4CCE5E8C5DC7DA913D0ED8616A1AA0EF3",
+      "mtimeUtc": "2026-09-24T02:23:48.239439+00:00"
+    },
+    {
+      "path": "apps/desktop/src/main.ts",
+      "bytes": 11583,
+      "sha256": "0CB795449144924094F9AE9DCA6137B70CB79E790BEB7FD16E4B34CB21CEE613",
+      "mtimeUtc": "2026-09-24T06:57:48.044270+00:00"
+    },
+    {
+      "path": "apps/desktop/src/preload.ts",
+      "bytes": 16484,
+      "sha256": "478392CAB2A371991B2269966F7CE3E8404797E28EA1C97BFFD11768D8CEB9C2",
+      "mtimeUtc": "2026-09-24T06:57:37.936802+00:00"
+    },
+    {
+      "path": "apps/desktop/src/project-update-contract.ts",
+      "bytes": 4788,
+      "sha256": "0E650BCD380AF0B36FFDDB25B4F74891D4B010FEFFF83CBD3EE2102DDDE2EC4B",
+      "mtimeUtc": "2026-09-24T06:59:16.566605+00:00"
+    },
+    {
+      "path": "apps/desktop/src/provider-connection-contract.ts",
+      "bytes": 6505,
+      "sha256": "1BAD7DF94F2C5ABC4758A2887CE92AB69D4DA8E075CCAA14051DB6413BD4A5F3",
+      "mtimeUtc": "2026-09-24T06:47:13.273241+00:00"
+    },
+    {
+      "path": "apps/desktop/src/remote-source-extract-contract.ts",
+      "bytes": 22886,
+      "sha256": "EF475ED326B93E52FD93EEDC5B4B759EC74211425AB29CAA04D7AAD1140FFC30",
+      "mtimeUtc": "2026-09-24T06:06:21.437889+00:00"
+    },
+    {
+      "path": "apps/desktop/src/remote-source-extract-ipc.ts",
+      "bytes": 2659,
+      "sha256": "3FBC73F3A08585137E39BC2D3864D815E9DC7DB8FD5C2FA4CB39E5133A93DFCE",
+      "mtimeUtc": "2026-09-24T05:44:08.595111+00:00"
+    },
+    {
+      "path": "apps/studio-web/index.html",
+      "bytes": 806,
+      "sha256": "AC2EDE154B45982D5E1D02C4A9606E3F3D32CE71DA676535BA6717B1E4A2B662",
+      "mtimeUtc": "2026-09-24T02:23:48.247932+00:00"
+    },
+    {
+      "path": "apps/studio-web/package.json",
+      "bytes": 794,
+      "sha256": "66F325DFB60E1953A8E2E47CC554121CED08DA36417A11D923A14AB956531C3E",
+      "mtimeUtc": "2026-09-23T11:57:45.254032+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/DemoApp.tsx",
+      "bytes": 17897,
+      "sha256": "8ED2682975EA9980561DF0EC55BF51CB7E1FF49CC0B98A6C6431B73C9BE559D8",
+      "mtimeUtc": "2026-09-24T06:50:54.045222+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/DevelopmentExportPanel.tsx",
+      "bytes": 14778,
+      "sha256": "5648BF19B71C79EB6DE97C208D09C955990ACF73479C7B09CBCF4C30B9F35C9E",
+      "mtimeUtc": "2026-09-24T02:23:48.262931+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/DevelopmentMediaPanel.tsx",
+      "bytes": 14006,
+      "sha256": "19C884C94C3BD004D2F70ED01C8EE358EDB591245FB40D2A5150A2871A3B8F06",
+      "mtimeUtc": "2026-09-24T02:35:00.860027+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/HomePages.tsx",
+      "bytes": 28019,
+      "sha256": "81B544AAE8B64E89EFC06EB027B4ED96A90A40C90C5D54512BA8B0A94F88C5D8",
+      "mtimeUtc": "2026-09-24T07:02:14.276741+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/MediaPages.tsx",
+      "bytes": 49988,
+      "sha256": "3CBFD5DD1B09948F75121985A45602F9D6DF1ADD9B81F5A1D0465CC4206FA56D",
+      "mtimeUtc": "2026-09-24T02:23:48.268932+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/ProviderConnectionForm.tsx",
+      "bytes": 4889,
+      "sha256": "5E2460F7AEA45F6775565737F6E15EC0A286D09B6D50DB95772358FDA9A91F87",
+      "mtimeUtc": "2026-09-24T07:19:23.943583+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/SourceExtractionPanel.tsx",
+      "bytes": 22320,
+      "sha256": "05293AC53D62A38836D10DFB9D7E87EC727AC4702C16AAEE9315C0B5B737D794",
+      "mtimeUtc": "2026-09-24T05:55:10.228815+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/StoryPages.tsx",
+      "bytes": 52486,
+      "sha256": "13998D8D7BBCA0CC857231469B5CD337352D37A60474253DEB5C1AF9EA834929",
+      "mtimeUtc": "2026-09-24T05:44:34.057512+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/UtilityPages.tsx",
+      "bytes": 13898,
+      "sha256": "77BB59CCEBC594A7AAFA6D39B887C5D2FEE55E64E69BDC42FD45B9705BE9677D",
+      "mtimeUtc": "2026-09-24T02:35:00.866524+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+      "bytes": 11386,
+      "sha256": "38F68994FFF67C3C230A8F6D39D4154761B18C7DDF6C52E5C3A48B708EDB2CEC",
+      "mtimeUtc": "2026-09-24T02:41:04.868289+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentExport.ts",
+      "bytes": 22149,
+      "sha256": "8433DB03EFF44206843B44F12208A9312DB7B0EF8B5BFD331D0FF334D52D8F23",
+      "mtimeUtc": "2026-09-24T02:23:48.251932+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+      "bytes": 6365,
+      "sha256": "5F81ADB533EE5EC592685EBAB03942CD452ADCB50D4BCEE6912CBADC55102695",
+      "mtimeUtc": "2026-09-24T02:41:52.114766+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentFakeTimeline.ts",
+      "bytes": 17526,
+      "sha256": "8471436F39BBE85DF0DBA251039EE30DF78E79F821366FE7165E7BAE67EFD16E",
+      "mtimeUtc": "2026-09-24T02:23:48.255939+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentTimeline.ts",
+      "bytes": 5378,
+      "sha256": "6218B1ADC4F5CBEF3FC1C64FE250380592E5F1B5B7E92F2C7EC0DF1118F7D910",
+      "mtimeUtc": "2026-09-24T02:23:48.259432+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/projectManagement.ts",
+      "bytes": 9712,
+      "sha256": "3E48E56DB5FC1B696200E5AA2000A83CE25FCF166473C8E92908DC88500410D1",
+      "mtimeUtc": "2026-09-24T07:00:36.079688+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/remoteSourceExtract.ts",
+      "bytes": 19440,
+      "sha256": "F89F04299E385D1588116F1718344A8D576389C9EAC535B6CF5A0BBE59E079E4",
+      "mtimeUtc": "2026-09-24T05:53:53.336490+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/model.test.tsx",
+      "bytes": 62746,
+      "sha256": "807ABAEBAD12C4E1DE3539427A44ABCB599CAB27F03F2ECAF8CAB36AEA664FB8",
+      "mtimeUtc": "2026-09-24T00:52:48.449433+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/model.tsx",
+      "bytes": 60568,
+      "sha256": "0B2F661BFB9F156489667603F070DA04AE3F28633452201236D65249996CE211",
+      "mtimeUtc": "2026-09-24T01:10:21.034766+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/v2-story.css",
+      "bytes": 10661,
+      "sha256": "79C6568149AC82D84C1D2FBD4702E60E400AEF32DD38ADFDD477DF86E54448B4",
+      "mtimeUtc": "2026-09-24T03:33:32.058725+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/api/studio.ts",
+      "bytes": 41670,
+      "sha256": "0C9446F552A759A989F5297F48F98F3CBC76E86ABF995E376985CCFBD894E761",
+      "mtimeUtc": "2026-09-24T06:58:29.424897+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/domain/provider-settings-model.ts",
+      "bytes": 1932,
+      "sha256": "D3E5170B14D69CCF8E2DA1B65DCA0303D930C173917B70ECA7897E10B1F8921E",
+      "mtimeUtc": "2026-09-24T07:18:40.796578+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/domain/use-provider-connection-form.ts",
+      "bytes": 3409,
+      "sha256": "334F02F179E766CD4E179B99163362397E875503D5E4B5C09982B937056B12CC",
+      "mtimeUtc": "2026-09-24T07:19:23.942079+00:00"
+    },
+    {
+      "path": "apps/studio-web/src/fake-timeline-run-development.ts",
+      "bytes": 4385,
+      "sha256": "2E3F843D084A899DFC3DE1546DDB3E621E2B70AB8745252D1EFB806F02294BD3",
+      "mtimeUtc": "2026-09-24T02:23:48.278432+00:00"
+    },
+    {
+      "path": "apps/studio-web/vite.config.ts",
+      "bytes": 1645,
+      "sha256": "9D00724FF63E009C01BE1F926394155E31869DA33F320D27B9489B208C2D90F2",
+      "mtimeUtc": "2026-09-24T02:23:48.290937+00:00"
+    },
+    {
+      "path": "package.json",
+      "bytes": 4444,
+      "sha256": "49C29668A12945B3ECEF191FC188585C2F297B2625F06AD087EC7C96043B5821",
+      "mtimeUtc": "2026-09-24T06:09:48.204346+00:00"
+    },
+    {
+      "path": "packages/contracts/openapi.json",
+      "bytes": 431236,
+      "sha256": "B7F41786A815A0AB4975AFEF8C649CFA956B7741D1611E0DCA4ACEEF6E973B9D",
+      "mtimeUtc": "2026-09-24T07:38:13.658349+00:00"
+    },
+    {
+      "path": "packages/contracts/src/generated.ts",
+      "bytes": 252529,
+      "sha256": "AC08078E1E42FF9E49345ECCCB0202C7F859AD9FE73E5B688D5C2E8A8B509AD3",
+      "mtimeUtc": "2026-09-24T07:38:29.278546+00:00"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "bytes": 100761,
+      "sha256": "B7BAC2466E4F52C7FAF23536041EC6F23BD7B0F7CC05898F4BF0E07A782603D1",
+      "mtimeUtc": "2026-09-23T11:57:45.600635+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/contracts.py",
+      "bytes": 32771,
+      "sha256": "65E96A74D6FED233AC54BDE808EBA88FBD37AAF12164B3CE5F6E582A77923678",
+      "mtimeUtc": "2026-09-24T02:23:48.301432+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/development_timeline_export.py",
+      "bytes": 26050,
+      "sha256": "A98EBC17ACB5398BA0D552292889094B24135E9806ADA4FC4EC9C1BB6576D4E9",
+      "mtimeUtc": "2026-09-24T02:23:48.307937+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/development_timeline_export_routes.py",
+      "bytes": 2564,
+      "sha256": "BF61AA17899CA0A32BBFCDADF868F99D0C7E4A3EED6E7932509B598EAC25CD55",
+      "mtimeUtc": "2026-09-24T02:23:48.304432+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run_query.py",
+      "bytes": 9434,
+      "sha256": "F9FB12683B21637BCF680D375C8C82196647FC2BD3A60B4B2155926011709359",
+      "mtimeUtc": "2026-09-24T02:23:48.313932+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run_query_routes.py",
+      "bytes": 2459,
+      "sha256": "D7B9073882B29CEA622A595AA5274D98E739EF3686FB610A8ACE7A4BA441B4A8",
+      "mtimeUtc": "2026-09-24T02:23:48.310932+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/main.py",
+      "bytes": 43721,
+      "sha256": "D133DDA35BCB35CED48628D06FFBC1E3FC4260775730F72CFDB8B742BF93EFA4",
+      "mtimeUtc": "2026-09-24T07:03:04.323944+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management.py",
+      "bytes": 2812,
+      "sha256": "270D4B0CB004AA4478191FE029DCE7999F06EAC27863DB71C4C7CF231BA07472",
+      "mtimeUtc": "2026-09-24T06:55:33.269264+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management_contracts.py",
+      "bytes": 1310,
+      "sha256": "06F70E221669272CFA632C77DDB8C53D644D9B09E770B570E8418C707CB24059",
+      "mtimeUtc": "2026-09-24T06:55:05.493332+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management_routes.py",
+      "bytes": 4413,
+      "sha256": "ED572705AE3717C074CF7D4B0F66B6DB39762D377513A9C98E602735F5B21CD4",
+      "mtimeUtc": "2026-09-24T06:56:45.769761+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_repository.py",
+      "bytes": 6394,
+      "sha256": "160042982AF088D49384FA928059C5D7F371241F0678BD817A50019CA96A6DE2",
+      "mtimeUtc": "2026-09-24T06:44:02.746439+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connections.py",
+      "bytes": 3085,
+      "sha256": "7A55A8B6755DFD93E51F03E546FC9F3CDCD151CF6C2C9F734EEBD3A337585127",
+      "mtimeUtc": "2026-09-24T06:44:34.641941+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_contracts.py",
+      "bytes": 7219,
+      "sha256": "045985B9E227DFEDBE26601669BD6410EF8C6D81F7A99E1E6A961861DC4D4762",
+      "mtimeUtc": "2026-09-24T06:44:02.745939+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_schema.py",
+      "bytes": 4638,
+      "sha256": "B73AE4DCE744B517001BFA416E86C0ACBE3DC83264B88E149ECA8735B507D143",
+      "mtimeUtc": "2026-09-24T06:44:20.869397+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_call_accounting.py",
+      "bytes": 11800,
+      "sha256": "446D7B10AACD172649AF5CF73E4FD70BFCD15D423050D9AC05783B9020812660",
+      "mtimeUtc": "2026-09-24T05:50:42.936171+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_contracts.py",
+      "bytes": 3001,
+      "sha256": "78873B347892E471DBB31BFCE889B5FE1C32E2F589FBBE2E3639F72453D95443",
+      "mtimeUtc": "2026-09-24T05:59:01.219980+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_query.py",
+      "bytes": 14186,
+      "sha256": "54921D9AD9F97AFCAB8A7CAE8C15E61B7C6D347567869062474139B2BA59DB64",
+      "mtimeUtc": "2026-09-24T06:19:58.549731+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_routes.py",
+      "bytes": 3571,
+      "sha256": "F0A1994504BD3988C638DB376087FFF684200C0975DED87AA42E452AC0AD3815",
+      "mtimeUtc": "2026-09-24T05:57:55.864427+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_runtime.py",
+      "bytes": 9245,
+      "sha256": "B5991ED8E8EFE2E5E9318256C60C4CD3EE65E0D438FDCFA73F7C9753C28166DD",
+      "mtimeUtc": "2026-09-24T06:01:50.639210+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/repository.py",
+      "bytes": 151976,
+      "sha256": "8BCD0CD6CBDB2893226AB8CECE87667DF448D2AAE8D711C7DE8BA230DCB1DE37",
+      "mtimeUtc": "2026-09-24T06:44:36.809472+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/sidecar.py",
+      "bytes": 9448,
+      "sha256": "11964C990E2DE021510ED490755EC9F49B13285832702B9582A31F1725685EBA",
+      "mtimeUtc": "2026-09-24T06:00:44.273087+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extract_run_factory.py",
+      "bytes": 32649,
+      "sha256": "3600C566A8EA817B0897E14E2F738778DEC0BCB91C525B90F9B1433401E9A777",
+      "mtimeUtc": "2026-09-24T05:51:04.270848+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extraction_contracts.py",
+      "bytes": 2753,
+      "sha256": "BE5C5A4B70F7160DE39FAE2948F71397A799C6334DC993D3C20ADD8EAEA9E7CF",
+      "mtimeUtc": "2026-09-24T05:40:37.776822+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extraction_routes.py",
+      "bytes": 15836,
+      "sha256": "8F74ABB43723D14152E35993A486747472C54F8F3B40BF22A1BDCF9D254FB78C",
+      "mtimeUtc": "2026-09-24T05:50:45.929753+00:00"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_text_transport.py",
+      "bytes": 11905,
+      "sha256": "2720F5D8A8BC079C1584DCA3F1E3D88640B1F7ED5B02006BAAE3C8952ECF152B",
+      "mtimeUtc": "2026-09-24T06:46:22.908895+00:00"
+    },
+    {
+      "path": "services/api/tests/test_dev_commands.py",
+      "bytes": 431,
+      "sha256": "1A5DF6C6BA259B2B570F6AD00CD017EE8C8F98E66BCECD2669D28266E71F7067",
+      "mtimeUtc": "2026-09-24T06:09:48.209847+00:00"
+    },
+    {
+      "path": "services/api/tests/test_development_timeline_export_api.py",
+      "bytes": 4720,
+      "sha256": "1904D4A0B7E96FBC24F49AE7DB058A8E9FBC2154F884DC70C008F36C04C3ACEF",
+      "mtimeUtc": "2026-09-24T02:28:48.201920+00:00"
+    },
+    {
+      "path": "services/api/tests/test_fake_timeline_run_api.py",
+      "bytes": 37803,
+      "sha256": "F59424DC5BF0F923270BE31A8575044B744F88DCF36557D31263CB3F4D7DCD09",
+      "mtimeUtc": "2026-09-24T02:27:49.771241+00:00"
+    }
+  ],
+  "dist": [
+    {
+      "path": "apps/studio-web/dist/assets/avatar-DwMD3kNX.png",
+      "bytes": 11810,
+      "sha256": "F8AC289E6ECA36261D9717519D044D638EC2A8477C5C45E7A0652D35724DCE28",
+      "mtimeUtc": "2026-09-24T07:23:54.025728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/back-Bl6X4ZSd.png",
+      "bytes": 157359,
+      "sha256": "929AA26C126F7466C1195F2BFC604D58AD17E8BB6A0FA038DBA7F069F42117FB",
+      "mtimeUtc": "2026-09-24T07:23:54.026228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/character-DRYsXEyd.jpg",
+      "bytes": 6104,
+      "sha256": "CB627845058D88D948308F7ABBCEC839CCCC358E73E3A0266A854AA3AD86E204",
+      "mtimeUtc": "2026-09-24T07:23:54.026228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/city-DEdL2W8P.png",
+      "bytes": 528978,
+      "sha256": "BB360C3761496DF12EA9D8C1DBA042F2F2B9BE49E270ADDA384D367C148730C5",
+      "mtimeUtc": "2026-09-24T07:23:54.026728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/city-wide-5ytdUTeo.png",
+      "bytes": 333544,
+      "sha256": "32448891295C00649BB9641C1880580C91592274BA3D9794819809D2629D5344",
+      "mtimeUtc": "2026-09-24T07:23:54.027232+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/coat-9U1nLuBU.png",
+      "bytes": 167465,
+      "sha256": "0D39E9A9667CFC18E57158285DCFBBF70823CB4222B303473C1420AB1ECB5A52",
+      "mtimeUtc": "2026-09-24T07:23:54.027728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/homewear-2dOEUsdQ.png",
+      "bytes": 12852,
+      "sha256": "E0434A0D14C1C2D20697F2C944148076E88975FCCF083197D131B6A93442A2D5",
+      "mtimeUtc": "2026-09-24T07:23:54.028228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/index-B8mbtJYp.js",
+      "bytes": 535640,
+      "sha256": "6F3951A0934DD23460CD2DA38C026FD171093DE78D00C899CD54706E587A2A50",
+      "mtimeUtc": "2026-09-24T07:23:54.014228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/index-Czlkez0k.css",
+      "bytes": 165793,
+      "sha256": "DA28EA82CEA6CD72B197FFAE344ED0DF86FD9C96DBE93F472429641CA2D0F05B",
+      "mtimeUtc": "2026-09-24T07:23:54.028228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/male-eTSa501X.png",
+      "bytes": 9049,
+      "sha256": "7C0DCC065487721EB8C0BBEC5EE4CED83B32600BAC807FA45896BFA957E77C36",
+      "mtimeUtc": "2026-09-24T07:23:54.028727+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/medical-BZvEmOak.png",
+      "bytes": 12099,
+      "sha256": "56D788EA1EEBAB88AFE8954903AE18C9DE3727F544234A26F388CBA49B2B800B",
+      "mtimeUtc": "2026-09-24T07:23:54.028727+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/morning-C9689rzv.jpg",
+      "bytes": 5120,
+      "sha256": "50F9EA003C000FF58F5FA8091530B41710320840837D0BD7F975202E321D11DC",
+      "mtimeUtc": "2026-09-24T07:23:54.029228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/multiview-BHTQOCTh.jpg",
+      "bytes": 25882,
+      "sha256": "E0F98E153654E21B2FD6BED13136FA4F3607178ABFFFE82F91A69850D2ECC955",
+      "mtimeUtc": "2026-09-24T07:23:54.029228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/NotoSansCJKsc-Bold-Btc5k62G.otf",
+      "bytes": 17002248,
+      "sha256": "B5F0D1A190A7F9B43C310A8850630AF12553DF32C4C050543F9059732D9B4C0A",
+      "mtimeUtc": "2026-09-24T07:23:54.019228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/NotoSansCJKsc-Regular-DxgKpThH.otf",
+      "bytes": 16437364,
+      "sha256": "2C76254F6FC379FDDFCE0A7E84FB5385BB135D3E399294F6EEB6680D0365B74B",
+      "mtimeUtc": "2026-09-24T07:23:54.025228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/portrait-DYeAE-At.png",
+      "bytes": 690278,
+      "sha256": "93B64F76774E0E98AD630D761628788686A0D081E8031525EC758713F4851638",
+      "mtimeUtc": "2026-09-24T07:23:54.029727+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/rival-B9qfqmN1.png",
+      "bytes": 10476,
+      "sha256": "FC0FDC6DB9439271301D9D7FD4B5962649C29ABEF2568114DE7918329F8178F5",
+      "mtimeUtc": "2026-09-24T07:23:54.030231+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/sea-5-gih3Qt.jpg",
+      "bytes": 4712,
+      "sha256": "DC7D66FD6DD64CB8560B30BDB61422E1D18102F80B0F52CBE49692561160A251",
+      "mtimeUtc": "2026-09-24T07:23:54.030231+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/side-Bwprgf9Y.png",
+      "bytes": 158849,
+      "sha256": "BEE7CF1A0D22366CE19846F37FCDCED7B08D7F98BD375F6756B05A16F44B5A57",
+      "mtimeUtc": "2026-09-24T07:23:54.030728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/story-art-4I-esOsq.png",
+      "bytes": 526907,
+      "sha256": "3B6390EAA89D4DC3B3082ECC6ADFF395EFE9920B96FE38D2B28F9672328453CC",
+      "mtimeUtc": "2026-09-24T07:23:54.031228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/street-BEggPxHH.png",
+      "bytes": 363553,
+      "sha256": "7830970210C9FED3E3DF174C27CC8FA0576410E3E558C5745A9A9BF7764617DF",
+      "mtimeUtc": "2026-09-24T07:23:54.031228+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/town-C7GrbVTc.jpg",
+      "bytes": 5506,
+      "sha256": "33B555E07F226A28E8CB569AC1E4C33B419BE445D76ED89CD6F77B3EFBF39D58",
+      "mtimeUtc": "2026-09-24T07:23:54.031728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/assets/workwear-ulXCvwDx.png",
+      "bytes": 12847,
+      "sha256": "B2AED61208581B6E5A87C8D1201B60693962E29595ED00B3B2782CCCB3D7C917",
+      "mtimeUtc": "2026-09-24T07:23:54.031728+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/favicon.svg",
+      "bytes": 336,
+      "sha256": "3DAF847957ED9AD09F8C637A2BD2F0E8FD1448C4AC29201EAE6F78695C7C0F11",
+      "mtimeUtc": "2026-09-23T11:57:45.254704+00:00"
+    },
+    {
+      "path": "apps/studio-web/dist/index.html",
+      "bytes": 906,
+      "sha256": "88CC496989B4E035EFB051A48B6817413A96FB94214F1465CBF6D0E709C736B6",
+      "mtimeUtc": "2026-09-24T07:23:54.031728+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/agent-skill-catalog-contract.js",
+      "bytes": 8442,
+      "sha256": "64B384640AD9C501FDD31FF9002BA0B88B5A18451CFDF6D78EEEBB6FA0AF30C8",
+      "mtimeUtc": "2026-09-24T07:24:18.844824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/agent-skill-catalog-ipc.js",
+      "bytes": 1057,
+      "sha256": "34FFDC31601B8CA58CC589EA2672BCC65355EDF788A1E74E98D0A858D2880467",
+      "mtimeUtc": "2026-09-24T07:24:18.964823+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/api-client.js",
+      "bytes": 114994,
+      "sha256": "0EA3DBCD049F1CD4E10925F7B17173F488020B43BAEE97DD1132447E8D1A8150",
+      "mtimeUtc": "2026-09-24T07:24:18.963824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/api-client.test.js",
+      "bytes": 174823,
+      "sha256": "ACAADFB2A2125EAF61788747DE1CD1E2BD4F25F6017EE6838E68B38B29FE90A0",
+      "mtimeUtc": "2026-09-24T07:24:19.001824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/api-contract-guards.js",
+      "bytes": 1529,
+      "sha256": "4F4F03F4C6AC90211258A1CC1A4835923D21F2566B4B6CDE55CFBE858BA0F43F",
+      "mtimeUtc": "2026-09-24T07:24:18.836324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/artifact-proposal-contract.js",
+      "bytes": 8052,
+      "sha256": "25CA21EF4C6D67E160196247C7B6FD25BA30AB8588F0E338CA453CDF6E021CF9",
+      "mtimeUtc": "2026-09-24T07:24:18.849824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/artifact-proposal-contract.test.js",
+      "bytes": 9224,
+      "sha256": "69BF07FF9EEC99C0D33B7E11D498206297D44C220CA1013DA19CB2DA413E0679",
+      "mtimeUtc": "2026-09-24T07:24:19.004823+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/contract-boundaries.test.js",
+      "bytes": 14850,
+      "sha256": "9B86844976435EBA43A9E877EA2249A75D95139634F3E465A8B1BDDBFE5E0916",
+      "mtimeUtc": "2026-09-24T07:24:19.008823+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/development-export-contract.js",
+      "bytes": 5649,
+      "sha256": "805D3BDA2BE5E4B24A5D6CDA67A4606D516AF9B0A3C652B45B1F301AE5149DDB",
+      "mtimeUtc": "2026-09-24T07:24:18.920324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/development-export-ipc.js",
+      "bytes": 10974,
+      "sha256": "EEA2C72D951772FBF148535C4C4F6F698A32C747AE3BE4B78B88DB8500BEEC41",
+      "mtimeUtc": "2026-09-24T07:24:19.012323+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-fake-timeline-run-response-fault.js",
+      "bytes": 1437,
+      "sha256": "523BA9D9116AA9F91FA1A055F32CDA72C198DEEC5C7004970FF8F95A20158458",
+      "mtimeUtc": "2026-09-24T07:24:19.013323+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-fake-timeline-run-response-fault.test.js",
+      "bytes": 5950,
+      "sha256": "55E1EBED91A17FA3ECC305B70BD051626E6D9AFF101D3651F6C5B4D69C86008E",
+      "mtimeUtc": "2026-09-24T07:24:19.015324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-proposal-run-response-fault.js",
+      "bytes": 1404,
+      "sha256": "733C14464A9E5B690C90C9523791407C2B1C10696C65661ED790DF8A9D92CD1C",
+      "mtimeUtc": "2026-09-24T07:24:19.016324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-proposal-run-response-fault.test.js",
+      "bytes": 3411,
+      "sha256": "D86F07B9ACC1E5994E4708DE3D59A5AB19B8E8707672B1EAC1332FF0BEC97495",
+      "mtimeUtc": "2026-09-24T07:24:19.017324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-user-data.js",
+      "bytes": 848,
+      "sha256": "15750A8CA83F536146590DD4F10AFD862ECCED2D280400E08E373C2C558DFB9F",
+      "mtimeUtc": "2026-09-24T07:24:19.017824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/e2e-user-data.test.js",
+      "bytes": 1299,
+      "sha256": "C64F12FA5550EDEBABD498D587E13FC639A67204A679B273F7822F8A35A615BD",
+      "mtimeUtc": "2026-09-24T07:24:19.018824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/episode-contract.js",
+      "bytes": 7998,
+      "sha256": "713CB1DB658618BF867B0BFD639265A8C78E1BFE83D14BC8C21428C2ED761332",
+      "mtimeUtc": "2026-09-24T07:24:18.855824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/episode-contract.test.js",
+      "bytes": 8141,
+      "sha256": "9638F90711CEC50F00ECA9F52E3744669F8BC9D5A02E23AA9A37C01C5ED68393",
+      "mtimeUtc": "2026-09-24T07:24:19.020824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/episode-ipc.js",
+      "bytes": 2477,
+      "sha256": "469EBAB5505CD27DED69E949285BE2FFB584BFCE954F5BD31AEA1B11C1E52E5F",
+      "mtimeUtc": "2026-09-24T07:24:19.021824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/episode-ipc.test.js",
+      "bytes": 4956,
+      "sha256": "C03DB994E50982DBD2D4C0808B71E2C0E1B9822A3604913D358BC8D833B85404",
+      "mtimeUtc": "2026-09-24T07:24:19.024323+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/fake-timeline-run-contract.js",
+      "bytes": 8195,
+      "sha256": "FCCA56CF9D1E74110CF9561EBDD4FB31B944C76DCC2F99C9FB9B7680A562CC40",
+      "mtimeUtc": "2026-09-24T07:24:18.866826+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/fake-timeline-run-contract.test.js",
+      "bytes": 22488,
+      "sha256": "1BBE261574DBCA57D22EB1D83DFA28A2D74108781CFEC3C61FDC0A33320677F1",
+      "mtimeUtc": "2026-09-24T07:24:19.028324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/health-contract.js",
+      "bytes": 745,
+      "sha256": "4E3367A5F580E39AC847C3D7415FFCEFD387AB8D79CE3A00C842821273A44A2E",
+      "mtimeUtc": "2026-09-24T07:24:18.857324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/invalidation-operation-ipc.js",
+      "bytes": 2317,
+      "sha256": "82098676410C9DEB0C586C85BDAEEF51FCF8F3CD47DBB8BE651FFFC036659298",
+      "mtimeUtc": "2026-09-24T07:24:19.029827+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/invalidation-operation-ipc.test.js",
+      "bytes": 7167,
+      "sha256": "250580690334D893A514E1FCEA5C3152CF7D06F56A8D54E772C82030E7BFE996",
+      "mtimeUtc": "2026-09-24T07:24:19.031823+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/main.js",
+      "bytes": 11094,
+      "sha256": "7F02C2944F1CACA5582F329FA07A8C5BB0F350B655A3B05F14EBEEC4F152C164",
+      "mtimeUtc": "2026-09-24T07:24:19.046824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/preload.js",
+      "bytes": 6228,
+      "sha256": "97A3AA364CCBA9B5DC3AF27F17478E4C4606E73028FB35D3AF7AECCEFC77B551",
+      "mtimeUtc": "2026-09-24T07:24:19.048324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/production-brief-contract.js",
+      "bytes": 16359,
+      "sha256": "0CEF898E0960F1ED0B69AEBCBF6BAAEFC787013B8845340542BA59F4CD26580D",
+      "mtimeUtc": "2026-09-24T07:24:18.898324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/production-brief-contract.test.js",
+      "bytes": 14180,
+      "sha256": "C7CC47A9CAE7AC26683C4B716255C9C1967A25B1B45D6129C49748C3520893C0",
+      "mtimeUtc": "2026-09-24T07:24:19.051825+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/production-brief-ipc.js",
+      "bytes": 2337,
+      "sha256": "A15BB9FE466C70F9CB624513F3015F3E45A78DB547FF27097E9EBA6D8587D67F",
+      "mtimeUtc": "2026-09-24T07:24:19.033824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/production-brief-ipc.test.js",
+      "bytes": 1919,
+      "sha256": "40063ED4DA9627169690E5D88C2E6D613B7BA640994291B18BA3BC2F25B51F23",
+      "mtimeUtc": "2026-09-24T07:24:19.053325+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/production-brief-preload.test.js",
+      "bytes": 2341,
+      "sha256": "9B95BBB63C73DADFD517EAD3F2C0776966A8A56C0D5B7BDB38030AC0F185F78C",
+      "mtimeUtc": "2026-09-24T07:24:19.054325+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/proposal-run-contract.js",
+      "bytes": 19353,
+      "sha256": "D80DED21A090AD32BDEEB1F906A16416FA4B2EDA919CA86E8CF82DAFF02FE4E4",
+      "mtimeUtc": "2026-09-24T07:24:18.877824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/proposal-run-contract.test.js",
+      "bytes": 11999,
+      "sha256": "2E7F455230AF5B6A513BF209CAB8915A0BC2B7C0D2F751F61100990DC18AE485",
+      "mtimeUtc": "2026-09-24T07:24:19.057824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/proposal-run-test-fixture.js",
+      "bytes": 7639,
+      "sha256": "759A9AF200539516E02F726A39A9D9C263C121C8220A4981F5C191BAC5225B31",
+      "mtimeUtc": "2026-09-24T07:24:18.966323+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/provider-connection-contract.js",
+      "bytes": 7027,
+      "sha256": "9FF2D2C4058F9EC8E04A634C9D783A08FDAEA75B1C791886BA381CFD5A036DE5",
+      "mtimeUtc": "2026-09-24T07:24:18.862825+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/remote-source-extract-contract.js",
+      "bytes": 20622,
+      "sha256": "E05C7B6445144822EB6B66E10E7AE9A0A0BF43217FB750A45CEFD0DF132F33F9",
+      "mtimeUtc": "2026-09-24T07:24:18.888824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/remote-source-extract-ipc.js",
+      "bytes": 2852,
+      "sha256": "020EED45AC819957D269174815411B4D1A67387607C39F7B4B9EBE0779257C8C",
+      "mtimeUtc": "2026-09-24T07:24:19.032824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/sidecar-origin.js",
+      "bytes": 763,
+      "sha256": "28B1CD519E27DBC215E1A130C29E3C0729D9BA61067E1F5679FCB499A59C328F",
+      "mtimeUtc": "2026-09-24T07:24:18.903827+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/sidecar-process.js",
+      "bytes": 4005,
+      "sha256": "278B399D1FA3E95AAEB3AF05A46497EE8A6877BA8A1EB7F987CD0829145A687F",
+      "mtimeUtc": "2026-09-24T07:24:19.035824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/sidecar-process.test.js",
+      "bytes": 12408,
+      "sha256": "380F4C2544F90590BAA7BFC4B7B87466F0CFFEDEF18B9547E880A4705CD7FCF4",
+      "mtimeUtc": "2026-09-24T07:24:19.061874+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/sidecar-protocol.js",
+      "bytes": 1751,
+      "sha256": "C475F1FFA694710F2D10151D784CD962EF6D5E8894591996757D2C4233FEE439",
+      "mtimeUtc": "2026-09-24T07:24:18.902825+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/sidecar-protocol.test.js",
+      "bytes": 1790,
+      "sha256": "2B64403A71B63637889A04653934544AA788B46951DB207DF442FFB9D870F16C",
+      "mtimeUtc": "2026-09-24T07:24:19.062840+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/source-manifest-review-ipc.js",
+      "bytes": 6262,
+      "sha256": "F73C29734F3962E360A6B38A644155031E5AB700694BA5FD430DFB943A2A814F",
+      "mtimeUtc": "2026-09-24T07:24:19.043828+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/source-manifest-review-ipc.test.js",
+      "bytes": 26166,
+      "sha256": "5AABF6EA2E7511DC63162BE65A05AE42D9D4540A29CCB38E355AF09D90518F7B",
+      "mtimeUtc": "2026-09-24T07:24:19.068825+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/source-manifest-review.generated.js",
+      "bytes": 183,
+      "sha256": "B31F662F60A150A526F161F7DF5ECF467A68A76DB8B80C772D46B71AFBB0705B",
+      "mtimeUtc": "2026-09-24T07:24:18.904825+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/source-manifest-review.js",
+      "bytes": 18649,
+      "sha256": "FF8BCCEFA30EAD52B93FE9CABC8DFFD705A19C3EFF912EA029A68FE1D5B76A71",
+      "mtimeUtc": "2026-09-24T07:24:19.041323+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/source-manifest-review.test.js",
+      "bytes": 50268,
+      "sha256": "0FB3376C82C7DB7D918B42DADADD595FAFF439D55907070E5034E093E6CDF40F",
+      "mtimeUtc": "2026-09-24T07:24:19.078324+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/task-queue-contract.js",
+      "bytes": 7809,
+      "sha256": "C87009F4C0CC003A4A9AFDB01860DBE5D1DF02BD73F01FC779693F657A172BFE",
+      "mtimeUtc": "2026-09-24T07:24:18.909824+00:00"
+    },
+    {
+      "path": "apps/desktop/dist/timeline-contract.js",
+      "bytes": 11911,
+      "sha256": "F64E7765BE3679F7F02A97F61EDECC41B5DBF3C371F627576597BD93164C94E6",
+      "mtimeUtc": "2026-09-24T07:24:18.917324+00:00"
+    }
+  ]
+}

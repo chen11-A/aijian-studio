@@ -1,0 +1,24 @@
+{
+  "extends": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src",
+    "outDir": "./dist",
+    "typeRoots": [
+      "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\node_modules\\@types"
+    ],
+    "noEmitOnError": true,
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "files": [
+    "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\main.ts",
+    "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\preload.ts"
+  ],
+  "include": [],
+  "exclude": [
+    "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\**\\*.test.ts",
+    "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\**\\*.spec.ts",
+    "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\proposal-run-test-fixture.ts"
+  ]
+}

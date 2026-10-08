@@ -1,0 +1,36 @@
+diff --git a/apps/desktop/src/media-rights-decision-contract.ts b/apps/desktop/src/media-rights-decision-contract.ts
+index 620cd79..a292fd5 100644
+--- a/apps/desktop/src/media-rights-decision-contract.ts
++++ b/apps/desktop/src/media-rights-decision-contract.ts
+@@ -297,11 +297,16 @@ export function isRightsDecisionHistoryResponse(
+ ): value is RightsDecisionHistoryResponse {
+   if (!response(value, requestId) || !Array.isArray(value.data) ||
+       value.data.length > 1000) return false;
+-  return value.data.every((item: unknown, index: number) =>
+-    isRightsDecisionAudit(item) && item.project_id === projectId &&
+-    item.asset_id === assetId && item.version_id === versionId &&
+-    item.revision === index + 1 &&
+-    item.previous_decision_id === (index === 0 ? null : value.data[index - 1].decision_id));
++  const audits: unknown[] = value.data;
++  let previousDecisionId: string | null = null;
++  return audits.every((item, index) => {
++    if (!isRightsDecisionAudit(item) || item.project_id !== projectId ||
++        item.asset_id !== assetId || item.version_id !== versionId ||
++        item.revision !== index + 1 ||
++        item.previous_decision_id !== previousDecisionId) return false;
++    previousDecisionId = item.decision_id;
++    return true;
++  });
+ }
+ 
+ export function isRightsDecisionAuditResponse(
+@@ -318,7 +323,8 @@ export function rightsDecisionDefiniteError(
+ ): { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string } | null {
+   if (![401, 403, 404, 409, 422].includes(status) ||
+       !isRecord(value) || !exact(value, ["error", "request_id"]) ||
+-      !hasRequestId(value) || value.request_id !== requestId ||
++      typeof value.request_id !== "string" || !hasRequestId(value) ||
++      value.request_id !== requestId ||
+       !isRecord(value.error) ||
+       !exact(value.error, ["code", "message", "details", "retryable"]) ||
+       typeof value.error.code !== "string" ||

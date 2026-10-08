@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "example_only": true,
+  "purpose": "Development",
+  "candidate_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "inputs": [
+    {
+      "role": "desktop-main",
+      "path": "apps/desktop/src/main.ts",
+      "sha256": "EDE168AF7DB9A3F11A6DB428221FE38D596BB5230E10E26F5D9EABB0F8127FA9",
+      "distribution_status": "DEVELOPMENT_ONLY",
+      "approval_reference": ""
+    }
+  ]
+}

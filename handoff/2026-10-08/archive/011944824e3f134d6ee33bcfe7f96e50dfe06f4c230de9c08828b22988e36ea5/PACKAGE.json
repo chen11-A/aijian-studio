@@ -1,0 +1,45 @@
+{
+  "call_id": "MGR04-V4-SAME-SOURCE-WEB-DESKTOP-BUILD-02",
+  "scope": "ONE_OFFLINE_SAME_SOURCE_WEB_DESKTOP_BUILD",
+  "source_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-native-source-v4-01",
+  "fixed_files": {
+    "build_once.py": "14C627795AE3851C0C0FFAFD68580B70F3C82828270264EA9F85B114C1E8C711",
+    "vite.build.config.ts": "16DD86301B9A48C31A4B69B09995E33284AF44D48E3263EB4A1E3AE8072ED02F",
+    "network-deny.cjs": "DFDB3D123180EF37BB2C448B991A782A6539A631B9FBAFBBAD76502EBA0FBE9A",
+    "SCOPE.md": "CC796334C8B7AE36FD68A3E23957B3C4D8EFD93F38C42581A8A101793119AB02",
+    "fixture_test.py": "B3967E5E6CB9723AE77CAAB70E1C5449E6018D1EDF182E0941043143A7253489",
+    "FIXTURE-RESULT.json": "7794D13AFB54BF9889FFB062A57E287C929229FD169A390E3B9F3A911C85A317",
+    "inputs/POST-G-BASE-MANIFEST.json": "9EE57EF54924D2714D04F10956A2D3B0CC0C5A7E60076FA6DE423543BB6D76DB",
+    "inputs/MAIN-AFTER.ts": "51076243C1E39B544196D01EFDB76A1567138C255AAAC79D31131418ADD68D40",
+    "inputs/DERIVATIVE-RESULT.json": "E845FEE3340B04845E953704C0DC89014D260BF888EAE57C0C45D60DADE5A3E6",
+    "inputs/MGR04-INDEPENDENT-DERIVATIVE-REVIEW.json": "60DE4D56B9DFB9D5B2CB2B39D1CE6C1F39F4496EE2A1D73C58950645F47F953C"
+  },
+  "node_sha256": "3331E1FFE19874215472217C5E94F5A0C6D8E18C4AC7111D3937AA0AD5E9B4A5",
+  "tool_sha256": {
+    "web_tsc": "2CFFDE0B8C6760DFB0B5B0382BBB7E00BA6A8B2D981B9205B256A700A481D983",
+    "vite": "FA03478846D229651A3C6AA64833BA2C6CBF580A798B92BD8F47C7480BAFB5D8",
+    "desktop_tsc": "2CFFDE0B8C6760DFB0B5B0382BBB7E00BA6A8B2D981B9205B256A700A481D983",
+    "worker": "B461149B7A4488FF72F90AF16D900AD9C8C410E1B8DDB2C443D49F6CD1AA7206"
+  },
+  "main_sha256": "51076243C1E39B544196D01EFDB76A1567138C255AAAC79D31131418ADD68D40",
+  "outputs": [
+    "source/apps/studio-web/dist",
+    "source/apps/desktop/dist"
+  ],
+  "steps": [
+    "web-tsc-app",
+    "web-tsc-node",
+    "web-build",
+    "desktop-typecheck",
+    "desktop-build"
+  ],
+  "approval_required": "MGR01 exact scope review then MGR02 exact PACKAGE SHA one-call approval",
+  "first_failure_stop": true,
+  "one_call_no_retry": true,
+  "limits": "Offline static build only; no Electron launch, sidecar start, API, DB, provider, Vault, c19 write, packaged executable, or final acceptance",
+  "sidecar_resource_status": "Development .venv python and packaged lock absent in derivative; packaged sidecar/executable not produced by this build",
+  "vite_config_temp": "Fixed config copied to claimed run-01 before Vite bundle loading; temp remains confined to run-01",
+  "python_sha256": "461D6E5F9A0DCB724798D2B6DBD57555A9EB3084522CC5DC5B2347934F5A4060",
+  "python_base_root": "C:\\Users\\Administrator\\AppData\\Roaming\\uv\\python\\cpython-3.12.13-windows-x86_64-none",
+  "fixture_status": "PASS_PURE_FIXTURES"
+}

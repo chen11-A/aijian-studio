@@ -1,0 +1,30 @@
+{
+  "status": "STATIC_REVIEW_READY",
+  "scope": "test helper only; no Electron launch or native Invoke",
+  "source_tree": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\uia-diagnosis-2026-09-24T01-47-38.349Z-20452\\uia-during-native-dialog.json",
+  "source_tree_sha256": "C4221D9195F57224FF49FC5959A4E2EC0BC608DAA122A033C0753E7881AE7E18",
+  "backup_directory": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\helper-static-backup-20260924",
+  "files": [
+    {
+      "name": "native-dialog.ps1",
+      "old_sha256": "45ED545A16296E512864E667F1546B503B988F71FE3CA282AF1686D210281243",
+      "new_sha256": "A14AFD891C1C5F1665A1B4301AD931B667E9FDF6636357435349AFE334DEDC2C"
+    },
+    {
+      "name": "run-native-source-qa.mjs",
+      "old_sha256": "92F0F895F20C2CCB2C09274077EE4A2929105DD4277BA3AD7BF62EC1DC70813A",
+      "new_sha256": "354541E65652E33653B9A20E079B934B5C2F4C822D834D56FD3C6D9F9240B4D5"
+    }
+  ],
+  "diff_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\helper-static-probe-20260924\\helper-static-complete-reviewed.diff",
+  "diff_sha256": "EA5FBCBC15958388B130225F1586F8025C66120817BFA774ABFBB27C71DB8A5E",
+  "powershell_5_1_parse": "PASS",
+  "node_check": "PASS",
+  "saved_uia_content_regex": "project/version/source hash/action each exactly one",
+  "no_window_probe": "REJECTED_BEFORE_INVOKE; invoked=false; invoke_attempted=false",
+  "no_window_probe_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\helper-static-probe-20260924\\no-window-reviewed.json",
+  "no_window_probe_sha256": "90170CE01D43ABEAA0DC032247233FE3144E94AB83239959C75D3A0A21D7ACB3",
+  "file_replace_ps51": "PASS with explicit backup path",
+  "runtime_native_invoke": "NOT_RUN",
+  "m1": "INCOMPLETE"
+}

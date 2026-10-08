@@ -1,2 +1,5 @@
 * text=auto eol=lf
 *.ps1 text eol=crlf
+
+# Preserve original handoff evidence bytes; these are recovery files, not active sources.
+/handoff/2026-10-08/archive/** -text

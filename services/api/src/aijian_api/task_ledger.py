@@ -1,0 +1,674 @@
+"""Public SQLite task-ledger facade with lease-fenced local claims."""
+
+import sqlite3
+from collections.abc import Callable, Mapping
+from dataclasses import replace
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from aijian_api.agent_skill_contracts import AttemptSnapshotV1
+from aijian_api.remote_execution_authorization import RemoteDispatchSnapshotDraft
+from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractScopeDraft
+from aijian_api.repository import StudioRepository
+from aijian_api.task_ledger_agent_runs import mark_agent_skill_run_running
+from aijian_api.task_ledger_cancellation import (
+    LocalCancellationResult,
+    cancel_local_workflow,
+)
+from aijian_api.task_ledger_completion import complete_local_task
+from aijian_api.task_ledger_enqueue import (
+    EnqueueLocalNodeRequest,
+    EnqueueRemoteNodeRequest,
+    enqueue_local_node,
+    enqueue_remote_node,
+    enqueue_sub2api_node,
+)
+from aijian_api.task_ledger_events import append_event
+from aijian_api.task_ledger_failure import fail_local_task
+from aijian_api.task_ledger_models import (
+    ClaimedTask,
+    LeaseLostError,
+    QueuedTask,
+    RecoverySummary,
+    TaskCompletion,
+    lease_token,
+    new_id,
+    parse_datetime,
+    timestamp,
+    utc_now,
+)
+from aijian_api.task_ledger_proposal_completion import complete_local_proposal_task
+from aijian_api.task_ledger_recovery import (
+    RemoteRecoverySummary,
+    recover_expired_local_tasks,
+    recover_expired_remote_tasks,
+)
+from aijian_api.task_ledger_snapshots import (
+    AGENT_SKILL_SNAPSHOT_KIND,
+    read_agent_skill_snapshot,
+)
+
+__all__ = [
+    "ClaimedTask",
+    "LeaseLostError",
+    "LocalCancellationResult",
+    "LocalTaskLedger",
+    "QueuedTask",
+    "RecoverySummary",
+    "TaskCompletion",
+]
+
+
+class LocalTaskLedger:
+    def __init__(
+        self,
+        database_path: Path,
+        *,
+        clock: Callable[[], datetime] = utc_now,
+        id_factory: Callable[[str], str] = new_id,
+        lease_token_factory: Callable[[], str] = lease_token,
+        connection_timeout: timedelta = timedelta(seconds=5),
+    ) -> None:
+        if connection_timeout <= timedelta(0):
+            raise ValueError("connection timeout must be positive")
+        self._database_path = database_path
+        self._clock = clock
+        self._id_factory = id_factory
+        self._lease_token_factory = lease_token_factory
+        self._connection_timeout_seconds = connection_timeout.total_seconds()
+        StudioRepository(database_path, connection_timeout=connection_timeout)
+
+    def _open(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(
+            self._database_path,
+            timeout=self._connection_timeout_seconds,
+            isolation_level=None,
+        )
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            f"PRAGMA busy_timeout = {max(1, int(self._connection_timeout_seconds * 1000))}"
+        )
+        return connection
+
+    def enqueue_local_node(
+        self,
+        *,
+        project_id: str,
+        definition_id: str,
+        definition_version: int,
+        definition_hash: str,
+        graph: Mapping[str, object],
+        workflow_input_hash: str,
+        node_key: str,
+        node_type: str,
+        contract_version: int,
+        input_bindings: Mapping[str, object],
+        node_input_hash: str,
+        request_fingerprint: str,
+        idempotency_key: str,
+        max_attempts: int,
+        task_kind: str,
+        priority: int,
+        available_at: datetime,
+        attempt_snapshot_kind: str | None = None,
+        attempt_snapshot: Mapping[str, object] | None = None,
+        transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+    ) -> QueuedTask:
+        request = EnqueueLocalNodeRequest(
+            project_id=project_id,
+            definition_id=definition_id,
+            definition_version=definition_version,
+            definition_hash=definition_hash,
+            graph=graph,
+            workflow_input_hash=workflow_input_hash,
+            node_key=node_key,
+            node_type=node_type,
+            contract_version=contract_version,
+            input_bindings=input_bindings,
+            node_input_hash=node_input_hash,
+            request_fingerprint=request_fingerprint,
+            idempotency_key=idempotency_key,
+            max_attempts=max_attempts,
+            task_kind=task_kind,
+            priority=priority,
+            available_at=available_at,
+            attempt_snapshot_kind=attempt_snapshot_kind,
+            attempt_snapshot=attempt_snapshot,
+        )
+        return enqueue_local_node(
+            request,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+            transaction_validator=transaction_validator,
+        )
+
+    def enqueue_remote_node(
+        self,
+        *,
+        dispatch_snapshot: RemoteDispatchSnapshotDraft,
+        project_id: str,
+        definition_id: str,
+        definition_version: int,
+        definition_hash: str,
+        graph: Mapping[str, object],
+        workflow_input_hash: str,
+        node_key: str,
+        node_type: str,
+        contract_version: int,
+        input_bindings: Mapping[str, object],
+        node_input_hash: str,
+        request_fingerprint: str,
+        idempotency_key: str,
+        max_attempts: int,
+        task_kind: str,
+        priority: int,
+        available_at: datetime,
+        attempt_snapshot_kind: str,
+        attempt_snapshot: Mapping[str, object],
+        transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+    ) -> QueuedTask:
+        request = EnqueueRemoteNodeRequest(
+            project_id=project_id,
+            definition_id=definition_id,
+            definition_version=definition_version,
+            definition_hash=definition_hash,
+            graph=graph,
+            workflow_input_hash=workflow_input_hash,
+            node_key=node_key,
+            node_type=node_type,
+            contract_version=contract_version,
+            input_bindings=input_bindings,
+            node_input_hash=node_input_hash,
+            request_fingerprint=request_fingerprint,
+            idempotency_key=idempotency_key,
+            max_attempts=max_attempts,
+            task_kind=task_kind,
+            priority=priority,
+            available_at=available_at,
+            attempt_snapshot_kind=attempt_snapshot_kind,
+            attempt_snapshot=attempt_snapshot,
+            dispatch_snapshot=dispatch_snapshot,
+        )
+        return enqueue_remote_node(
+            request,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+            transaction_validator=transaction_validator,
+        )
+
+    def enqueue_sub2api_node(
+        self,
+        *,
+        sub2api_scope: Sub2APISourceExtractScopeDraft,
+        project_id: str,
+        definition_id: str,
+        definition_version: int,
+        definition_hash: str,
+        graph: Mapping[str, object],
+        workflow_input_hash: str,
+        node_key: str,
+        node_type: str,
+        contract_version: int,
+        input_bindings: Mapping[str, object],
+        node_input_hash: str,
+        request_fingerprint: str,
+        idempotency_key: str,
+        max_attempts: int,
+        task_kind: str,
+        priority: int,
+        available_at: datetime,
+        attempt_snapshot_kind: str,
+        attempt_snapshot: Mapping[str, object],
+        transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+    ) -> QueuedTask:
+        request = EnqueueRemoteNodeRequest(
+            project_id=project_id, definition_id=definition_id,
+            definition_version=definition_version, definition_hash=definition_hash,
+            graph=graph, workflow_input_hash=workflow_input_hash,
+            node_key=node_key, node_type=node_type,
+            contract_version=contract_version, input_bindings=input_bindings,
+            node_input_hash=node_input_hash, request_fingerprint=request_fingerprint,
+            idempotency_key=idempotency_key, max_attempts=max_attempts,
+            task_kind=task_kind, priority=priority, available_at=available_at,
+            attempt_snapshot_kind=attempt_snapshot_kind,
+            attempt_snapshot=attempt_snapshot, sub2api_scope=sub2api_scope,
+        )
+        return enqueue_sub2api_node(
+            request, connection_factory=self._open, clock=self._clock,
+            id_factory=self._id_factory,
+            transaction_validator=transaction_validator,
+        )
+
+    def claim_ready_task(
+        self,
+        *,
+        worker_id: str,
+        lease_duration: timedelta,
+        task_id: str | None = None,
+        task_kind: str | None = None,
+        _execution_mode: str = "local",
+    ) -> ClaimedTask | None:
+        if _execution_mode not in {"local", "remote"}:
+            raise ValueError("unsupported execution mode")
+        self._validate_lease_request(worker_id, lease_duration)
+        if task_kind is not None and not task_kind.strip():
+            raise ValueError("task kind must not be empty")
+        token = self._lease_token_factory()
+        if not token.strip():
+            raise ValueError("lease token must not be empty")
+
+        connection = self._open()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            now = self._clock()
+            now_text = timestamp(now)
+            expires_text = timestamp(now + lease_duration)
+            task = connection.execute(
+                """
+                UPDATE task_ledger
+                SET status = 'LEASED', lease_owner = ?, lease_token = ?,
+                    lease_generation = lease_generation + 1,
+                    lease_expires_at = ?, heartbeat_at = ?,
+                    revision = revision + 1, updated_at = ?
+                WHERE task_id = (
+                    SELECT ledger.task_id
+                    FROM task_ledger AS ledger
+                    JOIN workflow_attempts AS attempt
+                      ON attempt.attempt_id = ledger.attempt_id
+                    WHERE ledger.status = 'READY' AND ledger.available_at <= ?
+                      AND attempt.execution_mode = ? AND attempt.status = 'READY'
+                      AND (? IS NULL OR ledger.task_id = ?)
+                      AND (? IS NULL OR ledger.task_kind = ?)
+                    ORDER BY ledger.priority DESC, ledger.created_at, ledger.task_id
+                    LIMIT 1
+                ) AND status = 'READY'
+                RETURNING *
+                """,
+                (
+                    worker_id,
+                    token,
+                    expires_text,
+                    now_text,
+                    now_text,
+                    now_text,
+                    _execution_mode,
+                    task_id,
+                    task_id,
+                    task_kind,
+                    task_kind,
+                ),
+            ).fetchone()
+            if task is None:
+                connection.commit()
+                return None
+            attempt = connection.execute(
+                """
+                UPDATE workflow_attempts
+                SET status = 'LEASED', revision = revision + 1, updated_at = ?
+                WHERE attempt_id = ? AND status = 'READY'
+                RETURNING node_run_id, attempt_number, revision
+                """,
+                (now_text, str(task["attempt_id"])),
+            ).fetchone()
+            if attempt is None:
+                raise LeaseLostError("attempt was not ready for the claimed task")
+            node = connection.execute(
+                """
+                UPDATE workflow_node_runs
+                SET status = 'RUNNING', active_attempt_id = ?,
+                    attempt_count = attempt_count + 1,
+                    revision = revision + 1, updated_at = ?
+                WHERE node_run_id = ? AND status = 'PENDING'
+                  AND attempt_count < max_attempts
+                RETURNING workflow_run_id, revision
+                """,
+                (str(task["attempt_id"]), now_text, str(attempt["node_run_id"])),
+            ).fetchone()
+            if node is None:
+                raise LeaseLostError("node was not pending for the claimed attempt")
+            generation = int(task["lease_generation"])
+            self._record_claim_events(
+                connection,
+                task=task,
+                attempt=attempt,
+                worker_id=worker_id,
+                generation=generation,
+                created_at=now_text,
+            )
+            connection.commit()
+            return ClaimedTask(
+                workflow_run_id=str(node["workflow_run_id"]),
+                node_run_id=str(attempt["node_run_id"]),
+                attempt_id=str(task["attempt_id"]),
+                task_id=str(task["task_id"]),
+                task_kind=str(task["task_kind"]),
+                attempt_number=int(attempt["attempt_number"]),
+                lease_owner=worker_id,
+                lease_token=token,
+                lease_generation=generation,
+                lease_expires_at=parse_datetime(expires_text),
+                heartbeat_at=parse_datetime(now_text),
+                task_revision=int(task["revision"]),
+                attempt_revision=int(attempt["revision"]),
+                node_revision=int(node["revision"]),
+            )
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def claim_remote_task(
+        self,
+        *,
+        worker_id: str,
+        lease_duration: timedelta,
+        task_id: str | None = None,
+        task_kind: str | None = None,
+    ) -> ClaimedTask | None:
+        """Claim a remote attempt through the same lease-fenced ledger transaction."""
+        return self.claim_ready_task(
+            worker_id=worker_id,
+            lease_duration=lease_duration,
+            task_id=task_id,
+            task_kind=task_kind,
+            _execution_mode="remote",
+        )
+
+    def heartbeat(
+        self,
+        claim: ClaimedTask,
+        *,
+        lease_duration: timedelta,
+        lock_timeout: timedelta | None = None,
+    ) -> ClaimedTask:
+        self._validate_lease_request(claim.lease_owner, lease_duration)
+        if lock_timeout is not None and lock_timeout <= timedelta(0):
+            raise ValueError("heartbeat lock timeout must be positive")
+        connection = self._open()
+        try:
+            if lock_timeout is not None:
+                timeout_ms = max(1, int(lock_timeout.total_seconds() * 1000))
+                connection.execute(f"PRAGMA busy_timeout = {timeout_ms}")
+            connection.execute("BEGIN IMMEDIATE")
+            now = self._clock()
+            now_text = timestamp(now)
+            expires_text = timestamp(now + lease_duration)
+            row = connection.execute(
+                """
+                UPDATE task_ledger
+                SET heartbeat_at = ?, lease_expires_at = ?,
+                    revision = revision + 1, updated_at = ?
+                WHERE task_id = ? AND status = 'LEASED'
+                  AND lease_owner = ? AND lease_token = ? AND lease_generation = ?
+                  AND revision = ? AND lease_expires_at > ?
+                RETURNING revision
+                """,
+                (
+                    now_text,
+                    expires_text,
+                    now_text,
+                    claim.task_id,
+                    claim.lease_owner,
+                    claim.lease_token,
+                    claim.lease_generation,
+                    claim.task_revision,
+                    now_text,
+                ),
+            ).fetchone()
+            if row is None:
+                raise LeaseLostError("task lease is stale or expired")
+            connection.commit()
+            return replace(
+                claim,
+                lease_expires_at=parse_datetime(expires_text),
+                heartbeat_at=parse_datetime(now_text),
+                task_revision=int(row["revision"]),
+            )
+        except sqlite3.OperationalError as error:
+            connection.rollback()
+            if "locked" in str(error).lower():
+                raise LeaseLostError("heartbeat could not renew before its deadline") from error
+            raise
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def mark_attempt_running(self, claim: ClaimedTask) -> ClaimedTask:
+        connection = self._open()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            now_text = timestamp(self._clock())
+            lease = connection.execute(
+                """
+                SELECT 1 FROM task_ledger
+                WHERE task_id = ? AND status = 'LEASED'
+                  AND lease_owner = ? AND lease_token = ? AND lease_generation = ?
+                  AND revision = ? AND lease_expires_at > ?
+                """,
+                (
+                    claim.task_id,
+                    claim.lease_owner,
+                    claim.lease_token,
+                    claim.lease_generation,
+                    claim.task_revision,
+                    now_text,
+                ),
+            ).fetchone()
+            if lease is None:
+                raise LeaseLostError("task lease is stale or expired")
+            attempt = connection.execute(
+                """
+                UPDATE workflow_attempts
+                SET status = 'RUNNING', started_at = COALESCE(started_at, ?),
+                    revision = revision + 1, updated_at = ?
+                WHERE attempt_id = ? AND status = 'LEASED' AND revision = ?
+                RETURNING revision
+                """,
+                (now_text, now_text, claim.attempt_id, claim.attempt_revision),
+            ).fetchone()
+            if attempt is None:
+                raise LeaseLostError("attempt revision is stale")
+            running_claim = replace(claim, attempt_revision=int(attempt["revision"]))
+            snapshot_row = connection.execute(
+                "SELECT snapshot_kind FROM workflow_attempt_snapshots WHERE attempt_id = ?",
+                (claim.attempt_id,),
+            ).fetchone()
+            if snapshot_row is not None:
+                if str(snapshot_row["snapshot_kind"]) != AGENT_SKILL_SNAPSHOT_KIND:
+                    raise ValueError("unsupported attempt snapshot kind")
+                snapshot = read_agent_skill_snapshot(
+                    connection,
+                    running_claim,
+                    now_text=now_text,
+                )
+                mark_agent_skill_run_running(connection, snapshot, now_text=now_text)
+            append_event(
+                connection,
+                self._id_factory,
+                "attempt",
+                claim.attempt_id,
+                "LEASED",
+                "RUNNING",
+                "attempt.started",
+                now_text,
+                actor_kind="worker",
+                actor_id=claim.lease_owner,
+                lease_generation=claim.lease_generation,
+            )
+            connection.commit()
+            return running_claim
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def read_agent_skill_snapshot(self, claim: ClaimedTask) -> AttemptSnapshotV1:
+        connection = self._open()
+        try:
+            return read_agent_skill_snapshot(
+                connection,
+                claim,
+                now_text=timestamp(self._clock()),
+            )
+        finally:
+            connection.close()
+
+    def complete_local_proposal_task(self, claim: ClaimedTask, *, proposal_id: str) -> str:
+        return complete_local_proposal_task(
+            claim,
+            proposal_id=proposal_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def cancel_local_workflow(
+        self,
+        *,
+        project_id: str,
+        workflow_run_id: str,
+        actor_id: str,
+    ) -> LocalCancellationResult:
+        return cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=workflow_run_id,
+            actor_id=actor_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def cancel_local_proposal_run(
+        self,
+        *,
+        project_id: str,
+        agent_run_id: str,
+        actor_id: str,
+    ) -> LocalCancellationResult:
+        return cancel_local_workflow(
+            project_id=project_id,
+            workflow_run_id=None,
+            agent_run_id=agent_run_id,
+            actor_id=actor_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def recover_expired_local_tasks(
+        self,
+        *,
+        task_kind: str | None = None,
+    ) -> RecoverySummary:
+        if task_kind is not None and not task_kind.strip():
+            raise ValueError("task kind must not be empty")
+        return recover_expired_local_tasks(
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+            task_kind=task_kind,
+        )
+
+    def recover_expired_remote_tasks(
+        self,
+        *,
+        task_kind: str | None = None,
+    ) -> RemoteRecoverySummary:
+        """Requeue only proven pre-dispatch expiries; quarantine all consumed remote leases."""
+        if task_kind is not None and not task_kind.strip():
+            raise ValueError("task kind must not be empty")
+        return recover_expired_remote_tasks(
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+            task_kind=task_kind,
+        )
+
+    def complete_local_task(
+        self,
+        claim: ClaimedTask,
+        *,
+        output_version_id: str,
+    ) -> TaskCompletion:
+        return complete_local_task(
+            claim,
+            output_version_id=output_version_id,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    def fail_local_task(self, claim: ClaimedTask, *, error_code: str) -> None:
+        if not error_code.strip():
+            raise ValueError("error code must not be empty")
+        fail_local_task(
+            claim,
+            error_code=error_code,
+            connection_factory=self._open,
+            clock=self._clock,
+            id_factory=self._id_factory,
+        )
+
+    @staticmethod
+    def _validate_lease_request(worker_id: str, lease_duration: timedelta) -> None:
+        if not worker_id.strip():
+            raise ValueError("worker id must not be empty")
+        if lease_duration <= timedelta(0):
+            raise ValueError("lease duration must be positive")
+
+    def _record_claim_events(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        task: sqlite3.Row,
+        attempt: sqlite3.Row,
+        worker_id: str,
+        generation: int,
+        created_at: str,
+    ) -> None:
+        append_event(
+            connection,
+            self._id_factory,
+            "task",
+            str(task["task_id"]),
+            "READY",
+            "LEASED",
+            "task.claimed",
+            created_at,
+            actor_kind="worker",
+            actor_id=worker_id,
+            lease_generation=generation,
+        )
+        append_event(
+            connection,
+            self._id_factory,
+            "attempt",
+            str(task["attempt_id"]),
+            "READY",
+            "LEASED",
+            "attempt.claimed",
+            created_at,
+            actor_kind="worker",
+            actor_id=worker_id,
+            lease_generation=generation,
+        )
+        append_event(
+            connection,
+            self._id_factory,
+            "node",
+            str(attempt["node_run_id"]),
+            "PENDING",
+            "RUNNING",
+            "node.claimed",
+            created_at,
+            actor_kind="worker",
+            actor_id=worker_id,
+            lease_generation=generation,
+        )

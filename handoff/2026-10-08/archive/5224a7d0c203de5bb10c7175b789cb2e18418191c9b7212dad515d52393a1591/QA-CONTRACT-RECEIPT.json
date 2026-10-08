@@ -1,0 +1,11 @@
+{
+  "invalid_old_prefix_rejected_by_request_and_stored_models": true,
+  "source_hashes": {
+    "contracts.py": "75834E1CF61ED99D27C8B29557B27FCD979A8725583E5535CEB5543851F3C9BC",
+    "sub2api_source_extract_contracts.py": "B86BD3A8EDE0A894FA5F43E285A158F39F83C0167F8ADF82180DD7A0AF8FD761",
+    "sub2api_source_extract_policy.py": "4652EE51D9C01DA86B5DF14AC3871178619FB0C0DA2DAB1D73084D57FF4F4270"
+  },
+  "status": "PASS_PURE_CONTRACT_QA_NO_API_DB_OR_PROVIDER",
+  "task_id_pattern": "^task_[0-9a-f]{32}$",
+  "valid_task_id": "task_11111111111111111111111111111111"
+}

@@ -1,0 +1,76 @@
+{
+  "status": "STATIC_SOURCE_CANDIDATE_NO_C19_SYNC_NO_RUNTIME_QA",
+  "kind": "DEV06_PUBLIC_MEDIA_RIGHTS_PROBE_ASSEMBLY_SOURCE_V2",
+  "base_c19_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "prior_route_package_sha256": "AF85A22DD3B8C521067381B93C969739218C79B32DA2E89445321E55096AF6E0",
+  "author_source_root": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\services\\api\\src\\aijian_api",
+  "files": [
+    {
+      "name": "aijian_api/media_asset_rights_contracts.py",
+      "author_sha256": "E6DA0D812E6E46B51E4EFEC5EF2A5955EE3A054E1865966A2038EB9AF301EDDB",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "E6DA0D812E6E46B51E4EFEC5EF2A5955EE3A054E1865966A2038EB9AF301EDDB",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_store.py",
+      "author_sha256": "86A5F851E71ECCC5D75E7AC66B03D240C3E9CB0B606D56762A682E4C777A9079",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "86A5F851E71ECCC5D75E7AC66B03D240C3E9CB0B606D56762A682E4C777A9079",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_reader.py",
+      "author_sha256": "BF38C626440888D474872C8C7E6093EC96F41B0211A66EAE1870A8B6D52EE676",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "BF38C626440888D474872C8C7E6093EC96F41B0211A66EAE1870A8B6D52EE676",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_routes.py",
+      "author_sha256": "1AE64F94471612CF6C48A326B5A0C2ED1801BF79385BD4174344A16D7FA0B2F0",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "1AE64F94471612CF6C48A326B5A0C2ED1801BF79385BD4174344A16D7FA0B2F0",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_probe_routes.py",
+      "author_sha256": "CE3E6FBEA5418DB3B09A409102D36CC84BC4402733B2FC6179FBB860E0DFAE5B",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "3D43E02E358C6D50BC969B8E3AFC98951187D04454A46F9480C59F99CED3FDBD",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/episode_media_assembly_routes.py",
+      "author_sha256": "04C72BBBD30039A3A641CF4C8386C386B4BBAE61D22DFAA5C8F7D1F45AD4F1EB",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "04C72BBBD30039A3A641CF4C8386C386B4BBAE61D22DFAA5C8F7D1F45AD4F1EB",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/episode_media_assembly_store.py",
+      "author_sha256": "2E18464BAE6D0DC07383A4A15CDC804999F15F73D12B2974BF727089AADCC610",
+      "c19_old_sha256": "ABSENT",
+      "previous_route_package_sha256": "NOT_IN_PREVIOUS_ROUTE_PACKAGE",
+      "ast_parse": "OK"
+    }
+  ],
+  "file_count": 7,
+  "not_in_package": [
+    "aijian_api/main.py",
+    "aijian_api/sidecar.py",
+    "aijian_api/repository.py",
+    "aijian_api/runtime_resources.py"
+  ],
+  "requires": [
+    "DEV01 repository schema >=30, migration QA and explicit repo version",
+    "DEV05 authenticated main.py wiring and pinned toolchain provider/runtime_resources.py",
+    "Longpath 13-source package or its exact superset; assembly store hash is superseded by this package"
+  ],
+  "limits": [
+    "No actual human CLEARED, ASV, video probe, or public assembly positive fixture",
+    "Audio remains BLOCKED_MEDIA_PROBE; fixed QA02 TEST WAV inspection belongs to resolver",
+    "PENDING_REVIEW may remain DRAFT preview under current draft contract; export is NO_EXPORT_CLAIM",
+    "No c19 sync or product execution"
+  ]
+}

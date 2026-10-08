@@ -1,0 +1,34 @@
+{
+  "check": "web-provider-evidence",
+  "passed": true,
+  "browser": "Microsoft Edge Chromium",
+  "connectionCreatedThroughUi": true,
+  "connectionRemovedAfterEvidence": true,
+  "layouts": {
+    "1920x1080": {
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "clientWidth": 1920
+    },
+    "1440x900": {
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    "390x844": {
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "clientWidth": 390
+    }
+  },
+  "rendererConsoleErrors": [],
+  "screenshots": [
+    "provider-settings-1920x1080.png",
+    "provider-settings-1440x900.png",
+    "provider-settings-390x844.png",
+    "project-workspace-1920x1080.png"
+  ]
+}

@@ -1,0 +1,36 @@
+# DEV01 origin_mode / migration 33 isolated candidate
+
+Status: SOURCE_CANDIDATE_ONLY. No migration, import, test, build, provider, Vault or UI run. Author files and core153/core154/B31 evidence were not changed.
+
+## Dependency and numbering gate
+
+Existing author runner is 31. Credential-reference migration 31 is copied byte-identically. Project settings occupies 32 as an UNREGISTERED candidate. Origin mode reserves 33; no applied migration is renumbered and no no-op fills 32.
+
+This packet includes the complete migration-32 DDL, byte-identical B9269DA4A76FB26B7409B235F0779C7FA18B4C6842C3A3C76719AA0049A4EF53. The new runner registration is PROVISIONAL, not permission to upgrade a workspace. DEV03 confirmed migration 32 remains required for full P23 (software-20260924.md:274,572); its DDL can be frozen at the listed SHA. Its service CAS/receipt/bridge/UI consumer closure and compatibility QA are still incomplete. Author repository/main currently contain no project_settings / sequence_timebase consumer. Do not call P23 complete or 32 accepted. If 32 is unstable, keep runner integration blocked and review ordering centrally; the isolated 33 DDL and field contract remain usable for development.
+
+32 performs six statements: add description with empty default; add nullable sequence_timebase_json; create empty settings CAS receipt table; three receipt triggers. Existing names, status, aspect, duration, language, revision and artifact/episode content are not rewritten. No existing settings receipts are synthesized. Consumer compatibility and schema constraints need independent QA, not inference from additive DDL.
+
+33 performs six statements: create replacement table, explicit column copy with old SUB2API -> PUBLIC_HTTPS / other providers -> NULL, drop old table, rename, recreate the two unique indexes. Connection id, display name, base URL, enabled, models, revision, timestamps, credential_ref are copied without change. Existing provider rotation rows/triggers and source-extract/workflow foreign keys must remain intact. Runner uses FK-OFF + legacy_alter_table for 33, checks foreign keys before commit and restores both pragmas afterward, as for 31. Transactions are per migration: 33 failure must retain successful 32, not claim full 31->33 atomic rollback.
+
+## Field contract
+
+origin_mode = PUBLIC_HTTPS | LOCAL_LOOPBACK_HTTP for SUB2API; NULL for other provider kinds. Create and metadata CAS require explicit mode for SUB2API. Missing/invalid mode is rejected at repository boundary. Non-SUB2API cannot carry a mode. Dataclass/get/list expose the field. Mode and URL are written atomically in metadata CAS with revision+1; credential_ref is unchanged. Rotation uses the unchanged expected-revision CAS, so a metadata change prevents applying an old prepared rotation.
+
+LOCAL_LOOPBACK_HTTP SQL accepts exactly http://127.0.0.1:<port> or http://[::1]:<port>, ASCII decimal 1..65535 with no leading zero. It rejects hostnames, localhost, other IPs, IPv6 variants/zone ids, userinfo, escapes, whitespace, path (including slash), query, fragment, omitted/zero/signed/oversize ports. PUBLIC_HTTPS retains migration31's existing SQL shape restriction verbatim and still requires DEV05's public-origin validator for public-IP/DNS checks. SQL does not resolve DNS or enforce redirect policy; DEV05 transport must reject redirects for both modes. Host port 8080 is an existing portproxy and is not a valid local-verification target.
+
+Required DEV05 API: validate_sub2api_origin(base_url, origin_mode=origin_mode). create/edit service and requests must pass origin_mode, replies/list/receipts must preserve it. Readiness does not imply provider approval or connectivity.
+
+## Approval / operation identity audit
+
+Observed original sub2api_source_extract_policy.py:123 hashed only {origin: facts.base_url}; revision was compared separately at121. That is insufficient as an explicit mode binding. DEV05 owns the fix across facts/approval/run/store and transports. New binding should use the shared helper's canonical object {origin, origin_mode, connection_revision}; producer and consumer must agree exactly. Bind mode+canonical URL+revision into request identity and approval scope. Existing approvals/operations keep historical hashes, cannot be rewritten or silently reapproved. Changing mode or URL invalidates an old revision/approval and cannot trigger retry or second submission. Verify unchanged pending identities fail closed. This packet changes only DEV01 storage/runner; it does not claim those DEV05 consumers are integrated.
+
+## Independent QA gates (all NOT_RUN here)
+
+1. Freeze full dependency/import manifest and actual consumer hashes, including new DEV05 validator. Check plaintext consumer identity before execution. Do not compose this delta with repo30/core153 blindly. Retain B31 and original G1 identities separately.
+2. Review/freeze migration32 product contract and consumers first. In isolated disposable fixtures: 31->32 old projects retain every old field/revision and new defaults; receipts empty; project create/read/update consumers remain compatible. Inject failure after each of six statements, assert user_version31, no partial columns/table/triggers, foreign keys and integrity unchanged. Reopen32 executes zero migration steps. Do not infer this from B31 PASS.
+3. 32->33 with all provider kinds, original and rotated credential_ref, source-extract/workflow references, rotation history in each supported status: compare all preexisting values/history/triggers/indexes, verify only mode backfill differs. FK check zero/integrity ok; immutable histories stay protected. Inject failure after every one of six statements, assert restored schema32, exact logical old rows and references, no v33 table/index remnants, restored pragmas. Successful reopen33 executes zero migration steps. Full 30->31->32->33 belongs to a new receipt only after both new gates clear.
+4. Direct SQL INSERT and UPDATE mode/URL cross-product: public/local mismatches, NULL/unknown mode, non-SUB2API mode; exact IPv4/IPv6 ports1,65535 positive; 0,65536,empty,leading zero,negative,plus,whitespace,NUL,percent,userinfo,path,query,fragment,localhost/private/alternateIP negative. Retain old public rejection assertions through service validator and CPA fixed origin.
+5. Repository create/get/list/reopen mode roundtrip; metadata CAS changes mode+URL+revision once and leaves credential_ref; stale CAS changes nothing; rotation prepared at old revision cannot apply after mode change; failed SQL/CAS preserves both values. Verify other providers unchanged. Exercise repeated migration opening, not a second migration application.
+6. DEV05/07/04 contracts+service+desktop+UI integration: explicit local selection, no silent local inference, reply/list/receipt roundtrip, full approval/request hash scope changes and old approval rejection. Fake-only transport redirect rejection; no real Vault/provider call or host8080 use. Consumer failure is not a DB migration PASS.
+
+Static author checks: source/backup SHA equality; file-by-file diff inspected; migration1..31 statements untouched; project32/credential31 copies identical. Python syntax/import/SQLite semantics remain unexecuted for independent QA. No production acceptance claim.

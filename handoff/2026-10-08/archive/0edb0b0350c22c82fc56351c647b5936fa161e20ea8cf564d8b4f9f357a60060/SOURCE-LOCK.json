@@ -1,0 +1,65 @@
+{
+  "schema": "qa02.media-preview.source-lock.v1",
+  "status": "CURRENT_SOURCE_SNAPSHOT_BUILD_NOT_RECEIVED",
+  "checked_utc": "2026-09-28T08:13:41.922721+00:00",
+  "c19_root": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923",
+  "git_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "frozen_author_snapshot": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260928-scene-assets-media-preview-protected-1\\SceneAndAssets.tsx.after",
+  "frozen_author_sha256": "7B9F1842292C101FE5B32E9F0F82A36D6CF5F8AD30FA7A1C7EF22430D9E0C03F",
+  "frozen_old_sha256": "2F405B4E20FEA1AD072B89E7656E569E6D0C65BDC5A3BBDD31ED577DAB7F1B98",
+  "files": [
+    {
+      "role": "scene-and-assets",
+      "relative_path": "apps/studio-web/src/aivora/SceneAndAssets.tsx",
+      "sha256": "7B9F1842292C101FE5B32E9F0F82A36D6CF5F8AD30FA7A1C7EF22430D9E0C03F",
+      "bytes": 33287
+    },
+    {
+      "role": "desktop-api-client",
+      "relative_path": "apps/desktop/src/api-client.ts",
+      "sha256": "D694B1B1C6EF96D55DB941ABF221214634F45065DB07C99207A5C48660E7EA3C",
+      "bytes": 153464
+    },
+    {
+      "role": "desktop-media-ipc",
+      "relative_path": "apps/desktop/src/media-asset-ipc.ts",
+      "sha256": "D0D6AD576850B85365861FE555DAAFCCBB2E1D2A0A7B3924673E27622A07D4CE",
+      "bytes": 5243
+    },
+    {
+      "role": "desktop-preload",
+      "relative_path": "apps/desktop/src/preload.ts",
+      "sha256": "794006467A751EA1AE1F438EAE392BB7CE6082ADAE73C8D601A376EDF81340B1",
+      "bytes": 20724
+    },
+    {
+      "role": "studio-bridge",
+      "relative_path": "apps/studio-web/src/api/studio.ts",
+      "sha256": "7521270E03EF55B649E8B0EA150FE859CB04EADFD7D84C0886FD856FDD378679",
+      "bytes": 52012
+    },
+    {
+      "role": "studio-asset-adapter",
+      "relative_path": "apps/studio-web/src/aivora/adapters/assetLibrary.ts",
+      "sha256": "58A60DD7C0BCC8C344259A3EA8635DC84CFCC1D44088ADCF55F73BFB3B0857BC",
+      "bytes": 8981
+    },
+    {
+      "role": "backend-media-routes",
+      "relative_path": "services/api/src/aijian_api/media_asset_routes.py",
+      "sha256": "931D14F8B3D3069ED89E224C6BF4EBF2EE4CA9CA34DAFC9A6415CD2E1B3B8770",
+      "bytes": 11056
+    },
+    {
+      "role": "backend-media-store",
+      "relative_path": "services/api/src/aijian_api/media_asset_store.py",
+      "sha256": "E2B2002D157DEBA5F2E03F5340AD83BE9B09BE4F5D77E1ACF614D3617A60AF8D",
+      "bytes": 24601
+    }
+  ],
+  "observed_client_sha_before_ready": true,
+  "observed_renderer_blob_revoke_and_project_epoch": true,
+  "mgr04_final_sync_receipt": "PENDING",
+  "post_sync_build_receipt": "PENDING",
+  "native_electron": "NOT_RUN"
+}

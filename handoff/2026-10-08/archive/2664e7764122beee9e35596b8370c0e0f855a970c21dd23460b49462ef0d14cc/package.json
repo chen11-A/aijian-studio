@@ -1,0 +1,26 @@
+{
+  "name": "@aijian/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "types": "./generated.d.ts",
+      "require": "./generated.js",
+      "import": "./generated.js",
+      "default": "./generated.js"
+    },
+    "./artifact-proposal": {
+      "types": "./artifact-proposal.d.ts",
+      "require": "./artifact-proposal.js",
+      "import": "./artifact-proposal.js",
+      "default": "./artifact-proposal.js"
+    },
+    "./invalidation-operation": {
+      "types": "./invalidation-operation.d.ts",
+      "require": "./invalidation-operation.js",
+      "import": "./invalidation-operation.js",
+      "default": "./invalidation-operation.js"
+    }
+  }
+}

@@ -1,0 +1,204 @@
+diff --git "a/C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\studio-web\\src\\aivora\\StoryPages.tsx" "b/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-project-name-c19-overlay-20260928\\StoryPages.tsx"
+index 602f19f..488e127 100644
+--- "a/C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\studio-web\\src\\aivora\\StoryPages.tsx"
++++ "b/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-project-name-c19-overlay-20260928\\StoryPages.tsx"
+@@ -1,11 +1,20 @@
+-import { useEffect, useLayoutEffect, useRef, useState } from "react";
++import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+ import type { ReactNode } from "react";
++import { createStudioTransport } from "../api/studio";
++import type { ProjectData } from "../api/studio";
+ import { art, sourceText } from "./data";
+ import { useDemo } from "./model";
+ import { Button, FlowFooter, PageTitle, Pill } from "./Common";
+ import { SourceExtractionPanel } from "./SourceExtractionPanel";
+ import { Icon } from "./Icon";
+ import { selectProductionSourceStage } from "./adapters/productionSourceStage";
++import {
++  closePendingProjectUpdate,
++  readPendingProjectUpdate,
++  readProjectUpdateJournal,
++  updateManagedProject,
++} from "./adapters/projectManagement";
++import type { ProjectJournalState } from "./adapters/projectManagement";
+ import type { SourceManifestReviewIdentity } from "../api/studio";
+ import type { ProductionBriefCreateCommand } from "../api/studio";
+ import "./v2-story.css";
+@@ -31,6 +40,162 @@ function Card({
+     </section>
+   );
+ }
++
++function ProjectNameEditor({ projectId }: { projectId: string }) {
++  const d = useDemo();
++  const live = useRef(d);
++  live.current = d;
++  const transport = useMemo(createStudioTransport, []);
++  const storage = useMemo(() => {
++    try { return window.localStorage; } catch { return null; }
++  }, []);
++  const project = d.projects.find((item) => item.backendId === projectId);
++  const [draft, setDraft] = useState(project?.name ?? "");
++  const [loadedRevision, setLoadedRevision] = useState(project?.revision ?? null);
++  const [journal, setJournal] = useState<ProjectJournalState>(() => storage
++    ? readProjectUpdateJournal(storage, projectId) : { kind: "BLOCKED" });
++  const [busy, setBusy] = useState(false);
++  const [mustRead, setMustRead] = useState(false);
++  const [notice, setNotice] = useState("");
++  const epoch = useRef(0);
++  const inFlight = useRef(false);
++  const revision = project?.revision;
++  const dirty = !!project && draft !== project.name;
++  useEffect(() => () => { epoch.current += 1; }, []);
++  useEffect(() => {
++    if (project && loadedRevision === null) {
++      setDraft(project.name);
++      setLoadedRevision(project.revision ?? null);
++    }
++  }, [project?.backendId, project?.revision, loadedRevision]);
++
++  function showProject(value: ProjectData) {
++    const current = live.current;
++    if (current.backendProjectId !== value.id) return;
++    const card = current.projects.find((item) => item.backendId === value.id);
++    if (!card || (card.revision ?? 0) > value.revision) return;
++    current.setProjects((old) => old.map((item) =>
++      item.backendId === value.id && (item.revision ?? 0) <= value.revision
++        ? { ...item, name: value.name, revision: value.revision,
++            status: value.status === "archived" ? "已归档" : "进行中",
++            updated: value.updated_at, episode: `REV ${value.revision}` }
++        : item));
++    current.put("title", value.name);
++  }
++
++  async function save() {
++    if (!storage || !transport.updateProject || !project ||
++      !Number.isSafeInteger(revision) || (revision ?? 0) < 1 ||
++      loadedRevision !== revision || !dirty || busy || mustRead ||
++      journal.kind !== "EMPTY" || inFlight.current) return;
++    const name = draft.trim();
++    if (!name || [...name].length > 80 || /[\u0000-\u001f\u007f]/.test(name)) {
++      setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
++      return;
++    }
++    if (name === project.name) { setDraft(name); return; }
++    const request = ++epoch.current;
++    inFlight.current = true;
++    setBusy(true);
++    setNotice("正在保存项目名称并从工作区读回…");
++    const result = await updateManagedProject(transport, storage, projectId, {
++      expectedRevision: revision!, name,
++    });
++    inFlight.current = false;
++    if (epoch.current !== request) return;
++    setBusy(false);
++    setJournal(readProjectUpdateJournal(storage, projectId));
++    if (result.kind === "APPLIED") {
++      showProject(result.project);
++      setDraft(result.project.name);
++      setLoadedRevision(result.project.revision);
++      setNotice("项目名称已保存并从本地工作区读回。");
++    } else if (result.kind === "REJECTED") {
++      if (result.project) showProject(result.project);
++      setMustRead(true);
++      setNotice(`项目更新被拒绝（${result.status} / ${result.code}）；草稿保留，请重新读取。`);
++    } else if (result.kind === "UNKNOWN") {
++      if (result.current) showProject(result.current);
++      setNotice("更新结果未知；原操作已锁定，草稿保留。请只读核对，不能重复提交。");
++    } else if (result.kind === "TRACKED") {
++      setNotice("已有结果待核对的项目更新；未重复提交。");
++    } else setNotice(result.message);
++  }
++
++  async function readCurrent(closePending: boolean) {
++    if (!storage || inFlight.current) return;
++    const request = ++epoch.current;
++    inFlight.current = true;
++    setBusy(true);
++    const pending = readProjectUpdateJournal(storage, projectId);
++    const result = pending.kind === "PENDING"
++      ? closePending
++        ? await closePendingProjectUpdate(transport, storage, projectId)
++        : await readPendingProjectUpdate(transport, storage, projectId)
++      : await (async () => {
++        try {
++          const response = await transport.getProject(projectId);
++          const value = response.data;
++          return value.id === projectId && Number.isSafeInteger(value.revision) &&
++            value.revision > 0 && typeof value.name === "string"
++            ? { kind: "CURRENT" as const, project: value, targetReached: false }
++            : { kind: "UNKNOWN" as const };
++        } catch { return { kind: "UNKNOWN" as const }; }
++      })();
++    inFlight.current = false;
++    if (epoch.current !== request) return;
++    setBusy(false);
++    setJournal(readProjectUpdateJournal(storage, projectId));
++    if (result.kind === "CURRENT") {
++      showProject(result.project);
++      if ((pending.kind === "EMPTY" && !dirty) ||
++          (closePending && result.targetReached)) setDraft(result.project.name);
++      setLoadedRevision(result.project.revision);
++      setMustRead(false);
++      setNotice(pending.kind === "PENDING"
++        ? closePending
++          ? "未知记录已结束；已读当前项目，无法归因原 PATCH。"
++          : "已只读核对当前项目；原更新仍锁定，无法归因。"
++        : dirty ? "已读到最新项目，未保存草稿仍保留；请核对后再提交。"
++          : "已从本地工作区重新读取项目名称。");
++    } else setNotice(result.kind === "UNAVAILABLE"
++      ? result.message : "项目当前状态无法核实，仍阻止提交。");
++  }
++
++  return <div className="v2-source-name">
++    <label>项目名称
++      <input value={draft} disabled={!project || busy || journal.kind !== "EMPTY"}
++        onChange={(event) => setDraft(event.target.value)} />
++    </label>
++    <div className="actions">
++      <Button disabled={!dirty || busy || mustRead || loadedRevision !== revision ||
++        journal.kind !== "EMPTY" ||
++        !transport.updateProject || !storage || !Number.isSafeInteger(revision)}
++        onClick={() => void save()}>保存项目名称</Button>
++      <Button disabled={!dirty || busy} onClick={() => {
++        if (project) setDraft(project.name);
++        setNotice("已取消未保存的项目名称草稿。");
++      }}>取消</Button>
++      <Button disabled={busy || !storage} onClick={() => void readCurrent(false)}>
++        重新读取
++      </Button>
++      {journal.kind === "PENDING" && <Button disabled={busy} onClick={() =>
++        void readCurrent(true)}>核对并结束未知记录</Button>}
++    </div>
++    {!project && <p role="alert">当前项目记录尚未读取，不能修改名称。</p>}
++    {!transport.updateProject &&
++      <p role="alert">当前桌面版本缺少项目更新接口，不能保存名称。</p>}
++    {!storage && <p role="alert">本地更新记录不可用，不能安全提交。</p>}
++    {project && (!Number.isSafeInteger(revision) || (revision ?? 0) < 1) &&
++      <p role="alert">项目修订号不可用，请重新读取项目。</p>}
++    {project && loadedRevision !== revision &&
++      <p role="alert">项目修订已变化，请先重新读取后核对草稿。</p>}
++    {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取，已阻止保存。</p>}
++    {journal.kind === "PENDING" && <p role="alert">已有结果未知的项目更新，不会自动重试。</p>}
++    {notice && <p role="status">{notice}</p>}
++  </div>;
++}
++
+ function formatMicros(amount: number) {
+   const text = String(Math.abs(amount)).padStart(7, "0");
+   const whole = text.slice(0, -6);
+@@ -881,10 +1046,11 @@ export function StoryPages() {
+               accept=".txt,text/plain"
+               onChange={(e) => void importFile(e.target.files?.[0])}
+             />
+-            <label className="v2-source-name">
+-              项目名称
++            {d.isFixture ? <label className="v2-source-name">
++              项目名称（样例）
+               <input value={d.value("title")} onChange={(e) => d.put("title", e.target.value)} />
+-            </label>
++            </label> : d.backendProjectId &&
++              <ProjectNameEditor key={d.backendProjectId} projectId={d.backendProjectId} />}
+             <p className="v2-source-support">
+               外部原文会由本地工作区摄取；原创灵感不创建来源。审核结果未知时不会自动重试。
+             </p>

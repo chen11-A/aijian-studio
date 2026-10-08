@@ -1,0 +1,72 @@
+{
+  "status": "STATIC_REVIEW_CANDIDATE_NO_C19_SYNC_NO_RUNTIME_QA",
+  "kind": "DEV06_PUBLIC_MEDIA_ROUTE_SOURCE_CANDIDATE",
+  "source_snapshot": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260928-a-runtime-42-1",
+  "source_manifest_sha256": "3F0273A3BDD2F94BEB614AD534A3E34A6B5EB098164E61F25D94054BDDEA3415",
+  "base_c19_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "requires_longpath_package_sha256": "32F7AE5865E13731870CB5C8EAE4D0FED335094FBE9B8D04F6D7FEAF165DE9D4",
+  "files": [
+    {
+      "name": "aijian_api/media_asset_rights_contracts.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "E6DA0D812E6E46B51E4EFEC5EF2A5955EE3A054E1865966A2038EB9AF301EDDB",
+      "source_sha256": "E6DA0D812E6E46B51E4EFEC5EF2A5955EE3A054E1865966A2038EB9AF301EDDB",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_store.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "86A5F851E71ECCC5D75E7AC66B03D240C3E9CB0B606D56762A682E4C777A9079",
+      "source_sha256": "86A5F851E71ECCC5D75E7AC66B03D240C3E9CB0B606D56762A682E4C777A9079",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_reader.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "BF38C626440888D474872C8C7E6093EC96F41B0211A66EAE1870A8B6D52EE676",
+      "source_sha256": "BF38C626440888D474872C8C7E6093EC96F41B0211A66EAE1870A8B6D52EE676",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_routes.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "1AE64F94471612CF6C48A326B5A0C2ED1801BF79385BD4174344A16D7FA0B2F0",
+      "source_sha256": "1AE64F94471612CF6C48A326B5A0C2ED1801BF79385BD4174344A16D7FA0B2F0",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/media_asset_probe_routes.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "3D43E02E358C6D50BC969B8E3AFC98951187D04454A46F9480C59F99CED3FDBD",
+      "source_sha256": "3D43E02E358C6D50BC969B8E3AFC98951187D04454A46F9480C59F99CED3FDBD",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    },
+    {
+      "name": "aijian_api/episode_media_assembly_routes.py",
+      "c19_old_sha256": "ABSENT",
+      "candidate_sha256": "04C72BBBD30039A3A641CF4C8386C386B4BBAE61D22DFAA5C8F7D1F45AD4F1EB",
+      "source_sha256": "04C72BBBD30039A3A641CF4C8386C386B4BBAE61D22DFAA5C8F7D1F45AD4F1EB",
+      "source_scope": "DEV06_SOURCE",
+      "ast_parse": "OK"
+    }
+  ],
+  "file_count": 6,
+  "remaining_missing_local_imports": [
+    "aijian_api.runtime_resources"
+  ],
+  "owner_boundary": "DEV05 owns main.py, toolchain provider and runtime_resources.py; DEV01 owns repository.py",
+  "review_gates": [
+    "DEV05 route wiring and authenticated sidecar placement",
+    "DEV05 runtime_resources and pinned toolchain provider",
+    "DEV01 schema26-to30 migration and isolated QA",
+    "MGR02 independent API and persistence QA",
+    "Human per-ASV rights decision and actual selected video probe",
+    "Public assembly audio readiness contract decision"
+  ],
+  "source_snapshot_status": "REVIEW_ONLY_NOT_FROZEN_NOT_SYNCED_NOT_QA"
+}

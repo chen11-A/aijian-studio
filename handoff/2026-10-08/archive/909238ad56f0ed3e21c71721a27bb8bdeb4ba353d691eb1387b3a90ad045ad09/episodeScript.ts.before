@@ -1,0 +1,510 @@
+export type ScriptBlock = {
+  block_id: string;
+  ordinal: number;
+  kind: "ACTION" | "DIALOGUE";
+  text: string;
+  speaker: string | null;
+  delivery: "ON_SCREEN" | "OFF_SCREEN" | null;
+};
+export type ScriptScene = {
+  scene_id: string;
+  ordinal: number;
+  heading: string;
+  blocks: ScriptBlock[];
+};
+export type ScriptContent = {
+  schema_version: "1.0.0";
+  project_id: string;
+  episode_id: string;
+  production_brief_version_id: string | null;
+  story_bible_version_id: string | null;
+  source_extraction_version_id: string | null;
+  source_proposal_acceptance_id: string | null;
+  scenes: ScriptScene[];
+};
+export type ScriptVersion = {
+  version_id: string;
+  project_id: string;
+  episode_id: string;
+  version_number: number;
+  head_revision: number;
+  parent_version_id: string | null;
+  content: ScriptContent;
+  content_hash: string;
+  author_actor_id: string;
+  change_summary: string;
+  created_at: string;
+};
+export type ScriptResponse = { data: ScriptVersion; request_id: string };
+export type ScriptCreatedResponse = {
+  data: { version: ScriptVersion; replayed: boolean };
+  request_id: string;
+};
+export type ScriptWriteCommand = {
+  operation_id: string;
+  payload: {
+    content: ScriptContent;
+    parent_version_id: string | null;
+    expected_revision: number | null;
+    change_summary: string;
+  };
+};
+type DefiniteError = {
+  kind: "DEFINITE_SERVER_ERROR";
+  status: number;
+  code: string;
+  request_id: string;
+};
+export type ScriptGateway = {
+  getEpisodeScript(projectId: string, episodeId: string): Promise<
+    { kind: "FOUND"; receipt: ScriptResponse } | { kind: "EMPTY" } |
+    DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+  getEpisodeScriptVersion(projectId: string, episodeId: string, versionId: string): Promise<
+    { kind: "FOUND"; receipt: ScriptResponse } | DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+  createEpisodeScriptVersion(projectId: string, episodeId: string,
+    idempotencyKey: string, payload: ScriptWriteCommand["payload"]): Promise<
+    { kind: "CREATED"; receipt: ScriptCreatedResponse } | DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+};
+type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type Pending = { project_id: string; episode_id: string; command: ScriptWriteCommand };
+export type ScriptJournal = { kind: "EMPTY" } | { kind: "PENDING"; pending: Pending } |
+  { kind: "BLOCKED" };
+export type ScriptRead = { kind: "FOUND"; version: ScriptVersion } | { kind: "EMPTY" } |
+  { kind: "REJECTED"; status: number; code: string } | { kind: "UNKNOWN" };
+export type ScriptWrite = { kind: "SAVED"; version: ScriptVersion } |
+  { kind: "REJECTED"; status: number; code: string } | { kind: "UNKNOWN" } |
+  { kind: "BLOCKED"; message: string };
+
+const PROJECT = /^prj_[0-9a-f]{32}$/;
+const EPISODE = /^ep_(?:prj_)?[0-9a-f]{32}$/;
+const VERSION = /^ver_[0-9a-f]{32}$/;
+const ACCEPTANCE = /^pda_[0-9a-f]{32}$/;
+const SCENE = /^scn_[0-9a-f]{32}$/;
+const BLOCK = /^sblk_[0-9a-f]{32}$/;
+const HASH = /^sha256:[0-9a-f]{64}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const journalKey = (projectId: string, episodeId: string) =>
+  `aivora.episode-script.pending.v1.${projectId}.${episodeId}`;
+const record = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const positive = (value: unknown) => typeof value === "number" &&
+  Number.isSafeInteger(value) && value > 0;
+
+function validContent(value: unknown, projectId: string, episodeId: string):
+  value is ScriptContent {
+  if (!record(value) || value.schema_version !== "1.0.0" ||
+      value.project_id !== projectId || value.episode_id !== episodeId ||
+      !Array.isArray(value.scenes) || value.scenes.length > 1_000) return false;
+  for (const field of ["production_brief_version_id", "story_bible_version_id",
+    "source_extraction_version_id"] as const) {
+    const fieldValue = value[field];
+    if (fieldValue !== null &&
+        (typeof fieldValue !== "string" || !VERSION.test(fieldValue))) return false;
+  }
+  const acceptance = value.source_proposal_acceptance_id;
+  if (value.source_extraction_version_id === null
+    ? acceptance !== null
+    : typeof acceptance !== "string" || !ACCEPTANCE.test(acceptance)) return false;
+  const ids = new Set<string>();
+  return value.scenes.every((scene, index) => {
+    if (!record(scene) || typeof scene.scene_id !== "string" ||
+        !SCENE.test(scene.scene_id) || ids.has(scene.scene_id) ||
+        scene.ordinal !== index + 1 || typeof scene.heading !== "string" ||
+        !scene.heading.trim() || [...scene.heading].length > 240 ||
+        !Array.isArray(scene.blocks) || scene.blocks.length > 500) return false;
+    ids.add(scene.scene_id);
+    return scene.blocks.every((block, blockIndex) => {
+      if (!record(block) || typeof block.block_id !== "string" ||
+          !BLOCK.test(block.block_id) || ids.has(block.block_id) ||
+          block.ordinal !== blockIndex + 1 ||
+          (block.kind !== "ACTION" && block.kind !== "DIALOGUE") ||
+          typeof block.text !== "string" || !block.text.trim() ||
+          [...block.text].length > 20_000) return false;
+      ids.add(block.block_id);
+      return block.kind === "ACTION"
+        ? block.speaker === null && block.delivery === null
+        : typeof block.speaker === "string" && !!block.speaker.trim() &&
+          [...block.speaker].length <= 120 &&
+          (block.delivery === "ON_SCREEN" || block.delivery === "OFF_SCREEN");
+    });
+  });
+}
+
+export function validScriptVersion(value: unknown, projectId: string, episodeId: string):
+  value is ScriptVersion {
+  if (!record(value) || typeof value.version_id !== "string" ||
+      !VERSION.test(value.version_id) || value.project_id !== projectId ||
+      value.episode_id !== episodeId || !positive(value.version_number) ||
+      !positive(value.head_revision) || typeof value.content_hash !== "string" ||
+      !HASH.test(value.content_hash)) return false;
+  return validContent(value.content, projectId, episodeId);
+}
+
+export async function readLatestScript(
+  gateway: ScriptGateway, projectId: string, episodeId: string,
+): Promise<ScriptRead> {
+  try {
+    const result = await gateway.getEpisodeScript(projectId, episodeId);
+    if (result.kind === "EMPTY") return { kind: "EMPTY" };
+    if (result.kind === "DEFINITE_SERVER_ERROR")
+      return result.status === 404 && result.code === "SCRIPT_NOT_FOUND"
+        ? { kind: "EMPTY" }
+        : { kind: "REJECTED", status: result.status, code: result.code };
+    if (result.kind === "FOUND" &&
+        validScriptVersion(result.receipt.data, projectId, episodeId))
+      return { kind: "FOUND", version: result.receipt.data };
+  } catch { /* An unsettled read does not establish state. */ }
+  return { kind: "UNKNOWN" };
+}
+
+function validPending(value: unknown, projectId: string, episodeId: string): value is Pending {
+  if (!record(value) || value.project_id !== projectId || value.episode_id !== episodeId ||
+      !record(value.command)) return false;
+  const command = value.command;
+  if (typeof command.operation_id !== "string" || !UUID.test(command.operation_id) ||
+      !record(command.payload)) return false;
+  const input = command.payload;
+  return validContent(input.content, projectId, episodeId) &&
+    typeof input.change_summary === "string" && input.change_summary.length > 0 &&
+    (input.parent_version_id === null ||
+      (typeof input.parent_version_id === "string" && VERSION.test(input.parent_version_id))) &&
+    (input.expected_revision === null || positive(input.expected_revision));
+}
+
+export function readScriptJournal(
+  storage: StoragePort, projectId: string, episodeId: string,
+): ScriptJournal {
+  if (!PROJECT.test(projectId) || !EPISODE.test(episodeId)) return { kind: "BLOCKED" };
+  try {
+    const raw = storage.getItem(journalKey(projectId, episodeId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > 2_500_000) return { kind: "BLOCKED" };
+    const parsed: unknown = JSON.parse(raw);
+    return validPending(parsed, projectId, episodeId)
+      ? { kind: "PENDING", pending: parsed } : { kind: "BLOCKED" };
+  } catch { return { kind: "BLOCKED" }; }
+}
+
+function writeJournal(storage: StoragePort, pending: Pending): boolean {
+  try {
+    const raw = JSON.stringify(pending);
+    if (raw.length > 2_500_000) return false;
+    storage.setItem(journalKey(pending.project_id, pending.episode_id), raw);
+    const read = readScriptJournal(storage, pending.project_id, pending.episode_id);
+    return read.kind === "PENDING" && JSON.stringify(read.pending) === raw;
+  } catch { return false; }
+}
+
+export function closeScriptJournal(
+  storage: StoragePort, projectId: string, episodeId: string, operationId: string,
+): boolean {
+  const current = readScriptJournal(storage, projectId, episodeId);
+  if (current.kind !== "PENDING" ||
+      current.pending.command.operation_id !== operationId) return false;
+  try {
+    storage.removeItem(journalKey(projectId, episodeId));
+    return readScriptJournal(storage, projectId, episodeId).kind === "EMPTY";
+  } catch { return false; }
+}
+
+export async function saveScriptVersion(
+  gateway: ScriptGateway, storage: StoragePort, projectId: string, episodeId: string,
+  command: ScriptWriteCommand,
+): Promise<ScriptWrite> {
+  if (!PROJECT.test(projectId) || !EPISODE.test(episodeId) ||
+      !validPending({ project_id: projectId, episode_id: episodeId, command }, projectId, episodeId))
+    return { kind: "BLOCKED", message: "剧本范围或保存身份无效。" };
+  if (readScriptJournal(storage, projectId, episodeId).kind !== "EMPTY")
+    return { kind: "BLOCKED", message: "已有待核对的剧本提交，未重复发送。" };
+  const pending = { project_id: projectId, episode_id: episodeId, command };
+  if (!writeJournal(storage, pending))
+    return { kind: "BLOCKED", message: "无法持久记录提交身份，未发送剧本。" };
+  try {
+    const result = await gateway.createEpisodeScriptVersion(
+      projectId, episodeId, command.operation_id, command.payload);
+    if (result.kind === "DEFINITE_SERVER_ERROR") {
+      if ([401, 403, 409, 413, 422, 428].includes(result.status)) {
+        if (!closeScriptJournal(storage, projectId, episodeId, command.operation_id))
+          return { kind: "UNKNOWN" };
+        return { kind: "REJECTED", status: result.status, code: result.code };
+      }
+      return { kind: "UNKNOWN" };
+    }
+    if (result.kind !== "CREATED" ||
+        !validScriptVersion(result.receipt.data.version, projectId, episodeId))
+      return { kind: "UNKNOWN" };
+    const version = result.receipt.data.version;
+    const exact = await gateway.getEpisodeScriptVersion(projectId, episodeId, version.version_id);
+    if (exact.kind !== "FOUND" ||
+        !validScriptVersion(exact.receipt.data, projectId, episodeId) ||
+        exact.receipt.data.version_id !== version.version_id ||
+        exact.receipt.data.head_revision !== version.head_revision ||
+        exact.receipt.data.content_hash !== version.content_hash ||
+        JSON.stringify(exact.receipt.data.content) !== JSON.stringify(version.content))
+      return { kind: "UNKNOWN" };
+    if (!closeScriptJournal(storage, projectId, episodeId, command.operation_id))
+      return { kind: "UNKNOWN" };
+    return { kind: "SAVED", version: exact.receipt.data };
+  } catch { return { kind: "UNKNOWN" }; }
+}
+
+export function newScriptId(prefix: "scn" | "sblk"): string | null {
+  try { return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`; }
+  catch { return null; }
+}
+
+export type AcceptedSourceBinding = {
+  sourceVersionId: string;
+  acceptanceId: string;
+};
+export type SourceBindingRead = { kind: "BOUND"; binding: AcceptedSourceBinding } |
+  { kind: "UNBOUND" } | { kind: "UNKNOWN" };
+export type SourceBindingGateway = {
+  getSourceExtraction(projectId: string): Promise<
+    { kind: "FOUND"; receipt: { data: {
+      project_id: string;
+      head: { latest_version_id: string };
+      version: { id: string; content_hash: string };
+    } } } | { kind: "NOT_FOUND" | "REMOTE_UNKNOWN" } |
+    { kind: "INCONSISTENT"; request_id: string }
+  >;
+  getSourceProposalAcceptanceForVersion(projectId: string, versionId: string): Promise<
+    { kind: "FOUND"; receipt: { data: {
+      acceptance_id: string;
+      project_id: string;
+      source_extraction_version_id: string;
+      source_extraction_content_hash: string;
+      latest_version_id: string;
+      current: boolean;
+    } } } | { kind: "NOT_FOUND" } | DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+};
+
+export async function readAcceptedSourceBinding(
+  gateway: SourceBindingGateway, projectId: string,
+): Promise<SourceBindingRead> {
+  try {
+    const latest = await gateway.getSourceExtraction(projectId);
+    if (latest.kind === "NOT_FOUND") return { kind: "UNBOUND" };
+    if (latest.kind !== "FOUND" || latest.receipt.data.project_id !== projectId)
+      return { kind: "UNKNOWN" };
+    const source = latest.receipt.data;
+    if (!VERSION.test(source.version.id) || !HASH.test(source.version.content_hash) ||
+        source.head.latest_version_id !== source.version.id) return { kind: "UNKNOWN" };
+    const result = await gateway.getSourceProposalAcceptanceForVersion(projectId, source.version.id);
+    if (result.kind === "NOT_FOUND" ||
+        result.kind === "DEFINITE_SERVER_ERROR" && result.status === 404)
+      return { kind: "UNBOUND" };
+    if (result.kind !== "FOUND") return { kind: "UNKNOWN" };
+    const data = result.receipt.data;
+    if (data.project_id !== projectId || !data.current ||
+        data.source_extraction_version_id !== source.version.id ||
+        data.latest_version_id !== source.version.id ||
+        data.source_extraction_content_hash !== source.version.content_hash ||
+        !ACCEPTANCE.test(data.acceptance_id)) return { kind: "UNKNOWN" };
+    return { kind: "BOUND", binding: {
+      sourceVersionId: source.version.id, acceptanceId: data.acceptance_id,
+    } };
+  } catch { return { kind: "UNKNOWN" }; }
+}
+
+export type ScriptConfirmation = {
+  confirmation_id: string;
+  project_id: string;
+  episode_id: string;
+  artifact_id: string;
+  version_id: string;
+  content_hash: string;
+  head_revision: number;
+  actor_id: string;
+  confirmed_at: string;
+};
+export type ScriptConfirmationStatus = {
+  project_id: string;
+  episode_id: string;
+  latest_version_id: string;
+  latest_head_revision: number;
+  confirmation: ScriptConfirmation | null;
+  current: boolean;
+};
+export type ScriptConfirmationResponse = {
+  data: ScriptConfirmationStatus;
+  request_id: string;
+};
+export type ScriptConfirmationCreatedResponse = {
+  data: { status: ScriptConfirmationStatus; replayed: boolean };
+  request_id: string;
+};
+export type ScriptConfirmationPayload = {
+  version_id: string;
+  expected_content_hash: string;
+  expected_head_revision: number;
+  confirm: true;
+};
+export type ConfirmationGateway = {
+  getEpisodeScriptConfirmation(projectId: string, episodeId: string): Promise<
+    { kind: "FOUND"; receipt: ScriptConfirmationResponse } |
+    DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+  getEpisodeScriptConfirmationReceipt(projectId: string, episodeId: string,
+    confirmationId: string): Promise<
+    { kind: "FOUND"; receipt: ScriptConfirmationResponse } |
+    DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+  createEpisodeScriptConfirmation(projectId: string, episodeId: string,
+    idempotencyKey: string, payload: ScriptConfirmationPayload): Promise<
+    { kind: "CREATED"; receipt: ScriptConfirmationCreatedResponse } |
+    DefiniteError | { kind: "REMOTE_UNKNOWN" }
+  >;
+};
+type PendingConfirmation = {
+  project_id: string;
+  episode_id: string;
+  operation_id: string;
+  payload: ScriptConfirmationPayload;
+};
+export type ConfirmationJournal = { kind: "EMPTY" } |
+  { kind: "PENDING"; pending: PendingConfirmation } | { kind: "BLOCKED" };
+export type ConfirmationRead = { kind: "FOUND"; status: ScriptConfirmationStatus } |
+  { kind: "REJECTED"; status: number; code: string } | { kind: "UNKNOWN" };
+export type ConfirmationWrite = { kind: "CONFIRMED"; status: ScriptConfirmationStatus } |
+  { kind: "REJECTED"; status: number; code: string } |
+  { kind: "UNKNOWN" } | { kind: "BLOCKED"; message: string };
+const CONFIRMATION = /^esc_[0-9a-f]{32}$/;
+const ARTIFACT = /^art_[0-9a-f]{32}$/;
+const confirmationKey = (projectId: string, episodeId: string) =>
+  `aivora.episode-script.confirmation.pending.v1.${projectId}.${episodeId}`;
+
+function validConfirmationStatus(value: unknown, projectId: string, episodeId: string):
+  value is ScriptConfirmationStatus {
+  if (!record(value) || value.project_id !== projectId || value.episode_id !== episodeId ||
+      typeof value.latest_version_id !== "string" || !VERSION.test(value.latest_version_id) ||
+      !positive(value.latest_head_revision) || typeof value.current !== "boolean") return false;
+  const confirmation = value.confirmation;
+  if (confirmation === null) return value.current === false;
+  if (!record(confirmation) || confirmation.project_id !== projectId ||
+      confirmation.episode_id !== episodeId ||
+      typeof confirmation.confirmation_id !== "string" ||
+      !CONFIRMATION.test(confirmation.confirmation_id) ||
+      typeof confirmation.artifact_id !== "string" ||
+      !ARTIFACT.test(confirmation.artifact_id) ||
+      typeof confirmation.version_id !== "string" ||
+      !VERSION.test(confirmation.version_id) ||
+      typeof confirmation.content_hash !== "string" ||
+      !HASH.test(confirmation.content_hash) || !positive(confirmation.head_revision) ||
+      typeof confirmation.actor_id !== "string" || !confirmation.actor_id ||
+      typeof confirmation.confirmed_at !== "string") return false;
+  return !value.current || confirmation.version_id === value.latest_version_id &&
+    confirmation.head_revision === value.latest_head_revision;
+}
+
+export async function readScriptConfirmation(
+  gateway: ConfirmationGateway, projectId: string, episodeId: string,
+): Promise<ConfirmationRead> {
+  try {
+    const result = await gateway.getEpisodeScriptConfirmation(projectId, episodeId);
+    if (result.kind === "DEFINITE_SERVER_ERROR")
+      return { kind: "REJECTED", status: result.status, code: result.code };
+    if (result.kind === "FOUND" &&
+        validConfirmationStatus(result.receipt.data, projectId, episodeId))
+      return { kind: "FOUND", status: result.receipt.data };
+  } catch { /* A failed GET does not establish confirmation state. */ }
+  return { kind: "UNKNOWN" };
+}
+
+function validPendingConfirmation(value: unknown, projectId: string, episodeId: string):
+  value is PendingConfirmation {
+  if (!record(value) || value.project_id !== projectId || value.episode_id !== episodeId ||
+      typeof value.operation_id !== "string" || !UUID.test(value.operation_id) ||
+      !record(value.payload)) return false;
+  const payload = value.payload;
+  return typeof payload.version_id === "string" && VERSION.test(payload.version_id) &&
+    typeof payload.expected_content_hash === "string" &&
+    HASH.test(payload.expected_content_hash) &&
+    positive(payload.expected_head_revision) && payload.confirm === true;
+}
+
+export function readConfirmationJournal(
+  storage: StoragePort, projectId: string, episodeId: string,
+): ConfirmationJournal {
+  if (!PROJECT.test(projectId) || !EPISODE.test(episodeId)) return { kind: "BLOCKED" };
+  try {
+    const raw = storage.getItem(confirmationKey(projectId, episodeId));
+    if (raw === null) return { kind: "EMPTY" };
+    if (raw.length > 2_000) return { kind: "BLOCKED" };
+    const parsed: unknown = JSON.parse(raw);
+    return validPendingConfirmation(parsed, projectId, episodeId)
+      ? { kind: "PENDING", pending: parsed } : { kind: "BLOCKED" };
+  } catch { return { kind: "BLOCKED" }; }
+}
+
+export function closeConfirmationJournal(
+  storage: StoragePort, projectId: string, episodeId: string, operationId: string,
+): boolean {
+  const current = readConfirmationJournal(storage, projectId, episodeId);
+  if (current.kind !== "PENDING" || current.pending.operation_id !== operationId)
+    return false;
+  try {
+    storage.removeItem(confirmationKey(projectId, episodeId));
+    return readConfirmationJournal(storage, projectId, episodeId).kind === "EMPTY";
+  } catch { return false; }
+}
+
+export async function confirmScriptVersion(
+  gateway: ConfirmationGateway, storage: StoragePort, projectId: string, episodeId: string,
+  version: ScriptVersion, operationId: string,
+): Promise<ConfirmationWrite> {
+  const pending: PendingConfirmation = {
+    project_id: projectId, episode_id: episodeId, operation_id: operationId,
+    payload: { version_id: version.version_id, expected_content_hash: version.content_hash,
+      expected_head_revision: version.head_revision, confirm: true },
+  };
+  if (!validPendingConfirmation(pending, projectId, episodeId) ||
+      !validScriptVersion(version, projectId, episodeId))
+    return { kind: "BLOCKED", message: "待确认剧本身份无效。" };
+  if (readConfirmationJournal(storage, projectId, episodeId).kind !== "EMPTY")
+    return { kind: "BLOCKED", message: "已有待核对的确认操作，未重复发送。" };
+  try {
+    const raw = JSON.stringify(pending);
+    storage.setItem(confirmationKey(projectId, episodeId), raw);
+    const persisted = readConfirmationJournal(storage, projectId, episodeId);
+    if (persisted.kind !== "PENDING" || JSON.stringify(persisted.pending) !== raw)
+      return { kind: "BLOCKED", message: "无法持久记录确认身份，未发送。" };
+    const result = await gateway.createEpisodeScriptConfirmation(
+      projectId, episodeId, operationId, pending.payload);
+    if (result.kind === "DEFINITE_SERVER_ERROR") {
+      if ([401, 403, 404, 409, 422, 428].includes(result.status)) {
+        if (!closeConfirmationJournal(storage, projectId, episodeId, operationId))
+          return { kind: "UNKNOWN" };
+        return { kind: "REJECTED", status: result.status, code: result.code };
+      }
+      return { kind: "UNKNOWN" };
+    }
+    if (result.kind !== "CREATED" ||
+        !validConfirmationStatus(result.receipt.data.status, projectId, episodeId))
+      return { kind: "UNKNOWN" };
+    const status = result.receipt.data.status;
+    const confirmed = status.confirmation;
+    const receiptId = confirmed?.confirmation_id;
+    if (!receiptId || confirmed.version_id !== version.version_id ||
+        confirmed.content_hash !== version.content_hash ||
+        confirmed.head_revision !== version.head_revision || !status.current)
+      return { kind: "UNKNOWN" };
+    const exact = await gateway.getEpisodeScriptConfirmationReceipt(
+      projectId, episodeId, receiptId);
+    const exactConfirmed = exact.kind === "FOUND" ? exact.receipt.data.confirmation : null;
+    if (exact.kind !== "FOUND" ||
+        !validConfirmationStatus(exact.receipt.data, projectId, episodeId) ||
+        !exact.receipt.data.current ||
+        !exactConfirmed || exactConfirmed.confirmation_id !== receiptId ||
+        exactConfirmed.version_id !== version.version_id ||
+        exactConfirmed.content_hash !== version.content_hash)
+      return { kind: "UNKNOWN" };
+    if (!closeConfirmationJournal(storage, projectId, episodeId, operationId))
+      return { kind: "UNKNOWN" };
+    return { kind: "CONFIRMED", status: exact.receipt.data };
+  } catch { return { kind: "UNKNOWN" }; }
+}

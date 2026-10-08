@@ -1,0 +1,32 @@
+{
+  "schema": "MGR04_V4_G_ONE_CALL_STATIC_REVIEW_V1",
+  "status": "PASS_OFFLINE_GENERATION_ONLY",
+  "reader_python": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\.venv\\Scripts\\python.exe",
+  "reader_version": "3.12.13",
+  "reader_flags": [
+    "-I",
+    "-B",
+    "-S"
+  ],
+  "review_script_file": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260929-local-sub2api-composition-4\\review-v4-generation.py",
+  "base_stage_review_sha256": "AB8876DC19E2F71B398C33491292D87FFFBA0537A0A83D248710B2F5B61E6FDA",
+  "g_package_sha256": "EEF2F5ED04AA38C142861EF85CBEB15EBF511CD3BC8E01BA71B52298E5ACEF83",
+  "g_result_sha256": "2CAD6E895105B03680E9CD8C6064F8AFAEF8E3DB72859E43A3F563B62743482C",
+  "g_approval_sha256": "B1AA655F2327158DC0E8E1934D792DA178A4FB8E0F4B381A60E8603D08860ADE",
+  "g_claim_sha256": "A92F6A7A06A417775F58C528AAF91EAFF50A9C1C6F8B98A182032CFAD8D28DBA",
+  "stage_regular_files": 14466,
+  "stage_internal_links": 771,
+  "changed_outputs": {
+    "source/packages/contracts/openapi.json": {
+      "sha256": "5DB5480A7CDFC5AADECECD9D9F6835148B289ED32427289250AAAEE3623C8AFE",
+      "bytes": 634396
+    },
+    "source/packages/contracts/src/generated.ts": {
+      "sha256": "DE2B2F58314658A21576AE7E850CB93016A8A419F021E8E294F026FD95EAE8A0",
+      "bytes": 404368
+    }
+  },
+  "mismatch_count": 0,
+  "failures": [],
+  "scope": "Only one offline OpenAPI and TypeScript generation; no migration, API, DB, provider, build, Electron, native or release acceptance"
+}

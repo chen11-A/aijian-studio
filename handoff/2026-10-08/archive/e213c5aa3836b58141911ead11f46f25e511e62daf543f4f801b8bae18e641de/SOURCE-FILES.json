@@ -1,0 +1,812 @@
+{
+  "schema": "qa02.media-longpath-http.r03.source-files.v1",
+  "checked_utc": "2026-09-28T09:42:46.164Z",
+  "c19_root": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923",
+  "git_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "git_status": [
+    " M apps/desktop/src/api-client.ts",
+    " M apps/desktop/src/fake-timeline-run-contract.test.ts",
+    " M apps/desktop/src/fake-timeline-run-contract.ts",
+    " M apps/desktop/src/main.ts",
+    " M apps/desktop/src/preload.ts",
+    " M apps/desktop/src/provider-connection-contract.ts",
+    " M apps/studio-web/index.html",
+    " M apps/studio-web/src/aivora/DemoApp.tsx",
+    " M apps/studio-web/src/aivora/HomePages.tsx",
+    " M apps/studio-web/src/aivora/MediaPages.tsx",
+    " M apps/studio-web/src/aivora/ProviderConnectionForm.tsx",
+    " M apps/studio-web/src/aivora/SceneAndAssets.tsx",
+    " M apps/studio-web/src/aivora/SettingsPage.tsx",
+    " M apps/studio-web/src/aivora/StoryPages.tsx",
+    " M apps/studio-web/src/aivora/UtilityPages.tsx",
+    " M apps/studio-web/src/aivora/model.test.tsx",
+    " M apps/studio-web/src/aivora/model.tsx",
+    " M apps/studio-web/src/aivora/v2-story.css",
+    " M apps/studio-web/src/api/studio.ts",
+    " M apps/studio-web/src/domain/provider-settings-model.ts",
+    " M apps/studio-web/src/domain/use-provider-connection-form.ts",
+    " M apps/studio-web/src/fake-timeline-run-development.ts",
+    " M apps/studio-web/vite.config.ts",
+    " M package.json",
+    " M packages/contracts/openapi.json",
+    " M packages/contracts/src/generated.ts",
+    " M services/api/src/aijian_api/agent_proposal_validator.py",
+    " M services/api/src/aijian_api/agent_skill_builtins.py",
+    " M services/api/src/aijian_api/agent_skill_contracts.py",
+    " M services/api/src/aijian_api/agent_skill_registry.py",
+    " M services/api/src/aijian_api/artifact_proposal_acceptance.py",
+    " M services/api/src/aijian_api/artifact_proposal_review_truth.py",
+    " M services/api/src/aijian_api/artifact_proposal_store.py",
+    " M services/api/src/aijian_api/contracts.py",
+    " M services/api/src/aijian_api/main.py",
+    " M services/api/src/aijian_api/provider_connection_repository.py",
+    " M services/api/src/aijian_api/provider_connections.py",
+    " M services/api/src/aijian_api/provider_contracts.py",
+    " M services/api/src/aijian_api/provider_schema.py",
+    " M services/api/src/aijian_api/repository.py",
+    " M services/api/src/aijian_api/sidecar.py",
+    " M services/api/src/aijian_api/source_extract_run_factory.py",
+    " M services/api/src/aijian_api/task_ledger.py",
+    " M services/api/src/aijian_api/task_ledger_enqueue.py",
+    " M services/api/tests/test_fake_timeline_run_api.py",
+    "?? apps/desktop/src/app-preferences-contract.ts",
+    "?? apps/desktop/src/app-preferences-ipc.ts",
+    "?? apps/desktop/src/development-export-contract.ts",
+    "?? apps/desktop/src/development-export-ipc.ts",
+    "?? apps/desktop/src/media-asset-contract.ts",
+    "?? apps/desktop/src/media-asset-ipc.ts",
+    "?? apps/desktop/src/project-update-contract.ts",
+    "?? apps/desktop/src/remote-source-extract-contract.ts",
+    "?? apps/desktop/src/remote-source-extract-ipc.ts",
+    "?? apps/desktop/src/remote-source-extract-v2-contract.ts",
+    "?? apps/desktop/src/remote-source-extract-v2-ipc.ts",
+    "?? apps/studio-web/src/aivora/DevelopmentExportPanel.tsx",
+    "?? apps/studio-web/src/aivora/DevelopmentMediaPanel.tsx",
+    "?? apps/studio-web/src/aivora/SourceExtractionPanel.tsx",
+    "?? apps/studio-web/src/aivora/adapters/appPreferences.ts",
+    "?? apps/studio-web/src/aivora/adapters/assetLibrary.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentExport.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentFakeTimeline.ts",
+    "?? apps/studio-web/src/aivora/adapters/developmentTimeline.ts",
+    "?? apps/studio-web/src/aivora/adapters/projectManagement.ts",
+    "?? apps/studio-web/src/aivora/adapters/remoteSourceExtract.ts",
+    "?? services/api/src/aijian_api/app_preferences_contracts.py",
+    "?? services/api/src/aijian_api/app_preferences_routes.py",
+    "?? services/api/src/aijian_api/app_preferences_schema.py",
+    "?? services/api/src/aijian_api/app_preferences_store.py",
+    "?? services/api/src/aijian_api/development_timeline_export.py",
+    "?? services/api/src/aijian_api/development_timeline_export_routes.py",
+    "?? services/api/src/aijian_api/episode_script_contracts.py",
+    "?? services/api/src/aijian_api/episode_script_routes.py",
+    "?? services/api/src/aijian_api/episode_script_schema.py",
+    "?? services/api/src/aijian_api/episode_script_store.py",
+    "?? services/api/src/aijian_api/fake_timeline_run_query.py",
+    "?? services/api/src/aijian_api/fake_timeline_run_query_routes.py",
+    "?? services/api/src/aijian_api/managed_local_paths.py",
+    "?? services/api/src/aijian_api/media_asset_contracts.py",
+    "?? services/api/src/aijian_api/media_asset_routes.py",
+    "?? services/api/src/aijian_api/media_asset_schema.py",
+    "?? services/api/src/aijian_api/media_asset_store.py",
+    "?? services/api/src/aijian_api/product_timeline_export.py",
+    "?? services/api/src/aijian_api/product_timeline_export_contracts.py",
+    "?? services/api/src/aijian_api/product_timeline_export_routes.py",
+    "?? services/api/src/aijian_api/project_management.py",
+    "?? services/api/src/aijian_api/project_management_contracts.py",
+    "?? services/api/src/aijian_api/project_management_routes.py",
+    "?? services/api/src/aijian_api/remote_call_accounting.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_contracts.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_query.py",
+    "?? services/api/src/aijian_api/remote_source_extract_operation_routes.py",
+    "?? services/api/src/aijian_api/remote_source_extract_runtime.py",
+    "?? services/api/src/aijian_api/source_extraction_contracts.py",
+    "?? services/api/src/aijian_api/source_extraction_routes.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_contracts.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_invocation.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_policy.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_proposal.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_routes.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_run_factory.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_runtime.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_schema.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_store.py",
+    "?? services/api/src/aijian_api/sub2api_source_extract_worker.py",
+    "?? services/api/src/aijian_api/sub2api_text_transport.py",
+    "?? services/api/tests/test_dev_commands.py",
+    "?? services/api/tests/test_development_timeline_export_api.py"
+  ],
+  "files": [
+    {
+      "path": "services/api/src/aijian_api/__init__.py",
+      "bytes": 56,
+      "sha256": "333A85461A874678AC3C4FA0ABF4AE0F415BAAB2015384C85976E7EE42690D2A"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_context_builder.py",
+      "bytes": 13932,
+      "sha256": "1CE3ED94750FEF71BD499E72A72B4B0E64B3012DCD4B8600622BAA26E28FFE95"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_proposal_validator.py",
+      "bytes": 14136,
+      "sha256": "6D811D6DFD4CD69B6AA8BAF31772F5C1AE7E0979532FBB73E4D40B9AE2D79C66"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_run_store.py",
+      "bytes": 22981,
+      "sha256": "E18BDC6CD8037E266C4ACB3DADED8D316AC2F3917B754BBD4573A6D23318760C"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_skill_builtins.py",
+      "bytes": 9099,
+      "sha256": "2E3B815CE62A6A64E1C01228512F4C9D764BCF7E0A6DEBB6331C8C90042637E4"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_skill_catalog_routes.py",
+      "bytes": 2310,
+      "sha256": "E68384023FA803A991CF29B03FAFB152D90FC924287DC0E7EFD9A1C2FDCD6BFB"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_skill_contracts.py",
+      "bytes": 23331,
+      "sha256": "399344D4DE546FBCCADA7656517EB01E4DFD0BDDE0F2248A189B0A9FA5E8C891"
+    },
+    {
+      "path": "services/api/src/aijian_api/agent_skill_registry.py",
+      "bytes": 8230,
+      "sha256": "AB55500B1541219A7432B3780983B2958D7AA89783AAFC04FCA710C6886DCF60"
+    },
+    {
+      "path": "services/api/src/aijian_api/app_preferences_contracts.py",
+      "bytes": 3301,
+      "sha256": "20D04DA1EBA19DBA6415A3DB1392D4F8A17F2326C3C244241E21461A59833313"
+    },
+    {
+      "path": "services/api/src/aijian_api/app_preferences_routes.py",
+      "bytes": 3429,
+      "sha256": "FFA9E0C73DB2DEB03A405CFCE44C3C5FEBBF71C13EC265A7C749AC1E0FE87E43"
+    },
+    {
+      "path": "services/api/src/aijian_api/app_preferences_schema.py",
+      "bytes": 761,
+      "sha256": "9DC55503D88D26539500D56D3671C29FF6D08CEAF786BE5D21EA7AF4A15DCF69"
+    },
+    {
+      "path": "services/api/src/aijian_api/app_preferences_store.py",
+      "bytes": 5552,
+      "sha256": "3D193ACA7B8567DB36F94E602C67875F856FC408292139A8EA51A78C53DA7719"
+    },
+    {
+      "path": "services/api/src/aijian_api/application_errors.py",
+      "bytes": 554,
+      "sha256": "5221FC1140AA11E95795D2244D49D8DA3F30DC5690754483F78F4CDD43CFA667"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_invalidation_domain.py",
+      "bytes": 14221,
+      "sha256": "509627A8223E508867B2B26C527EC95193856865BE5CFA3DC05D2CE57734ACE3"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_invalidation_ledger.py",
+      "bytes": 38672,
+      "sha256": "9162476F2CFDE2DD5FB1357D61CC444BCC4EDD11601C26B89DD75E672F49BB2C"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_acceptance.py",
+      "bytes": 21364,
+      "sha256": "C3F2C63D898931512B6182B7EFFFCD612478266752557347680542619F8246A5"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_rejection.py",
+      "bytes": 13988,
+      "sha256": "07CAD74FBA5AFF0F79288F48D3037A3C53C0EA371C5B89B42E86AAC9593E9932"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_rejection_input.py",
+      "bytes": 1097,
+      "sha256": "9B49A20ADC67BF7395EA8F92F5881BED78BE6EA4E85C1A90454B444CB6D49278"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_review_truth.py",
+      "bytes": 17265,
+      "sha256": "E79E02929D356AFFD9FB08A862D17612EEBC254866C07F1E1BAF224839AEAFB2"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_routes.py",
+      "bytes": 7054,
+      "sha256": "D56D7B85130D7BBE41DFD1F01D4A34CBD59B1208091609C21E7B0F8A6721C6C8"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifact_proposal_store.py",
+      "bytes": 17474,
+      "sha256": "1605E6A7596334094750FFE83BCBC5287FD1EB76532A7AD9A765F38D4928E9CD"
+    },
+    {
+      "path": "services/api/src/aijian_api/artifacts.py",
+      "bytes": 638,
+      "sha256": "397AB81E1F5D2120D67C67E0E0AC92FD69CB77169FF936EEF6AE29ACE8DFDA74"
+    },
+    {
+      "path": "services/api/src/aijian_api/contracts.py",
+      "bytes": 32763,
+      "sha256": "75834E1CF61ED99D27C8B29557B27FCD979A8725583E5535CEB5543851F3C9BC"
+    },
+    {
+      "path": "services/api/src/aijian_api/credential_vault.py",
+      "bytes": 2623,
+      "sha256": "84E7D0E7F0F6DF3FE8D645BB1E981148CC1A4DD030320416CB4E6571466F6C4E"
+    },
+    {
+      "path": "services/api/src/aijian_api/development_timeline_export.py",
+      "bytes": 26050,
+      "sha256": "A98EBC17ACB5398BA0D552292889094B24135E9806ADA4FC4EC9C1BB6576D4E9"
+    },
+    {
+      "path": "services/api/src/aijian_api/development_timeline_export_routes.py",
+      "bytes": 2564,
+      "sha256": "BF61AA17899CA0A32BBFCDADF868F99D0C7E4A3EED6E7932509B598EAC25CD55"
+    },
+    {
+      "path": "services/api/src/aijian_api/dialogue_annotations.py",
+      "bytes": 4542,
+      "sha256": "366154E7FD3925B6AB0F737DD8CA27E9B692F6C91BF1D8B632643013D10E3DBA"
+    },
+    {
+      "path": "services/api/src/aijian_api/domain.py",
+      "bytes": 8220,
+      "sha256": "235CF98F1E597F48B28DACBD6C781ADF938E37A9D5192451B71CB8497BDA8508"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_contracts.py",
+      "bytes": 3610,
+      "sha256": "03A3615B73C08545F2FC21580FE775BDE448ECA6799EB850204FF2659E5E1009"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_routes.py",
+      "bytes": 4833,
+      "sha256": "564C7C4B3A9F7AECA610B4FD521269907E11ACFEC83A92C1CB149693128633B9"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_schema.py",
+      "bytes": 1266,
+      "sha256": "C3E7A64BA3AE43553331D800A0CDD81544DFE9C74168B9949ACE7A7963AE2720"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_script_contracts.py",
+      "bytes": 7232,
+      "sha256": "0028DB1DB4F2EC9C488E8E58F41BA361EF373E3CFD9617DCD4372C4648E25426"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_script_routes.py",
+      "bytes": 7205,
+      "sha256": "27FBCECDF973F318F4AF747ACBE9061E757252402C2DC9D9C687E8E7934838A8"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_script_schema.py",
+      "bytes": 2570,
+      "sha256": "5D3F5D27777673EB301DD6EDD284E56CDCB767143D01C1D0F9922E8626E8F63A"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_script_store.py",
+      "bytes": 18594,
+      "sha256": "CD58D0B0F7CE6B1CEAB32D233544246B67A14722F84E4FBD8ACB54C4C651A65E"
+    },
+    {
+      "path": "services/api/src/aijian_api/episode_story_contracts.py",
+      "bytes": 6555,
+      "sha256": "C562F2CCDDD1EFBC3A72CF3845EE4AA5CA96F6EF2CE17E58EFEE81CE98920F07"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_agent_executor.py",
+      "bytes": 18297,
+      "sha256": "0002DEAE36DE2BF24B5F98AA5CF2FDA30262FAF2434270A5B41A8E1A9002802A"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_agent_subprocess.py",
+      "bytes": 3151,
+      "sha256": "1C15DAC5F804BD1A97AAA05CD1CDA98AB34B7009220EA65BBC8056EC9580F1E3"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_media_package.py",
+      "bytes": 49894,
+      "sha256": "5AA34B796C4D26CEF6BDEBA878FCD5767C98755C128567956B0E5217A62C18DD"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_provider.py",
+      "bytes": 12158,
+      "sha256": "7D70B9C5C98731AC76C2CE596488F1C78E6951C072EF1757DADB02D07B74885C"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_provider_paths.py",
+      "bytes": 3717,
+      "sha256": "8CEB515EB33A0C259F82335E5C6B4CD96CD3456C6FB36B5616F0DF4942E7C4DC"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_provider_worker.py",
+      "bytes": 13466,
+      "sha256": "56693D680028FD74D871A93F4F5B8501DECA24862EF2631E3ABF39E46330089A"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run.py",
+      "bytes": 30730,
+      "sha256": "15DF6684E108B4603E19695C958CBE257F3E5B37133441FBEAE0377924637641"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run_query.py",
+      "bytes": 9434,
+      "sha256": "F9FB12683B21637BCF680D375C8C82196647FC2BD3A60B4B2155926011709359"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run_query_routes.py",
+      "bytes": 2459,
+      "sha256": "D7B9073882B29CEA622A595AA5274D98E739EF3686FB610A8ACE7A4BA441B4A8"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_run_routes.py",
+      "bytes": 3235,
+      "sha256": "F9965A95CB58CEF8654881BA5D9F7E9FA7155D67976B1CE911D8A6801944875C"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_workflow.py",
+      "bytes": 3956,
+      "sha256": "DE7BB5110D44875A0C393DB2709A08053C4DF6945BE66181B2EC39FA36DE0E5E"
+    },
+    {
+      "path": "services/api/src/aijian_api/fake_timeline_workflow_routes.py",
+      "bytes": 1560,
+      "sha256": "6901FAE109A177148E13C5E95D5077ABDDF9F5E08909373CDDE56724321239F7"
+    },
+    {
+      "path": "services/api/src/aijian_api/fault_injection.py",
+      "bytes": 1375,
+      "sha256": "30651E1FF6C745FD71F6FF41BDB2D4EA3CBDF43EBEABDB7D88CFBD87061D59DB"
+    },
+    {
+      "path": "services/api/src/aijian_api/gate_policy.py",
+      "bytes": 4048,
+      "sha256": "80C6D3F1FF3A6D3112AE7EE3DF19048316D904E4D6601FB37D966E6828E06654"
+    },
+    {
+      "path": "services/api/src/aijian_api/gateway_transport.py",
+      "bytes": 12639,
+      "sha256": "F8E4BC8768F1626B77847336E8EB54948DAAD4A906C55CFA509945FE38F65919"
+    },
+    {
+      "path": "services/api/src/aijian_api/ingestion.py",
+      "bytes": 4196,
+      "sha256": "20D52E00EE6309F1A5E7549ACA138E3E20506267C4A57C585AF5170132515B4C"
+    },
+    {
+      "path": "services/api/src/aijian_api/invalidation_contracts.py",
+      "bytes": 4096,
+      "sha256": "83F1D8EE3DBD1D2EE0C85123EA8E57F07D9F736EA93AA786600B0BA9840BBC22"
+    },
+    {
+      "path": "services/api/src/aijian_api/invalidation_routes.py",
+      "bytes": 7025,
+      "sha256": "4027587206B5D6890DE3D50DB49D5FA02918474559A22F673E9D6B346D579F73"
+    },
+    {
+      "path": "services/api/src/aijian_api/invalidation_schema.py",
+      "bytes": 8922,
+      "sha256": "EECCBCCE4C3D1D399DD06ABD15468FE649A22166D67DCE39D9116853DCD4D348"
+    },
+    {
+      "path": "services/api/src/aijian_api/local_executor.py",
+      "bytes": 2285,
+      "sha256": "099DF732291681042B5E9C729F0D8158089ECF4F23E75123374034EFC65BFB49"
+    },
+    {
+      "path": "services/api/src/aijian_api/main.py",
+      "bytes": 46585,
+      "sha256": "BBC596FDD33BDBD18A2ABEE96524CFDDCDA8A9D11AAFA76FC03FD11232D0900F"
+    },
+    {
+      "path": "services/api/src/aijian_api/managed_local_paths.py",
+      "bytes": 3021,
+      "sha256": "78FCCE4F28FF720F6610AB72EEC2C5C5AB179E7BEB758B980610303B7CA9D7AC"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_asset_contracts.py",
+      "bytes": 2456,
+      "sha256": "B2363B030BF20B17BBFD1BA3127D4B4B2E09F0CBC00D4A9D17A74A39334DF73A"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_asset_routes.py",
+      "bytes": 11056,
+      "sha256": "931D14F8B3D3069ED89E224C6BF4EBF2EE4CA9CA34DAFC9A6415CD2E1B3B8770"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_asset_schema.py",
+      "bytes": 2817,
+      "sha256": "85217B98DC473B177E7DD551AED195D95EB60C263E03E55DCE995495DE104CF2"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_asset_store.py",
+      "bytes": 25604,
+      "sha256": "2954042D87754211526891A5CC3506DD55DCA78CBB349FC44D19D54FDDC105B8"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_contracts.py",
+      "bytes": 9555,
+      "sha256": "04F629B9A4D1BEFF938BD4CF159C8133C9603C0250FB54A1106971357F6545B8"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_probe.py",
+      "bytes": 28082,
+      "sha256": "EF36AF69D830176D34398486F68A06AF670E8FBA2B5D3C049E63D0A90104626D"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_proxy.py",
+      "bytes": 14484,
+      "sha256": "4CCFDB161509F5FF3950177F8F9E41C0BC3C6ECC0DC6C9935F6A212D6416132D"
+    },
+    {
+      "path": "services/api/src/aijian_api/media_toolchain.py",
+      "bytes": 11788,
+      "sha256": "36D791F1B4E47FB8BACE4920F38C0AC5DE99DEA1082ED1633AEB4F6062AEB7AC"
+    },
+    {
+      "path": "services/api/src/aijian_api/product_timeline_export.py",
+      "bytes": 7516,
+      "sha256": "7BC471EF4494897A7C534C55375F274A66CC6E96D806CCF220FF6DED77A2C8D6"
+    },
+    {
+      "path": "services/api/src/aijian_api/product_timeline_export_contracts.py",
+      "bytes": 3654,
+      "sha256": "69B353D5483D9E511526FF47D57741A0B0C8B240216F7AF04D02477CAD7425F0"
+    },
+    {
+      "path": "services/api/src/aijian_api/product_timeline_export_routes.py",
+      "bytes": 1758,
+      "sha256": "95683D41F23925A0E3E47C879D909BD9B46059A1795010C7045F1E744B649D29"
+    },
+    {
+      "path": "services/api/src/aijian_api/production_brief.py",
+      "bytes": 8676,
+      "sha256": "C9C784BD4C85595AA62AE4EF806DF4F5B9BCA32FCC6C8A91E8B2E906FF0897E4"
+    },
+    {
+      "path": "services/api/src/aijian_api/production_brief_routes.py",
+      "bytes": 5708,
+      "sha256": "72B80143F7A14D1F46B0B566555C108A42745220E9D452BE3344A399D0C33D6D"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management.py",
+      "bytes": 2812,
+      "sha256": "270D4B0CB004AA4478191FE029DCE7999F06EAC27863DB71C4C7CF231BA07472"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management_contracts.py",
+      "bytes": 1310,
+      "sha256": "06F70E221669272CFA632C77DDB8C53D644D9B09E770B570E8418C707CB24059"
+    },
+    {
+      "path": "services/api/src/aijian_api/project_management_routes.py",
+      "bytes": 4413,
+      "sha256": "ED572705AE3717C074CF7D4B0F66B6DB39762D377513A9C98E602735F5B21CD4"
+    },
+    {
+      "path": "services/api/src/aijian_api/proposal_run_factory.py",
+      "bytes": 2531,
+      "sha256": "C77C594F0F4703C04DE5488B03A46E65F5F70519C6BD2415BA6F19BF48D5A1CC"
+    },
+    {
+      "path": "services/api/src/aijian_api/proposal_run_routes.py",
+      "bytes": 10193,
+      "sha256": "1FAD6DC08E9329F59B277DCA1E6414201F2661216015F283B8D6A7BDB5511229"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_repository.py",
+      "bytes": 6394,
+      "sha256": "160042982AF088D49384FA928059C5D7F371241F0678BD817A50019CA96A6DE2"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connection_routes.py",
+      "bytes": 4223,
+      "sha256": "F9BD655D91BD1BC1D58C8F06DD0174A592A77E6F91ACEE41714C2E561F1820A2"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_connections.py",
+      "bytes": 3085,
+      "sha256": "7A55A8B6755DFD93E51F03E546FC9F3CDCD151CF6C2C9F734EEBD3A337585127"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_contracts.py",
+      "bytes": 7219,
+      "sha256": "045985B9E227DFEDBE26601669BD6410EF8C6D81F7A99E1E6A961861DC4D4762"
+    },
+    {
+      "path": "services/api/src/aijian_api/provider_schema.py",
+      "bytes": 4638,
+      "sha256": "B73AE4DCE744B517001BFA416E86C0ACBE3DC83264B88E149ECA8735B507D143"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_call_accounting.py",
+      "bytes": 11800,
+      "sha256": "446D7B10AACD172649AF5CF73E4FD70BFCD15D423050D9AC05783B9020812660"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_execution_authorization.py",
+      "bytes": 72932,
+      "sha256": "65B61C5E6CC6B89DF993CD0F49B34E7BA632331DE9364A3E77BAA5D8EB84A7C9"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_execution_evidence_contracts.py",
+      "bytes": 9045,
+      "sha256": "69C018D1332481A5CCB6C721679E34417AC70E1CB5D04C96E658312FA4A692D5"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_execution_evidence_verifier.py",
+      "bytes": 7517,
+      "sha256": "7DAEA3584D96EAECD2E56696127196A0DB2E0ACB35E230157794F2DEDAAE12B6"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_settlement_contracts.py",
+      "bytes": 6696,
+      "sha256": "3EBC7C2BF908681645100B7B6119463522B7736AA8D9C9672E92F9909C6C99CC"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_contracts.py",
+      "bytes": 3001,
+      "sha256": "78873B347892E471DBB31BFCE889B5FE1C32E2F589FBBE2E3639F72453D95443"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_query.py",
+      "bytes": 14186,
+      "sha256": "54921D9AD9F97AFCAB8A7CAE8C15E61B7C6D347567869062474139B2BA59DB64"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_operation_routes.py",
+      "bytes": 3571,
+      "sha256": "F0A1994504BD3988C638DB376087FFF684200C0975DED87AA42E452AC0AD3815"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_runtime.py",
+      "bytes": 9245,
+      "sha256": "B5991ED8E8EFE2E5E9318256C60C4CD3EE65E0D438FDCFA73F7C9753C28166DD"
+    },
+    {
+      "path": "services/api/src/aijian_api/remote_source_extract_worker.py",
+      "bytes": 21889,
+      "sha256": "EBA6F0A91A0A66A87BE9D1DAF07B545C3CC9252D2C02517798DA4084598238A1"
+    },
+    {
+      "path": "services/api/src/aijian_api/repository.py",
+      "bytes": 154845,
+      "sha256": "BB366B214157007E2CB906EEADDC895E1ED60AE95DC97D86BEE686F137710E69"
+    },
+    {
+      "path": "services/api/src/aijian_api/security.py",
+      "bytes": 1872,
+      "sha256": "889080BB557CFB9F6C5BD321451400F918FA2986B7261503352CB99853BC1148"
+    },
+    {
+      "path": "services/api/src/aijian_api/shot_outline_contracts.py",
+      "bytes": 5879,
+      "sha256": "353F1641F3CB9C3FAD94E9FB9EB2B276EB7D92E1AA30289781A9839C1865F992"
+    },
+    {
+      "path": "services/api/src/aijian_api/shot_outline_run_factory.py",
+      "bytes": 14181,
+      "sha256": "293436A395FE9FBD074722CD3EF8EFCF5268A1493F4EC6392A52814F49222332"
+    },
+    {
+      "path": "services/api/src/aijian_api/shot_outline_worker.py",
+      "bytes": 16642,
+      "sha256": "A3DB2AACE247F7113C920929053003899EC36A7DE83F4638E075CA1888D3E66F"
+    },
+    {
+      "path": "services/api/src/aijian_api/sidecar.py",
+      "bytes": 11592,
+      "sha256": "788E3942BC061D8AC48CDD950D6663DB7C72BDBA86C372FF677260C63C764E1C"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extract_run_factory.py",
+      "bytes": 32649,
+      "sha256": "3600C566A8EA817B0897E14E2F738778DEC0BCB91C525B90F9B1433401E9A777"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extract_worker.py",
+      "bytes": 23995,
+      "sha256": "850D7B840CC0D3C0EC171505D7A6CC310C4BB343142C95C9F81AA991D2378F59"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extraction_contracts.py",
+      "bytes": 2753,
+      "sha256": "BE5C5A4B70F7160DE39FAE2948F71397A799C6334DC993D3C20ADD8EAEA9E7CF"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_extraction_routes.py",
+      "bytes": 15836,
+      "sha256": "8F74ABB43723D14152E35993A486747472C54F8F3B40BF22A1BDCF9D254FB78C"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_manifest.py",
+      "bytes": 2781,
+      "sha256": "956D9694861A7073D22DDAF326D12BA319D90F1AC25667412437A3D7608C1500"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_manifest_routes.py",
+      "bytes": 15896,
+      "sha256": "C3DEAA562A81A8244E4EB0AF927BA566FA703B17938E9F069D74C04CAE87EE09"
+    },
+    {
+      "path": "services/api/src/aijian_api/source_text_contracts.py",
+      "bytes": 630,
+      "sha256": "A28711C2735AF0F8A2C564FB37E5F664212BB0FDADDA443C41353C4D07D1971E"
+    },
+    {
+      "path": "services/api/src/aijian_api/story_bible.py",
+      "bytes": 31747,
+      "sha256": "8B4CD9B0BF779C5B50873AD4A87D3934B5431DC2D63339966B5C674876089FD5"
+    },
+    {
+      "path": "services/api/src/aijian_api/story_bible_drafts.py",
+      "bytes": 13166,
+      "sha256": "AAD208FE5F9889A3B40BE6C28023F471445C8BA240022FBB18B296E109C9C61E"
+    },
+    {
+      "path": "services/api/src/aijian_api/story_bible_routes.py",
+      "bytes": 13742,
+      "sha256": "E50BE75909AC5469484EBF03E993532404D7D5597CA096CEAA52A915CFB36F3C"
+    },
+    {
+      "path": "services/api/src/aijian_api/story_bible_validation.py",
+      "bytes": 4520,
+      "sha256": "F83361BFAE760C47C5B2F4FE86082EC77454316D46D624DCC555893FC0C0BA58"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_contracts.py",
+      "bytes": 5732,
+      "sha256": "5A187B55B06FF03C2DFAAD795FD475B358C4C57036A6943B2D82C10D69584413"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_invocation.py",
+      "bytes": 7653,
+      "sha256": "0BEFB3DC9BDE81B8C2CA3DDB46EE99D18E90A31F92C53D252BED16132A7EA1F2"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_policy.py",
+      "bytes": 4787,
+      "sha256": "07A2C0887DE561FBE8076E5BF69A71BE1D58CCAB11642344D3DCAFAAED784423"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_proposal.py",
+      "bytes": 4690,
+      "sha256": "EF2F3139F2076DDD53F55CDFB2482F53E101DA605C3874608811171FC64EAC55"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_routes.py",
+      "bytes": 11398,
+      "sha256": "BE46ECA515EE944554D1DBE8C11F0944C6A68A2A9C4FAA5D737C8ACE9C67D259"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_run_factory.py",
+      "bytes": 20025,
+      "sha256": "A507921159327CD413178DE5B553B51F2A0C3EFA1EF7074BF5E3F31E1733E00C"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_runtime.py",
+      "bytes": 7187,
+      "sha256": "D69D963B63BBB1F3E59208511F9879604AB3B314CB14F6198E68269730D63917"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_schema.py",
+      "bytes": 5860,
+      "sha256": "EF54374B348774ED6FE0D369EE59B3418C1085911F5F80F014C6A57FA5566100"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_store.py",
+      "bytes": 56869,
+      "sha256": "1743B148B38CEB26DDF3A0630CEDA05A61DADDFF5BF4EA4A933022B144DAAFFA"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_source_extract_worker.py",
+      "bytes": 9517,
+      "sha256": "D94A6CBA4ABC7D98B4A967FFFB1E8EA1B40FB7B6CEB5D1443E43AC33029399FC"
+    },
+    {
+      "path": "services/api/src/aijian_api/sub2api_text_transport.py",
+      "bytes": 13163,
+      "sha256": "22722588A013B5A0B1C11A2D8D83792A68D264E0453CFF7B73A20750550BF385"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger.py",
+      "bytes": 24261,
+      "sha256": "3FE555401AE09A1E7A27114955E377E2E9C818EC84259D1ECB7F199935B1EAAA"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_agent_runs.py",
+      "bytes": 6467,
+      "sha256": "CDDA14031BD1B5B834D37A3DC0790249253377347D37D29C7EC0138331C341EA"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_cancellation.py",
+      "bytes": 13031,
+      "sha256": "5ED3C71991F4F8985C7ECF2E475B9A21DEC0245F8ABC3686A69470B0C6F0F1F1"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_completion.py",
+      "bytes": 6047,
+      "sha256": "6534670F1422BAA59D863399821A6A9DC5069BF23730E630485BCDA9A054F2F6"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_enqueue.py",
+      "bytes": 21745,
+      "sha256": "B5DAEEBCC19701211AF289200CFF46E420137BAE4F2EA42039A5FEAFCABAD8C8"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_events.py",
+      "bytes": 1360,
+      "sha256": "9EE8346695C72177168D675BDA81209BACACBA645CDEC8E58D68BC99CD5F32DF"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_failure.py",
+      "bytes": 3555,
+      "sha256": "719C8F991877D08DB1CC41AABE2ED9C6FBFF81DC7C3D461D203E69CDDB344105"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_models.py",
+      "bytes": 1785,
+      "sha256": "FFFA34375CBB491F111725AC330E848CF62130D12299F19C69103E2C7AA4776E"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_proposal_completion.py",
+      "bytes": 4842,
+      "sha256": "AB0383A2880577B53BBCD62DA628F957885FB4985B46CA04D0BECBE357CD991D"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_recovery.py",
+      "bytes": 26096,
+      "sha256": "955C616DC8F18268770548E35971EF7EDDA9ACC090A645D7FEBE60DE9A525C10"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_ledger_snapshots.py",
+      "bytes": 9047,
+      "sha256": "55C7905D4BC5FE143A0763291C673D9942766DE5A21C7C050CCB6C2E864C97A8"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_queue_presentation.py",
+      "bytes": 1666,
+      "sha256": "D00887860EE580EFB18081261A0D7C5AB1BA5B8F12933DABDD21786E79813292"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_queue_read.py",
+      "bytes": 9020,
+      "sha256": "8C85FD4D3DDEF157F6E541A9F8DA58BCB2B2AA3E400B00E4A7BF04427F383C95"
+    },
+    {
+      "path": "services/api/src/aijian_api/task_queue_routes.py",
+      "bytes": 4295,
+      "sha256": "66F0FB69ECE674357B441C9142F23FE797317A0C31AAEAA02D43502CD315BA08"
+    },
+    {
+      "path": "services/api/src/aijian_api/timeline.py",
+      "bytes": 11253,
+      "sha256": "FB0DAC27F461FB83A5CDE17F400592B663192CD9BF7747AD3B0DC25E0F756024"
+    },
+    {
+      "path": "services/api/src/aijian_api/timeline_export.py",
+      "bytes": 27514,
+      "sha256": "EDDEDFE1AA06C69678C5666E9D93E83266B0EA8B9112B703A65B7B6D01BAF8FA"
+    },
+    {
+      "path": "services/api/src/aijian_api/timeline_routes.py",
+      "bytes": 8388,
+      "sha256": "A77D578A2F0E209EAF3C4B7488D4213C2B6E37F14FFF050B349F27B23344A9BD"
+    },
+    {
+      "path": "services/api/src/aijian_api/workflow_schema.py",
+      "bytes": 44652,
+      "sha256": "46B8C6361E719B7B8C93D4E21FB1A0ABEC699ADBEA55C04B38946BF3DE69095B"
+    },
+    {
+      "path": "services/api/src/aijian_api/workflow_tasks.py",
+      "bytes": 15301,
+      "sha256": "F9F50DD5A93AD94FEC57D58ECA122602FBF2F40715F283CD3C29BBC4E666246B"
+    }
+  ],
+  "count": 138
+}

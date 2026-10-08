@@ -1,7 +1,11 @@
+param(
+    [switch]$IncludeUpstreams
+)
+
 $ErrorActionPreference = "Stop"
 
 $workspacePath = Split-Path -Parent $PSScriptRoot
-$env:Path = "$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:USERPROFILE\.local\bin;$env:Path"
+$env:Path = "$env:APPDATA\Python\Python312\Scripts;$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:USERPROFILE\.local\bin;$env:Path"
 
 function Assert-Command {
     param(
@@ -21,10 +25,12 @@ function Assert-Command {
 Assert-Command -Name "git" -VersionArguments @("--version")
 Assert-Command -Name "node" -VersionArguments @("--version")
 Assert-Command -Name "npm" -VersionArguments @("--version")
+Assert-Command -Name "pnpm" -VersionArguments @("--version")
 Assert-Command -Name "uv" -VersionArguments @("--version")
 Assert-Command -Name "ffmpeg" -VersionArguments @("-version")
 Assert-Command -Name "ffprobe" -VersionArguments @("-version")
 
+if ($IncludeUpstreams) {
 $repositories = @(
     @{ Name = "lumenx"; Commit = "7a1213a0db73ab90ca976f5c4b4ca680e1ae1d2d"; Artifact = "frontend\.next" },
     @{ Name = "wind-comic"; Commit = "b669de64f871f5a96f50d4c7afca341662e13683"; Artifact = ".next" },
@@ -66,5 +72,8 @@ Write-Host "[OK] LumenX Python imports"
 & $vimaxPython -c "import cv2, faiss, langchain, openai"
 if ($LASTEXITCODE -ne 0) { throw "ViMax Python import check failed." }
 Write-Host "[OK] ViMax Python imports"
+} else {
+    Write-Host "[SKIP] Upstream research repositories (use -IncludeUpstreams to verify them)."
+}
 
 Write-Host "Environment verification passed. API credentials are intentionally not checked."

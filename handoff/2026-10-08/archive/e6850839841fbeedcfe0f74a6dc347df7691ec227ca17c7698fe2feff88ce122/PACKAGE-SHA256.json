@@ -1,0 +1,35 @@
+{
+  "status": "ENVELOPE_APPROVED_WAITING_EXTERNAL_ONE_SHOT",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 2320,
+      "sha256": "461FCA07443DB7EC4E6A529EC6742144E92C8B0D3230D6D5AF3E7D50C99856B4"
+    },
+    {
+      "name": "stage-a-envelope.json",
+      "bytes": 4089,
+      "sha256": "889F23BC9D0ACB934FB37A70B431A5E9BE051EA35629CF327A5DEED700F4B6DA"
+    },
+    {
+      "name": "stage-a-once.py",
+      "bytes": 20197,
+      "sha256": "0F13703C1562EFCEC820A0FBFB6314749C4D82907F34B34FB467A05CF238956A"
+    },
+    {
+      "name": "invoke-stage-a-once.py",
+      "bytes": 10866,
+      "sha256": "F3B19E6030DB383C85C240FE43CF8A5C124B1406384BEA9E9682D004238E1337"
+    },
+    {
+      "name": "approval-template.json",
+      "bytes": 1438,
+      "sha256": "87B94A5C64623FDD69EB0ED03BEE23CBDED1116739719AA0A60982141D441240"
+    },
+    {
+      "name": "STATIC-PREFLIGHT.json",
+      "bytes": 1455,
+      "sha256": "BB3C0E1707415043327588BF1C5FDD4F39743E68D9BE9339F732F5E310F7F43F"
+    }
+  ]
+}

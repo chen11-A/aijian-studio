@@ -1,0 +1,19 @@
+{
+  "kind": "QA01_DEV05_R2_LONGPATH_LOCK_PRIMITIVE_PREPARED",
+  "status": "PREPARED_NOT_APPROVED_NOT_RUN",
+  "snapshot_sha256": "EA1B95BD109173C812967E3F7A59F272CACDA8C31DFDAD557D41ECC2ECE8E24E",
+  "python_consumer_source_sha256": "103ED055A19839179977C6792E58619E71ADF724037560106837DCA9B798D427",
+  "powershell_raw_source_sha256": "01CE52C9D06B827A2F1127179CFADEEED798ACECA5C94F85E163C37F1855610C",
+  "files": [
+    {"name": "lock_r2_inner.py", "bytes": 11685, "sha256": "59EE3DAD4702F39636992A3E22925296CB048B9B211164823C8E94549553494E"},
+    {"name": "launch_lock_r2_once.py", "bytes": 6395, "sha256": "36017BFAB98462E29DF11AF75A4A08188ED555BB4836035CBDE0284D2A87E96F"},
+    {"name": "APPROVAL-REQUEST.json", "bytes": 1305, "sha256": "7259F7F14DB713E8BB78859B5D19076ABCF2A03DEB022B48279425B9CC11BEA7"},
+    {"name": "QA-PACKET.md", "bytes": 4249, "sha256": "7FD21F6170F6E6A4AF345E74678749E8E0181FCC994DD54485A3216CBD64DE1E"}
+  ],
+  "run_directory_exists": false,
+  "mgr02_approval_exists": false,
+  "c19_workspace_owner_lock_exists": false,
+  "planned_owner_path_length": 199,
+  "planned_database_path_length": 227,
+  "planned_lock_path_length": 287
+}

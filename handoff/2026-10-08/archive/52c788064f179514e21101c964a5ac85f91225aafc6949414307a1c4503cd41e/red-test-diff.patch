@@ -1,0 +1,73 @@
+diff --git a/apps/studio-web/src/aivora/model.test.tsx b/apps/studio-web/src/aivora/model.test.tsx
+index 9fe4c01..4bc8e22 100644
+--- a/apps/studio-web/src/aivora/model.test.tsx
++++ b/apps/studio-web/src/aivora/model.test.tsx
+@@ -1017,6 +1017,68 @@ describe("source baseline confirmation", () => {
+     completed_actions: ["decision"],
+     receipts: [],
+   });
++  it("retains the reviewed manifest when navigation expires the post-submit source refresh", async () => {
++    const review = reviewManifest();
++    const draft = {
++      ...review,
++      data: {
++        ...review.data,
++        head: {
++          ...review.data.head,
++          review_version_id: null,
++          review_submission_id: null,
++          revision: 1,
++        },
++        review_version: null,
++      },
++    };
++    let resolveExpiredRefresh!: (value: typeof draft) => void;
++    const expiredRefresh = new Promise<typeof draft>((resolve) => {
++      resolveExpiredRefresh = resolve;
++    });
++    const getSourceManifest = vi
++      .fn()
++      .mockResolvedValueOnce(draft)
++      .mockResolvedValueOnce(draft)
++      .mockImplementationOnce(() => expiredRefresh)
++      .mockResolvedValueOnce(review);
++    const submit = vi.fn().mockResolvedValue({ kind: "SUCCEEDED" });
++    const confirm = vi.fn();
++    await mountDemo(
++      productionBriefBridge({
++        getSourceManifest,
++        submitSourceManifest: submit,
++        confirmSourceManifestBaseline: confirm,
++        copySourceManifestDraft: vi.fn(),
++      }),
++    );
++    await act(async () => {
++      demo!.go("source");
++      await demo!.refreshRealSourceStage();
++    });
++    expect(demo!.sourceManifest?.data.head.revision).toBe(1);
++
++    let submitted = false;
++    await act(async () => {
++      submitted = await demo!.reviewRealSource();
++      if (submitted) demo!.go("story");
++      await demo!.readRealStoryWorkspace();
++    });
++    expect(submitted).toBe(true);
++    expect(submit).toHaveBeenCalledTimes(1);
++    expect(getSourceManifest).toHaveBeenCalledTimes(4);
++    await act(async () => {
++      resolveExpiredRefresh(draft);
++      await expiredRefresh;
++    });
++    expect(demo!.sourceStage).toMatchObject({ kind: "review" });
++    await act(async () => {
++      demo!.go("source");
++    });
++    expect(demo!.sourceManifest?.data.head.review_version_id).toBe(review.data.latest_version.id);
++    expect(demo!.sourceManifest?.data.head.revision).toBe(2);
++    expect(confirm).not.toHaveBeenCalled();
++  });
+   it("does not dispatch confirmation for a captured review target replaced before confirm", async () => {
+     const oldVersion = "ver_" + "1".repeat(32);
+     const newVersion = "ver_" + "2".repeat(32);

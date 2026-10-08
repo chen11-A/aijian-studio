@@ -1,0 +1,30 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\UtilityPages.tsx.before" "b/apps\\studio-web\\src\\aivora\\UtilityPages.tsx"
+index 330d008..f6b0195 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\UtilityPages.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\UtilityPages.tsx"
+@@ -3,6 +3,7 @@ import { Button, FlowFooter } from "./Common";
+ import { Icon } from "./Icon";
+ import { SettingsPage } from "./SettingsPage";
+ import { ProviderConnectionForm } from "./ProviderConnectionForm";
++import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
+ import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
+ import "./provider-connection-form.css";
+ import avatar from "./assets/v2/avatar.png";
+@@ -79,6 +80,7 @@ function Services() {
+             </div>
+             {state.kind === "ready" && <b>{state.response.data.length}</b>}
+           </header>
++          {settings.saveError && <p role="alert">{settings.saveError}</p>}
+           {state.kind === "loading" && <div role="status">正在读取安全配置…</div>}
+           {state.kind === "error" && (
+             <div role="alert">
+@@ -127,6 +129,9 @@ function Services() {
+                     ))
+                   )}
+                 </div>
++                {connection.provider_kind === "SUB2API" &&
++                  <Sub2APIConnectionManagement connection={connection}
++                    onReload={settings.load} />}
+                 {settings.confirmingId === connection.id ? (
+                   <div role="alert">
+                     <span>同时移除系统凭据？</span>

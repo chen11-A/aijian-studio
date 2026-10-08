@@ -1,0 +1,50 @@
+diff --git a/work/dev05-workspace-lock-longpath-backup-20260928/workspace_owner_lock.py b/services/api/src/aijian_api/workspace_owner_lock.py
+index 6a1f701..7c6a7db 100644
+--- a/work/dev05-workspace-lock-longpath-backup-20260928/workspace_owner_lock.py
++++ b/services/api/src/aijian_api/workspace_owner_lock.py
+@@ -71,6 +71,16 @@ def _identity_and_lock_path(database_path: Path) -> tuple[str, Path]:
+     return identity, owner_root / f".aivora-workspace-{digest}.lock"
+ 
+ 
++def _lock_io_path(lock_path: Path) -> Path:
++    """Use Win32's extended local path only for long lock-file I/O."""
++
++    if os.name != "nt" or len(str(lock_path)) < 260:
++        return lock_path
++    # The validated database path is local, absolute, and has no parent traversal.
++    # Keep its canonical identity unchanged; this prefix only reaches the lock file.
++    return Path("\\\\?\\" + str(lock_path))
++
++
+ def _lock_file(fd: int) -> None:
+     if os.name == "nt":
+         import msvcrt
+@@ -135,23 +145,24 @@ def acquire_workspace_owner_lock(database_path: Path) -> WorkspaceOwnerLock:
+     """Fail immediately when another process owns this exact database path."""
+ 
+     identity, lock_path = _identity_and_lock_path(database_path)
++    io_lock_path = _lock_io_path(lock_path)
+     with _ACTIVE_GUARD:
+         if identity in _ACTIVE_IDENTITIES:
+             raise WorkspaceLockBusyError("Workspace is already owned in this process")
+         _ACTIVE_IDENTITIES.add(identity)
+     fd: int | None = None
+     try:
+-        if os.path.lexists(lock_path) and _is_link_or_junction(lock_path):
++        if os.path.lexists(io_lock_path) and _is_link_or_junction(io_lock_path):
+             raise WorkspaceLockUnsafePathError("Workspace lock path is a link or junction")
+         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_BINARY", 0)
+-        fd = os.open(lock_path, flags, 0o600)
++        fd = os.open(io_lock_path, flags, 0o600)
+         os.set_inheritable(fd, False)
+         opened = os.fstat(fd)
+-        named = lock_path.stat(follow_symlinks=False)
++        named = io_lock_path.stat(follow_symlinks=False)
+         if (
+             not stat.S_ISREG(opened.st_mode)
+             or opened.st_nlink != 1
+-            or _is_link_or_junction(lock_path)
++            or _is_link_or_junction(io_lock_path)
+             or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)
+         ):
+             raise WorkspaceLockUnsafePathError("Workspace lock file changed during open")

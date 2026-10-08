@@ -1,0 +1,56 @@
+{
+  "candidate": "20260924-build05-27",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "snapshotSha256": "BE615D3AF7BB0A22777F2B1E461E14DA2A89DC3A315E92BFAC1B64869D09F115",
+  "deploymentReceiptSha256": "B0A95DB8DB70252644278EA159E208ADD61C1A5391FAE0428624D55CFC55B2FB",
+  "productFingerprintSha256": "347BF4496DBBAB770614634FC34140713C5B1E307D81237A8E567B0FFE4E82AB",
+  "productFileCount": 27,
+  "productHashMismatches": [],
+  "testFiles": [
+    {
+      "path": "services/api/tests/test_fake_timeline_run_api.py",
+      "sha256": "F59424DC5BF0F923270BE31A8575044B744F88DCF36557D31263CB3F4D7DCD09"
+    },
+    {
+      "path": "services/api/tests/test_development_timeline_export_api.py",
+      "sha256": "1904D4A0B7E96FBC24F49AE7DB058A8E9FBC2154F884DC70C008F36C04C3ACEF"
+    },
+    {
+      "path": "apps/desktop/src/fake-timeline-run-contract.test.ts",
+      "sha256": "A463D513304FCB9AE107A2B622A7FACAF6A0005A8508AF88D4C6F7C28AF40BC6"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentFakeTimeline.test.ts",
+      "sha256": "5F81ADB533EE5EC592685EBAB03942CD452ADCB50D4BCEE6912CBADC55102695"
+    },
+    {
+      "path": "apps/studio-web/src/aivora/adapters/developmentExport.test.ts",
+      "sha256": "38F68994FFF67C3C230A8F6D39D4154761B18C7DDF6C52E5C3A48B708EDB2CEC"
+    }
+  ],
+  "runs": [
+    {
+      "path": "pytest-27-raw.txt",
+      "sha256": "8F1CC7884D2F1232662C2EE678E292057E5D8BAA23CC799E11EB7F525090A08F",
+      "lastLine": "EXIT_CODE=0"
+    },
+    {
+      "path": "desktop-vitest-27-raw.txt",
+      "sha256": "4F54F977E62857AB0D9BDA8D7E94D0926E80C785D71347E900EE5FDC78125713",
+      "lastLine": "EXIT_CODE=0"
+    },
+    {
+      "path": "web-vitest-final-raw.txt",
+      "sha256": "ECBE07429A42AED9622E6FA7EA7EE6F9AC34D104F660DF29310427E618AF6E42",
+      "lastLine": "EXIT_CODE=0"
+    },
+    {
+      "path": "studio-web-typecheck-final-raw.txt",
+      "sha256": "7435B8E6E5663BA81DB0C01AABC2CD951EB603DA5D317C3F8FAAC4F3CD6EEBCE",
+      "lastLine": "EXIT_CODE=0"
+    }
+  ],
+  "finalWebTestDiffSha256": "8E055B75A5450600926FD523233535B5F237DB783C946B2ED9F4B2FDF6385569",
+  "failureClassification": "No product RED in targeted API/contract/storage-fault QA; QA02 original studio-web build RED was two QA test TypeScript errors, fixed and retained separately. Full build rerun awaits manager/QA02 sequencing.",
+  "boundary": "No Electron/provider/full-suite/native/runtime/user acceptance claim."
+}

@@ -1,0 +1,19 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\EpisodeMediaAssemblyPanel.tsx.before" "b/apps\\studio-web\\src\\aivora\\EpisodeMediaAssemblyPanel.tsx"
+index 486ee5d..eb47675 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-media-timeline-20260929\\EpisodeMediaAssemblyPanel.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\EpisodeMediaAssemblyPanel.tsx"
+@@ -294,10 +294,11 @@ export function EpisodeMediaAssemblyPanel({ projectId, episodeId, assets, assemb
+       setNotice("保存回执身份或内容不符；请只读查询，不能重复提交。");
+       return;
+     }
+-    clearPending(projectId, episodeId);
+-    setWriteUnknown(pendingContent(projectId, episodeId) !== null);
+     setVersion(saved);
+-    setNotice(`已保存装配 ${saved.version_id}；${saved.playback_status}。正式导出 ${saved.export_status}。请重开读回核对。`);
++    setHeadReliable(false);
++    setWriteUnknown(true);
++    setNotice(`已收到装配 ${saved.version_id} 的保存回执；正在重新读取当前版本。`);
++    void load();
+   }
+ 
+   return <section className="v2-media-card" aria-label="集级媒体装配">

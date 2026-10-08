@@ -1,0 +1,73 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\ProviderConnectionForm.tsx.before" "b/apps\\studio-web\\src\\aivora\\ProviderConnectionForm.tsx"
+index a6a0e38..f60ea6c 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\ProviderConnectionForm.tsx.before"
++++ "b/apps\\studio-web\\src\\aivora\\ProviderConnectionForm.tsx"
+@@ -12,12 +12,14 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
+   const form = useProviderConnectionForm(onSubmit);
+   const {
+     providerKind,
++    sub2apiMode,
+     displayName,
+     baseUrl,
+     apiKey,
+     models,
+     modelError,
+     chooseProvider,
++    chooseSub2apiMode,
+     setDisplayName,
+     setBaseUrl,
+     setApiKey,
+@@ -58,6 +60,20 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
+         ))}
+       </fieldset>
+ 
++      {providerKind === "SUB2API" && <fieldset className="provider-picker">
++        <legend>Sub2API 部署模式</legend>
++        <button type="button" aria-pressed={sub2apiMode === "PUBLIC_HTTPS"}
++          className={sub2apiMode === "PUBLIC_HTTPS" ? "selected" : ""}
++          disabled={busy} onClick={() => chooseSub2apiMode("PUBLIC_HTTPS")}>
++          公网 HTTPS
++        </button>
++        <button type="button" aria-pressed={sub2apiMode === "LOCAL_LOOPBACK_HTTP"}
++          className={sub2apiMode === "LOCAL_LOOPBACK_HTTP" ? "selected" : ""}
++          disabled={busy} onClick={() => chooseSub2apiMode("LOCAL_LOOPBACK_HTTP")}>
++          本机 loopback · 候选
++        </button>
++      </fieldset>}
++
+       <div className="provider-fields two-column">
+         <label>
+           <span>连接名称</span>
+@@ -77,7 +93,9 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
+             maxLength={2048}
+             required
+             placeholder={providerKind === "SUB2API"
+-              ? "https://gateway.example.com"
++              ? sub2apiMode === "LOCAL_LOOPBACK_HTTP"
++                ? "http://127.0.0.1:8080"
++                : "https://gateway.example.com"
+               : "https://api.example.com/v1"}
+             onChange={(e) => setBaseUrl(e.target.value)}
+             disabled={busy}
+@@ -85,8 +103,9 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
+         </label>
+       </div>
+ 
+-      {providerKind === "SUB2API" &&
+-        <p>填写你自己的公网 HTTPS 服务 origin（域名和可选端口），不要添加 /v1 等路径；服务端会核验实际地址。</p>}
++      {providerKind === "SUB2API" && (sub2apiMode === "LOCAL_LOOPBACK_HTTP"
++        ? <p>仅核对字面 127.0.0.1 或 [::1] 加显式端口；localhost、私网地址、路径和重定向目标均不可用。本机网关也不代表上游 AI 离线。当前版本尚不能保存本机模式。</p>
++        : <p>填写你自己的公网 HTTPS 服务 origin（域名和可选端口），不要添加 /v1 等路径；服务端会核验实际地址。</p>)}
+ 
+       <label className="secret-field">
+         <span>
+@@ -145,7 +164,8 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
+         </p>
+       )}
+       <button className="provider-save" type="submit" disabled={busy}>
+-        {busy ? "正在安全保存…" : "保存连接"}
++        {busy ? "正在安全保存…" : providerKind === "SUB2API" &&
++          sub2apiMode === "LOCAL_LOOPBACK_HTTP" ? "核对本机地址 · 不保存" : "保存连接"}
+       </button>
+     </form>
+   );

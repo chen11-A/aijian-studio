@@ -1,0 +1,60 @@
+{
+  "schema": "qa02.media-preview.input-manifest.v1",
+  "status": "FIVE_SYNTHETIC_INPUTS_FROZEN_NOT_IMPORTED",
+  "source_four_media_manifest": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\four-media-20260928T022740Z\\four-media-manifest.json",
+  "source_four_media_manifest_sha256": "211DDD8872F1DE47A569849C7A6AE9763D125DF6BAE9F8416534976C5B83FF78",
+  "fixture_preparation_receipt": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\qa02-media-preview-r01-20260928\\FIXTURE-PREPARATION-RECEIPT.json",
+  "fixture_preparation_receipt_sha256": "677749F2E45075E24B11D5F4E2215767993ACFCEBD95C8971805B121DDF3D4AC",
+  "files": [
+    {
+      "role": "webm",
+      "case": "positive",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\four-media-20260928T022740Z\\v1-blue.webm",
+      "bytes": 2619,
+      "sha256": "75FCA3022F0D4369175E5341505544D8AED1837C1DCE0899F35BF1D7EDB73947",
+      "expected_mime_type": "video/webm",
+      "header_prefix_hex": "1A45DFA39F4286810142F7810142F281",
+      "synthetic_test_only": true
+    },
+    {
+      "role": "wav",
+      "case": "positive",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\four-media-20260928T022740Z\\dialogue-test.wav",
+      "bytes": 96078,
+      "sha256": "E2C5F4AC222A67C22FC548275BB422A45FAEEAAB0A5EBAAED29CB0F1AFA37641",
+      "expected_mime_type": "audio/wav",
+      "header_prefix_hex": "524946464677010057415645666D7420",
+      "synthetic_test_only": true
+    },
+    {
+      "role": "mp3",
+      "case": "positive",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\qa02-media-preview-r01-20260928\\fixtures\\dialogue-test.mp3",
+      "bytes": 5061,
+      "sha256": "EC9306467AAFF6DCCE26E5B2656A0D773367FB439817BD65148D9A55DA7E81B7",
+      "expected_mime_type": "audio/mpeg",
+      "header_prefix_hex": "49443304000000000023545353450000",
+      "synthetic_test_only": true
+    },
+    {
+      "role": "oversize",
+      "case": "size-negative",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\qa02-media-preview-r01-20260928\\fixtures\\oversize-test.wav",
+      "bytes": 33555500,
+      "sha256": "C627D2B19EE320EC800D2CE06B3196F912ED52444EC811D7CB2650D2C2A1A374",
+      "expected_mime_type": "audio/wav",
+      "header_prefix_hex": "524946462404000257415645666D7420",
+      "synthetic_test_only": true
+    },
+    {
+      "role": "decoder-invalid",
+      "case": "decoder-negative",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\qa02-media-preview-r01-20260928\\fixtures\\decoder-invalid.mp3",
+      "bytes": 1024,
+      "sha256": "0E47E975000D03EB05D473B9A9106D1CF01E6E3F7875FF4AE86950B15C7CF1B2",
+      "expected_mime_type": "audio/mpeg",
+      "header_prefix_hex": "49443304000000000000000000000000",
+      "synthetic_test_only": true
+    }
+  ]
+}

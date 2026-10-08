@@ -1,0 +1,52 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-source-ui-20260929\\model.tsx.before" "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\model.tsx"
+index e313cdb..c4a0ab0 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev03-source-ui-20260929\\model.tsx.before"
++++ "b/C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\apps\\studio-web\\src\\aivora\\model.tsx"
+@@ -1129,15 +1129,26 @@ function useDemoModel(fixture?: DemoFixture) {
+     }
+     return importRealSource(new File([text], "pasted-source.txt", { type: "text/plain" }));
+   }
+-  async function reviewRealSource() {
++  async function reviewRealSource(
++    capturedIdentity?: SourceManifestReviewIdentity,
++    capturedSourceDocumentId?: string,
++  ) {
+     const projectId = currentBackendProjectId();
+-    if (!projectId) {
+-      notify("当前项目尚未连接本地工作区，无法提交来源审核。");
++    if (!projectId || !capturedIdentity || capturedIdentity.project_id !== projectId ||
++        !capturedSourceDocumentId) {
++      notify("当前项目或来源审核目标未核实，未发送审核。");
+       return false;
+     }
+     storyGate.invalidate();
++    let manifest: SourceManifestResponse | null;
++    try {
++      manifest = await studio.getSourceManifest(projectId);
++    } catch {
++      if (projectId === currentBackendProjectId())
++        notify("来源清单读取失败，未发送审核；请手动刷新后重试。");
++      return false;
++    }
+     try {
+-      const manifest = await studio.getSourceManifest(projectId);
+       if (projectId !== currentBackendProjectId()) return false;
+       // A rejected mutation remains locked.  A later user-initiated manifest
+       // read is only a reconciliation step; it never replays the mutation.
+@@ -1147,6 +1158,16 @@ function useDemoModel(fixture?: DemoFixture) {
+         return false;
+       }
+       const identity = sourceReviewIdentity(manifest, projectId);
++      if (!manifest || !identity || sourceStageFromManifest(manifest, projectId).kind !== "draft" ||
++          identity.version_id !== capturedIdentity.version_id ||
++          identity.content_hash !== capturedIdentity.content_hash ||
++          identity.expected_revision !== capturedIdentity.expected_revision ||
++          !manifest.data.latest_version.content.documents.some(
++            (document) => document.source_document_id === capturedSourceDocumentId,
++          )) {
++        notify("来源审核目标已变化；请刷新清单并重新核对，未发送审核。");
++        return false;
++      }
+       const result = await reviewRunner.run("submit", identity, "");
+       if (projectId !== currentBackendProjectId()) return false;
+       if (!result) {

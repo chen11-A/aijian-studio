@@ -1,0 +1,166 @@
+{
+  "call_id": "QA03-LOCAL-OPENAPI-GENERATE-V4B-01",
+  "checks": {
+    "after_node": {
+      "allowed_outputs": {
+        "source/packages/contracts/openapi.json": {
+          "bytes": 634396,
+          "changed_from_base": true,
+          "sha256": "5DB5480A7CDFC5AADECECD9D9F6835148B289ED32427289250AAAEE3623C8AFE"
+        },
+        "source/packages/contracts/src/generated.ts": {
+          "bytes": 404368,
+          "changed_from_base": true,
+          "sha256": "DE2B2F58314658A21576AE7E850CB93016A8A419F021E8E294F026FD95EAE8A0"
+        }
+      },
+      "links": 771,
+      "regular_files": 14466
+    },
+    "after_python": {
+      "allowed_outputs": {
+        "source/packages/contracts/openapi.json": {
+          "bytes": 634396,
+          "changed_from_base": true,
+          "sha256": "5DB5480A7CDFC5AADECECD9D9F6835148B289ED32427289250AAAEE3623C8AFE"
+        }
+      },
+      "links": 771,
+      "regular_files": 14466
+    },
+    "before": {
+      "allowed_outputs": {},
+      "links": 771,
+      "regular_files": 14466
+    }
+  },
+  "children": {
+    "node": {
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "--permission",
+        "--allow-fs-read=C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-source-v4-01\\source",
+        "--allow-fs-read=C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-openapi-generation-packet-v4b-20261008",
+        "--allow-fs-write=C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-source-v4-01\\source\\packages\\contracts\\src",
+        "--import=file:///C:/Users/Administrator/Documents/Codex/2026-09-23/qa03-local-openapi-generation-packet-v4b-20261008/node_guard.mjs",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-source-v4-01\\source\\node_modules\\.pnpm\\openapi-typescript@7.13.0_typescript@5.9.3\\node_modules\\openapi-typescript\\bin\\cli.js",
+        "packages/contracts/openapi.json",
+        "-o",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-source-v4-01\\source\\packages\\contracts\\src\\generated.ts"
+      ],
+      "environment_after": {
+        "cache": {
+          "kind": "directory"
+        },
+        "home": {
+          "kind": "directory"
+        },
+        "local": {
+          "kind": "directory"
+        },
+        "roaming": {
+          "kind": "directory"
+        },
+        "temp": {
+          "kind": "directory"
+        },
+        "uv-cache": {
+          "kind": "directory"
+        }
+      },
+      "environment_before": {
+        "cache": {
+          "kind": "directory"
+        },
+        "home": {
+          "kind": "directory"
+        },
+        "local": {
+          "kind": "directory"
+        },
+        "roaming": {
+          "kind": "directory"
+        },
+        "temp": {
+          "kind": "directory"
+        },
+        "uv-cache": {
+          "kind": "directory"
+        }
+      },
+      "environment_changed": false,
+      "exit_code": 0,
+      "image_path": "C:\\Program Files\\nodejs\\node.exe",
+      "image_sha256": "3331E1FFE19874215472217C5E94F5A0C6D8E18C4AC7111D3937AA0AD5E9B4A5",
+      "pid": 18324,
+      "stderr_bytes": 81100,
+      "stderr_sha256": "8251247F9F9DA83F5D4BC238E9C16624C8109E54D85D2275A07A5F402DAB8B3F",
+      "stdout_bytes": 206,
+      "stdout_sha256": "D17B61E4E297D22768DC26874561C755FE366439019A2CCAFD60B23509BC6A5D",
+      "timed_out": false
+    },
+    "python": {
+      "command": [
+        "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\.venv\\Scripts\\python.exe",
+        "-I",
+        "-B",
+        "-S",
+        "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-openapi-generation-packet-v4b-20261008\\python_export_guard.py"
+      ],
+      "environment_after": {
+        "cache": {
+          "kind": "directory"
+        },
+        "home": {
+          "kind": "directory"
+        },
+        "local": {
+          "kind": "directory"
+        },
+        "roaming": {
+          "kind": "directory"
+        },
+        "temp": {
+          "kind": "directory"
+        },
+        "uv-cache": {
+          "kind": "directory"
+        }
+      },
+      "environment_before": {
+        "cache": {
+          "kind": "directory"
+        },
+        "home": {
+          "kind": "directory"
+        },
+        "local": {
+          "kind": "directory"
+        },
+        "roaming": {
+          "kind": "directory"
+        },
+        "temp": {
+          "kind": "directory"
+        },
+        "uv-cache": {
+          "kind": "directory"
+        }
+      },
+      "environment_changed": false,
+      "exit_code": 0,
+      "image_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\.venv\\Scripts\\python.exe",
+      "image_sha256": "461D6E5F9A0DCB724798D2B6DBD57555A9EB3084522CC5DC5B2347934F5A4060",
+      "pid": 15332,
+      "stderr_bytes": 0,
+      "stderr_sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+      "stdout_bytes": 72637,
+      "stdout_sha256": "497B6096571E5E4D34456D5A08FCF18462168BA8251411AE3A74F80B47BB44A0",
+      "timed_out": false
+    }
+  },
+  "phase": "GENERATION_READBACK_PASS",
+  "stage_root": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-local-sub2api-source-v4-01",
+  "status": "PASS_OFFLINE_GENERATION_ONLY",
+  "utc": 1791419649.9386675
+}

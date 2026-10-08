@@ -1,0 +1,56 @@
+{
+  "kind": "QA02_MLT_SYNTHETIC_FIVE_INPUT_MANIFEST",
+  "status": "FIVE_INPUTS_FROZEN_NO_MLT",
+  "usage": "SYNTHETIC_TEST_ONLY",
+  "spec_sha256": "4323DFEF3EEF9337BAF49A5118DE1397B4C2AFBE2E67768E133F87C950DDF16D",
+  "output_directory": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z",
+  "lock_path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\config\\media-toolchain-lock.json",
+  "lock_sha256": "A4554A71D7942C0706585B609E77059F71634E84EB9A2EDD4072965A9FCFB072",
+  "ffmpeg_path": "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.2-full_build\\bin\\ffmpeg.exe",
+  "ffmpeg_sha256": "AD8F211BC894755E0061C55AB280AE00E8D3D4F15A8CC4372B24CFA247B5942E",
+  "ffprobe_path": "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.2-full_build\\bin\\ffprobe.exe",
+  "ffprobe_sha256": "9DF3B0B5275E830961DF6D94E1F7A71121A7ABD5FF708E9FEC8A0B6084A55015",
+  "project_id": "prj_a28e95e94c8f4b30856f8694ea0aeded",
+  "episode_id": "ep_bef554f2d8844571a7c05a4e546bbcd4",
+  "test_script_version_id": "ver_dcac90c5b9aa48b4be25a9cd097207c3",
+  "test_script_content_hash": "sha256:0e3d63d72955769dc2a9bbf2b4a996e6af2ffb43cc81c620352890f4ed8a604e",
+  "first_script_block_id": "sblk_bc34a35d11d6494d87f264a281eb930d",
+  "second_script_block_id": "sblk_937703a76d0840c1aa1b31ddd63488cb",
+  "files": [
+    {
+      "name": "v1-blue.webm",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z\\v1-blue.webm",
+      "bytes": 2619,
+      "sha256": "75FCA3022F0D4369175E5341505544D8AED1837C1DCE0899F35BF1D7EDB73947",
+      "usage": "SYNTHETIC_TEST_ONLY"
+    },
+    {
+      "name": "v2-red.webm",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z\\v2-red.webm",
+      "bytes": 2542,
+      "sha256": "507DB639D74CAEBEAB3DFB9DDAD4EEA328A732D59794BEC7B49C66F51AB78AC4",
+      "usage": "SYNTHETIC_TEST_ONLY"
+    },
+    {
+      "name": "dialogue-test.wav",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z\\dialogue-test.wav",
+      "bytes": 96078,
+      "sha256": "E2C5F4AC222A67C22FC548275BB422A45FAEEAAB0A5EBAAED29CB0F1AFA37641",
+      "usage": "SYNTHETIC_TEST_ONLY"
+    },
+    {
+      "name": "bgm-test.wav",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z\\bgm-test.wav",
+      "bytes": 480078,
+      "sha256": "590CC4A39EC6DE15C24C3EDEBB8F5754F3088BAD398932C7C194960453BBD7C4",
+      "usage": "SYNTHETIC_TEST_ONLY"
+    },
+    {
+      "name": "subtitle-test.srt",
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\qa02-mlt-test-20260928\\five-inputs-20260928T035901Z\\subtitle-test.srt",
+      "bytes": 130,
+      "sha256": "3561D5DF3229D71CE53F427C65A850DCF8C23BDFE0D7D9F03C8BC7D50DC81CDC",
+      "usage": "SYNTHETIC_TEST_ONLY"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "created_utc": "2026-09-24T03:44:01.4780334Z",
+  "scope": "Offline sender parser repair and read-only LAYOUT07 preflight only; no Electron or native submit",
+  "files": {
+    "sender_current": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\native-bm-click-once.ps1",
+      "bytes": 16717,
+      "sha256": "19AB699DE57EFB2412D73EDC497C1A1207814B7F25B5ADE6E2B9453C8DFE9AF0"
+    },
+    "sender_before": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\sender-before-revision-fix.ps1",
+      "bytes": 15722,
+      "sha256": "2FFE19B266A5D6127DA1EFAE9C2A987E16EE1093C7C47F35613402EE3F85A28D"
+    },
+    "sender_diff": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\sender-revision-fix.diff",
+      "bytes": 4025,
+      "sha256": "031E601F6FA246C40564AE0B0C27461E8DB7C53FBA69DF6FA1C54BAD51A2CC62"
+    },
+    "runner_unchanged": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\run-native-bm-click-once.mjs",
+      "bytes": 21931,
+      "sha256": "E646CD1D6017E8F92F19F75FBFA332B917829D06E48F4B61A85385E6F110C45F"
+    },
+    "original_native_receipt": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\qa02-capability-2026-09-24T02-48-53.178Z-22656\\native-capability.json",
+      "bytes": 2905,
+      "sha256": "414BBA1E1C12E6440700ED48C9D6F2CB2A4C65531EF5ED125D9571B410972EE5"
+    },
+    "full_native_visible_text": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\native-visible-text-v2.txt",
+      "bytes": 515,
+      "sha256": "EF29DC8074053693B7CC02464903C93CB608A5A493CF126468A50A38E0944E72"
+    },
+    "ps51_parse": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\sender-parse-ps51.txt",
+      "bytes": 51,
+      "sha256": "602DE0E8B0D42E30FAFEBC69D839A22D240F9FAD369730D3D25B3FC773457931"
+    },
+    "offline_test_script": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\test-native-revision-offline.ps1",
+      "bytes": 3342,
+      "sha256": "09365EB830D47752963BBBE042C4918EFBD78051440AEB960A0E0A0CD09D0D32"
+    },
+    "offline_result": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\offline-test-v4.json",
+      "bytes": 3548,
+      "sha256": "2BAB809E32241DE7193FC1A890362EDF026D9AD5F38C1D788CB655A991919AAF"
+    },
+    "offline_stdout_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\offline-test-v4.stdout.raw",
+      "bytes": 207,
+      "sha256": "191BC2F2C63A46C31D06FBF228F197A6FE7D42CD0650F2826CEEF74469358875"
+    },
+    "offline_stderr_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\offline-test-v4.stderr.raw",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    "no_window_result": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\no-window.json",
+      "bytes": 1033,
+      "sha256": "00DDD8A771399C57604F90D70C9E295AB5463B81B608622B98823DAAA90A198A"
+    },
+    "no_window_stdout_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\no-window.stdout.raw",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    "no_window_stderr_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\no-window.stderr.raw",
+      "bytes": 634,
+      "sha256": "992A90D085E35EBECED488314EDADE43755F96B4EF5DAF49872AC44054F4EE8A"
+    },
+    "layout07_product_snapshot": {
+      "path": "C:\\Users\\Administrator\\Documents\\AIVORA\\management\\manager-handoffs\\release-snapshots\\20260924-layout07-27\\SNAPSHOT.json",
+      "bytes": 8594,
+      "sha256": "569E8B63A2545D7178E18B22348330B10D8E5B628410B4E45732E4B3CCFFC21F"
+    },
+    "layout07_build_receipt": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\m1-layout07-build-20260924T033449449Z\\postbuild.json",
+      "bytes": 19118,
+      "sha256": "5B395E855B8502515741345EFCC35A58CE5172EE1A3829437E2BBDE0E133042F"
+    },
+    "layout07_preflight_stdout_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\layout07-preflight.stdout.raw",
+      "bytes": 614,
+      "sha256": "50A99605FF57592E75D856316A01EE9DDB93146B62637AD4A1B15748452340D7"
+    },
+    "layout07_preflight_stderr_raw": {
+      "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\evidence\\native-revision-static-20260924T033407286Z\\layout07-preflight.stderr.raw",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    }
+  },
+  "findings": {
+    "original_native_revision_line": "当前修订：1；评审证据修订：0",
+    "offline_cases": 8,
+    "offline_passed": 8,
+    "ps51_parse_errors": 0,
+    "no_window_status": "STOP_BEFORE_NATIVE_SEND",
+    "no_window_action_attempted": false,
+    "layout07_preflight": {
+      "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+      "product_snapshot_sha256": "569e8b63a2545d7178e18b22348330b10d8e5b628410b4e45732e4b3ccffc21f",
+      "qa_snapshot_sha256": "ed784de9f7610fbf3d4a767ff2c3b1a716472a72e0afa5860d33fc66bbd25048",
+      "build_sha256": "5b395e855b8502515741345efcc35a58ce5172ee1a3829437e2bbde0e133042f",
+      "sender_sha256": "19ab699de57efb2412d73edc497c1a1207814b7f25b5ade6e2b9453c8dfe9af0",
+      "input_sha256": "466f23b789b47fa1231b0891e80385a13e530b02de2f74481c4e98f5732de008",
+      "product_count": 27,
+      "qa_count": 6,
+      "dist_count": 73,
+      "ledger_created": false,
+      "profile_created": false,
+      "electron_launched": false
+    },
+    "layout07_native_run_attempted": false,
+    "layout07_native_send_attempted": false
+  }
+}

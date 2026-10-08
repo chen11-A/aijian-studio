@@ -1,0 +1,37 @@
+diff --git a/apps/desktop/src/preload.ts b/apps/desktop/src/preload.ts
+index 06e4f5d..2c672e3 100644
+--- a/apps/desktop/src/preload.ts
++++ b/apps/desktop/src/preload.ts
+@@ -39,6 +39,10 @@ import type {
+   MediaAssetUnreferenceResult,
+   RemoveMediaAssetReferenceCommand,
+   Sub2APIConfiguredReadinessResult,
++  EditSub2APIMetadataCommand,
++  RotateSub2APIKeyCommand,
++  Sub2APIConnectionMutationResult,
++  Sub2APIRotationReadResult,
+   CreateEpisodeScriptVersionRequest,
+   EpisodeScriptCreateResult,
+   EpisodeScriptLatestResult,
+@@ -430,6 +434,21 @@ contextBridge.exposeInMainWorld("aijian", {
+   ): Promise<Sub2APIConfiguredReadinessResult> =>
+     ipcRenderer.invoke("providers:sub2api-configured-readiness", connectionId, modelId) as
+       Promise<Sub2APIConfiguredReadinessResult>,
++  editSub2APIMetadata: (
++    connectionId: string, command: EditSub2APIMetadataCommand,
++  ): Promise<Sub2APIConnectionMutationResult> =>
++    ipcRenderer.invoke("providers:edit-sub2api-metadata", connectionId, command) as
++      Promise<Sub2APIConnectionMutationResult>,
++  rotateSub2APIKey: (
++    connectionId: string, command: RotateSub2APIKeyCommand,
++  ): Promise<Sub2APIConnectionMutationResult> =>
++    ipcRenderer.invoke("providers:rotate-sub2api-key", connectionId, command) as
++      Promise<Sub2APIConnectionMutationResult>,
++  readSub2APIKeyRotation: (
++    connectionId: string, operationId: string,
++  ): Promise<Sub2APIRotationReadResult> =>
++    ipcRenderer.invoke("providers:read-sub2api-rotation", connectionId, operationId) as
++      Promise<Sub2APIRotationReadResult>,
+   getEpisodeScript: (
+     projectId: string, episodeId: string,
+   ): Promise<EpisodeScriptLatestResult> =>

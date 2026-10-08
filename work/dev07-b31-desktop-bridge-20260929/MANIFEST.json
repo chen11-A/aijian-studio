@@ -1,0 +1,111 @@
+{
+  "schema": "dev07.b31.desktop-source-candidate.v1",
+  "state": "AUTHOR_SOURCE_ONLY_NO_EMIT_NO_BUILD_NO_QA_NO_C19_SYNC",
+  "created_local": "2026-09-29",
+  "author_root": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp",
+  "c19_root": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923",
+  "edited": [
+    {
+      "path": "apps/desktop/src/sub2api-connection-mutation-contract.ts",
+      "old_sha256": "DC9578D9C260F8B06CAECFEFFFE9144A358C29DF37453A2B0A4AB867DBF8E400",
+      "new_sha256": "85F0D1FC41ED3CF5BF839335F63FFA2D0A27B86EAC79ED5B0D095B878CF3A844",
+      "patch_sha256": "6F3D23CB2CFE0772A26BA079AB322958F5B8B5039029AE8C60FD81A97EC836B3"
+    },
+    {
+      "path": "apps/desktop/src/main.ts",
+      "old_sha256": "299099E3EA795874FEDB68CC68961A9BA70D0E2FE5126F53A444D1D22A61AFE1",
+      "new_sha256": "A1359F9EBC54090AD882C12B85E5CFB36917060D20D6B2DE245D9E364EA04C32",
+      "patch_sha256": "E3FE883A19F89730E5FDF67D709A9D617DDB85D180129DA84ED28834E4343793"
+    },
+    {
+      "path": "apps/desktop/src/api-client.ts",
+      "old_sha256": "8B770A99693D30B9DB83A8288B49F948B9A462BAE4B6BFCD8346A5373E215B8B",
+      "new_sha256": "BA060B639EF67B5EB9906D0F83746270C8F44CF902E95E7E031C7B313E8AFC61",
+      "patch_sha256": "19F2D06A4F8605911C41B06B0D82FDE68B656835098E2CEE840B9215F3970AC1"
+    },
+    {
+      "path": "apps/desktop/src/preload.ts",
+      "old_sha256": "197AE552BB0199819E0B25C03893610750EE4F7B019115E01F590CDBEBC35603",
+      "new_sha256": "77C06E152301829A2C46C3786BA6BA5F727AB189A2078D761C78993F16CD04F9",
+      "patch_sha256": "CBB53A0F94787C222D2D9B72FFF6A8C7C276BB099F0FD8B15B0C23723A61C993"
+    }
+  ],
+  "unchanged_dependencies": [
+    {
+      "path": "apps/desktop/src/sub2api-connection-mutation-ipc.ts",
+      "sha256": "D77C508700AA28B00B7B334E5F533028E997F55528E20290BF6040E8B659D0AC"
+    },
+    {
+      "path": "apps/desktop/src/sub2api-configured-readiness-contract.ts",
+      "sha256": "F8843BAFAEACA506D530E4E71161D2294C03770244D58CE9584BDC9241BD3411"
+    },
+    {
+      "path": "apps/desktop/src/sub2api-configured-readiness-ipc.ts",
+      "sha256": "4803184751A847EE3F6A7E9913FC4DD526825ADAD260060570793D6C1B63A030"
+    },
+    {
+      "path": "apps/desktop/src/api-contract-guards.ts",
+      "sha256": "7573C6CA20B1E6D6C8E2F7AE59E321B068544ACE99994A1AF301C94C86F41945"
+    },
+    {
+      "path": "apps/desktop/src/provider-connection-contract.ts",
+      "sha256": "B69804B482B58F35785525EC3348BB9569D181D8BA80B689C95DD92497582952"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-process.ts",
+      "sha256": "DE5D46DCE9CEB276F67A968F0B271B37498814CECECAF7AD7712FB6DBE22710F"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-startup-diagnostic.ts",
+      "sha256": "2B2147A6480824B6FBBC0489CB7A74780D04FE994C6C2F285E76308533FDABA6"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-extraction-temp.ts",
+      "sha256": "6EA5A2BA8ACD40F46CEE5F8A6F035C824A5A3479D93DD1565FF0C550511F7821"
+    }
+  ],
+  "c19_preserved_baseline": [
+    {
+      "path": "apps/desktop/src/main.ts",
+      "sha256": "BDAB4361B5D0671735253C8A57258FC48005165F07969DCD9D56C3BDC5636DAC"
+    },
+    {
+      "path": "apps/desktop/src/api-client.ts",
+      "sha256": "D694B1B1C6EF96D55DB941ABF221214634F45065DB07C99207A5C48660E7EA3C"
+    },
+    {
+      "path": "apps/desktop/src/preload.ts",
+      "sha256": "794006467A751EA1AE1F438EAE392BB7CE6082ADAE73C8D601A376EDF81340B1"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-process.ts",
+      "sha256": "DE5D46DCE9CEB276F67A968F0B271B37498814CECECAF7AD7712FB6DBE22710F"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-startup-diagnostic.ts",
+      "sha256": "2B2147A6480824B6FBBC0489CB7A74780D04FE994C6C2F285E76308533FDABA6"
+    },
+    {
+      "path": "apps/desktop/src/sidecar-extraction-temp.ts",
+      "sha256": "6EA5A2BA8ACD40F46CEE5F8A6F035C824A5A3479D93DD1565FF0C550511F7821"
+    }
+  ],
+  "sidecar_candidate": {
+    "path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\run-01\\dist\\aijian-sidecar.exe",
+    "sha256": "2F23AC50CEA16D60D3C2AA1013F11F7C7D00570767740C2026A9C4243468E692",
+    "source_composite_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\qa03-r2b2\\SOURCE-COMPOSITE.json",
+    "source_composite_sha256": "3A3DA222E44622DA5803AE80D9867FF69296BD394E7AC2132921F3C9C30FAE7B",
+    "boundary": "R2-only build and local lock QA; B31 configuration behavior NOT_RUN"
+  },
+  "old_c19_emit": {
+    "result_path": "C:\\Users\\Administrator\\Documents\\Codex\\2026-09-23\\aivora-git-c-users-administrator-documents\\work\\native-source-qa-20260924\\qa02-c19-ts-postsync-20260929\\run-01\\result.json",
+    "result_sha256": "7CDCA4482B832E25F23F149B4486B694DF40B528E081179173B37AC2639FA411",
+    "boundary": "pre-B31 desktop source; not reusable as B31 emit"
+  },
+  "old_renderer": {
+    "index_path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\studio-web\\dist\\index.html",
+    "index_sha256": "AFE003E1635BAC787FC77FB32BCA0F34594D99D14DB8E63D0BF4A447F75C9D46",
+    "boundary": "9/28 c19 dist; no B31 UI or new build"
+  },
+  "scope": "No c19 write, emit, build, Electron, provider, or QA in this candidate"
+}

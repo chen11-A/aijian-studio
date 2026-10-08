@@ -1,0 +1,14 @@
+{
+  "kind": "ATTEMPT03_OFFLINE_CANDIDATE_CHECK",
+  "checked_utc": "2026-09-24T04:56:45.794Z",
+  "head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "head_matches": true,
+  "product_count": 27,
+  "qa_count": 6,
+  "dist_count": 73,
+  "status_count": 33,
+  "git_status_equal": true,
+  "hash_mismatches": [],
+  "first_ledger_sha256": "8c2f15cfc225421736e52c4d4ad4060ba81be5295f3686d634bd420d1a0726b0",
+  "second_ledger_sha256": "7de19a96766f29cca2360beec2071a66cf10c4c6332e8e5d5df9750f81489940"
+}

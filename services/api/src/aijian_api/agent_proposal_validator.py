@@ -1,0 +1,344 @@
+"""Fail-closed validation that turns an Agent proposal into an immutable DRAFT."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from dataclasses import dataclass, field
+
+from pydantic import BaseModel, ValidationError
+
+from aijian_api.agent_skill_contracts import (
+    AgentRunV1,
+    ArtifactProposalV1,
+    ArtifactProposalV2,
+    DefinitionRefV1,
+    SkillDefinitionV1,
+    SkillDefinitionV2,
+    SkillRunV1,
+    canonical_sha256,
+    parse_artifact_proposal,
+)
+from aijian_api.agent_skill_registry import ResolvedDelegation
+from aijian_api.domain import (
+    ArtifactDependencyDraft,
+    ArtifactSourceSpanDraft,
+    ArtifactVersionRecord,
+)
+from aijian_api.repository import (
+    AcceptedArtifactDependencyRequirement,
+)
+from aijian_api.shot_outline_contracts import validate_shot_outline_proposal
+
+_SCHEMA_RESOLUTION_SEAL = object()
+
+
+class ProposalValidationError(ValueError):
+    """A proposal failed before it could become an immutable DRAFT."""
+
+
+class ProposalSchemaNotFoundError(LookupError):
+    """The exact immutable proposal payload schema is not registered."""
+
+
+@dataclass(frozen=True, slots=True)
+class Sub2APIProposalReviewBinding:
+    """Internal evidence from acceptance's current SQLite transaction.
+
+    The acceptance store must verify the persisted approval, consume, attempt,
+    response and proposal chain before constructing this value. Never deserialize
+    it from renderer input or treat the DTO's cost acknowledgement as this evidence.
+    """
+
+    project_id: str
+    proposal_id: str
+    proposal_hash: str
+    approval_id: str
+    producer_attempt_id: str
+
+
+def _validate_sub2api_review_binding(
+    proposal: ArtifactProposalV2,
+    delegation: ResolvedDelegation,
+    binding: Sub2APIProposalReviewBinding | None,
+) -> None:
+    if (
+        not isinstance(delegation.skill_definition, SkillDefinitionV2)
+        or binding is None
+        or binding.project_id != proposal.project_id
+        or binding.proposal_id != proposal.proposal_id
+        or binding.proposal_hash != canonical_sha256(proposal.model_dump(mode="json"))
+        or binding.approval_id != proposal.approval_id
+        or re.fullmatch(r"att_[0-9a-f]{32}", binding.producer_attempt_id) is None
+        or delegation.agent_definition.agent_definition_id != "writer.source-analyst-sub2api"
+        or delegation.agent_definition.version != "1.0.0"
+        or delegation.skill_definition.skill_definition_id != "source.extract-sub2api"
+        or delegation.skill_definition.version != "1.0.0"
+    ):
+        raise ProposalValidationError("Sub2API proposal requires trusted persisted review binding")
+
+
+@dataclass(frozen=True, slots=True)
+class ProposalSchemaRegistration:
+    schema_ref: str
+    payload_model: type[BaseModel]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedProposalDraft:
+    artifact_type: str
+    schema_version: str
+    content: dict[str, object]
+    source_spans: tuple[ArtifactSourceSpanDraft, ...]
+    dependencies: tuple[ArtifactDependencyDraft, ...]
+    accepted_dependency_requirements: tuple[AcceptedArtifactDependencyRequirement, ...]
+    required_accepted_upstream_version_id: str | None
+    record_validator: Callable[[ArtifactVersionRecord], None]
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class ResolvedProposalSchema:
+    """An exact payload schema token minted only by ProposalSchemaRegistry."""
+
+    schema_ref: str
+    payload_model: type[BaseModel]
+    _resolution_seal: object = field(repr=False)
+
+    def __init__(self, registration: ProposalSchemaRegistration, *, _seal: object) -> None:
+        if _seal is not _SCHEMA_RESOLUTION_SEAL:
+            raise TypeError("ResolvedProposalSchema must be created by ProposalSchemaRegistry")
+        object.__setattr__(self, "schema_ref", registration.schema_ref)
+        object.__setattr__(self, "payload_model", registration.payload_model)
+        object.__setattr__(self, "_resolution_seal", _seal)
+
+    def validate(self, *, expected_schema_ref: str, payload: dict[str, object]) -> None:
+        if self._resolution_seal is not _SCHEMA_RESOLUTION_SEAL:
+            raise TypeError("invalid proposal schema resolution token")
+        if self.schema_ref != expected_schema_ref:
+            raise ProposalValidationError(
+                "resolved proposal schema does not match the Skill output"
+            )
+        try:
+            validated = self.payload_model.model_validate(payload)
+        except ValidationError as error:
+            raise ProposalValidationError("proposal payload failed its output schema") from error
+        if validated.model_dump(mode="json", by_alias=True) != payload:
+            raise ProposalValidationError(
+                "proposal payload differs from its strictly validated output schema"
+            )
+
+
+class ProposalSchemaRegistry:
+    """Resolve exact, trusted Pydantic payload models without caller-supplied callables."""
+
+    def __init__(self, registrations: tuple[ProposalSchemaRegistration, ...]) -> None:
+        self._registrations: dict[str, ProposalSchemaRegistration] = {}
+        for registration in registrations:
+            if registration.schema_ref in self._registrations:
+                raise ValueError(f"duplicate proposal schema: {registration.schema_ref}")
+            if (
+                registration.payload_model.model_config.get("extra") != "forbid"
+                or registration.payload_model.model_config.get("strict") is not True
+            ):
+                raise ValueError("proposal payload models must use extra='forbid' and strict=True")
+            self._registrations[registration.schema_ref] = registration
+
+    def resolve(self, schema_ref: str) -> ResolvedProposalSchema:
+        registration = self._registrations.get(schema_ref)
+        if registration is None:
+            raise ProposalSchemaNotFoundError(f"unknown proposal schema: {schema_ref}")
+        return ResolvedProposalSchema(registration, _seal=_SCHEMA_RESOLUTION_SEAL)
+
+
+def _storage_artifact_type(artifact_type: str) -> str:
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", artifact_type).lower()
+
+
+def _validate_run_chain(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2,
+    agent_run: AgentRunV1,
+    skill_run: SkillRunV1,
+    delegation: ResolvedDelegation,
+) -> None:
+    delegation.assert_registry_resolved()
+    agent = delegation.agent_definition
+    skill = delegation.skill_definition
+    agent_ref = DefinitionRefV1(
+        definition_id=agent.agent_definition_id,
+        version=agent.version,
+    )
+    skill_ref = DefinitionRefV1(
+        definition_id=skill.skill_definition_id,
+        version=skill.version,
+    )
+    if (
+        proposal.project_id != agent_run.project_id
+        or proposal.project_id != skill_run.project_id
+        or proposal.producer_agent_run_id != agent_run.agent_run_id
+        or proposal.producer_skill_run_id != skill_run.skill_run_id
+        or skill_run.agent_run_id != agent_run.agent_run_id
+        or skill_run.skill_run_id not in agent_run.delegated_skill_run_ids
+        or skill_run.proposal_id != proposal.proposal_id
+        or agent_run.agent_definition != agent_ref
+        or skill_run.skill_definition != skill_ref
+        or agent_run.status != "NEEDS_REVIEW"
+        or skill_run.status != "NEEDS_REVIEW"
+    ):
+        raise ProposalValidationError("proposal run chain is inconsistent or not reviewable")
+
+
+def _output_schema_version(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2, delegation: ResolvedDelegation
+) -> str:
+    schema_parts = delegation.skill_definition.output_schema_ref.rstrip("/").split("/")
+    expected_schema_name = f"{proposal.target_artifact_type}Proposal"
+    if len(schema_parts) < 2 or schema_parts[-2] != expected_schema_name:
+        raise ProposalValidationError("proposal target does not match the Skill output schema")
+    return schema_parts[-1]
+
+
+def _validate_policy(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2, delegation: ResolvedDelegation
+) -> None:
+    skill = delegation.skill_definition
+    if isinstance(proposal, ArtifactProposalV1):
+        if not isinstance(skill, SkillDefinitionV1):
+            raise ProposalValidationError("V1 proposal requires a known monetary budget")
+        if (
+            proposal.cost.estimated_micros > skill.budget.hard_limit_micros
+            or proposal.cost.actual_micros > skill.budget.hard_limit_micros
+        ):
+            raise ProposalValidationError("proposal exceeds the Skill hard budget")
+    elif not isinstance(skill, SkillDefinitionV2):
+        raise ProposalValidationError("unknown-cost proposal requires the Sub2API skill")
+    # V2 monetary limits remain unverified; the persisted one-call consent is
+    # checked separately. Content QC is required for either proposal version.
+    if any(check.status != "PASS" for check in proposal.qc):
+        raise ProposalValidationError("proposal QC must pass before creating a DRAFT")
+    if not any(
+        impact.artifact_type == proposal.target_artifact_type for impact in proposal.impacts
+    ):
+        raise ProposalValidationError("proposal impact does not include its target Artifact")
+    span_ids = [span.source_span_id for span in proposal.source_spans]
+    if len(span_ids) != len(set(span_ids)):
+        raise ProposalValidationError("proposal SourceSpan identifiers must be unique")
+    dependency_ids = [dependency.version_id for dependency in proposal.dependencies]
+    if len(dependency_ids) != len(set(dependency_ids)):
+        raise ProposalValidationError("proposal dependency versions must be unique")
+
+
+def _prepare_dependencies(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2,
+    delegation: ResolvedDelegation,
+) -> tuple[ArtifactDependencyDraft, ...]:
+    resolved: list[ArtifactDependencyDraft] = []
+    readable_types = delegation.skill_definition.readable_artifact_types
+    for dependency in proposal.dependencies:
+        if dependency.artifact_type not in readable_types:
+            raise ProposalValidationError(
+                f"SkillDefinition cannot read Artifact type {dependency.artifact_type}"
+            )
+        resolved.append(
+            ArtifactDependencyDraft(
+                upstream_version_id=dependency.version_id,
+                relationship="derived_from",
+                impact="blocking",
+            )
+        )
+    return tuple(resolved)
+
+
+def prepare_proposal_draft(
+    *,
+    proposal: ArtifactProposalV1 | ArtifactProposalV2,
+    agent_run: AgentRunV1,
+    skill_run: SkillRunV1,
+    delegation: ResolvedDelegation,
+    proposal_schema: ResolvedProposalSchema,
+    parent_version_id: str | None = None,
+    expected_revision: int | None = None,
+    sub2api_review_binding: Sub2APIProposalReviewBinding | None = None,
+) -> PreparedProposalDraft:
+    """Validate immutable inputs and prepare one repository-owned DRAFT write."""
+
+    proposal = parse_artifact_proposal(proposal)
+    agent_run = AgentRunV1.model_validate(agent_run.model_dump(mode="json"))
+    skill_run = SkillRunV1.model_validate(skill_run.model_dump(mode="json"))
+    _validate_run_chain(proposal, agent_run, skill_run, delegation)
+    if isinstance(proposal, ArtifactProposalV2):
+        _validate_sub2api_review_binding(proposal, delegation, sub2api_review_binding)
+    schema_version = _output_schema_version(proposal, delegation)
+    _validate_policy(proposal, delegation)
+    if (parent_version_id is None) != (expected_revision is None):
+        raise ProposalValidationError(
+            "parent version and expected revision must be provided together"
+        )
+    proposal_schema.validate(
+        expected_schema_ref=delegation.skill_definition.output_schema_ref,
+        payload=proposal.payload,
+    )
+    if proposal.target_artifact_type == "ShotOutline":
+        try:
+            validate_shot_outline_proposal(proposal)
+        except (ValidationError, ValueError) as error:
+            raise ProposalValidationError(
+                "ShotOutline proposal failed its content contract"
+            ) from error
+    dependencies = _prepare_dependencies(proposal, delegation)
+    required_source_version = next(
+        (
+            dependency.version_id
+            for dependency in proposal.dependencies
+            if dependency.artifact_type == "SourceManifest"
+        ),
+        None,
+    )
+    artifact_type = _storage_artifact_type(proposal.target_artifact_type)
+    return PreparedProposalDraft(
+        artifact_type=artifact_type,
+        schema_version=schema_version,
+        content=proposal.payload,
+        source_spans=_source_span_drafts(proposal),
+        dependencies=dependencies,
+        accepted_dependency_requirements=tuple(
+            AcceptedArtifactDependencyRequirement(
+                artifact_type=_storage_artifact_type(dependency.artifact_type),
+                version_id=dependency.version_id,
+            )
+            for dependency in proposal.dependencies
+        ),
+        required_accepted_upstream_version_id=(
+            required_source_version if artifact_type in {"story_bible", "shot_outline"} else None
+        ),
+        record_validator=_quote_hash_validator(proposal),
+    )
+
+
+def _source_span_drafts(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2,
+) -> tuple[ArtifactSourceSpanDraft, ...]:
+    return tuple(
+        ArtifactSourceSpanDraft(
+            fact_id=span.source_span_id,
+            source_document_id=span.source_document_id,
+            source_block_id=span.source_block_id,
+            role="supports",
+            start_byte=span.start_byte,
+            end_byte=span.end_byte,
+            claim=span.claim,
+        )
+        for span in proposal.source_spans
+    )
+
+
+def _quote_hash_validator(
+    proposal: ArtifactProposalV1 | ArtifactProposalV2,
+) -> Callable[[ArtifactVersionRecord], None]:
+    expected = {span.source_span_id: span.quote_hash for span in proposal.source_spans}
+
+    def validate(record: ArtifactVersionRecord) -> None:
+        actual = {span.fact_id: span.quote_hash for span in record.source_spans}
+        if actual != expected:
+            raise ProposalValidationError("proposal SourceSpan quote hash does not match source")
+
+    return validate

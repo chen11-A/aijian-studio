@@ -1,0 +1,58 @@
+diff --git a/apps/desktop/src/api-client.ts b/apps/desktop/src/api-client.ts
+index 1d23d9e..8f0b82d 100644
+--- a/apps/desktop/src/api-client.ts
++++ b/apps/desktop/src/api-client.ts
+@@ -4404,14 +4404,29 @@ export function createLocalApiClient(
+           !isEditSub2APIMetadataCommand(command)) {
+         throw new Error("Sub2API metadata edit requires canonical arguments");
+       }
+-      let before: ProviderConnectionListResponse;
+-      try {
+-        before = await requestJson(
+-          "/api/v1/provider-connections", isProviderConnectionListResponse, { headers },
+-        );
+-      } catch {
+-        return { kind: "REMOTE_UNKNOWN" };
++      async function readConnectionsWithinDeadline(): Promise<ProviderConnectionListResponse | null> {
++        const controller = new AbortController();
++        let timer: ReturnType<typeof setTimeout> | undefined;
++        const deadline = new Promise<null>((resolve) => {
++          timer = setTimeout(() => {
++            controller.abort();
++            resolve(null);
++          }, 15_000);
++        });
++        try {
++          return await Promise.race([
++            requestJson("/api/v1/provider-connections", isProviderConnectionListResponse,
++              { headers, signal: controller.signal }),
++            deadline,
++          ]);
++        } catch {
++          return null;
++        } finally {
++          if (timer !== undefined) clearTimeout(timer);
++        }
+       }
++      const before = await readConnectionsWithinDeadline();
++      if (before === null) return { kind: "REMOTE_UNKNOWN" };
+       const current = before.data.find((item) => item.id === connectionId);
+       if (!current || current.provider_kind !== "SUB2API" ||
+           current.revision !== command.expected_revision ||
+@@ -4436,14 +4451,8 @@ export function createLocalApiClient(
+         if (!isSub2APIMetadataReceipt(payload, connectionId, explicitCommand, requestId)) {
+           return { kind: "REMOTE_UNKNOWN" };
+         }
+-        let after: ProviderConnectionListResponse;
+-        try {
+-          after = await requestJson(
+-            "/api/v1/provider-connections", isProviderConnectionListResponse, { headers },
+-          );
+-        } catch {
+-          return { kind: "REMOTE_UNKNOWN" };
+-        }
++        const after = await readConnectionsWithinDeadline();
++        if (after === null) return { kind: "REMOTE_UNKNOWN" };
+         const persisted = after.data.find((item) => item.id === connectionId);
+         return persisted?.provider_kind === "SUB2API" &&
+           isRecord(persisted) &&

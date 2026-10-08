@@ -1,0 +1,102 @@
+{
+  "status": "STATIC_REVIEW_CANDIDATE_NO_C19_SYNC_NO_RUNTIME_QA",
+  "kind": "DEV06_C19_MANAGED_LONGPATH_MINIMAL_IMPORT_CLOSURE",
+  "source_stage_a_files_sha256": "13AF7D305E10126184CB39E9662084C9D3DED6C3670BF6E45C5E03D99F80D4A0",
+  "base_c19_head": "211c9e8b9316b2afdf3e35a3966aa192a8dbe7c2",
+  "base_main_sha256": "BBC596FDD33BDBD18A2ABEE96524CFDDCDA8A9D11AAFA76FC03FD11232D0900F",
+  "base_media_asset_routes_sha256": "931D14F8B3D3069ED89E224C6BF4EBF2EE4CA9CA34DAFC9A6415CD2E1B3B8770",
+  "files": [
+    {
+      "name": "aijian_api/managed_local_paths.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "78FCCE4F28FF720F6610AB72EEC2C5C5AB179E7BEB758B980610303B7CA9D7AC",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_asset_store.py",
+      "old_sha256": "E2B2002D157DEBA5F2E03F5340AD83BE9B09BE4F5D77E1ACF614D3617A60AF8D",
+      "new_sha256": "2954042D87754211526891A5CC3506DD55DCA78CBB349FC44D19D54FDDC105B8",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_asset_selected_reader.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "88A2CB4A2C891D717FBACC3D3BB14B195F8B0419431E0AB6A5B05FEBFD34A303",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_asset_probe_store.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "38CD2EEC6E1BE39620773EFD9D3917A1E93951A86C9CC473E7BB304B9A50CCFA",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_asset_audio_inspection.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "41B4FB7061DF7928A161F19D14B68B925E3495F678BEADA7E2E979134523DB64",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/episode_media_assembly_store.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "72F72CFA08349396D3853C92CCE63A3A66C77CF531544124563B15E44838AF89",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/episode_media_assembly_contracts.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "DBC5661A1721B9CFD8A27B95490DB0DDE759C5439AA9C6A463C51D6023E5B0E8",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/episode_script_confirmation_schema.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "498B350F96D12DEFFE18A05CCECDD3143A2DB0EBEDCA4E1BB8F3FEB942F3AB3E",
+      "source_scope": "CROSS_OWNER_DEPENDENCY"
+    },
+    {
+      "name": "aijian_api/media_asset_probe_schema.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "BCCC47943DCDCDA87DED8CD218EEEFF20F19F461CD7E85FEFE9BD3E52EB36A4A",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_asset_rights_schema.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "3F875459907319E7365A3D021D2803E5146DDB71C73E99DF44E2E38DF82C91FE",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/media_execution_plan_contracts.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "3499EFFC8983BC3EF2EF666B55C33116779458FA1EA8748302AC811F8B3A45B2",
+      "source_scope": "DEV06_SOURCE"
+    },
+    {
+      "name": "aijian_api/product_export_schema.py",
+      "old_sha256": "ABSENT",
+      "new_sha256": "5FE02402F77DEF10B0DA1CFE4FDEBE548F568EBE42FE3B1A471F7123D4E07EFE",
+      "source_scope": "CROSS_OWNER_DEPENDENCY"
+    },
+    {
+      "name": "aijian_api/repository.py",
+      "old_sha256": "BB366B214157007E2CB906EEADDC895E1ED60AE95DC97D86BEE686F137710E69",
+      "new_sha256": "C21049176963798A3D0DE0748EAFD5FF41F0294C759939A31BDFD694C5C43DD8",
+      "source_scope": "CROSS_OWNER_DEPENDENCY"
+    }
+  ],
+  "file_count": 13,
+  "cross_owner_files": [
+    "aijian_api/repository.py",
+    "aijian_api/episode_script_confirmation_schema.py",
+    "aijian_api/product_export_schema.py"
+  ],
+  "sync_gate": "MGR04_PROTECTED_SYNC_AFTER_OWNER_AND_MGR02_QA_PLAN",
+  "limitations": [
+    "Static local import closure candidate only; no product import/build/migration or public probe/assembly QA",
+    "Current c19 main.py and media_asset_routes.py remain unchanged",
+    "Repository upgrades schema 26 to 30 and needs independent migration QA",
+    "No rights/probe/assembly routes are installed by this package",
+    "No MLT, FFmpeg or provider execution approved"
+  ]
+}

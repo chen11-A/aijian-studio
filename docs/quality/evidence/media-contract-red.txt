@@ -1,0 +1,12 @@
+Phase 0 media contract TDD RED evidence
+Date: 2026-08-04
+Command: pnpm test:py -- services/api/tests/test_media_contracts.py
+Expected failure: test collection cannot import the newly specified per-frame mapping contract.
+Observed result: exit code 2; ImportError: cannot import name 'ProxyFrameMapEntryData' from 'aijian_api.media_contracts'.
+Meaning: the tests named the missing API before the implementation existed. The later GREEN run is recorded separately.
+
+Second RED boundary run
+Command: uv run pytest services/api/tests/test_media_contracts.py -q
+Observed result: 1 failed, 46 passed.
+Failure: test_frame_to_audio_sample_rejects_a_json_unsafe_result DID NOT RAISE ValueError.
+Meaning: a JSON-safe frame index could still derive an unsafe audio sample position; the result bound was implemented only after this failure.

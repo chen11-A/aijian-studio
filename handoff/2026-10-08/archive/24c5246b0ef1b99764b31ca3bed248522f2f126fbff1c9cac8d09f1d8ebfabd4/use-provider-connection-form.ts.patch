@@ -1,0 +1,81 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\use-provider-connection-form.ts.before" "b/apps\\studio-web\\src\\domain\\use-provider-connection-form.ts"
+index 4e99ae0..9710a2e 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-sub2api-local-ui-20260929\\use-provider-connection-form.ts.before"
++++ "b/apps\\studio-web\\src\\domain\\use-provider-connection-form.ts"
+@@ -3,9 +3,11 @@ import { useCallback, useState } from "react";
+ import type { CreateProviderConnectionInput } from "../api/studio";
+ import {
+   compileModels,
++  isLiteralSub2APILoopbackOrigin,
+   providerPresets,
+   type Capability,
+   type ProviderKind,
++  type Sub2APIOriginMode,
+ } from "./provider-settings-model";
+ 
+ const emptyModels: Record<Capability, string> = { TEXT: "", IMAGE: "", VIDEO: "", SPEECH: "" };
+@@ -14,6 +16,7 @@ export function useProviderConnectionForm(
+   onSubmit: (input: CreateProviderConnectionInput) => Promise<void>,
+ ) {
+   const [providerKind, setProviderKind] = useState<ProviderKind>("OPENAI");
++  const [sub2apiMode, setSub2apiMode] = useState<Sub2APIOriginMode>("PUBLIC_HTTPS");
+   const [displayName, setDisplayName] = useState("OpenAI 主连接");
+   const [baseUrl, setBaseUrl] = useState(providerPresets.OPENAI.baseUrl);
+   const [apiKey, setApiKey] = useState("");
+@@ -23,6 +26,7 @@ export function useProviderConnectionForm(
+   const chooseProvider = useCallback((nextKind: ProviderKind) => {
+     const next = providerPresets[nextKind];
+     setProviderKind(nextKind);
++    setSub2apiMode("PUBLIC_HTTPS");
+     setDisplayName(next.label);
+     setBaseUrl(next.baseUrl);
+     setApiKey("");
+@@ -30,6 +34,13 @@ export function useProviderConnectionForm(
+     setModelError(null);
+   }, []);
+ 
++  const chooseSub2apiMode = useCallback((mode: Sub2APIOriginMode) => {
++    setSub2apiMode(mode);
++    setBaseUrl("");
++    setApiKey("");
++    setModelError(null);
++  }, []);
++
+   const setModel = useCallback((capability: Capability, value: string) => {
+     if (providerKind === "SUB2API" && capability !== "TEXT") return;
+     setModels((current) => ({ ...current, [capability]: value }));
+@@ -37,6 +48,14 @@ export function useProviderConnectionForm(
+ 
+   const submit = useCallback(() => {
+     if (providerKind === "SUB2API") {
++      if (sub2apiMode === "LOCAL_LOOPBACK_HTTP") {
++        if (!isLiteralSub2APILoopbackOrigin(baseUrl.trim())) {
++          setModelError("本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口；端口须显式填写 1–65535，不能使用 localhost、路径或重定向地址。");
++        } else {
++          setModelError("本机 Sub2API 模式尚待后端与桌面同版本合同接入；已核对地址格式，但未保存或连接网关。");
++        }
++        return;
++      }
+       const rawOrigin = baseUrl.trim().replace(/\/+$/, "");
+       let origin: URL;
+       try {
+@@ -80,16 +99,18 @@ export function useProviderConnectionForm(
+       () => setApiKey(""),
+       () => undefined,
+     );
+-  }, [apiKey, baseUrl, displayName, models, onSubmit, providerKind]);
++  }, [apiKey, baseUrl, displayName, models, onSubmit, providerKind, sub2apiMode]);
+ 
+   return {
+     providerKind,
++    sub2apiMode,
+     displayName,
+     baseUrl,
+     apiKey,
+     models,
+     modelError,
+     chooseProvider,
++    chooseSub2apiMode,
+     setDisplayName,
+     setBaseUrl,
+     setApiKey,

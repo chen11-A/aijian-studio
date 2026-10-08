@@ -1,0 +1,103 @@
+diff --git "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\studio.ts.before" "b/apps\\studio-web\\src\\api\\studio.ts"
+index 2cf3c48..2c6366b 100644
+--- "a/C:\\Users\\Administrator\\Documents\\AIVORA\\work\\dev04-provider-b31-20260929\\studio.ts.before"
++++ "b/apps\\studio-web\\src\\api\\studio.ts"
+@@ -473,6 +473,43 @@ export type CreateProviderConnectionInput =
+ export type ProviderConnectionListResponse =
+   components["schemas"]["ProviderConnectionListResponse"];
+ export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
++export type Sub2APIMetadataCommand = {
++  expected_revision: number;
++  display_name: string;
++  base_url: string;
++  enabled: boolean;
++  models: { model_id: string; capabilities: ["TEXT"] }[];
++};
++export type Sub2APIRotationCommand = {
++  expected_revision: number;
++  operation_id: string;
++  api_key: string;
++};
++export type Sub2APIMutationResult =
++  | { kind: "UPDATED"; receipt: ProviderConnectionResponse }
++  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 422;
++      code: string; request_id: string }
++  | { kind: "REMOTE_UNKNOWN" };
++export type Sub2APIRotationReadResult =
++  | { kind: "READ"; receipt: { data: {
++      operation_id: string; connection_id: string; expected_revision: number;
++      status: "PREPARED" | "APPLIED" | "CONFLICT" | "UNKNOWN";
++      applied_revision: number | null; created_at: string; updated_at: string;
++    }; request_id: string } }
++  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
++      code: string; request_id: string }
++  | { kind: "REMOTE_UNKNOWN" };
++export type Sub2APIReadinessResult =
++  | { kind: "READ"; receipt: { data: {
++      connection_id: string; connection_revision: number; model_id: string;
++      credential_status: "CONFIGURED" | "MISSING" | "UNAVAILABLE";
++      runtime_status: string; local_preconditions_met: boolean;
++      reasons: string[]; provider_observation: "NOT_CHECKED";
++      model_entitlement: "UNKNOWN";
++    }; request_id: string } }
++  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
++      code: string; request_id: string }
++  | { kind: "READINESS_UNKNOWN" };
+ 
+ export interface ProposalDecisionCapability {
+   acceptAsDraft(
+@@ -605,6 +642,14 @@ export interface StudioTransport {
+     input: CreateProviderConnectionInput,
+   ): Promise<ProviderConnectionResponse>;
+   deleteProviderConnection(connectionId: string): Promise<void>;
++  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
++    Promise<Sub2APIReadinessResult>;
++  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
++    Promise<Sub2APIMutationResult>;
++  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
++    Promise<Sub2APIMutationResult>;
++  readSub2APIKeyRotation?(connectionId: string, operationId: string):
++    Promise<Sub2APIRotationReadResult>;
+ }
+ 
+ export interface AijianDesktopBridge {
+@@ -738,6 +783,14 @@ export interface AijianDesktopBridge {
+     input: CreateProviderConnectionInput,
+   ): Promise<ProviderConnectionResponse>;
+   deleteProviderConnection(connectionId: string): Promise<void>;
++  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
++    Promise<Sub2APIReadinessResult>;
++  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
++    Promise<Sub2APIMutationResult>;
++  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
++    Promise<Sub2APIMutationResult>;
++  readSub2APIKeyRotation?(connectionId: string, operationId: string):
++    Promise<Sub2APIRotationReadResult>;
+ }
+ 
+ declare global {
+@@ -1165,6 +1218,24 @@ export function createStudioTransport(): StudioTransport {
+       listProviderConnections: () => bridge.listProviderConnections(),
+       createProviderConnection: (input) => bridge.createProviderConnection(input),
+       deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
++      readSub2APIConfiguredReadiness:
++        typeof bridge.readSub2APIConfiguredReadiness === "function"
++          ? (connectionId, modelId) =>
++              bridge.readSub2APIConfiguredReadiness!(connectionId, modelId)
++          : undefined,
++      editSub2APIMetadata:
++        typeof bridge.editSub2APIMetadata === "function"
++          ? (connectionId, command) => bridge.editSub2APIMetadata!(connectionId, command)
++          : undefined,
++      rotateSub2APIKey:
++        typeof bridge.rotateSub2APIKey === "function"
++          ? (connectionId, command) => bridge.rotateSub2APIKey!(connectionId, command)
++          : undefined,
++      readSub2APIKeyRotation:
++        typeof bridge.readSub2APIKeyRotation === "function"
++          ? (connectionId, operationId) =>
++              bridge.readSub2APIKeyRotation!(connectionId, operationId)
++          : undefined,
+     };
+   }
+   return {

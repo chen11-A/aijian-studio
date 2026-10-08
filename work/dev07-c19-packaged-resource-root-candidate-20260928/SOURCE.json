@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "EXTERNAL_SOURCE_CANDIDATE_NO_BUILD_NO_RUNTIME_QA",
+  "baseline_path": "C:\\Users\\Administrator\\.codex\\worktrees\\c19-trim-211c9e8-qa-20260923\\apps\\desktop\\src\\main.ts",
+  "baseline_sha256": "443624A7007C6664DC232895464AA7DD41F4B38D14FB3315088B1AF9F702401E",
+  "candidate_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev07-c19-packaged-resource-root-candidate-20260928\\main.ts",
+  "candidate_sha256": "E1BAAA599BB340BA4F2DEAD8755485B2E55406894E23F29D225EC0690823ABF0",
+  "patch_path": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp\\work\\dev07-c19-packaged-resource-root-candidate-20260928\\main.diff",
+  "patch_sha256": "85464554C583D8A7DF20CDC0E378E832307FAFE0E74EB8FD034766E649A740C8",
+  "runtime_resources_sha256": "E93FC66B03FB4CF9B2969EC2AF453BCF3DA54C4B2C5E9B7E8D481BC7D72EFA0B",
+  "runtime_layout_sha256": "0F6EFF7BCAB2585A90846AA4CC9F5C70CD5D34953E902898CD2AA8D95B93516B",
+  "scope": "Packaged Windows sidecar executable/args/cwd/data/resource root and packaged renderer with missing-resource fail-closed checks; development path untouched",
+  "excluded": "No c19 write, PATH fallback, media allowlist, build, install, or runtime acceptance"
+}

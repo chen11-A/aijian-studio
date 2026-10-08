@@ -1,0 +1,20 @@
+{
+  "schema": "dev07.main-resource-safety.source-candidate.v1",
+  "state": "AUTHOR_SOURCE_ONLY_NO_BUILD_NO_TEST_NO_ELECTRON_NO_C19_WRITE",
+  "date": "2026-10-08",
+  "author_root": "C:\\Users\\Administrator\\.codex\\worktrees\\s2-q1-g1-d00-default-deny-59f-20260923\\sp",
+  "source_path": "apps/desktop/src/main.ts",
+  "before_snapshot": "work/dev07-main-resource-safety-20261008/main.ts.before",
+  "before_sha256": "A1359F9EBC54090AD882C12B85E5CFB36917060D20D6B2DE245D9E364EA04C32",
+  "after_snapshot": "work/dev07-main-resource-safety-20261008/main.ts.after",
+  "after_sha256": "51076243C1E39B544196D01EFDB76A1567138C255AAAC79D31131418ADD68D40",
+  "patch": "work/dev07-main-resource-safety-20261008/main.ts.patch",
+  "patch_sha256": "719D3FF2EC4D1C413CCF7B348D254A00D826DAC50A4D75693EC1C40D1103C517",
+  "read_only_c19_main_sha256": "BDAB4361B5D0671735253C8A57258FC48005165F07969DCD9D56C3BDC5636DAC",
+  "read_only_v4_stage_main_sha256": "A1359F9EBC54090AD882C12B85E5CFB36917060D20D6B2DE245D9E364EA04C32",
+  "unchanged_preload_sha256": "77C06E152301829A2C46C3786BA6BA5F727AB189A2078D761C78993F16CD04F9",
+  "unchanged_sidecar_process_sha256": "DE5D46DCE9CEB276F67A968F0B271B37498814CECECAF7AD7712FB6DBE22710F",
+  "handoff_path": "work/dev07-main-resource-safety-20261008/HANDOFF.md",
+  "handoff_sha256": "508A4EFCD6CE861F6A954138196D22E3BC8C89B0A16FB81F15A6B137A95D1711",
+  "verification": "hash readback, reverse patch check, diff check, IPC registration count and startup-order text checks only; no build, tests, Electron, sidecar, provider, c19 write, or v4 stage write"
+}
