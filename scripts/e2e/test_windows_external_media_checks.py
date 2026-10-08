@@ -33,7 +33,7 @@ class HostChecks(unittest.TestCase):
 
     def test_synthetic_png_has_exact_geometry_and_frame_marker(self):
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "synthetic.png"
+            path = Path(temporary).resolve(strict=True) / "synthetic.png"
             checks.png(path, (255, 0, 0), 128)
             data = path.read_bytes()
             self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
@@ -46,13 +46,25 @@ class HostChecks(unittest.TestCase):
 
     def test_json_evidence_exclusive_and_bounded(self):
         with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "report.json"
+            # Windows TEMP may use its 8.3 spelling. Normalize only this owned
+            # fixture root; production plain() must continue rejecting aliases.
+            root = Path(temporary).resolve(strict=True)
+            path = root / "report.json"
             checks.write_json(path, {"result": "HOST_FIXTURE"})
             self.assertEqual(json.loads(path.read_text())["result"], "HOST_FIXTURE")
             with self.assertRaises(FileExistsError):
                 checks.write_json(path, {})
             with self.assertRaises(ValueError):
-                checks.write_json(Path(temporary) / "huge.json", {"data": "a" * 140000})
+                checks.write_json(root / "huge.json", {"data": "a" * 140000})
+
+    def test_existing_noncanonical_spelling_remains_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve(strict=True)
+            path = root / "owned.json"
+            path.write_text("{}")
+            with patch.object(Path, "resolve", return_value=root / "different-canonical-name.json"):
+                with self.assertRaisesRegex(ValueError, "spelling differs"):
+                    checks.plain(path)
 
     def test_legacy_installer_call_skips_optional_media_unchanged(self):
         with patch.object(installed.subprocess, "run") as run:
@@ -66,7 +78,10 @@ class HostChecks(unittest.TestCase):
     def test_media_phase_refuses_any_upload_enabled_run(self):
         with patch.dict(
             os.environ,
-            {"RUNNER_TEMP": tempfile.gettempdir(), "AIVORA_ARTIFACT_UPLOAD_ALLOWED": "true"},
+            {
+                "RUNNER_TEMP": str(Path(tempfile.gettempdir()).resolve(strict=True)),
+                "AIVORA_ARTIFACT_UPLOAD_ALLOWED": "true",
+            },
         ):
             with self.assertRaisesRegex(ValueError, "zero-upload"):
                 installed.external_media_phase(
@@ -75,7 +90,7 @@ class HostChecks(unittest.TestCase):
 
     def test_helper_failure_is_preserved_in_install_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
-            temp = Path(temporary)
+            temp = Path(temporary).resolve(strict=True)
             evidence = temp / "aivora-evidence"
             evidence.mkdir()
             root = temp / "aivora-external-media-tools/ffmpeg-8.1.2-full_build/bin"
