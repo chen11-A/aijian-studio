@@ -2,6 +2,7 @@
 
 import ctypes
 import os
+import sys
 from pathlib import Path, PureWindowsPath
 
 _WINDOWS_RESERVED_NAMES = frozenset(
@@ -89,6 +90,8 @@ def _reject_reparse_points(path: Path) -> None:
 
 
 def _windows_drive_type(root: str) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows drive information is unavailable")
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     get_drive_type = kernel32.GetDriveTypeW
     get_drive_type.argtypes = [ctypes.c_wchar_p]

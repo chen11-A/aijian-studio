@@ -452,6 +452,7 @@ def _job_api(monkeypatch, tmp_path, reject_mitigation=False):
         set_handle_inheritable=os.set_inheritable,
     )
     monkeypatch.setattr(jobs, "os", fake_os)
+    monkeypatch.setattr(jobs, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setattr(jobs, "_api", lambda: API())
     monkeypatch.setattr(jobs, "_winerror", lambda stage: jobs.ProductExportJobError(stage))
     monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(get_osfhandle=lambda fd: fd))

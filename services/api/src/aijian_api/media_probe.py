@@ -8,6 +8,7 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -222,6 +223,8 @@ def _hash_file(path: Path) -> str:
 
 
 def _open_windows_source(path: Path) -> BinaryIO:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
     import msvcrt
     from ctypes import wintypes
@@ -355,7 +358,7 @@ def _is_remote_windows_path(path: Path) -> bool:
         drive_root = f"{drive[4:]}\\"
     elif drive.startswith("\\\\"):
         return True
-    if os.name != "nt" or not drive:
+    if sys.platform != "win32" or not drive:
         return False
     try:
         import ctypes

@@ -11,6 +11,7 @@ import ctypes
 import math
 import os
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -54,10 +55,17 @@ class _BasicLimit(ctypes.Structure):
 
 
 class _IoCounters(ctypes.Structure):
-    _fields_ = [(name, ctypes.c_uint64) for name in (
-        "ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
-        "ReadTransferCount", "WriteTransferCount", "OtherTransferCount",
-    )]
+    _fields_ = [
+        (name, ctypes.c_uint64)
+        for name in (
+            "ReadOperationCount",
+            "WriteOperationCount",
+            "OtherOperationCount",
+            "ReadTransferCount",
+            "WriteTransferCount",
+            "OtherTransferCount",
+        )
+    ]
 
 
 class _ExtendedLimit(ctypes.Structure):
@@ -124,41 +132,85 @@ class ProductExportJobError(OSError):
     """A process could not be launched or observed under the private job."""
 
 
-def _api() -> ctypes.WinDLL:
-    if os.name != "nt":
+def _api() -> ctypes.CDLL:
+    if sys.platform != "win32":
         raise ProductExportJobError("Windows Job Objects are required")
     api = ctypes.WinDLL("kernel32", use_last_error=True)
     signatures = {
         "CreateJobObjectW": (wintypes.HANDLE, [ctypes.c_void_p, wintypes.LPCWSTR]),
-        "SetInformationJobObject": (wintypes.BOOL, [
-            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
-        ]),
-        "InitializeProcThreadAttributeList": (wintypes.BOOL, [
-            ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
-            ctypes.POINTER(ctypes.c_size_t),
-        ]),
-        "UpdateProcThreadAttribute": (wintypes.BOOL, [
-            ctypes.c_void_p, wintypes.DWORD, ctypes.c_size_t,
-            ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p,
-        ]),
+        "SetInformationJobObject": (
+            wintypes.BOOL,
+            [
+                wintypes.HANDLE,
+                ctypes.c_int,
+                ctypes.c_void_p,
+                wintypes.DWORD,
+            ],
+        ),
+        "InitializeProcThreadAttributeList": (
+            wintypes.BOOL,
+            [
+                ctypes.c_void_p,
+                wintypes.DWORD,
+                wintypes.DWORD,
+                ctypes.POINTER(ctypes.c_size_t),
+            ],
+        ),
+        "UpdateProcThreadAttribute": (
+            wintypes.BOOL,
+            [
+                ctypes.c_void_p,
+                wintypes.DWORD,
+                ctypes.c_size_t,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+            ],
+        ),
         "DeleteProcThreadAttributeList": (None, [ctypes.c_void_p]),
-        "CreateProcessW": (wintypes.BOOL, [
-            wintypes.LPCWSTR, wintypes.LPWSTR, ctypes.c_void_p, ctypes.c_void_p,
-            wintypes.BOOL, wintypes.DWORD, ctypes.c_void_p, wintypes.LPCWSTR,
-            ctypes.c_void_p, ctypes.POINTER(_ProcessInfo),
-        ]),
-        "IsProcessInJob": (wintypes.BOOL, [
-            wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL),
-        ]),
+        "CreateProcessW": (
+            wintypes.BOOL,
+            [
+                wintypes.LPCWSTR,
+                wintypes.LPWSTR,
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                wintypes.BOOL,
+                wintypes.DWORD,
+                ctypes.c_void_p,
+                wintypes.LPCWSTR,
+                ctypes.c_void_p,
+                ctypes.POINTER(_ProcessInfo),
+            ],
+        ),
+        "IsProcessInJob": (
+            wintypes.BOOL,
+            [
+                wintypes.HANDLE,
+                wintypes.HANDLE,
+                ctypes.POINTER(wintypes.BOOL),
+            ],
+        ),
         "ResumeThread": (wintypes.DWORD, [wintypes.HANDLE]),
-        "QueryInformationJobObject": (wintypes.BOOL, [
-            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
-            ctypes.POINTER(wintypes.DWORD),
-        ]),
+        "QueryInformationJobObject": (
+            wintypes.BOOL,
+            [
+                wintypes.HANDLE,
+                ctypes.c_int,
+                ctypes.c_void_p,
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.DWORD),
+            ],
+        ),
         "WaitForSingleObject": (wintypes.DWORD, [wintypes.HANDLE, wintypes.DWORD]),
-        "GetExitCodeProcess": (wintypes.BOOL, [
-            wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD),
-        ]),
+        "GetExitCodeProcess": (
+            wintypes.BOOL,
+            [
+                wintypes.HANDLE,
+                ctypes.POINTER(wintypes.DWORD),
+            ],
+        ),
         "TerminateJobObject": (wintypes.BOOL, [wintypes.HANDLE, wintypes.UINT]),
         "TerminateProcess": (wintypes.BOOL, [wintypes.HANDLE, wintypes.UINT]),
         "CloseHandle": (wintypes.BOOL, [wintypes.HANDLE]),
@@ -171,6 +223,8 @@ def _api() -> ctypes.WinDLL:
 
 
 def _winerror(stage: str) -> ProductExportJobError:
+    if sys.platform != "win32":
+        return ProductExportJobError(stage)
     return ProductExportJobError(ctypes.get_last_error(), stage)
 
 
@@ -178,8 +232,14 @@ class ProductExportJobProcess:
     """Own the only non-inheritable job handle and the exact process handle."""
 
     def __init__(
-        self, api: ctypes.WinDLL, job: int, process: int, pid: int,
-        stdout: BinaryIO, stderr: BinaryIO, command: str,
+        self,
+        api: ctypes.CDLL,
+        job: int,
+        process: int,
+        pid: int,
+        stdout: BinaryIO,
+        stderr: BinaryIO,
+        command: str,
     ) -> None:
         self._api = api
         self._job = job
@@ -194,8 +254,10 @@ class ProductExportJobProcess:
         accounting = _Accounting()
         length = wintypes.DWORD()
         if not self._api.QueryInformationJobObject(
-            self._job, _JOB_BASIC_ACCOUNTING_INFORMATION,
-            ctypes.byref(accounting), ctypes.sizeof(accounting),
+            self._job,
+            _JOB_BASIC_ACCOUNTING_INFORMATION,
+            ctypes.byref(accounting),
+            ctypes.sizeof(accounting),
             ctypes.byref(length),
         ):
             raise _winerror("Cannot read export job membership")
@@ -271,8 +333,13 @@ class ProductExportJobManager:
         self._uncertain = False
 
     def spawn(
-        self, executable: Path, arguments: Sequence[str], *,
-        cwd: Path, env: Mapping[str, str], hardened_external_media: bool = False,
+        self,
+        executable: Path,
+        arguments: Sequence[str],
+        *,
+        cwd: Path,
+        env: Mapping[str, str],
+        hardened_external_media: bool = False,
     ) -> ProductExportJobProcess:
         with self._lock:
             if self._closing:
@@ -280,7 +347,11 @@ class ProductExportJobManager:
             try:
                 if hardened_external_media:
                     process = spawn_product_export_job(
-                        executable, arguments, cwd=cwd, env=env, hardened_external_media=True,
+                        executable,
+                        arguments,
+                        cwd=cwd,
+                        env=env,
+                        hardened_external_media=True,
                     )
                 else:
                     process = spawn_product_export_job(executable, arguments, cwd=cwd, env=env)
@@ -349,14 +420,15 @@ def spawn_product_export_job(
     The caller must close the returned process after all output readers have
     joined. No release path may fall back to subprocess.Popen on failure.
     """
+    if sys.platform != "win32":
+        raise ProductExportJobError("Invalid Windows export process inputs")
     if (
-        os.name != "nt" or not executable.is_absolute() or not executable.is_file()
-        or not cwd.is_absolute() or not cwd.is_dir()
+        not executable.is_absolute()
+        or not executable.is_file()
+        or not cwd.is_absolute()
+        or not cwd.is_dir()
         or any(not isinstance(arg, str) or "\0" in arg for arg in arguments)
-        or any(
-            not key or "=" in key or "\0" in key or "\0" in value
-            for key, value in env.items()
-        )
+        or any(not key or "=" in key or "\0" in key or "\0" in value for key, value in env.items())
     ):
         raise ProductExportJobError("Invalid Windows export process inputs")
     import msvcrt
@@ -375,8 +447,10 @@ def spawn_product_export_job(
         limits = _ExtendedLimit()
         limits.BasicLimitInformation.LimitFlags = _KILL_ON_JOB_CLOSE
         if not api.SetInformationJobObject(
-            job, _JOB_EXTENDED_LIMIT_INFORMATION,
-            ctypes.byref(limits), ctypes.sizeof(limits),
+            job,
+            _JOB_EXTENDED_LIMIT_INFORMATION,
+            ctypes.byref(limits),
+            ctypes.sizeof(limits),
         ):
             raise _winerror("Cannot set kill-on-close export job limit")
         stdin_fd = os.open(os.devnull, os.O_RDONLY)
@@ -399,25 +473,44 @@ def spawn_product_export_job(
             raise _winerror("Cannot size export process attributes")
         attribute_list = ctypes.create_string_buffer(size.value)
         if not api.InitializeProcThreadAttributeList(
-            attribute_list, attribute_count, 0, ctypes.byref(size),
+            attribute_list,
+            attribute_count,
+            0,
+            ctypes.byref(size),
         ):
             raise _winerror("Cannot initialize export process attributes")
         attributes_ready = True
         handles = (wintypes.HANDLE * len(inherited))(*inherited)
         jobs = (wintypes.HANDLE * 1)(job)
         if not api.UpdateProcThreadAttribute(
-            attribute_list, 0, _HANDLE_LIST, handles, ctypes.sizeof(handles),
-            None, None,
+            attribute_list,
+            0,
+            _HANDLE_LIST,
+            handles,
+            ctypes.sizeof(handles),
+            None,
+            None,
         ):
             raise _winerror("Cannot restrict inherited export handles")
         if not api.UpdateProcThreadAttribute(
-            attribute_list, 0, _JOB_LIST, jobs, ctypes.sizeof(jobs), None, None,
+            attribute_list,
+            0,
+            _JOB_LIST,
+            jobs,
+            ctypes.sizeof(jobs),
+            None,
+            None,
         ):
             raise _winerror("Cannot bind export job at process creation")
         mitigation = ctypes.c_uint64(_EXTERNAL_MEDIA_MITIGATION)
         if hardened_external_media and not api.UpdateProcThreadAttribute(
-            attribute_list, 0, _MITIGATION_POLICY, ctypes.byref(mitigation),
-            ctypes.sizeof(mitigation), None, None,
+            attribute_list,
+            0,
+            _MITIGATION_POLICY,
+            ctypes.byref(mitigation),
+            ctypes.sizeof(mitigation),
+            None,
+            None,
         ):
             raise _winerror("Cannot restrict external media image loading")
         startup = _StartupInfoEx()
@@ -429,16 +522,27 @@ def spawn_product_export_job(
         startup.lpAttributeList = ctypes.cast(attribute_list, ctypes.c_void_p)
         command = subprocess.list2cmdline([str(executable), *arguments])
         command_buffer = ctypes.create_unicode_buffer(command)
-        environment = "\0".join(
-            f"{key}={value}"
-            for key, value in sorted(env.items(), key=lambda item: item[0].casefold())
-        ) + "\0\0"
+        environment = (
+            "\0".join(
+                f"{key}={value}"
+                for key, value in sorted(env.items(), key=lambda item: item[0].casefold())
+            )
+            + "\0\0"
+        )
         environment_buffer = ctypes.create_unicode_buffer(environment)
         if not api.CreateProcessW(
-            str(executable), command_buffer, None, None, True,
-            _CREATE_SUSPENDED | _CREATE_UNICODE_ENVIRONMENT
-            | _EXTENDED_STARTUPINFO_PRESENT | _CREATE_NO_WINDOW,
-            environment_buffer, str(cwd), ctypes.byref(startup),
+            str(executable),
+            command_buffer,
+            None,
+            None,
+            True,
+            _CREATE_SUSPENDED
+            | _CREATE_UNICODE_ENVIRONMENT
+            | _EXTENDED_STARTUPINFO_PRESENT
+            | _CREATE_NO_WINDOW,
+            environment_buffer,
+            str(cwd),
+            ctypes.byref(startup),
             ctypes.byref(process),
         ):
             raise _winerror("Cannot create job-bound export process")
@@ -465,8 +569,13 @@ def spawn_product_export_job(
         api.CloseHandle(process.hThread)
         process.hThread = None
         result = ProductExportJobProcess(
-            api, job, process.hProcess, int(process.dwProcessId),
-            stdout, stderr, command,
+            api,
+            job,
+            process.hProcess,
+            int(process.dwProcessId),
+            stdout,
+            stderr,
+            command,
         )
         returned = True
         return result

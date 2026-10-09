@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -445,7 +446,7 @@ def _project_publish_lock(
                 stream.flush()
             stream.seek(0)
             deadline = time.monotonic() + PROJECT_LOCK_TIMEOUT_SECONDS
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 while True:
@@ -472,10 +473,9 @@ def _project_publish_lock(
                     if should_stop():
                         raise FakeMediaPackageError("fake media publish lock was interrupted")
                     try:
-                        fcntl.flock(  # type: ignore[attr-defined]
+                        fcntl.flock(
                             stream.fileno(),
-                            fcntl.LOCK_EX  # type: ignore[attr-defined]
-                            | fcntl.LOCK_NB,  # type: ignore[attr-defined]
+                            fcntl.LOCK_EX | fcntl.LOCK_NB,
                         )
                         break
                     except BlockingIOError:
@@ -487,15 +487,17 @@ def _project_publish_lock(
                 try:
                     yield
                 finally:
-                    fcntl.flock(  # type: ignore[attr-defined]
+                    fcntl.flock(
                         stream.fileno(),
-                        fcntl.LOCK_UN,  # type: ignore[attr-defined]
+                        fcntl.LOCK_UN,
                     )
     except FakeMediaPackageError:
         raise
 
 
 def _windows_process_identity(pid: int) -> tuple[int, bool] | None:
+    if sys.platform != "win32":
+        return None
     import ctypes
     from ctypes import wintypes
 
