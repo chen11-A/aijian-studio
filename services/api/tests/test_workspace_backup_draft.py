@@ -8,11 +8,10 @@ from pathlib import Path
 
 import pytest
 from aijian_api import sidecar
-from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
 from aijian_api.repository import StudioRepository
 from aijian_api.workspace_owner_lock import acquire_workspace_owner_lock
-from test_draft_export_runtime import fixture, request_for, toolchain, wait_final
+from test_draft_export_runtime import fixture, request_for, runtime_for, wait_final
 
 
 def test_actual_completed_draft_workspace_backup_and_restore(tmp_path: Path):
@@ -28,7 +27,7 @@ def test_actual_completed_draft_workspace_backup_and_restore(tmp_path: Path):
     shutil.copytree(seed / "media-assets", workspace / "media-assets")
     repository = StudioRepository(database)
     output = tmp_path / "actual-owned-DRAFT.mp4"
-    runtime = DraftExportRuntime(repository, toolchain)
+    runtime = runtime_for(repository)
     request = request_for(assembly, output)
     try:
         runtime.submit(project, episode, request)

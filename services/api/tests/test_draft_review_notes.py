@@ -5,7 +5,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.draft_review_contracts import (
     CreateDraftReviewNoteRequest,
     ResolveDraftReviewNoteRequest,
@@ -18,14 +17,14 @@ from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.security import SidecarSecurity
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from test_draft_export_runtime import fixture, request_for, toolchain, wait_final
+from test_draft_export_runtime import fixture, request_for, runtime_for, wait_final
 from test_migrations import database_version, migrate_through
 
 
 @pytest.fixture
 def saved(tmp_path):
     repository, project, episode, asset, assembly = fixture(tmp_path)
-    runtime = DraftExportRuntime(repository, toolchain)
+    runtime = runtime_for(repository)
     request = request_for(assembly, tmp_path / "REVIEW-DRAFT.mp4")
     runtime.submit(project, episode, request)
     job = wait_final(runtime, project, episode, request.operation_id)

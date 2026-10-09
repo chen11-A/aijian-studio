@@ -220,14 +220,13 @@ def test_authenticated_http_readback_keeps_optional_links_and_legacy_hashes(tmp_
 
 
 def test_linked_assembly_still_exports_real_draft_after_storyboard_head_changes(tmp_path):
-    from aijian_api.draft_export_runtime import DraftExportRuntime
-    from test_draft_export_runtime import request_for, toolchain, wait_final
+    from test_draft_export_runtime import request_for, runtime_for, wait_final
 
     repository, project, episode, _, assembly = fixture(tmp_path)
     source = storyboard(repository, project, episode)
     bound = save(repository, project, episode, assembly, linked_content(assembly, source))
     storyboard(repository, project, episode, shots=[], parent=source)
-    runtime = DraftExportRuntime(repository, toolchain)
+    runtime = runtime_for(repository)
     request = request_for(bound, tmp_path / "linked-DRAFT.mp4")
     try:
         runtime.submit(project, episode, request)

@@ -128,6 +128,7 @@ def test_parent_pipe_eof_requests_a_graceful_server_exit(monkeypatch: pytest.Mon
 
 
 def test_run_emits_one_handshake_and_closes_the_reserved_listener(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -153,6 +154,12 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
         def start(self) -> None:
             self.started = True
 
+        def join(self, timeout: float | None = None) -> None:
+            pass
+
+        def is_alive(self) -> bool:
+            return False
+
     class FakeWorker:
         started = False
         stopped = False
@@ -163,6 +170,7 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
         def stop(self) -> None:
             self.stopped = True
 
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(tmp_path))
     listener = FakeListener()
     server = FakeServer()
     thread = FakeThread()
@@ -187,6 +195,7 @@ def test_run_emits_one_handshake_and_closes_the_reserved_listener(
 
 
 def test_handshake_output_failure_stops_worker_and_closes_listener(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeListener:
@@ -204,6 +213,7 @@ def test_handshake_output_failure_stops_worker_and_closes_listener(
         def stop(self) -> None:
             self.stopped = True
 
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(tmp_path))
     listener = FakeListener()
     worker = FakeWorker()
     monkeypatch.setattr(sidecar, "create_listener", lambda: (listener, 43123))
@@ -216,7 +226,9 @@ def test_handshake_output_failure_stops_worker_and_closes_listener(
     monkeypatch.setattr(
         sidecar.threading,
         "Thread",
-        lambda **_kwargs: SimpleNamespace(start=lambda: None),
+        lambda **_kwargs: SimpleNamespace(
+            start=lambda: None, join=lambda **_kwargs: None, is_alive=lambda: False
+        ),
     )
     monkeypatch.setattr(sidecar, "create_local_fake_worker", lambda _database: worker)
     monkeypatch.setattr(

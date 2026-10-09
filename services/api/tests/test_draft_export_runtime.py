@@ -2,6 +2,7 @@
 
 import json
 import struct
+import sys
 import threading
 import time
 import zlib
@@ -20,6 +21,7 @@ from aijian_api.media_asset_rights_contracts import HumanRightsDecisionInput
 from aijian_api.media_asset_rights_store import MediaAssetRightsStore
 from aijian_api.media_asset_store import MediaAssetStore
 from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
+from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from pydantic import ValidationError
 
@@ -85,6 +87,10 @@ def fixture(tmp_path: Path):
 
 def toolchain():
     root = Path(__file__).resolve().parents[3]
+    if sys.platform == "win32":
+        return discover_media_toolchain(
+            load_media_toolchain_lock(root / "config/media-toolchain-lock.json"),
+        )
     return discover_media_toolchain(
         load_media_toolchain_lock(root / "config/draft-media-toolchain-linux-dev-lock.json"),
         explicit_root=Path("/usr/bin"),
@@ -98,6 +104,14 @@ def request_for(assembly, path):
         assembly_content_hash=assembly.content_hash,
         rights_declaration="OWNED_OR_SYNTHETIC",
         output_path=str(path),
+    )
+
+
+def runtime_for(repository):
+    return DraftExportRuntime(
+        repository,
+        toolchain,
+        ProductExportJobManager() if sys.platform == "win32" else None,
     )
 
 
@@ -157,7 +171,7 @@ def test_restricted_and_hash_conflict_never_launch(tmp_path):
 
 def test_real_encode_receipt_reopen_original_provenance_and_no_overwrite(tmp_path):
     repository, project, episode, asset, assembly = fixture(tmp_path)
-    runtime = DraftExportRuntime(repository, toolchain)
+    runtime = runtime_for(repository)
     request = request_for(assembly, tmp_path / "DRAFT.mp4")
     queued = runtime.submit(project, episode, request)
     assert queued.status == "QUEUED" and queued.output_path is None
@@ -212,7 +226,10 @@ def test_cancel_is_durable_and_never_publishes(tmp_path, monkeypatch):
 
 def test_recovery_marks_active_unknown_without_retry(tmp_path, monkeypatch):
     repository, project, episode, _asset, assembly = fixture(tmp_path)
-    runtime = DraftExportRuntime(repository, toolchain)
+    # Version discovery uses subprocess reader threads on Windows. Freeze the
+    # verified tools before suppressing only the export worker's startup.
+    verified_tools = toolchain()
+    runtime = DraftExportRuntime(repository, lambda: verified_tools)
     monkeypatch.setattr(threading.Thread, "start", lambda self: None)
     request = request_for(assembly, tmp_path / "DRAFT.mp4")
     assert runtime.submit(project, episode, request).status == "QUEUED"
@@ -270,7 +287,7 @@ def test_change_after_encode_cannot_publish_false_success(tmp_path, monkeypatch,
         return result
 
     monkeypatch.setattr(draft_export_encoder, "encode_draft", changed_after_encode)
-    runtime = DraftExportRuntime(repository, toolchain)
+    runtime = runtime_for(repository)
     request = request_for(assembly, target)
     runtime.submit(project, episode, request)
     result = wait_final(runtime, project, episode, request.operation_id)

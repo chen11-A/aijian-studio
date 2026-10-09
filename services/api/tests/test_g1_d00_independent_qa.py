@@ -400,6 +400,7 @@ def test_current_worker_submits_one_bound_fake_gateway_request(settlement_availa
         connections=SimpleNamespace(
             get=lambda _: SimpleNamespace(
                 id=dispatch.connection_id,
+                credential_ref=dispatch.connection_id,
                 revision=1,
                 enabled=True,
                 provider_kind="CPA_LOOPBACK",

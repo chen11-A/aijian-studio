@@ -9,10 +9,10 @@ from typing import Any
 
 import pytest
 from aijian_api.invalidation_schema import MIGRATION_15, expected_v15_objects
-from aijian_api.repository import StudioRepository
+from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.workflow_schema import MIGRATION_16, migration_19_statements
 from test_invalidation_process_recovery import _run_child, _snapshot
-from test_migrations import create_current_v14_database
+from test_migrations import create_current_v14_database, migrate_through
 
 
 def _state(database: Path) -> dict[str, Any]:
@@ -67,7 +67,8 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     # This fresh process opens raw SQLite before either repository is constructed.
     assert _state(database) == before, "raw v14 state changed before application recovery"
     raw_ms = (perf_counter() - started) * 1000
-    StudioRepository(database)
+    # Preserve the detailed v15-v21 assertions at their historical boundary.
+    migrate_through(database, 21)
     upgraded = _state(database)
     assert upgraded["version"] == 21
     for table, rows in before["rows"].items():
@@ -157,7 +158,13 @@ def _read_then_retry(database: Path, control: Path, before: dict[str, Any]) -> N
     }
     assert expected_migration_new_keys <= set(upgraded_schema) - set(before_schema)
     assert set(expected_v15_objects()) <= {(row[0], row[1]) for row in upgraded["schema"]}
+    migrate_through(control, 21)
+    assert _state(control) == upgraded
+    # Both paths must also converge through every later migration.
+    StudioRepository(database)
     StudioRepository(control)
+    upgraded = _state(database)
+    assert upgraded["version"] == SCHEMA_VERSION
     assert _state(control) == upgraded
     replayed_steps: list[tuple[int, int]] = []
     StudioRepository(

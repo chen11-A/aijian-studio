@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-from aijian_api.draft_export_runtime import DraftExportRuntime
 from aijian_api.episode_media_assembly_contracts import (
     CreateEpisodeMediaAssemblyVersionRequest,
     EpisodeMediaAssemblyContentV1,
@@ -10,7 +9,7 @@ from aijian_api.episode_media_assembly_contracts import (
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
 from aijian_api.media_asset_store import MediaAssetStore
 from test_draft_export_encoder import _pixels, _png, _power, _samples, _wav
-from test_draft_export_runtime import fixture, request_for, toolchain, wait_final
+from test_draft_export_runtime import fixture, request_for, runtime_for, toolchain, wait_final
 
 
 def test_cached_saved_composition_decodes_old_snapshot_with_continuous_bgm(tmp_path: Path):
@@ -80,7 +79,7 @@ def test_cached_saved_composition_decodes_old_snapshot_with_continuous_bgm(tmp_p
     output = cache / f"Aivora-PREVIEW-DRAFT-{request.operation_id}.mp4"
     request = request.model_copy(update={"output_path": str(output)})
     tools = toolchain()
-    runtime = DraftExportRuntime(repository, lambda: tools)
+    runtime = runtime_for(repository)
     try:
         runtime.submit(project, episode, request)
         result = wait_final(runtime, project, episode, request.operation_id)
@@ -101,7 +100,7 @@ def test_cached_saved_composition_decodes_old_snapshot_with_continuous_bgm(tmp_p
         )
     finally:
         runtime.join_workers()
-    reopened = DraftExportRuntime(repository, lambda: tools)
+    reopened = runtime_for(repository)
     try:
         assert reopened.get(project, episode, request.operation_id).status == "SUCCEEDED"
         assert output.is_file()  # Cache lifetime is independent of the renderer/process.
