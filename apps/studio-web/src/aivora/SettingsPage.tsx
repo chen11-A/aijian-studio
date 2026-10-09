@@ -7,10 +7,7 @@ import { Icon } from "./Icon";
 import avatar from "./assets/v2/avatar.png";
 import { readAppPreferences, saveAppPreferences } from "./adapters/appPreferences";
 import { hasAsciiControlCharacter } from "./textValidation";
-import type {
-  AppPreferencesGateway,
-  AppPreferencesResponse,
-} from "./adapters/appPreferences";
+import type { AppPreferencesGateway, AppPreferencesResponse } from "./adapters/appPreferences";
 import {
   closePendingProjectUpdate,
   readPendingProjectUpdate,
@@ -23,8 +20,9 @@ export function SettingsPage() {
   const d = useDemo();
   if (!d.isFixture && d.page === "settings") return <PersistedUserSettings />;
   if (!d.isFixture && d.page === "projectSettings")
-    return <PersistedProjectSettings key={d.backendProjectId ?? "none"}
-      projectId={d.backendProjectId} />;
+    return (
+      <PersistedProjectSettings key={d.backendProjectId ?? "none"} projectId={d.backendProjectId} />
+    );
   return <FixtureSettingsPage />;
 }
 
@@ -362,14 +360,19 @@ function FixtureSettingsPage() {
 function validProject(value: unknown, projectId: string): value is ProjectData {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const project = value as Partial<ProjectData>;
-  return project.id === projectId && typeof project.name === "string" &&
-    project.name.length > 0 && project.aspect_ratio === "9:16" &&
+  return (
+    project.id === projectId &&
+    typeof project.name === "string" &&
+    project.name.length > 0 &&
+    project.aspect_ratio === "9:16" &&
     Number.isSafeInteger(project.target_duration_seconds) &&
     (project.target_duration_seconds ?? 0) >= 30 &&
     project.source_language === "zh-CN" &&
     (project.status === "active" || project.status === "archived") &&
-    Number.isSafeInteger(project.revision) && (project.revision ?? 0) >= 1 &&
-    typeof project.updated_at === "string";
+    Number.isSafeInteger(project.revision) &&
+    (project.revision ?? 0) >= 1 &&
+    typeof project.updated_at === "string"
+  );
 }
 
 function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
@@ -378,7 +381,11 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
   live.current = d;
   const transport = useMemo(createStudioTransport, []);
   const storage = useMemo(() => {
-    try { return window.localStorage; } catch { return null; }
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
   }, []);
   const epoch = useRef(0);
   const inFlight = useRef(false);
@@ -396,12 +403,20 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
     if (active.backendProjectId !== project.id) return;
     const card = active.projects.find((item) => item.backendId === project.id);
     if (card && (card.revision ?? 0) > project.revision) return;
-    active.setProjects((old) => old.map((item) =>
-      item.backendId === project.id && (item.revision ?? 0) <= project.revision
-        ? { ...item, name: project.name, revision: project.revision,
-            status: project.status === "archived" ? "已归档" : "进行中",
-            updated: project.updated_at, episode: `REV ${project.revision}` }
-        : item));
+    active.setProjects((old) =>
+      old.map((item) =>
+        item.backendId === project.id && (item.revision ?? 0) <= project.revision
+          ? {
+              ...item,
+              name: project.name,
+              revision: project.revision,
+              status: project.status === "archived" ? "已归档" : "进行中",
+              updated: project.updated_at,
+              episode: `REV ${project.revision}`,
+            }
+          : item,
+      ),
+    );
     active.put("title", project.name);
   }
 
@@ -415,27 +430,34 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
     if (!projectId || !storage) {
       setLoading(false);
       setReadError(true);
-      return () => { epoch.current += 1; };
+      return () => {
+        epoch.current += 1;
+      };
     }
     setJournal(readProjectUpdateJournal(storage, projectId));
-    void transport.getProject(projectId).then((response) => {
-      if (epoch.current !== request) return;
-      setLoading(false);
-      if (!validProject(response.data, projectId)) {
+    void transport.getProject(projectId).then(
+      (response) => {
+        if (epoch.current !== request) return;
+        setLoading(false);
+        if (!validProject(response.data, projectId)) {
+          setReadError(true);
+          setNotice("项目读取内容无效；未填入演示默认设置。");
+          return;
+        }
+        setCurrent(response.data);
+        setDraft(response.data.name);
+        showProject(response.data);
+      },
+      () => {
+        if (epoch.current !== request) return;
+        setLoading(false);
         setReadError(true);
-        setNotice("项目读取内容无效；未填入演示默认设置。");
-        return;
-      }
-      setCurrent(response.data);
-      setDraft(response.data.name);
-      showProject(response.data);
-    }, () => {
-      if (epoch.current !== request) return;
-      setLoading(false);
-      setReadError(true);
-      setNotice("项目设置读取失败；未填入演示默认设置。");
-    });
-    return () => { epoch.current += 1; };
+        setNotice("项目设置读取失败；未填入演示默认设置。");
+      },
+    );
+    return () => {
+      epoch.current += 1;
+    };
   }, [projectId, storage, transport]);
 
   async function readProject(closePending: boolean) {
@@ -444,56 +466,77 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
     inFlight.current = true;
     setLoading(true);
     const pending = readProjectUpdateJournal(storage, projectId);
-    const result = pending.kind === "PENDING"
-      ? closePending
-        ? await closePendingProjectUpdate(transport, storage, projectId)
-        : await readPendingProjectUpdate(transport, storage, projectId)
-      : await (async () => {
-        try {
-          const response = await transport.getProject(projectId);
-          return validProject(response.data, projectId)
-            ? { kind: "CURRENT" as const, project: response.data, targetReached: false }
-            : { kind: "UNKNOWN" as const };
-        } catch { return { kind: "UNKNOWN" as const }; }
-      })();
+    const result =
+      pending.kind === "PENDING"
+        ? closePending
+          ? await closePendingProjectUpdate(transport, storage, projectId)
+          : await readPendingProjectUpdate(transport, storage, projectId)
+        : await (async () => {
+            try {
+              const response = await transport.getProject(projectId);
+              return validProject(response.data, projectId)
+                ? { kind: "CURRENT" as const, project: response.data, targetReached: false }
+                : { kind: "UNKNOWN" as const };
+            } catch {
+              return { kind: "UNKNOWN" as const };
+            }
+          })();
     inFlight.current = false;
     if (epoch.current !== request) return;
     setLoading(false);
     setJournal(readProjectUpdateJournal(storage, projectId));
     if (result.kind !== "CURRENT" || !validProject(result.project, projectId)) {
       setReadError(true);
-      setNotice(result.kind === "UNAVAILABLE" ? result.message :
-        "项目当前状态无法核实，仍阻止保存。");
+      setNotice(
+        result.kind === "UNAVAILABLE" ? result.message : "项目当前状态无法核实，仍阻止保存。",
+      );
       return;
     }
     const hadDirtyDraft = dirty;
     setCurrent(result.project);
     showProject(result.project);
-    if (!hadDirtyDraft || closePending && result.targetReached) setDraft(result.project.name);
+    if (!hadDirtyDraft || (closePending && result.targetReached)) setDraft(result.project.name);
     setReadError(false);
-    setNotice(pending.kind === "PENDING"
-      ? closePending
-        ? "未知记录已结束；当前项目已读回，无法归因原 PATCH。"
-        : "已只读核对当前项目；原更新仍锁定，无法归因。"
-      : hadDirtyDraft ? "已读取最新项目；未保存草稿保留，请核对后提交。"
-        : "已从本地工作区读取当前项目设置。");
+    setNotice(
+      pending.kind === "PENDING"
+        ? closePending
+          ? "未知记录已结束；当前项目已读回，无法归因原 PATCH。"
+          : "已只读核对当前项目；原更新仍锁定，无法归因。"
+        : hadDirtyDraft
+          ? "已读取最新项目；未保存草稿保留，请核对后提交。"
+          : "已从本地工作区读取当前项目设置。",
+    );
   }
 
   async function save() {
-    if (!projectId || !storage || !current || !transport.updateProject ||
-      !dirty || loading || readError || journal.kind !== "EMPTY" || inFlight.current) return;
+    if (
+      !projectId ||
+      !storage ||
+      !current ||
+      !transport.updateProject ||
+      !dirty ||
+      loading ||
+      readError ||
+      journal.kind !== "EMPTY" ||
+      inFlight.current
+    )
+      return;
     const name = draft.trim();
     if (!name || [...name].length > 80 || hasAsciiControlCharacter(name)) {
       setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
       return;
     }
-    if (name === current.name) { setDraft(name); return; }
+    if (name === current.name) {
+      setDraft(name);
+      return;
+    }
     const request = ++epoch.current;
     inFlight.current = true;
     setLoading(true);
     setNotice("正在保存项目名称并从本地工作区读回…");
     const result = await updateManagedProject(transport, storage, projectId, {
-      expectedRevision: current.revision, name,
+      expectedRevision: current.revision,
+      name,
     });
     inFlight.current = false;
     if (epoch.current !== request) return;
@@ -531,82 +574,171 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
       return;
     }
     const target = projectId ? "project" : "projects";
-    if (!dirty) { d.go(target); return; }
-    d.setEditor({ title: "离开未保存的项目名称？",
+    if (!dirty) {
+      d.go(target);
+      return;
+    }
+    d.setEditor({
+      title: "离开未保存的项目名称？",
       description: "离开会丢弃当前草稿；已保存的项目名称不会变化。",
-      confirm: "放弃草稿并返回", save: () => d.go(target) });
+      confirm: "放弃草稿并返回",
+      save: () => d.go(target),
+    });
   };
 
-  return <div className="v2-utility-page v2-settings-page v2-project-settings">
-    <header className="page-title v2-utility-heading">
-      <div><h1>项目设置</h1>
-        <p>{current ? `《${current.name}》 · 本地工作区项目 · 修订 ${current.revision}` :
-          "正在核对本地工作区项目。"}</p></div>
-      <Button onClick={leave}>返回{projectId ? "项目" : "项目中心"}</Button>
-    </header>
-    <div className="v2-settings-body">
-      <section className="v2-utility-card v2-project-settings-card">
-        <h2><Icon name="settings" size={16} />项目基础设置</h2>
-        <div className="v2-project-settings-fields">
-          <label>项目名称
-            <input value={draft} disabled={!current || loading || journal.kind !== "EMPTY"}
-              onChange={(event) => setDraft(event.target.value)} />
-          </label>
-          <label>画幅（创建时确定）<input readOnly value={current?.aspect_ratio ?? "待读取"} /></label>
-          <label>目标时长（创建时确定）
-            <input readOnly value={current ? `${current.target_duration_seconds} 秒` : "待读取"} />
-          </label>
-          <label>来源语言（创建时确定）
-            <input readOnly value={current?.source_language === "zh-CN" ? "简体中文" : "待读取"} />
-          </label>
-          <label>时基<input readOnly value="未提供项目持久设置" /></label>
-          <label>当前剧集（独立选择）
-            <input readOnly value={episode?.title ?? "尚未选择剧集"} />
-          </label>
-          <label>项目说明<input readOnly value="未提供项目持久设置" /></label>
-          <Button disabled title="项目说明尚无持久保存接口">编辑项目说明 · 待接入</Button>
+  return (
+    <div className="v2-utility-page v2-settings-page v2-project-settings">
+      <header className="page-title v2-utility-heading">
+        <div>
+          <h1>项目设置</h1>
+          <p>
+            {current
+              ? `《${current.name}》 · 本地工作区项目 · 修订 ${current.revision}`
+              : "正在核对本地工作区项目。"}
+          </p>
         </div>
-      </section>
-      <section className="v2-utility-card v2-project-settings-card">
-        <h2><Icon name="settings" size={16} />创作与隐私策略</h2>
-        <div className="v2-project-settings-fields">
-          <label>项目状态<input readOnly value={current?.status === "archived" ? "已归档" :
-            current ? "进行中" : "待读取"} /></label>
-          <label>生成策略<input readOnly value="暂无可变的项目持久设置" /></label>
-          <label>第三方发送<input readOnly value="暂无可变的项目持久设置" /></label>
-          <label>版本策略<input readOnly value="暂无可变的项目持久设置" /></label>
-          <label>预算<input readOnly value="请在创作简报核对预算意向；费用服务未接入" /></label>
-        </div>
-        <p>归档与恢复请在项目中心管理；本页仅保存项目名称。</p>
-      </section>
-      <section className="v2-utility-card" aria-label="项目设置状态">
-        {loading && <p role="status" aria-busy="true">正在读取或保存项目设置…</p>}
-        {readError && <p role="alert">项目状态无法核实，保存已暂停。</p>}
-        {!projectId && <p role="alert">请先选择真实项目。</p>}
-        {!storage && <p role="alert">本地更新记录不可用，无法安全保存。</p>}
-        {!transport.updateProject && <p role="alert">桌面版本缺少项目更新接口。</p>}
-        {journal.kind === "PENDING" && <p role="alert">上次项目更新结果未知，不会自动重试。</p>}
-        {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取。</p>}
-        {notice && <p role="status">{notice}</p>}
-        <Button disabled={loading || !projectId || !storage}
-          onClick={() => void readProject(false)}>重新读取项目</Button>
-        {journal.kind === "PENDING" &&
-          <Button disabled={loading} onClick={() => void readProject(true)}>
-            核对并结束未知记录
-          </Button>}
-      </section>
+        <Button onClick={leave}>返回{projectId ? "项目" : "项目中心"}</Button>
+      </header>
+      <div className="v2-settings-body">
+        <section className="v2-utility-card v2-project-settings-card">
+          <h2>
+            <Icon name="settings" size={16} />
+            项目基础设置
+          </h2>
+          <div className="v2-project-settings-fields">
+            <label>
+              项目名称
+              <input
+                value={draft}
+                disabled={!current || loading || journal.kind !== "EMPTY"}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+            </label>
+            <label>
+              画幅（创建时确定）
+              <input readOnly value={current?.aspect_ratio ?? "待读取"} />
+            </label>
+            <label>
+              目标时长（创建时确定）
+              <input
+                readOnly
+                value={current ? `${current.target_duration_seconds} 秒` : "待读取"}
+              />
+            </label>
+            <label>
+              来源语言（创建时确定）
+              <input
+                readOnly
+                value={current?.source_language === "zh-CN" ? "简体中文" : "待读取"}
+              />
+            </label>
+            <label>
+              时基
+              <input readOnly value="未提供项目持久设置" />
+            </label>
+            <label>
+              当前剧集（独立选择）
+              <input readOnly value={episode?.title ?? "尚未选择剧集"} />
+            </label>
+            <label>
+              项目说明
+              <input readOnly value="未提供项目持久设置" />
+            </label>
+            <Button disabled title="项目说明尚无持久保存接口">
+              编辑项目说明 · 待接入
+            </Button>
+          </div>
+        </section>
+        <section className="v2-utility-card v2-project-settings-card">
+          <h2>
+            <Icon name="settings" size={16} />
+            创作与隐私策略
+          </h2>
+          <div className="v2-project-settings-fields">
+            <label>
+              项目状态
+              <input
+                readOnly
+                value={current?.status === "archived" ? "已归档" : current ? "进行中" : "待读取"}
+              />
+            </label>
+            <label>
+              生成策略
+              <input readOnly value="暂无可变的项目持久设置" />
+            </label>
+            <label>
+              第三方发送
+              <input readOnly value="暂无可变的项目持久设置" />
+            </label>
+            <label>
+              版本策略
+              <input readOnly value="暂无可变的项目持久设置" />
+            </label>
+            <label>
+              预算
+              <input readOnly value="请在创作简报核对预算意向；费用服务未接入" />
+            </label>
+          </div>
+          <p>归档与恢复请在项目中心管理；本页仅保存项目名称。</p>
+        </section>
+        <section className="v2-utility-card" aria-label="项目设置状态">
+          {loading && (
+            <p role="status" aria-busy="true">
+              正在读取或保存项目设置…
+            </p>
+          )}
+          {readError && <p role="alert">项目状态无法核实，保存已暂停。</p>}
+          {!projectId && <p role="alert">请先选择真实项目。</p>}
+          {!storage && <p role="alert">本地更新记录不可用，无法安全保存。</p>}
+          {!transport.updateProject && <p role="alert">桌面版本缺少项目更新接口。</p>}
+          {journal.kind === "PENDING" && <p role="alert">上次项目更新结果未知，不会自动重试。</p>}
+          {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取。</p>}
+          {notice && <p role="status">{notice}</p>}
+          <Button
+            disabled={loading || !projectId || !storage}
+            onClick={() => void readProject(false)}
+          >
+            重新读取项目
+          </Button>
+          {journal.kind === "PENDING" && (
+            <Button disabled={loading} onClick={() => void readProject(true)}>
+              核对并结束未知记录
+            </Button>
+          )}
+        </section>
+      </div>
+      <FlowFooter
+        secondaryLabel="取消"
+        secondaryAction={() => {
+          if (inFlight.current) return;
+          if (current) setDraft(current.name);
+          setNotice("已取消未保存的项目名称草稿。");
+        }}
+        label="保存项目名称"
+        action={() => void save()}
+        disabled={
+          !current ||
+          !dirty ||
+          loading ||
+          readError ||
+          !storage ||
+          !transport.updateProject ||
+          journal.kind !== "EMPTY"
+        }
+        reason={
+          journal.kind !== "EMPTY"
+            ? "原更新待核对，已阻止再次提交"
+            : readError
+              ? "请重新读取项目"
+              : dirty
+                ? "有未保存的项目名称草稿"
+                : current
+                  ? `已读取项目修订 ${current.revision}`
+                  : "尚未读取项目"
+        }
+      />
     </div>
-    <FlowFooter secondaryLabel="取消" secondaryAction={() => {
-      if (inFlight.current) return;
-      if (current) setDraft(current.name);
-      setNotice("已取消未保存的项目名称草稿。");
-    }} label="保存项目名称" action={() => void save()}
-      disabled={!current || !dirty || loading || readError || !storage ||
-        !transport.updateProject || journal.kind !== "EMPTY"}
-      reason={journal.kind !== "EMPTY" ? "原更新待核对，已阻止再次提交" :
-        readError ? "请重新读取项目" : dirty ? "有未保存的项目名称草稿" :
-          current ? `已读取项目修订 ${current.revision}` : "尚未读取项目"} />
-  </div>;
+  );
 }
 
 type PreferenceDraft = { user_name: string; display_bio: string };
@@ -625,14 +757,21 @@ function PersistedUserSettings() {
   const [readError, setReadError] = useState(false);
   const [saveUnknown, setSaveUnknown] = useState(false);
   const [notice, setNotice] = useState("");
-  const transport = useMemo(() =>
-    createStudioTransport() as unknown as Partial<AppPreferencesGateway>, []);
-  const gateway = useMemo<AppPreferencesGateway | null>(() =>
-    typeof transport.getAppPreferences === "function" &&
-    typeof transport.saveAppPreferences === "function"
-      ? transport as AppPreferencesGateway : null, [transport]);
-  const dirty = !!current && (draft.user_name !== current.data.user_name ||
-    draft.display_bio !== current.data.display_bio);
+  const transport = useMemo(
+    () => createStudioTransport() as unknown as Partial<AppPreferencesGateway>,
+    [],
+  );
+  const gateway = useMemo<AppPreferencesGateway | null>(
+    () =>
+      typeof transport.getAppPreferences === "function" &&
+      typeof transport.saveAppPreferences === "function"
+        ? (transport as AppPreferencesGateway)
+        : null,
+    [transport],
+  );
+  const dirty =
+    !!current &&
+    (draft.user_name !== current.data.user_name || draft.display_bio !== current.data.display_bio);
 
   useEffect(() => {
     const request = ++epoch.current;
@@ -653,7 +792,9 @@ function PersistedUserSettings() {
         setNotice("本地偏好读取失败；未写入默认设置。请重新读取。");
       }
     });
-    return () => { epoch.current += 1; };
+    return () => {
+      epoch.current += 1;
+    };
   }, [gateway]);
 
   async function refresh() {
@@ -670,21 +811,26 @@ function PersistedUserSettings() {
       setNotice("偏好读取失败；当前草稿和原已读值均保留，未提交保存。");
       return;
     }
-    const matchesDraft = result.response.data.user_name === draft.user_name.trim() &&
+    const matchesDraft =
+      result.response.data.user_name === draft.user_name.trim() &&
       result.response.data.display_bio === draft.display_bio.replace(/\r\n/g, "\n");
     setCurrent(result.response);
-    if (!dirty || matchesDraft) setDraft({
-      user_name: result.response.data.user_name,
-      display_bio: result.response.data.display_bio,
-    });
+    if (!dirty || matchesDraft)
+      setDraft({
+        user_name: result.response.data.user_name,
+        display_bio: result.response.data.display_bio,
+      });
     setReadError(false);
     setSaveUnknown(false);
     d.put("userName", result.response.data.user_name || "本地用户");
     d.put("bio", result.response.data.display_bio);
-    setNotice(saveUnknown && matchesDraft && dirty
-      ? "已读到与草稿一致的持久设置；先前提交结果无法单独归因。"
-      : dirty ? "已读到最新设置；未保存草稿仍保留，请核对后再提交。"
-        : "已读取当前持久设置。");
+    setNotice(
+      saveUnknown && matchesDraft && dirty
+        ? "已读到与草稿一致的持久设置；先前提交结果无法单独归因。"
+        : dirty
+          ? "已读到最新设置；未保存草稿仍保留，请核对后再提交。"
+          : "已读取当前持久设置。",
+    );
   }
 
   async function save() {
@@ -710,11 +856,13 @@ function PersistedUserSettings() {
       setNotice(result.message);
     } else if (result.kind === "REJECTED") {
       setReadError(result.status !== 422);
-      setNotice(result.status === 409
-        ? "设置修订已变化或存储状态异常；草稿保留，请重新读取后核对。"
-        : result.status === 422
-          ? "设置输入未通过校验；草稿保留，请修改后再保存。"
-          : `设置保存被拒绝（${result.status} / ${result.code}）；草稿保留。`);
+      setNotice(
+        result.status === 409
+          ? "设置修订已变化或存储状态异常；草稿保留，请重新读取后核对。"
+          : result.status === 422
+            ? "设置输入未通过校验；草稿保留，请修改后再保存。"
+            : `设置保存被拒绝（${result.status} / ${result.code}）；草稿保留。`,
+      );
     } else {
       setSaveUnknown(true);
       setNotice("保存结果未知；草稿保留且已阻止再次提交。请只读核对当前设置。");
@@ -728,7 +876,10 @@ function PersistedUserSettings() {
   };
   const leave = () => {
     const target = d.backendProjectId ? "project" : "projects";
-    if (!dirty) { d.go(target); return; }
+    if (!dirty) {
+      d.go(target);
+      return;
+    }
     d.setEditor({
       title: "放弃未保存的用户设置？",
       description: "离开会丢弃当前草稿，已保存的设置不会变化。",
@@ -746,44 +897,71 @@ function PersistedUserSettings() {
         </div>
         <Button onClick={leave}>返回{d.backendProjectId ? "项目" : "项目中心"}</Button>
       </header>
-      <form ref={form} className="v2-settings-body" onSubmit={(event) => {
-        event.preventDefault();
-        void save();
-      }}>
+      <form
+        ref={form}
+        className="v2-settings-body"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
         <aside className="v2-utility-card v2-settings-categories">
-          <h2><Icon name="settings" size={16} />设置分类</h2>
+          <h2>
+            <Icon name="settings" size={16} />
+            设置分类
+          </h2>
           {["个人资料", "界面语言", "外观", "创作默认值"].map((label) => (
-            <Button key={label} aria-pressed={category === label}
-              onClick={() => setCategory(label)}>{label}</Button>
+            <Button
+              key={label}
+              aria-pressed={category === label}
+              onClick={() => setCategory(label)}
+            >
+              {label}
+            </Button>
           ))}
         </aside>
         <section className="v2-utility-card v2-profile">
-          <h2><Icon name="users" size={16} />{category}</h2>
+          <h2>
+            <Icon name="users" size={16} />
+            {category}
+          </h2>
           <div className="v2-profile-content" data-scroll-region="settings-fields">
             {category === "个人资料" && (
-              <label>昵称
-                <input value={draft.user_name} disabled={!current || loading}
+              <label>
+                昵称
+                <input
+                  value={draft.user_name}
+                  disabled={!current || loading}
                   placeholder="设置本机昵称"
                   onChange={(event) => {
                     const value = event.currentTarget.value;
                     setDraft((old) => ({ ...old, user_name: value }));
-                  }} />
+                  }}
+                />
               </label>
             )}
             {category === "创作默认值" && (
-              <label>创作签名
-                <textarea value={draft.display_bio} disabled={!current || loading}
+              <label>
+                创作签名
+                <textarea
+                  value={draft.display_bio}
+                  disabled={!current || loading}
                   placeholder="可留空"
                   onChange={(event) => {
                     const value = event.currentTarget.value;
                     setDraft((old) => ({ ...old, display_bio: value }));
-                  }} />
+                  }}
+                />
               </label>
             )}
             {category === "界面语言" && <p>界面语言：简体中文（当前版本）</p>}
             {category === "外观" && <p>外观：深色电影工作台（当前版本）</p>}
             {!gateway && <p role="alert">当前桌面版本缺少用户偏好接口，无法读取或保存。</p>}
-            {loading && <p role="status" aria-busy="true">正在读取或保存本地偏好…</p>}
+            {loading && (
+              <p role="status" aria-busy="true">
+                正在读取或保存本地偏好…
+              </p>
+            )}
             {readError && <p role="alert">偏好状态无法核实，保存已暂停。</p>}
             {saveUnknown && <p role="alert">上次保存结果未知，不会自动重复提交。</p>}
             {notice && <p role="status">{notice}</p>}
@@ -793,14 +971,26 @@ function PersistedUserSettings() {
           </div>
         </section>
       </form>
-      <FlowFooter secondaryLabel="取消" secondaryAction={cancel}
-        label="保存用户设置" action={() => form.current?.requestSubmit()}
+      <FlowFooter
+        secondaryLabel="取消"
+        secondaryAction={cancel}
+        label="保存用户设置"
+        action={() => form.current?.requestSubmit()}
         disabled={!current || !gateway || !dirty || loading || readError || saveUnknown}
-        reason={saveUnknown ? "保存结果未知；请先只读核对" :
-          readError ? "当前设置未能核实；请重新读取" :
-            loading ? "正在读取或保存" :
-              dirty ? "有未保存的设置草稿" :
-                current?.data.saved ? `已保存 · 修订 ${current.data.revision}` : "尚未保存本机偏好"} />
+        reason={
+          saveUnknown
+            ? "保存结果未知；请先只读核对"
+            : readError
+              ? "当前设置未能核实；请重新读取"
+              : loading
+                ? "正在读取或保存"
+                : dirty
+                  ? "有未保存的设置草稿"
+                  : current?.data.saved
+                    ? `已保存 · 修订 ${current.data.revision}`
+                    : "尚未保存本机偏好"
+        }
+      />
     </div>
   );
 }

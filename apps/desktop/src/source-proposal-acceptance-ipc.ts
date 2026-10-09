@@ -7,7 +7,8 @@ import {
 
 type SourceProposalAcceptanceClient = {
   getSourceProposalAcceptanceForVersion(
-    projectId: string, versionId: string,
+    projectId: string,
+    versionId: string,
   ): Promise<SourceProposalAcceptanceResult>;
 };
 
@@ -24,8 +25,11 @@ export function registerSourceProposalAcceptanceHandler<TEvent>(
     if (!isTopLevelFrame(event)) {
       throw new Error("Source proposal acceptance IPC sender frame is not authorized");
     }
-    if (args.length !== 2 || !isSourceProposalAcceptanceProjectId(args[0]) ||
-        !isSourceProposalAcceptanceVersionId(args[1])) {
+    if (
+      args.length !== 2 ||
+      !isSourceProposalAcceptanceProjectId(args[0]) ||
+      !isSourceProposalAcceptanceVersionId(args[1])
+    ) {
       throw new Error("Source proposal acceptance IPC requires canonical ids");
     }
     return client.getSourceProposalAcceptanceForVersion(args[0], args[1]);

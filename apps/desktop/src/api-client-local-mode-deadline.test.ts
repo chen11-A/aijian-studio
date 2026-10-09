@@ -33,11 +33,8 @@ afterEach(() => vi.useRealTimers());
 
 test("a hung authoritative pre-read ends within the deadline without PATCH", async () => {
   vi.useFakeTimers();
-  const fetcher = vi.fn((_input: string, _init?: RequestInit) =>
-    new Promise<Response>(() => {}));
-  const pending = createLocalApiClient(fetcher, session).editSub2APIMetadata(
-    connectionId, command,
-  );
+  const fetcher = vi.fn((_input: string, _init?: RequestInit) => new Promise<Response>(() => {}));
+  const pending = createLocalApiClient(fetcher, session).editSub2APIMetadata(connectionId, command);
 
   await vi.advanceTimersByTimeAsync(15_000);
   await expect(pending).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
@@ -49,22 +46,27 @@ test("a hung authoritative pre-read ends within the deadline without PATCH", asy
 test("a hung authoritative post-read ends within the deadline after one PATCH", async () => {
   vi.useFakeTimers();
   const updated = { ...connection, display_name: command.display_name, revision: 2 };
-  const fetcher = vi.fn((_input: string, _init?: RequestInit): Promise<Response> =>
-    Promise.reject(new Error("unexpected extra request")))
+  const fetcher = vi
+    .fn((_input: string, _init?: RequestInit): Promise<Response> =>
+      Promise.reject(new Error("unexpected extra request")),
+    )
     .mockResolvedValueOnce(Response.json({ data: [connection], request_id: requestId }))
-    .mockResolvedValueOnce(Response.json(
-      { data: updated, request_id: requestId },
-      { headers: { "X-Request-ID": requestId } },
-    ))
+    .mockResolvedValueOnce(
+      Response.json(
+        { data: updated, request_id: requestId },
+        { headers: { "X-Request-ID": requestId } },
+      ),
+    )
     .mockImplementationOnce(() => new Promise<Response>(() => {}));
-  const pending = createLocalApiClient(fetcher, session).editSub2APIMetadata(
-    connectionId, command,
-  );
+  const pending = createLocalApiClient(fetcher, session).editSub2APIMetadata(connectionId, command);
 
   await vi.runAllTimersAsync();
   await expect(pending).resolves.toEqual({ kind: "REMOTE_UNKNOWN" });
   expect(fetcher).toHaveBeenCalledTimes(3);
-  expect(fetcher.mock.calls.map((call) => call[1]?.method ?? "GET"))
-    .toEqual(["GET", "PATCH", "GET"]);
+  expect(fetcher.mock.calls.map((call) => call[1]?.method ?? "GET")).toEqual([
+    "GET",
+    "PATCH",
+    "GET",
+  ]);
   expect(fetcher.mock.calls[2]?.[1]?.signal?.aborted).toBe(true);
 });

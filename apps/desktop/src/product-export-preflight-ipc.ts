@@ -29,8 +29,12 @@ export function registerProductExportPreflightHandler<TEvent>(
       throw new Error("Product export preflight IPC sender frame is not authorized");
     }
     const [projectId, episodeId, input] = args;
-    if (args.length !== 3 || !isProductExportProjectId(projectId) ||
-        !isProductExportEpisodeId(episodeId) || !isProductExportPreflightRequest(input)) {
+    if (
+      args.length !== 3 ||
+      !isProductExportProjectId(projectId) ||
+      !isProductExportEpisodeId(episodeId) ||
+      !isProductExportPreflightRequest(input)
+    ) {
       throw new Error("Product export preflight IPC requires canonical arguments");
     }
     return client.preflightProductExport(projectId, episodeId, input);

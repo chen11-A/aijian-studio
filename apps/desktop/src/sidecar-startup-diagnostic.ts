@@ -26,8 +26,14 @@ export function createSidecarStartupDiagnosticCollector() {
       stderr = Buffer.concat([stderr, chunk]);
     },
     classify(completion: SidecarStartupCompletion): SidecarStartupClassification {
-      if (truncated || completion.spawn_failed || completion.timed_out ||
-          completion.code !== 73 || completion.signal !== null) return "STARTUP_UNKNOWN";
+      if (
+        truncated ||
+        completion.spawn_failed ||
+        completion.timed_out ||
+        completion.code !== 73 ||
+        completion.signal !== null
+      )
+        return "STARTUP_UNKNOWN";
 
       let lineStart = 0;
       for (let index = 0; index < stderr.length; index += 1) {

@@ -4,8 +4,9 @@ import { hasOnlyKeys, hasRequestId, isRecord } from "./api-contract-guards";
 
 export type Sub2APIOriginMode = "PUBLIC_HTTPS" | "LOCAL_LOOPBACK_HTTP";
 export type CreateProviderConnectionInput =
-  components["schemas"]["CreateProviderConnectionRequest"] &
-  { origin_mode?: Sub2APIOriginMode | null };
+  components["schemas"]["CreateProviderConnectionRequest"] & {
+    origin_mode?: Sub2APIOriginMode | null;
+  };
 export type ProviderConnectionListResponse =
   components["schemas"]["ProviderConnectionListResponse"];
 export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
@@ -121,7 +122,13 @@ export function isCreateProviderConnectionInput(
 ): value is CreateProviderConnectionInput {
   if (!isRecord(value)) return false;
   const allowedKeys = [
-    "provider_kind", "display_name", "base_url", "origin_mode", "enabled", "models", "api_key",
+    "provider_kind",
+    "display_name",
+    "base_url",
+    "origin_mode",
+    "enabled",
+    "models",
+    "api_key",
   ];
   if (!hasOnlyKeys(value, allowedKeys)) return false;
   if (
@@ -185,16 +192,16 @@ export function isCreateProviderConnectionInput(
       if (value.origin_mode === "LOCAL_LOOPBACK_HTTP") {
         return isExactLocalSub2APIOrigin(value.base_url);
       }
-      if (url.protocol !== "https:" ||
-          !/^https:\/\/[^/?#\\]+\/?$/i.test(value.base_url) ||
-          url.pathname !== "/") return false;
+      if (
+        url.protocol !== "https:" ||
+        !/^https:\/\/[^/?#\\]+\/?$/i.test(value.base_url) ||
+        url.pathname !== "/"
+      )
+        return false;
       // Literal checks are local guards, not DNS or service-identity verification.
       const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
       const literal = host.includes(":") || /^\d+(\.\d+){3}$/.test(host);
-      return (
-        host !== "localhost" &&
-        (literal ? !isNonPublicLiteralHost(host) : host.includes("."))
-      );
+      return host !== "localhost" && (literal ? !isNonPublicLiteralHost(host) : host.includes("."));
     }
     if (value.provider_kind === "OLLAMA") return loopback;
     return url.protocol === "https:" && !isNonPublicLiteralHost(url.hostname);

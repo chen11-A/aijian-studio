@@ -35,15 +35,27 @@ const sidecar = await sidecarModule.startSidecar({
 
 const project = "/api/v1/projects/prj_[0-9a-f]{32}";
 const episode = `${project}/episodes/ep_(?:prj_)?[0-9a-f]{32}`;
-const safeRead = new RegExp(`^(?:/api/v1/(?:health|projects|provider-connections)|${project}(?:/(?:episodes(?:/ep_(?:prj_)?[0-9a-f]{32})?|sources(?:/src_[0-9a-f]{32}(?:/text)?)?|source-manifest|story-bible(?:/versions/[^/]+)?|production-brief(?:/versions/[^/]+)?|source-extraction(?:/versions/[^/]+(?:/proposal-acceptance)?)?|tasks|agents|skills|timeline|invalidation-operations(?:/[^/]+)?))?|${episode}/script(?:/versions/[^/]+|/confirmation(?:/[^/]+)?)?)$`);
-const safeCreate = new RegExp(`^(?:/api/v1/projects|${project}/(?:episodes|sources|production-brief/versions)|${episode}/script/versions)$`);
+const safeRead = new RegExp(
+  `^(?:/api/v1/(?:health|projects|provider-connections)|${project}(?:/(?:episodes(?:/ep_(?:prj_)?[0-9a-f]{32})?|sources(?:/src_[0-9a-f]{32}(?:/text)?)?|source-manifest|story-bible(?:/versions/[^/]+)?|production-brief(?:/versions/[^/]+)?|source-extraction(?:/versions/[^/]+(?:/proposal-acceptance)?)?|tasks|agents|skills|timeline|invalidation-operations(?:/[^/]+)?))?|${episode}/script(?:/versions/[^/]+|/confirmation(?:/[^/]+)?)?)$`,
+);
+const safeCreate = new RegExp(
+  `^(?:/api/v1/projects|${project}/(?:episodes|sources|production-brief/versions)|${episode}/script/versions)$`,
+);
 const mimeTypes = {
-  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
-  ".jpg": "image/jpeg", ".webp": "image/webp", ".woff2": "font/woff2",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".webp": "image/webp",
+  ".woff2": "font/woff2",
 };
 function fail(response, status, code, message) {
-  if (response.headersSent) { response.destroy(); return; }
+  if (response.headersSent) {
+    response.destroy();
+    return;
+  }
   const requestId = randomUUID();
   response.writeHead(status, { "Content-Type": "application/json", "X-Request-ID": requestId });
   response.end(JSON.stringify({ error: { code, message, request_id: requestId } }));
@@ -52,11 +64,21 @@ const server = createServer(async (request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "no-referrer");
-  response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; media-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
-  if (request.headers.host !== host ||
-      (request.headers.origin && request.headers.origin !== origin) ||
-      request.headers["sec-fetch-site"] === "cross-site") {
-    fail(response, 403, "PREVIEW_ORIGIN_REJECTED", "Only this local renderer may access the preview.");
+  response.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; media-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+  );
+  if (
+    request.headers.host !== host ||
+    (request.headers.origin && request.headers.origin !== origin) ||
+    request.headers["sec-fetch-site"] === "cross-site"
+  ) {
+    fail(
+      response,
+      403,
+      "PREVIEW_ORIGIN_REJECTED",
+      "Only this local renderer may access the preview.",
+    );
     return;
   }
   try {
@@ -70,28 +92,54 @@ const server = createServer(async (request, response) => {
       const create = request.method === "POST" && safeCreate.test(url.pathname);
       const update = request.method === "PATCH" && new RegExp(`^${project}$`).test(url.pathname);
       if (!read && !create && !update) {
-        fail(response, 403, "PREVIEW_NATIVE_REQUIRED", "This operation requires the desktop app. The local preview only edits projects, sources, briefs and scripts.");
+        fail(
+          response,
+          403,
+          "PREVIEW_NATIVE_REQUIRED",
+          "This operation requires the desktop app. The local preview only edits projects, sources, briefs and scripts.",
+        );
         return;
       }
-      if (!read && (request.headers.origin !== origin || !request.headers["content-type"]?.startsWith("application/json"))) {
+      if (
+        !read &&
+        (request.headers.origin !== origin ||
+          !request.headers["content-type"]?.startsWith("application/json"))
+      ) {
         fail(response, 403, "PREVIEW_ORIGIN_REJECTED", "Writes require same-origin JSON requests.");
         return;
       }
-      const headers = { Authorization: `Bearer ${sidecar.session.token}`, Origin: "app://aijian", Accept: "application/json" };
+      const headers = {
+        Authorization: `Bearer ${sidecar.session.token}`,
+        Origin: "app://aijian",
+        Accept: "application/json",
+      };
       for (const name of ["content-type", "content-length", "if-match", "idempotency-key"]) {
         if (request.headers[name]) headers[name] = request.headers[name];
       }
-      const upstream = httpRequest(`${sidecar.session.origin}${url.pathname}${url.search}`, {
-        method: request.method, headers, timeout: 30_000,
-      }, (result) => {
-        for (const name of ["content-type", "x-request-id", "etag"]) {
-          if (result.headers[name]) response.setHeader(name, result.headers[name]);
-        }
-        response.writeHead(result.statusCode || 502);
-        result.pipe(response);
-      });
+      const upstream = httpRequest(
+        `${sidecar.session.origin}${url.pathname}${url.search}`,
+        {
+          method: request.method,
+          headers,
+          timeout: 30_000,
+        },
+        (result) => {
+          for (const name of ["content-type", "x-request-id", "etag"]) {
+            if (result.headers[name]) response.setHeader(name, result.headers[name]);
+          }
+          response.writeHead(result.statusCode || 502);
+          result.pipe(response);
+        },
+      );
       upstream.on("timeout", () => upstream.destroy(new Error("Local API timeout")));
-      upstream.on("error", () => fail(response, 502, "PREVIEW_SIDECAR_UNAVAILABLE", "Local API response unavailable; do not repeat an unknown write without checking saved data."));
+      upstream.on("error", () =>
+        fail(
+          response,
+          502,
+          "PREVIEW_SIDECAR_UNAVAILABLE",
+          "Local API response unavailable; do not repeat an unknown write without checking saved data.",
+        ),
+      );
       request.on("aborted", () => upstream.destroy());
       request.pipe(upstream);
       return;
@@ -100,7 +148,9 @@ const server = createServer(async (request, response) => {
       fail(response, 405, "PREVIEW_METHOD_REJECTED", "Unsupported method.");
       return;
     }
-    const path = await realpath(join(webRoot, decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)));
+    const path = await realpath(
+      join(webRoot, decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)),
+    );
     if (!path.startsWith(webRoot + sep) || !(await stat(path)).isFile()) {
       fail(response, 404, "PREVIEW_FILE_NOT_FOUND", "Preview file unavailable.");
       return;
@@ -118,7 +168,11 @@ async function stop(code = 0) {
   stopping = true;
   server.closeAllConnections();
   server.close();
-  try { await sidecar.stop(); } catch { code = 1; }
+  try {
+    await sidecar.stop();
+  } catch {
+    code = 1;
+  }
   process.exitCode = code;
 }
 server.on("error", async (error) => {
@@ -127,10 +181,16 @@ server.on("error", async (error) => {
 });
 process.on("SIGINT", () => void stop());
 process.on("SIGTERM", () => void stop());
-void sidecar.exited.then(() => { if (!stopping) void stop(1); });
+void sidecar.exited.then(() => {
+  if (!stopping) void stop(1);
+});
 server.listen(port, "127.0.0.1", () => {
   console.log(`AIVORA local renderer preview: ${origin}/#launch`);
-  console.log("Real local persistence; native desktop, AI calls, credentials and media execution are not available in this preview.");
+  console.log(
+    "Real local persistence; native desktop, AI calls, credentials and media execution are not available in this preview.",
+  );
   console.log(`Workspace: ${dataDirectory}`);
-  console.log("Press Ctrl+C to stop both preview and sidecar. Saved data remains for the next launch.");
+  console.log(
+    "Press Ctrl+C to stop both preview and sidecar. Saved data remains for the next launch.",
+  );
 });

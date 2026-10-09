@@ -14,10 +14,14 @@ import {
 type EpisodeScriptClient = {
   getEpisodeScript(projectId: string, episodeId: string): Promise<EpisodeScriptLatestResult>;
   getEpisodeScriptVersion(
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeScriptVersionResult>;
   createEpisodeScriptVersion(
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptVersionRequest,
   ): Promise<EpisodeScriptCreateResult>;
 };
@@ -48,17 +52,19 @@ export function registerEpisodeScriptHandlers<TEvent>(
   });
   handle(EPISODE_SCRIPT_CHANNELS.version, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 3 || !validScope(args) ||
-        !isEpisodeScriptVersionId(args[2])) {
+    if (args.length !== 3 || !validScope(args) || !isEpisodeScriptVersionId(args[2])) {
       throw new Error("Episode script version IPC requires canonical ids");
     }
     return client.getEpisodeScriptVersion(args[0], args[1], args[2]);
   });
   handle(EPISODE_SCRIPT_CHANNELS.create, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !validScope(args) ||
-        !isEpisodeScriptIdempotencyKey(args[2]) ||
-        !isCreateEpisodeScriptVersionRequest(args[3], args[0], args[1])) {
+    if (
+      args.length !== 4 ||
+      !validScope(args) ||
+      !isEpisodeScriptIdempotencyKey(args[2]) ||
+      !isCreateEpisodeScriptVersionRequest(args[3], args[0], args[1])
+    ) {
       throw new Error("Episode script create IPC requires canonical arguments");
     }
     return client.createEpisodeScriptVersion(args[0], args[1], args[2], args[3]);

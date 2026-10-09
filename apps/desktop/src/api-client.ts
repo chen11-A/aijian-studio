@@ -1,6 +1,12 @@
 import { createMediaToolchainClient, type MediaToolchainClient } from "./media-toolchain-client";
-import { createMediaAssetProbeClient, type MediaAssetProbeClient } from "./media-asset-probe-client";
-import { createOfficialTextClient, type OfficialTextPersistenceClient } from "./official-text-client";
+import {
+  createMediaAssetProbeClient,
+  type MediaAssetProbeClient,
+} from "./media-asset-probe-client";
+import {
+  createOfficialTextClient,
+  type OfficialTextPersistenceClient,
+} from "./official-text-client";
 import { createDraftReviewClient } from "./draft-review-client";
 import type { DraftReviewGateway } from "./draft-review-contract";
 import { createDraftExportClient } from "./draft-export-client";
@@ -485,7 +491,17 @@ export interface SourceManifestReviewClient {
   ): Promise<SourceManifestReviewResult<SourceManifestResponse>>;
 }
 
-export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainClient, OfficialTextPersistenceClient, ProjectCreativeLibraryGateway, EpisodeStoryboardGateway, EpisodeMediaAssemblyClient, DraftExportClient, DraftReviewGateway, ShotPlanGateway {
+export interface LocalApiClient
+  extends
+    MediaAssetProbeClient,
+    MediaToolchainClient,
+    OfficialTextPersistenceClient,
+    ProjectCreativeLibraryGateway,
+    EpisodeStoryboardGateway,
+    EpisodeMediaAssemblyClient,
+    DraftExportClient,
+    DraftReviewGateway,
+    ShotPlanGateway {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
@@ -496,24 +512,34 @@ export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainCli
   createEpisode(projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult>;
   getEpisodeScript(projectId: string, episodeId: string): Promise<EpisodeScriptLatestResult>;
   getEpisodeScriptVersion(
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeScriptVersionResult>;
   createEpisodeScriptVersion(
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptVersionRequest,
   ): Promise<EpisodeScriptCreateResult>;
   getEpisodeScriptConfirmation(
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeScriptConfirmationReadResult>;
   createEpisodeScriptConfirmation(
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptConfirmationRequest,
   ): Promise<EpisodeScriptConfirmationCreateResult>;
   getEpisodeScriptConfirmationReceipt(
-    projectId: string, episodeId: string, confirmationId: string,
+    projectId: string,
+    episodeId: string,
+    confirmationId: string,
   ): Promise<EpisodeScriptConfirmationReadResult>;
   getSourceProposalAcceptanceForVersion(
-    projectId: string, versionId: string,
+    projectId: string,
+    versionId: string,
   ): Promise<SourceProposalAcceptanceResult>;
   listSources(projectId: string): Promise<SourceDocumentListResponse>;
   getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
@@ -554,33 +580,45 @@ export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainCli
     proposalId: string,
   ): Promise<VersionedSourceExtractionProposalReadResult>;
   createSub2APISourceExtractRun(
-    projectId: string, command: Sub2APIQueueCommand,
+    projectId: string,
+    command: Sub2APIQueueCommand,
   ): Promise<Sub2APIQueueResult>;
   readOriginalSub2APISourceExtractOperation(
-    projectId: string, originalCommand: Sub2APIQueueCommand,
+    projectId: string,
+    originalCommand: Sub2APIQueueCommand,
   ): Promise<Sub2APIOperationReadResult>;
   approveSub2APISourceExtractCall(
-    projectId: string, originalCommand: Sub2APIQueueCommand,
+    projectId: string,
+    originalCommand: Sub2APIQueueCommand,
     approvalCommand: Sub2APIApprovalCommand,
   ): Promise<Sub2APIApprovalResult>;
   getSub2APISourceExtractApproval(
-    projectId: string, originalCommand: Sub2APIQueueCommand,
+    projectId: string,
+    originalCommand: Sub2APIQueueCommand,
   ): Promise<Sub2APIApprovalReadResult>;
   getAppPreferences(): Promise<AppPreferencesReadResult>;
   saveAppPreferences(command: SaveAppPreferencesCommand): Promise<AppPreferencesSaveResult>;
   listProjectMediaAssets(projectId: string): Promise<MediaAssetListResult>;
   getProjectMediaAsset(projectId: string, assetId: string): Promise<MediaAssetReadResult>;
   importProjectMediaAssetFile(
-    projectId: string, assetId: string | null, selectedPath: string,
+    projectId: string,
+    assetId: string | null,
+    selectedPath: string,
   ): Promise<MediaAssetImportResult>;
   readProjectMediaAssetPreview(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetPreviewResult>;
   addProjectMediaAssetEpisodeReference(
-    projectId: string, assetId: string, command: AddMediaAssetReferenceCommand,
+    projectId: string,
+    assetId: string,
+    command: AddMediaAssetReferenceCommand,
   ): Promise<MediaAssetReferenceResult>;
   removeProjectMediaAssetEpisodeReference(
-    projectId: string, assetId: string, command: RemoveMediaAssetReferenceCommand,
+    projectId: string,
+    assetId: string,
+    command: RemoveMediaAssetReferenceCommand,
   ): Promise<MediaAssetUnreferenceResult>;
   deleteProjectMediaAsset(projectId: string, assetId: string): Promise<MediaAssetDeleteResult>;
   createFakeTimelineRun(
@@ -635,16 +673,20 @@ export interface LocalApiClient extends MediaAssetProbeClient, MediaToolchainCli
   ): Promise<DevelopmentExportResponse>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   readSub2APIConfiguredReadiness(
-    connectionId: string, modelId: string,
+    connectionId: string,
+    modelId: string,
   ): Promise<Sub2APIConfiguredReadinessResult>;
   editSub2APIMetadata(
-    connectionId: string, command: EditSub2APIMetadataCommand,
+    connectionId: string,
+    command: EditSub2APIMetadataCommand,
   ): Promise<Sub2APIConnectionMutationResult>;
   rotateSub2APIKey(
-    connectionId: string, command: RotateSub2APIKeyCommand,
+    connectionId: string,
+    command: RotateSub2APIKeyCommand,
   ): Promise<Sub2APIConnectionMutationResult>;
   readSub2APIKeyRotation(
-    connectionId: string, operationId: string,
+    connectionId: string,
+    operationId: string,
   ): Promise<Sub2APIRotationReadResult>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
@@ -1220,7 +1262,8 @@ function developmentExportRejection(
     !hasExactKeys(payload, ["error", "request_id"]) ||
     !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
     payload.error.retryable !== false
-  ) return null;
+  )
+    return null;
 
   const { code, details } = payload.error;
   let disposition: DevelopmentExportDefiniteRejection["disposition"];
@@ -1235,25 +1278,34 @@ function developmentExportRejection(
       disposition = "RESTORE_AUTH";
     } else if (status === 403 && code === "SIDECAR_REQUEST_REJECTED") {
       disposition = "RESTORE_AUTH";
-    } else if (status === 404 && (
-      code === "PROJECT_NOT_FOUND" || code === "TIMELINE_NOT_FOUND" ||
-      code === "DEVELOPMENT_EXPORT_NOT_FOUND"
-    )) {
+    } else if (
+      status === 404 &&
+      (code === "PROJECT_NOT_FOUND" ||
+        code === "TIMELINE_NOT_FOUND" ||
+        code === "DEVELOPMENT_EXPORT_NOT_FOUND")
+    ) {
       disposition = "REVIEW_INPUT";
     } else if (status === 409 && code === "DEVELOPMENT_EXPORT_CONFLICT") {
       disposition = "RECONCILE_OPERATION";
-    } else if (status === 422 && (
-      code === "VALIDATION_ERROR" || code === "DEVELOPMENT_EXPORT_INVALID"
-    )) {
+    } else if (
+      status === 422 &&
+      (code === "VALIDATION_ERROR" || code === "DEVELOPMENT_EXPORT_INVALID")
+    ) {
       disposition = "REVIEW_INPUT";
     } else {
       return null;
     }
   }
   return {
-    kind: "DEFINITE_REJECTION", project_id: projectId, operation_id: input.operation_id,
-    timeline_version_id: input.timeline_version_id, expected_revision: input.expected_revision,
-    status, code, request_id: payload.request_id, disposition,
+    kind: "DEFINITE_REJECTION",
+    project_id: projectId,
+    operation_id: input.operation_id,
+    timeline_version_id: input.timeline_version_id,
+    expected_revision: input.expected_revision,
+    status,
+    code,
+    request_id: payload.request_id,
+    disposition,
     ...(requestEffect ? { request_effect: requestEffect } : {}),
   };
 }
@@ -2166,9 +2218,11 @@ export class DevelopmentExportGetError extends Error {
     readonly status?: number,
     readonly code?: string,
   ) {
-    super(status === undefined
-      ? "Development export receipt could not be confirmed"
-      : `Development export receipt request failed with status ${status}${code ? ` (${code})` : ""}`);
+    super(
+      status === undefined
+        ? "Development export receipt could not be confirmed"
+        : `Development export receipt request failed with status ${status}${code ? ` (${code})` : ""}`,
+    );
     this.name = "DevelopmentExportGetError";
   }
 }
@@ -2409,16 +2463,23 @@ export function createLocalApiClient(
   }
 
   async function readBoundedScriptHttp(
-    path: string, init: RequestInit,
-  ): Promise<{ status: number; payload: unknown; requestId: string | null;
-    etag: string | null } | null> {
+    path: string,
+    init: RequestInit,
+  ): Promise<{
+    status: number;
+    payload: unknown;
+    requestId: string | null;
+    etag: string | null;
+  } | null> {
     try {
       const response = await fetcher(`${origin}${path}`, {
-        ...init, signal: AbortSignal.timeout(15_000),
+        ...init,
+        signal: AbortSignal.timeout(15_000),
       });
       const payload = await readJsonWithLimit(response);
       return {
-        status: response.status, payload,
+        status: response.status,
+        payload,
         requestId: response.headers.get("X-Request-ID"),
         etag: response.headers.get("ETag"),
       };
@@ -2428,7 +2489,10 @@ export function createLocalApiClient(
   }
 
   async function requestSub2APIMutationHttp(
-    path: string, init: RequestInit, timeoutMs = 15_000, maxBytes = MAX_LOCAL_API_JSON_BYTES,
+    path: string,
+    init: RequestInit,
+    timeoutMs = 15_000,
+    maxBytes = MAX_LOCAL_API_JSON_BYTES,
   ): Promise<{ status: number; payload: unknown; requestId: string | null } | null> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2440,12 +2504,16 @@ export function createLocalApiClient(
     });
     const wait = <T>(pending: Promise<T>): Promise<T> => Promise.race([pending, deadline]);
     try {
-      const response = await wait(fetcher(`${origin}${path}`, {
-        ...init, signal: controller.signal,
-      }));
+      const response = await wait(
+        fetcher(`${origin}${path}`, {
+          ...init,
+          signal: controller.signal,
+        }),
+      );
       const payload = await readJsonWithLimit(response, { wait }, maxBytes);
       return {
-        status: response.status, payload,
+        status: response.status,
+        payload,
         requestId: response.headers.get("X-Request-ID"),
       };
     } catch {
@@ -2720,22 +2788,31 @@ export function createLocalApiClient(
     }
   }
 
-  function remoteSourceExtractError(status: number, payload: unknown): {
-    code: string; request_id: string;
+  function remoteSourceExtractError(
+    status: number,
+    payload: unknown,
+  ): {
+    code: string;
+    request_id: string;
   } | null {
-    if (!isErrorResponse(payload) ||
-        !hasExactKeys(payload, ["error", "request_id"]) ||
-        !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
-        payload.error.retryable !== false ||
-        Object.keys(payload.error.details).length !== 0) return null;
+    if (
+      !isErrorResponse(payload) ||
+      !hasExactKeys(payload, ["error", "request_id"]) ||
+      !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
+      payload.error.retryable !== false ||
+      Object.keys(payload.error.details).length !== 0
+    )
+      return null;
     const code = payload.error.code;
     const known =
       (status === 401 && code === "SIDECAR_AUTH_REQUIRED") ||
       (status === 403 && code === "SIDECAR_REQUEST_REJECTED") ||
-      (status === 404 && (code === "PROJECT_NOT_FOUND" || code === "SOURCE_MANIFEST_NOT_FOUND" ||
-        code === "PROPOSAL_RUN_NOT_FOUND")) ||
-      (status === 409 && (code === "PROPOSAL_RUN_INPUT_REJECTED" ||
-        code === "IDEMPOTENCY_KEY_REUSED")) ||
+      (status === 404 &&
+        (code === "PROJECT_NOT_FOUND" ||
+          code === "SOURCE_MANIFEST_NOT_FOUND" ||
+          code === "PROPOSAL_RUN_NOT_FOUND")) ||
+      (status === 409 &&
+        (code === "PROPOSAL_RUN_INPUT_REJECTED" || code === "IDEMPOTENCY_KEY_REUSED")) ||
       (status === 422 && code === "VALIDATION_ERROR");
     return known ? { code, request_id: payload.request_id } : null;
   }
@@ -2746,24 +2823,31 @@ export function createLocalApiClient(
   ): Promise<RemoteSourceExtractCreateResult> {
     let response: Response;
     try {
-      response = await fetcher(`${origin}/api/v1/projects/${projectId}/remote-source-extract-runs`, {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-          "Idempotency-Key": remoteSourceExtractIdempotencyKey(command),
+      response = await fetcher(
+        `${origin}/api/v1/projects/${projectId}/remote-source-extract-runs`,
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": remoteSourceExtractIdempotencyKey(command),
+          },
+          body: JSON.stringify(command.input),
+          signal: AbortSignal.timeout(15_000),
         },
-        body: JSON.stringify(command.input),
-        signal: AbortSignal.timeout(15_000),
-      });
+      );
     } catch {
       return { kind: "REMOTE_UNKNOWN" };
     }
     if (response.status === 200 || response.status === 201) {
       try {
         const payload = await readJsonWithLimit(response);
-        return isRemoteSourceExtractCreatedResponse(payload, projectId, command,
-          response.status === 201)
+        return isRemoteSourceExtractCreatedResponse(
+          payload,
+          projectId,
+          command,
+          response.status === 201,
+        )
           ? { kind: "QUEUED", receipt: payload, replayed: response.status === 200 }
           : { kind: "REMOTE_UNKNOWN" };
       } catch {
@@ -2785,8 +2869,10 @@ export function createLocalApiClient(
     projectId: string,
     originalCommand: RemoteSourceExtractCreateCommand,
   ): Promise<RemoteSourceExtractOriginalRunResult> {
-    const unknown = (): RemoteSourceExtractOriginalRunResult =>
-      ({ kind: "REMOTE_UNKNOWN", binding: "UNVERIFIED" });
+    const unknown = (): RemoteSourceExtractOriginalRunResult => ({
+      kind: "REMOTE_UNKNOWN",
+      binding: "UNVERIFIED",
+    });
     let response: Response;
     try {
       response = await fetcher(
@@ -2816,13 +2902,15 @@ export function createLocalApiClient(
     projectId: string,
     versionId?: string,
   ): Promise<SourceExtractionReadResult> {
-    const path = versionId === undefined
-      ? `/api/v1/projects/${projectId}/source-extraction`
-      : `/api/v1/projects/${projectId}/source-extraction/versions/${versionId}`;
+    const path =
+      versionId === undefined
+        ? `/api/v1/projects/${projectId}/source-extraction`
+        : `/api/v1/projects/${projectId}/source-extraction/versions/${versionId}`;
     let response: Response;
     try {
       response = await fetcher(`${origin}${path}`, {
-        headers, signal: AbortSignal.timeout(15_000),
+        headers,
+        signal: AbortSignal.timeout(15_000),
       });
     } catch {
       return { kind: "REMOTE_UNKNOWN" };
@@ -2837,18 +2925,22 @@ export function createLocalApiClient(
       if (!isSourceExtractionResponse(payload, projectId, versionId)) {
         return { kind: "REMOTE_UNKNOWN" };
       }
-      const expectedEtag = versionId === undefined
-        ? `"revision-${payload.data.head.revision}"`
-        : `"${payload.data.version.content_hash}"`;
+      const expectedEtag =
+        versionId === undefined
+          ? `"revision-${payload.data.head.revision}"`
+          : `"${payload.data.version.content_hash}"`;
       return response.headers.get("ETag") === expectedEtag
         ? { kind: "FOUND", receipt: payload }
         : { kind: "REMOTE_UNKNOWN" };
     }
-    if (!isErrorResponse(payload) ||
-        !hasExactKeys(payload, ["error", "request_id"]) ||
-        !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
-        payload.error.retryable !== false ||
-        Object.keys(payload.error.details).length !== 0) return { kind: "REMOTE_UNKNOWN" };
+    if (
+      !isErrorResponse(payload) ||
+      !hasExactKeys(payload, ["error", "request_id"]) ||
+      !hasExactKeys(payload.error, ["code", "message", "retryable", "details"]) ||
+      payload.error.retryable !== false ||
+      Object.keys(payload.error.details).length !== 0
+    )
+      return { kind: "REMOTE_UNKNOWN" };
     if (response.status === 404 && payload.error.code === "SOURCE_EXTRACTION_NOT_FOUND") {
       return { kind: "NOT_FOUND" };
     }
@@ -2918,8 +3010,11 @@ export function createLocalApiClient(
     originalCommand: FakeTimelineRunCreateCommand,
   ): Promise<FakeTimelineRunOperationQueryResult> {
     const operationId = originalCommand.operation_id;
-    const unknown = (): FakeTimelineRunOperationQueryResult =>
-      ({ kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: operationId });
+    const unknown = (): FakeTimelineRunOperationQueryResult => ({
+      kind: "REMOTE_UNKNOWN",
+      project_id: projectId,
+      operation_id: operationId,
+    });
     let response: Response;
     try {
       response = await fetcher(
@@ -2942,18 +3037,24 @@ export function createLocalApiClient(
     if (!DEFINITE_DECISION_STATUSES.has(response.status)) return unknown();
     try {
       const payload = await readJsonWithLimit(response);
-      if (!isErrorResponse(payload) ||
-          !hasOnlyKeys(payload, ["error", "request_id"]) ||
-          !hasOnlyKeys(payload.error, ["code", "message", "retryable", "details"])) {
+      if (
+        !isErrorResponse(payload) ||
+        !hasOnlyKeys(payload, ["error", "request_id"]) ||
+        !hasOnlyKeys(payload.error, ["code", "message", "retryable", "details"])
+      ) {
         return unknown();
       }
-      if (response.status === 404 &&
-          payload.error.code === "FAKE_TIMELINE_OPERATION_NOT_FOUND") {
+      if (response.status === 404 && payload.error.code === "FAKE_TIMELINE_OPERATION_NOT_FOUND") {
         return { kind: "NOT_FOUND", project_id: projectId, operation_id: operationId };
       }
-      return { kind: "DEFINITE_SERVER_ERROR", project_id: projectId,
-        operation_id: operationId, status: response.status,
-        code: payload.error.code, request_id: payload.request_id };
+      return {
+        kind: "DEFINITE_SERVER_ERROR",
+        project_id: projectId,
+        operation_id: operationId,
+        status: response.status,
+        code: payload.error.code,
+        request_id: payload.request_id,
+      };
     } catch {
       return unknown();
     }
@@ -3060,7 +3161,7 @@ export function createLocalApiClient(
       const error = sub2APIDefiniteError(response.status, payload, requestId);
       return error?.status === 404 && error.code === "SUB2API_RUN_NOT_FOUND"
         ? { kind: "NOT_FOUND", request_id: error.request_id }
-        : error ?? { kind: "REMOTE_UNKNOWN" };
+        : (error ?? { kind: "REMOTE_UNKNOWN" });
     } catch {
       return { kind: "REMOTE_UNKNOWN" };
     }
@@ -3091,7 +3192,7 @@ export function createLocalApiClient(
       const error = sub2APIDefiniteError(response.status, payload, requestId);
       return error?.status === 404 && error.code === "SUB2API_APPROVAL_NOT_FOUND"
         ? { kind: "NOT_FOUND", request_id: error.request_id }
-        : error ?? { kind: "REMOTE_UNKNOWN" };
+        : (error ?? { kind: "REMOTE_UNKNOWN" });
     } catch {
       return { kind: "REMOTE_UNKNOWN" };
     }
@@ -3101,17 +3202,20 @@ export function createLocalApiClient(
     ...createProjectCreativeLibraryClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeStoryboardClient(requestSub2APIMutationHttp, headers),
     ...createShotPlanClient(
-      (path, init) => requestSub2APIMutationHttp(path, init, 15_000, 9_000_000), headers,
+      (path, init) => requestSub2APIMutationHttp(path, init, 15_000, 9_000_000),
+      headers,
     ),
     ...createOfficialTextClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
     ...createDraftExportClient(requestSub2APIMutationHttp, headers),
     ...createDraftReviewClient(requestSub2APIMutationHttp, headers),
     ...createMediaToolchainClient(
-      (path, init) => requestSub2APIMutationHttp(path, init, 90_000), headers,
+      (path, init) => requestSub2APIMutationHttp(path, init, 90_000),
+      headers,
     ),
     ...createMediaAssetProbeClient(
-      (path, init) => requestSub2APIMutationHttp(path, init, 5 * 60_000), headers,
+      (path, init) => requestSub2APIMutationHttp(path, init, 5 * 60_000),
+      headers,
     ),
     prepareSourceManifestSubmit: (input) => prepareSourceReview(input, "submit"),
     submitSourceManifestReview: (input, prepared) =>
@@ -3189,7 +3293,8 @@ export function createLocalApiClient(
       let response: Response;
       try {
         response = await fetcher(`${origin}/api/v1/app-preferences`, {
-          headers, signal: AbortSignal.timeout(15_000),
+          headers,
+          signal: AbortSignal.timeout(15_000),
         });
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
@@ -3202,13 +3307,18 @@ export function createLocalApiClient(
             ? { kind: "FOUND", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return appPreferencesDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          appPreferencesDefiniteError(response.status, payload, requestId) ?? {
+            kind: "REMOTE_UNKNOWN",
+          }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
     },
-    async saveAppPreferences(command: SaveAppPreferencesCommand): Promise<AppPreferencesSaveResult> {
+    async saveAppPreferences(
+      command: SaveAppPreferencesCommand,
+    ): Promise<AppPreferencesSaveResult> {
       if (!isSaveAppPreferencesCommand(command)) {
         throw new Error("Local API client requires a canonical app preferences command");
       }
@@ -3228,7 +3338,8 @@ export function createLocalApiClient(
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
           return isAppPreferencesResponse(payload, requestId, response.headers.get("ETag")) &&
-            payload.data.saved && payload.data.revision === command.expected_revision + 1 &&
+            payload.data.saved &&
+            payload.data.revision === command.expected_revision + 1 &&
             payload.data.user_name === command.user_name &&
             payload.data.display_bio === command.display_bio &&
             payload.data.ui_language === command.ui_language &&
@@ -3236,8 +3347,11 @@ export function createLocalApiClient(
             ? { kind: "SAVED", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return appPreferencesDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          appPreferencesDefiniteError(response.status, payload, requestId) ?? {
+            kind: "REMOTE_UNKNOWN",
+          }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3247,7 +3361,8 @@ export function createLocalApiClient(
       let response: Response;
       try {
         response = await fetcher(`${origin}/api/v1/projects/${projectId}/assets`, {
-          headers, signal: AbortSignal.timeout(5 * 60 * 1000),
+          headers,
+          signal: AbortSignal.timeout(5 * 60 * 1000),
         });
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
@@ -3260,8 +3375,9 @@ export function createLocalApiClient(
             ? { kind: "LISTED", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return mediaAssetDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3273,7 +3389,8 @@ export function createLocalApiClient(
       let response: Response;
       try {
         response = await fetcher(`${origin}/api/v1/projects/${projectId}/assets/${assetId}`, {
-          headers, signal: AbortSignal.timeout(30 * 60 * 1000),
+          headers,
+          signal: AbortSignal.timeout(30 * 60 * 1000),
         });
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
@@ -3286,26 +3403,37 @@ export function createLocalApiClient(
             ? { kind: "FOUND", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return mediaAssetDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
     },
     async importProjectMediaAssetFile(
-      projectId: string, assetId: string | null, selectedPath: string,
+      projectId: string,
+      assetId: string | null,
+      selectedPath: string,
     ): Promise<MediaAssetImportResult> {
-      if (!isMediaProjectId(projectId) || (assetId !== null && !isMediaAssetId(assetId)) ||
-          typeof selectedPath !== "string" || selectedPath.length === 0) {
+      if (
+        !isMediaProjectId(projectId) ||
+        (assetId !== null && !isMediaAssetId(assetId)) ||
+        typeof selectedPath !== "string" ||
+        selectedPath.length === 0
+      ) {
         throw new Error("Media asset import requires canonical main-process arguments");
       }
       let filename: string;
       try {
         filename = basename(selectedPath);
-        if (filename.length === 0 || filename === "." || filename === ".." ||
-            [...filename].length > 255 || [...filename].some((char) =>
-              (char.codePointAt(0) ?? 0) < 32) ||
-            encodeURIComponent(filename).length > 1024) {
+        if (
+          filename.length === 0 ||
+          filename === "." ||
+          filename === ".." ||
+          [...filename].length > 255 ||
+          [...filename].some((char) => (char.codePointAt(0) ?? 0) < 32) ||
+          encodeURIComponent(filename).length > 1024
+        ) {
           return { kind: "LOCAL_FILE_REJECTED", code: "INVALID_FILE" };
         }
       } catch {
@@ -3331,9 +3459,10 @@ export function createLocalApiClient(
         }
         const stream = file.createReadStream({ autoClose: false });
         try {
-          const path = assetId === null
-            ? `/api/v1/projects/${projectId}/assets/import`
-            : `/api/v1/projects/${projectId}/assets/${assetId}/versions/import`;
+          const path =
+            assetId === null
+              ? `/api/v1/projects/${projectId}/assets/import`
+              : `/api/v1/projects/${projectId}/assets/${assetId}/versions/import`;
           response = await fetcher(`${origin}${path}`, {
             method: "POST",
             headers: {
@@ -3362,17 +3491,23 @@ export function createLocalApiClient(
             ? { kind: "IMPORTED", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return mediaAssetDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
     },
     async readProjectMediaAssetPreview(
-      projectId: string, assetId: string, versionId: string,
+      projectId: string,
+      assetId: string,
+      versionId: string,
     ): Promise<MediaAssetPreviewResult> {
-      if (!isMediaProjectId(projectId) || !isMediaAssetId(assetId) ||
-          !isMediaAssetVersionId(versionId)) {
+      if (
+        !isMediaProjectId(projectId) ||
+        !isMediaAssetId(assetId) ||
+        !isMediaAssetVersionId(versionId)
+      ) {
         throw new Error("Media asset preview requires canonical ids");
       }
       const listing = await this.listProjectMediaAssets(projectId);
@@ -3392,20 +3527,27 @@ export function createLocalApiClient(
       if (response.status !== 200) {
         try {
           const payload = await readJsonWithLimit(response);
-          return mediaAssetDefiniteError(
-            response.status, payload, response.headers.get("X-Request-ID"),
-          ) ?? { kind: "REMOTE_UNKNOWN" };
+          return (
+            mediaAssetDefiniteError(
+              response.status,
+              payload,
+              response.headers.get("X-Request-ID"),
+            ) ?? { kind: "REMOTE_UNKNOWN" }
+          );
         } catch {
           return { kind: "REMOTE_UNKNOWN" };
         }
       }
-      if (response.headers.get("ETag") !== `"sha256-${version.sha256}"` ||
-          response.headers.get("Content-Type") !== version.mime_type ||
-          version.byte_size > 32 * 1024 * 1024) return { kind: "REMOTE_UNKNOWN" };
+      if (
+        response.headers.get("ETag") !== `"sha256-${version.sha256}"` ||
+        response.headers.get("Content-Type") !== version.mime_type ||
+        version.byte_size > 32 * 1024 * 1024
+      )
+        return { kind: "REMOTE_UNKNOWN" };
       try {
         const declared = response.headers.get("Content-Length");
-        if (declared !== null && (!/^\d+$/.test(declared) ||
-            Number(declared) > 32 * 1024 * 1024)) return { kind: "REMOTE_UNKNOWN" };
+        if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > 32 * 1024 * 1024))
+          return { kind: "REMOTE_UNKNOWN" };
         const chunks: Uint8Array[] = [];
         let size = 0;
         if (response.body === null) return { kind: "REMOTE_UNKNOWN" };
@@ -3438,18 +3580,27 @@ export function createLocalApiClient(
       }
     },
     async addProjectMediaAssetEpisodeReference(
-      projectId: string, assetId: string, command: AddMediaAssetReferenceCommand,
+      projectId: string,
+      assetId: string,
+      command: AddMediaAssetReferenceCommand,
     ): Promise<MediaAssetReferenceResult> {
-      if (!isMediaProjectId(projectId) || !isMediaAssetId(assetId) ||
-          !isAddMediaAssetReferenceCommand(command)) {
+      if (
+        !isMediaProjectId(projectId) ||
+        !isMediaAssetId(assetId) ||
+        !isAddMediaAssetReferenceCommand(command)
+      ) {
         throw new Error("Media asset reference requires canonical arguments");
       }
       let response: Response;
       try {
         response = await fetcher(
           `${origin}/api/v1/projects/${projectId}/assets/${assetId}/episode-references`,
-          { method: "POST", headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify(command), signal: AbortSignal.timeout(15_000) },
+          {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(command),
+            signal: AbortSignal.timeout(15_000),
+          },
         );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
@@ -3459,23 +3610,32 @@ export function createLocalApiClient(
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
           return isMediaAssetResponse(payload, projectId, requestId, assetId) &&
-            payload.data.episode_references.some((item) =>
-              item.episode_id === command.episode_id &&
-              item.version_id === command.version_id && item.role === command.role)
+            payload.data.episode_references.some(
+              (item) =>
+                item.episode_id === command.episode_id &&
+                item.version_id === command.version_id &&
+                item.role === command.role,
+            )
             ? { kind: "REFERENCED", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return mediaAssetDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
     },
     async removeProjectMediaAssetEpisodeReference(
-      projectId: string, assetId: string, command: RemoveMediaAssetReferenceCommand,
+      projectId: string,
+      assetId: string,
+      command: RemoveMediaAssetReferenceCommand,
     ): Promise<MediaAssetUnreferenceResult> {
-      if (!isMediaProjectId(projectId) || !isMediaAssetId(assetId) ||
-          !isRemoveMediaAssetReferenceCommand(command)) {
+      if (
+        !isMediaProjectId(projectId) ||
+        !isMediaAssetId(assetId) ||
+        !isRemoveMediaAssetReferenceCommand(command)
+      ) {
         throw new Error("Media asset unreference requires canonical arguments");
       }
       let response: Response;
@@ -3493,19 +3653,22 @@ export function createLocalApiClient(
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
           return isMediaAssetResponse(payload, projectId, requestId, assetId) &&
-            !payload.data.episode_references.some((item) =>
-              item.episode_id === command.episode_id && item.role === command.role)
+            !payload.data.episode_references.some(
+              (item) => item.episode_id === command.episode_id && item.role === command.role,
+            )
             ? { kind: "UNREFERENCED", receipt: payload }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return mediaAssetDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
     },
     async deleteProjectMediaAsset(
-      projectId: string, assetId: string,
+      projectId: string,
+      assetId: string,
     ): Promise<MediaAssetDeleteResult> {
       if (!isMediaProjectId(projectId) || !isMediaAssetId(assetId)) {
         throw new Error("Media asset delete requires canonical ids");
@@ -3513,7 +3676,9 @@ export function createLocalApiClient(
       let response: Response;
       try {
         response = await fetcher(`${origin}/api/v1/projects/${projectId}/assets/${assetId}`, {
-          method: "DELETE", headers, signal: AbortSignal.timeout(15_000),
+          method: "DELETE",
+          headers,
+          signal: AbortSignal.timeout(15_000),
         });
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
@@ -3521,9 +3686,13 @@ export function createLocalApiClient(
       if (response.status === 204) return { kind: "DELETED" };
       try {
         const payload = await readJsonWithLimit(response);
-        return mediaAssetDefiniteError(
-          response.status, payload, response.headers.get("X-Request-ID"),
-        ) ?? { kind: "REMOTE_UNKNOWN" };
+        return (
+          mediaAssetDefiniteError(
+            response.status,
+            payload,
+            response.headers.get("X-Request-ID"),
+          ) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3549,7 +3718,10 @@ export function createLocalApiClient(
         { headers },
       );
     },
-    async updateProject(projectId: string, command: ProjectUpdateCommand): Promise<ProjectUpdateResult> {
+    async updateProject(
+      projectId: string,
+      command: ProjectUpdateCommand,
+    ): Promise<ProjectUpdateResult> {
       const normalized = normalizeProjectUpdateCommand(command);
       if (!isProjectUpdateId(projectId) || normalized === null) return { kind: "INVALID_INPUT" };
       const body = {
@@ -3576,11 +3748,20 @@ export function createLocalApiClient(
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
           return isProjectUpdateReceipt(
-            payload, projectId, normalized, response.headers.get("ETag"), requestId,
-          ) ? { kind: "SUCCEEDED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+            payload,
+            projectId,
+            normalized,
+            response.headers.get("ETag"),
+            requestId,
+          )
+            ? { kind: "SUCCEEDED", receipt: payload }
+            : { kind: "REMOTE_UNKNOWN" };
         }
-        return projectUpdateDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          projectUpdateDefiniteError(response.status, payload, requestId) ?? {
+            kind: "REMOTE_UNKNOWN",
+          }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3797,8 +3978,10 @@ export function createLocalApiClient(
       projectId: string,
       originalCommand: RemoteSourceExtractCreateCommand,
     ): Promise<RemoteSourceExtractOriginalRunResult> {
-      if (!PROJECT_ID_PATTERN.test(projectId) ||
-          !isRemoteSourceExtractCreateCommand(originalCommand)) {
+      if (
+        !PROJECT_ID_PATTERN.test(projectId) ||
+        !isRemoteSourceExtractCreateCommand(originalCommand)
+      ) {
         throw new Error("Local API client requires an exact remote source extract identity");
       }
       return requestOriginalRemoteSourceExtractRun(projectId, originalCommand);
@@ -3838,9 +4021,14 @@ export function createLocalApiClient(
         const payload = await readJsonWithLimit(response);
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
-          return classifyVersionedSourceExtractionProposal(
-            payload, projectId, proposalId, requestId,
-          ) ?? { kind: "REMOTE_UNKNOWN" };
+          return (
+            classifyVersionedSourceExtractionProposal(
+              payload,
+              projectId,
+              proposalId,
+              requestId,
+            ) ?? { kind: "REMOTE_UNKNOWN" }
+          );
         }
         if (response.status === 404 && isVersionedProposalNotFound(payload, requestId)) {
           return { kind: "NOT_FOUND", request_id: payload.request_id };
@@ -3859,16 +4047,19 @@ export function createLocalApiClient(
       }
       let response: Response;
       try {
-        response = await fetcher(`${origin}/api/v1/projects/${projectId}/sub2api-source-extract-runs`, {
-          method: "POST",
-          headers: {
-            ...headers,
-            "Content-Type": "application/json",
-            "Idempotency-Key": sub2APIQueueIdempotencyKey(command),
+        response = await fetcher(
+          `${origin}/api/v1/projects/${projectId}/sub2api-source-extract-runs`,
+          {
+            method: "POST",
+            headers: {
+              ...headers,
+              "Content-Type": "application/json",
+              "Idempotency-Key": sub2APIQueueIdempotencyKey(command),
+            },
+            body: JSON.stringify(command.input),
+            signal: AbortSignal.timeout(15_000),
           },
-          body: JSON.stringify(command.input),
-          signal: AbortSignal.timeout(15_000),
-        });
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3880,8 +4071,9 @@ export function createLocalApiClient(
             ? { kind: "QUEUED", receipt: payload, replayed: response.status === 200 }
             : { kind: "REMOTE_UNKNOWN" };
         }
-        return sub2APIDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          sub2APIDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3900,24 +4092,32 @@ export function createLocalApiClient(
       originalCommand: Sub2APIQueueCommand,
       approvalCommand: Sub2APIApprovalCommand,
     ): Promise<Sub2APIApprovalResult> {
-      if (!isSub2APIProjectId(projectId) || !isSub2APIQueueCommand(originalCommand) ||
-          !isSub2APIApprovalCommand(approvalCommand)) {
+      if (
+        !isSub2APIProjectId(projectId) ||
+        !isSub2APIQueueCommand(originalCommand) ||
+        !isSub2APIApprovalCommand(approvalCommand)
+      ) {
         throw new Error("Local API client requires an exact one-call approval command");
       }
       const current = await requestSub2APIOperation(projectId, originalCommand);
       if (current.kind === "DEFINITE_SERVER_ERROR") return current;
       if (current.kind === "NOT_FOUND") {
         return {
-          kind: "DEFINITE_SERVER_ERROR", status: 404,
-          code: "SUB2API_RUN_NOT_FOUND", request_id: current.request_id,
+          kind: "DEFINITE_SERVER_ERROR",
+          status: 404,
+          code: "SUB2API_RUN_NOT_FOUND",
+          request_id: current.request_id,
         };
       }
-      if (current.kind !== "FOUND" || current.receipt.data.content_status !== "PENDING" ||
-          current.receipt.data.approval_id !== null ||
-          current.receipt.data.scope.task_id !== approvalCommand.input.task_id ||
-          current.receipt.data.scope.attempt_id !== approvalCommand.input.attempt_id ||
-          current.receipt.data.scope.attempt_fingerprint !==
-            approvalCommand.input.expected_attempt_fingerprint) {
+      if (
+        current.kind !== "FOUND" ||
+        current.receipt.data.content_status !== "PENDING" ||
+        current.receipt.data.approval_id !== null ||
+        current.receipt.data.scope.task_id !== approvalCommand.input.task_id ||
+        current.receipt.data.scope.attempt_id !== approvalCommand.input.attempt_id ||
+        current.receipt.data.scope.attempt_fingerprint !==
+          approvalCommand.input.expected_attempt_fingerprint
+      ) {
         return { kind: "REMOTE_UNKNOWN" };
       }
       let response: Response;
@@ -3942,9 +4142,16 @@ export function createLocalApiClient(
         const payload = await readJsonWithLimit(response);
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
-          if (!isSub2APIApprovalResponse(
-            payload, projectId, originalCommand, requestId, approvalCommand,
-          )) return { kind: "REMOTE_UNKNOWN" };
+          if (
+            !isSub2APIApprovalResponse(
+              payload,
+              projectId,
+              originalCommand,
+              requestId,
+              approvalCommand,
+            )
+          )
+            return { kind: "REMOTE_UNKNOWN" };
           if (payload.data.status === "APPROVED_ONE_CALL") {
             return { kind: "APPROVED", receipt: payload };
           }
@@ -3953,8 +4160,9 @@ export function createLocalApiClient(
           }
           return { kind: "REMOTE_UNKNOWN" };
         }
-        return sub2APIDefiniteError(response.status, payload, requestId) ??
-          { kind: "REMOTE_UNKNOWN" };
+        return (
+          sub2APIDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN" };
       }
@@ -3984,8 +4192,7 @@ export function createLocalApiClient(
       projectId: string,
       originalCommand: FakeTimelineRunCreateCommand,
     ): Promise<FakeTimelineRunOperationQueryResult> {
-      if (!PROJECT_ID_PATTERN.test(projectId) ||
-          !isFakeTimelineRunCreateCommand(originalCommand)) {
+      if (!PROJECT_ID_PATTERN.test(projectId) || !isFakeTimelineRunCreateCommand(originalCommand)) {
         throw new Error("Local API client requires a valid fake timeline run query command");
       }
       return requestFakeTimelineRunOperation(projectId, originalCommand);
@@ -4185,8 +4392,10 @@ export function createLocalApiClient(
       }
       let response: Response;
       try {
-        response = await fetcher(`${origin}/api/v1/projects/${projectId}/development-exports`,
-          postInit(input));
+        response = await fetcher(
+          `${origin}/api/v1/projects/${projectId}/development-exports`,
+          postInit(input),
+        );
       } catch {
         return { kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: input.operation_id };
       }
@@ -4198,10 +4407,19 @@ export function createLocalApiClient(
         try {
           payload = await readJsonWithLimit(response);
         } catch {
-          return { kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: input.operation_id };
+          return {
+            kind: "REMOTE_UNKNOWN",
+            project_id: projectId,
+            operation_id: input.operation_id,
+          };
         }
-        return developmentExportRejection(response.status, payload, projectId, input) ??
-          { kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: input.operation_id };
+        return (
+          developmentExportRejection(response.status, payload, projectId, input) ?? {
+            kind: "REMOTE_UNKNOWN",
+            project_id: projectId,
+            operation_id: input.operation_id,
+          }
+        );
       }
       let payload: unknown;
       try {
@@ -4209,8 +4427,13 @@ export function createLocalApiClient(
       } catch {
         return { kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: input.operation_id };
       }
-      return isDevelopmentExportResponse(payload, projectId, input.operation_id,
-        input.timeline_version_id, input.expected_revision)
+      return isDevelopmentExportResponse(
+        payload,
+        projectId,
+        input.operation_id,
+        input.timeline_version_id,
+        input.expected_revision,
+      )
         ? payload
         : { kind: "REMOTE_UNKNOWN", project_id: projectId, operation_id: input.operation_id };
     },
@@ -4220,8 +4443,9 @@ export function createLocalApiClient(
       timelineVersionId: string,
       expectedRevision: number,
     ): Promise<DevelopmentExportResponse> {
-      if (!isDevelopmentExportIdentity(projectId, operationId, timelineVersionId,
-        expectedRevision)) {
+      if (
+        !isDevelopmentExportIdentity(projectId, operationId, timelineVersionId, expectedRevision)
+      ) {
         throw new Error("Local API client requires a valid development export identity");
       }
       let response: Response;
@@ -4252,8 +4476,15 @@ export function createLocalApiClient(
       } catch {
         throw new DevelopmentExportGetError("REMOTE_UNKNOWN", response.status);
       }
-      if (!isDevelopmentExportResponse(payload, projectId, operationId,
-        timelineVersionId, expectedRevision)) {
+      if (
+        !isDevelopmentExportResponse(
+          payload,
+          projectId,
+          operationId,
+          timelineVersionId,
+          expectedRevision,
+        )
+      ) {
         throw new DevelopmentExportGetError("REMOTE_UNKNOWN", response.status);
       }
       return payload;
@@ -4261,29 +4492,38 @@ export function createLocalApiClient(
     listProviderConnections: () =>
       requestJson("/api/v1/provider-connections", isProviderConnectionListResponse, { headers }),
     async getEpisodeScript(
-      projectId: string, episodeId: string,
+      projectId: string,
+      episodeId: string,
     ): Promise<EpisodeScriptLatestResult> {
       if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId)) {
         throw new Error("Episode script read requires canonical ids");
       }
       const result = await readBoundedScriptHttp(
-        `/api/v1/projects/${projectId}/episodes/${episodeId}/script`, { headers },
+        `/api/v1/projects/${projectId}/episodes/${episodeId}/script`,
+        { headers },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
       if (status === 200) {
         return isEpisodeScriptVersionResponse(payload, projectId, episodeId, requestId)
-          ? { kind: "FOUND", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+          ? { kind: "FOUND", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
       const error = episodeScriptDefiniteError(status, payload, requestId);
       return error?.status === 404 && error.code === "SCRIPT_NOT_FOUND"
-        ? { kind: "EMPTY" } : error ?? { kind: "REMOTE_UNKNOWN" };
+        ? { kind: "EMPTY" }
+        : (error ?? { kind: "REMOTE_UNKNOWN" });
     },
     async getEpisodeScriptVersion(
-      projectId: string, episodeId: string, versionId: string,
+      projectId: string,
+      episodeId: string,
+      versionId: string,
     ): Promise<EpisodeScriptVersionResult> {
-      if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId) ||
-          !isEpisodeScriptVersionId(versionId)) {
+      if (
+        !isEpisodeScriptProjectId(projectId) ||
+        !isEpisodeScriptEpisodeId(episodeId) ||
+        !isEpisodeScriptVersionId(versionId)
+      ) {
         throw new Error("Episode script version read requires canonical ids");
       }
       const result = await readBoundedScriptHttp(
@@ -4293,39 +4533,56 @@ export function createLocalApiClient(
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
       if (status === 200) {
-        return isEpisodeScriptVersionResponse(
-          payload, projectId, episodeId, requestId, versionId,
-        ) ? { kind: "FOUND", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+        return isEpisodeScriptVersionResponse(payload, projectId, episodeId, requestId, versionId)
+          ? { kind: "FOUND", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return episodeScriptDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return episodeScriptDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" };
     },
     async createEpisodeScriptVersion(
-      projectId: string, episodeId: string, idempotencyKey: string,
+      projectId: string,
+      episodeId: string,
+      idempotencyKey: string,
       payload: CreateEpisodeScriptVersionRequest,
     ): Promise<EpisodeScriptCreateResult> {
-      if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId) ||
-          !isEpisodeScriptIdempotencyKey(idempotencyKey) ||
-          !isCreateEpisodeScriptVersionRequest(payload, projectId, episodeId)) {
+      if (
+        !isEpisodeScriptProjectId(projectId) ||
+        !isEpisodeScriptEpisodeId(episodeId) ||
+        !isEpisodeScriptIdempotencyKey(idempotencyKey) ||
+        !isCreateEpisodeScriptVersionRequest(payload, projectId, episodeId)
+      ) {
         throw new Error("Episode script write requires canonical arguments");
       }
       const result = await readBoundedScriptHttp(
         `/api/v1/projects/${projectId}/episodes/${episodeId}/script/versions`,
-        { method: "POST", headers: { ...headers, "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey }, body: JSON.stringify(payload) },
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(payload),
+        },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload: response, requestId } = result;
       if (status === 201) {
         return isEpisodeScriptVersionCreatedResponse(
-          response, projectId, episodeId, requestId, payload,
-        ) ? { kind: "CREATED", receipt: response } : { kind: "REMOTE_UNKNOWN" };
+          response,
+          projectId,
+          episodeId,
+          requestId,
+          payload,
+        )
+          ? { kind: "CREATED", receipt: response }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return episodeScriptDefiniteError(status, response, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return episodeScriptDefiniteError(status, response, requestId) ?? { kind: "REMOTE_UNKNOWN" };
     },
     async getEpisodeScriptConfirmation(
-      projectId: string, episodeId: string,
+      projectId: string,
+      episodeId: string,
     ): Promise<EpisodeScriptConfirmationReadResult> {
       if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId)) {
         throw new Error("Episode script confirmation read requires canonical ids");
@@ -4337,81 +4594,128 @@ export function createLocalApiClient(
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
       if (status === 200) {
-        return isEpisodeScriptConfirmationStatusResponse(
-          payload, projectId, episodeId, requestId,
-        ) ? { kind: "FOUND", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+        return isEpisodeScriptConfirmationStatusResponse(payload, projectId, episodeId, requestId)
+          ? { kind: "FOUND", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return episodeScriptConfirmationDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return (
+        episodeScriptConfirmationDefiniteError(status, payload, requestId) ?? {
+          kind: "REMOTE_UNKNOWN",
+        }
+      );
     },
     async createEpisodeScriptConfirmation(
-      projectId: string, episodeId: string, idempotencyKey: string,
+      projectId: string,
+      episodeId: string,
+      idempotencyKey: string,
       payload: CreateEpisodeScriptConfirmationRequest,
     ): Promise<EpisodeScriptConfirmationCreateResult> {
-      if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId) ||
-          !isEpisodeScriptIdempotencyKey(idempotencyKey) ||
-          !isCreateEpisodeScriptConfirmationRequest(payload)) {
+      if (
+        !isEpisodeScriptProjectId(projectId) ||
+        !isEpisodeScriptEpisodeId(episodeId) ||
+        !isEpisodeScriptIdempotencyKey(idempotencyKey) ||
+        !isCreateEpisodeScriptConfirmationRequest(payload)
+      ) {
         throw new Error("Episode script confirmation write requires canonical arguments");
       }
       const result = await readBoundedScriptHttp(
         `/api/v1/projects/${projectId}/episodes/${episodeId}/script/confirmations`,
-        { method: "POST", headers: { ...headers, "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey }, body: JSON.stringify(payload) },
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(payload),
+        },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload: response, requestId } = result;
       if (status === 201) {
         return isEpisodeScriptConfirmationCreatedResponse(
-          response, projectId, episodeId, requestId, payload,
-        ) ? { kind: "CREATED", receipt: response } : { kind: "REMOTE_UNKNOWN" };
+          response,
+          projectId,
+          episodeId,
+          requestId,
+          payload,
+        )
+          ? { kind: "CREATED", receipt: response }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return episodeScriptConfirmationDefiniteError(status, response, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return (
+        episodeScriptConfirmationDefiniteError(status, response, requestId) ?? {
+          kind: "REMOTE_UNKNOWN",
+        }
+      );
     },
     async getEpisodeScriptConfirmationReceipt(
-      projectId: string, episodeId: string, confirmationId: string,
+      projectId: string,
+      episodeId: string,
+      confirmationId: string,
     ): Promise<EpisodeScriptConfirmationReadResult> {
-      if (!isEpisodeScriptProjectId(projectId) || !isEpisodeScriptEpisodeId(episodeId) ||
-          !isEpisodeScriptConfirmationId(confirmationId)) {
+      if (
+        !isEpisodeScriptProjectId(projectId) ||
+        !isEpisodeScriptEpisodeId(episodeId) ||
+        !isEpisodeScriptConfirmationId(confirmationId)
+      ) {
         throw new Error("Episode script confirmation receipt requires canonical ids");
       }
       const result = await readBoundedScriptHttp(
         `/api/v1/projects/${projectId}/episodes/${episodeId}` +
-          `/script/confirmations/${confirmationId}`, { headers },
+          `/script/confirmations/${confirmationId}`,
+        { headers },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
       if (status === 200) {
         return isEpisodeScriptConfirmationStatusResponse(
-          payload, projectId, episodeId, requestId, confirmationId,
-        ) ? { kind: "FOUND", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+          payload,
+          projectId,
+          episodeId,
+          requestId,
+          confirmationId,
+        )
+          ? { kind: "FOUND", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return episodeScriptConfirmationDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return (
+        episodeScriptConfirmationDefiniteError(status, payload, requestId) ?? {
+          kind: "REMOTE_UNKNOWN",
+        }
+      );
     },
     async getSourceProposalAcceptanceForVersion(
-      projectId: string, versionId: string,
+      projectId: string,
+      versionId: string,
     ): Promise<SourceProposalAcceptanceResult> {
-      if (!isSourceProposalAcceptanceProjectId(projectId) ||
-          !isSourceProposalAcceptanceVersionId(versionId)) {
+      if (
+        !isSourceProposalAcceptanceProjectId(projectId) ||
+        !isSourceProposalAcceptanceVersionId(versionId)
+      ) {
         throw new Error("Source proposal acceptance read requires canonical ids");
       }
       const result = await readBoundedScriptHttp(
         `/api/v1/projects/${projectId}/source-extraction/versions/${versionId}` +
-          "/proposal-acceptance", { headers },
+          "/proposal-acceptance",
+        { headers },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId, etag } = result;
       if (status === 200) {
-        return isSourceProposalAcceptanceResponse(
-          payload, projectId, versionId, requestId, etag,
-        ) ? { kind: "FOUND", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+        return isSourceProposalAcceptanceResponse(payload, projectId, versionId, requestId, etag)
+          ? { kind: "FOUND", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return sourceProposalAcceptanceDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return (
+        sourceProposalAcceptanceDefiniteError(status, payload, requestId) ?? {
+          kind: "REMOTE_UNKNOWN",
+        }
+      );
     },
     async readSub2APIConfiguredReadiness(
-      connectionId: string, modelId: string,
+      connectionId: string,
+      modelId: string,
     ): Promise<Sub2APIConfiguredReadinessResult> {
       if (!isSub2APIConnectionId(connectionId) || !isSub2APIModelId(modelId)) {
         throw new Error("Sub2API readiness requires canonical connection and model ids");
@@ -4430,21 +4734,24 @@ export function createLocalApiClient(
         const payload = await readJsonWithLimit(response);
         const requestId = response.headers.get("X-Request-ID");
         if (response.status === 200) {
-          return isSub2APIConfiguredReadinessResponse(
-            payload, connectionId, modelId, requestId,
-          ) ? { kind: "READ", receipt: payload } : { kind: "READINESS_UNKNOWN" };
+          return isSub2APIConfiguredReadinessResponse(payload, connectionId, modelId, requestId)
+            ? { kind: "READ", receipt: payload }
+            : { kind: "READINESS_UNKNOWN" };
         }
-        return sub2APIReadinessDefiniteError(response.status, payload, requestId) ??
-          { kind: "READINESS_UNKNOWN" };
+        return (
+          sub2APIReadinessDefiniteError(response.status, payload, requestId) ?? {
+            kind: "READINESS_UNKNOWN",
+          }
+        );
       } catch {
         return { kind: "READINESS_UNKNOWN" };
       }
     },
     async editSub2APIMetadata(
-      connectionId: string, command: EditSub2APIMetadataCommand,
+      connectionId: string,
+      command: EditSub2APIMetadataCommand,
     ): Promise<Sub2APIConnectionMutationResult> {
-      if (!isSub2APIConnectionId(connectionId) ||
-          !isEditSub2APIMetadataCommand(command)) {
+      if (!isSub2APIConnectionId(connectionId) || !isEditSub2APIMetadataCommand(command)) {
         throw new Error("Sub2API metadata edit requires canonical arguments");
       }
       async function readConnectionsWithinDeadline(): Promise<ProviderConnectionListResponse | null> {
@@ -4458,8 +4765,10 @@ export function createLocalApiClient(
         });
         try {
           return await Promise.race([
-            requestJson("/api/v1/provider-connections", isProviderConnectionListResponse,
-              { headers, signal: controller.signal }),
+            requestJson("/api/v1/provider-connections", isProviderConnectionListResponse, {
+              headers,
+              signal: controller.signal,
+            }),
             deadline,
           ]);
         } catch {
@@ -4471,22 +4780,29 @@ export function createLocalApiClient(
       const before = await readConnectionsWithinDeadline();
       if (before === null) return { kind: "REMOTE_UNKNOWN" };
       const current = before.data.find((item) => item.id === connectionId);
-      if (!current || current.provider_kind !== "SUB2API" ||
-          current.revision !== command.expected_revision ||
-          !isRecord(current) || !isSub2APIOriginMode(current.origin_mode)) {
+      if (
+        !current ||
+        current.provider_kind !== "SUB2API" ||
+        current.revision !== command.expected_revision ||
+        !isRecord(current) ||
+        !isSub2APIOriginMode(current.origin_mode)
+      ) {
         return { kind: "REMOTE_UNKNOWN" };
       }
-      if (command.origin_mode === undefined &&
-          current.origin_mode === "LOCAL_LOOPBACK_HTTP") {
+      if (command.origin_mode === undefined && current.origin_mode === "LOCAL_LOOPBACK_HTTP") {
         throw new Error("Editing a local Sub2API connection requires explicit origin_mode");
       }
       const explicitCommand = {
-        ...command, origin_mode: command.origin_mode ?? "PUBLIC_HTTPS",
+        ...command,
+        origin_mode: command.origin_mode ?? "PUBLIC_HTTPS",
       };
       const result = await requestSub2APIMutationHttp(
         `/api/v1/provider-connections/${connectionId}`,
-        { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify(explicitCommand) },
+        {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(explicitCommand),
+        },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
@@ -4505,13 +4821,14 @@ export function createLocalApiClient(
           persisted.display_name === payload.data.display_name &&
           persisted.enabled === payload.data.enabled &&
           JSON.stringify(persisted.models) === JSON.stringify(payload.data.models)
-          ? { kind: "UPDATED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+          ? { kind: "UPDATED", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return sub2APIMutationDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return sub2APIMutationDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" };
     },
     async rotateSub2APIKey(
-      connectionId: string, command: RotateSub2APIKeyCommand,
+      connectionId: string,
+      command: RotateSub2APIKeyCommand,
     ): Promise<Sub2APIConnectionMutationResult> {
       if (!isSub2APIConnectionId(connectionId) || !isRotateSub2APIKeyCommand(command)) {
         throw new Error("Sub2API rotation requires canonical arguments");
@@ -4524,32 +4841,32 @@ export function createLocalApiClient(
       const { status, payload, requestId } = result;
       if (status === 200) {
         return isSub2APIKeyRotationReceipt(payload, connectionId, command, requestId)
-          ? { kind: "UPDATED", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+          ? { kind: "UPDATED", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return sub2APIMutationDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return sub2APIMutationDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" };
     },
     async readSub2APIKeyRotation(
-      connectionId: string, operationId: string,
+      connectionId: string,
+      operationId: string,
     ): Promise<Sub2APIRotationReadResult> {
-      if (!isSub2APIConnectionId(connectionId) ||
-          !isSub2APIRotationOperationId(operationId)) {
+      if (!isSub2APIConnectionId(connectionId) || !isSub2APIRotationOperationId(operationId)) {
         throw new Error("Sub2API rotation read requires canonical ids");
       }
       const result = await requestSub2APIMutationHttp(
-        `/api/v1/provider-connections/${connectionId}` +
-          `/credential-rotations/${operationId}`,
+        `/api/v1/provider-connections/${connectionId}` + `/credential-rotations/${operationId}`,
         { headers },
       );
       if (result === null) return { kind: "REMOTE_UNKNOWN" };
       const { status, payload, requestId } = result;
       if (status === 200) {
-        return isSub2APIRotationOperationResponse(
-          payload, connectionId, operationId, requestId,
-        ) ? { kind: "READ", receipt: payload } : { kind: "REMOTE_UNKNOWN" };
+        return isSub2APIRotationOperationResponse(payload, connectionId, operationId, requestId)
+          ? { kind: "READ", receipt: payload }
+          : { kind: "REMOTE_UNKNOWN" };
       }
-      return sub2APIRotationReadDefiniteError(status, payload, requestId) ??
-        { kind: "REMOTE_UNKNOWN" };
+      return (
+        sub2APIRotationReadDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
+      );
     },
     async createProviderConnection(
       input: CreateProviderConnectionInput,

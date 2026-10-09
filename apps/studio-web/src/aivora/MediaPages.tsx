@@ -1254,7 +1254,11 @@ export function MediaPages() {
           action={() => d.go("export")}
           secondaryLabel="返回本集剪辑"
           secondaryAction={() => d.go("assembly")}
-          reason={reviewing ? "手工记录固定到原版本；正式审片批准尚未接入" : "本地 DRAFT 回看可用；修改执行与正式批准尚未接入"}
+          reason={
+            reviewing
+              ? "手工记录固定到原版本；正式审片批准尚未接入"
+              : "本地 DRAFT 回看可用；修改执行与正式批准尚未接入"
+          }
         />
       </>
     );

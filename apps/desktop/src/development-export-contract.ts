@@ -61,9 +61,7 @@ export type DevelopmentExportDefiniteRejection = {
 };
 
 export type DevelopmentExportCreateResult =
-  | DevelopmentExportResponse
-  | DevelopmentExportRemoteUnknown
-  | DevelopmentExportDefiniteRejection;
+  DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection;
 
 export type DevelopmentExportOpenResult =
   | { kind: "OPENED"; export_id: string }
@@ -93,9 +91,11 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 function exact(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
-  return record(value) &&
+  return (
+    record(value) &&
     Object.keys(value).length === keys.length &&
-    keys.every((key) => Object.hasOwn(value, key));
+    keys.every((key) => Object.hasOwn(value, key))
+  );
 }
 
 function positiveInteger(value: unknown): value is number {
@@ -112,17 +112,29 @@ export function isDevelopmentExportIdentity(
   timelineVersionId: unknown,
   expectedRevision: unknown,
 ): projectId is string {
-  return typeof projectId === "string" && PROJECT_ID.test(projectId) &&
-    typeof operationId === "string" && UUID.test(operationId) &&
-    typeof timelineVersionId === "string" && VERSION_ID.test(timelineVersionId) &&
-    positiveInteger(expectedRevision);
+  return (
+    typeof projectId === "string" &&
+    PROJECT_ID.test(projectId) &&
+    typeof operationId === "string" &&
+    UUID.test(operationId) &&
+    typeof timelineVersionId === "string" &&
+    VERSION_ID.test(timelineVersionId) &&
+    positiveInteger(expectedRevision)
+  );
 }
 
-export function isDevelopmentExportCreateInput(value: unknown): value is DevelopmentExportCreateInput {
-  return exact(value, ["operation_id", "timeline_version_id", "expected_revision", "purpose"]) &&
-    typeof value.operation_id === "string" && UUID_V4.test(value.operation_id) &&
-    typeof value.timeline_version_id === "string" && VERSION_ID.test(value.timeline_version_id) &&
-    positiveInteger(value.expected_revision) && value.purpose === "DEVELOPMENT_EVIDENCE";
+export function isDevelopmentExportCreateInput(
+  value: unknown,
+): value is DevelopmentExportCreateInput {
+  return (
+    exact(value, ["operation_id", "timeline_version_id", "expected_revision", "purpose"]) &&
+    typeof value.operation_id === "string" &&
+    UUID_V4.test(value.operation_id) &&
+    typeof value.timeline_version_id === "string" &&
+    VERSION_ID.test(value.timeline_version_id) &&
+    positiveInteger(value.expected_revision) &&
+    value.purpose === "DEVELOPMENT_EVIDENCE"
+  );
 }
 
 export function isDevelopmentExportNoClaimDetails(
@@ -130,39 +142,79 @@ export function isDevelopmentExportNoClaimDetails(
   projectId: string,
   input: DevelopmentExportCreateInput,
 ): boolean {
-  return exact(value, ["project_id", "operation_id", "timeline_version_id",
-    "expected_revision", "request_effect"]) &&
-    value.project_id === projectId && value.operation_id === input.operation_id &&
+  return (
+    exact(value, [
+      "project_id",
+      "operation_id",
+      "timeline_version_id",
+      "expected_revision",
+      "request_effect",
+    ]) &&
+    value.project_id === projectId &&
+    value.operation_id === input.operation_id &&
     value.timeline_version_id === input.timeline_version_id &&
     value.expected_revision === String(input.expected_revision) &&
-    value.request_effect === "NO_EXPORT_CLAIM";
+    value.request_effect === "NO_EXPORT_CLAIM"
+  );
 }
 
 export function isCanonicalWorkspaceRelativePath(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 1024 &&
-    !value.includes("\\") && !value.startsWith("/") &&
-    value.split("/").every((segment) =>
-      segment.length > 0 && segment !== "." && segment !== ".." &&
-      [...segment].every((character) => {
-        const code = character.charCodeAt(0);
-        return code >= 32 && code !== 127 && character !== ":";
-      }));
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 1024 &&
+    !value.includes("\\") &&
+    !value.startsWith("/") &&
+    value.split("/").every(
+      (segment) =>
+        segment.length > 0 &&
+        segment !== "." &&
+        segment !== ".." &&
+        [...segment].every((character) => {
+          const code = character.charCodeAt(0);
+          return code >= 32 && code !== 127 && character !== ":";
+        }),
+    )
+  );
 }
 
-function isOutput(value: unknown, projectId: string, exportId: string): value is DevelopmentExportOutput {
-  return exact(value, ["workspace_scope", "relative_path", "mime_type", "sha256",
-    "byte_length", "width", "height", "frame_rate_num", "frame_rate_den",
-    "duration_frames", "duration_seconds", "has_audio"]) &&
+function isOutput(
+  value: unknown,
+  projectId: string,
+  exportId: string,
+): value is DevelopmentExportOutput {
+  return (
+    exact(value, [
+      "workspace_scope",
+      "relative_path",
+      "mime_type",
+      "sha256",
+      "byte_length",
+      "width",
+      "height",
+      "frame_rate_num",
+      "frame_rate_den",
+      "duration_frames",
+      "duration_seconds",
+      "has_audio",
+    ]) &&
     value.workspace_scope === "SIDECAR_WORKSPACE" &&
     isCanonicalWorkspaceRelativePath(value.relative_path) &&
     value.relative_path === `exports/development-timeline/${projectId}/${exportId}.mp4` &&
-    value.mime_type === "video/mp4" && typeof value.sha256 === "string" &&
-    HASH.test(value.sha256) && positiveInteger(value.byte_length) &&
-    value.width === 1080 && value.height === 1920 &&
-    positiveInteger(value.frame_rate_num) && positiveInteger(value.frame_rate_den) &&
+    value.mime_type === "video/mp4" &&
+    typeof value.sha256 === "string" &&
+    HASH.test(value.sha256) &&
+    positiveInteger(value.byte_length) &&
+    value.width === 1080 &&
+    value.height === 1920 &&
+    positiveInteger(value.frame_rate_num) &&
+    positiveInteger(value.frame_rate_den) &&
     positiveInteger(value.duration_frames) &&
-    typeof value.duration_seconds === "number" && Number.isFinite(value.duration_seconds) &&
-    value.duration_seconds > 0 && typeof value.has_audio === "boolean";
+    typeof value.duration_seconds === "number" &&
+    Number.isFinite(value.duration_seconds) &&
+    value.duration_seconds > 0 &&
+    typeof value.has_audio === "boolean"
+  );
 }
 
 export function isDevelopmentExportResponse(
@@ -172,25 +224,61 @@ export function isDevelopmentExportResponse(
   timelineVersionId: string,
   expectedRevision: number,
 ): value is DevelopmentExportResponse {
-  if (!exact(value, ["data", "request_id"]) || typeof value.request_id !== "string" ||
-      !REQUEST_ID.test(value.request_id) || !record(value.data)) return false;
+  if (
+    !exact(value, ["data", "request_id"]) ||
+    typeof value.request_id !== "string" ||
+    !REQUEST_ID.test(value.request_id) ||
+    !record(value.data)
+  )
+    return false;
   const data = value.data;
-  const common = data.project_id === projectId && PROJECT_ID.test(projectId) &&
-    typeof data.export_id === "string" && EXPORT_ID.test(data.export_id) &&
-    data.operation_id === operationId && UUID.test(operationId) &&
-    data.timeline_version_id === timelineVersionId && VERSION_ID.test(timelineVersionId) &&
-    typeof data.timeline_content_hash === "string" && HASH.test(data.timeline_content_hash) &&
-    data.timeline_revision === expectedRevision && positiveInteger(expectedRevision) &&
+  const common =
+    data.project_id === projectId &&
+    PROJECT_ID.test(projectId) &&
+    typeof data.export_id === "string" &&
+    EXPORT_ID.test(data.export_id) &&
+    data.operation_id === operationId &&
+    UUID.test(operationId) &&
+    data.timeline_version_id === timelineVersionId &&
+    VERSION_ID.test(timelineVersionId) &&
+    typeof data.timeline_content_hash === "string" &&
+    HASH.test(data.timeline_content_hash) &&
+    data.timeline_revision === expectedRevision &&
+    positiveInteger(expectedRevision) &&
     data.purpose === "DEVELOPMENT_EVIDENCE";
   if (!common) return false;
   if (data.status === "SUCCEEDED") {
-    return exact(data, ["status", "project_id", "export_id", "operation_id",
-      "timeline_version_id", "timeline_content_hash", "timeline_revision", "purpose", "output"]) &&
-      isOutput(data.output, projectId, data.export_id as string);
+    return (
+      exact(data, [
+        "status",
+        "project_id",
+        "export_id",
+        "operation_id",
+        "timeline_version_id",
+        "timeline_content_hash",
+        "timeline_revision",
+        "purpose",
+        "output",
+      ]) && isOutput(data.output, projectId, data.export_id as string)
+    );
   }
-  return data.status === "UNKNOWN" &&
-    exact(data, ["status", "project_id", "export_id", "operation_id",
-      "timeline_version_id", "timeline_content_hash", "timeline_revision", "purpose",
-      "error_code", "message"]) && data.error_code === "REMOTE_UNKNOWN" &&
-    typeof data.message === "string" && data.message.length > 0 && data.message.length <= 500;
+  return (
+    data.status === "UNKNOWN" &&
+    exact(data, [
+      "status",
+      "project_id",
+      "export_id",
+      "operation_id",
+      "timeline_version_id",
+      "timeline_content_hash",
+      "timeline_revision",
+      "purpose",
+      "error_code",
+      "message",
+    ]) &&
+    data.error_code === "REMOTE_UNKNOWN" &&
+    typeof data.message === "string" &&
+    data.message.length > 0 &&
+    data.message.length <= 500
+  );
 }

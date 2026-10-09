@@ -35,7 +35,8 @@ export function DraftExportPanel(props: DraftExportProps) {
         <span className="draft-export-badge">DRAFT · 本地草稿</span>
         <h2>导出草稿 MP4</h2>
         <p>
-          把本集已保存的真实媒体剪辑编码为本地 MP4。适合预览与内部核对，不能替代版权审核或正式发布批准。
+          把本集已保存的真实媒体剪辑编码为本地
+          MP4。适合预览与内部核对，不能替代版权审核或正式发布批准。
         </p>
       </header>
       <p role="status">{media.message}</p>

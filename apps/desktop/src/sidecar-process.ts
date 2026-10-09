@@ -96,7 +96,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
       windowsHide: true,
     });
   } catch {
-    try { options.cleanupAfterClose?.(); } catch { /* Preserve the spawn failure. */ }
+    try {
+      options.cleanupAfterClose?.();
+    } catch {
+      /* Preserve the spawn failure. */
+    }
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
   let exitResult: SidecarExit | undefined;
@@ -105,7 +109,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
   const exited = new Promise<SidecarExit>((resolve) => {
     child.once("close", (code, signal) => {
       exitResult = { code, signal };
-      try { options.cleanupAfterClose?.(); } catch { /* Preserve the exit result. */ }
+      try {
+        options.cleanupAfterClose?.();
+      } catch {
+        /* Preserve the exit result. */
+      }
       resolve(exitResult);
     });
   });
@@ -114,7 +122,11 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
   const stderr = child.stderr;
   if (stdin === null || stdout === null || stderr === null) {
     child.once("error", () => undefined);
-    try { child.kill(); } catch { /* Preserve the startup classification. */ }
+    try {
+      child.kill();
+    } catch {
+      /* Preserve the startup classification. */
+    }
     await settlesWithin(exited, shutdownTimeoutMs);
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
@@ -168,12 +180,14 @@ export async function startSidecar(options: StartSidecarOptions): Promise<Sideca
     }
     stderr.off("data", onStderrData);
     stderr.resume();
-    throw new SidecarStartupError(diagnostic.classify({
-      code: exitResult?.code ?? null,
-      signal: exitResult?.signal ?? null,
-      spawn_failed: spawnFailed,
-      timed_out: timedOut,
-    }));
+    throw new SidecarStartupError(
+      diagnostic.classify({
+        code: exitResult?.code ?? null,
+        signal: exitResult?.signal ?? null,
+        spawn_failed: spawnFailed,
+        timed_out: timedOut,
+      }),
+    );
   }
 
   output.close();

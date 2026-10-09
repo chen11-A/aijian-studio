@@ -260,7 +260,12 @@ export function EditorDialog() {
       >
         <header>
           <Pill>内容编辑</Pill>
-          <Button aria-label="关闭对话框" icon="close" onClick={requestClose} disabled={submitting} />
+          <Button
+            aria-label="关闭对话框"
+            icon="close"
+            onClick={requestClose}
+            disabled={submitting}
+          />
         </header>
         <h2 id="dialog-title">{editor.title}</h2>
         {editor.description && <p className="dialog-description">{editor.description}</p>}
@@ -273,7 +278,9 @@ export function EditorDialog() {
           <p role="alert">创建结果未知。请刷新项目列表后确认，未自动重试。</p>
         )}
         {submitting && projectCreateState.kind !== "SUBMITTING" && (
-          <p role="status" aria-live="polite">正在保存，请等待工作区确认。</p>
+          <p role="status" aria-live="polite">
+            正在保存，请等待工作区确认。
+          </p>
         )}
         {saveError && <p role="alert">{saveError}</p>}
         {validationError && <p role="alert">{validationError}</p>}
@@ -283,7 +290,11 @@ export function EditorDialog() {
           ) : (
             <img className="dialog-image" src={editor.image} alt={editor.title} />
           ))}
-        <fieldset className="form-fields" disabled={submitting} style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset
+          className="form-fields"
+          disabled={submitting}
+          style={{ border: 0, padding: 0, margin: 0 }}
+        >
           {editor.fields?.map((field) => (
             <label key={field.key}>
               {field.label}
@@ -317,7 +328,10 @@ export function EditorDialog() {
           </div>
         )}
         <footer>
-          <Button onClick={requestClose} disabled={submitting || projectCreateState.kind === "SUBMITTING"}>
+          <Button
+            onClick={requestClose}
+            disabled={submitting || projectCreateState.kind === "SUBMITTING"}
+          >
             关闭
           </Button>
           {editor.save && (
@@ -331,7 +345,11 @@ export function EditorDialog() {
                 projectCreateState.kind === "REMOTE_UNKNOWN"
               }
             >
-              {projectCreateState.kind === "SUBMITTING" ? "正在创建" : submitting ? "正在保存" : (editor.confirm ?? "确认")}
+              {projectCreateState.kind === "SUBMITTING"
+                ? "正在创建"
+                : submitting
+                  ? "正在保存"
+                  : (editor.confirm ?? "确认")}
             </button>
           )}
         </footer>

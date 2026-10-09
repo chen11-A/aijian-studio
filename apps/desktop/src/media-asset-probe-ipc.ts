@@ -9,10 +9,14 @@ import {
 
 export type MediaAssetProbeClient = {
   getMediaAssetProbeEvidence(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetProbeReadResult>;
   probeSelectedMediaAssetVersion(
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetProbeWriteResult>;
 };
 export function registerMediaAssetProbeHandlers<TEvent>(
@@ -52,7 +56,8 @@ export function registerMediaAssetProbeHandlers<TEvent>(
     active.add(key);
     try {
       const result = await client.probeSelectedMediaAssetVersion(args[0], args[1], args[2]);
-      if (authorized(event) !== client) throw new Error("Media probe client changed during operation");
+      if (authorized(event) !== client)
+        throw new Error("Media probe client changed during operation");
       return result;
     } finally {
       active.delete(key);

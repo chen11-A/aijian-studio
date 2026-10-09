@@ -11,13 +11,18 @@ import {
 
 export type EpisodeMediaAssemblyClient = {
   readLatestEpisodeMediaAssembly(
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeMediaAssemblyResult>;
   getEpisodeMediaAssemblyVersion(
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeMediaAssemblyResult>;
   createEpisodeMediaAssemblyVersion(
-    projectId: string, episodeId: string, payload: CreateEpisodeMediaAssemblyVersionRequest,
+    projectId: string,
+    episodeId: string,
+    payload: CreateEpisodeMediaAssemblyVersionRequest,
   ): Promise<EpisodeMediaAssemblyWriteResult>;
 };
 export function registerEpisodeMediaAssemblyHandlers<TEvent>(
@@ -53,8 +58,11 @@ export function registerEpisodeMediaAssemblyHandlers<TEvent>(
   });
   handle(EPISODE_MEDIA_ASSEMBLY_CHANNELS.create, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 3 || !scope(args) ||
-        !isCreateEpisodeMediaAssemblyVersionRequest(args[2], args[0], args[1])) {
+    if (
+      args.length !== 3 ||
+      !scope(args) ||
+      !isCreateEpisodeMediaAssemblyVersionRequest(args[2], args[0], args[1])
+    ) {
       throw new Error("Episode media assembly write IPC requires canonical arguments");
     }
     return client.createEpisodeMediaAssemblyVersion(args[0], args[1], args[2]);

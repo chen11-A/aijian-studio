@@ -1,4 +1,7 @@
-import { desktopMediaAssetProbe, type MediaAssetProbeGateway } from "../aivora/adapters/mediaAssetProbe";
+import {
+  desktopMediaAssetProbe,
+  type MediaAssetProbeGateway,
+} from "../aivora/adapters/mediaAssetProbe";
 import type { MediaToolchainGateway } from "../aivora/mediaToolchainContract";
 import { desktopMediaToolchain } from "../aivora/adapters/mediaToolchain";
 import type { DraftReviewGateway } from "../aivora/adapters/draftReview";
@@ -24,7 +27,9 @@ import type { CreativeGateway } from "../aivora/adapters/creativeLibrary";
 import type { AssetLibraryGateway } from "../aivora/adapters/assetLibrary";
 import type { EpisodeMediaAssemblyGateway } from "../aivora/adapters/episodeMediaAssembly";
 import type {
-  ConfirmationGateway, ScriptGateway, SourceBindingGateway,
+  ConfirmationGateway,
+  ScriptGateway,
+  SourceBindingGateway,
 } from "../aivora/adapters/episodeScript";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
@@ -41,8 +46,12 @@ export type UpdateProjectCommand = {
 export type UpdateProjectResult =
   | { kind: "SUCCEEDED"; receipt: ProjectResponse }
   | { kind: "INVALID_INPUT" }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 412 | 422 | 428;
-      code: string; request_id: string }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 412 | 422 | 428;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type CreateEpisodeInput = components["schemas"]["CreateEpisodeRequest"];
 export type EpisodeListResponse = components["schemas"]["EpisodeListResponse"];
@@ -208,13 +217,21 @@ export type RemoteSourceExtractCreateResult =
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type RemoteSourceExtractOriginalRunResult =
-  | { kind: "FOUND_RUN"; receipt: components["schemas"]["ProposalRunResponse"]; binding: "UNVERIFIED" }
+  | {
+      kind: "FOUND_RUN";
+      receipt: components["schemas"]["ProposalRunResponse"];
+      binding: "UNVERIFIED";
+    }
   | { kind: "NOT_FOUND" | "REMOTE_UNKNOWN"; binding: "UNVERIFIED" };
 export type RemoteSourceExtractCapability = {
-  create(projectId: string, command: RemoteSourceExtractCreateCommand):
-    Promise<RemoteSourceExtractCreateResult>;
-  readOriginal(projectId: string, originalCommand: RemoteSourceExtractCreateCommand):
-    Promise<RemoteSourceExtractOriginalRunResult>;
+  create(
+    projectId: string,
+    command: RemoteSourceExtractCreateCommand,
+  ): Promise<RemoteSourceExtractCreateResult>;
+  readOriginal(
+    projectId: string,
+    originalCommand: RemoteSourceExtractCreateCommand,
+  ): Promise<RemoteSourceExtractOriginalRunResult>;
 };
 export type SourceExtractionProposalV2Response = {
   data: {
@@ -351,14 +368,23 @@ export type Sub2APICallApprovalReadResult =
   | { kind: "DEFINITE_SERVER_ERROR"; status: number; code: string; request_id: string }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APISourceExtractCapability = {
-  create(projectId: string, command: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APISourceExtractCreateResult>;
-  readOriginal(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APISourceExtractOperationReadResult>;
-  approve(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand,
-    command: Sub2APICallApprovalCommand): Promise<Sub2APICallApprovalCreateResult>;
-  readApproval(projectId: string, originalCommand: Sub2APISourceExtractCreateCommand):
-    Promise<Sub2APICallApprovalReadResult>;
+  create(
+    projectId: string,
+    command: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APISourceExtractCreateResult>;
+  readOriginal(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APISourceExtractOperationReadResult>;
+  approve(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+    command: Sub2APICallApprovalCommand,
+  ): Promise<Sub2APICallApprovalCreateResult>;
+  readApproval(
+    projectId: string,
+    originalCommand: Sub2APISourceExtractCreateCommand,
+  ): Promise<Sub2APICallApprovalReadResult>;
 };
 export type SourceExtractionResponse = {
   data: {
@@ -480,21 +506,27 @@ export type DevelopmentExportPreviewResult =
     };
 export type Sub2APIOriginMode = "PUBLIC_HTTPS" | "LOCAL_LOOPBACK_HTTP";
 // The QA-generated schema includes origin_mode; keep old author snapshots type-safe until promotion.
-export type CreateProviderConnectionInput =
-  Omit<components["schemas"]["CreateProviderConnectionRequest"], "origin_mode"> &
-  { origin_mode?: Sub2APIOriginMode };
+export type CreateProviderConnectionInput = Omit<
+  components["schemas"]["CreateProviderConnectionRequest"],
+  "origin_mode"
+> & { origin_mode?: Sub2APIOriginMode };
 type WithGeneratedOriginMode<T> = "origin_mode" extends keyof T
-  ? T : T & { origin_mode?: Sub2APIOriginMode | null };
-export type ProviderConnectionData =
-  WithGeneratedOriginMode<components["schemas"]["ProviderConnectionData"]>;
-export type ProviderConnectionListResponse =
-  Omit<components["schemas"]["ProviderConnectionListResponse"], "data"> &
-  { data: ProviderConnectionData[] };
-export type ProviderConnectionResponse =
-  Omit<components["schemas"]["ProviderConnectionResponse"], "data"> &
-  { data: ProviderConnectionData };
+  ? T
+  : T & { origin_mode?: Sub2APIOriginMode | null };
+export type ProviderConnectionData = WithGeneratedOriginMode<
+  components["schemas"]["ProviderConnectionData"]
+>;
+export type ProviderConnectionListResponse = Omit<
+  components["schemas"]["ProviderConnectionListResponse"],
+  "data"
+> & { data: ProviderConnectionData[] };
+export type ProviderConnectionResponse = Omit<
+  components["schemas"]["ProviderConnectionResponse"],
+  "data"
+> & { data: ProviderConnectionData };
 type GeneratedSchema<Name extends string> = Name extends keyof components["schemas"]
-  ? components["schemas"][Name] : never;
+  ? components["schemas"][Name]
+  : never;
 type LegacySub2APIMetadataCommand = {
   expected_revision: number;
   display_name: string;
@@ -503,14 +535,17 @@ type LegacySub2APIMetadataCommand = {
   enabled: boolean;
   models: { model_id: string; capabilities: ["TEXT"] }[];
 };
-export type Sub2APIMetadataCommand =
-  [GeneratedSchema<"EditSub2APIConnectionRequest">] extends [never]
-    ? LegacySub2APIMetadataCommand
-    : GeneratedSchema<"EditSub2APIConnectionRequest">;
+export type Sub2APIMetadataCommand = [GeneratedSchema<"EditSub2APIConnectionRequest">] extends [
+  never,
+]
+  ? LegacySub2APIMetadataCommand
+  : GeneratedSchema<"EditSub2APIConnectionRequest">;
 function assertSub2APIWriteMode(value: { origin_mode?: unknown }): void {
-  if (Object.prototype.hasOwnProperty.call(value, "origin_mode") &&
-      value.origin_mode !== "PUBLIC_HTTPS" &&
-      value.origin_mode !== "LOCAL_LOOPBACK_HTTP") {
+  if (
+    Object.prototype.hasOwnProperty.call(value, "origin_mode") &&
+    value.origin_mode !== "PUBLIC_HTTPS" &&
+    value.origin_mode !== "LOCAL_LOOPBACK_HTTP"
+  ) {
     throw new TypeError("Sub2API origin_mode must be a non-null known mode when supplied");
   }
 }
@@ -521,22 +556,44 @@ export type Sub2APIRotationCommand = {
 };
 export type Sub2APIMutationResult =
   | { kind: "UPDATED"; receipt: ProviderConnectionResponse }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 409 | 422;
-      code: string; request_id: string }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 409 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APIRotationReadResult =
-  | { kind: "READ"; receipt: { data: {
-      operation_id: string; connection_id: string; expected_revision: number;
-      status: "PREPARED" | "APPLIED" | "CONFLICT" | "UNKNOWN";
-      applied_revision: number | null; created_at: string; updated_at: string;
-    }; request_id: string } }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
-      code: string; request_id: string }
+  | {
+      kind: "READ";
+      receipt: {
+        data: {
+          operation_id: string;
+          connection_id: string;
+          expected_revision: number;
+          status: "PREPARED" | "APPLIED" | "CONFLICT" | "UNKNOWN";
+          applied_revision: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        request_id: string;
+      };
+    }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "REMOTE_UNKNOWN" };
 export type Sub2APIReadinessResult =
   | { kind: "READ"; receipt: components["schemas"]["Sub2APIConfiguredReadinessResponse"] }
-  | { kind: "DEFINITE_SERVER_ERROR"; status: 401 | 403 | 404 | 422;
-      code: string; request_id: string }
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      status: 401 | 403 | 404 | 422;
+      code: string;
+      request_id: string;
+    }
   | { kind: "READINESS_UNKNOWN" };
 
 export interface ProposalDecisionCapability {
@@ -598,8 +655,10 @@ export interface StudioTransport {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
-  updateProject?: (projectId: string, command: UpdateProjectCommand) =>
-    Promise<UpdateProjectResult>;
+  updateProject?: (
+    projectId: string,
+    command: UpdateProjectCommand,
+  ) => Promise<UpdateProjectResult>;
   listSources(projectId: string): Promise<SourceDocumentListResponse>;
   getSource(projectId: string, sourceId: string): Promise<SourceDocumentResponse>;
   getSourceText?(projectId: string, sourceId: string): Promise<SourceDocumentTextResponse>;
@@ -622,7 +681,8 @@ export interface StudioTransport {
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   readVersionedSourceExtractionProposal?: (
-    projectId: string, proposalId: string,
+    projectId: string,
+    proposalId: string,
   ) => Promise<VersionedSourceExtractionProposalReadResult>;
   listInvalidationOperations(
     projectId: string,
@@ -637,8 +697,10 @@ export interface StudioTransport {
   remoteSourceExtract?: RemoteSourceExtractCapability;
   sub2apiSourceExtract?: Sub2APISourceExtractCapability;
   getSourceExtraction?: (projectId: string) => Promise<SourceExtractionReadResult>;
-  getSourceExtractionVersion?: (projectId: string, versionId: string) =>
-    Promise<SourceExtractionReadResult>;
+  getSourceExtractionVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<SourceExtractionReadResult>;
   fakeTimelineRuns?: FakeTimelineRunCapability;
   episodes?: EpisodeCapability;
   sourceManifestReview?: SourceManifestReviewCapability;
@@ -666,27 +728,51 @@ export interface StudioTransport {
     expectedRevision: number,
     expectedSha256: string,
   ): Promise<DevelopmentExportPreviewResult>;
-  createDevelopmentExport?(projectId: string, input: DevelopmentExportCreateInput):
-    Promise<DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection>;
-  getDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportResponse>;
-  openDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportOpenResult>;
-  saveDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportSaveResult>;
+  createDevelopmentExport?(
+    projectId: string,
+    input: DevelopmentExportCreateInput,
+  ): Promise<
+    DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection
+  >;
+  getDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportResponse>;
+  openDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportOpenResult>;
+  saveDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportSaveResult>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
   ): Promise<ProviderConnectionResponse>;
   deleteProviderConnection(connectionId: string): Promise<void>;
-  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
-    Promise<Sub2APIReadinessResult>;
-  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
-    Promise<Sub2APIMutationResult>;
-  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
-    Promise<Sub2APIMutationResult>;
-  readSub2APIKeyRotation?(connectionId: string, operationId: string):
-    Promise<Sub2APIRotationReadResult>;
+  readSub2APIConfiguredReadiness?(
+    connectionId: string,
+    modelId: string,
+  ): Promise<Sub2APIReadinessResult>;
+  editSub2APIMetadata?(
+    connectionId: string,
+    command: Sub2APIMetadataCommand,
+  ): Promise<Sub2APIMutationResult>;
+  rotateSub2APIKey?(
+    connectionId: string,
+    command: Sub2APIRotationCommand,
+  ): Promise<Sub2APIMutationResult>;
+  readSub2APIKeyRotation?(
+    connectionId: string,
+    operationId: string,
+  ): Promise<Sub2APIRotationReadResult>;
 }
 
 export interface AijianDesktopBridge {
@@ -701,13 +787,10 @@ export interface AijianDesktopBridge {
   listProjectMediaAssets?: AssetLibraryGateway["listProjectMediaAssets"];
   getProjectMediaAsset?: AssetLibraryGateway["getProjectMediaAsset"];
   importProjectMediaAssetFromPicker?: AssetLibraryGateway["importProjectMediaAssetFromPicker"];
-  importProjectMediaAssetVersionFromPicker?:
-    AssetLibraryGateway["importProjectMediaAssetVersionFromPicker"];
+  importProjectMediaAssetVersionFromPicker?: AssetLibraryGateway["importProjectMediaAssetVersionFromPicker"];
   readProjectMediaAssetPreview?: AssetLibraryGateway["readProjectMediaAssetPreview"];
-  addProjectMediaAssetEpisodeReference?:
-    AssetLibraryGateway["addProjectMediaAssetEpisodeReference"];
-  removeProjectMediaAssetEpisodeReference?:
-    AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
+  addProjectMediaAssetEpisodeReference?: AssetLibraryGateway["addProjectMediaAssetEpisodeReference"];
+  removeProjectMediaAssetEpisodeReference?: AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
   deleteProjectMediaAsset?: AssetLibraryGateway["deleteProjectMediaAsset"];
   listDraftReviewNotes?: DraftReviewGateway["listDraftReviewNotes"];
   createDraftReviewNote?: DraftReviewGateway["createDraftReviewNote"];
@@ -741,8 +824,10 @@ export interface AijianDesktopBridge {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
-  updateProject?: (projectId: string, command: UpdateProjectCommand) =>
-    Promise<UpdateProjectResult>;
+  updateProject?: (
+    projectId: string,
+    command: UpdateProjectCommand,
+  ) => Promise<UpdateProjectResult>;
   listEpisodes?: EpisodeCapability["list"];
   getEpisode?: EpisodeCapability["get"];
   createEpisode?: EpisodeCapability["create"];
@@ -768,7 +853,8 @@ export interface AijianDesktopBridge {
   listProjectTasks(projectId: string): Promise<TaskQueueResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   readVersionedSourceExtractionProposal?: (
-    projectId: string, proposalId: string,
+    projectId: string,
+    proposalId: string,
   ) => Promise<VersionedSourceExtractionProposalReadResult>;
   listInvalidationOperations(
     projectId: string,
@@ -799,8 +885,10 @@ export interface AijianDesktopBridge {
   approveSub2APISourceExtractCall?: Sub2APISourceExtractCapability["approve"];
   getSub2APISourceExtractApproval?: Sub2APISourceExtractCapability["readApproval"];
   getSourceExtraction?: (projectId: string) => Promise<SourceExtractionReadResult>;
-  getSourceExtractionVersion?: (projectId: string, versionId: string) =>
-    Promise<SourceExtractionReadResult>;
+  getSourceExtractionVersion?: (
+    projectId: string,
+    versionId: string,
+  ) => Promise<SourceExtractionReadResult>;
   createFakeTimelineRun(
     projectId: string,
     command: FakeTimelineRunCreateCommand,
@@ -829,27 +917,51 @@ export interface AijianDesktopBridge {
     expectedRevision: number,
     expectedSha256: string,
   ): Promise<DevelopmentExportPreviewResult>;
-  createDevelopmentExport?(projectId: string, input: DevelopmentExportCreateInput):
-    Promise<DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection>;
-  getDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportResponse>;
-  openDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportOpenResult>;
-  saveDevelopmentExport?(projectId: string, operationId: string, timelineVersionId: string,
-    expectedRevision: number): Promise<DevelopmentExportSaveResult>;
+  createDevelopmentExport?(
+    projectId: string,
+    input: DevelopmentExportCreateInput,
+  ): Promise<
+    DevelopmentExportResponse | DevelopmentExportRemoteUnknown | DevelopmentExportDefiniteRejection
+  >;
+  getDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportResponse>;
+  openDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportOpenResult>;
+  saveDevelopmentExport?(
+    projectId: string,
+    operationId: string,
+    timelineVersionId: string,
+    expectedRevision: number,
+  ): Promise<DevelopmentExportSaveResult>;
   listProviderConnections(): Promise<ProviderConnectionListResponse>;
   createProviderConnection(
     input: CreateProviderConnectionInput,
   ): Promise<ProviderConnectionResponse>;
   deleteProviderConnection(connectionId: string): Promise<void>;
-  readSub2APIConfiguredReadiness?(connectionId: string, modelId: string):
-    Promise<Sub2APIReadinessResult>;
-  editSub2APIMetadata?(connectionId: string, command: Sub2APIMetadataCommand):
-    Promise<Sub2APIMutationResult>;
-  rotateSub2APIKey?(connectionId: string, command: Sub2APIRotationCommand):
-    Promise<Sub2APIMutationResult>;
-  readSub2APIKeyRotation?(connectionId: string, operationId: string):
-    Promise<Sub2APIRotationReadResult>;
+  readSub2APIConfiguredReadiness?(
+    connectionId: string,
+    modelId: string,
+  ): Promise<Sub2APIReadinessResult>;
+  editSub2APIMetadata?(
+    connectionId: string,
+    command: Sub2APIMetadataCommand,
+  ): Promise<Sub2APIMutationResult>;
+  rotateSub2APIKey?(
+    connectionId: string,
+    command: Sub2APIRotationCommand,
+  ): Promise<Sub2APIMutationResult>;
+  readSub2APIKeyRotation?(
+    connectionId: string,
+    operationId: string,
+  ): Promise<Sub2APIRotationReadResult>;
 }
 
 declare global {
@@ -1047,10 +1159,14 @@ export function createStudioTransport(): StudioTransport {
     return {
       mediaToolchain: desktopMediaToolchain(bridge),
       mediaAssetProbe: desktopMediaAssetProbe(bridge),
-      getAppPreferences: typeof bridge.getAppPreferences === "function"
-        ? () => bridge.getAppPreferences!() : undefined,
-      saveAppPreferences: typeof bridge.saveAppPreferences === "function"
-        ? (command) => bridge.saveAppPreferences!(command) : undefined,
+      getAppPreferences:
+        typeof bridge.getAppPreferences === "function"
+          ? () => bridge.getAppPreferences!()
+          : undefined,
+      saveAppPreferences:
+        typeof bridge.saveAppPreferences === "function"
+          ? (command) => bridge.saveAppPreferences!(command)
+          : undefined,
       assetLibrary:
         typeof bridge.listProjectMediaAssets === "function" &&
         typeof bridge.getProjectMediaAsset === "function" &&
@@ -1089,33 +1205,56 @@ export function createStudioTransport(): StudioTransport {
                 bridge.createEpisodeMediaAssemblyVersion!(projectId, episodeId, command),
             }
           : undefined,
-      getEpisodeStoryboard: typeof bridge.getEpisodeStoryboard === "function"
-        ? (projectId, episodeId) => bridge.getEpisodeStoryboard!(projectId, episodeId) : undefined,
-      getEpisodeStoryboardVersion: typeof bridge.getEpisodeStoryboardVersion === "function"
-        ? (projectId, episodeId, versionId) => bridge.getEpisodeStoryboardVersion!(projectId, episodeId, versionId) : undefined,
-      createEpisodeStoryboardVersion: typeof bridge.createEpisodeStoryboardVersion === "function"
-        ? (projectId, episodeId, idempotencyKey, payload) => bridge.createEpisodeStoryboardVersion!(projectId, episodeId, idempotencyKey, payload) : undefined,
-      getProjectCreativeLibrary: typeof bridge.getProjectCreativeLibrary === "function"
-        ? (projectId) => bridge.getProjectCreativeLibrary!(projectId) : undefined,
-      getProjectCreativeLibraryVersion: typeof bridge.getProjectCreativeLibraryVersion === "function"
-        ? (projectId, versionId) => bridge.getProjectCreativeLibraryVersion!(projectId, versionId) : undefined,
-      createProjectCreativeLibraryVersion: typeof bridge.createProjectCreativeLibraryVersion === "function"
-        ? (projectId, idempotencyKey, payload) =>
-            bridge.createProjectCreativeLibraryVersion!(projectId, idempotencyKey, payload) : undefined,
-      getEpisodeScript: typeof bridge.getEpisodeScript === "function"
-        ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId) : undefined,
-      getEpisodeScriptVersion: typeof bridge.getEpisodeScriptVersion === "function"
-        ? (projectId, episodeId, versionId) =>
-            bridge.getEpisodeScriptVersion!(projectId, episodeId, versionId) : undefined,
-      createEpisodeScriptVersion: typeof bridge.createEpisodeScriptVersion === "function"
-        ? (projectId, episodeId, idempotencyKey, payload) =>
-            bridge.createEpisodeScriptVersion!(projectId, episodeId, idempotencyKey, payload) : undefined,
-      getEpisodeScriptConfirmation: typeof bridge.getEpisodeScriptConfirmation === "function"
-        ? (projectId, episodeId) =>
-            bridge.getEpisodeScriptConfirmation!(projectId, episodeId) : undefined,
-      createEpisodeScriptConfirmation: typeof bridge.createEpisodeScriptConfirmation === "function"
-        ? (projectId, episodeId, idempotencyKey, payload) =>
-            bridge.createEpisodeScriptConfirmation!(projectId, episodeId, idempotencyKey, payload) : undefined,
+      getEpisodeStoryboard:
+        typeof bridge.getEpisodeStoryboard === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeStoryboard!(projectId, episodeId)
+          : undefined,
+      getEpisodeStoryboardVersion:
+        typeof bridge.getEpisodeStoryboardVersion === "function"
+          ? (projectId, episodeId, versionId) =>
+              bridge.getEpisodeStoryboardVersion!(projectId, episodeId, versionId)
+          : undefined,
+      createEpisodeStoryboardVersion:
+        typeof bridge.createEpisodeStoryboardVersion === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeStoryboardVersion!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
+      getProjectCreativeLibrary:
+        typeof bridge.getProjectCreativeLibrary === "function"
+          ? (projectId) => bridge.getProjectCreativeLibrary!(projectId)
+          : undefined,
+      getProjectCreativeLibraryVersion:
+        typeof bridge.getProjectCreativeLibraryVersion === "function"
+          ? (projectId, versionId) => bridge.getProjectCreativeLibraryVersion!(projectId, versionId)
+          : undefined,
+      createProjectCreativeLibraryVersion:
+        typeof bridge.createProjectCreativeLibraryVersion === "function"
+          ? (projectId, idempotencyKey, payload) =>
+              bridge.createProjectCreativeLibraryVersion!(projectId, idempotencyKey, payload)
+          : undefined,
+      getEpisodeScript:
+        typeof bridge.getEpisodeScript === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId)
+          : undefined,
+      getEpisodeScriptVersion:
+        typeof bridge.getEpisodeScriptVersion === "function"
+          ? (projectId, episodeId, versionId) =>
+              bridge.getEpisodeScriptVersion!(projectId, episodeId, versionId)
+          : undefined,
+      createEpisodeScriptVersion:
+        typeof bridge.createEpisodeScriptVersion === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeScriptVersion!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
+      getEpisodeScriptConfirmation:
+        typeof bridge.getEpisodeScriptConfirmation === "function"
+          ? (projectId, episodeId) => bridge.getEpisodeScriptConfirmation!(projectId, episodeId)
+          : undefined,
+      createEpisodeScriptConfirmation:
+        typeof bridge.createEpisodeScriptConfirmation === "function"
+          ? (projectId, episodeId, idempotencyKey, payload) =>
+              bridge.createEpisodeScriptConfirmation!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
       getEpisodeScriptConfirmationReceipt:
         typeof bridge.getEpisodeScriptConfirmationReceipt === "function"
           ? (projectId, episodeId, confirmationId) =>
@@ -1265,7 +1404,11 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.readDevelopmentExportPreview === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision, expectedSha256) =>
               bridge.readDevelopmentExportPreview!(
-                projectId, operationId, timelineVersionId, expectedRevision, expectedSha256,
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+                expectedSha256,
               )
           : undefined,
       createDevelopmentExport:
@@ -1275,20 +1418,32 @@ export function createStudioTransport(): StudioTransport {
       getDevelopmentExport:
         typeof bridge.getDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.getDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.getDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       openDevelopmentExport:
         typeof bridge.openDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.openDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.openDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       saveDevelopmentExport:
         typeof bridge.saveDevelopmentExport === "function"
           ? (projectId, operationId, timelineVersionId, expectedRevision) =>
-              bridge.saveDevelopmentExport!(projectId, operationId, timelineVersionId,
-                expectedRevision)
+              bridge.saveDevelopmentExport!(
+                projectId,
+                operationId,
+                timelineVersionId,
+                expectedRevision,
+              )
           : undefined,
       listProviderConnections: () => bridge.listProviderConnections(),
       createProviderConnection: async (input) => {
@@ -1298,8 +1453,7 @@ export function createStudioTransport(): StudioTransport {
       deleteProviderConnection: (connectionId) => bridge.deleteProviderConnection(connectionId),
       readSub2APIConfiguredReadiness:
         typeof bridge.readSub2APIConfiguredReadiness === "function"
-          ? (connectionId, modelId) =>
-              bridge.readSub2APIConfiguredReadiness!(connectionId, modelId)
+          ? (connectionId, modelId) => bridge.readSub2APIConfiguredReadiness!(connectionId, modelId)
           : undefined,
       editSub2APIMetadata:
         typeof bridge.editSub2APIMetadata === "function"
@@ -1314,8 +1468,7 @@ export function createStudioTransport(): StudioTransport {
           : undefined,
       readSub2APIKeyRotation:
         typeof bridge.readSub2APIKeyRotation === "function"
-          ? (connectionId, operationId) =>
-              bridge.readSub2APIKeyRotation!(connectionId, operationId)
+          ? (connectionId, operationId) => bridge.readSub2APIKeyRotation!(connectionId, operationId)
           : undefined,
     };
   }

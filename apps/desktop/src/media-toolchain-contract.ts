@@ -66,7 +66,9 @@ export function isMediaToolchainStatus(value: unknown): value is MediaToolchainS
     typeof value.state !== "string" ||
     !["AVAILABLE", "NOT_CONFIGURED", "INVALID", "UNSUPPORTED"].includes(value.state) ||
     typeof value.source !== "string" ||
-    !["EXTERNAL", "BUNDLED", "DEVELOPMENT_OVERRIDE", "DEVELOPMENT_LOCAL", "NONE"].includes(value.source) ||
+    !["EXTERNAL", "BUNDLED", "DEVELOPMENT_OVERRIDE", "DEVELOPMENT_LOCAL", "NONE"].includes(
+      value.source,
+    ) ||
     (value.profile_id !== null && !boundedText(value.profile_id, 128)) ||
     (value.version !== null && !boundedText(value.version, 128)) ||
     (value.directory !== null && !boundedText(value.directory, 32_768)) ||

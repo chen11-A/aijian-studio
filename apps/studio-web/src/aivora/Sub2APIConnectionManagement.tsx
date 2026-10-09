@@ -5,11 +5,15 @@ import {
   type Sub2APIMetadataCommand,
 } from "../api/studio";
 import {
-  clearProviderWrite, newRotationOperationId, persistProviderWrite,
-  readProviderJournal, type ProviderPendingWrite,
+  clearProviderWrite,
+  newRotationOperationId,
+  persistProviderWrite,
+  readProviderJournal,
+  type ProviderPendingWrite,
 } from "../domain/sub2api-provider-journal";
 import {
-  isLiteralSub2APILoopbackOrigin, sub2apiOriginModeWritesReady,
+  isLiteralSub2APILoopbackOrigin,
+  sub2apiOriginModeWritesReady,
   type Sub2APIOriginMode,
 } from "../domain/provider-settings-model";
 import { Button } from "./Common";
@@ -19,8 +23,13 @@ type Connection = ProviderConnectionListResponse["data"][number];
 
 function textModels(value: string): { model_id: string; capabilities: ["TEXT"] }[] | null {
   const ids = value.split(",").map((item) => item.trim());
-  if (!ids.length || ids.some((id) => !id || id.length > 200) ||
-      new Set(ids).size !== ids.length || ids.length > 100) return null;
+  if (
+    !ids.length ||
+    ids.some((id) => !id || id.length > 200) ||
+    new Set(ids).size !== ids.length ||
+    ids.length > 100
+  )
+    return null;
   return ids.map((model_id) => ({ model_id, capabilities: ["TEXT"] }));
 }
 
@@ -28,17 +37,29 @@ function validOrigin(value: string): boolean {
   if (!/^https:\/\/[^/?#\\]+$/.test(value) || /[\s\\@%]/.test(value)) return false;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && url.pathname === "/" &&
-      !url.username && !url.password && !url.search && !url.hash;
-  } catch { return false; }
+    return (
+      url.protocol === "https:" &&
+      url.pathname === "/" &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function Sub2APIConnectionManagement({
-  connection, onReload,
-}: { connection: Connection; onReload: () => Promise<void> }) {
+  connection,
+  onReload,
+}: {
+  connection: Connection;
+  onReload: () => Promise<void>;
+}) {
   const transport = useMemo(createStudioTransport, []);
-  const connectionMode = connection.origin_mode === "LOCAL_LOOPBACK_HTTP"
-    ? "LOCAL_LOOPBACK_HTTP" : "PUBLIC_HTTPS";
+  const connectionMode =
+    connection.origin_mode === "LOCAL_LOOPBACK_HTTP" ? "LOCAL_LOOPBACK_HTTP" : "PUBLIC_HTTPS";
   const scope = `${connection.id}/${connection.revision}/${String(connection.origin_mode)}`;
   const activeScope = useRef(scope);
   const metadataInFlight = useRef<string | null>(null);
@@ -63,11 +84,16 @@ export function Sub2APIConnectionManagement({
     setModels(connection.models.map((item) => item.model_id).join(", "));
     setApiKey("");
     setBusy(false);
-    return () => { if (activeScope.current === scope) activeScope.current = ""; };
+    return () => {
+      if (activeScope.current === scope) activeScope.current = "";
+    };
   }, [connection.id, connection.revision, connection.origin_mode]);
 
   const pending = journal.kind === "pending" ? journal.write : null;
-  const canWrite = journal.kind === "empty" && !busy && metadataInFlight.current !== scope &&
+  const canWrite =
+    journal.kind === "empty" &&
+    !busy &&
+    metadataInFlight.current !== scope &&
     (connection.origin_mode === "PUBLIC_HTTPS" ||
       (sub2apiOriginModeWritesReady && connection.origin_mode === "LOCAL_LOOPBACK_HTTP"));
 
@@ -78,22 +104,27 @@ export function Sub2APIConnectionManagement({
       const matches = response.data.filter((item) => item.id === connection.id);
       const current = matches.length === 1 ? matches[0] : undefined;
       return current?.provider_kind === "SUB2API" ? current : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async function reconcileMetadata(write: Extract<ProviderPendingWrite, { kind: "metadata" }>) {
     const current = await readCurrent();
     if (activeScope.current !== scope) return;
     const command = write.command;
-    if (current && current.revision === command.expected_revision + 1 &&
-        current.display_name === command.display_name &&
-        current.base_url === command.base_url &&
-        (command.origin_mode === undefined
-          ? current.origin_mode === undefined || current.origin_mode === "PUBLIC_HTTPS"
-          : current.origin_mode === command.origin_mode) &&
-        current.enabled === command.enabled &&
-        JSON.stringify(current.models) === JSON.stringify(command.models) &&
-        clearProviderWrite(write)) {
+    if (
+      current &&
+      current.revision === command.expected_revision + 1 &&
+      current.display_name === command.display_name &&
+      current.base_url === command.base_url &&
+      (command.origin_mode === undefined
+        ? current.origin_mode === undefined || current.origin_mode === "PUBLIC_HTTPS"
+        : current.origin_mode === command.origin_mode) &&
+      current.enabled === command.enabled &&
+      JSON.stringify(current.models) === JSON.stringify(command.models) &&
+      clearProviderWrite(write)
+    ) {
       setJournal(readProviderJournal(connection.id));
       setNotice(`已从连接列表读回修订 ${current.revision}；元数据编辑完成。`);
       await onReload();
@@ -107,24 +138,33 @@ export function Sub2APIConnectionManagement({
       setNotice("当前桌面版本缺少按原操作 ID 查询的接口；保持写入锁。");
       return;
     }
-    const result = await transport.readSub2APIKeyRotation(write.connectionId, write.operationId)
+    const result = await transport
+      .readSub2APIKeyRotation(write.connectionId, write.operationId)
       .catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
     if (activeScope.current !== scope) return;
-    if (result.kind !== "READ" || result.receipt.data.connection_id !== write.connectionId ||
-        result.receipt.data.operation_id !== write.operationId ||
-        result.receipt.data.expected_revision !== write.expectedRevision) {
+    if (
+      result.kind !== "READ" ||
+      result.receipt.data.connection_id !== write.connectionId ||
+      result.receipt.data.operation_id !== write.operationId ||
+      result.receipt.data.expected_revision !== write.expectedRevision
+    ) {
       setNotice("原换钥匙操作未能可靠读回；保持操作 ID 和写入锁，不重新提交。");
       return;
     }
     const operation = result.receipt.data;
     if (operation.status !== "APPLIED" || operation.applied_revision === null) {
-      setNotice(`原换钥匙操作 ${write.operationId} 状态 ${operation.status}；保持写入锁，不重新提交。`);
+      setNotice(
+        `原换钥匙操作 ${write.operationId} 状态 ${operation.status}；保持写入锁，不重新提交。`,
+      );
       return;
     }
     const current = await readCurrent();
     if (activeScope.current !== scope) return;
-    if (current?.revision === operation.applied_revision &&
-        current.credential_status === "CONFIGURED" && clearProviderWrite(write)) {
+    if (
+      current?.revision === operation.applied_revision &&
+      current.credential_status === "CONFIGURED" &&
+      clearProviderWrite(write)
+    ) {
       setJournal(readProviderJournal(connection.id));
       setNotice(`原操作已应用；连接修订 ${current.revision} 与凭据状态已读回。`);
       await onReload();
@@ -147,18 +187,25 @@ export function Sub2APIConnectionManagement({
   async function saveMetadata() {
     if (!canWrite || metadataInFlight.current === scope) return;
     if (mode === "LOCAL_LOOPBACK_HTTP" && !sub2apiOriginModeWritesReady) {
-      setNotice(isLiteralSub2APILoopbackOrigin(origin.trim())
-        ? "本机地址格式已核对；生成合同、桌面桥接与迁移链尚未验收，未发送 PATCH。"
-        : "本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口，端口须显式填写 1–65535；未发送 PATCH。");
+      setNotice(
+        isLiteralSub2APILoopbackOrigin(origin.trim())
+          ? "本机地址格式已核对；生成合同、桌面桥接与迁移链尚未验收，未发送 PATCH。"
+          : "本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口，端口须显式填写 1–65535；未发送 PATCH。",
+      );
       return;
     }
     if (!transport.editSub2APIMetadata) return;
     const parsedModels = textModels(models);
     const displayName = name.trim();
     const baseUrl = origin.trim();
-    if (!displayName || displayName.length > 80 ||
-        !(mode === "LOCAL_LOOPBACK_HTTP"
-          ? isLiteralSub2APILoopbackOrigin(baseUrl) : validOrigin(baseUrl)) || !parsedModels) {
+    if (
+      !displayName ||
+      displayName.length > 80 ||
+      !(mode === "LOCAL_LOOPBACK_HTTP"
+        ? isLiteralSub2APILoopbackOrigin(baseUrl)
+        : validOrigin(baseUrl)) ||
+      !parsedModels
+    ) {
       setNotice("请填写 1–80 字符名称、当前模式允许的 origin 和不重复的 TEXT 模型 ID。");
       return;
     }
@@ -167,36 +214,49 @@ export function Sub2APIConnectionManagement({
     try {
       const current = await readCurrent();
       if (activeScope.current !== scope) return;
-      if (!current ||
-          (current.origin_mode !== "PUBLIC_HTTPS" &&
-            current.origin_mode !== "LOCAL_LOOPBACK_HTTP") ||
-          !Number.isSafeInteger(current.revision) || current.revision < 1) {
+      if (
+        !current ||
+        (current.origin_mode !== "PUBLIC_HTTPS" && current.origin_mode !== "LOCAL_LOOPBACK_HTTP") ||
+        !Number.isSafeInteger(current.revision) ||
+        current.revision < 1
+      ) {
         setNotice("写前无法读回权威连接模式与修订；未发送 PATCH。");
         return;
       }
-      if (current.revision !== connection.revision ||
-          current.origin_mode !== connection.origin_mode ||
-          current.base_url !== connection.base_url ||
-          current.display_name !== connection.display_name ||
-          current.enabled !== connection.enabled ||
-          JSON.stringify(current.models) !== JSON.stringify(connection.models)) {
+      if (
+        current.revision !== connection.revision ||
+        current.origin_mode !== connection.origin_mode ||
+        current.base_url !== connection.base_url ||
+        current.display_name !== connection.display_name ||
+        current.enabled !== connection.enabled ||
+        JSON.stringify(current.models) !== JSON.stringify(connection.models)
+      ) {
         setNotice("连接在编辑期间已变化；未发送 PATCH，请按新模式和修订重新核对。");
         await onReload();
         return;
       }
       const command: Sub2APIMetadataCommand = {
-        expected_revision: current.revision, display_name: displayName,
-        base_url: baseUrl, origin_mode: mode, enabled, models: parsedModels,
+        expected_revision: current.revision,
+        display_name: displayName,
+        base_url: baseUrl,
+        origin_mode: mode,
+        enabled,
+        models: parsedModels,
       };
-      if (command.display_name === current.display_name &&
-          command.base_url === current.base_url && mode === current.origin_mode &&
-          command.enabled === current.enabled &&
-          JSON.stringify(command.models) === JSON.stringify(current.models)) {
+      if (
+        command.display_name === current.display_name &&
+        command.base_url === current.base_url &&
+        mode === current.origin_mode &&
+        command.enabled === current.enabled &&
+        JSON.stringify(command.models) === JSON.stringify(current.models)
+      ) {
         setNotice("元数据没有变化；未发送编辑请求。");
         return;
       }
       const write: ProviderPendingWrite = {
-        kind: "metadata", connectionId: current.id, command,
+        kind: "metadata",
+        connectionId: current.id,
+        command,
       };
       if (!persistProviderWrite(write)) {
         setJournal(readProviderJournal(current.id));
@@ -204,7 +264,8 @@ export function Sub2APIConnectionManagement({
         return;
       }
       setJournal(readProviderJournal(current.id));
-      const result = await transport.editSub2APIMetadata(current.id, command)
+      const result = await transport
+        .editSub2APIMetadata(current.id, command)
         .catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
       if (activeScope.current !== scope) return;
       if (result.kind === "DEFINITE_SERVER_ERROR") {
@@ -232,8 +293,10 @@ export function Sub2APIConnectionManagement({
       return;
     }
     const write: ProviderPendingWrite = {
-      kind: "rotation", connectionId: connection.id,
-      expectedRevision: connection.revision, operationId,
+      kind: "rotation",
+      connectionId: connection.id,
+      expectedRevision: connection.revision,
+      operationId,
     };
     if (!persistProviderWrite(write)) {
       setJournal(readProviderJournal(connection.id));
@@ -244,9 +307,13 @@ export function Sub2APIConnectionManagement({
     setApiKey("");
     setJournal(readProviderJournal(connection.id));
     setBusy(true);
-    const result = await transport.rotateSub2APIKey(connection.id, {
-      expected_revision: connection.revision, operation_id: operationId, api_key: keyOnce,
-    }).catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
+    const result = await transport
+      .rotateSub2APIKey(connection.id, {
+        expected_revision: connection.revision,
+        operation_id: operationId,
+        api_key: keyOnce,
+      })
+      .catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
     if (activeScope.current !== scope) return;
     setBusy(false);
     if (result.kind === "DEFINITE_SERVER_ERROR") {
@@ -259,60 +326,129 @@ export function Sub2APIConnectionManagement({
     }
   }
 
-  return <details className="provider-connection-management">
-    <summary>管理 Sub2API 连接 · 修订 {connection.revision}</summary>
-    {journal.kind === "blocked" &&
-      <p role="alert">本地操作记录不可读取；已阻止编辑和换钥匙，请保留原始记录。</p>}
-    {connection.origin_mode !== "PUBLIC_HTTPS" &&
-      connection.origin_mode !== "LOCAL_LOOPBACK_HTTP" &&
-      <p role="alert">连接列表未提供可核对的部署模式；已阻止写入，请先核对同版后端和桌面合同。</p>}
-    {pending && <p role="alert">原{pending.kind === "rotation" ? "换钥匙" : "元数据编辑"}操作待核对
-      {pending.kind === "rotation" ? ` · ${pending.operationId}` :
-        ` · 原修订 ${pending.command.expected_revision}`}；禁止再次提交。</p>}
-    {pending && <Button disabled={busy} onClick={() => void readPending()}>只读核对原操作</Button>}
-    <fieldset disabled={!canWrite}>
-      <legend>编辑连接元数据 · CAS</legend>
-      <div role="group" aria-label="Sub2API 部署模式">
-        <Button aria-pressed={mode === "PUBLIC_HTTPS"}
-          onClick={() => { setMode("PUBLIC_HTTPS"); setOrigin(connectionMode === "PUBLIC_HTTPS" ? connection.base_url : ""); setApiKey(""); }}>
-          公网 HTTPS
+  return (
+    <details className="provider-connection-management">
+      <summary>管理 Sub2API 连接 · 修订 {connection.revision}</summary>
+      {journal.kind === "blocked" && (
+        <p role="alert">本地操作记录不可读取；已阻止编辑和换钥匙，请保留原始记录。</p>
+      )}
+      {connection.origin_mode !== "PUBLIC_HTTPS" &&
+        connection.origin_mode !== "LOCAL_LOOPBACK_HTTP" && (
+          <p role="alert">
+            连接列表未提供可核对的部署模式；已阻止写入，请先核对同版后端和桌面合同。
+          </p>
+        )}
+      {pending && (
+        <p role="alert">
+          原{pending.kind === "rotation" ? "换钥匙" : "元数据编辑"}操作待核对
+          {pending.kind === "rotation"
+            ? ` · ${pending.operationId}`
+            : ` · 原修订 ${pending.command.expected_revision}`}
+          ；禁止再次提交。
+        </p>
+      )}
+      {pending && (
+        <Button disabled={busy} onClick={() => void readPending()}>
+          只读核对原操作
         </Button>
-        <Button aria-pressed={mode === "LOCAL_LOOPBACK_HTTP"}
-          onClick={() => { setMode("LOCAL_LOOPBACK_HTTP"); setOrigin(connectionMode === "LOCAL_LOOPBACK_HTTP" ? connection.base_url : ""); setApiKey(""); }}>
-          本机 loopback{sub2apiOriginModeWritesReady ? "" : " · 候选"}
+      )}
+      <fieldset disabled={!canWrite}>
+        <legend>编辑连接元数据 · CAS</legend>
+        <div role="group" aria-label="Sub2API 部署模式">
+          <Button
+            aria-pressed={mode === "PUBLIC_HTTPS"}
+            onClick={() => {
+              setMode("PUBLIC_HTTPS");
+              setOrigin(connectionMode === "PUBLIC_HTTPS" ? connection.base_url : "");
+              setApiKey("");
+            }}
+          >
+            公网 HTTPS
+          </Button>
+          <Button
+            aria-pressed={mode === "LOCAL_LOOPBACK_HTTP"}
+            onClick={() => {
+              setMode("LOCAL_LOOPBACK_HTTP");
+              setOrigin(connectionMode === "LOCAL_LOOPBACK_HTTP" ? connection.base_url : "");
+              setApiKey("");
+            }}
+          >
+            本机 loopback{sub2apiOriginModeWritesReady ? "" : " · 候选"}
+          </Button>
+        </div>
+        {mode !== connectionMode && <p>切换部署模式后，旧的抽取批准需重新审批。</p>}
+        <label>
+          连接名称
+          <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label>
+          {mode === "LOCAL_LOOPBACK_HTTP" ? "本机 IP 与显式端口" : "公网 HTTPS origin"}
+          <input
+            value={origin}
+            maxLength={2048}
+            onChange={(event) => setOrigin(event.target.value)}
+          />
+        </label>
+        <label>
+          TEXT 模型 ID（逗号分隔）
+          <input value={models} onChange={(event) => setModels(event.target.value)} />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+          />
+          启用连接
+        </label>
+        <Button
+          disabled={!canWrite || !transport.editSub2APIMetadata}
+          onClick={() => void saveMetadata()}
+        >
+          {mode === "LOCAL_LOOPBACK_HTTP" && !sub2apiOriginModeWritesReady
+            ? "核对本机地址 · 不保存"
+            : "保存元数据"}
         </Button>
-      </div>
-      {mode !== connectionMode && <p>切换部署模式后，旧的抽取批准需重新审批。</p>}
-      <label>连接名称<input value={name} maxLength={80}
-        onChange={(event) => setName(event.target.value)} /></label>
-      <label>{mode === "LOCAL_LOOPBACK_HTTP" ? "本机 IP 与显式端口" : "公网 HTTPS origin"}
-        <input value={origin} maxLength={2048}
-        onChange={(event) => setOrigin(event.target.value)} /></label>
-      <label>TEXT 模型 ID（逗号分隔）<input value={models}
-        onChange={(event) => setModels(event.target.value)} /></label>
-      <label><input type="checkbox" checked={enabled}
-        onChange={(event) => setEnabled(event.target.checked)} />启用连接</label>
-      <Button disabled={!canWrite || !transport.editSub2APIMetadata}
-        onClick={() => void saveMetadata()}>
-        {mode === "LOCAL_LOOPBACK_HTTP" && !sub2apiOriginModeWritesReady
-          ? "核对本机地址 · 不保存" : "保存元数据"}
-      </Button>
-    </fieldset>
-    {mode === "LOCAL_LOOPBACK_HTTP" &&
-      <p role="status">仅接受 127.0.0.1 或 [::1] 加显式端口；localhost、私网、路径及重定向目标不可用。权威读回模式：{connectionMode}；本机网关不代表上游 AI 离线。{!sub2apiOriginModeWritesReady && "当前版本尚不能保存本机模式。"}</p>}
-    <fieldset disabled={!transport.rotateSub2APIKey || !canWrite ||
-      mode !== connectionMode}>
-      <legend>轮换业务密钥</legend>
-      <label>新密钥<input type="password" value={apiKey} autoComplete="off"
-        onChange={(event) => setApiKey(event.target.value)} /></label>
-      <Button disabled={!transport.rotateSub2APIKey || !canWrite || !apiKey}
-        onClick={() => void rotateKey()}>明确轮换一次</Button>
-    </fieldset>
-    <Sub2APIReadiness key={scope} connection={connection}
-      read={transport.readSub2APIConfiguredReadiness} disabled={busy} />
-    {notice && <p role="status">{notice}</p>}
-    {(!transport.editSub2APIMetadata || !transport.rotateSub2APIKey ||
-      !transport.readSub2APIKeyRotation || !transport.readSub2APIConfiguredReadiness) &&
-      <p role="status">当前桌面版本缺少部分 B31 桥接能力；对应操作不可用。</p>}
-  </details>;
+      </fieldset>
+      {mode === "LOCAL_LOOPBACK_HTTP" && (
+        <p role="status">
+          仅接受 127.0.0.1 或 [::1]
+          加显式端口；localhost、私网、路径及重定向目标不可用。权威读回模式：{connectionMode}
+          ；本机网关不代表上游 AI 离线。
+          {!sub2apiOriginModeWritesReady && "当前版本尚不能保存本机模式。"}
+        </p>
+      )}
+      <fieldset disabled={!transport.rotateSub2APIKey || !canWrite || mode !== connectionMode}>
+        <legend>轮换业务密钥</legend>
+        <label>
+          新密钥
+          <input
+            type="password"
+            value={apiKey}
+            autoComplete="off"
+            onChange={(event) => setApiKey(event.target.value)}
+          />
+        </label>
+        <Button
+          disabled={!transport.rotateSub2APIKey || !canWrite || !apiKey}
+          onClick={() => void rotateKey()}
+        >
+          明确轮换一次
+        </Button>
+      </fieldset>
+      <Sub2APIReadiness
+        key={scope}
+        connection={connection}
+        read={transport.readSub2APIConfiguredReadiness}
+        disabled={busy}
+      />
+      {notice && <p role="status">{notice}</p>}
+      {(!transport.editSub2APIMetadata ||
+        !transport.rotateSub2APIKey ||
+        !transport.readSub2APIKeyRotation ||
+        !transport.readSub2APIConfiguredReadiness) && (
+        <p role="status">当前桌面版本缺少部分 B31 桥接能力；对应操作不可用。</p>
+      )}
+    </details>
+  );
 }

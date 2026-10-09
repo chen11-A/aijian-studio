@@ -1,12 +1,32 @@
 import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
-import type { MediaToolchainResult, MediaToolchainSelectionResult, MediaToolchainCancelResult } from "./media-toolchain-contract";
-import type { MediaAssetProbeReadResult, MediaAssetProbeWriteResult } from "./media-asset-probe-contract";
-import type { CreateDraftReviewNoteRequest, ResolveDraftReviewNoteRequest, DraftReviewResult } from "./draft-review-contract";
+import type {
+  MediaToolchainResult,
+  MediaToolchainSelectionResult,
+  MediaToolchainCancelResult,
+} from "./media-toolchain-contract";
+import type {
+  MediaAssetProbeReadResult,
+  MediaAssetProbeWriteResult,
+} from "./media-asset-probe-contract";
+import type {
+  CreateDraftReviewNoteRequest,
+  ResolveDraftReviewNoteRequest,
+  DraftReviewResult,
+} from "./draft-review-contract";
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
-import type { DraftExportPreviewResult, DraftExportRevealResult, DraftExportCommand, DraftExportListResult, DraftExportResult, DraftExportSubmitResult } from "./draft-export-contract";
 import type {
-  CreateEpisodeMediaAssemblyVersionRequest, EpisodeMediaAssemblyResult, EpisodeMediaAssemblyWriteResult,
+  DraftExportPreviewResult,
+  DraftExportRevealResult,
+  DraftExportCommand,
+  DraftExportListResult,
+  DraftExportResult,
+  DraftExportSubmitResult,
+} from "./draft-export-contract";
+import type {
+  CreateEpisodeMediaAssemblyVersionRequest,
+  EpisodeMediaAssemblyResult,
+  EpisodeMediaAssemblyWriteResult,
 } from "./episode-media-assembly-contract";
 import type { components } from "@aijian/contracts";
 import type {
@@ -158,9 +178,11 @@ contextBridge.exposeInMainWorld("aijianChatGPT", {
 // Trusted proposal surface. There is deliberately no renderer completion/reservation endpoint.
 contextBridge.exposeInMainWorld("aijianOfficialText", {
   list: (project, episode) => ipcRenderer.invoke("official-text:list", project, episode),
-  get: (project, episode, operation) => ipcRenderer.invoke("official-text:get", project, episode, operation),
+  get: (project, episode, operation) =>
+    ipcRenderer.invoke("official-text:get", project, episode, operation),
   generate: (command) => ipcRenderer.invoke("official-text:generate", command),
-  adopt: (project, episode, operation, input) => ipcRenderer.invoke("official-text:adopt", project, episode, operation, input),
+  adopt: (project, episode, operation, input) =>
+    ipcRenderer.invoke("official-text:adopt", project, episode, operation, input),
 } satisfies OfficialTextBridge);
 
 // HUMAN-only proposal surface. There is no arbitrary path, renderer fetch or AI completion API.
@@ -178,18 +200,39 @@ contextBridge.exposeInMainWorld("aijianShotPlan", {
   createHumanShotPlanProposal: (projectId, episodeId, operationId, payload) =>
     ipcRenderer.invoke("shot-plan:create-human", projectId, episodeId, operationId, payload),
   adoptHumanShotPlanProposal: (projectId, episodeId, versionId, operationId, payload) =>
-    ipcRenderer.invoke("shot-plan:adopt-human", projectId, episodeId, versionId, operationId, payload),
+    ipcRenderer.invoke(
+      "shot-plan:adopt-human",
+      projectId,
+      episodeId,
+      versionId,
+      operationId,
+      payload,
+    ),
 } satisfies ShotPlanGateway);
 
 contextBridge.exposeInMainWorld("aijian", {
   getMediaAssetProbeEvidence: (
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetProbeReadResult> =>
-    ipcRenderer.invoke("media-asset-probe:get", projectId, assetId, versionId) as Promise<MediaAssetProbeReadResult>,
+    ipcRenderer.invoke(
+      "media-asset-probe:get",
+      projectId,
+      assetId,
+      versionId,
+    ) as Promise<MediaAssetProbeReadResult>,
   probeSelectedMediaAssetVersion: (
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetProbeWriteResult> =>
-    ipcRenderer.invoke("media-asset-probe:probe-selected", projectId, assetId, versionId) as Promise<MediaAssetProbeWriteResult>,
+    ipcRenderer.invoke(
+      "media-asset-probe:probe-selected",
+      projectId,
+      assetId,
+      versionId,
+    ) as Promise<MediaAssetProbeWriteResult>,
   getMediaToolchainStatus: (): Promise<MediaToolchainResult> =>
     ipcRenderer.invoke("media-toolchain:status") as Promise<MediaToolchainResult>,
   selectMediaToolchain: (): Promise<MediaToolchainSelectionResult> =>
@@ -207,31 +250,58 @@ contextBridge.exposeInMainWorld("aijian", {
   getProjectMediaAsset: (projectId: string, assetId: string): Promise<MediaAssetReadResult> =>
     ipcRenderer.invoke("media-assets:get", projectId, assetId) as Promise<MediaAssetReadResult>,
   importProjectMediaAssetFromPicker: (projectId: string): Promise<MediaAssetImportResult> =>
-    ipcRenderer.invoke("media-assets:import-from-picker", projectId) as Promise<MediaAssetImportResult>,
+    ipcRenderer.invoke(
+      "media-assets:import-from-picker",
+      projectId,
+    ) as Promise<MediaAssetImportResult>,
   importProjectMediaAssetVersionFromPicker: (
-    projectId: string, assetId: string,
+    projectId: string,
+    assetId: string,
   ): Promise<MediaAssetImportResult> =>
-    ipcRenderer.invoke("media-assets:import-version-from-picker", projectId,
-      assetId) as Promise<MediaAssetImportResult>,
+    ipcRenderer.invoke(
+      "media-assets:import-version-from-picker",
+      projectId,
+      assetId,
+    ) as Promise<MediaAssetImportResult>,
   readProjectMediaAssetPreview: (
-    projectId: string, assetId: string, versionId: string,
+    projectId: string,
+    assetId: string,
+    versionId: string,
   ): Promise<MediaAssetPreviewResult> =>
-    ipcRenderer.invoke("media-assets:preview", projectId, assetId,
-      versionId) as Promise<MediaAssetPreviewResult>,
+    ipcRenderer.invoke(
+      "media-assets:preview",
+      projectId,
+      assetId,
+      versionId,
+    ) as Promise<MediaAssetPreviewResult>,
   addProjectMediaAssetEpisodeReference: (
-    projectId: string, assetId: string, command: AddMediaAssetReferenceCommand,
+    projectId: string,
+    assetId: string,
+    command: AddMediaAssetReferenceCommand,
   ): Promise<MediaAssetReferenceResult> =>
-    ipcRenderer.invoke("media-assets:add-episode-reference", projectId, assetId,
-      command) as Promise<MediaAssetReferenceResult>,
+    ipcRenderer.invoke(
+      "media-assets:add-episode-reference",
+      projectId,
+      assetId,
+      command,
+    ) as Promise<MediaAssetReferenceResult>,
   removeProjectMediaAssetEpisodeReference: (
-    projectId: string, assetId: string, command: RemoveMediaAssetReferenceCommand,
+    projectId: string,
+    assetId: string,
+    command: RemoveMediaAssetReferenceCommand,
   ): Promise<MediaAssetUnreferenceResult> =>
-    ipcRenderer.invoke("media-assets:remove-episode-reference", projectId, assetId,
-      command) as Promise<MediaAssetUnreferenceResult>,
-  deleteProjectMediaAsset: (
-    projectId: string, assetId: string,
-  ): Promise<MediaAssetDeleteResult> =>
-    ipcRenderer.invoke("media-assets:delete", projectId, assetId) as Promise<MediaAssetDeleteResult>,
+    ipcRenderer.invoke(
+      "media-assets:remove-episode-reference",
+      projectId,
+      assetId,
+      command,
+    ) as Promise<MediaAssetUnreferenceResult>,
+  deleteProjectMediaAsset: (projectId: string, assetId: string): Promise<MediaAssetDeleteResult> =>
+    ipcRenderer.invoke(
+      "media-assets:delete",
+      projectId,
+      assetId,
+    ) as Promise<MediaAssetDeleteResult>,
   health: (): Promise<HealthResponse> =>
     ipcRenderer.invoke("health:get") as Promise<HealthResponse>,
   listProjects: (): Promise<ProjectListResponse> =>
@@ -375,54 +445,78 @@ contextBridge.exposeInMainWorld("aijian", {
     projectId: string,
     command: RemoteSourceExtractCreateCommand,
   ): Promise<RemoteSourceExtractCreateResult> =>
-    ipcRenderer.invoke("remote-source-extract:create", projectId, command) as Promise<
-      RemoteSourceExtractCreateResult
-    >,
+    ipcRenderer.invoke(
+      "remote-source-extract:create",
+      projectId,
+      command,
+    ) as Promise<RemoteSourceExtractCreateResult>,
   readOriginalRemoteSourceExtractRun: (
     projectId: string,
     originalCommand: RemoteSourceExtractCreateCommand,
   ): Promise<RemoteSourceExtractOriginalRunResult> =>
-    ipcRenderer.invoke("remote-source-extract:read-original-run", projectId,
-      originalCommand) as Promise<RemoteSourceExtractOriginalRunResult>,
+    ipcRenderer.invoke(
+      "remote-source-extract:read-original-run",
+      projectId,
+      originalCommand,
+    ) as Promise<RemoteSourceExtractOriginalRunResult>,
   getSourceExtraction: (projectId: string): Promise<SourceExtractionReadResult> =>
     ipcRenderer.invoke("source-extraction:get", projectId) as Promise<SourceExtractionReadResult>,
   getSourceExtractionVersion: (
     projectId: string,
     versionId: string,
   ): Promise<SourceExtractionReadResult> =>
-    ipcRenderer.invoke("source-extraction:get-version", projectId,
-      versionId) as Promise<SourceExtractionReadResult>,
+    ipcRenderer.invoke(
+      "source-extraction:get-version",
+      projectId,
+      versionId,
+    ) as Promise<SourceExtractionReadResult>,
   readVersionedSourceExtractionProposal: (
     projectId: string,
     proposalId: string,
   ): Promise<VersionedSourceExtractionProposalReadResult> =>
-    ipcRenderer.invoke("source-extraction:read-versioned-proposal", projectId,
-      proposalId) as Promise<VersionedSourceExtractionProposalReadResult>,
+    ipcRenderer.invoke(
+      "source-extraction:read-versioned-proposal",
+      projectId,
+      proposalId,
+    ) as Promise<VersionedSourceExtractionProposalReadResult>,
   createSub2APISourceExtractRun: (
     projectId: string,
     command: Sub2APIQueueCommand,
   ): Promise<Sub2APIQueueResult> =>
-    ipcRenderer.invoke("sub2api-source-extract:queue", projectId,
-      command) as Promise<Sub2APIQueueResult>,
+    ipcRenderer.invoke(
+      "sub2api-source-extract:queue",
+      projectId,
+      command,
+    ) as Promise<Sub2APIQueueResult>,
   readOriginalSub2APISourceExtractOperation: (
     projectId: string,
     originalCommand: Sub2APIQueueCommand,
   ): Promise<Sub2APIOperationReadResult> =>
-    ipcRenderer.invoke("sub2api-source-extract:read-original-operation", projectId,
-      originalCommand) as Promise<Sub2APIOperationReadResult>,
+    ipcRenderer.invoke(
+      "sub2api-source-extract:read-original-operation",
+      projectId,
+      originalCommand,
+    ) as Promise<Sub2APIOperationReadResult>,
   approveSub2APISourceExtractCall: (
     projectId: string,
     originalCommand: Sub2APIQueueCommand,
     approvalCommand: Sub2APIApprovalCommand,
   ): Promise<Sub2APIApprovalResult> =>
-    ipcRenderer.invoke("sub2api-source-extract:approve-one-call", projectId,
-      originalCommand, approvalCommand) as Promise<Sub2APIApprovalResult>,
+    ipcRenderer.invoke(
+      "sub2api-source-extract:approve-one-call",
+      projectId,
+      originalCommand,
+      approvalCommand,
+    ) as Promise<Sub2APIApprovalResult>,
   getSub2APISourceExtractApproval: (
     projectId: string,
     originalCommand: Sub2APIQueueCommand,
   ): Promise<Sub2APIApprovalReadResult> =>
-    ipcRenderer.invoke("sub2api-source-extract:read-approval", projectId,
-      originalCommand) as Promise<Sub2APIApprovalReadResult>,
+    ipcRenderer.invoke(
+      "sub2api-source-extract:read-approval",
+      projectId,
+      originalCommand,
+    ) as Promise<Sub2APIApprovalReadResult>,
   createFakeTimelineRun: (
     projectId: string,
     command: FakeTimelineRunCreateCommand,
@@ -436,8 +530,11 @@ contextBridge.exposeInMainWorld("aijian", {
     projectId: string,
     originalCommand: FakeTimelineRunCreateCommand,
   ): Promise<FakeTimelineRunOperationQueryResult> =>
-    ipcRenderer.invoke("fake-timeline-runs:query-operation", projectId,
-      originalCommand) as Promise<FakeTimelineRunOperationQueryResult>,
+    ipcRenderer.invoke(
+      "fake-timeline-runs:query-operation",
+      projectId,
+      originalCommand,
+    ) as Promise<FakeTimelineRunOperationQueryResult>,
   listProjectAgents: (projectId: string): Promise<AgentCatalogResponse> =>
     ipcRenderer.invoke("agents:list", projectId) as Promise<AgentCatalogResponse>,
   listProjectSkills: (projectId: string): Promise<SkillCatalogResponse> =>
@@ -462,17 +559,24 @@ contextBridge.exposeInMainWorld("aijian", {
     projectId: string,
     input: DevelopmentExportCreateInput,
   ): Promise<DevelopmentExportCreateResult> =>
-    ipcRenderer.invoke("development-exports:create", projectId, input) as Promise<
-      DevelopmentExportCreateResult
-    >,
+    ipcRenderer.invoke(
+      "development-exports:create",
+      projectId,
+      input,
+    ) as Promise<DevelopmentExportCreateResult>,
   getDevelopmentExport: (
     projectId: string,
     operationId: string,
     timelineVersionId: string,
     expectedRevision: number,
   ): Promise<DevelopmentExportResponse> =>
-    ipcRenderer.invoke("development-exports:get", projectId, operationId,
-      timelineVersionId, expectedRevision) as Promise<DevelopmentExportResponse>,
+    ipcRenderer.invoke(
+      "development-exports:get",
+      projectId,
+      operationId,
+      timelineVersionId,
+      expectedRevision,
+    ) as Promise<DevelopmentExportResponse>,
   readDevelopmentExportPreview: (
     projectId: string,
     operationId: string,
@@ -480,147 +584,350 @@ contextBridge.exposeInMainWorld("aijian", {
     expectedRevision: number,
     expectedSha256: string,
   ): Promise<DevelopmentExportPreviewResult> =>
-    ipcRenderer.invoke("development-exports:read-preview", projectId, operationId,
-      timelineVersionId, expectedRevision, expectedSha256) as Promise<DevelopmentExportPreviewResult>,
+    ipcRenderer.invoke(
+      "development-exports:read-preview",
+      projectId,
+      operationId,
+      timelineVersionId,
+      expectedRevision,
+      expectedSha256,
+    ) as Promise<DevelopmentExportPreviewResult>,
   openDevelopmentExport: (
     projectId: string,
     operationId: string,
     timelineVersionId: string,
     expectedRevision: number,
   ): Promise<DevelopmentExportOpenResult> =>
-    ipcRenderer.invoke("development-exports:open", projectId, operationId,
-      timelineVersionId, expectedRevision) as Promise<DevelopmentExportOpenResult>,
+    ipcRenderer.invoke(
+      "development-exports:open",
+      projectId,
+      operationId,
+      timelineVersionId,
+      expectedRevision,
+    ) as Promise<DevelopmentExportOpenResult>,
   saveDevelopmentExport: (
     projectId: string,
     operationId: string,
     timelineVersionId: string,
     expectedRevision: number,
   ): Promise<DevelopmentExportSaveResult> =>
-    ipcRenderer.invoke("development-exports:save", projectId, operationId,
-      timelineVersionId, expectedRevision) as Promise<DevelopmentExportSaveResult>,
+    ipcRenderer.invoke(
+      "development-exports:save",
+      projectId,
+      operationId,
+      timelineVersionId,
+      expectedRevision,
+    ) as Promise<DevelopmentExportSaveResult>,
   listProviderConnections: (): Promise<ProviderConnectionListResponse> =>
     ipcRenderer.invoke("providers:list") as Promise<ProviderConnectionListResponse>,
   readSub2APIConfiguredReadiness: (
-    connectionId: string, modelId: string,
+    connectionId: string,
+    modelId: string,
   ): Promise<Sub2APIConfiguredReadinessResult> =>
-    ipcRenderer.invoke("providers:sub2api-configured-readiness", connectionId, modelId) as
-      Promise<Sub2APIConfiguredReadinessResult>,
+    ipcRenderer.invoke(
+      "providers:sub2api-configured-readiness",
+      connectionId,
+      modelId,
+    ) as Promise<Sub2APIConfiguredReadinessResult>,
   editSub2APIMetadata: (
-    connectionId: string, command: EditSub2APIMetadataCommand,
+    connectionId: string,
+    command: EditSub2APIMetadataCommand,
   ): Promise<Sub2APIConnectionMutationResult> =>
-    ipcRenderer.invoke("providers:edit-sub2api-metadata", connectionId, command) as
-      Promise<Sub2APIConnectionMutationResult>,
+    ipcRenderer.invoke(
+      "providers:edit-sub2api-metadata",
+      connectionId,
+      command,
+    ) as Promise<Sub2APIConnectionMutationResult>,
   rotateSub2APIKey: (
-    connectionId: string, command: RotateSub2APIKeyCommand,
+    connectionId: string,
+    command: RotateSub2APIKeyCommand,
   ): Promise<Sub2APIConnectionMutationResult> =>
-    ipcRenderer.invoke("providers:rotate-sub2api-key", connectionId, command) as
-      Promise<Sub2APIConnectionMutationResult>,
+    ipcRenderer.invoke(
+      "providers:rotate-sub2api-key",
+      connectionId,
+      command,
+    ) as Promise<Sub2APIConnectionMutationResult>,
   readSub2APIKeyRotation: (
-    connectionId: string, operationId: string,
+    connectionId: string,
+    operationId: string,
   ): Promise<Sub2APIRotationReadResult> =>
-    ipcRenderer.invoke("providers:read-sub2api-rotation", connectionId, operationId) as
-      Promise<Sub2APIRotationReadResult>,
-  getProjectCreativeLibrary: (
-    projectId: string,
-  ): Promise<ProjectCreativeLibraryLatestResult> =>
-    ipcRenderer.invoke("project-creative-library:latest", projectId) as
-      Promise<ProjectCreativeLibraryLatestResult>,
+    ipcRenderer.invoke(
+      "providers:read-sub2api-rotation",
+      connectionId,
+      operationId,
+    ) as Promise<Sub2APIRotationReadResult>,
+  getProjectCreativeLibrary: (projectId: string): Promise<ProjectCreativeLibraryLatestResult> =>
+    ipcRenderer.invoke(
+      "project-creative-library:latest",
+      projectId,
+    ) as Promise<ProjectCreativeLibraryLatestResult>,
   getProjectCreativeLibraryVersion: (
-    projectId: string, versionId: string,
+    projectId: string,
+    versionId: string,
   ): Promise<ProjectCreativeLibraryVersionResult> =>
-    ipcRenderer.invoke("project-creative-library:version", projectId, versionId) as
-      Promise<ProjectCreativeLibraryVersionResult>,
+    ipcRenderer.invoke(
+      "project-creative-library:version",
+      projectId,
+      versionId,
+    ) as Promise<ProjectCreativeLibraryVersionResult>,
   createProjectCreativeLibraryVersion: (
-    projectId: string, idempotencyKey: string,
+    projectId: string,
+    idempotencyKey: string,
     payload: CreateProjectCreativeLibraryVersionRequest,
   ): Promise<ProjectCreativeLibraryCreateResult> =>
-    ipcRenderer.invoke("project-creative-library:create-version", projectId,
-      idempotencyKey, payload) as Promise<ProjectCreativeLibraryCreateResult>,
-  readDraftExportPreview: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportPreviewResult> =>
-    ipcRenderer.invoke("draft-exports:preview", projectId, episodeId, operationId) as Promise<DraftExportPreviewResult>,
-  revealDraftExportOutput: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportRevealResult> =>
-    ipcRenderer.invoke("draft-exports:reveal-output", projectId, episodeId, operationId) as Promise<DraftExportRevealResult>,
-  listDraftReviewNotes: (projectId: string, episodeId: string, operationId: string): Promise<DraftReviewResult> =>
-    ipcRenderer.invoke("draft-review:list", projectId, episodeId, operationId) as Promise<DraftReviewResult>,
-  createDraftReviewNote: (projectId: string, episodeId: string, operationId: string, command: CreateDraftReviewNoteRequest): Promise<DraftReviewResult> =>
-    ipcRenderer.invoke("draft-review:create-note", projectId, episodeId, operationId, command) as Promise<DraftReviewResult>,
-  resolveDraftReviewNote: (projectId: string, episodeId: string, operationId: string, noteId: string, command: ResolveDraftReviewNoteRequest): Promise<DraftReviewResult> =>
-    ipcRenderer.invoke("draft-review:resolve-note", projectId, episodeId, operationId, noteId, command) as Promise<DraftReviewResult>,
+    ipcRenderer.invoke(
+      "project-creative-library:create-version",
+      projectId,
+      idempotencyKey,
+      payload,
+    ) as Promise<ProjectCreativeLibraryCreateResult>,
+  readDraftExportPreview: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftExportPreviewResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:preview",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftExportPreviewResult>,
+  revealDraftExportOutput: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftExportRevealResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:reveal-output",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftExportRevealResult>,
+  listDraftReviewNotes: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke(
+      "draft-review:list",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftReviewResult>,
+  createDraftReviewNote: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    command: CreateDraftReviewNoteRequest,
+  ): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke(
+      "draft-review:create-note",
+      projectId,
+      episodeId,
+      operationId,
+      command,
+    ) as Promise<DraftReviewResult>,
+  resolveDraftReviewNote: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    noteId: string,
+    command: ResolveDraftReviewNoteRequest,
+  ): Promise<DraftReviewResult> =>
+    ipcRenderer.invoke(
+      "draft-review:resolve-note",
+      projectId,
+      episodeId,
+      operationId,
+      noteId,
+      command,
+    ) as Promise<DraftReviewResult>,
   listDraftExports: (projectId: string, episodeId: string): Promise<DraftExportListResult> =>
-    ipcRenderer.invoke("draft-exports:list", projectId, episodeId) as Promise<DraftExportListResult>,
-  getDraftExport: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportResult> =>
-    ipcRenderer.invoke("draft-exports:get", projectId, episodeId, operationId) as Promise<DraftExportResult>,
-  createDraftCompositionPreview: (projectId: string, episodeId: string, command: DraftExportCommand): Promise<DraftExportSubmitResult> =>
-    ipcRenderer.invoke("draft-exports:create-composition-preview", projectId, episodeId, command) as Promise<DraftExportSubmitResult>,
-  createDraftExportFromPicker: (projectId: string, episodeId: string, command: DraftExportCommand): Promise<DraftExportSubmitResult> =>
-    ipcRenderer.invoke("draft-exports:create-from-picker", projectId, episodeId, command) as Promise<DraftExportSubmitResult>,
-  cancelDraftExport: (projectId: string, episodeId: string, operationId: string): Promise<DraftExportResult> =>
-    ipcRenderer.invoke("draft-exports:cancel", projectId, episodeId, operationId) as Promise<DraftExportResult>,
+    ipcRenderer.invoke(
+      "draft-exports:list",
+      projectId,
+      episodeId,
+    ) as Promise<DraftExportListResult>,
+  getDraftExport: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftExportResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:get",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftExportResult>,
+  createDraftCompositionPreview: (
+    projectId: string,
+    episodeId: string,
+    command: DraftExportCommand,
+  ): Promise<DraftExportSubmitResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:create-composition-preview",
+      projectId,
+      episodeId,
+      command,
+    ) as Promise<DraftExportSubmitResult>,
+  createDraftExportFromPicker: (
+    projectId: string,
+    episodeId: string,
+    command: DraftExportCommand,
+  ): Promise<DraftExportSubmitResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:create-from-picker",
+      projectId,
+      episodeId,
+      command,
+    ) as Promise<DraftExportSubmitResult>,
+  cancelDraftExport: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftExportResult> =>
+    ipcRenderer.invoke(
+      "draft-exports:cancel",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftExportResult>,
   readLatestEpisodeMediaAssembly: (
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeMediaAssemblyResult> =>
-    ipcRenderer.invoke("episode-media-assembly:latest", projectId, episodeId) as Promise<EpisodeMediaAssemblyResult>,
+    ipcRenderer.invoke(
+      "episode-media-assembly:latest",
+      projectId,
+      episodeId,
+    ) as Promise<EpisodeMediaAssemblyResult>,
   getEpisodeMediaAssemblyVersion: (
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeMediaAssemblyResult> =>
-    ipcRenderer.invoke("episode-media-assembly:version", projectId, episodeId, versionId) as Promise<EpisodeMediaAssemblyResult>,
+    ipcRenderer.invoke(
+      "episode-media-assembly:version",
+      projectId,
+      episodeId,
+      versionId,
+    ) as Promise<EpisodeMediaAssemblyResult>,
   createEpisodeMediaAssemblyVersion: (
-    projectId: string, episodeId: string, payload: CreateEpisodeMediaAssemblyVersionRequest,
+    projectId: string,
+    episodeId: string,
+    payload: CreateEpisodeMediaAssemblyVersionRequest,
   ): Promise<EpisodeMediaAssemblyWriteResult> =>
-    ipcRenderer.invoke("episode-media-assembly:create-version", projectId, episodeId, payload) as Promise<EpisodeMediaAssemblyWriteResult>,
+    ipcRenderer.invoke(
+      "episode-media-assembly:create-version",
+      projectId,
+      episodeId,
+      payload,
+    ) as Promise<EpisodeMediaAssemblyWriteResult>,
   getEpisodeStoryboard: (
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeStoryboardLatestResult> =>
-    ipcRenderer.invoke("episode-storyboard:latest", projectId, episodeId) as
-      Promise<EpisodeStoryboardLatestResult>,
+    ipcRenderer.invoke(
+      "episode-storyboard:latest",
+      projectId,
+      episodeId,
+    ) as Promise<EpisodeStoryboardLatestResult>,
   getEpisodeStoryboardVersion: (
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeStoryboardVersionResult> =>
-    ipcRenderer.invoke("episode-storyboard:version", projectId, episodeId, versionId) as
-      Promise<EpisodeStoryboardVersionResult>,
+    ipcRenderer.invoke(
+      "episode-storyboard:version",
+      projectId,
+      episodeId,
+      versionId,
+    ) as Promise<EpisodeStoryboardVersionResult>,
   createEpisodeStoryboardVersion: (
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeStoryboardVersionRequest,
   ): Promise<EpisodeStoryboardCreateResult> =>
-    ipcRenderer.invoke("episode-storyboard:create-version", projectId, episodeId,
-      idempotencyKey, payload) as Promise<EpisodeStoryboardCreateResult>,
-  getEpisodeScript: (
-    projectId: string, episodeId: string,
-  ): Promise<EpisodeScriptLatestResult> =>
-    ipcRenderer.invoke("episode-script:latest", projectId, episodeId) as
-      Promise<EpisodeScriptLatestResult>,
+    ipcRenderer.invoke(
+      "episode-storyboard:create-version",
+      projectId,
+      episodeId,
+      idempotencyKey,
+      payload,
+    ) as Promise<EpisodeStoryboardCreateResult>,
+  getEpisodeScript: (projectId: string, episodeId: string): Promise<EpisodeScriptLatestResult> =>
+    ipcRenderer.invoke(
+      "episode-script:latest",
+      projectId,
+      episodeId,
+    ) as Promise<EpisodeScriptLatestResult>,
   getEpisodeScriptVersion: (
-    projectId: string, episodeId: string, versionId: string,
+    projectId: string,
+    episodeId: string,
+    versionId: string,
   ): Promise<EpisodeScriptVersionResult> =>
-    ipcRenderer.invoke("episode-script:version", projectId, episodeId, versionId) as
-      Promise<EpisodeScriptVersionResult>,
+    ipcRenderer.invoke(
+      "episode-script:version",
+      projectId,
+      episodeId,
+      versionId,
+    ) as Promise<EpisodeScriptVersionResult>,
   createEpisodeScriptVersion: (
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptVersionRequest,
   ): Promise<EpisodeScriptCreateResult> =>
-    ipcRenderer.invoke("episode-script:create-version", projectId, episodeId,
-      idempotencyKey, payload) as Promise<EpisodeScriptCreateResult>,
+    ipcRenderer.invoke(
+      "episode-script:create-version",
+      projectId,
+      episodeId,
+      idempotencyKey,
+      payload,
+    ) as Promise<EpisodeScriptCreateResult>,
   getEpisodeScriptConfirmation: (
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeScriptConfirmationReadResult> =>
-    ipcRenderer.invoke("episode-script-confirmation:current", projectId, episodeId) as
-      Promise<EpisodeScriptConfirmationReadResult>,
+    ipcRenderer.invoke(
+      "episode-script-confirmation:current",
+      projectId,
+      episodeId,
+    ) as Promise<EpisodeScriptConfirmationReadResult>,
   createEpisodeScriptConfirmation: (
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptConfirmationRequest,
   ): Promise<EpisodeScriptConfirmationCreateResult> =>
-    ipcRenderer.invoke("episode-script-confirmation:create", projectId, episodeId,
-      idempotencyKey, payload) as Promise<EpisodeScriptConfirmationCreateResult>,
+    ipcRenderer.invoke(
+      "episode-script-confirmation:create",
+      projectId,
+      episodeId,
+      idempotencyKey,
+      payload,
+    ) as Promise<EpisodeScriptConfirmationCreateResult>,
   getEpisodeScriptConfirmationReceipt: (
-    projectId: string, episodeId: string, confirmationId: string,
+    projectId: string,
+    episodeId: string,
+    confirmationId: string,
   ): Promise<EpisodeScriptConfirmationReadResult> =>
-    ipcRenderer.invoke("episode-script-confirmation:receipt", projectId, episodeId,
-      confirmationId) as Promise<EpisodeScriptConfirmationReadResult>,
+    ipcRenderer.invoke(
+      "episode-script-confirmation:receipt",
+      projectId,
+      episodeId,
+      confirmationId,
+    ) as Promise<EpisodeScriptConfirmationReadResult>,
   getSourceProposalAcceptanceForVersion: (
-    projectId: string, versionId: string,
+    projectId: string,
+    versionId: string,
   ): Promise<SourceProposalAcceptanceResult> =>
-    ipcRenderer.invoke("source-extraction:proposal-acceptance", projectId, versionId) as
-      Promise<SourceProposalAcceptanceResult>,
+    ipcRenderer.invoke(
+      "source-extraction:proposal-acceptance",
+      projectId,
+      versionId,
+    ) as Promise<SourceProposalAcceptanceResult>,
   createProviderConnection: (
     input: CreateProviderConnectionInput,
   ): Promise<ProviderConnectionResponse> =>

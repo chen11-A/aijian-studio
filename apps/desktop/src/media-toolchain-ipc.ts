@@ -39,22 +39,37 @@ export function registerMediaToolchainHandlers(
     cancelled: boolean;
     submitted: boolean;
   } | null = null;
-  handle(MEDIA_TOOLCHAIN_CHANNELS.cancelSelection, async (event, ...args): Promise<MediaToolchainCancelResult> => {
-    const window = dependencies.getMainWindow();
-    const client = dependencies.getClient();
-    const frame = event.senderFrame;
-    if (!window || window.isDestroyed() || window.webContents.isDestroyed() ||
-        event.sender !== window.webContents || !frame || frame !== window.webContents.mainFrame ||
-        frame.isDestroyed() || frame.detached || !client)
-      throw new Error("Media toolchain cancel sender is not authorized");
-    if (args.length !== 0) throw new Error("Media toolchain cancellation accepts no arguments");
-    if (!pendingSelection || pendingSelection.window !== window ||
-        pendingSelection.frame !== frame || pendingSelection.client !== client)
-      return { kind: "NO_PENDING_SELECTION" };
-    if (pendingSelection.submitted) return { kind: "ALREADY_SUBMITTED" };
-    pendingSelection.cancelled = true;
-    return { kind: "CANCELLED" };
-  });
+  handle(
+    MEDIA_TOOLCHAIN_CHANNELS.cancelSelection,
+    async (event, ...args): Promise<MediaToolchainCancelResult> => {
+      const window = dependencies.getMainWindow();
+      const client = dependencies.getClient();
+      const frame = event.senderFrame;
+      if (
+        !window ||
+        window.isDestroyed() ||
+        window.webContents.isDestroyed() ||
+        event.sender !== window.webContents ||
+        !frame ||
+        frame !== window.webContents.mainFrame ||
+        frame.isDestroyed() ||
+        frame.detached ||
+        !client
+      )
+        throw new Error("Media toolchain cancel sender is not authorized");
+      if (args.length !== 0) throw new Error("Media toolchain cancellation accepts no arguments");
+      if (
+        !pendingSelection ||
+        pendingSelection.window !== window ||
+        pendingSelection.frame !== frame ||
+        pendingSelection.client !== client
+      )
+        return { kind: "NO_PENDING_SELECTION" };
+      if (pendingSelection.submitted) return { kind: "ALREADY_SUBMITTED" };
+      pendingSelection.cancelled = true;
+      return { kind: "CANCELLED" };
+    },
+  );
   for (const action of ["status", "select", "clear"] as const) {
     handle(
       MEDIA_TOOLCHAIN_CHANNELS[action],

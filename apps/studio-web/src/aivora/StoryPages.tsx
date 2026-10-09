@@ -49,13 +49,18 @@ function ProjectNameEditor({ projectId }: { projectId: string }) {
   live.current = d;
   const transport = useMemo(createStudioTransport, []);
   const storage = useMemo(() => {
-    try { return window.localStorage; } catch { return null; }
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
   }, []);
   const project = d.projects.find((item) => item.backendId === projectId);
   const [draft, setDraft] = useState(project?.name ?? "");
   const [loadedRevision, setLoadedRevision] = useState(project?.revision ?? null);
-  const [journal, setJournal] = useState<ProjectJournalState>(() => storage
-    ? readProjectUpdateJournal(storage, projectId) : { kind: "BLOCKED" });
+  const [journal, setJournal] = useState<ProjectJournalState>(() =>
+    storage ? readProjectUpdateJournal(storage, projectId) : { kind: "BLOCKED" },
+  );
   const [busy, setBusy] = useState(false);
   const [mustRead, setMustRead] = useState(false);
   const [notice, setNotice] = useState("");
@@ -63,7 +68,12 @@ function ProjectNameEditor({ projectId }: { projectId: string }) {
   const inFlight = useRef(false);
   const revision = project?.revision;
   const dirty = !!project && draft !== project.name;
-  useEffect(() => () => { epoch.current += 1; }, []);
+  useEffect(
+    () => () => {
+      epoch.current += 1;
+    },
+    [],
+  );
   useEffect(() => {
     if (project && loadedRevision === null) {
       setDraft(project.name);
@@ -76,32 +86,58 @@ function ProjectNameEditor({ projectId }: { projectId: string }) {
     if (current.backendProjectId !== value.id) return;
     const card = current.projects.find((item) => item.backendId === value.id);
     if (!card || (card.revision ?? 0) > value.revision) return;
-    current.setProjects((old) => old.map((item) =>
-      item.backendId === value.id && (item.revision ?? 0) <= value.revision
-        ? { ...item, name: value.name, revision: value.revision,
-            status: value.status === "archived" ? "已归档" : "进行中",
-            updated: value.updated_at, episode: `REV ${value.revision}` }
-        : item));
+    current.setProjects((old) =>
+      old.map((item) =>
+        item.backendId === value.id && (item.revision ?? 0) <= value.revision
+          ? {
+              ...item,
+              name: value.name,
+              revision: value.revision,
+              status: value.status === "archived" ? "已归档" : "进行中",
+              updated: value.updated_at,
+              episode: `REV ${value.revision}`,
+            }
+          : item,
+      ),
+    );
     current.put("title", value.name);
   }
 
   async function save() {
-    if (!storage || !transport.updateProject || !project ||
-      !Number.isSafeInteger(revision) || (revision ?? 0) < 1 ||
-      loadedRevision !== revision || !dirty || busy || mustRead ||
-      journal.kind !== "EMPTY" || inFlight.current) return;
+    if (
+      !storage ||
+      !transport.updateProject ||
+      !project ||
+      !Number.isSafeInteger(revision) ||
+      (revision ?? 0) < 1 ||
+      loadedRevision !== revision ||
+      !dirty ||
+      busy ||
+      mustRead ||
+      journal.kind !== "EMPTY" ||
+      inFlight.current
+    )
+      return;
     const name = draft.trim();
-    if (!name || [...name].length > 80 || [...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
+    if (
+      !name ||
+      [...name].length > 80 ||
+      [...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+    ) {
       setNotice("项目名称需为 1 至 80 个字符，且不能含控制字符。");
       return;
     }
-    if (name === project.name) { setDraft(name); return; }
+    if (name === project.name) {
+      setDraft(name);
+      return;
+    }
     const request = ++epoch.current;
     inFlight.current = true;
     setBusy(true);
     setNotice("正在保存项目名称并从工作区读回…");
     const result = await updateManagedProject(transport, storage, projectId, {
-      expectedRevision: revision!, name,
+      expectedRevision: revision!,
+      name,
     });
     inFlight.current = false;
     if (epoch.current !== request) return;
@@ -130,72 +166,108 @@ function ProjectNameEditor({ projectId }: { projectId: string }) {
     inFlight.current = true;
     setBusy(true);
     const pending = readProjectUpdateJournal(storage, projectId);
-    const result = pending.kind === "PENDING"
-      ? closePending
-        ? await closePendingProjectUpdate(transport, storage, projectId)
-        : await readPendingProjectUpdate(transport, storage, projectId)
-      : await (async () => {
-        try {
-          const response = await transport.getProject(projectId);
-          const value = response.data;
-          return value.id === projectId && Number.isSafeInteger(value.revision) &&
-            value.revision > 0 && typeof value.name === "string"
-            ? { kind: "CURRENT" as const, project: value, targetReached: false }
-            : { kind: "UNKNOWN" as const };
-        } catch { return { kind: "UNKNOWN" as const }; }
-      })();
+    const result =
+      pending.kind === "PENDING"
+        ? closePending
+          ? await closePendingProjectUpdate(transport, storage, projectId)
+          : await readPendingProjectUpdate(transport, storage, projectId)
+        : await (async () => {
+            try {
+              const response = await transport.getProject(projectId);
+              const value = response.data;
+              return value.id === projectId &&
+                Number.isSafeInteger(value.revision) &&
+                value.revision > 0 &&
+                typeof value.name === "string"
+                ? { kind: "CURRENT" as const, project: value, targetReached: false }
+                : { kind: "UNKNOWN" as const };
+            } catch {
+              return { kind: "UNKNOWN" as const };
+            }
+          })();
     inFlight.current = false;
     if (epoch.current !== request) return;
     setBusy(false);
     setJournal(readProjectUpdateJournal(storage, projectId));
     if (result.kind === "CURRENT") {
       showProject(result.project);
-      if ((pending.kind === "EMPTY" && !dirty) ||
-          (closePending && result.targetReached)) setDraft(result.project.name);
+      if ((pending.kind === "EMPTY" && !dirty) || (closePending && result.targetReached))
+        setDraft(result.project.name);
       setLoadedRevision(result.project.revision);
       setMustRead(false);
-      setNotice(pending.kind === "PENDING"
-        ? closePending
-          ? "未知记录已结束；已读当前项目，无法归因原 PATCH。"
-          : "已只读核对当前项目；原更新仍锁定，无法归因。"
-        : dirty ? "已读到最新项目，未保存草稿仍保留；请核对后再提交。"
-          : "已从本地工作区重新读取项目名称。");
-    } else setNotice(result.kind === "UNAVAILABLE"
-      ? result.message : "项目当前状态无法核实，仍阻止提交。");
+      setNotice(
+        pending.kind === "PENDING"
+          ? closePending
+            ? "未知记录已结束；已读当前项目，无法归因原 PATCH。"
+            : "已只读核对当前项目；原更新仍锁定，无法归因。"
+          : dirty
+            ? "已读到最新项目，未保存草稿仍保留；请核对后再提交。"
+            : "已从本地工作区重新读取项目名称。",
+      );
+    } else
+      setNotice(
+        result.kind === "UNAVAILABLE" ? result.message : "项目当前状态无法核实，仍阻止提交。",
+      );
   }
 
-  return <div className="v2-source-name">
-    <label>项目名称
-      <input value={draft} disabled={!project || busy || journal.kind !== "EMPTY"}
-        onChange={(event) => setDraft(event.target.value)} />
-    </label>
-    <div className="actions">
-      <Button disabled={!dirty || busy || mustRead || loadedRevision !== revision ||
-        journal.kind !== "EMPTY" ||
-        !transport.updateProject || !storage || !Number.isSafeInteger(revision)}
-        onClick={() => void save()}>保存项目名称</Button>
-      <Button disabled={!dirty || busy} onClick={() => {
-        if (project) setDraft(project.name);
-        setNotice("已取消未保存的项目名称草稿。");
-      }}>取消</Button>
-      <Button disabled={busy || !storage} onClick={() => void readCurrent(false)}>
-        重新读取
-      </Button>
-      {journal.kind === "PENDING" && <Button disabled={busy} onClick={() =>
-        void readCurrent(true)}>核对并结束未知记录</Button>}
+  return (
+    <div className="v2-source-name">
+      <label>
+        项目名称
+        <input
+          value={draft}
+          disabled={!project || busy || journal.kind !== "EMPTY"}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </label>
+      <div className="actions">
+        <Button
+          disabled={
+            !dirty ||
+            busy ||
+            mustRead ||
+            loadedRevision !== revision ||
+            journal.kind !== "EMPTY" ||
+            !transport.updateProject ||
+            !storage ||
+            !Number.isSafeInteger(revision)
+          }
+          onClick={() => void save()}
+        >
+          保存项目名称
+        </Button>
+        <Button
+          disabled={!dirty || busy}
+          onClick={() => {
+            if (project) setDraft(project.name);
+            setNotice("已取消未保存的项目名称草稿。");
+          }}
+        >
+          取消
+        </Button>
+        <Button disabled={busy || !storage} onClick={() => void readCurrent(false)}>
+          重新读取
+        </Button>
+        {journal.kind === "PENDING" && (
+          <Button disabled={busy} onClick={() => void readCurrent(true)}>
+            核对并结束未知记录
+          </Button>
+        )}
+      </div>
+      {!project && <p role="alert">当前项目记录尚未读取，不能修改名称。</p>}
+      {!transport.updateProject && <p role="alert">当前桌面版本缺少项目更新接口，不能保存名称。</p>}
+      {!storage && <p role="alert">本地更新记录不可用，不能安全提交。</p>}
+      {project && (!Number.isSafeInteger(revision) || (revision ?? 0) < 1) && (
+        <p role="alert">项目修订号不可用，请重新读取项目。</p>
+      )}
+      {project && loadedRevision !== revision && (
+        <p role="alert">项目修订已变化，请先重新读取后核对草稿。</p>
+      )}
+      {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取，已阻止保存。</p>}
+      {journal.kind === "PENDING" && <p role="alert">已有结果未知的项目更新，不会自动重试。</p>}
+      {notice && <p role="status">{notice}</p>}
     </div>
-    {!project && <p role="alert">当前项目记录尚未读取，不能修改名称。</p>}
-    {!transport.updateProject &&
-      <p role="alert">当前桌面版本缺少项目更新接口，不能保存名称。</p>}
-    {!storage && <p role="alert">本地更新记录不可用，不能安全提交。</p>}
-    {project && (!Number.isSafeInteger(revision) || (revision ?? 0) < 1) &&
-      <p role="alert">项目修订号不可用，请重新读取项目。</p>}
-    {project && loadedRevision !== revision &&
-      <p role="alert">项目修订已变化，请先重新读取后核对草稿。</p>}
-    {journal.kind === "BLOCKED" && <p role="alert">本地项目更新记录不可读取，已阻止保存。</p>}
-    {journal.kind === "PENDING" && <p role="alert">已有结果未知的项目更新，不会自动重试。</p>}
-    {notice && <p role="status">{notice}</p>}
-  </div>;
+  );
 }
 function formatMicros(amount: number) {
   const text = String(Math.abs(amount)).padStart(7, "0");
@@ -302,14 +374,23 @@ export function StoryPages() {
     const projectId = d.backendProjectId;
     const episodeId = d.selectedEpisodeId;
     const brief = d.productionBrief?.data;
-    const briefVersionId = d.productionBriefState === "ready" &&
+    const briefVersionId =
+      d.productionBriefState === "ready" &&
       brief?.project_id === projectId &&
       brief.head.latest_version_id === brief.version.id
-        ? brief.version.id : null;
-    return <EpisodeScriptEditor key={`${projectId ?? "none"}:${episodeId ?? "none"}`}
-      projectId={projectId} episodeId={episodeId} briefVersionId={briefVersionId}
-      episodeTitle={d.episodes.find((episode) => episode.id === episodeId)?.title}
-      setNavigationGuard={d.setNavigationGuard} onOpenSource={() => d.go("source")} />;
+        ? brief.version.id
+        : null;
+    return (
+      <EpisodeScriptEditor
+        key={`${projectId ?? "none"}:${episodeId ?? "none"}`}
+        projectId={projectId}
+        episodeId={episodeId}
+        briefVersionId={briefVersionId}
+        episodeTitle={d.episodes.find((episode) => episode.id === episodeId)?.title}
+        setNavigationGuard={d.setNavigationGuard}
+        onOpenSource={() => d.go("source")}
+      />
+    );
   }
   return <LegacyStoryPages />;
 }
@@ -326,8 +407,8 @@ function LegacyStoryPages() {
   useEffect(() => {
     if (d.isFixture || d.page !== "source") return;
     let discarded = false;
-    const hasDraft = () => !discarded &&
-      !!(pastedTextRef.current.trim() || live.current.value("input").trim());
+    const hasDraft = () =>
+      !discarded && !!(pastedTextRef.current.trim() || live.current.value("input").trim());
     d.setNavigationGuard(() => {
       if (!hasDraft()) return true;
       if (!window.confirm("有尚未保存的来源文本或原创灵感。放弃草稿并离开吗？")) return false;
@@ -348,17 +429,20 @@ function LegacyStoryPages() {
     };
   }, [d.page, d.isFixture, d.setNavigationGuard, pastedText, d.value("input")]);
   useEffect(() => {
-    if (d.page === "story" && !d.isFixture && d.backendProjectId)
-      void d.readRealStoryWorkspace();
+    if (d.page === "story" && !d.isFixture && d.backendProjectId) void d.readRealStoryWorkspace();
   }, [d.page, d.backendProjectId, d.isFixture]);
   const sourceVersion = d.value("sourceVersion", "1");
   const sourceNavigation = selectProductionSourceStage(d.sourceStage);
   const realSourcePage = d.page === "source" && !d.isFixture;
-  const latestSource = d.sourceManifest?.data.project_id === d.backendProjectId
-    ? d.sourceManifest.data.latest_version : null;
-  const sourceDocumentInLatest = !!d.sourceDocument && !!latestSource?.content.documents.some(
-    (document) => document.source_document_id === d.sourceDocument?.data.id,
-  );
+  const latestSource =
+    d.sourceManifest?.data.project_id === d.backendProjectId
+      ? d.sourceManifest.data.latest_version
+      : null;
+  const sourceDocumentInLatest =
+    !!d.sourceDocument &&
+    !!latestSource?.content.documents.some(
+      (document) => document.source_document_id === d.sourceDocument?.data.id,
+    );
   const showSourceStage = () => {
     if (sourceNavigation.target === "story") d.go("story");
     else if (sourceNavigation.target) d.go("source");
@@ -375,7 +459,9 @@ function LegacyStoryPages() {
     });
   const viewEvidence = () =>
     d.setEditor({
-      title: d.isFixture ? "原文依据 · 第一章" : `${d.value("importedName") || "当前来源"} · 已导入原文`,
+      title: d.isFixture
+        ? "原文依据 · 第一章"
+        : `${d.value("importedName") || "当前来源"} · 已导入原文`,
       description: d.value("source"),
       presentation: "drawer",
     });
@@ -394,10 +480,12 @@ function LegacyStoryPages() {
     const reviewedProjectId = d.backendProjectId;
     const reviewedSourceId = d.sourceDocument?.data.id;
     const reviewedIdentity = reviewedProjectId
-      ? sourceReviewIdentity(d.sourceManifest, reviewedProjectId) : null;
+      ? sourceReviewIdentity(d.sourceManifest, reviewedProjectId)
+      : null;
     d.setEditor({
-      title: d.isFixture ? `来源审核 · v${sourceVersion}` :
-        `来源审核 · V${latestSource?.version_number ?? "待核实"}`,
+      title: d.isFixture
+        ? `来源审核 · v${sourceVersion}`
+        : `来源审核 · V${latestSource?.version_number ?? "待核实"}`,
       description: reviewedSource,
       presentation: "drawer",
       confirm: "提交真实来源审核",
@@ -413,21 +501,29 @@ function LegacyStoryPages() {
           return "来源已变化，请关闭抽屉并重新核对。";
         if (!current.isFixture) {
           const identity = current.backendProjectId
-            ? sourceReviewIdentity(current.sourceManifest, current.backendProjectId) : null;
-          if (!reviewedProjectId || !reviewedSourceId || !reviewedIdentity ||
-              current.backendProjectId !== reviewedProjectId ||
-              current.sourceStage.kind !== "draft" ||
-              current.sourceDocument?.data.id !== reviewedSourceId ||
-              !identity || identity.version_id !== reviewedIdentity.version_id ||
-              identity.content_hash !== reviewedIdentity.content_hash ||
-              identity.expected_revision !== reviewedIdentity.expected_revision)
+            ? sourceReviewIdentity(current.sourceManifest, current.backendProjectId)
+            : null;
+          if (
+            !reviewedProjectId ||
+            !reviewedSourceId ||
+            !reviewedIdentity ||
+            current.backendProjectId !== reviewedProjectId ||
+            current.sourceStage.kind !== "draft" ||
+            current.sourceDocument?.data.id !== reviewedSourceId ||
+            !identity ||
+            identity.version_id !== reviewedIdentity.version_id ||
+            identity.content_hash !== reviewedIdentity.content_hash ||
+            identity.expected_revision !== reviewedIdentity.expected_revision
+          )
             return "项目或待审核来源已变化；请关闭抽屉并重新核对。";
         }
       },
       save: () => {
-        void d.reviewRealSource(reviewedIdentity ?? undefined, reviewedSourceId).then((submitted) => {
-          if (submitted && d.isFixture) d.go("story");
-        });
+        void d
+          .reviewRealSource(reviewedIdentity ?? undefined, reviewedSourceId)
+          .then((submitted) => {
+            if (submitted && d.isFixture) d.go("story");
+          });
       },
     });
   }
@@ -586,11 +682,15 @@ function LegacyStoryPages() {
       ],
       validate: () => {
         const current = live.current;
-        if (!current.isFixture && (!openedProjectId || current.backendProjectId !== openedProjectId))
+        if (
+          !current.isFixture &&
+          (!openedProjectId || current.backendProjectId !== openedProjectId)
+        )
           return "项目已变化，请关闭窗口后重新打开原创灵感草稿。";
         if (current.pendingProductionBrief) return "上次保存结果待确认，请先关闭窗口并恢复原操作。";
         if (current.productionBriefState === "loading") return "正在读取当前创作简报，请稍候。";
-        if (current.productionBriefState === "error") return "创作简报读取失败，请关闭窗口并重新读取。";
+        if (current.productionBriefState === "error")
+          return "创作简报读取失败，请关闭窗口并重新读取。";
       },
       save: async (data) => {
         if (openedProjectId && live.current.backendProjectId !== openedProjectId) {
@@ -624,8 +724,10 @@ function LegacyStoryPages() {
           (value) => optionalText(value) === null || optionalText(value)!.length <= 240,
         );
         if (
-          !data.origin?.trim() || [...data.origin].length > 4_000 ||
-          !data.premise?.trim() || !data.intent?.trim() ||
+          !data.origin?.trim() ||
+          [...data.origin].length > 4_000 ||
+          !data.premise?.trim() ||
+          !data.intent?.trim() ||
           !Number.isSafeInteger(width) ||
           !Number.isSafeInteger(height) ||
           width < 1 ||
@@ -722,9 +824,11 @@ function LegacyStoryPages() {
           d.notify("原创灵感已保存并读回，可选择剧集开始编写剧本。");
           return;
         }
-        d.notify(outcome.kind === "REMOTE_UNKNOWN"
-          ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
-          : "草稿未保存，请核对输入后重试。");
+        d.notify(
+          outcome.kind === "REMOTE_UNKNOWN"
+            ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
+            : "草稿未保存，请核对输入后重试。",
+        );
         return false;
       },
     });
@@ -892,8 +996,11 @@ function LegacyStoryPages() {
           right ? gcd(right, left % right) : left;
         const divisor = gcd(width, height);
         const frameRateDivisor = gcd(frameRateNum, frameRateDen);
-        if (live.current.pendingProductionBrief || live.current.productionBriefState === "loading" ||
-          live.current.productionBriefState === "error") {
+        if (
+          live.current.pendingProductionBrief ||
+          live.current.productionBriefState === "loading" ||
+          live.current.productionBriefState === "error"
+        ) {
           d.notify("当前创作简报尚未核实，请先重新读取或恢复原操作。");
           return false;
         }
@@ -946,11 +1053,13 @@ function LegacyStoryPages() {
           },
         } satisfies ProductionBriefCreateCommand;
         const outcome = await d.saveProductionBrief(command);
-        d.notify(outcome.kind === "SUCCEEDED"
-          ? "来源改编已保存并读回，可选择剧集开始编写剧本。"
-          : outcome.kind === "REMOTE_UNKNOWN"
-            ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
-            : "草稿未保存，请核对输入后重试。");
+        d.notify(
+          outcome.kind === "SUCCEEDED"
+            ? "来源改编已保存并读回，可选择剧集开始编写剧本。"
+            : outcome.kind === "REMOTE_UNKNOWN"
+              ? "草稿保存结果待确认；请关闭窗口并恢复原操作。"
+              : "草稿未保存，请核对输入后重试。",
+        );
         return outcome.kind === "SUCCEEDED" ? undefined : false;
       },
     });
@@ -1014,22 +1123,32 @@ function LegacyStoryPages() {
       d.sourceManifest?.data.accepted_version?.id !==
         briefContent.creative_entry.source_manifest_version_id ||
       d.sourceDocument?.data.id !== briefContent.creative_entry.source_document_id);
-  if (d.page === "story" && !d.isFixture) return <>
-    <PageTitle actions={<>
-      <Button onClick={() => d.go("source")}>来源与原创灵感</Button>
-      <Button onClick={() => d.go("script")}>编写分集剧本</Button>
-    </>} />
-    <div className="production-story-workspace">
-    <p className="v2-source-support" role="status">
-      {briefContent?.creative_entry.kind === "original_idea"
-        ? "当前作品采用原创灵感。可直接编写分集剧本；原创内容不会伪造原文引用。"
-        : `来源状态：${sourceNavigation.status}。先审核来源，再使用真实提取结果或手工编写剧本。`}
-    </p>
-    <SourceExtractionPanel projectId={d.backendProjectId}
-      sourceManifest={d.sourceManifest} sourceDocumentId={d.sourceDocument?.data.id ?? null}
-      sourceApproved={d.sourceStage.kind === "approved"} />
-    </div>
-  </>;
+  if (d.page === "story" && !d.isFixture)
+    return (
+      <>
+        <PageTitle
+          actions={
+            <>
+              <Button onClick={() => d.go("source")}>来源与原创灵感</Button>
+              <Button onClick={() => d.go("script")}>编写分集剧本</Button>
+            </>
+          }
+        />
+        <div className="production-story-workspace">
+          <p className="v2-source-support" role="status">
+            {briefContent?.creative_entry.kind === "original_idea"
+              ? "当前作品采用原创灵感。可直接编写分集剧本；原创内容不会伪造原文引用。"
+              : `来源状态：${sourceNavigation.status}。先审核来源，再使用真实提取结果或手工编写剧本。`}
+          </p>
+          <SourceExtractionPanel
+            projectId={d.backendProjectId}
+            sourceManifest={d.sourceManifest}
+            sourceDocumentId={d.sourceDocument?.data.id ?? null}
+            sourceApproved={d.sourceStage.kind === "approved"}
+          />
+        </div>
+      </>
+    );
   return (
     <>
       <PageTitle
@@ -1040,8 +1159,9 @@ function LegacyStoryPages() {
                 大屏预览
               </Button>
             )}
-            <Button disabled={!d.isFixture && !d.value("source").trim()}
-              onClick={viewEvidence}>查看原文</Button>
+            <Button disabled={!d.isFixture && !d.value("source").trim()} onClick={viewEvidence}>
+              查看原文
+            </Button>
           </>
         }
       />
@@ -1143,15 +1263,21 @@ function LegacyStoryPages() {
               <Button onClick={createOriginalBrief}>原创灵感</Button>
               <Button onClick={createAdaptationBrief}>基于已批准来源改编</Button>
               {!d.isFixture && <Button onClick={() => d.go("script")}>编写分集剧本</Button>}
-              {!d.isFixture && <Button disabled={d.productionBriefState === "loading"}
-                onClick={() => void d.refreshProductionBrief()}>重新读取创作简报</Button>}
+              {!d.isFixture && (
+                <Button
+                  disabled={d.productionBriefState === "loading"}
+                  onClick={() => void d.refreshProductionBrief()}
+                >
+                  重新读取创作简报
+                </Button>
+              )}
             </div>
-            {d.productionBriefState === "error" && <p role="alert">
-              创作简报尚未读取成功。请重新读取后再保存原创或改编简报。
-            </p>}
-            {!d.isFixture && d.value("input").trim() && <p role="status">
-              有尚未保存的原创灵感，请打开“原创灵感”补充并保存创作简报。
-            </p>}
+            {d.productionBriefState === "error" && (
+              <p role="alert">创作简报尚未读取成功。请重新读取后再保存原创或改编简报。</p>
+            )}
+            {!d.isFixture && d.value("input").trim() && (
+              <p role="status">有尚未保存的原创灵感，请打开“原创灵感”补充并保存创作简报。</p>
+            )}
             <input
               ref={file}
               type="file"
@@ -1163,11 +1289,16 @@ function LegacyStoryPages() {
                 e.target.value = "";
               }}
             />
-            {d.isFixture ? <label className="v2-source-name">
-              项目名称（样例）
-              <input value={d.value("title")} onChange={(e) => d.put("title", e.target.value)} />
-            </label> : d.backendProjectId &&
-              <ProjectNameEditor key={d.backendProjectId} projectId={d.backendProjectId} />}
+            {d.isFixture ? (
+              <label className="v2-source-name">
+                项目名称（样例）
+                <input value={d.value("title")} onChange={(e) => d.put("title", e.target.value)} />
+              </label>
+            ) : (
+              d.backendProjectId && (
+                <ProjectNameEditor key={d.backendProjectId} projectId={d.backendProjectId} />
+              )
+            )}
             <p className="v2-source-support">
               外部原文会由本地工作区摄取；原创灵感不创建来源。审核结果未知时不会自动重试。
             </p>
@@ -1271,8 +1402,8 @@ function LegacyStoryPages() {
                   {briefContent?.creative_entry.kind === "original_idea"
                     ? "原创灵感已保存，不绑定外部原文引用。"
                     : adaptationNeedsRecheck
-                    ? "当前来源已变化，改编草稿需要重新核对焦点后才能保存新版本。"
-                    : "当前来源与改编焦点一致。"}
+                      ? "当前来源已变化，改编草稿需要重新核对焦点后才能保存新版本。"
+                      : "当前来源与改编焦点一致。"}
                 </p>
               </details>
             )}
@@ -1313,22 +1444,25 @@ function LegacyStoryPages() {
                 {d.sourceStage.kind === "review" && (
                   <Button onClick={confirmSourceBaseline}>确认来源审核基线</Button>
                 )}
-                {sourceNavigation.target && (d.isFixture || sourceNavigation.target === "story") && (
-                  <Button onClick={showSourceStage}>{sourceNavigation.label}</Button>
-                )}
+                {sourceNavigation.target &&
+                  (d.isFixture || sourceNavigation.target === "story") && (
+                    <Button onClick={showSourceStage}>{sourceNavigation.label}</Button>
+                  )}
               </div>
             </Card>
             <Card title="隐私边界" icon="review">
               <p>提交后会由本地工作区核对来源；尚未接受的版本会保持待审状态。</p>
-              {d.isFixture && <button
-                className="text-button v2-source-reset"
-                onClick={() => {
-                  replaceSource(sourceText);
-                  d.put("importedName", "");
-                }}
-              >
-                恢复内置样例
-              </button>}
+              {d.isFixture && (
+                <button
+                  className="text-button v2-source-reset"
+                  onClick={() => {
+                    replaceSource(sourceText);
+                    d.put("importedName", "");
+                  }}
+                >
+                  恢复内置样例
+                </button>
+              )}
             </Card>
           </div>
         </div>
@@ -1540,40 +1674,59 @@ function LegacyStoryPages() {
         }
         label={
           d.page === "source"
-            ? !realSourcePage ? "开始理解故事"
-              : d.sourceStage.kind === "draft" ? "提交来源审核"
-              : d.sourceStage.kind === "review" ? "确认来源审核基线"
-              : d.sourceStage.kind === "approved" ? "查看故事工作区"
-              : "来源暂不可推进"
+            ? !realSourcePage
+              ? "开始理解故事"
+              : d.sourceStage.kind === "draft"
+                ? "提交来源审核"
+                : d.sourceStage.kind === "review"
+                  ? "确认来源审核基线"
+                  : d.sourceStage.kind === "approved"
+                    ? "查看故事工作区"
+                    : "来源暂不可推进"
             : d.page === "story"
-              ? d.isFixture ? "确认故事理解" : "故事设定确认未接入"
+              ? d.isFixture
+                ? "确认故事理解"
+                : "故事设定确认未接入"
               : "确认样例剧本"
         }
         reason={
           d.page === "source"
-            ? !realSourcePage ? "当前选择：内置故事样例"
+            ? !realSourcePage
+              ? "当前选择：内置故事样例"
               : d.sourceStage.kind === "draft" && !sourceDocumentInLatest
                 ? "尚未核实当前来源文档与最新清单一致"
                 : `真实来源状态：${sourceNavigation.status}；审核与批准以本地清单读回为准`
             : d.page === "story"
-              ? d.isFixture ? "样例初稿 · 确认仅改变演示状态"
+              ? d.isFixture
+                ? "样例初稿 · 确认仅改变演示状态"
                 : "故事卡片为演示内容；来源批准状态以本地清单读回为准"
               : "剧本文本可局部滚动 · 画布与操作栏固定"
         }
-        disabled={(d.page === "story" && !d.isFixture) ||
-          d.page === "source" && (realSourcePage
-          ? d.sourceStage.kind === "draft"
-            ? !sourceDocumentInLatest || !d.value("source").trim() ||
-              d.sourceImportState.kind === "pending" || d.sourceImportState.kind === "unknown"
-            : d.sourceStage.kind !== "review" && d.sourceStage.kind !== "approved"
-          : !d.value("source").trim())}
+        disabled={
+          (d.page === "story" && !d.isFixture) ||
+          (d.page === "source" &&
+            (realSourcePage
+              ? d.sourceStage.kind === "draft"
+                ? !sourceDocumentInLatest ||
+                  !d.value("source").trim() ||
+                  d.sourceImportState.kind === "pending" ||
+                  d.sourceImportState.kind === "unknown"
+                : d.sourceStage.kind !== "review" && d.sourceStage.kind !== "approved"
+              : !d.value("source").trim()))
+        }
         action={
           d.page === "source"
-            ? !realSourcePage || d.sourceStage.kind === "draft" ? reviewSource
-              : d.sourceStage.kind === "review" ? confirmSourceBaseline
-              : d.sourceStage.kind === "approved" ? () => d.go("story") : () => {}
+            ? !realSourcePage || d.sourceStage.kind === "draft"
+              ? reviewSource
+              : d.sourceStage.kind === "review"
+                ? confirmSourceBaseline
+                : d.sourceStage.kind === "approved"
+                  ? () => d.go("story")
+                  : () => {}
             : d.page === "story"
-              ? d.isFixture ? confirmStory : () => {}
+              ? d.isFixture
+                ? confirmStory
+                : () => {}
               : () => {
                   d.put("scriptSaved", "true");
                   d.notify("剧本演示版本已确认");

@@ -6,15 +6,15 @@
 
 ## 固定布局
 
-| 目录 | 内容与所有者 |
-| --- | --- |
-| `app/` | Electron 主进程、preload、编译后的全部运行模块及可执行的应用包元数据；DEV07 负责现有桌面入口与运行时模块。 |
+| 目录                                  | 内容与所有者                                                                                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`                                | Electron 主进程、preload、编译后的全部运行模块及可执行的应用包元数据；DEV07 负责现有桌面入口与运行时模块。                                                                 |
 | `app/node_modules/@aijian/contracts/` | DEV07 的 `scripts/build-contracts-runtime.mjs` 输出目录全部文件：runtime `package.json`、三个 JS export 和三个声明文件。不得把指向 `src/*.ts` 的开发包直接复制入发行输入。 |
-| `resources/renderer/` | `apps/studio-web/dist` 的完整构建输出，入口为 `index.html`；它是桌面内嵌界面。 |
-| `resources/sidecar/` | 固定的 `aijian-sidecar.exe` 及其运行所需文件；DEV07 从此目录受控启动，用户无需预装 Python。 |
-| `resources/config/` | 只读媒体工具锁。后端从可信资源根读取，不从任意工作目录猜测。 |
-| `resources/media/` | 获发行许可且成对锁定 SHA256 的 FFmpeg/FFprobe；当前开发工具不得复制到这里。 |
-| `build/` | 固定 SHA 的 `electron-builder.json` 与 `installer.nsh`；只供安装器构建，不进入应用资源。 |
+| `resources/renderer/`                 | `apps/studio-web/dist` 的完整构建输出，入口为 `index.html`；它是桌面内嵌界面。                                                                                             |
+| `resources/sidecar/`                  | 固定的 `aijian-sidecar.exe` 及其运行所需文件；DEV07 从此目录受控启动，用户无需预装 Python。                                                                                |
+| `resources/config/`                   | 只读媒体工具锁。后端从可信资源根读取，不从任意工作目录猜测。                                                                                                               |
+| `resources/media/`                    | 获发行许可且成对锁定 SHA256 的 FFmpeg/FFprobe；当前开发工具不得复制到这里。                                                                                                |
+| `build/`                              | 固定 SHA 的 `electron-builder.json` 与 `installer.nsh`；只供安装器构建，不进入应用资源。                                                                                   |
 
 `app/dist/main.js`、`app/dist/preload.js`、`resources/renderer/index.html`、`resources/sidecar/aijian-sidecar.exe` 和媒体锁/工具是暂存门的必需角色。其余 Electron JS、renderer assets、sidecar 资源、字体、许可证原文和 NOTICE 也须逐文件列进固定清单；脚本只核清单中的文件，不替经理判断清单是否穷尽。包内路径由每项 `destination` 明示，哈希为原文件 SHA256。
 

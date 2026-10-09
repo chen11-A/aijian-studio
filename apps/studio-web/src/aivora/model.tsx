@@ -493,7 +493,9 @@ function useDemoModel(fixture?: DemoFixture) {
         : [outcome.receipt.data, ...old],
     );
     put("episode", outcome.receipt.data.title);
-    return persistSelection(withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }));
+    return persistSelection(
+      withWorkspaceSelection(selectionSnapshot.current, { projectId, episodeId }),
+    );
   }
   async function refreshRealEpisodes(
     projectId = currentBackendProjectId(),
@@ -1151,8 +1153,12 @@ function useDemoModel(fixture?: DemoFixture) {
     capturedSourceDocumentId?: string,
   ) {
     const projectId = currentBackendProjectId();
-    if (!projectId || !capturedIdentity || capturedIdentity.project_id !== projectId ||
-        !capturedSourceDocumentId) {
+    if (
+      !projectId ||
+      !capturedIdentity ||
+      capturedIdentity.project_id !== projectId ||
+      !capturedSourceDocumentId
+    ) {
       notify("当前项目或来源审核目标未核实，未发送审核。");
       return false;
     }
@@ -1175,13 +1181,17 @@ function useDemoModel(fixture?: DemoFixture) {
         return false;
       }
       const identity = sourceReviewIdentity(manifest, projectId);
-      if (!manifest || !identity || sourceStageFromManifest(manifest, projectId).kind !== "draft" ||
-          identity.version_id !== capturedIdentity.version_id ||
-          identity.content_hash !== capturedIdentity.content_hash ||
-          identity.expected_revision !== capturedIdentity.expected_revision ||
-          !manifest.data.latest_version.content.documents.some(
-            (document) => document.source_document_id === capturedSourceDocumentId,
-          )) {
+      if (
+        !manifest ||
+        !identity ||
+        sourceStageFromManifest(manifest, projectId).kind !== "draft" ||
+        identity.version_id !== capturedIdentity.version_id ||
+        identity.content_hash !== capturedIdentity.content_hash ||
+        identity.expected_revision !== capturedIdentity.expected_revision ||
+        !manifest.data.latest_version.content.documents.some(
+          (document) => document.source_document_id === capturedSourceDocumentId,
+        )
+      ) {
         notify("来源审核目标已变化；请刷新清单并重新核对，未发送审核。");
         return false;
       }
@@ -1412,12 +1422,19 @@ function useDemoModel(fixture?: DemoFixture) {
     let active = true;
     void readAppPreferences(studio as AppPreferencesGateway).then((result) => {
       if (!active || result.kind !== "READY") return;
-      setValues((old) => old.userName === "本地用户" && old.bio === undefined
-        ? { ...old, userName: result.response.data.user_name || "本地用户",
-            bio: result.response.data.display_bio }
-        : old);
+      setValues((old) =>
+        old.userName === "本地用户" && old.bio === undefined
+          ? {
+              ...old,
+              userName: result.response.data.user_name || "本地用户",
+              bio: result.response.data.display_bio,
+            }
+          : old,
+      );
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [fixture, studio]);
   useEffect(() => {
     const pop = () => {

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { createStudioTransport } from "../api/studio";
-import {
-  parseAssetReceipt, readAssetLibrary,
-} from "./adapters/assetLibrary";
+import { parseAssetReceipt, readAssetLibrary } from "./adapters/assetLibrary";
 import type { AssetLibraryListState, MediaAsset } from "./adapters/assetLibrary";
 import { art } from "./data";
 import { useDemo } from "./model";
@@ -274,13 +272,15 @@ export function AssetsPage() {
   if (d.isFixture) return <SampleAssetsPage />;
   if (d.backendProjectId)
     return <RealAssetsPage key={d.backendProjectId} projectId={d.backendProjectId} />;
-  return <>
-    <PageTitle />
-    <div className="v2-assets-body" role="status">
-      <p>请先选择真实项目，再读取项目素材。</p>
-      <Button onClick={() => d.go("project")}>选择项目</Button>
-    </div>
-  </>;
+  return (
+    <>
+      <PageTitle />
+      <div className="v2-assets-body" role="status">
+        <p>请先选择真实项目，再读取项目素材。</p>
+        <Button onClick={() => d.go("project")}>选择项目</Button>
+      </div>
+    </>
+  );
 }
 
 function SampleAssetsPage() {
@@ -476,11 +476,16 @@ function assetDescription(asset: MediaAsset): string {
     "文件状态：" + availability,
     "权利状态：" + (version.rights_status === "PENDING_REVIEW" ? "待审核" : version.rights_status),
     "来源：本地导入；技术状态以已保存的探测记录为准，不代表正式制作验收。",
-    "历史版本：" + asset.versions.map((item) => item.ordinal + " / " + item.id +
-      " / " + item.availability).join("；"),
-    "剧集引用：" + (asset.episode_references.length
-      ? asset.episode_references.map((item) => item.episode_id + " / " + item.version_id +
-        " / " + item.role).join("；") : "暂无"),
+    "历史版本：" +
+      asset.versions
+        .map((item) => item.ordinal + " / " + item.id + " / " + item.availability)
+        .join("；"),
+    "剧集引用：" +
+      (asset.episode_references.length
+        ? asset.episode_references
+            .map((item) => item.episode_id + " / " + item.version_id + " / " + item.role)
+            .join("；")
+        : "暂无"),
   ].join("\n");
 }
 
@@ -500,8 +505,11 @@ function assetUnknownKey(projectId: string): string {
 }
 
 function assetWriteUnknown(projectId: string): boolean {
-  try { return window.localStorage.getItem(assetUnknownKey(projectId)) !== null; }
-  catch { return true; }
+  try {
+    return window.localStorage.getItem(assetUnknownKey(projectId)) !== null;
+  } catch {
+    return true;
+  }
 }
 
 function RealAssetsPage({ projectId }: { projectId: string }) {
@@ -519,12 +527,17 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
   const [writeUnknown, setWriteUnknown] = useState(() => assetWriteUnknown(projectId));
   const [notice, setNotice] = useState("");
   const [mediaPreview, setMediaPreview] = useState<{
-    url: string; filename: string; kind: "video" | "audio";
+    url: string;
+    filename: string;
+    kind: "video" | "audio";
   } | null>(null);
   const [mediaNotice, setMediaNotice] = useState("");
   const lockUnknownWrite = () => {
-    try { window.localStorage.setItem(assetUnknownKey(projectId), "1"); }
-    catch { /* An unavailable journal must leave this page locked. */ }
+    try {
+      window.localStorage.setItem(assetUnknownKey(projectId), "1");
+    } catch {
+      /* An unavailable journal must leave this page locked. */
+    }
     setWriteUnknown(true);
   };
   useEffect(() => {
@@ -539,16 +552,19 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
   const query = d.value("assetQuery");
   const mediaType = d.value("assetType", "全部");
   const category = d.value("assetCategory", "全部");
-  const refresh = useCallback(async (manual = false) => {
-    const request = ++epoch.current;
-    const next = await readAssetLibrary(gateway, projectId);
-    if (request !== epoch.current) return next;
-    setState(next);
-    if (next.kind === "READY" && manual) {
-      setNotice("已重新读取项目素材；请核对资产 ID、版本和文件状态。若有未知写入，仍保持锁定。");
-    }
-    return next;
-  }, [gateway, projectId]);
+  const refresh = useCallback(
+    async (manual = false) => {
+      const request = ++epoch.current;
+      const next = await readAssetLibrary(gateway, projectId);
+      if (request !== epoch.current) return next;
+      setState(next);
+      if (next.kind === "READY" && manual) {
+        setNotice("已重新读取项目素材；请核对资产 ID、版本和文件状态。若有未知写入，仍保持锁定。");
+      }
+      return next;
+    },
+    [gateway, projectId],
+  );
   useEffect(() => {
     setState({ kind: "LOADING" });
     setSelectedId("");
@@ -558,25 +574,31 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
     setWriteUnknown(assetWriteUnknown(projectId));
     setNotice("");
     void refresh();
-    return () => { epoch.current += 1; activeProject.current = ""; };
+    return () => {
+      epoch.current += 1;
+      activeProject.current = "";
+    };
   }, [refresh]);
 
   const assets = state.kind === "READY" ? state.assets : [];
   const typeMap: Record<string, string> = { 图片: "image", 视频: "video", 音频: "audio" };
-  const list = assets.filter((asset) =>
-    (category === "全部" || category === "本地导入") &&
-    (mediaType === "全部" || asset.latest_version.kind === typeMap[mediaType]) &&
-    asset.latest_version.filename.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const list = assets.filter(
+    (asset) =>
+      (category === "全部" || category === "本地导入") &&
+      (mediaType === "全部" || asset.latest_version.kind === typeMap[mediaType]) &&
+      asset.latest_version.filename.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  );
   const selected = list.find((asset) => asset.id === selectedId) ?? list[0];
   const episodeId = d.selectedEpisodeId;
 
   async function importAsset(asset?: MediaAsset) {
     if (!gateway || busy || writeUnknown || activeProject.current !== projectId) return;
     setBusy(true);
-    const result = await (asset
-      ? gateway.importProjectMediaAssetVersionFromPicker(projectId, asset.id)
-      : gateway.importProjectMediaAssetFromPicker(projectId)).catch(() =>
-        ({ kind: "REMOTE_UNKNOWN" as const }));
+    const result = await (
+      asset
+        ? gateway.importProjectMediaAssetVersionFromPicker(projectId, asset.id)
+        : gateway.importProjectMediaAssetFromPicker(projectId)
+    ).catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
     setBusy(false);
     if (result.kind === "CANCELLED") return;
     if (result.kind === "REMOTE_UNKNOWN") {
@@ -617,7 +639,8 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
     }
     const request = epoch.current;
     setBusy(true);
-    const result = await gateway.readProjectMediaAssetPreview(projectId, asset.id, version.id)
+    const result = await gateway
+      .readProjectMediaAssetPreview(projectId, asset.id, version.id)
       .catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
     if (epoch.current !== request || activeProject.current !== projectId) {
       if (activeProject.current === projectId) setBusy(false);
@@ -625,19 +648,27 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
     }
     setBusy(false);
     if (result.kind !== "READY") {
-      setNotice(result.kind === "DEFINITE_SERVER_ERROR"
-        ? "预览不可用：" + result.status + " / " + result.code
-        : "预览读回未知；请刷新素材状态。");
+      setNotice(
+        result.kind === "DEFINITE_SERVER_ERROR"
+          ? "预览不可用：" + result.status + " / " + result.code
+          : "预览读回未知；请刷新素材状态。",
+      );
       return;
     }
-    if (!(result.bytes instanceof Uint8Array) || result.bytes.byteLength !== version.byte_size ||
-        result.sha256 !== version.sha256 || result.mime_type !== version.mime_type) {
+    if (
+      !(result.bytes instanceof Uint8Array) ||
+      result.bytes.byteLength !== version.byte_size ||
+      result.sha256 !== version.sha256 ||
+      result.mime_type !== version.mime_type
+    ) {
       setNotice("预览身份、大小或哈希与版本不符；未显示文件。");
       return;
     }
     if (version.kind !== "image") {
-      if ((version.kind === "video" && !["video/webm", "video/mp4"].includes(version.mime_type)) ||
-          (version.kind === "audio" && !["audio/wav", "audio/mpeg"].includes(version.mime_type))) {
+      if (
+        (version.kind === "video" && !["video/webm", "video/mp4"].includes(version.mime_type)) ||
+        (version.kind === "audio" && !["audio/wav", "audio/mpeg"].includes(version.mime_type))
+      ) {
         setNotice("原件媒体类型不在当前播放器支持范围；未显示文件。");
         return;
       }
@@ -645,7 +676,9 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         const copy = new ArrayBuffer(result.bytes.byteLength);
         new Uint8Array(copy).set(result.bytes);
         const url = URL.createObjectURL(new Blob([copy], { type: result.mime_type }));
-        setMediaNotice("已读回并核对原始字节；探测状态请查看此版本的探测记录，原件播放不代表正式制作验收。");
+        setMediaNotice(
+          "已读回并核对原始字节；探测状态请查看此版本的探测记录，原件播放不代表正式制作验收。",
+        );
         setMediaPreview({ url, filename: version.filename, kind: version.kind });
       } catch {
         setNotice("原件字节已读回，但本地播放器无法创建预览。");
@@ -655,59 +688,79 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
     try {
       const image = await imageDataUrl(result.bytes, result.mime_type);
       if (epoch.current !== request || activeProject.current !== projectId) return;
-      d.setEditor({ title: version.filename, image,
-        presentation: "drawer", description: assetDescription(asset) });
+      d.setEditor({
+        title: version.filename,
+        image,
+        presentation: "drawer",
+        description: assetDescription(asset),
+      });
     } catch {
       setNotice("预览字节无法显示；素材状态仍需核对。");
     }
   }
 
   function details(asset: MediaAsset) {
-    const reference = asset.episode_references.find((item) =>
-      item.episode_id === episodeId && item.role === "project-reference");
+    const reference = asset.episode_references.find(
+      (item) => item.episode_id === episodeId && item.role === "project-reference",
+    );
     d.setEditor({
       title: asset.latest_version.filename,
       presentation: "drawer",
       description: assetDescription(asset),
-      ...(episodeId && gateway ? {
-        confirm: reference ? "解除本集引用" : "引用最新版本到本集",
-        save: async () => {
-          if (busy || writeUnknown || activeProject.current !== projectId) return false;
-          setBusy(true);
-          const result = await (reference
-            ? gateway.removeProjectMediaAssetEpisodeReference(projectId, asset.id,
-                { episode_id: episodeId, role: "project-reference" })
-            : gateway.addProjectMediaAssetEpisodeReference(projectId, asset.id,
-                { episode_id: episodeId, version_id: asset.latest_version.id,
-                  role: "project-reference" })).catch(() =>
-                    ({ kind: "REMOTE_UNKNOWN" as const }));
-          setBusy(false);
-          if (result.kind === "REMOTE_UNKNOWN") {
-            lockUnknownWrite();
-            setNotice("引用操作结果未知；请先刷新项目素材，不自动重试。");
-            return false;
+      ...(episodeId && gateway
+        ? {
+            confirm: reference ? "解除本集引用" : "引用最新版本到本集",
+            save: async () => {
+              if (busy || writeUnknown || activeProject.current !== projectId) return false;
+              setBusy(true);
+              const result = await (
+                reference
+                  ? gateway.removeProjectMediaAssetEpisodeReference(projectId, asset.id, {
+                      episode_id: episodeId,
+                      role: "project-reference",
+                    })
+                  : gateway.addProjectMediaAssetEpisodeReference(projectId, asset.id, {
+                      episode_id: episodeId,
+                      version_id: asset.latest_version.id,
+                      role: "project-reference",
+                    })
+              ).catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
+              setBusy(false);
+              if (result.kind === "REMOTE_UNKNOWN") {
+                lockUnknownWrite();
+                setNotice("引用操作结果未知；请先刷新项目素材，不自动重试。");
+                return false;
+              }
+              if (result.kind === "DEFINITE_SERVER_ERROR") {
+                setNotice("引用操作被拒绝：" + result.status + " / " + result.code);
+                return false;
+              }
+              if (!parseAssetReceipt(result.receipt, projectId, asset.id)) {
+                lockUnknownWrite();
+                setNotice("引用回执身份不符；请刷新项目素材。");
+                return false;
+              }
+              setNotice(reference ? "已解除本集显式引用。" : "已引用该资产版本到本集。");
+              await refresh();
+            },
           }
-          if (result.kind === "DEFINITE_SERVER_ERROR") {
-            setNotice("引用操作被拒绝：" + result.status + " / " + result.code);
-            return false;
-          }
-          if (!parseAssetReceipt(result.receipt, projectId, asset.id)) {
-            lockUnknownWrite();
-            setNotice("引用回执身份不符；请刷新项目素材。");
-            return false;
-          }
-          setNotice(reference ? "已解除本集显式引用。" : "已引用该资产版本到本集。");
-          await refresh();
-        },
-      } : {}),
+        : {}),
     });
   }
 
   async function deleteSelected() {
-    if (!gateway || !selected || busy || writeUnknown || activeProject.current !== projectId ||
-        selected.episode_references.length) return false;
+    if (
+      !gateway ||
+      !selected ||
+      busy ||
+      writeUnknown ||
+      activeProject.current !== projectId ||
+      selected.episode_references.length
+    )
+      return false;
     setBusy(true);
-    const result = await gateway.deleteProjectMediaAsset(projectId, selected.id)
+    const result = await gateway
+      .deleteProjectMediaAsset(projectId, selected.id)
       .catch(() => ({ kind: "REMOTE_UNKNOWN" as const }));
     setBusy(false);
     if (result.kind === "DELETED") {
@@ -716,106 +769,216 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
       await refresh();
     } else {
       if (result.kind === "REMOTE_UNKNOWN") lockUnknownWrite();
-      setNotice(result.kind === "DEFINITE_SERVER_ERROR"
-        ? "删除被拒绝：" + result.status + " / " + result.code +
-          "。被引用的素材不可删除。"
-        : "删除结果未知；请先刷新项目素材，不自动重试。");
+      setNotice(
+        result.kind === "DEFINITE_SERVER_ERROR"
+          ? "删除被拒绝：" + result.status + " / " + result.code + "。被引用的素材不可删除。"
+          : "删除结果未知；请先刷新项目素材，不自动重试。",
+      );
       return false;
     }
   }
 
-  return <>
-    {mediaPreview && <dialog ref={mediaDialog} className="demo-dialog"
-      aria-label={`${mediaPreview.filename} 原件预览`}
-      onClose={() => setMediaPreview(null)}>
-      <h2>{mediaPreview.filename} · 原件预览</h2>
-      <p>仅播放已读回并核对字节身份的本地原件；不代表媒体探测、生成视频或正式成片通过。</p>
-      {mediaPreview.kind === "video"
-        ? <video src={mediaPreview.url} controls preload="metadata"
-            style={{ maxWidth: "min(80vw, 960px)", maxHeight: "65vh" }}
-            onPlaying={() => setMediaNotice("本地播放器正在播放已校验的原始视频文件。")}
-            onError={() => setMediaNotice("本地播放器无法解码或播放该原件；素材存储校验状态不因此改变。")}/>
-        : <audio src={mediaPreview.url} controls preload="metadata"
-            onPlaying={() => setMediaNotice("本地播放器正在播放已校验的原始音频文件。")}
-            onError={() => setMediaNotice("本地播放器无法解码或播放该原件；素材存储校验状态不因此改变。")}/>}
-      <p role="status">{mediaNotice}</p>
-      <Button onClick={() => setMediaPreview(null)}>关闭预览</Button>
-    </dialog>}
-    <PageTitle actions={<>
-      <Button onClick={() => void refresh(true)}>刷新素材</Button>
-      <Button disabled={!selected || busy || writeUnknown}
-        onClick={() => selected && void importAsset(selected)}>导入新版本</Button>
-      <Button disabled={!selected || busy || writeUnknown ||
-        !!selected?.episode_references.length}
-        onClick={() => selected && d.setEditor({
-          title: "删除素材",
-          presentation: "drawer",
-          description: "即将从当前项目素材库软删除 " + selected.latest_version.filename +
-            "（" + selected.id + "）。已引用的素材会由服务端拒绝删除。",
-          confirm: "确认删除素材",
-          save: deleteSelected,
-        })}>删除素材</Button>
-    </>} />
-    <div className="v2-assets-body">
-      {writeUnknown && <p role="alert">先前素材写入结果未知或本地记录不可用；已锁定新写入。请保留原始回执并核对权威记录。</p>}
-      <div className="v2-assets-toolbar">
-        <div role="group" aria-label="素材类型">
-          {["全部", "图片", "视频", "音频", "文档"].map((type) => <button key={type}
-            className={mediaType === type ? "selected" : ""}
-            aria-pressed={mediaType === type}
-            onClick={() => d.put("assetType", type)}>{type}</button>)}
+  return (
+    <>
+      {mediaPreview && (
+        <dialog
+          ref={mediaDialog}
+          className="demo-dialog"
+          aria-label={`${mediaPreview.filename} 原件预览`}
+          onClose={() => setMediaPreview(null)}
+        >
+          <h2>{mediaPreview.filename} · 原件预览</h2>
+          <p>仅播放已读回并核对字节身份的本地原件；不代表媒体探测、生成视频或正式成片通过。</p>
+          {mediaPreview.kind === "video" ? (
+            <video
+              src={mediaPreview.url}
+              controls
+              preload="metadata"
+              style={{ maxWidth: "min(80vw, 960px)", maxHeight: "65vh" }}
+              onPlaying={() => setMediaNotice("本地播放器正在播放已校验的原始视频文件。")}
+              onError={() =>
+                setMediaNotice("本地播放器无法解码或播放该原件；素材存储校验状态不因此改变。")
+              }
+            />
+          ) : (
+            <audio
+              src={mediaPreview.url}
+              controls
+              preload="metadata"
+              onPlaying={() => setMediaNotice("本地播放器正在播放已校验的原始音频文件。")}
+              onError={() =>
+                setMediaNotice("本地播放器无法解码或播放该原件；素材存储校验状态不因此改变。")
+              }
+            />
+          )}
+          <p role="status">{mediaNotice}</p>
+          <Button onClick={() => setMediaPreview(null)}>关闭预览</Button>
+        </dialog>
+      )}
+      <PageTitle
+        actions={
+          <>
+            <Button onClick={() => void refresh(true)}>刷新素材</Button>
+            <Button
+              disabled={!selected || busy || writeUnknown}
+              onClick={() => selected && void importAsset(selected)}
+            >
+              导入新版本
+            </Button>
+            <Button
+              disabled={!selected || busy || writeUnknown || !!selected?.episode_references.length}
+              onClick={() =>
+                selected &&
+                d.setEditor({
+                  title: "删除素材",
+                  presentation: "drawer",
+                  description:
+                    "即将从当前项目素材库软删除 " +
+                    selected.latest_version.filename +
+                    "（" +
+                    selected.id +
+                    "）。已引用的素材会由服务端拒绝删除。",
+                  confirm: "确认删除素材",
+                  save: deleteSelected,
+                })
+              }
+            >
+              删除素材
+            </Button>
+          </>
+        }
+      />
+      <div className="v2-assets-body">
+        {writeUnknown && (
+          <p role="alert">
+            先前素材写入结果未知或本地记录不可用；已锁定新写入。请保留原始回执并核对权威记录。
+          </p>
+        )}
+        <div className="v2-assets-toolbar">
+          <div role="group" aria-label="素材类型">
+            {["全部", "图片", "视频", "音频", "文档"].map((type) => (
+              <button
+                key={type}
+                className={mediaType === type ? "selected" : ""}
+                aria-pressed={mediaType === type}
+                onClick={() => d.put("assetType", type)}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          <Button disabled={!gateway || busy || writeUnknown} onClick={() => void importAsset()}>
+            导入素材
+          </Button>
         </div>
-        <Button disabled={!gateway || busy || writeUnknown}
-          onClick={() => void importAsset()}>导入素材</Button>
+        <p role="status">
+          {mediaTools.message}{" "}
+          {mediaTools.canProbe
+            ? "视频探测以选中版本的探测记录为准；导入原件记录本身不是探测证据。"
+            : "仍可导入原件并尝试使用系统解码器播放；原件导入不代表已完成媒体探测。"}
+        </p>
+        {selected?.latest_version.kind === "video" && (
+          <MediaAssetProbe
+            projectId={projectId}
+            asset={selected}
+            gateway={probeGateway}
+            canProbe={mediaTools.canProbe}
+            disabled={busy || writeUnknown}
+          />
+        )}
+        <div className="v2-assets-grid">
+          {state.kind !== "READY" ? (
+            <div className="v2-visual-empty" role="status">
+              <h2>
+                {state.kind === "LOADING"
+                  ? "正在读取项目素材"
+                  : state.kind === "UNAVAILABLE"
+                    ? "当前版本缺少素材库接口"
+                    : "素材库尚未读回"}
+              </h2>
+              <p>
+                {state.kind === "DEFINITE_SERVER_ERROR"
+                  ? "服务端返回 " + state.status + " / " + state.code
+                  : state.kind === "INVALID_RESPONSE"
+                    ? "素材回执身份或版本不一致。"
+                    : state.kind === "LOADING"
+                      ? "正在核对资产版本与引用。"
+                      : "请刷新项目素材，核对服务状态。"}
+              </p>
+            </div>
+          ) : !list.length ? (
+            <div className="v2-visual-empty" role="status">
+              <h2>{assets.length ? "没有匹配的素材" : "项目尚无素材"}</h2>
+              <p>真实项目素材由本地工作区保存；内置设计样例不计入项目资产。</p>
+            </div>
+          ) : (
+            list.map((asset) => (
+              <article key={asset.id} className="v2-assets-card">
+                <button
+                  className="v2-assets-card-image"
+                  aria-label={"预览" + asset.latest_version.filename}
+                  onClick={() => {
+                    setSelectedId(asset.id);
+                    void preview(asset);
+                  }}
+                >
+                  <span>
+                    {asset.latest_version.kind === "image"
+                      ? "图片"
+                      : asset.latest_version.kind === "video"
+                        ? "视频"
+                        : "音频"}
+                    <br />
+                    {asset.latest_version.availability === "VERIFIED"
+                      ? "已校验"
+                      : asset.latest_version.availability === "PRESENT_UNVERIFIED"
+                        ? "待校验"
+                        : "不可用"}
+                  </span>
+                </button>
+                <Button
+                  aria-pressed={selected?.id === asset.id}
+                  onClick={() => setSelectedId(asset.id)}
+                >
+                  选择 {asset.latest_version.filename}
+                </Button>
+                <button
+                  className="v2-assets-card-info"
+                  aria-label={asset.latest_version.filename + "详情与引用"}
+                  onClick={() => {
+                    setSelectedId(asset.id);
+                    details(asset);
+                  }}
+                >
+                  <strong>{asset.latest_version.filename}</strong>
+                  <small>
+                    本地导入 · 第 {asset.latest_version.ordinal} 版 ·{" "}
+                    {asset.latest_version.rights_status === "PENDING_REVIEW"
+                      ? "权利待审核"
+                      : asset.latest_version.rights_status === "CLEARED"
+                        ? "权利已放行"
+                        : "权利受限"}
+                    {asset.episode_references.length ? " · 已引用" : ""}
+                  </small>
+                </button>
+              </article>
+            ))
+          )}
+        </div>
       </div>
-      <p role="status">{mediaTools.message} {mediaTools.canProbe
-        ? "视频探测以选中版本的探测记录为准；导入原件记录本身不是探测证据。"
-        : "仍可导入原件并尝试使用系统解码器播放；原件导入不代表已完成媒体探测。"}</p>
-      {selected?.latest_version.kind === "video" && <MediaAssetProbe
-        projectId={projectId} asset={selected} gateway={probeGateway}
-        canProbe={mediaTools.canProbe} disabled={busy || writeUnknown} />}
-      <div className="v2-assets-grid">
-        {state.kind !== "READY" ? <div className="v2-visual-empty" role="status">
-          <h2>{state.kind === "LOADING" ? "正在读取项目素材" :
-            state.kind === "UNAVAILABLE" ? "当前版本缺少素材库接口" : "素材库尚未读回"}</h2>
-          <p>{state.kind === "DEFINITE_SERVER_ERROR"
-            ? "服务端返回 " + state.status + " / " + state.code
-            : state.kind === "INVALID_RESPONSE" ? "素材回执身份或版本不一致。"
-            : state.kind === "LOADING" ? "正在核对资产版本与引用。" :
-              "请刷新项目素材，核对服务状态。"}</p>
-        </div> : !list.length ? <div className="v2-visual-empty" role="status">
-          <h2>{assets.length ? "没有匹配的素材" : "项目尚无素材"}</h2>
-          <p>真实项目素材由本地工作区保存；内置设计样例不计入项目资产。</p>
-        </div> : list.map((asset) => <article key={asset.id} className="v2-assets-card">
-          <button className="v2-assets-card-image"
-            aria-label={"预览" + asset.latest_version.filename}
-            onClick={() => { setSelectedId(asset.id); void preview(asset); }}>
-            <span>{asset.latest_version.kind === "image" ? "图片" :
-              asset.latest_version.kind === "video" ? "视频" : "音频"}<br />
-              {asset.latest_version.availability === "VERIFIED" ? "已校验" :
-                asset.latest_version.availability === "PRESENT_UNVERIFIED" ? "待校验" :
-                  "不可用"}</span>
-          </button>
-          <Button aria-pressed={selected?.id === asset.id}
-            onClick={() => setSelectedId(asset.id)}>选择 {asset.latest_version.filename}</Button>
-          <button className="v2-assets-card-info"
-            aria-label={asset.latest_version.filename + "详情与引用"}
-            onClick={() => { setSelectedId(asset.id); details(asset); }}>
-            <strong>{asset.latest_version.filename}</strong>
-            <small>本地导入 · 第 {asset.latest_version.ordinal} 版 · {asset.latest_version.rights_status === "PENDING_REVIEW"
-              ? "权利待审核" : asset.latest_version.rights_status === "CLEARED"
-                ? "权利已放行" : "权利受限"}
-              {asset.episode_references.length ? " · 已引用" : ""}</small>
-          </button>
-        </article>)}
-      </div>
-    </div>
-    <FlowFooter label="查看选中素材" secondaryLabel="返回项目"
-      secondaryAction={() => d.go("project")}
-      reason={notice || (state.kind === "READY"
-        ? "项目素材 " + assets.length + " 项 · 引用按资产和版本 ID 保存"
-        : "仅权威项目素材可供后续制作引用")}
-      disabled={!selected || busy}
-      action={() => selected && details(selected)} />
-  </>;
+      <FlowFooter
+        label="查看选中素材"
+        secondaryLabel="返回项目"
+        secondaryAction={() => d.go("project")}
+        reason={
+          notice ||
+          (state.kind === "READY"
+            ? "项目素材 " + assets.length + " 项 · 引用按资产和版本 ID 保存"
+            : "仅权威项目素材可供后续制作引用")
+        }
+        disabled={!selected || busy}
+        action={() => selected && details(selected)}
+      />
+    </>
+  );
 }

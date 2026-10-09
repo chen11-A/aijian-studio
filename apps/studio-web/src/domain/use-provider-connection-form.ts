@@ -42,16 +42,21 @@ export function useProviderConnectionForm(
     setModelError(null);
   }, []);
 
-  const setModel = useCallback((capability: Capability, value: string) => {
-    if (providerKind === "SUB2API" && capability !== "TEXT") return;
-    setModels((current) => ({ ...current, [capability]: value }));
-  }, [providerKind]);
+  const setModel = useCallback(
+    (capability: Capability, value: string) => {
+      if (providerKind === "SUB2API" && capability !== "TEXT") return;
+      setModels((current) => ({ ...current, [capability]: value }));
+    },
+    [providerKind],
+  );
 
   const submit = useCallback(() => {
     if (providerKind === "SUB2API") {
       if (sub2apiMode === "LOCAL_LOOPBACK_HTTP") {
         if (!isLiteralSub2APILoopbackOrigin(baseUrl.trim())) {
-          setModelError("本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口；端口须显式填写 1–65535，不能使用 localhost、路径或重定向地址。");
+          setModelError(
+            "本机地址只接受 http://127.0.0.1:端口 或 http://[::1]:端口；端口须显式填写 1–65535，不能使用 localhost、路径或重定向地址。",
+          );
           return;
         }
       } else {
@@ -63,10 +68,18 @@ export function useProviderConnectionForm(
           setModelError("Sub2API 须填写自己的公网 HTTPS 服务地址，仅填域名和可选端口。");
           return;
         }
-        if (origin.protocol !== "https:" || !/^https:\/\/[^/?#]+$/.test(rawOrigin) ||
-            rawOrigin.includes("\\") || rawOrigin.includes("%") || /\s/.test(rawOrigin) ||
-            origin.username || origin.password || origin.pathname !== "/" ||
-            origin.search || origin.hash) {
+        if (
+          origin.protocol !== "https:" ||
+          !/^https:\/\/[^/?#]+$/.test(rawOrigin) ||
+          rawOrigin.includes("\\") ||
+          rawOrigin.includes("%") ||
+          /\s/.test(rawOrigin) ||
+          origin.username ||
+          origin.password ||
+          origin.pathname !== "/" ||
+          origin.search ||
+          origin.hash
+        ) {
           setModelError("Sub2API 地址须为 HTTPS origin，不含路径、账号、查询参数或片段。");
           return;
         }
@@ -75,8 +88,12 @@ export function useProviderConnectionForm(
         setModelError("Sub2API 须填写至少 8 字符的业务 API Key。");
         return;
       }
-      if (!models.TEXT.trim() || models.IMAGE.trim() ||
-          models.VIDEO.trim() || models.SPEECH.trim()) {
+      if (
+        !models.TEXT.trim() ||
+        models.IMAGE.trim() ||
+        models.VIDEO.trim() ||
+        models.SPEECH.trim()
+      ) {
         setModelError("Sub2API 首批只接受显式 TEXT 模型 ID，不接受图片、视频或配音模型。");
         return;
       }
@@ -86,9 +103,14 @@ export function useProviderConnectionForm(
       setModelError("至少填写一个用于剧本、图片、视频或配音的模型 ID。");
       return;
     }
-    if (providerKind === "SUB2API" && sub2apiMode === "LOCAL_LOOPBACK_HTTP" &&
-        !sub2apiOriginModeWritesReady) {
-      setModelError("本机 Sub2API 模式尚待生成合同、桌面桥接与迁移链验收；已核对输入，但未保存或连接网关。");
+    if (
+      providerKind === "SUB2API" &&
+      sub2apiMode === "LOCAL_LOOPBACK_HTTP" &&
+      !sub2apiOriginModeWritesReady
+    ) {
+      setModelError(
+        "本机 Sub2API 模式尚待生成合同、桌面桥接与迁移链验收；已核对输入，但未保存或连接网关。",
+      );
       return;
     }
     setModelError(null);
@@ -99,7 +121,8 @@ export function useProviderConnectionForm(
       enabled: true,
       models: compiledModels,
       ...(providerKind === "SUB2API" && sub2apiOriginModeWritesReady
-        ? { origin_mode: sub2apiMode } : {}),
+        ? { origin_mode: sub2apiMode }
+        : {}),
       ...(apiKey.length > 0 ? { api_key: apiKey } : {}),
     };
     void onSubmit(input).then(

@@ -20,8 +20,15 @@ export type ProjectUpdateResult =
 
 const PROJECT_ID_PATTERN = /^prj_[0-9a-f]{32}$/;
 const PROJECT_DATA_KEYS = [
-  "id", "name", "aspect_ratio", "target_duration_seconds", "source_language",
-  "status", "revision", "created_at", "updated_at",
+  "id",
+  "name",
+  "aspect_ratio",
+  "target_duration_seconds",
+  "source_language",
+  "status",
+  "revision",
+  "created_at",
+  "updated_at",
 ];
 const ERROR_CODES = new Map<number, string>([
   [401, "SIDECAR_AUTH_REQUIRED"],
@@ -34,8 +41,10 @@ const ERROR_CODES = new Map<number, string>([
 ]);
 
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  return Object.keys(value).length === keys.length &&
-    keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+  return (
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+  );
 }
 
 export function isProjectUpdateId(value: unknown): value is string {
@@ -43,11 +52,21 @@ export function isProjectUpdateId(value: unknown): value is string {
 }
 
 export function normalizeProjectUpdateCommand(value: unknown): ProjectUpdateCommand | null {
-  if (!isRecord(value) || !Object.keys(value).every((key) =>
-    key === "expectedRevision" || key === "name" || key === "status")) return null;
+  if (
+    !isRecord(value) ||
+    !Object.keys(value).every(
+      (key) => key === "expectedRevision" || key === "name" || key === "status",
+    )
+  )
+    return null;
   const revision = value.expectedRevision;
-  if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 1 ||
-      revision >= Number.MAX_SAFE_INTEGER) return null;
+  if (
+    typeof revision !== "number" ||
+    !Number.isSafeInteger(revision) ||
+    revision < 1 ||
+    revision >= Number.MAX_SAFE_INTEGER
+  )
+    return null;
   const hasName = Object.prototype.hasOwnProperty.call(value, "name");
   const hasStatus = Object.prototype.hasOwnProperty.call(value, "status");
   if (!hasName && !hasStatus) return null;
@@ -72,10 +91,17 @@ export function isProjectUpdateReceipt(
   etag: string | null,
   requestId: string | null,
 ): value is ProjectResponse {
-  if (!isRecord(value) || !hasExactKeys(value, ["data", "request_id"]) ||
-      !hasRequestId(value) || value.request_id !== requestId || !isRecord(value.data)) return false;
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    !hasRequestId(value) ||
+    value.request_id !== requestId ||
+    !isRecord(value.data)
+  )
+    return false;
   const data = value.data;
-  return hasExactKeys(data, PROJECT_DATA_KEYS) &&
+  return (
+    hasExactKeys(data, PROJECT_DATA_KEYS) &&
     data.id === projectId &&
     typeof data.name === "string" &&
     data.aspect_ratio === "9:16" &&
@@ -91,7 +117,8 @@ export function isProjectUpdateReceipt(
     typeof data.updated_at === "string" &&
     (command.name === undefined || data.name === command.name) &&
     (command.status === undefined || data.status === command.status) &&
-    etag === `"revision-${data.revision}"`;
+    etag === `"revision-${data.revision}"`
+  );
 }
 
 export function projectUpdateDefiniteError(
@@ -99,14 +126,25 @@ export function projectUpdateDefiniteError(
   value: unknown,
   requestId: string | null,
 ): Extract<ProjectUpdateResult, { kind: "DEFINITE_SERVER_ERROR" }> | null {
-  if (!isRecord(value) || !hasExactKeys(value, ["error", "request_id"]) ||
-      !hasRequestId(value) || value.request_id !== requestId || !isRecord(value.error) ||
-      !hasExactKeys(value.error, ["code", "message", "retryable", "details"])) return null;
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["error", "request_id"]) ||
+    !hasRequestId(value) ||
+    value.request_id !== requestId ||
+    !isRecord(value.error) ||
+    !hasExactKeys(value.error, ["code", "message", "retryable", "details"])
+  )
+    return null;
   const error = value.error;
-  if (typeof error.code !== "string" || error.code !== ERROR_CODES.get(status) ||
-      typeof error.message !== "string" ||
-      error.retryable !== false || !isRecord(error.details) ||
-      Object.values(error.details).some((detail) => typeof detail !== "string")) return null;
+  if (
+    typeof error.code !== "string" ||
+    error.code !== ERROR_CODES.get(status) ||
+    typeof error.message !== "string" ||
+    error.retryable !== false ||
+    !isRecord(error.details) ||
+    Object.values(error.details).some((detail) => typeof detail !== "string")
+  )
+    return null;
   return {
     kind: "DEFINITE_SERVER_ERROR",
     status: status as Extract<ProjectUpdateResult, { kind: "DEFINITE_SERVER_ERROR" }>["status"],

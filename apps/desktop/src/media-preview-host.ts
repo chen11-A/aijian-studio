@@ -5,7 +5,8 @@ import type { MediaPreviewResult } from "./media-preview-session-contract";
 // Keep every command fail closed until the pinned plan, binary, and clock are verified.
 export function createUnavailableMediaPreviewHost(): MediaPreviewSessionHost {
   const unavailable = async (): Promise<MediaPreviewResult> => ({
-    kind: "UNAVAILABLE", reason: "NATIVE_HOST_NOT_INSTALLED",
+    kind: "UNAVAILABLE",
+    reason: "NATIVE_HOST_NOT_INSTALLED",
   });
   return {
     open: unavailable,

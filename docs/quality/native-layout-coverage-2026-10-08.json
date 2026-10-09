@@ -5,22 +5,10 @@
   "test_project": "harbor desktop check",
   "content_changes": "None; switched between existing episode 1 and empty episode two, then restored episode 1. No saves, imports, or remote calls.",
   "sizes": [
-    [
-      1178,
-      814
-    ],
-    [
-      1364,
-      920
-    ],
-    [
-      1005,
-      688
-    ],
-    [
-      980,
-      680
-    ]
+    [1178, 814],
+    [1364, 920],
+    [1005, 688],
+    [980, 680]
   ],
   "route_count_declared": 23,
   "route_count_observed": 21,
@@ -82,10 +70,7 @@
     {
       "id": "story",
       "observed": true,
-      "evidence": [
-        "02-story-normal.png",
-        "75-story-fixed-minimum.png"
-      ]
+      "evidence": ["02-story-normal.png", "75-story-fixed-minimum.png"]
     },
     {
       "id": "script",
@@ -116,18 +101,12 @@
     {
       "id": "world",
       "observed": true,
-      "evidence": [
-        "06-world-normal.png",
-        "72-world-fixed-minimum.png"
-      ]
+      "evidence": ["06-world-normal.png", "72-world-fixed-minimum.png"]
     },
     {
       "id": "scenes",
       "observed": true,
-      "evidence": [
-        "07-scenes-normal.png",
-        "73-scenes-fixed-minimum.png"
-      ]
+      "evidence": ["07-scenes-normal.png", "73-scenes-fixed-minimum.png"]
     },
     {
       "id": "storyboard",
@@ -145,9 +124,7 @@
     {
       "id": "generation",
       "observed": true,
-      "evidence": [
-        "10-assembly-normal.png"
-      ]
+      "evidence": ["10-assembly-normal.png"]
     },
     {
       "id": "assembly",
@@ -225,10 +202,7 @@
     {
       "id": "costs",
       "observed": true,
-      "evidence": [
-        "48-costs-fixed-normal.png",
-        "100-costs-minimum.png"
-      ]
+      "evidence": ["48-costs-fixed-normal.png", "100-costs-minimum.png"]
     },
     {
       "id": "settings",

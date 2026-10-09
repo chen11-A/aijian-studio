@@ -12,15 +12,23 @@ import type {
 } from "./adapters/draftExport";
 import { staticAnimaticContent, type AssemblyVersion } from "./adapters/episodeMediaAssembly";
 const mediaStatus: MediaToolchainStatus = {
-  schema_version: 1, state: "AVAILABLE", source: "EXTERNAL",
-  profile_id: "windows-x86_64-gyan-full-8.1.2-dev", version: "8.1.2", directory: "C:\\Tools\\bin",
-  diagnostic: "Verified", can_probe: true, can_preview: true, can_draft_export: true,
+  schema_version: 1,
+  state: "AVAILABLE",
+  source: "EXTERNAL",
+  profile_id: "windows-x86_64-gyan-full-8.1.2-dev",
+  version: "8.1.2",
+  directory: "C:\\Tools\\bin",
+  diagnostic: "Verified",
+  can_probe: true,
+  can_preview: true,
+  can_draft_export: true,
   formal_release_approved: false,
 };
 function setMediaStatus(status: MediaToolchainStatus) {
   window.aijian = {
     getMediaToolchainStatus: vi.fn().mockResolvedValue({ kind: "STATUS", status }),
-    selectMediaToolchain: vi.fn(), clearMediaToolchain: vi.fn(),
+    selectMediaToolchain: vi.fn(),
+    clearMediaToolchain: vi.fn(),
   } as unknown as AijianDesktopBridge;
 }
 const projectId = `prj_${"1".repeat(32)}`;
@@ -171,8 +179,17 @@ afterEach(() => {
 
 describe("saved composition playback", () => {
   it("keeps verified output playback available but blocks new encoding without runtime capability", async () => {
-    setMediaStatus({ ...mediaStatus, state: "NOT_CONFIGURED", source: "NONE", directory: null,
-      profile_id: null, version: null, can_probe: false, can_preview: false, can_draft_export: false });
+    setMediaStatus({
+      ...mediaStatus,
+      state: "NOT_CONFIGURED",
+      source: "NONE",
+      directory: null,
+      profile_id: null,
+      version: null,
+      can_probe: false,
+      can_preview: false,
+      can_draft_export: false,
+    });
     const state = setup([succeeded()]);
     render(
       <SavedCompositionPreview

@@ -6,9 +6,7 @@ export type ProviderPendingWrite =
   | { kind: "rotation"; connectionId: string; expectedRevision: number; operationId: string };
 
 export type ProviderJournalState =
-  | { kind: "empty" }
-  | { kind: "pending"; write: ProviderPendingWrite }
-  | { kind: "blocked" };
+  { kind: "empty" } | { kind: "pending"; write: ProviderPendingWrite } | { kind: "blocked" };
 
 const CONNECTION = /^pcn_[0-9a-f]{32}$/;
 const OPERATION = /^pcop_[0-9a-f]{32}$/;
@@ -26,25 +24,37 @@ export function readProviderJournal(connectionId: string): ProviderJournalState 
     if (!parsed || typeof parsed !== "object") return { kind: "blocked" };
     const value = parsed as Record<string, unknown>;
     if (value.connectionId !== connectionId) return { kind: "blocked" };
-    if (value.kind === "rotation" && typeof value.operationId === "string" &&
-        OPERATION.test(value.operationId) && Number.isSafeInteger(value.expectedRevision) &&
-        Number(value.expectedRevision) >= 1)
+    if (
+      value.kind === "rotation" &&
+      typeof value.operationId === "string" &&
+      OPERATION.test(value.operationId) &&
+      Number.isSafeInteger(value.expectedRevision) &&
+      Number(value.expectedRevision) >= 1
+    )
       return { kind: "pending", write: value as unknown as ProviderPendingWrite };
     if (value.kind === "metadata" && value.command && typeof value.command === "object") {
       const command = value.command as Record<string, unknown>;
-      if (Number.isSafeInteger(command.expected_revision) &&
-          Number(command.expected_revision) >= 1 &&
-          typeof command.display_name === "string" &&
-          typeof command.base_url === "string" &&
-          (!Object.prototype.hasOwnProperty.call(command, "origin_mode") ||
-            command.origin_mode === "PUBLIC_HTTPS" ||
-            (command.origin_mode === "LOCAL_LOOPBACK_HTTP" &&
-              isLiteralSub2APILoopbackOrigin(command.base_url))) &&
-          typeof command.enabled === "boolean" && Array.isArray(command.models) &&
-          command.models.every((model) => model && typeof model === "object" &&
+      if (
+        Number.isSafeInteger(command.expected_revision) &&
+        Number(command.expected_revision) >= 1 &&
+        typeof command.display_name === "string" &&
+        typeof command.base_url === "string" &&
+        (!Object.prototype.hasOwnProperty.call(command, "origin_mode") ||
+          command.origin_mode === "PUBLIC_HTTPS" ||
+          (command.origin_mode === "LOCAL_LOOPBACK_HTTP" &&
+            isLiteralSub2APILoopbackOrigin(command.base_url))) &&
+        typeof command.enabled === "boolean" &&
+        Array.isArray(command.models) &&
+        command.models.every(
+          (model) =>
+            model &&
+            typeof model === "object" &&
             typeof model.model_id === "string" &&
-            Array.isArray(model.capabilities) && model.capabilities.length === 1 &&
-            model.capabilities[0] === "TEXT"))
+            Array.isArray(model.capabilities) &&
+            model.capabilities.length === 1 &&
+            model.capabilities[0] === "TEXT",
+        )
+      )
         return { kind: "pending", write: value as unknown as ProviderPendingWrite };
     }
     return { kind: "blocked" };
@@ -54,8 +64,11 @@ export function readProviderJournal(connectionId: string): ProviderJournalState 
 }
 
 export function persistProviderWrite(write: ProviderPendingWrite): boolean {
-  if (!CONNECTION.test(write.connectionId) ||
-      readProviderJournal(write.connectionId).kind !== "empty") return false;
+  if (
+    !CONNECTION.test(write.connectionId) ||
+    readProviderJournal(write.connectionId).kind !== "empty"
+  )
+    return false;
   try {
     const serialized = JSON.stringify(write);
     window.localStorage.setItem(key(write.connectionId), serialized);

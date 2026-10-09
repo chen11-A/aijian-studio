@@ -11,7 +11,15 @@ import { registerEpisodeMediaAssemblyHandlers } from "./episode-media-assembly-i
 import { lstatSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell, type IpcMainInvokeEvent } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  safeStorage,
+  shell,
+  type IpcMainInvokeEvent,
+} from "electron";
 
 import {
   createLocalApiClient,
@@ -64,11 +72,12 @@ import {
   resolveProductionBriefTopFrameClient,
 } from "./production-brief-ipc";
 import { resolveE2EUserDataDirectory } from "./e2e-user-data";
+import { createSidecarExtractionTemp, type SidecarExtractionTemp } from "./sidecar-extraction-temp";
 import {
-  createSidecarExtractionTemp, type SidecarExtractionTemp,
-} from "./sidecar-extraction-temp";
-import {
-  SidecarStartupError, startSidecar, type SidecarHandle, type StartSidecarOptions,
+  SidecarStartupError,
+  startSidecar,
+  type SidecarHandle,
+  type StartSidecarOptions,
 } from "./sidecar-process";
 import { createSourceManifestReviewController } from "./source-manifest-review";
 import { registerSourceManifestReviewHandlers } from "./source-manifest-review-ipc";
@@ -110,8 +119,10 @@ function developmentSidecarOptions(): StartSidecarOptions {
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
-        ? { AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
-            AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK: process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK }
+        ? {
+            AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+            AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK: process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK,
+          }
         : {}),
       PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
     },
@@ -121,8 +132,7 @@ function developmentSidecarOptions(): StartSidecarOptions {
 function plainResource(path: string, kind: "directory" | "file"): boolean {
   try {
     const info = lstatSync(path);
-    return !info.isSymbolicLink() &&
-      (kind === "directory" ? info.isDirectory() : info.isFile());
+    return !info.isSymbolicLink() && (kind === "directory" ? info.isDirectory() : info.isFile());
   } catch {
     return false;
   }
@@ -133,9 +143,13 @@ function packagedResourceRoot(): string {
     throw new Error("Packaged resources require a Windows installation");
   }
   const rawRoot = process.resourcesPath;
-  if (typeof rawRoot !== "string" || rawRoot.length === 0 ||
-      !isAbsolute(rawRoot) || rawRoot.startsWith("\\\\") ||
-      rawRoot.split(/[\\/]/).includes("..")) {
+  if (
+    typeof rawRoot !== "string" ||
+    rawRoot.length === 0 ||
+    !isAbsolute(rawRoot) ||
+    rawRoot.startsWith("\\\\") ||
+    rawRoot.split(/[\\/]/).includes("..")
+  ) {
     throw new Error("Packaged resource root is invalid");
   }
   const root = resolve(rawRoot);
@@ -148,18 +162,18 @@ function packagedResourceRoot(): string {
 function packagedSidecarOptions(): StartSidecarOptions {
   const resourceRoot = packagedResourceRoot();
   const sidecarDirectory = join(resourceRoot, "sidecar");
-  if (!plainResource(sidecarDirectory, "directory") ||
-      !plainResource(join(resourceRoot, "config"), "directory") ||
-      !plainResource(join(resourceRoot, "config", "media-toolchain-lock.json"), "file") ||
-      !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")) {
+  if (
+    !plainResource(sidecarDirectory, "directory") ||
+    !plainResource(join(resourceRoot, "config"), "directory") ||
+    !plainResource(join(resourceRoot, "config", "media-toolchain-lock.json"), "file") ||
+    !plainResource(join(sidecarDirectory, "aijian-sidecar.exe"), "file")
+  ) {
     throw new Error("Packaged sidecar resources are unavailable");
   }
   const workspaceDirectory = join(app.getPath("userData"), "workspace");
   let extraction: SidecarExtractionTemp;
   try {
-    extraction = createSidecarExtractionTemp(
-      process.env.LOCALAPPDATA, process.env.USERPROFILE,
-    );
+    extraction = createSidecarExtractionTemp(process.env.LOCALAPPDATA, process.env.USERPROFILE);
   } catch {
     throw new SidecarStartupError("STARTUP_UNKNOWN");
   }
@@ -180,8 +194,7 @@ function packagedSidecarOptions(): StartSidecarOptions {
 function packagedRendererIndex(): string {
   const rendererDirectory = join(packagedResourceRoot(), "renderer");
   const index = join(rendererDirectory, "index.html");
-  if (!plainResource(rendererDirectory, "directory") ||
-      !plainResource(index, "file")) {
+  if (!plainResource(rendererDirectory, "directory") || !plainResource(index, "file")) {
     throw new Error("Packaged renderer is unavailable");
   }
   return index;
@@ -213,9 +226,9 @@ function createMainWindow(): BrowserWindow {
     mainWindow = null;
   });
 
-  void window.loadFile(app.isPackaged
-    ? packagedRendererIndex()
-    : join(__dirname, "../../studio-web/dist/index.html"));
+  void window.loadFile(
+    app.isPackaged ? packagedRendererIndex() : join(__dirname, "../../studio-web/dist/index.html"),
+  );
   return window;
 }
 
@@ -228,39 +241,52 @@ function clientFor(event: IpcMainInvokeEvent): LocalApiClient {
 
 let chatgptRuntime: ReturnType<typeof createChatGPTRuntime> | null = null;
 function getChatGPTRuntime() {
-    chatgptRuntime ??= createChatGPTRuntime({
-      store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
-      fetch: globalThis.fetch,
-      openBrowser: (url) => shell.openExternal(url),
-      confirmText: async (request) => {
-        const window = mainWindow;
-        if (!window) return false;
-        const result = await dialog.showMessageBox(window, {
-          type: "question", title: "确认一次 ChatGPT 文本请求", defaultId: 1, cancelId: 1,
-          buttons: ["批准这一次请求", "取消"],
-          message: `向 OpenAI 发送文本并使用 ${request.modelLabel} 生成一次草稿？`,
-          detail: `账号：${request.profileLabel}\n${request.approvalContext ?? ""}\n操作：${request.operationId}\n\n将发送完整输入（${request.text.length} 字符）和指令（${request.instructions?.length ?? 0} 字符）。本次仅允许一次请求，消耗 ChatGPT 套餐或现有积分；不自动重试。实际消耗由 OpenAI 决定，请先确认账号用量限制。结果需在 AIVORA 审阅后采用。\n\n输入：\n${request.text}\n\n指令：\n${request.instructions ?? "无"}`,
-        });
-        return result.response === 0;
-      },
-      confirmSignIn: async (scope, signal) => {
-        const window = mainWindow;
-        if (!window) return false;
-        const scopes = { LOCAL_PERSONAL: "个人本机项目", OPEN_SOURCE: "开源项目", APPROVED_PRIVATE: "已获 OpenAI 批准的私有应用" };
-        const result = await dialog.showMessageBox(window, {
-          type: "question", title: "ChatGPT 官方账号授权", defaultId: 1, cancelId: 1, signal,
-          buttons: ["继续并打开系统浏览器", "取消"],
-          message: "允许 AIVORA 注册或重新连接 ChatGPT，并在本机加密保存登录凭据？",
-          detail: `你确认此次软件用于：${scopes[scope]}。这是软件接入资格，不是账号套餐；具体权限将在 OpenAI 页面另行确认。这不会代替 OpenAI 对商业/托管应用的资格批准。\n\n浏览器中由你登录 OpenAI 并审阅权限。AIVORA 将获取经验证的账号标识和邮箱，申请使用 ChatGPT 套餐及后续刷新权限，并由系统保护本机保存的凭据。凭据不会进入项目文件或 Sub2API。你可随时退出并在 ChatGPT 用量设置撤销访问。\n\n本次只进行登录，不发送剧本或执行模型推理。`,
-        });
-        return result.response === 0;
-      },
-    });
-    return chatgptRuntime;
+  chatgptRuntime ??= createChatGPTRuntime({
+    store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    confirmText: async (request) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "确认一次 ChatGPT 文本请求",
+        defaultId: 1,
+        cancelId: 1,
+        buttons: ["批准这一次请求", "取消"],
+        message: `向 OpenAI 发送文本并使用 ${request.modelLabel} 生成一次草稿？`,
+        detail: `账号：${request.profileLabel}\n${request.approvalContext ?? ""}\n操作：${request.operationId}\n\n将发送完整输入（${request.text.length} 字符）和指令（${request.instructions?.length ?? 0} 字符）。本次仅允许一次请求，消耗 ChatGPT 套餐或现有积分；不自动重试。实际消耗由 OpenAI 决定，请先确认账号用量限制。结果需在 AIVORA 审阅后采用。\n\n输入：\n${request.text}\n\n指令：\n${request.instructions ?? "无"}`,
+      });
+      return result.response === 0;
+    },
+    confirmSignIn: async (scope, signal) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const scopes = {
+        LOCAL_PERSONAL: "个人本机项目",
+        OPEN_SOURCE: "开源项目",
+        APPROVED_PRIVATE: "已获 OpenAI 批准的私有应用",
+      };
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "ChatGPT 官方账号授权",
+        defaultId: 1,
+        cancelId: 1,
+        signal,
+        buttons: ["继续并打开系统浏览器", "取消"],
+        message: "允许 AIVORA 注册或重新连接 ChatGPT，并在本机加密保存登录凭据？",
+        detail: `你确认此次软件用于：${scopes[scope]}。这是软件接入资格，不是账号套餐；具体权限将在 OpenAI 页面另行确认。这不会代替 OpenAI 对商业/托管应用的资格批准。\n\n浏览器中由你登录 OpenAI 并审阅权限。AIVORA 将获取经验证的账号标识和邮箱，申请使用 ChatGPT 套餐及后续刷新权限，并由系统保护本机保存的凭据。凭据不会进入项目文件或 Sub2API。你可随时退出并在 ChatGPT 用量设置撤销访问。\n\n本次只进行登录，不发送剧本或执行模型推理。`,
+      });
+      return result.response === 0;
+    },
+  });
+  return chatgptRuntime;
 }
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
-  (event) => mainWindow !== null && event.sender === mainWindow.webContents &&
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
   getChatGPTRuntime,
   (url) => shell.openExternal(url),
@@ -278,14 +304,11 @@ const episodeClientFor = createTopLevelEpisodeClientFor(
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
 
-registerMediaToolchainHandlers(
-  (channel, listener) => ipcMain.handle(channel, listener),
-  {
-    getMainWindow: () => mainWindow,
-    getClient: () => apiClient,
-    showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
-  },
-);
+registerMediaToolchainHandlers((channel, listener) => ipcMain.handle(channel, listener), {
+  getMainWindow: () => mainWindow,
+  getClient: () => apiClient,
+  showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
+});
 
 registerAppPreferencesHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -295,10 +318,14 @@ registerAppPreferencesHandlers<IpcMainInvokeEvent>(
 registerMediaAssetProbeHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
-  (event) => mainWindow !== null && !mainWindow.isDestroyed() &&
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
     !mainWindow.webContents.isDestroyed() &&
     event.senderFrame === mainWindow.webContents.mainFrame &&
-    event.senderFrame !== null && !event.senderFrame.isDestroyed() && !event.senderFrame.detached,
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached,
 );
 registerMediaAssetHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -308,7 +335,7 @@ registerMediaAssetHandlers<IpcMainInvokeEvent>(
     const window = mainWindow;
     if (window === null) throw new Error("Media asset file picker is unavailable");
     const selected = await dialog.showOpenDialog(window, { properties: ["openFile"] });
-    return selected.canceled ? null : selected.filePaths[0] ?? null;
+    return selected.canceled ? null : (selected.filePaths[0] ?? null);
   },
 );
 registerSub2APIConfiguredReadinessHandler<IpcMainInvokeEvent>(
@@ -355,7 +382,7 @@ registerDraftExportHandlers<IpcMainInvokeEvent>(
       filters: [{ name: "草稿 MP4", extensions: ["mp4"] }],
       buttonLabel: "保存草稿",
     });
-    return selected.canceled ? null : selected.filePath ?? null;
+    return selected.canceled ? null : (selected.filePath ?? null);
   },
   (operationId) => prepareCompositionPreviewPath(app.getPath("userData"), operationId),
 );
@@ -450,11 +477,8 @@ registerProposalRunHandlers<IpcMainInvokeEvent>(
 );
 registerRemoteSourceExtractHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
-  (event) => resolveRemoteSourceExtractTopFrameClient(
-    event,
-    mainWindow?.webContents.mainFrame,
-    clientFor,
-  ),
+  (event) =>
+    resolveRemoteSourceExtractTopFrameClient(event, mainWindow?.webContents.mainFrame, clientFor),
 );
 registerVersionedSourceExtractionProposalHandler<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -561,8 +585,7 @@ async function startApplication(): Promise<void> {
 }
 
 void startApplication().catch((error: unknown) => {
-  console.error(error instanceof SidecarStartupError
-    ? error.classification : "STARTUP_UNKNOWN");
+  console.error(error instanceof SidecarStartupError ? error.classification : "STARTUP_UNKNOWN");
   app.quit();
 });
 

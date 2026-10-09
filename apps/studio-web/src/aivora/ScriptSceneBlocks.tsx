@@ -61,9 +61,7 @@ export function ScriptSceneBlocks({
                     updateScene(selected.scene_id, (scene) => ({
                       ...scene,
                       blocks: scene.blocks.map((item) =>
-                        item.block_id === block.block_id
-                          ? { ...item, speaker }
-                          : item,
+                        item.block_id === block.block_id ? { ...item, speaker } : item,
                       ),
                     }));
                   }}
@@ -79,9 +77,7 @@ export function ScriptSceneBlocks({
                     updateScene(selected.scene_id, (scene) => ({
                       ...scene,
                       blocks: scene.blocks.map((item) =>
-                        item.block_id === block.block_id
-                          ? { ...item, delivery }
-                          : item,
+                        item.block_id === block.block_id ? { ...item, delivery } : item,
                       ),
                     }));
                   }}

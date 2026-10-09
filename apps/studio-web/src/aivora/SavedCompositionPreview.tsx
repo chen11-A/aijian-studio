@@ -57,9 +57,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
       </div>
       {!open && (
         <p role="status">
-          {selected
-            ? statuses[selected.status]
-            : media.message}
+          {selected ? statuses[selected.status] : media.message}
           {props.dirty ? " · 有未保存修改，预览不包含这些修改" : ""}
           {state.pending !== null ? " · 正在核对先前预览任务" : ""}
         </p>
@@ -67,7 +65,8 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
       {open && (
         <>
           <p>
-            按已保存版本生成真实 DRAFT MP4，连续播放画面剪辑和已支持的声音、字幕。使用与草稿导出相同的本地编码和文件校验。
+            按已保存版本生成真实 DRAFT
+            MP4，连续播放画面剪辑和已支持的声音、字幕。使用与草稿导出相同的本地编码和文件校验。
           </p>
           <p role="status">{media.message}</p>
           <p role={props.dirty ? "status" : undefined}>

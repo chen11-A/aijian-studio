@@ -157,7 +157,6 @@ mid-read growth/replacement, bounded previews/reveals, timeout, IPC authorizatio
 and concurrent admission, preload, receipt identity and interrupted/repeated UI
 lifecycles. They do not claim Windows native playback or formal-release approval.
 
-
 ## Literal subtitle increment
 
 Episode assemblies now retain editable literal subtitle cues alongside unchanged

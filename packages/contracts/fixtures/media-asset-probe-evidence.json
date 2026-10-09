@@ -15,10 +15,7 @@
     "probe": {
       "source_asset_sha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
       "byte_size": 128,
-      "format_names": [
-        "mov",
-        "mp4"
-      ],
+      "format_names": ["mov", "mp4"],
       "container_duration": {
         "num": 1,
         "den": 12

@@ -30,16 +30,23 @@ function MediaEnabledSettings() {
     if (open && !dialog.current?.open) dialog.current?.showModal();
     else if (!open && dialog.current?.open) dialog.current.close();
   }, [open]);
-  return <>
-    <div className="assembly-actions">
-      <Button onClick={() => setOpen(true)}>本地媒体工具 · DRAFT</Button>
-    </div>
-    <SettingsPage />
-    <dialog ref={dialog} className="demo-dialog" aria-label="本地媒体工具" onClose={() => setOpen(false)}>
-      {open && <MediaToolchainSettings />}
-      <Button onClick={() => setOpen(false)}>关闭媒体工具设置</Button>
-    </dialog>
-  </>;
+  return (
+    <>
+      <div className="assembly-actions">
+        <Button onClick={() => setOpen(true)}>本地媒体工具 · DRAFT</Button>
+      </div>
+      <SettingsPage />
+      <dialog
+        ref={dialog}
+        className="demo-dialog"
+        aria-label="本地媒体工具"
+        onClose={() => setOpen(false)}
+      >
+        {open && <MediaToolchainSettings />}
+        <Button onClick={() => setOpen(false)}>关闭媒体工具设置</Button>
+      </dialog>
+    </>
+  );
 }
 function Heading({ title, management = false }: { title: string; management?: boolean }) {
   const d = useDemo();
@@ -88,7 +95,9 @@ function Services() {
   const official = useRef<HTMLDivElement>(null);
   const apiConfig = useRef<HTMLElement>(null);
   const entry = d.value("serviceEntry");
-  const [serviceTab, setServiceTab] = useState<"api" | "chatgpt">(entry === "chatgpt" ? "chatgpt" : "api");
+  const [serviceTab, setServiceTab] = useState<"api" | "chatgpt">(
+    entry === "chatgpt" ? "chatgpt" : "api",
+  );
   const useApi = () => {
     rememberServiceEntryChoice("api");
     d.put("serviceEntry", "api");
@@ -101,17 +110,45 @@ function Services() {
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
-      {!d.isFixture && <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
-        <Button aria-pressed={serviceTab === "api"} primary={serviceTab === "api"} onClick={() => setServiceTab("api")}>API / Sub2API</Button>
-        <Button aria-pressed={serviceTab === "chatgpt"} primary={serviceTab === "chatgpt"} onClick={() => setServiceTab("chatgpt")}>ChatGPT 官方账号</Button>
-      </div>}
-      {!d.isFixture && <div ref={official} tabIndex={-1} hidden={serviceTab !== "chatgpt"} className="official-service-panel">
-        {serviceTab === "chatgpt" && <ChatGPTConnectionCard
-          onConnected={() => { rememberServiceEntryChoice("chatgpt"); }}
-          onUseApi={useApi}
-        />}
-      </div>}
-      <div className="v2-service-body provider-settings" hidden={!d.isFixture && serviceTab !== "api"}>
+      {!d.isFixture && (
+        <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
+          <Button
+            aria-pressed={serviceTab === "api"}
+            primary={serviceTab === "api"}
+            onClick={() => setServiceTab("api")}
+          >
+            API / Sub2API
+          </Button>
+          <Button
+            aria-pressed={serviceTab === "chatgpt"}
+            primary={serviceTab === "chatgpt"}
+            onClick={() => setServiceTab("chatgpt")}
+          >
+            ChatGPT 官方账号
+          </Button>
+        </div>
+      )}
+      {!d.isFixture && (
+        <div
+          ref={official}
+          tabIndex={-1}
+          hidden={serviceTab !== "chatgpt"}
+          className="official-service-panel"
+        >
+          {serviceTab === "chatgpt" && (
+            <ChatGPTConnectionCard
+              onConnected={() => {
+                rememberServiceEntryChoice("chatgpt");
+              }}
+              onUseApi={useApi}
+            />
+          )}
+        </div>
+      )}
+      <div
+        className="v2-service-body provider-settings"
+        hidden={!d.isFixture && serviceTab !== "api"}
+      >
         <section
           className="v2-utility-card v2-service-list connections-panel"
           aria-labelledby="service-connections-title"
@@ -190,7 +227,12 @@ function Services() {
               </article>
             ))}
         </section>
-        <section ref={apiConfig} tabIndex={-1} className="v2-utility-card v2-service-config" aria-labelledby="service-new-title">
+        <section
+          ref={apiConfig}
+          tabIndex={-1}
+          className="v2-utility-card v2-service-config"
+          aria-labelledby="service-new-title"
+        >
           <h2 id="service-new-title">
             <Icon name="settings" size={16} />
             添加模型供应商

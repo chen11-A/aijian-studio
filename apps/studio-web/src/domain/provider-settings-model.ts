@@ -1,4 +1,7 @@
-import type { CreateProviderConnectionInput, Sub2APIOriginMode as ContractOriginMode } from "../api/studio";
+import type {
+  CreateProviderConnectionInput,
+  Sub2APIOriginMode as ContractOriginMode,
+} from "../api/studio";
 
 export type ProviderKind = CreateProviderConnectionInput["provider_kind"];
 export type Capability = "TEXT" | "IMAGE" | "VIDEO" | "SPEECH";

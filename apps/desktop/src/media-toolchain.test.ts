@@ -171,7 +171,8 @@ describe("verified native media toolchain contract", () => {
       "UNSUPPORTED",
     ]);
     expect((statuses as MediaToolchainStatus[]).slice(4).map((status) => status.source)).toEqual([
-      "DEVELOPMENT_OVERRIDE", "DEVELOPMENT_LOCAL",
+      "DEVELOPMENT_OVERRIDE",
+      "DEVELOPMENT_LOCAL",
     ]);
   });
   it("accepts exact available, not-configured, invalid and unsupported receipts", () => {
@@ -362,7 +363,11 @@ describe("verified media toolchain native IPC", () => {
     const submitted = deferred<MediaToolchainResult>();
     h.client.selectMediaToolchainDirectory.mockReturnValueOnce(submitted.promise);
     const pending = h.invoke("select");
-    for (let index = 0; index < 10 && !h.client.selectMediaToolchainDirectory.mock.calls.length; index++)
+    for (
+      let index = 0;
+      index < 10 && !h.client.selectMediaToolchainDirectory.mock.calls.length;
+      index++
+    )
       await Promise.resolve();
     expect(h.client.selectMediaToolchainDirectory).toHaveBeenCalledTimes(1);
     expect(await h.invoke("cancelSelection")).toEqual({ kind: "ALREADY_SUBMITTED" });

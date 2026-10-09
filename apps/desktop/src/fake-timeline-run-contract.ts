@@ -18,8 +18,14 @@ export type FakeTimelineRunOperationResponse =
 export type FakeTimelineRunOperationQueryResult =
   | { kind: "FOUND"; receipt: FakeTimelineRunOperationResponse }
   | { kind: "NOT_FOUND" | "REMOTE_UNKNOWN"; project_id: string; operation_id: string }
-  | { kind: "DEFINITE_SERVER_ERROR"; project_id: string; operation_id: string;
-      status: number; code: string; request_id: string };
+  | {
+      kind: "DEFINITE_SERVER_ERROR";
+      project_id: string;
+      operation_id: string;
+      status: number;
+      code: string;
+      request_id: string;
+    };
 
 const PROJECT_ID = /^prj_[0-9a-f]{32}$/;
 const VERSION_ID = /^ver_[0-9a-f]{32}$/;
@@ -196,19 +202,33 @@ export function isFakeTimelineRunOperationResponse(
   projectId: string,
   command: FakeTimelineRunCreateCommand,
 ): value is FakeTimelineRunOperationResponse {
-  if (!PROJECT_ID.test(projectId) || !isFakeTimelineRunCreateCommand(command) ||
-      !isRecord(value) || !hasExactKeys(value, ["data", "request_id"]) ||
-      typeof value.request_id !== "string" || !REQUEST_ID.test(value.request_id) ||
-      hasSensitiveKey(value)) return false;
+  if (
+    !PROJECT_ID.test(projectId) ||
+    !isFakeTimelineRunCreateCommand(command) ||
+    !isRecord(value) ||
+    !hasExactKeys(value, ["data", "request_id"]) ||
+    typeof value.request_id !== "string" ||
+    !REQUEST_ID.test(value.request_id) ||
+    hasSensitiveKey(value)
+  )
+    return false;
   const data = value.data;
-  return isRecord(data) && hasExactKeys(data, OPERATION_RESPONSE_DATA_KEYS) &&
-    data.project_id === projectId && data.operation_id === command.operation_id &&
+  return (
+    isRecord(data) &&
+    hasExactKeys(data, OPERATION_RESPONSE_DATA_KEYS) &&
+    data.project_id === projectId &&
+    data.operation_id === command.operation_id &&
     data.source_manifest_version_id === command.input.source_manifest_version_id &&
     data.source_document_id === command.input.source_document_id &&
-    typeof data.workflow_run_id === "string" && WORKFLOW_RUN_ID.test(data.workflow_run_id) &&
-    typeof data.node_run_id === "string" && NODE_RUN_ID.test(data.node_run_id) &&
-    typeof data.attempt_id === "string" && ATTEMPT_ID.test(data.attempt_id) &&
-    typeof data.task_id === "string" && TASK_ID.test(data.task_id);
+    typeof data.workflow_run_id === "string" &&
+    WORKFLOW_RUN_ID.test(data.workflow_run_id) &&
+    typeof data.node_run_id === "string" &&
+    NODE_RUN_ID.test(data.node_run_id) &&
+    typeof data.attempt_id === "string" &&
+    ATTEMPT_ID.test(data.attempt_id) &&
+    typeof data.task_id === "string" &&
+    TASK_ID.test(data.task_id)
+  );
 }
 
 export function createFakeTimelineRunPreload(invoke: FakeTimelineRunInvoke): {
@@ -229,8 +249,11 @@ export function createFakeTimelineRunPreload(invoke: FakeTimelineRunInvoke): {
         command,
       ) as Promise<FakeTimelineRunCreateResult>,
     queryFakeTimelineRunOperation: (projectId, originalCommand) =>
-      invoke(FAKE_TIMELINE_RUN_QUERY_CHANNEL, projectId,
-        originalCommand) as Promise<FakeTimelineRunOperationQueryResult>,
+      invoke(
+        FAKE_TIMELINE_RUN_QUERY_CHANNEL,
+        projectId,
+        originalCommand,
+      ) as Promise<FakeTimelineRunOperationQueryResult>,
   };
 }
 
@@ -256,8 +279,11 @@ export function registerFakeTimelineRunHandlers<TEvent>(
   });
   handle(FAKE_TIMELINE_RUN_QUERY_CHANNEL, (event, projectId, command) => {
     const client = clientFor(event);
-    if (typeof projectId !== "string" || !PROJECT_ID.test(projectId) ||
-        !isFakeTimelineRunCreateCommand(command)) {
+    if (
+      typeof projectId !== "string" ||
+      !PROJECT_ID.test(projectId) ||
+      !isFakeTimelineRunCreateCommand(command)
+    ) {
       return Promise.reject(new Error("Fake timeline run IPC requires an exact query command"));
     }
     if (typeof client.queryFakeTimelineRunOperation !== "function") {

@@ -14,14 +14,19 @@ import {
 
 type EpisodeScriptConfirmationClient = {
   getEpisodeScriptConfirmation(
-    projectId: string, episodeId: string,
+    projectId: string,
+    episodeId: string,
   ): Promise<EpisodeScriptConfirmationReadResult>;
   createEpisodeScriptConfirmation(
-    projectId: string, episodeId: string, idempotencyKey: string,
+    projectId: string,
+    episodeId: string,
+    idempotencyKey: string,
     payload: CreateEpisodeScriptConfirmationRequest,
   ): Promise<EpisodeScriptConfirmationCreateResult>;
   getEpisodeScriptConfirmationReceipt(
-    projectId: string, episodeId: string, confirmationId: string,
+    projectId: string,
+    episodeId: string,
+    confirmationId: string,
   ): Promise<EpisodeScriptConfirmationReadResult>;
 };
 
@@ -51,17 +56,19 @@ export function registerEpisodeScriptConfirmationHandlers<TEvent>(
   });
   handle(EPISODE_SCRIPT_CONFIRMATION_CHANNELS.create, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 4 || !validScope(args) ||
-        !isEpisodeScriptIdempotencyKey(args[2]) ||
-        !isCreateEpisodeScriptConfirmationRequest(args[3])) {
+    if (
+      args.length !== 4 ||
+      !validScope(args) ||
+      !isEpisodeScriptIdempotencyKey(args[2]) ||
+      !isCreateEpisodeScriptConfirmationRequest(args[3])
+    ) {
       throw new Error("Episode script confirmation write IPC requires canonical arguments");
     }
     return client.createEpisodeScriptConfirmation(args[0], args[1], args[2], args[3]);
   });
   handle(EPISODE_SCRIPT_CONFIRMATION_CHANNELS.receipt, async (event, ...args) => {
     const client = authorized(event);
-    if (args.length !== 3 || !validScope(args) ||
-        !isEpisodeScriptConfirmationId(args[2])) {
+    if (args.length !== 3 || !validScope(args) || !isEpisodeScriptConfirmationId(args[2])) {
       throw new Error("Episode script confirmation receipt IPC requires canonical ids");
     }
     return client.getEpisodeScriptConfirmationReceipt(args[0], args[1], args[2]);

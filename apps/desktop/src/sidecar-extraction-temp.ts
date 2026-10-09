@@ -1,6 +1,12 @@
 import {
-  lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmdirSync,
-  unlinkSync, writeFileSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, parse, resolve, sep } from "node:path";
 
@@ -14,8 +20,12 @@ export interface SidecarExtractionTemp {
 }
 
 function localDirectory(value: string | undefined): string {
-  if (!value || !isAbsolute(value) || value.startsWith("\\\\") ||
-      value.split(/[\\/]+/).includes("..")) {
+  if (
+    !value ||
+    !isAbsolute(value) ||
+    value.startsWith("\\\\") ||
+    value.split(/[\\/]+/).includes("..")
+  ) {
     throw new Error("Sidecar extraction requires a local absolute user directory");
   }
   return resolve(value);
@@ -23,8 +33,11 @@ function localDirectory(value: string | undefined): string {
 
 function plainDirectory(path: string): void {
   const stat = lstatSync(path);
-  if (!stat.isDirectory() || stat.isSymbolicLink() ||
-      realpathSync.native(path).toLowerCase() !== resolve(path).toLowerCase()) {
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    realpathSync.native(path).toLowerCase() !== resolve(path).toLowerCase()
+  ) {
     throw new Error("Sidecar extraction directory is not plain");
   }
 }
@@ -48,7 +61,8 @@ function ensurePlainDirectory(path: string): void {
 }
 
 export function createSidecarExtractionTemp(
-  localAppData: string | undefined, userProfile: string | undefined,
+  localAppData: string | undefined,
+  userProfile: string | undefined,
 ): SidecarExtractionTemp {
   const local = localDirectory(localAppData);
   const profile = localDirectory(userProfile);
@@ -70,8 +84,16 @@ export function createSidecarExtractionTemp(
     }
     unlinkSync(probe);
   } catch (error) {
-    try { unlinkSync(probe); } catch { /* The probe may not exist. */ }
-    try { rmdirSync(directory); } catch { /* Preserve unexpected content. */ }
+    try {
+      unlinkSync(probe);
+    } catch {
+      /* The probe may not exist. */
+    }
+    try {
+      rmdirSync(directory);
+    } catch {
+      /* Preserve unexpected content. */
+    }
     throw error;
   }
   return {
@@ -79,7 +101,11 @@ export function createSidecarExtractionTemp(
     cleanupAfterClose(): void {
       // PyInstaller owns _MEI cleanup. Only remove our empty, unique wrapper;
       // never sweep another instance's files or a surviving child's extraction.
-      try { rmdirSync(directory); } catch { /* Leave evidence for diagnosis. */ }
+      try {
+        rmdirSync(directory);
+      } catch {
+        /* Leave evidence for diagnosis. */
+      }
     },
   };
 }
