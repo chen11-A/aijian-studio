@@ -156,7 +156,7 @@ describe("V2 media workflows", () => {
   });
   it("opens editable export settings while keeping formal export unavailable", () => {
     open("export");
-    fireEvent.click(screen.getByRole("button", { name: "查看输出设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看正式导出样例设置" }));
     fireEvent.change(screen.getByLabelText("格式"), { target: { value: "MOV" } });
     fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
     expect(screen.getByText(/MOV ·/)).toBeInTheDocument();
@@ -275,7 +275,7 @@ function openRemoteChanges(overrides: Record<string, unknown> = {}, page = "chan
     ...overrides,
   } as unknown as Window["aijian"];
   return render(
-    <DemoProvider>
+    <DemoProvider fixture={{}}>
       <RemoteChangesHarness />
     </DemoProvider>,
   );
@@ -331,7 +331,7 @@ const remoteTimeline = (revision = 1, sourceIn = 0, projectId = remoteProjectId)
   },
 });
 
-describe("real invalidation history on changes page", () => {
+describe("legacy project invalidation history with a synthetic desktop transport", () => {
   it("does not request history when no backend project is connected", async () => {
     const listInvalidationOperations = vi.fn();
     const getProjectTimeline = vi.fn();
@@ -446,7 +446,7 @@ describe("real invalidation history on changes page", () => {
   });
 });
 
-describe("real assembly timeline", () => {
+describe("legacy project timeline with a synthetic desktop transport", () => {
   it("keeps assembly accessible without a project and does not substitute sample shots", async () => {
     open("assembly");
     expect(await screen.findByText(/尚未连接本地项目/)).toBeInTheDocument();

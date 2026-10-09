@@ -99,7 +99,7 @@ function bridge() {
       request_id: "projects",
       data: [
         {
-          id: "prj_test",
+          id: `prj_${"a".repeat(32)}`,
           name: "真实项目记录",
           status: "active",
           revision: 1,
@@ -186,7 +186,7 @@ describe("project centre filtering", () => {
     expect(screen.getByLabelText("原创来源说明")).toHaveValue("雨夜里的原创城市故事");
   });
 
-  it("manages and opens only the project record provided by the desktop bridge", async () => {
+  it("does not fabricate a favorite and opens only the project record provided by the desktop bridge", async () => {
     window.history.replaceState({}, "", "#projects");
     window.aijian = bridge();
     render(
@@ -195,21 +195,29 @@ describe("project centre filtering", () => {
       </DemoProvider>,
     );
 
-    const project = await screen.findByRole("button", { name: "真实项目记录" });
+    const project = await screen.findByRole("button", { name: "管理真实项目记录" });
     fireEvent.click(project);
-    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "收藏 / 取消收藏" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认修改演示项目" }));
+    fireEvent.change(screen.getByLabelText("操作"), {
+      target: { value: "收藏 / 取消收藏（待接入）" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     expect(
       JSON.parse(screen.getByLabelText("project-list-state").textContent!).projects[0],
     ).toMatchObject({
       name: "真实项目记录",
-      favorite: true,
+      favorite: false,
     });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存真实项目修改" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
 
     fireEvent.click(screen.getByRole("button", { name: "打开项目" }));
-    expect(JSON.parse(screen.getByLabelText("project-list-state").textContent!)).toMatchObject({
-      page: "project",
-    });
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByLabelText("project-list-state").textContent!)).toMatchObject({
+        page: "project",
+      }),
+    );
     expect(screen.getByRole("button", { name: "打开项目中心" })).toBeVisible();
     expect(
       screen.getByText(
@@ -382,34 +390,55 @@ describe("project centre filtering", () => {
     );
   });
 
-  it("archives and then explicitly deletes only the in-memory desktop project record", async () => {
+  it("archives through a receipt and authoritative readback but refuses unsupported deletion", async () => {
     window.history.replaceState({}, "", "#projects");
-    window.aijian = bridge();
+    const desktop = bridge();
+    const archived = {
+      id: `prj_${"a".repeat(32)}`,
+      name: "真实项目记录",
+      status: "archived",
+      revision: 2,
+      updated_at: "2026-09-14T00:00:00Z",
+    };
+    desktop.updateProject = vi.fn().mockResolvedValue({
+      kind: "SUCCEEDED",
+      receipt: { request_id: "updated", data: archived },
+    });
+    desktop.getProject = vi.fn().mockResolvedValue({ request_id: "readback", data: archived });
+    window.aijian = desktop;
     render(
       <DemoProvider>
         <ProjectHarness />
       </DemoProvider>,
     );
-    const name = await screen.findByRole("button", { name: "真实项目记录" });
+    const name = await screen.findByRole("button", { name: "管理真实项目记录" });
     fireEvent.click(name);
     fireEvent.change(screen.getByLabelText("操作"), { target: { value: "归档" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认修改演示项目" }));
-    expect(
-      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}").projects[0],
-    ).toMatchObject({ status: "已归档" });
+    fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
+    await waitFor(() =>
+      expect(
+        JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}").projects[0],
+      ).toMatchObject({ status: "已归档" }),
+    );
+    expect(desktop.updateProject).toHaveBeenCalledWith(archived.id, {
+      expectedRevision: 1,
+      status: "archived",
+    });
+    expect(desktop.getProject).toHaveBeenCalledWith(archived.id);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.change(screen.getByRole("combobox", { name: "筛选项目" }), {
       target: { value: "已归档" },
     });
     fireEvent.click(screen.getByRole("button", { name: "管理真实项目记录" }));
-    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认修改演示项目" }));
-    const confirm = await screen.findByRole("button", { name: "确认删除" });
-    fireEvent.click(confirm);
+    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除（待影响核对）" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     await waitFor(() =>
       expect(
         JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}").projects,
-      ).toEqual([]),
+      ).toHaveLength(1),
     );
+    expect(desktop.updateProject).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "确认删除" })).not.toBeInTheDocument();
   });
 });
 
@@ -925,7 +954,7 @@ it("persists a newly created project and automatically restores its exact defaul
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectA, defaultA.id));
   fireEvent.click(await screen.findByRole("button", { name: "新建项目" }));
   fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: "新项目 B" } });
-  fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建真实项目" }));
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectB, defaultB.id));
   expect(
     JSON.parse(window.localStorage.getItem("aivora.c2b.workspace-selection.v1") ?? "{}"),

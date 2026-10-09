@@ -234,7 +234,7 @@ function openRemoteAssembly(
     replaceTimelineClip: vi.fn(),
   } as unknown as Window["aijian"];
   render(
-    <DemoProvider>
+    <DemoProvider fixture={{}}>
       <MediaPages />
       <EditorDialog />
       {captureTrimInspectorWhenTimelineFirstBecomesReady && (
@@ -570,14 +570,16 @@ describe("C19 production viewer interactions", () => {
     expect(screen.getByLabelText("当前场景设定")).toHaveTextContent("白天");
   });
 
-  it("opens an asset detail, adds its explicit project reference, and removes it after reopening the same asset", () => {
+  it("opens an asset detail, adds its explicit project reference, and removes it after reopening the same asset", async () => {
     openPage("assets");
     fireEvent.click(screen.getByRole("button", { name: "世界主视觉详情与引用" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("世界主视觉");
     fireEvent.click(screen.getByRole("button", { name: "添加项目引用" }));
     expect(pageState().references).toEqual(["世界主视觉"]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "世界主视觉详情与引用" }));
     fireEvent.click(screen.getByRole("button", { name: "移除项目引用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(pageState().references).toEqual([]);
   });
 
@@ -683,7 +685,7 @@ describe("C19 production viewer interactions", () => {
     });
   });
 
-  it("edits the story premise and a structural beat through their visible forms, then inspects the source evidence locally", () => {
+  it("edits the story premise and a structural beat through their visible forms, then inspects the source evidence locally", async () => {
     openStory("story");
     fireEvent.click(screen.getByText(/在记忆可以交易的未来城市/));
     fireEvent.change(screen.getByLabelText("故事一句话"), {
@@ -691,21 +693,24 @@ describe("C19 production viewer interactions", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
     expect(screen.getByText("苏晚在雨夜追查被篡改的记忆。")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "发现异常记忆" }));
     fireEvent.change(screen.getByLabelText("事件内容"), {
       target: { value: "发现被篡改的异常记忆" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
     expect(screen.getByText("发现被篡改的异常记忆")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "查看原文" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("原文依据 · 第一章");
   });
 
-  it("selects a generation candidate and records only the local adjustment intent", () => {
+  it("selects a generation candidate and records only the local adjustment intent", async () => {
     openMedia("generation");
     fireEvent.click(screen.getByRole("button", { name: /参考样例 2/ }));
     fireEvent.change(screen.getByLabelText("设为当前候选"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     fireEvent.click(screen.getAllByRole("button", { name: "标记待调整" })[0]!);
     fireEvent.change(screen.getByLabelText("问题描述"), {
       target: { value: "保持人物停顿的节奏。" },
@@ -735,7 +740,7 @@ describe("C19 production viewer interactions", () => {
 
   it("changes output settings and records a draft export intent without exposing a formal export", async () => {
     openMedia("export");
-    fireEvent.click(screen.getByRole("button", { name: "查看输出设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看正式导出样例设置" }));
     fireEvent.change(screen.getByLabelText("帧率"), { target: { value: "30 fps" } });
     fireEvent.click(screen.getByRole("button", { name: "保存演示修改" }));
     await waitFor(() =>
@@ -1048,25 +1053,7 @@ describe("C19 production viewer interactions", () => {
         ],
       }),
       listSources: vi.fn().mockResolvedValue({ request_id: "sources", data: [] }),
-      getSourceManifest: vi.fn().mockResolvedValue({
-        request_id: "manifest",
-        data: {
-          project_id: projectId,
-          head: {
-            artifact_id: `art_${"e".repeat(32)}`,
-            latest_version_id: null,
-            review_version_id: null,
-            review_submission_id: null,
-            accepted_version_id: null,
-            revision: 1,
-            review_evidence_revision: 0,
-            updated_at: "2026-09-15T00:00:00Z",
-          },
-          latest_version: null,
-          review_version: null,
-          accepted_version: null,
-        },
-      }),
+      getSourceManifest: vi.fn().mockResolvedValue(null),
       importTextSource,
       getSource: vi.fn().mockResolvedValue(imported),
       getSourceText: vi.fn().mockResolvedValue({
@@ -1085,7 +1072,7 @@ describe("C19 production viewer interactions", () => {
         <StoryHarness />
       </DemoProvider>,
     );
-    await screen.findByText(/来源状态：未导入/);
+    await screen.findByText(/来源状态：未导入/, { selector: "p.v2-source-support[role=status]" });
     fireEvent.click(screen.getByRole("button", { name: "粘贴故事" }));
     const before = JSON.parse(screen.getByLabelText("c19-story-state").textContent ?? "{}");
     fireEvent.change(screen.getByLabelText("外部原文正文"), {

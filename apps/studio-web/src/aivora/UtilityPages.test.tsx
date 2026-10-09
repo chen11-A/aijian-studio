@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { UtilityPages } from "./UtilityPages";
 import { EditorDialog } from "./Common";
@@ -231,14 +231,17 @@ describe("real provider service configuration", () => {
       }),
     );
   });
-  it("re-reads and reports a failed create without retaining the secret", async () => {
+  it("re-reads an unknown create without retrying and retains only the local form draft", async () => {
     const list = vi.fn().mockResolvedValue(response());
     const create = vi.fn().mockRejectedValue(new Error("write failed"));
     open(desktop({ listProviderConnections: list, createProviderConnection: create }));
     await ready();
     await submitConnection();
-    expect(await screen.findByText(/连接未保存/)).toBeInTheDocument();
+    expect(
+      await within(document.getElementById("new-provider-connection")!).findByRole("alert"),
+    ).toHaveTextContent("连接保存结果未知");
     expect(list).toHaveBeenCalledTimes(2);
+    expect(create).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText(/API Key/)).toHaveValue("sk-secret-123");
   });
 
@@ -270,8 +273,9 @@ describe("real provider service configuration", () => {
     await screen.findByText("OpenAI 制作");
     fireEvent.click(screen.getByRole("button", { name: "移除连接" }));
     fireEvent.click(screen.getByRole("button", { name: "确认移除" }));
-    expect(await screen.findByText("无法移除连接；原配置未被界面隐藏。")).toBeInTheDocument();
+    expect(await screen.findAllByText(/移除结果未知/)).toHaveLength(2);
     expect(screen.getByText("OpenAI 制作")).toBeInTheDocument();
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 });
 

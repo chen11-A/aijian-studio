@@ -69,7 +69,7 @@ describe("useProviderSettings", () => {
     expect(result.current.saveError).toContain("凭据可能需要清理");
   });
 
-  test("keeps the confirmation and visible state after a failed delete", async () => {
+  test("keeps the confirmation and readback visible after an unknown delete", async () => {
     const response = { data: [{ id: "pcn_kept" }], request_id: requestId };
     const listConnections = vi.fn().mockResolvedValue(response);
     const createConnection = vi.fn();
@@ -84,7 +84,9 @@ describe("useProviderSettings", () => {
     });
     expect(result.current.confirmingId).toBe("pcn_kept");
     expect(result.current.state).toEqual({ kind: "ready", response });
-    expect(result.current.saveError).toContain("原配置未被界面隐藏");
+    expect(result.current.saveError).toContain("移除结果未知");
+    expect(listConnections).toHaveBeenCalledTimes(2);
+    expect(deleteConnection).toHaveBeenCalledTimes(1);
   });
 
   test("requires matching removal confirmation before deleting a connection", async () => {
@@ -107,7 +109,7 @@ describe("useProviderSettings", () => {
     expect(deleteConnection).toHaveBeenCalledWith("pcn_guarded");
   });
 
-  test("does not mislabel an ordinary create conflict as credential cleanup", async () => {
+  test("does not treat unstructured conflict text as a confirmed failure or credential cleanup", async () => {
     const listConnections = vi.fn().mockResolvedValue(emptyResponse);
     const { result } = renderHook(() =>
       useProviderSettings({
@@ -124,8 +126,9 @@ describe("useProviderSettings", () => {
         /* asserted below */
       }
     });
-    expect(result.current.saveError).toContain("连接未保存");
+    expect(result.current.saveError).toContain("连接保存结果未知");
     expect(result.current.saveError).not.toContain("凭据可能需要清理");
+    expect(listConnections).toHaveBeenCalledTimes(2);
   });
   test("ignores an expired provider read after a newer reload completes", async () => {
     let resolveOld!: (value: typeof emptyResponse) => void;

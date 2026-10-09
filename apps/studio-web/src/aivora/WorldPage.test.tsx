@@ -50,10 +50,10 @@ function state() {
   return JSON.parse(screen.getByLabelText("world-state").textContent ?? "{}");
 }
 
-describe("world page project boundary", () => {
+describe("fixture world page project boundary", () => {
   it("shows no world facts until a project is loaded, then controls the ready and blocked paths", () => {
     render(
-      <DemoProvider>
+      <DemoProvider fixture={{}}>
         <WorldHarness />
       </DemoProvider>,
     );
@@ -76,7 +76,7 @@ describe("world page project boundary", () => {
 
   it("opens distinct detail and reference views only after the project boundary is present", () => {
     render(
-      <DemoProvider>
+      <DemoProvider fixture={{}}>
         <WorldHarness />
       </DemoProvider>,
     );
@@ -89,7 +89,7 @@ describe("world page project boundary", () => {
 
   it("saves an edited world drawer as an unconfirmed local draft", () => {
     render(
-      <DemoProvider>
+      <DemoProvider fixture={{}}>
         <WorldHarness />
       </DemoProvider>,
     );

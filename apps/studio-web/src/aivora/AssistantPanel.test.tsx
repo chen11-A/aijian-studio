@@ -10,6 +10,7 @@ import type { TaskQueueResponse } from "../api/studio";
 afterEach(() => {
   cleanup();
   delete window.aijian;
+  localStorage.clear();
 });
 
 beforeAll(() => {
@@ -33,8 +34,13 @@ function Harness() {
           messages: demo.messages,
           references: demo.references,
           page: demo.page,
+          aiOpen: demo.aiOpen,
+          managementAI: demo.value("managementAI"),
+          rightTab: demo.rightTab,
         })}
       </output>
+      <button onClick={() => void demo.connectRealWorkspace()}>Connect synthetic workspace</button>
+      <button onClick={() => demo.setProfessional(true)}>Enter professional layout</button>
     </>
   );
 }
@@ -45,6 +51,9 @@ function state() {
     messages: { role: string; text: string }[];
     references: string[];
     page: string;
+    aiOpen: boolean;
+    managementAI: string;
+    rightTab: string;
   };
 }
 
@@ -256,5 +265,111 @@ describe("real task queue in the assistant", () => {
     expect(await screen.findByText("故事提取 · 正在本地执行")).toBeInTheDocument();
     expect(listTasks).toHaveBeenNthCalledWith(1, remoteProjectId);
     expect(listTasks).toHaveBeenNthCalledWith(2, remoteProjectId);
+  });
+});
+
+describe("production assistant boundaries without demo mode", () => {
+  function openNative() {
+    window.history.replaceState({}, "", "#project");
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+  }
+
+  it("keeps chat, attachments and voice disabled and navigates to project creation", () => {
+    openNative();
+    expect(screen.getByRole("textbox", { name: "AI 输入" })).toBeDisabled();
+    for (const name of ["发送消息", "AI 图片附件", "AI 附件", "引用素材", "语音输入暂未接入"])
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "打开项目中心" }));
+    expect(state().page).toBe("projects");
+    expect(state().messages).toEqual([]);
+  });
+
+  it("switches context, guidance and task tabs without creating a task", () => {
+    openNative();
+    fireEvent.click(screen.getByRole("button", { name: "上下文" }));
+    expect(screen.getByRole("heading", { name: "当前创作上下文" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "上下文" }));
+    expect(screen.getByRole("heading", { name: "当前作品的下一步" })).toBeInTheDocument();
+    for (const tab of ["建议", "任务", "上下文", "对话"]) {
+      fireEvent.click(screen.getByLabelText("助手工具"));
+      fireEvent.click(screen.getByRole("button", { name: `切换到${tab}` }));
+      if (tab === "任务")
+        expect(
+          screen.getByText("当前项目尚未连接本地工作区；不会读取或创建制作任务。"),
+        ).toBeInTheDocument();
+    }
+    expect(state().messages).toEqual([]);
+  });
+
+  it("collapses the management assistant and records the panel preference", () => {
+    openNative();
+    fireEvent.click(screen.getByText("收起", { selector: "button.assistant-collapse" }));
+    expect(state()).toMatchObject({ aiOpen: false, managementAI: "false" });
+  });
+
+  it("returns the professional layout to its inspector", () => {
+    openNative();
+    fireEvent.click(screen.getByRole("button", { name: "Enter professional layout" }));
+    expect(screen.queryByRole("button", { name: "收起助手面板" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("button", { name: "查看对象属性" }));
+    expect(state().rightTab).toBe("inspector");
+  });
+
+  it("offers only navigation for a real selected project, without sending model requests", async () => {
+    const listTasks = vi.fn().mockResolvedValue({
+      request_id: "tasks",
+      data: {
+        ...remoteQueue.data,
+        tasks: [],
+        summary: { total: 0, active: 0, completed: 0, attention: 0 },
+      },
+    });
+    window.aijian = {
+      health: vi.fn().mockResolvedValue({
+        data: { status: "ok", service: "aijian-api", version: "test" },
+        request_id: "health",
+      }),
+      listProjects: vi.fn().mockResolvedValue({
+        request_id: "projects",
+        data: [
+          {
+            id: remoteProjectId,
+            name: "Synthetic",
+            aspect_ratio: "9:16",
+            target_duration_seconds: 90,
+            source_language: "zh-CN",
+            status: "active",
+            revision: 1,
+            created_at: "2026-09-14T00:00:00Z",
+            updated_at: "2026-09-14T00:00:00Z",
+          },
+        ],
+      }),
+      listProviderConnections: vi.fn().mockResolvedValue({ request_id: "providers", data: [] }),
+      listSources: vi.fn().mockResolvedValue({ request_id: "sources", data: [] }),
+      listEpisodes: vi
+        .fn()
+        .mockResolvedValue({ request_id: "episodes", data: { items: [], next_offset: null } }),
+      getProductionBrief: vi.fn().mockResolvedValue(null),
+      listProjectTasks: listTasks,
+    } as unknown as Window["aijian"];
+    openNative();
+    fireEvent.click(screen.getByRole("button", { name: "Connect synthetic workspace" }));
+    await screen.findByRole("button", { name: "整理来源与原创灵感" });
+    for (const [name, page] of [
+      ["整理来源与原创灵感", "source"],
+      ["打开来源提取", "story"],
+      ["编写分集剧本", "script"],
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+      await waitFor(() => expect(state().page).toBe(page));
+    }
+    expect(state().messages).toEqual([]);
+    expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
   });
 });

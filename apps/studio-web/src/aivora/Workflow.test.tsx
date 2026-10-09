@@ -135,7 +135,7 @@ describe("demo workflow state", () => {
     expect(dialog.getAllByText("已确认", { exact: true })).toHaveLength(3);
     expect(dialog.getByRole("button", { name: "确认当前造型" })).toBeInTheDocument();
   });
-  it("isolates scene environments and invalidates only the scene edited after group confirmation", () => {
+  it("isolates scene environments and invalidates only the scene edited after group confirmation", async () => {
     open("scenes");
     fireEvent.change(screen.getByRole("combobox", { name: "环境状态" }), {
       target: { value: "雾天" },
@@ -150,6 +150,7 @@ describe("demo workflow state", () => {
       expect(dialog.getByText(new RegExp(name))).toBeInTheDocument();
     expect(dialog.getByText(/雾天/)).toBeInTheDocument();
     fireEvent.click(dialog.getByRole("button", { name: "确认全部场景并进入分镜" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(window.location.hash).toBe("#storyboard");
     fireEvent.click(within(screen.getByLabelText("主导航")).getByRole("button", { name: "场景" }));
     fireEvent.click(screen.getByRole("button", { name: "空间设定" }));

@@ -10,8 +10,8 @@ afterEach(() => cleanup());
 
 describe("production empty project state", () => {
   it.each([
-    ["launch", "开始一个好故事"],
-    ["home", "你的故事，从这里开始"],
+    ["launch", "把故事，变成看得见的世界。"],
+    ["home", "创作首页"],
     ["project", "项目创作首页"],
     ["projects", "项目中心"],
     ["source", "故事输入与来源"],
@@ -29,9 +29,9 @@ describe("production empty project state", () => {
     ["assets", "素材库"],
     ["voice", "声音制作"],
     ["export", "成片预览与导出"],
-    ["services", "AI 服务与模型"],
-    ["costs", "用量与费用"],
-    ["settings", "用户中心与设置"],
+    ["services", "AI 服务"],
+    ["costs", "用量"],
+    ["settings", "用户设置"],
     ["projectSettings", "项目设置"],
   ])("renders %s without sample domain facts", (page, heading) => {
     window.history.replaceState({}, "", `#${page}`);
