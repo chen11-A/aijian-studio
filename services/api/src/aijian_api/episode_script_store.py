@@ -114,17 +114,19 @@ class EpisodeScriptStore:
         return connection
 
     @staticmethod
-    def _require_episode(
-        connection: sqlite3.Connection, project_id: str, episode_id: str
-    ) -> None:
-        if connection.execute(
-            "SELECT 1 FROM projects WHERE id = ?", (project_id,)
-        ).fetchone() is None:
+    def _require_episode(connection: sqlite3.Connection, project_id: str, episode_id: str) -> None:
+        if (
+            connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+            is None
+        ):
             raise ProjectNotFoundError("Project was not found")
-        if connection.execute(
-            "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
-            (project_id, episode_id),
-        ).fetchone() is None:
+        if (
+            connection.execute(
+                "SELECT 1 FROM episodes WHERE project_id = ? AND id = ?",
+                (project_id, episode_id),
+            ).fetchone()
+            is None
+        ):
             raise EpisodeNotFoundError("Episode was not found")
 
     @staticmethod
@@ -263,9 +265,7 @@ class EpisodeScriptStore:
             raise EpisodeScriptNotFoundError("EpisodeScript was not found") from error
         except ArtifactConflictError as error:
             raise EpisodeScriptStorageError("EpisodeScript latest version is invalid") from error
-        return self._verified_version_data(
-            record, project_id=project_id, episode_id=episode_id
-        )
+        return self._verified_version_data(record, project_id=project_id, episode_id=episode_id)
 
     def get_version(
         self, *, project_id: str, episode_id: str, version_id: str
@@ -281,9 +281,7 @@ class EpisodeScriptStore:
             if str(error) == "Artifact version was not found":
                 raise EpisodeScriptNotFoundError("EpisodeScript version was not found") from error
             raise EpisodeScriptStorageError("EpisodeScript version is invalid") from error
-        return self._verified_version_data(
-            record, project_id=project_id, episode_id=episode_id
-        )
+        return self._verified_version_data(record, project_id=project_id, episode_id=episode_id)
 
     def write(
         self,
@@ -389,10 +387,9 @@ class EpisodeScriptStore:
             if head is None:
                 if payload.parent_version_id is not None or payload.expected_revision is not None:
                     raise EpisodeScriptConflictError("Script has no parent version")
-            elif (
-                payload.parent_version_id != str(head["latest_version_id"])
-                or payload.expected_revision != int(head["revision"])
-            ):
+            elif payload.parent_version_id != str(
+                head["latest_version_id"]
+            ) or payload.expected_revision != int(head["revision"]):
                 raise EpisodeScriptConflictError("Script head revision has changed")
 
             def validate_candidate(candidate: ArtifactVersionRecord) -> None:

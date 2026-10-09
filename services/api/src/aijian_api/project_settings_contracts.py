@@ -50,8 +50,7 @@ class ProjectSettingsChangesV1(_Closed):
         if not self.model_fields_set:
             raise ValueError("At least one project setting must be supplied")
         if any(
-            getattr(self, field) is None
-            for field in self.model_fields_set - {"sequence_timebase"}
+            getattr(self, field) is None for field in self.model_fields_set - {"sequence_timebase"}
         ):
             raise ValueError("Only sequence_timebase can be explicitly cleared")
         return self
@@ -123,6 +122,9 @@ class ProjectSettingsWriteReceiptV1(_Closed):
     def bind_result(self) -> Self:
         if self.result_revision not in {self.base_revision, self.base_revision + 1}:
             raise ValueError("Settings revision must be a no-op or one CAS increment")
-        if self.result.project_id != self.project_id or self.result.revision != self.result_revision:
+        if (
+            self.result.project_id != self.project_id
+            or self.result.revision != self.result_revision
+        ):
             raise ValueError("Settings receipt must bind its exact historical result")
         return self

@@ -141,7 +141,10 @@ class Sub2APITextTransport:
         self._total_timeout = float(total_timeout_seconds)
 
     def dispatch(
-        self, *, base_url: str, request: GatewayTextRequest,
+        self,
+        *,
+        base_url: str,
+        request: GatewayTextRequest,
         origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS",
     ) -> GatewayTextResult:
         """Return an explicit outcome; ambiguity after sending is never a retry signal."""
@@ -152,7 +155,9 @@ class Sub2APITextTransport:
             port = parsed.port or 443
             if hostname is None:
                 raise ValueError("Sub2API hostname is missing")
-            if not isinstance(request, GatewayTextRequest) or not isinstance(request.messages, list):
+            if not isinstance(request, GatewayTextRequest) or not isinstance(
+                request.messages, list
+            ):
                 raise ValueError("Sub2API request is invalid")
             snapshot = GatewayTextRequest(
                 model=request.model,
@@ -179,13 +184,16 @@ class Sub2APITextTransport:
                 if not local_loopback_route_clear(base_url):
                     return GatewayNotDispatched(kind="NOT_DISPATCHED", code="CONNECTION_FAILED")
                 connection: http.client.HTTPConnection = _LiteralLoopbackHTTPConnection(
-                    hostname, port,
+                    hostname,
+                    port,
                     timeout=min(self._connect_timeout, self._remaining(deadline)),
                 )
             else:
                 address = self._resolve_public_address(hostname, port, deadline)
                 connection = _PinnedHTTPSConnection(
-                    hostname, port, address,
+                    hostname,
+                    port,
+                    address,
                     timeout=min(self._connect_timeout, self._remaining(deadline)),
                 )
         except (TimeoutError, OSError, ValueError):
@@ -229,7 +237,9 @@ class Sub2APITextTransport:
                 return GatewayRemoteError(
                     kind="REMOTE_ERROR", code="REMOTE_REJECTED", status_code=response.status
                 )
-            if (response.getheader("Content-Type") or "").split(";", 1)[0].strip().lower() != "application/json":
+            if (response.getheader("Content-Type") or "").split(";", 1)[
+                0
+            ].strip().lower() != "application/json":
                 return GatewayRemoteError(
                     kind="REMOTE_ERROR", code="RESPONSE_INVALID", status_code=200
                 )

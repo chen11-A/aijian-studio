@@ -66,10 +66,7 @@ class AppPreferencesData(BaseModel):
             or any(ord(char) < 32 or ord(char) == 127 for char in self.user_name)
         ):
             raise ValueError("Saved user name is invalid")
-        if any(
-            (ord(char) < 32 and char != "\n") or ord(char) == 127
-            for char in self.display_bio
-        ):
+        if any((ord(char) < 32 and char != "\n") or ord(char) == 127 for char in self.display_bio):
             raise ValueError("Saved bio is invalid")
         if self.saved and self.created_at is not None and self.updated_at is not None:
             if self.updated_at < self.created_at:

@@ -27,8 +27,14 @@ def create_fake_timeline_run_query_router(reader_provider: ReaderProvider) -> AP
     errors: dict[int | str, dict[str, Any]] = {
         401: {"description": "Sidecar authentication required", "model": ErrorResponse},
         403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
-        404: {"description": "Project or Fake Timeline operation not found", "model": ErrorResponse},
-        409: {"description": "Fake Timeline operation truth is inconsistent", "model": ErrorResponse},
+        404: {
+            "description": "Project or Fake Timeline operation not found",
+            "model": ErrorResponse,
+        },
+        409: {
+            "description": "Fake Timeline operation truth is inconsistent",
+            "model": ErrorResponse,
+        },
         422: {"description": "Request validation failed", "model": ErrorResponse},
     }
 

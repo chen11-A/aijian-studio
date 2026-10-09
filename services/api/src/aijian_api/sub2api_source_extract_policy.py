@@ -127,10 +127,9 @@ def match_sub2api_approval(
         or approval.connection_revision != facts.connection_revision
         or approval.model_id != facts.model_id
         or approval.origin_mode != facts.origin_mode
-        or approval.origin_hash != canonical_sha256(
-            sub2api_origin_binding(
-                facts.base_url, facts.origin_mode, facts.connection_revision
-            )
+        or approval.origin_hash
+        != canonical_sha256(
+            sub2api_origin_binding(facts.base_url, facts.origin_mode, facts.connection_revision)
         )
         or approval.input_hash != facts.input_hash
         or approval.context_manifest_hash != facts.context_manifest_hash

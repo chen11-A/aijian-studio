@@ -62,10 +62,9 @@ def _identity_and_lock_path(database_path: Path) -> tuple[str, Path]:
         resolved_database = database_path.resolve(strict=False)
     except (OSError, RuntimeError) as error:
         raise WorkspaceLockUnsafePathError("Workspace path cannot be resolved") from error
-    if (
-        os.path.normcase(str(resolved_root)) != os.path.normcase(str(owner_root))
-        or os.path.normcase(str(resolved_database)) != os.path.normcase(str(database_path))
-    ):
+    if os.path.normcase(str(resolved_root)) != os.path.normcase(
+        str(owner_root)
+    ) or os.path.normcase(str(resolved_database)) != os.path.normcase(str(database_path)):
         raise WorkspaceLockUnsafePathError("Workspace path changes when resolved")
     identity = os.path.normcase(os.path.normpath(str(resolved_database)))
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
@@ -135,7 +134,8 @@ class WorkspaceOwnerLock:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None,
+        self,
+        exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:

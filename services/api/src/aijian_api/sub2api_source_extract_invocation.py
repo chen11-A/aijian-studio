@@ -83,9 +83,7 @@ class Sub2APISourceExtractInvocationBuilder:
         if connection.origin_mode is None:
             raise PermissionError("Sub2API provider origin mode is missing")
         origin_hash = canonical_sha256(
-            sub2api_origin_binding(
-                connection.base_url, connection.origin_mode, connection.revision
-            )
+            sub2api_origin_binding(connection.base_url, connection.origin_mode, connection.revision)
         )
         if (
             connection.provider_kind != "SUB2API"
@@ -117,9 +115,7 @@ class Sub2APISourceExtractInvocationBuilder:
             approved_metadata = json.loads(approved.content)
         except json.JSONDecodeError as error:
             raise PermissionError("accepted SourceManifest metadata is invalid") from error
-        excerpt_sha256 = (
-            "sha256:" + hashlib.sha256(source_span.content.encode("utf-8")).hexdigest()
-        )
+        excerpt_sha256 = "sha256:" + hashlib.sha256(source_span.content.encode("utf-8")).hexdigest()
         entries = bundle.context_manifest.entries
         source_entries = [entry for entry in entries if entry.kind == "SOURCE_SPAN"]
         approved_entries = [entry for entry in entries if entry.kind == "APPROVED_ARTIFACT"]

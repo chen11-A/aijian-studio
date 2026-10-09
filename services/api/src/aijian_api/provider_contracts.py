@@ -17,9 +17,7 @@ CPA_LOOPBACK_BASE_URL = "http://127.0.0.1:8317"
 Sub2APIOriginMode = Literal["PUBLIC_HTTPS", "LOCAL_LOOPBACK_HTTP"]
 
 
-def validate_sub2api_origin(
-    base_url: str, origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS"
-) -> None:
+def validate_sub2api_origin(base_url: str, origin_mode: Sub2APIOriginMode = "PUBLIC_HTTPS") -> None:
     """Validate one explicitly selected Sub2API origin without widening public policy."""
     if origin_mode not in {"PUBLIC_HTTPS", "LOCAL_LOOPBACK_HTTP"}:
         raise ValueError("Sub2API origin mode is invalid")
@@ -31,9 +29,13 @@ def validate_sub2api_origin(
         raise ValueError("Sub2API origin is invalid") from error
     if origin_mode == "LOCAL_LOOPBACK_HTTP":
         allowed = (
-            f"http://127.0.0.1:{port}",
-            f"http://[::1]:{port}",
-        ) if port is not None and 1 <= port <= 65535 else ()
+            (
+                f"http://127.0.0.1:{port}",
+                f"http://[::1]:{port}",
+            )
+            if port is not None and 1 <= port <= 65535
+            else ()
+        )
         if parsed.scheme != "http" or base_url not in allowed:
             raise ValueError("Sub2API local mode requires a literal loopback HTTP origin and port")
         return

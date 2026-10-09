@@ -36,9 +36,7 @@ class AuthorizedSub2APITask:
 
 
 class Sub2APIBindingSource(Protocol):
-    def next_ready(
-        self, *, exclude_task_ids: frozenset[str]
-    ) -> AuthorizedSub2APITask | None: ...
+    def next_ready(self, *, exclude_task_ids: frozenset[str]) -> AuthorizedSub2APITask | None: ...
 
 
 class Sub2APISourceExtractRuntime:

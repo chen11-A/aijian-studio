@@ -164,7 +164,8 @@ def _enqueue_from_intent(
         or intent.agent_run_id != persisted.agent_run_id
         or intent.definition_hash != _DEFINITION_HASH
         or intent.graph != _GRAPH
-        or intent.endpoint_binding != (
+        or intent.endpoint_binding
+        != (
             _LOCAL_ENDPOINT_BINDING
             if intent.sub2api_scope.origin_mode == "LOCAL_LOOPBACK_HTTP"
             else _ENDPOINT_BINDING
@@ -309,7 +310,9 @@ class Sub2APISourceExtractRunFactory:
             )
             delegation.assert_registry_resolved()
         except (LookupError, PermissionError, ValueError) as error:
-            raise ProposalRunInputRejectedError("Sub2API Agent/Skill pair is unavailable") from error
+            raise ProposalRunInputRejectedError(
+                "Sub2API Agent/Skill pair is unavailable"
+            ) from error
         if (
             delegation.skill_definition.max_attempts != 1
             or delegation.skill_definition.output_schema_ref
@@ -350,9 +353,7 @@ class Sub2APISourceExtractRunFactory:
         )
         built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
         origin_hash = canonical_sha256(
-            sub2api_origin_binding(
-                connection.base_url, connection.origin_mode, connection.revision
-            )
+            sub2api_origin_binding(connection.base_url, connection.origin_mode, connection.revision)
         )
         input_hash = canonical_sha256(
             {
@@ -487,9 +488,7 @@ class Sub2APISourceExtractRunFactory:
         intent_record = write.enqueue_intent
         if intent_record is None or intent_record.request_hash != request_hash:
             raise AgentRunBundleConflictError("persisted Sub2API enqueue intent is missing")
-        queued, attempt = _enqueue_from_intent(
-            self._repository, intent_record, clock=self._clock
-        )
+        queued, attempt = _enqueue_from_intent(self._repository, intent_record, clock=self._clock)
         return CreatedProposalRun(
             persisted=write.bundle,
             task=queued,

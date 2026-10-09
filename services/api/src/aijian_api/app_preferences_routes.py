@@ -48,7 +48,9 @@ def create_app_preferences_router(store_provider: StoreProvider) -> APIRouter:
         response_model=AppPreferencesResponse,
         responses=errors,
     )
-    def get_preferences(request: Request, response: Response) -> AppPreferencesResponse | JSONResponse:
+    def get_preferences(
+        request: Request, response: Response
+    ) -> AppPreferencesResponse | JSONResponse:
         try:
             data = store_provider().read()
         except AppPreferencesCorruptError:

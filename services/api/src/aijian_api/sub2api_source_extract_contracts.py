@@ -114,7 +114,9 @@ class Sub2APICallApprovalData(_ClosedContract):
             or self.expires_at.utcoffset() is None
             or not timedelta(0) < self.expires_at - self.approved_at <= timedelta(minutes=30)
         ):
-            raise ValueError("approval requires aware timestamps and a lifetime of at most 30 minutes")
+            raise ValueError(
+                "approval requires aware timestamps and a lifetime of at most 30 minutes"
+            )
         return self
 
 

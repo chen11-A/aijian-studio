@@ -48,9 +48,7 @@ class AuthorizedRemoteTask:
 
 
 class AuthorizedRemoteBindingSource(Protocol):
-    def next_ready(
-        self, *, exclude_task_ids: frozenset[str]
-    ) -> AuthorizedRemoteTask | None: ...
+    def next_ready(self, *, exclude_task_ids: frozenset[str]) -> AuthorizedRemoteTask | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,11 +102,7 @@ class RemoteSourceExtractRuntime:
 
     def availability(self) -> str:
         if self._stop.is_set():
-            return (
-                "STOPPING"
-                if self._thread.is_alive() or self._iteration.locked()
-                else "STOPPED"
-            )
+            return "STOPPING" if self._thread.is_alive() or self._iteration.locked() else "STOPPED"
         return self._availability_reason
 
     def start(self) -> None:

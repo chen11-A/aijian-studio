@@ -41,16 +41,20 @@ class ExecutionSourceV1(_Closed):
     @model_validator(mode="after")
     def exact_source(self) -> Self:
         assembly = (
-            self.assembly_artifact_id, self.assembly_version_id,
-            self.assembly_content_hash, self.assembly_head_revision,
+            self.assembly_artifact_id,
+            self.assembly_version_id,
+            self.assembly_content_hash,
+            self.assembly_head_revision,
         )
         if self.origin == "EPISODE_ASSEMBLY" and (
             any(value is None for value in assembly)
-            or self.test_spec_sha256 is not None or self.fixture_manifest_sha256 is not None
+            or self.test_spec_sha256 is not None
+            or self.fixture_manifest_sha256 is not None
         ):
             raise ValueError("assembly plan requires exact artifact/head identity")
         if self.origin == "FROZEN_ENGINEERING_TEST" and (
-            self.test_spec_sha256 is None or self.fixture_manifest_sha256 is None
+            self.test_spec_sha256 is None
+            or self.fixture_manifest_sha256 is None
             or any(value is not None for value in assembly)
         ):
             raise ValueError("engineering plan requires one frozen test specification")
@@ -151,7 +155,10 @@ class ExecutionAudioTrackV1(_Closed):
     def dialogue_binding(self) -> Self:
         for clip in self.clips:
             binding = (
-                clip.script_version_id, clip.script_block_id, clip.speaker_id, clip.delivery,
+                clip.script_version_id,
+                clip.script_block_id,
+                clip.speaker_id,
+                clip.delivery,
             )
             if self.role in {"DIALOGUE", "DIALOGUE_TEST"} and any(
                 value is None for value in binding
@@ -222,8 +229,12 @@ class MediaExecutionPlanV1(_Closed):
     absent_test_roles: tuple[Literal["SFX"], ...] = ()
 
     @field_validator(
-        "video_tracks", "audio_tracks", "subtitle_cues", "video_transitions",
-        "absent_test_roles", mode="before",
+        "video_tracks",
+        "audio_tracks",
+        "subtitle_cues",
+        "video_transitions",
+        "absent_test_roles",
+        mode="before",
     )
     @classmethod
     def accept_json_arrays(cls, value: object) -> object:
@@ -253,14 +264,13 @@ class MediaExecutionPlanV1(_Closed):
         ):
             raise ValueError("video layers must be ordered from zero without gaps")
         all_tracks: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
-            *self.video_tracks, *self.audio_tracks,
+            *self.video_tracks,
+            *self.audio_tracks,
         )
         track_ids = [track.track_id for track in all_tracks]
         if len(track_ids) != len(set(track_ids)):
             raise ValueError("execution track IDs must be unique")
-        clip_ids = [
-            clip.clip_id for track in all_tracks for clip in track.clips
-        ]
+        clip_ids = [clip.clip_id for track in all_tracks for clip in track.clips]
         cue_ids = [cue.cue_id for cue in self.subtitle_cues]
         transition_ids = [transition.transition_id for transition in self.video_transitions]
         all_ids = [*track_ids, *clip_ids, *cue_ids, *transition_ids]
@@ -293,10 +303,9 @@ class MediaExecutionPlanV1(_Closed):
             for audio_clip in audio_track.clips:
                 if audio_clip.start_frame < cursor or audio_clip.end_frame > self.total_frames:
                     raise ValueError("audio clips overlap within a track or exceed the sequence")
-                expected_samples = (
-                    sequence_frame_to_audio_sample(audio_clip.end_frame, self.sequence_timebase)
-                    - sequence_frame_to_audio_sample(audio_clip.start_frame, self.sequence_timebase)
-                )
+                expected_samples = sequence_frame_to_audio_sample(
+                    audio_clip.end_frame, self.sequence_timebase
+                ) - sequence_frame_to_audio_sample(audio_clip.start_frame, self.sequence_timebase)
                 if audio_clip.source_end_sample - audio_clip.source_in_sample != expected_samples:
                     raise ValueError(
                         "audio source sample interval must equal its absolute frame span",
@@ -331,7 +340,8 @@ class MediaExecutionPlanV1(_Closed):
             lower, upper = self.video_tracks
             overlaps = sorted(
                 (max(a.start_frame, b.start_frame), min(a.end_frame, b.end_frame))
-                for a in lower.clips for b in upper.clips
+                for a in lower.clips
+                for b in upper.clips
                 if max(a.start_frame, b.start_frame) < min(a.end_frame, b.end_frame)
             )
             declared = [

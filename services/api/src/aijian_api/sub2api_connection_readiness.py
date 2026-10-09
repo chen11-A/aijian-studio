@@ -69,8 +69,9 @@ class Sub2APIConfiguredReadiness:
                 if connection.origin_mode is None:
                     raise ValueError("Sub2API origin mode is missing")
                 validate_sub2api_origin(connection.base_url, connection.origin_mode)
-                if connection.origin_mode == "LOCAL_LOOPBACK_HTTP" and not local_loopback_route_clear(
-                    connection.base_url
+                if (
+                    connection.origin_mode == "LOCAL_LOOPBACK_HTTP"
+                    and not local_loopback_route_clear(connection.base_url)
                 ):
                     raise ValueError("local Sub2API route is not verified")
             except ValueError:

@@ -22,9 +22,7 @@ class _Closed(BaseModel):
 class EngineeringTestExportRequest(_Closed):
     operation_id: str = Field(pattern=ENGINEERING_OPERATION_ID_PATTERN)
     fixture_id: Literal["vfr-pattern-25fps-proxy"]
-    fixture_sha256: Literal[
-        "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"
-    ]
+    fixture_sha256: Literal["0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"]
 
 
 class EngineeringTestExportOutput(_Closed):
@@ -43,9 +41,9 @@ class EngineeringTestExportData(_Closed):
     scope: Literal["ENGINEERING_TEST"] = "ENGINEERING_TEST"
     operation_id: str = Field(pattern=ENGINEERING_OPERATION_ID_PATTERN)
     fixture_id: Literal["vfr-pattern-25fps-proxy"] = ENGINEERING_FIXTURE_ID
-    fixture_sha256: Literal[
-        "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"
-    ] = ENGINEERING_FIXTURE_SHA256
+    fixture_sha256: Literal["0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"] = (
+        ENGINEERING_FIXTURE_SHA256
+    )
     status: EngineeringStatus
     progress_phase: EngineeringProgressPhase
     progress_frames: int = Field(ge=0, le=64)

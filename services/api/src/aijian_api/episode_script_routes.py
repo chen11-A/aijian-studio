@@ -79,11 +79,17 @@ def create_episode_script_public_router(repository_provider: RepositoryProvider)
             data = store().get_latest(project_id=project_id, episode_id=episode_id)
         except EpisodeScriptNotFoundError:
             return _error(
-                request, code="SCRIPT_NOT_FOUND", message="Script draft was not found", status_code=404
+                request,
+                code="SCRIPT_NOT_FOUND",
+                message="Script draft was not found",
+                status_code=404,
             )
         except EpisodeScriptStorageError:
             return _error(
-                request, code="SCRIPT_STORAGE_FAILED", message="Script read failed safely", status_code=500
+                request,
+                code="SCRIPT_STORAGE_FAILED",
+                message="Script read failed safely",
+                status_code=500,
             )
         response.headers["ETag"] = f'"revision-{data.head_revision}"'
         return EpisodeScriptVersionResponse(data=data, request_id=_request_id(request))
@@ -107,11 +113,17 @@ def create_episode_script_public_router(repository_provider: RepositoryProvider)
             )
         except EpisodeScriptNotFoundError:
             return _error(
-                request, code="SCRIPT_NOT_FOUND", message="Script version was not found", status_code=404
+                request,
+                code="SCRIPT_NOT_FOUND",
+                message="Script version was not found",
+                status_code=404,
             )
         except EpisodeScriptStorageError:
             return _error(
-                request, code="SCRIPT_STORAGE_FAILED", message="Script read failed safely", status_code=500
+                request,
+                code="SCRIPT_STORAGE_FAILED",
+                message="Script read failed safely",
+                status_code=500,
             )
         response.headers["ETag"] = f'"{data.content_hash}"'
         return EpisodeScriptVersionResponse(data=data, request_id=_request_id(request))
@@ -155,11 +167,17 @@ def create_episode_script_write_router(
             )
         except EpisodeScriptTooLargeError:
             return _error(
-                request, code="SCRIPT_TOO_LARGE", message="Script draft is too large", status_code=413
+                request,
+                code="SCRIPT_TOO_LARGE",
+                message="Script draft is too large",
+                status_code=413,
             )
         except EpisodeScriptInputError:
             return _error(
-                request, code="SCRIPT_INPUT_REJECTED", message="Script draft input is invalid", status_code=422
+                request,
+                code="SCRIPT_INPUT_REJECTED",
+                message="Script draft input is invalid",
+                status_code=422,
             )
         except EpisodeScriptConflictError:
             return _error(
@@ -170,7 +188,10 @@ def create_episode_script_write_router(
             )
         except EpisodeScriptStorageError:
             return _error(
-                request, code="SCRIPT_STORAGE_FAILED", message="Script write failed safely", status_code=500
+                request,
+                code="SCRIPT_STORAGE_FAILED",
+                message="Script write failed safely",
+                status_code=500,
             )
         response.headers["ETag"] = f'"revision-{data.head_revision}"'
         return EpisodeScriptVersionCreatedResponse(

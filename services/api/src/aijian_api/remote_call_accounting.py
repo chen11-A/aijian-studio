@@ -35,9 +35,7 @@ class RemoteCallAccountingData(BaseModel):
     transport_dispatch_status: Literal["UNVERIFIED"]
     attempt_status: str
     provider_response_id: str | None
-    response_status: Literal[
-        "NO_RESPONSE_RECORDED", "RESPONSE_ID_RECORDED", "REMOTE_UNKNOWN"
-    ]
+    response_status: Literal["NO_RESPONSE_RECORDED", "RESPONSE_ID_RECORDED", "REMOTE_UNKNOWN"]
     cost_status: Literal["UNKNOWN", "VERIFIED"]
     actual_cost_micros: int | None
     currency: Literal["USD"] | None
@@ -101,22 +99,30 @@ def read_call_accounting_in_connection(
             if dispatch_row is None or dispatch_row["project_id"] != project_id:
                 raise ValueError("consume dispatch project mismatch")
             dispatch = _read_dispatch_snapshot(
-                connection, attempt_id, require_current_provider=False,
+                connection,
+                attempt_id,
+                require_current_provider=False,
                 require_current_truth=False,
             )
             if (
-                decision.status != "ALLOW" or decision.code != "EVIDENCE_VERIFIED"
-                or decision.binding_hash != canonical_sha256(
-                    {"grant_core_hash": snapshot.grant_core_hash}
-                )
+                decision.status != "ALLOW"
+                or decision.code != "EVIDENCE_VERIFIED"
+                or decision.binding_hash
+                != canonical_sha256({"grant_core_hash": snapshot.grant_core_hash})
                 or grant.input_scope_hash != dispatch.input_scope_hash()
                 or grant.operation != "remote.source.extract"
             ):
                 raise ValueError("consume evidence or source binding mismatch")
             for name in (
-                "connection_id", "connection_revision", "approved_model_id",
-                "endpoint_binding", "transport_contract_hash", "dispatch_class",
-                "requested_additional_budget_micros", "approved_currency", "policy_version",
+                "connection_id",
+                "connection_revision",
+                "approved_model_id",
+                "endpoint_binding",
+                "transport_contract_hash",
+                "dispatch_class",
+                "requested_additional_budget_micros",
+                "approved_currency",
+                "policy_version",
             ):
                 if getattr(grant, name) != getattr(dispatch, name):
                     raise ValueError("consume dispatch binding mismatch")
@@ -130,16 +136,20 @@ def read_call_accounting_in_connection(
         except (ValueError, TypeError, KeyError) as error:
             raise RemoteCallAccountingError("authorization consume is inconsistent") from error
     response_id = attempt["provider_response_id"]
-    response_status: Literal[
-        "NO_RESPONSE_RECORDED", "RESPONSE_ID_RECORDED", "REMOTE_UNKNOWN"
-    ] = (
-        "REMOTE_UNKNOWN" if attempt["status"] == "REMOTE_UNKNOWN"
-        else "RESPONSE_ID_RECORDED" if response_id
+    response_status: Literal["NO_RESPONSE_RECORDED", "RESPONSE_ID_RECORDED", "REMOTE_UNKNOWN"] = (
+        "REMOTE_UNKNOWN"
+        if attempt["status"] == "REMOTE_UNKNOWN"
+        else "RESPONSE_ID_RECORDED"
+        if response_id
         else "NO_RESPONSE_RECORDED"
     )
     evidence_status, actual, currency = _read_cost(
-        connection, project_id=project_id, attempt_id=attempt_id,
-        consume=consume, response_id=response_id, checked_at=checked_at,
+        connection,
+        project_id=project_id,
+        attempt_id=attempt_id,
+        consume=consume,
+        response_id=response_id,
+        checked_at=checked_at,
         verifier=settlement_verifier,
     )
     return RemoteCallAccountingData(
@@ -197,10 +207,21 @@ def _read_cost(
             raise ValueError("receipt hashes or verification are inconsistent")
         # Check every denormalized receipt field, not only the JSON document.
         for name in (
-            "attempt_id", "authorization_id", "consume_revision", "lease_generation",
-            "issuer_id", "trust_profile_id", "trust_profile_version", "receipt_id",
-            "provider_response_id", "connection_id", "connection_revision", "model_id",
-            "operation", "currency", "actual_micros",
+            "attempt_id",
+            "authorization_id",
+            "consume_revision",
+            "lease_generation",
+            "issuer_id",
+            "trust_profile_id",
+            "trust_profile_version",
+            "receipt_id",
+            "provider_response_id",
+            "connection_id",
+            "connection_revision",
+            "model_id",
+            "operation",
+            "currency",
+            "actual_micros",
         ):
             if row[name] != getattr(payload, name):
                 raise ValueError("receipt columns differ from payload")
@@ -232,7 +253,8 @@ def _read_cost(
             raise ValueError("receipt dispatch scope mismatch")
         proposals = connection.execute(
             """SELECT project_id, proposal_json FROM agent_artifact_proposals
-               WHERE producer_attempt_id = ?""", (attempt_id,),
+               WHERE producer_attempt_id = ?""",
+            (attempt_id,),
         ).fetchall()
         if len(proposals) != 1 or proposals[0]["project_id"] != project_id:
             raise ValueError("receipt proposal is unavailable")
@@ -255,7 +277,8 @@ def _read_cost(
         # Verifier failures do not manufacture a zero cost or dispatch permission.
         return "UNVERIFIED", None, None
     if (
-        current.status != "VERIFIED" or current.receipt_hash != receipt_hash
+        current.status != "VERIFIED"
+        or current.receipt_hash != receipt_hash
         or current.checked_at != checked_at
     ):
         return "UNVERIFIED", None, None

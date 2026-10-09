@@ -91,9 +91,7 @@ def create_episode_script_confirmation_public_router(
                 message="Confirmation read failed safely",
             )
         response.headers["ETag"] = f'"revision-{data.latest_head_revision}"'
-        return EpisodeScriptConfirmationStatusResponse(
-            data=data, request_id=_request_id(request)
-        )
+        return EpisodeScriptConfirmationStatusResponse(data=data, request_id=_request_id(request))
 
     @router.get(
         "/api/v1/projects/{project_id}/episodes/{episode_id}/script/confirmation",
@@ -148,9 +146,7 @@ def create_episode_script_confirmation_write_router(
         if idempotency_key is None or not idempotency_key.strip():
             raise PreconditionRequiredError("Idempotency-Key is required")
         try:
-            result, replayed = EpisodeScriptConfirmationStore(
-                repository_provider()
-            ).confirm(
+            result, replayed = EpisodeScriptConfirmationStore(repository_provider()).confirm(
                 project_id=project_id,
                 episode_id=episode_id,
                 payload=payload,

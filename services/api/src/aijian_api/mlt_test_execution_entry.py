@@ -30,7 +30,6 @@ from aijian_api.mlt_test_selection_resolver import (
     prepare_test_selection,
 )
 
-
 # REL02 has not approved a complete MLT runtime inventory for this TEST.
 _APPROVED_MLT_RUNTIME_MANIFEST_SHA256: frozenset[str] = frozenset()
 
@@ -41,9 +40,13 @@ def _runtime_manifest_sha256(runtime: MltEngineeringRuntime) -> str:
         f"root={runtime.installation_root}",
         f"modules={runtime.module_directory}",
         f"version={runtime.expected_version}",
-        *(f"{item.path}|{item.sha256}" for item in (
-            runtime.melt, *runtime.runtime_files,
-        )),
+        *(
+            f"{item.path}|{item.sha256}"
+            for item in (
+                runtime.melt,
+                *runtime.runtime_files,
+            )
+        ),
     )
     return hashlib.sha256("\n".join(entries).encode("utf-8")).hexdigest()
 
@@ -66,7 +69,8 @@ def run_selected_art04_test(
         or not isinstance(frozen_plan, MediaExecutionPlanV1)
         or not isinstance(runtime, MltEngineeringRuntime)
         or not isinstance(verifier_toolchain, MediaToolchain)
-        or not callable(on_progress) or not callable(stop_requested)
+        or not callable(on_progress)
+        or not callable(stop_requested)
         or isinstance(timeout_seconds, bool)
         or not isinstance(timeout_seconds, int | float)
         or not math.isfinite(timeout_seconds)
@@ -101,12 +105,16 @@ def run_selected_art04_test(
     resources = (*blueprint.selected_resources, blueprint.subtitle_file)
     selected.revalidate(frozen_plan, resources)
     task = materialize_mlt_engineering_task(
-        blueprint, operation_id=operation_id, work_root=work_root,
+        blueprint,
+        operation_id=operation_id,
+        work_root=work_root,
     )
     if task.plan != frozen_plan or task.resources != resources:
         raise MltExecutionError("TEST_TASK_CHANGED", "Materialized TEST differs from its plan")
     return run_mlt_engineering_task(
-        task, runtime, verifier_toolchain,
+        task,
+        runtime,
+        verifier_toolchain,
         on_progress=on_progress,
         stop_requested=stop_requested,
         revalidate_selection=selected.revalidate,

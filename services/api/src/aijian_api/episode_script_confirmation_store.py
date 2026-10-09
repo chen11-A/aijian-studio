@@ -74,9 +74,7 @@ class EpisodeScriptConfirmationStore:
         return connection
 
     @staticmethod
-    def _head(
-        connection: sqlite3.Connection, project_id: str, episode_id: str
-    ) -> sqlite3.Row:
+    def _head(connection: sqlite3.Connection, project_id: str, episode_id: str) -> sqlite3.Row:
         try:
             EpisodeScriptStore._require_episode(connection, project_id, episode_id)
         except (ProjectNotFoundError, EpisodeNotFoundError) as error:
@@ -153,10 +151,9 @@ class EpisodeScriptConfirmationStore:
     ) -> EpisodeScriptConfirmationStatusData:
         confirmation = None
         if receipt is not None:
-            if (
-                str(receipt["artifact_id"]) != str(head["artifact_id"])
-                or str(receipt["content_hash"]) != str(receipt["version_content_hash"])
-            ):
+            if str(receipt["artifact_id"]) != str(head["artifact_id"]) or str(
+                receipt["content_hash"]
+            ) != str(receipt["version_content_hash"]):
                 raise EpisodeScriptConfirmationStorageError(
                     "Confirmation no longer binds its script version"
                 )
@@ -297,12 +294,16 @@ class EpisodeScriptConfirmationStore:
                 raise EpisodeScriptConfirmationStorageError(
                     "Current script version is invalid"
                 ) from error
-            content = EpisodeScriptStore(self._repository)._verified_version_data(
-                record,
-                project_id=project_id,
-                episode_id=episode_id,
-                connection=connection,
-            ).content
+            content = (
+                EpisodeScriptStore(self._repository)
+                ._verified_version_data(
+                    record,
+                    project_id=project_id,
+                    episode_id=episode_id,
+                    connection=connection,
+                )
+                .content
+            )
             if (
                 not content.scenes
                 or any(not scene.blocks for scene in content.scenes)

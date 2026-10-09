@@ -346,7 +346,8 @@ def create_app(
     resolved_development_timeline_export_service = development_timeline_export_service
     resolved_local_media_toolchain = local_media_toolchain or (
         LocalMediaToolchainService(machine_settings_path())
-        if sidecar_security is not None else None
+        if sidecar_security is not None
+        else None
     )
 
     def get_repository() -> StudioRepository:
@@ -420,9 +421,7 @@ def create_app(
         return AppPreferencesStore(get_repository().database_path)
 
     def get_product_timeline_export_preflight_service() -> ProductTimelineExportPreflightService:
-        return ProductTimelineExportPreflightService(
-            get_repository(), media_toolchain_lock_path()
-        )
+        return ProductTimelineExportPreflightService(get_repository(), media_toolchain_lock_path())
 
     def get_media_probe_toolchain() -> MediaToolchain:
         if resolved_local_media_toolchain is not None:
@@ -431,9 +430,7 @@ def create_app(
         return discover_media_toolchain(lock, explicit_root=media_tool_root())
 
     def get_sub2api_source_extract_factory() -> Sub2APISourceExtractRunFactory:
-        return Sub2APISourceExtractRunFactory(
-            get_repository(), sub2api_source_extract_registry()
-        )
+        return Sub2APISourceExtractRunFactory(get_repository(), sub2api_source_extract_registry())
 
     def get_sub2api_source_extract_store() -> Sub2APISourceExtractStore:
         return Sub2APISourceExtractStore(get_repository().database_path)
@@ -923,7 +920,8 @@ def create_app(
 
     @app.exception_handler(ProviderConnectionVersionConflictError)
     async def provider_connection_version_conflict(
-        request: Request, _error: ProviderConnectionVersionConflictError,
+        request: Request,
+        _error: ProviderConnectionVersionConflictError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_409_CONFLICT,
@@ -934,7 +932,8 @@ def create_app(
 
     @app.exception_handler(ProviderRotationOperationExistsError)
     async def provider_rotation_operation_exists(
-        request: Request, _error: ProviderRotationOperationExistsError,
+        request: Request,
+        _error: ProviderRotationOperationExistsError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_409_CONFLICT,
@@ -945,7 +944,8 @@ def create_app(
 
     @app.exception_handler(ProviderConnectionWriteUnknownError)
     async def provider_connection_write_unknown(
-        request: Request, _error: ProviderConnectionWriteUnknownError,
+        request: Request,
+        _error: ProviderConnectionWriteUnknownError,
     ) -> JSONResponse:
         return _error_response(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1212,14 +1212,16 @@ def create_app(
         app.include_router(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
         )
-        app.include_router(create_draft_review_router(
-            get_repository, lambda: cast(DraftExportRuntime, draft_export_runtime), trusted_review_actor
-        ))
+        app.include_router(
+            create_draft_review_router(
+                get_repository,
+                lambda: cast(DraftExportRuntime, draft_export_runtime),
+                trusted_review_actor,
+            )
+        )
         if product_export_runtime is not None:
             app.include_router(
-                create_product_export_operation_router(
-                    lambda: product_export_runtime
-                )
+                create_product_export_operation_router(lambda: product_export_runtime)
             )
         app.include_router(create_app_preferences_router(get_app_preferences_store))
         app.include_router(
@@ -1235,9 +1237,7 @@ def create_app(
         app.include_router(
             create_product_timeline_export_router(get_product_timeline_export_preflight_service)
         )
-        app.include_router(
-            create_episode_script_write_router(get_repository, trusted_review_actor)
-        )
+        app.include_router(create_episode_script_write_router(get_repository, trusted_review_actor))
         app.include_router(
             create_episode_storyboard_write_router(get_repository, trusted_review_actor)
         )
@@ -1246,14 +1246,10 @@ def create_app(
             create_project_creative_library_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
-            create_episode_script_confirmation_write_router(
-                get_repository, trusted_review_actor
-            )
+            create_episode_script_confirmation_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
-            create_episode_media_assembly_write_router(
-                get_repository, trusted_review_actor
-            )
+            create_episode_media_assembly_write_router(get_repository, trusted_review_actor)
         )
         app.include_router(
             create_sub2api_source_extract_router(

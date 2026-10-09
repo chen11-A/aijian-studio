@@ -66,24 +66,38 @@ def build_single_video_render_plan(
 ) -> ProductExportRenderPlan:
     """Validate an entire assembly before selecting the narrow render path."""
     if len(assembly.visual_segments) != 1:
-        raise ProductExportPlanError("MULTI_SEGMENT_UNSUPPORTED", "Multiple visual segments need a separate render path")
+        raise ProductExportPlanError(
+            "MULTI_SEGMENT_UNSUPPORTED", "Multiple visual segments need a separate render path"
+        )
     if assembly.audio_segments:
         kinds = {segment.track_kind for segment in assembly.audio_segments}
         for kind in ("DIALOGUE", "BGM", "SFX"):
             if kind in kinds:
-                raise ProductExportPlanError(f"{kind}_UNSUPPORTED", f"Independent {kind} audio is not yet renderable")
+                raise ProductExportPlanError(
+                    f"{kind}_UNSUPPORTED", f"Independent {kind} audio is not yet renderable"
+                )
     if assembly.subtitle_segments:
-        raise ProductExportPlanError("SUBTITLE_UNSUPPORTED", "Subtitle rendering is not yet available")
+        raise ProductExportPlanError(
+            "SUBTITLE_UNSUPPORTED", "Subtitle rendering is not yet available"
+        )
     visual = assembly.visual_segments[0]
     if visual.media_kind != "video" or visual.source_in_frame != 0:
-        raise ProductExportPlanError("VISUAL_UNSUPPORTED", "This render path needs one video from its first frame")
+        raise ProductExportPlanError(
+            "VISUAL_UNSUPPORTED", "This render path needs one video from its first frame"
+        )
     if assembly.canvas_width != request.spec.width or assembly.canvas_height != request.spec.height:
-        raise ProductExportPlanError("CANVAS_CONFLICT", "Requested output dimensions differ from assembly")
+        raise ProductExportPlanError(
+            "CANVAS_CONFLICT", "Requested output dimensions differ from assembly"
+        )
     rate = assembly.sequence_timebase.frame_rate
     if (rate.num, rate.den) != (request.spec.frame_rate_num, request.spec.frame_rate_den):
-        raise ProductExportPlanError("FRAME_RATE_CONFLICT", "Requested frame rate differs from assembly")
+        raise ProductExportPlanError(
+            "FRAME_RATE_CONFLICT", "Requested frame rate differs from assembly"
+        )
     if request.spec.video_codec != "H264":
-        raise ProductExportPlanError("VIDEO_CODEC_UNSUPPORTED", "This render path supports H264 only")
+        raise ProductExportPlanError(
+            "VIDEO_CODEC_UNSUPPORTED", "This render path supports H264 only"
+        )
     media = visual.media
     if (
         evidence.project_id != assembly.project_id
@@ -95,27 +109,38 @@ def build_single_video_render_plan(
         or evidence.ffprobe_sha256 != toolchain.ffprobe_sha256
         or evidence.toolchain_profile_id != toolchain.profile_id
     ):
-        raise ProductExportPlanError("PROBE_IDENTITY_CONFLICT", "Video probe does not bind this assembly and toolchain")
+        raise ProductExportPlanError(
+            "PROBE_IDENTITY_CONFLICT", "Video probe does not bind this assembly and toolchain"
+        )
     probe = evidence.probe
     if (
         probe.video.is_variable_frame_rate
         or (probe.video.average_frame_rate.num, probe.video.average_frame_rate.den)
-           != (rate.num, rate.den)
+        != (rate.num, rate.den)
         or len(probe.video.frames) != assembly.total_frames
         or probe.video.width != request.spec.width
         or probe.video.height != request.spec.height
     ):
-        raise ProductExportPlanError("VIDEO_PROBE_CONFLICT", "Selected video cannot fill the declared sequence exactly")
+        raise ProductExportPlanError(
+            "VIDEO_PROBE_CONFLICT", "Selected video cannot fill the declared sequence exactly"
+        )
     has_audio = visual.embedded_audio == "PLAY"
     if has_audio and probe.audio is None:
-        raise ProductExportPlanError("EMBEDDED_AUDIO_MISSING", "Selected video has no embedded audio")
+        raise ProductExportPlanError(
+            "EMBEDDED_AUDIO_MISSING", "Selected video has no embedded audio"
+        )
     if has_audio and probe.audio is not None:
-        minimum_samples = Fraction(
-            assembly.total_frames * rate.den * probe.audio.sample_rate_hz,
-            rate.num,
-        ) - 1024
+        minimum_samples = (
+            Fraction(
+                assembly.total_frames * rate.den * probe.audio.sample_rate_hz,
+                rate.num,
+            )
+            - 1024
+        )
         if probe.audio.total_samples < minimum_samples:
-            raise ProductExportPlanError("EMBEDDED_AUDIO_SHORT", "Embedded audio ends before the sequence")
+            raise ProductExportPlanError(
+                "EMBEDDED_AUDIO_SHORT", "Embedded audio ends before the sequence"
+            )
     return ProductExportRenderPlan(
         assembly_content_hash=canonical_content_hash(assembly.model_dump(mode="json")),
         source_asset_id=media.asset_id,
@@ -132,7 +157,9 @@ def build_single_video_render_plan(
 
 
 def render_arguments(
-    plan: EncoderPlan, source: Path, temporary_output: Path,
+    plan: EncoderPlan,
+    source: Path,
+    temporary_output: Path,
 ) -> tuple[str, ...]:
     """Arguments for a pinned ffmpeg executable; call with shell=False."""
     if not source.is_absolute() or not temporary_output.is_absolute():
@@ -144,17 +171,40 @@ def render_arguments(
     )
     duration_text = f"{float(duration):.9f}"
     args = [
-        "-hide_banner", "-nostdin", "-n", "-i", str(source),
-        "-map", "0:v:0", "-frames:v", str(plan.total_frames),
-        "-r", rate, "-fps_mode", "cfr", "-c:v", "libx264",
-        "-pix_fmt", "yuv420p", "-t", duration_text,
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-i",
+        str(source),
+        "-map",
+        "0:v:0",
+        "-frames:v",
+        str(plan.total_frames),
+        "-r",
+        rate,
+        "-fps_mode",
+        "cfr",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-t",
+        duration_text,
     ]
     if plan.has_audio:
         args.extend(("-map", "0:a:0", "-c:a", "aac", "-ar", "48000", "-ac", "2"))
     else:
         args.append("-an")
-    args.extend((
-        "-movflags", "+faststart", "-progress", "pipe:1", "-nostats",
-        "-f", "mp4", str(temporary_output),
-    ))
+    args.extend(
+        (
+            "-movflags",
+            "+faststart",
+            "-progress",
+            "pipe:1",
+            "-nostats",
+            "-f",
+            "mp4",
+            str(temporary_output),
+        )
+    )
     return tuple(args)

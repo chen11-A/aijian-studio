@@ -54,9 +54,12 @@ def _data(connection: sqlite3.Connection, operation_id: str) -> EngineeringTestE
             (operation_id,),
         ).fetchone()
         if receipt is None:
-            raise EngineeringTestExportError("CORRUPT_RECEIPT", "Engineering success has no receipt")
+            raise EngineeringTestExportError(
+                "CORRUPT_RECEIPT", "Engineering success has no receipt"
+            )
         output = EngineeringTestExportOutput(
-            sha256=str(receipt["sha256"]), byte_size=receipt["byte_size"],
+            sha256=str(receipt["sha256"]),
+            byte_size=receipt["byte_size"],
             probe_hash=str(receipt["probe_hash"]),
             verified_at=str(receipt["verified_at"]),
             media_url=f"/api/v1/engineering-test/exports/{operation_id}/media",
@@ -67,9 +70,12 @@ def _data(connection: sqlite3.Connection, operation_id: str) -> EngineeringTestE
         progress_phase=TypeAdapter(EngineeringProgressPhase).validate_python(row["progress_phase"]),
         progress_frames=row["progress_frames"],
         cancel_requested_at=row["cancel_requested_at"],
-        unknown_reason=row["unknown_reason"], output=output,
-        created_at=str(row["created_at"]), updated_at=str(row["updated_at"]),
-        started_at=row["started_at"], finished_at=row["finished_at"],
+        unknown_reason=row["unknown_reason"],
+        output=output,
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
     )
 
 
@@ -87,7 +93,9 @@ class EngineeringTestExportStore:
             return result
 
     def claim(
-        self, request: EngineeringTestExportRequest, toolchain: MediaToolchain,
+        self,
+        request: EngineeringTestExportRequest,
+        toolchain: MediaToolchain,
     ) -> tuple[EngineeringTestExportData, bool]:
         """Caller must verify the pinned synthetic fixture before this insert."""
         request_hash = canonical_content_hash(request.model_dump(mode="json"))
@@ -102,7 +110,8 @@ class EngineeringTestExportStore:
                 if row is not None:
                     if row["request_hash"] != request_hash:
                         raise EngineeringTestExportError(
-                            "OPERATION_CONFLICT", "Operation ID was reused with different input",
+                            "OPERATION_CONFLICT",
+                            "Operation ID was reused with different input",
                         )
                     result = _data(connection, request.operation_id)
                     connection.commit()
@@ -116,10 +125,18 @@ class EngineeringTestExportStore:
                          created_at, updated_at
                        ) VALUES (?, 'ENGINEERING_TEST', ?, ?, ?, ?, ?, ?, ?,
                                  'CLAIMED', 'QUEUED', 0, ?, ?)""",
-                    (request.operation_id, request_hash, request.fixture_id,
-                     request.fixture_sha256, toolchain.profile_id,
-                     toolchain.ffmpeg_sha256, toolchain.ffprobe_sha256,
-                     f"{request.operation_id}.mp4", stamp, stamp),
+                    (
+                        request.operation_id,
+                        request_hash,
+                        request.fixture_id,
+                        request.fixture_sha256,
+                        toolchain.profile_id,
+                        toolchain.ffmpeg_sha256,
+                        toolchain.ffprobe_sha256,
+                        f"{request.operation_id}.mp4",
+                        stamp,
+                        stamp,
+                    ),
                 )
                 result = _data(connection, request.operation_id)
                 connection.commit()
@@ -134,7 +151,10 @@ class EngineeringTestExportStore:
             try:
                 connection.execute("BEGIN IMMEDIATE")
                 current = _data(connection, operation_id)
-                if current.status not in {"SUCCEEDED", "CANCELLED"} and current.cancel_requested_at is None:
+                if (
+                    current.status not in {"SUCCEEDED", "CANCELLED"}
+                    and current.cancel_requested_at is None
+                ):
                     stamp = _now()
                     connection.execute(
                         """UPDATE engineering_test_export_operations
@@ -164,7 +184,9 @@ class EngineeringTestExportStore:
                     (stamp, stamp, operation_id),
                 ).rowcount
                 if changed != 1:
-                    raise EngineeringTestExportError("NOT_STARTABLE", "Engineering export is not queued")
+                    raise EngineeringTestExportError(
+                        "NOT_STARTABLE", "Engineering export is not queued"
+                    )
                 result = _data(connection, operation_id)
                 connection.commit()
                 return result
@@ -189,7 +211,9 @@ class EngineeringTestExportStore:
                     (frames, stamp, operation_id, frames),
                 ).rowcount
                 if changed != 1:
-                    raise EngineeringTestExportError("PROGRESS_CONFLICT", "Engineering progress is stale")
+                    raise EngineeringTestExportError(
+                        "PROGRESS_CONFLICT", "Engineering progress is stale"
+                    )
                 result = _data(connection, operation_id)
                 connection.commit()
                 return result
@@ -211,7 +235,9 @@ class EngineeringTestExportStore:
                     (_now(), operation_id),
                 ).rowcount
                 if changed != 1:
-                    raise EngineeringTestExportError("NOT_VERIFYING", "Engineering export cannot verify")
+                    raise EngineeringTestExportError(
+                        "NOT_VERIFYING", "Engineering export cannot verify"
+                    )
                 result = _data(connection, operation_id)
                 connection.commit()
                 return result
@@ -231,7 +257,9 @@ class EngineeringTestExportStore:
                     connection.commit()
                     return current
                 if current.status not in {"CLAIMED", "RUNNING"}:
-                    raise EngineeringTestExportError("TERMINAL", "Terminal operation cannot become unknown")
+                    raise EngineeringTestExportError(
+                        "TERMINAL", "Terminal operation cannot become unknown"
+                    )
                 stamp = _now()
                 connection.execute(
                     """UPDATE engineering_test_export_operations
@@ -255,8 +283,13 @@ class EngineeringTestExportStore:
                 if current.status == "CANCELLED":
                     connection.commit()
                     return current
-                if current.status not in {"CLAIMED", "RUNNING"} or current.cancel_requested_at is None:
-                    raise EngineeringTestExportError("NOT_CANCELLABLE", "Engineering export cannot be cancelled")
+                if (
+                    current.status not in {"CLAIMED", "RUNNING"}
+                    or current.cancel_requested_at is None
+                ):
+                    raise EngineeringTestExportError(
+                        "NOT_CANCELLABLE", "Engineering export cannot be cancelled"
+                    )
                 stamp = _now()
                 connection.execute(
                     """UPDATE engineering_test_export_operations
@@ -271,7 +304,9 @@ class EngineeringTestExportStore:
                 connection.rollback()
                 raise
 
-    def succeed(self, operation_id: str, verified: VerifiedProductOutput) -> EngineeringTestExportData:
+    def succeed(
+        self, operation_id: str, verified: VerifiedProductOutput
+    ) -> EngineeringTestExportData:
         _id(operation_id)
         if not 0 < verified.byte_size <= ENGINEERING_MEDIA_MAX_BYTES:
             raise EngineeringTestExportError("OUTPUT_SIZE", "Engineering output is too large")
@@ -285,21 +320,34 @@ class EngineeringTestExportStore:
                     (operation_id,),
                 ).fetchone()
                 if (
-                    current is None or current["status"] != "RUNNING"
+                    current is None
+                    or current["status"] != "RUNNING"
                     or current["progress_phase"] != "VERIFYING"
                     or current["cancel_requested_at"] is not None
-                    or not verified.absolute_path.endswith("/" + str(current["output_relative_path"]))
-                       and not verified.absolute_path.endswith("\\" + str(current["output_relative_path"]))
+                    or not verified.absolute_path.endswith(
+                        "/" + str(current["output_relative_path"])
+                    )
+                    and not verified.absolute_path.endswith(
+                        "\\" + str(current["output_relative_path"])
+                    )
                 ):
-                    raise EngineeringTestExportError("OUTPUT_CONFLICT", "Engineering output is not bound to this operation")
+                    raise EngineeringTestExportError(
+                        "OUTPUT_CONFLICT", "Engineering output is not bound to this operation"
+                    )
                 connection.execute(
                     """INSERT INTO engineering_test_export_outputs (
                          operation_id, scope, relative_path, sha256, byte_size,
                          probe_json, probe_hash, verified_at
                        ) VALUES (?, 'ENGINEERING_TEST', ?, ?, ?, ?, ?, ?)""",
-                    (operation_id, str(current["output_relative_path"]), verified.sha256,
-                     verified.byte_size, verified.probe_json, verified.probe_hash,
-                     verified.verified_at),
+                    (
+                        operation_id,
+                        str(current["output_relative_path"]),
+                        verified.sha256,
+                        verified.byte_size,
+                        verified.probe_json,
+                        verified.probe_hash,
+                        verified.verified_at,
+                    ),
                 )
                 stamp = _now()
                 connection.execute(

@@ -124,7 +124,11 @@ def _inventory(workspace: Path) -> dict[str, tuple[str, int, int, int, int]]:
                 visit(child)
         elif stat.S_ISREG(info.st_mode):
             inventory[relative] = (
-                "file", info.st_size, info.st_mtime_ns, info.st_dev, info.st_ino,
+                "file",
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_dev,
+                info.st_ino,
             )
         else:
             raise WorkspaceBackupError("Workspace contains an unsupported file type")
@@ -157,15 +161,16 @@ def _file_digest(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), total
 
 
-def _copy_verified(source: Path, target: Path, fingerprint: tuple[str, int, int, int, int]) -> dict[str, object]:
+def _copy_verified(
+    source: Path, target: Path, fingerprint: tuple[str, int, int, int, int]
+) -> dict[str, object]:
     digest = hashlib.sha256()
     total = 0
     with source.open("rb") as reader, target.open("xb") as writer:
         before = os.fstat(reader.fileno())
         if (
             not stat.S_ISREG(before.st_mode)
-            or (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino)
-            != fingerprint[1:]
+            or (before.st_size, before.st_mtime_ns, before.st_dev, before.st_ino) != fingerprint[1:]
         ):
             raise WorkspaceBackupError("Source media changed before copy")
         while chunk := reader.read(1024 * 1024):
@@ -175,11 +180,9 @@ def _copy_verified(source: Path, target: Path, fingerprint: tuple[str, int, int,
         writer.flush()
         os.fsync(writer.fileno())
         after = os.fstat(reader.fileno())
-        if (
-            (after.st_size, after.st_mtime_ns, after.st_dev, after.st_ino)
-            != fingerprint[1:]
-            or total != fingerprint[1]
-        ):
+        if (after.st_size, after.st_mtime_ns, after.st_dev, after.st_ino) != fingerprint[
+            1:
+        ] or total != fingerprint[1]:
             raise WorkspaceBackupError("Source media changed during copy")
     if _file_digest(target) != (digest.hexdigest(), total):
         raise WorkspaceBackupError("Copied media failed readback")
@@ -240,7 +243,9 @@ def backup_workspace(workspace: Path, output: Path) -> dict[str, object]:
         "files": sorted(files, key=lambda entry: str(entry["path"])),
         "sqlite_sidecars_excluded": sorted(_SQLITE_SIDECARS),
     }
-    receipt_bytes = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    receipt_bytes = (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(
+        "utf-8"
+    )
     receipt_path = output / "receipt.json"
     with receipt_path.open("xb") as stream:
         stream.write(receipt_bytes)
@@ -250,8 +255,10 @@ def backup_workspace(workspace: Path, output: Path) -> dict[str, object]:
     if _file_digest(receipt_path) != (receipt_sha256, len(receipt_bytes)):
         raise WorkspaceBackupError("Backup receipt failed readback")
     return {
-        "event": "backup-complete", "schema_version": 1,
-        "output": str(output), "receipt_sha256": receipt_sha256,
+        "event": "backup-complete",
+        "schema_version": 1,
+        "output": str(output),
+        "receipt_sha256": receipt_sha256,
         "file_count": len(files),
     }
 
@@ -376,7 +383,10 @@ def create_remote_source_extract_runtime(
 ) -> RemoteSourceExtractRuntime | None:
     """Compose the existing one-shot worker only with explicit trusted dependencies."""
 
-    if remote_source_extract_availability(composition) != "CONFIGURED_PENDING_PER_TASK_AUTHORIZATION":
+    if (
+        remote_source_extract_availability(composition)
+        != "CONFIGURED_PENDING_PER_TASK_AUTHORIZATION"
+    ):
         return None
     assert composition is not None
     ledger = LocalTaskLedger(repository.database_path)
@@ -466,7 +476,8 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         product_export_jobs = ProductExportJobManager()
         local_media_toolchain = LocalMediaToolchainService(machine_settings_path())
         draft_export_runtime = DraftExportRuntime(
-            repository, local_media_toolchain.discover,
+            repository,
+            local_media_toolchain.discover,
             product_export_jobs if os.name == "nt" else None,
         )
         product_export_runtime = ProductExportRuntime(
@@ -480,9 +491,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         remote_worker = create_remote_source_extract_runtime(
             repository, composition=remote_source_extract_composition
         )
-        sub2api_worker = create_sub2api_source_extract_runtime(
-            repository, credentials=credentials
-        )
+        sub2api_worker = create_sub2api_source_extract_runtime(repository, credentials=credentials)
         if remote_worker is None:
             _LOGGER.info(
                 "remote source.extract disabled: %s",

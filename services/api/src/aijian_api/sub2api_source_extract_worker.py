@@ -173,9 +173,7 @@ class Sub2APISourceExtractWorker:
         # Store verifies the trusted user action and atomically consumes one call.
         # A failure here may have an ambiguous commit; never infer a safe retry.
         try:
-            permit = self._store.begin_sub2api_dispatch(
-                claim=running, approval_id=approval_id
-            )
+            permit = self._store.begin_sub2api_dispatch(claim=running, approval_id=approval_id)
         except Exception:
             return Sub2APISourceExtractResult(
                 "REMOTE_UNKNOWN", claim.task_id, claim.attempt_id, code="CONSUME_UNCONFIRMED"
@@ -188,7 +186,8 @@ class Sub2APISourceExtractWorker:
                 or permit.connection_revision != connection.revision
                 or permit.model_id != snapshot.model_id
                 or permit.origin_mode != connection.origin_mode
-                or permit.origin_hash != canonical_sha256(
+                or permit.origin_hash
+                != canonical_sha256(
                     sub2api_origin_binding(
                         connection.base_url, connection.origin_mode, connection.revision
                     )
@@ -201,7 +200,9 @@ class Sub2APISourceExtractWorker:
                 origin_mode=connection.origin_mode,
                 request=request,
             )
-            if isinstance(outcome, (GatewayNotDispatched, GatewayRemoteError, GatewayRemoteUnknown)):
+            if isinstance(
+                outcome, (GatewayNotDispatched, GatewayRemoteError, GatewayRemoteUnknown)
+            ):
                 self._store.quarantine_unknown(
                     permit=permit, provider_response_id=None, code=outcome.code
                 )
@@ -211,9 +212,7 @@ class Sub2APISourceExtractWorker:
             if not isinstance(outcome, Sub2APITextSuccess):
                 raise ValueError("Sub2API transport returned an invalid outcome")
             response_id = outcome.response_id
-            proposal = self._proposal_builder(
-                outcome, invocation, snapshot, permit.approval_id
-            )
+            proposal = self._proposal_builder(outcome, invocation, snapshot, permit.approval_id)
             self._store.record_candidate(
                 permit=permit,
                 proposal=proposal,

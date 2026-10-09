@@ -173,18 +173,24 @@ PROPOSAL_TRUTH_SELECT = """
 
 
 def persist_sub2api_v2_in_connection(
-    connection: sqlite3.Connection, *, claim: ClaimedTask,
-    proposal: ArtifactProposalV2, approval_id: str, now_text: str,
+    connection: sqlite3.Connection,
+    *,
+    claim: ClaimedTask,
+    proposal: ArtifactProposalV2,
+    approval_id: str,
+    now_text: str,
 ) -> PersistedArtifactProposal:
     """Use only within the consumed-call and observation transaction."""
     proposal = ArtifactProposalV2.model_validate(proposal.model_dump(mode="json"))
     snapshot = read_agent_skill_snapshot(connection, claim, now_text=now_text)
-    if (claim.task_kind != "sub2api.source.extract"
-            or proposal.approval_id != approval_id
-            or proposal.project_id != snapshot.project_id
-            or proposal.producer_agent_run_id != snapshot.agent_run_id
-            or proposal.producer_skill_run_id != snapshot.skill_run_id
-            or proposal.target_artifact_type != snapshot.output_artifact_type):
+    if (
+        claim.task_kind != "sub2api.source.extract"
+        or proposal.approval_id != approval_id
+        or proposal.project_id != snapshot.project_id
+        or proposal.producer_agent_run_id != snapshot.agent_run_id
+        or proposal.producer_skill_run_id != snapshot.skill_run_id
+        or proposal.target_artifact_type != snapshot.output_artifact_type
+    ):
         raise ArtifactProposalConflictError("V2 proposal differs from frozen Sub2API attempt")
     authority = connection.execute(
         """SELECT scope.project_id, scope.scope_json, scope.scope_hash,
@@ -201,17 +207,19 @@ def persist_sub2api_v2_in_connection(
     try:
         scope_payload = json.loads(str(authority["scope_json"]))
         approval_payload = json.loads(str(authority["approval_json"]))
-        if (canonical_snapshot_json(scope_payload) != str(authority["scope_json"])
-                or canonical_sha256(scope_payload) != str(authority["scope_hash"])
-                or canonical_snapshot_json(approval_payload) != str(authority["approval_json"])
-                or canonical_sha256(approval_payload) != str(authority["approval_hash"])
-                or scope_payload["project_id"] != proposal.project_id
-                or approval_payload["approval_id"] != approval_id
-                or approval_payload["project_id"] != proposal.project_id
-                or approval_payload["attempt_id"] != claim.attempt_id
-                or approval_payload["task_id"] != claim.task_id
-                or approval_payload["input_hash"] != scope_payload["input_hash"]
-                or approval_payload["context_manifest_hash"] != scope_payload["context_manifest_hash"]):
+        if (
+            canonical_snapshot_json(scope_payload) != str(authority["scope_json"])
+            or canonical_sha256(scope_payload) != str(authority["scope_hash"])
+            or canonical_snapshot_json(approval_payload) != str(authority["approval_json"])
+            or canonical_sha256(approval_payload) != str(authority["approval_hash"])
+            or scope_payload["project_id"] != proposal.project_id
+            or approval_payload["approval_id"] != approval_id
+            or approval_payload["project_id"] != proposal.project_id
+            or approval_payload["attempt_id"] != claim.attempt_id
+            or approval_payload["task_id"] != claim.task_id
+            or approval_payload["input_hash"] != scope_payload["input_hash"]
+            or approval_payload["context_manifest_hash"] != scope_payload["context_manifest_hash"]
+        ):
             raise ValueError("Sub2API proposal authority is detached")
     except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise ArtifactProposalConflictError("V2 proposal authority is invalid") from error
@@ -220,7 +228,8 @@ def persist_sub2api_v2_in_connection(
     proposal_json = canonical_snapshot_json(payload)
     proposal_hash = canonical_sha256(payload)
     existing = connection.execute(
-        "SELECT proposal_id FROM agent_artifact_proposals WHERE producer_attempt_id = ? OR proposal_id = ?",
+        "SELECT proposal_id FROM agent_artifact_proposals "
+        "WHERE producer_attempt_id = ? OR proposal_id = ?",
         (claim.attempt_id, proposal.proposal_id),
     ).fetchone()
     if existing is not None:
@@ -231,13 +240,23 @@ def persist_sub2api_v2_in_connection(
              producer_skill_run_id, target_artifact_type, proposal_json,
              proposal_hash, created_at
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (proposal.proposal_id, proposal.project_id, claim.attempt_id,
-         proposal.producer_agent_run_id, proposal.producer_skill_run_id,
-         proposal.target_artifact_type, proposal_json, proposal_hash, now_text),
+        (
+            proposal.proposal_id,
+            proposal.project_id,
+            claim.attempt_id,
+            proposal.producer_agent_run_id,
+            proposal.producer_skill_run_id,
+            proposal.target_artifact_type,
+            proposal_json,
+            proposal_hash,
+            now_text,
+        ),
     )
     return PersistedArtifactProposal(
-        proposal=proposal, producer_attempt_id=claim.attempt_id,
-        proposal_hash=proposal_hash, created_at=parse_datetime(now_text),
+        proposal=proposal,
+        producer_attempt_id=claim.attempt_id,
+        proposal_hash=proposal_hash,
+        created_at=parse_datetime(now_text),
     )
 
 
@@ -331,16 +350,20 @@ def decode_persisted_proposal_row(row: sqlite3.Row) -> PersistedArtifactProposal
         ):
             raise ValueError("proposal columns do not match the closed contract")
         if isinstance(proposal, ArtifactProposalV2):
-            if (str(row["producer_task_kind"]) != "sub2api.source.extract"
-                    or row["sub2api_scope_hash"] is None
-                    or str(row["consumed_approval_id"]) != proposal.approval_id
-                    or row["consumed_approval_json"] is None):
+            if (
+                str(row["producer_task_kind"]) != "sub2api.source.extract"
+                or row["sub2api_scope_hash"] is None
+                or str(row["consumed_approval_id"]) != proposal.approval_id
+                or row["consumed_approval_json"] is None
+            ):
                 raise ValueError("V2 proposal lacks Sub2API consumed permission")
             approval_payload = json.loads(str(row["consumed_approval_json"]))
-            if (canonical_snapshot_json(approval_payload) != str(row["consumed_approval_json"])
-                    or canonical_sha256(approval_payload) != str(row["consumed_approval_hash"])
-                    or approval_payload.get("approval_id") != proposal.approval_id
-                    or approval_payload.get("attempt_id") != str(row["producer_attempt_id"])):
+            if (
+                canonical_snapshot_json(approval_payload) != str(row["consumed_approval_json"])
+                or canonical_sha256(approval_payload) != str(row["consumed_approval_hash"])
+                or approval_payload.get("approval_id") != proposal.approval_id
+                or approval_payload.get("attempt_id") != str(row["producer_attempt_id"])
+            ):
                 raise ValueError("V2 proposal approval integrity failed")
         elif str(row["producer_task_kind"]) == "sub2api.source.extract":
             raise ValueError("Sub2API proposal must use V2")

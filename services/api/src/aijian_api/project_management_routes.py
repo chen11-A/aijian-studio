@@ -69,7 +69,9 @@ def create_project_management_router(repository_provider: RepositoryProvider) ->
     ) -> ProjectResponse | JSONResponse:
         if if_match is None:
             return _error(
-                request, status=428, code="PROJECT_PRECONDITION_REQUIRED",
+                request,
+                status=428,
+                code="PROJECT_PRECONDITION_REQUIRED",
                 message="If-Match is required",
             )
         match = _REVISION_ETAG.fullmatch(if_match)
@@ -80,7 +82,9 @@ def create_project_management_router(repository_provider: RepositoryProvider) ->
             or int(match.group(1)) > SQLITE_INTEGER_MAX
         ):
             return _error(
-                request, status=412, code="PROJECT_PRECONDITION_FAILED",
+                request,
+                status=412,
+                code="PROJECT_PRECONDITION_FAILED",
                 message="If-Match must contain one current project revision",
             )
         try:
@@ -92,17 +96,23 @@ def create_project_management_router(repository_provider: RepositoryProvider) ->
             )
         except ProjectNotFoundError:
             return _error(
-                request, status=404, code="PROJECT_NOT_FOUND",
+                request,
+                status=404,
+                code="PROJECT_NOT_FOUND",
                 message="The requested project was not found",
             )
         except ProjectPreconditionFailedError:
             return _error(
-                request, status=412, code="PROJECT_PRECONDITION_FAILED",
+                request,
+                status=412,
+                code="PROJECT_PRECONDITION_FAILED",
                 message="The project revision has changed",
             )
         except ProjectManagementConflictError:
             return _error(
-                request, status=409, code="PROJECT_CONFLICT",
+                request,
+                status=409,
+                code="PROJECT_CONFLICT",
                 message="The stored project metadata is inconsistent",
             )
         response.headers["ETag"] = f'"revision-{project.revision}"'

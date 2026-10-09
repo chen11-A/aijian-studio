@@ -59,12 +59,13 @@ from aijian_api.mlt_execution_adapter import MltResolvedSelection
 from aijian_api.mlt_execution_worker import MltFileIdentity
 from aijian_api.repository import StudioRepository
 
-QA02_FIVE_INPUT_MANIFEST_SHA256 = (
-    "ee2166d379c1000d65138c12023209a9d535aee17d707c04bb907b7823fb04e3"
-)
+QA02_FIVE_INPUT_MANIFEST_SHA256 = "ee2166d379c1000d65138c12023209a9d535aee17d707c04bb907b7823fb04e3"
 _FILE_NAMES = (
-    "v1-blue.webm", "v2-red.webm", "dialogue-test.wav",
-    "bgm-test.wav", "subtitle-test.srt",
+    "v1-blue.webm",
+    "v2-red.webm",
+    "dialogue-test.wav",
+    "bgm-test.wav",
+    "subtitle-test.srt",
 )
 _HEX = re.compile(r"[0-9a-fA-F]{64}\Z")
 _MAX_MANIFEST_BYTES = 1024 * 1024
@@ -149,9 +150,11 @@ class ResolvedEngineeringTest:
         if original is None:
             raise TestSelectionError("PLAN_MEDIA_UNKNOWN", "Plan has an unselected media version")
         name = next(
-            (candidate for candidate, selector in names.items()
-             if (selector.asset_id, selector.version_id)
-             == (ref.asset_id, ref.asset_version_id)),
+            (
+                candidate
+                for candidate, selector in names.items()
+                if (selector.asset_id, selector.version_id) == (ref.asset_id, ref.asset_version_id)
+            ),
             None,
         )
         if name is None:
@@ -159,7 +162,10 @@ class ResolvedEngineeringTest:
         with _frozen_database(self.request.database_path):
             manifest = _load_manifest(self.request.manifest_path)
             current = _verified_media(
-                self.request.database_path, manifest, name, names[name],
+                self.request.database_path,
+                manifest,
+                name,
+                names[name],
             )
             if current.ref != ref or current.rights != original.rights:
                 raise TestSelectionError("PLAN_MEDIA_CHANGED", "Selected media authority changed")
@@ -168,7 +174,9 @@ class ResolvedEngineeringTest:
             return MltResolvedSelection(media=ref, file=current.file)
 
     def revalidate(
-        self, plan: MediaExecutionPlanV1, resources: tuple[MltFileIdentity, ...],
+        self,
+        plan: MediaExecutionPlanV1,
+        resources: tuple[MltFileIdentity, ...],
     ) -> None:
         """Rebuild from current truth immediately before a TEST worker starts."""
         current = prepare_test_selection(self.request)
@@ -179,21 +187,25 @@ class ResolvedEngineeringTest:
             raise TestSelectionError("FIXTURE_CHANGED", "Frozen TEST manifest or subtitle changed")
         if current.bindings != self.bindings:
             raise TestSelectionError(
-                "BINDINGS_CHANGED", "Frozen TEST selections or subtitle style changed",
+                "BINDINGS_CHANGED",
+                "Frozen TEST selections or subtitle style changed",
             )
         if current.selected_media != self.selected_media:
             raise TestSelectionError(
-                "SELECTION_CHANGED", "Selected ASV, rights, probe, or audio inspection changed",
+                "SELECTION_CHANGED",
+                "Selected ASV, rights, probe, or audio inspection changed",
             )
         if current.plan != plan or current.plan != self.plan:
             raise TestSelectionError(
-                "PLAN_CHANGED", "Frozen TEST plan no longer matches current authority",
+                "PLAN_CHANGED",
+                "Frozen TEST plan no longer matches current authority",
             )
         expected = {item.file for item in current.selected_media}
         expected.add(current.subtitle_file)
         if set(resources) != expected or len(resources) != len(expected):
             raise TestSelectionError(
-                "RESOURCE_CHANGED", "MLT resources differ from revalidated sources",
+                "RESOURCE_CHANGED",
+                "MLT resources differ from revalidated sources",
             )
 
 
@@ -203,9 +215,15 @@ def _reject(code: str, message: str) -> NoReturn:
 
 def _same_stat(before: os.stat_result, after: os.stat_result) -> bool:
     return (
-        before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns,
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
     ) == (
-        after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
     )
 
 
@@ -217,7 +235,8 @@ def _windows_path_units(path: Path) -> int:
 def _frozen_database(database_path: Path) -> Iterator[None]:
     """Hold a Windows deny-write DB handle across all independent readers."""
     if (
-        os.name != "nt" or not database_path.is_absolute()
+        os.name != "nt"
+        or not database_path.is_absolute()
         or _is_remote_windows_path(database_path)
         # The SQLite URI and sidecar readers still use this logical spelling.
         # Keep that boundary short until those readers have independent proof.
@@ -236,23 +255,29 @@ def _frozen_database(database_path: Path) -> Iterator[None]:
                 _reject("DATABASE_UNAVAILABLE", "TEST DB size or type is unsupported")
             deadline = time.monotonic() + MAX_READ_SECONDS
             original_hash, original_size = _hash_stream(
-                stream, maximum=MAX_DATABASE_BYTES, deadline=deadline,
+                stream,
+                maximum=MAX_DATABASE_BYTES,
+                deadline=deadline,
             )
             if original_size != before.st_size:
                 _reject("DATABASE_CHANGED", "TEST DB size changed before selection")
             yield
             stream.seek(0)
             final_hash, final_size = _hash_stream(
-                stream, maximum=MAX_DATABASE_BYTES,
+                stream,
+                maximum=MAX_DATABASE_BYTES,
                 deadline=time.monotonic() + MAX_READ_SECONDS,
             )
             after = os.fstat(stream.fileno())
             path_after = database_path.stat()
             sidecars_ok, sidecars_after = _sidecar_state(database_path)
             if (
-                not sidecars_ok or sidecars_after != sidecars_before
-                or final_hash != original_hash or final_size != original_size
-                or not _same_stat(before, after) or not _same_stat(before, path_after)
+                not sidecars_ok
+                or sidecars_after != sidecars_before
+                or final_hash != original_hash
+                or final_size != original_size
+                or not _same_stat(before, after)
+                or not _same_stat(before, path_after)
             ):
                 _reject("DATABASE_CHANGED", "TEST DB changed during selection")
     except (_ReadBudgetExceeded, OSError):
@@ -270,10 +295,12 @@ def _unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def _file_bytes(path: Path, *, maximum: int) -> bytes:
     if (
-        not path.is_absolute() or _is_remote_windows_path(path)
+        not path.is_absolute()
+        or _is_remote_windows_path(path)
         # Frozen QA fixtures are external inputs, outside the managed helper.
         or (os.name == "nt" and _windows_path_units(path) > _MAX_PLAIN_WINDOWS_PATH_CHARS)
-        or not _plain_directory(path.parent) or path.is_symlink()
+        or not _plain_directory(path.parent)
+        or path.is_symlink()
     ):
         _reject("FIXTURE_PATH_UNSAFE", "TEST fixture path is not a plain local file")
     try:
@@ -287,8 +314,10 @@ def _file_bytes(path: Path, *, maximum: int) -> bytes:
     except OSError:
         _reject("FIXTURE_READ_UNKNOWN", "TEST fixture file could not be read")
     if (
-        len(data) != before.st_size or path.is_symlink()
-        or not _same_stat(before, after) or not _same_stat(before, current)
+        len(data) != before.st_size
+        or path.is_symlink()
+        or not _same_stat(before, after)
+        or not _same_stat(before, current)
     ):
         _reject("FIXTURE_CHANGED", "TEST fixture file identity changed")
     return data
@@ -320,15 +349,23 @@ def _load_manifest(path: Path) -> _FixtureManifest:
         if not isinstance(entry, dict):
             _reject("MANIFEST_INVALID", "QA02 file entry is invalid")
         name, digest, size, text_path = (
-            entry.get("name"), entry.get("sha256"), entry.get("bytes"), entry.get("path"),
+            entry.get("name"),
+            entry.get("sha256"),
+            entry.get("bytes"),
+            entry.get("path"),
         )
         if (
-            not isinstance(name, str) or name not in _FILE_NAMES or name in files
+            not isinstance(name, str)
+            or name not in _FILE_NAMES
+            or name in files
             or entry.get("usage") != "SYNTHETIC_TEST_ONLY"
-            or not isinstance(digest, str) or _HEX.fullmatch(digest) is None
-            or isinstance(size, bool) or not isinstance(size, int)
+            or not isinstance(digest, str)
+            or _HEX.fullmatch(digest) is None
+            or isinstance(size, bool)
+            or not isinstance(size, int)
             or not 0 < size <= _MAX_FIXTURE_FILE_BYTES
-            or not isinstance(text_path, str) or Path(text_path) != path.parent / name
+            or not isinstance(text_path, str)
+            or Path(text_path) != path.parent / name
         ):
             _reject("MANIFEST_INVALID", "QA02 file identity is incomplete")
         source = Path(text_path)
@@ -350,24 +387,33 @@ def _load_manifest(path: Path) -> _FixtureManifest:
     if subtitle.replace("\r\n", "\n") != expected_srt:
         _reject("SUBTITLE_INVALID", "TEST SRT differs from the two exact cues")
     for key in (
-        "project_id", "episode_id", "test_script_version_id", "test_script_content_hash",
-        "first_script_block_id", "second_script_block_id", "ffmpeg_sha256", "ffprobe_sha256",
+        "project_id",
+        "episode_id",
+        "test_script_version_id",
+        "test_script_content_hash",
+        "first_script_block_id",
+        "second_script_block_id",
+        "ffmpeg_sha256",
+        "ffprobe_sha256",
     ):
         if not isinstance(raw.get(key), str) or not raw[key]:
             _reject("MANIFEST_INVALID", "QA02 script or tool identity is missing")
     return _FixtureManifest(
-        project_id=raw["project_id"], episode_id=raw["episode_id"],
+        project_id=raw["project_id"],
+        episode_id=raw["episode_id"],
         script_version_id=raw["test_script_version_id"],
         script_content_hash=raw["test_script_content_hash"],
         first_block_id=raw["first_script_block_id"],
-        second_block_id=raw["second_script_block_id"], files=files,
+        second_block_id=raw["second_script_block_id"],
+        files=files,
         ffmpeg_sha256=raw["ffmpeg_sha256"].lower(),
         ffprobe_sha256=raw["ffprobe_sha256"].lower(),
     )
 
 
 def _read_script_record(
-    database_path: Path, manifest: _FixtureManifest,
+    database_path: Path,
+    manifest: _FixtureManifest,
 ) -> ArtifactVersionRecord:
     uri = f"{database_path.as_uri()}?mode=ro&immutable=1&cache=private"
     try:
@@ -432,18 +478,24 @@ def _read_script_record(
     first = blocks.get(manifest.first_block_id)
     second = blocks.get(manifest.second_block_id)
     if (
-        first is None or second is None or first.kind != "DIALOGUE" or second.kind != "DIALOGUE"
-        or first.text != "TEST 提示音一（非语音）" or second.text != "TEST 提示音二（非语音）"
+        first is None
+        or second is None
+        or first.kind != "DIALOGUE"
+        or second.kind != "DIALOGUE"
+        or first.text != "TEST 提示音一（非语音）"
+        or second.text != "TEST 提示音二（非语音）"
         or first.speaker != "TEST 提示音（非人声）"
         or second.speaker != "TEST 提示音（非人声）"
-        or first.delivery != "OFF_SCREEN" or second.delivery != "OFF_SCREEN"
+        or first.delivery != "OFF_SCREEN"
+        or second.delivery != "OFF_SCREEN"
     ):
         _reject("SCRIPT_CHANGED", "QA02 script blocks differ from the frozen TEST fixture")
     return record
 
 
 def _read_video_probe(
-    database_path: Path, selected: SelectedMediaAssetVersion,
+    database_path: Path,
+    selected: SelectedMediaAssetVersion,
 ) -> MediaAssetProbeEvidence:
     uri = f"{database_path.as_uri()}?mode=ro&immutable=1&cache=private"
     try:
@@ -479,27 +531,40 @@ def _selector_names(request: TestSelectionRequest) -> dict[str, AssetVersionSele
 
 
 def _verified_media(
-    database_path: Path, manifest: _FixtureManifest,
-    name: str, selector: AssetVersionSelector,
+    database_path: Path,
+    manifest: _FixtureManifest,
+    name: str,
+    selector: AssetVersionSelector,
 ) -> _VerifiedMedia:
     entry = manifest.files[name]
     read = read_selected_media_asset_version(
-        database_path, manifest.project_id, selector.asset_id, selector.version_id,
+        database_path,
+        manifest.project_id,
+        selector.asset_id,
+        selector.version_id,
     )
     selected = read.version
     expected_kind: Literal["video", "audio"] = "video" if name.endswith(".webm") else "audio"
     if (
-        read.status != "VERIFIED" or selected is None or selected.kind != expected_kind
-        or selected.sha256 != entry.sha256 or selected.byte_size != entry.byte_size
+        read.status != "VERIFIED"
+        or selected is None
+        or selected.kind != expected_kind
+        or selected.sha256 != entry.sha256
+        or selected.byte_size != entry.byte_size
     ):
         _reject("ASSET_SELECTION_CONFLICT", "Selected ASV differs from the frozen QA source")
     rights_read = read_latest_rights_decision(
-        database_path, manifest.project_id, selector.asset_id, selector.version_id,
+        database_path,
+        manifest.project_id,
+        selector.asset_id,
+        selector.version_id,
     )
     rights = rights_read.decision
     if (
-        rights_read.status != "VERIFIED" or rights is None
-        or rights.decision != "CLEARED" or not rights.chain_integrity
+        rights_read.status != "VERIFIED"
+        or rights is None
+        or rights.decision != "CLEARED"
+        or not rights.chain_integrity
         or rights.asset_sha256 != selected.sha256
         or rights.revision != rights_read.current_revision
     ):
@@ -530,30 +595,41 @@ def _verified_media(
         ):
             _reject("VIDEO_PROBE_CONFLICT", "Selected video differs from the frozen CFR test")
         ref = ExecutionMediaRefV1(
-            asset_id=selected.asset_id, asset_version_id=selected.version_id,
-            sha256=selected.sha256, byte_size=selected.byte_size,
-            rights_status="CLEARED", rights_decision_id=rights.decision_id,
-            probe_evidence_id=probe.id, probe_sha256=probe.probe_sha256,
+            asset_id=selected.asset_id,
+            asset_version_id=selected.version_id,
+            sha256=selected.sha256,
+            byte_size=selected.byte_size,
+            rights_status="CLEARED",
+            rights_decision_id=rights.decision_id,
+            probe_evidence_id=probe.id,
+            probe_sha256=probe.probe_sha256,
         )
     else:
-        expected_samples: Literal[48000, 240000] = (
-            48000 if name == "dialogue-test.wav" else 240000
-        )
+        expected_samples: Literal[48000, 240000] = 48000 if name == "dialogue-test.wav" else 240000
         audio = inspect_selected_test_wav(
-            database_path, manifest.project_id, selected.asset_id, selected.version_id,
+            database_path,
+            manifest.project_id,
+            selected.asset_id,
+            selected.version_id,
             expected_samples=expected_samples,
         )
         if audio.selected != selected or audio.managed_path != path:
             _reject("AUDIO_SELECTION_CHANGED", "Selected WAV changed during inspection")
         ref = ExecutionMediaRefV1(
-            asset_id=selected.asset_id, asset_version_id=selected.version_id,
-            sha256=selected.sha256, byte_size=selected.byte_size,
-            rights_status="CLEARED", rights_decision_id=rights.decision_id,
+            asset_id=selected.asset_id,
+            asset_version_id=selected.version_id,
+            sha256=selected.sha256,
+            byte_size=selected.byte_size,
+            rights_status="CLEARED",
+            rights_decision_id=rights.decision_id,
             inspection_sha256=audio.inspection.inspection_sha256,
         )
     return _VerifiedMedia(
-        ref=ref, file=MltFileIdentity(path=path, sha256=selected.sha256),
-        rights=rights, probe=probe, audio=audio,
+        ref=ref,
+        file=MltFileIdentity(path=path, sha256=selected.sha256),
+        rights=rights,
+        probe=probe,
+        audio=audio,
     )
 
 
@@ -573,37 +649,43 @@ def prepare_test_selection(request: TestSelectionRequest) -> ResolvedEngineering
             _reject("ASSET_SELECTION_CONFLICT", "The four TEST media bytes must be distinct")
         blue, red = verified["v1-blue.webm"], verified["v2-red.webm"]
         dialogue, bgm = verified["dialogue-test.wav"], verified["bgm-test.wav"]
-        if (
-            blue.probe is None or red.probe is None
-            or dialogue.audio is None or bgm.audio is None
-        ):
+        if blue.probe is None or red.probe is None or dialogue.audio is None or bgm.audio is None:
             _reject("INSPECTION_MISSING", "TEST source inspection is incomplete")
         bindings = FrozenEngineeringTestBindingsV1(
             test_spec_sha256=ART04_MLT_TEST_SPEC_SHA256,
             fixture_manifest_sha256=QA02_FIVE_INPUT_MANIFEST_SHA256,
-            project_id=manifest.project_id, episode_id=manifest.episode_id,
-            blue_video=blue.ref, red_video=red.ref,
-            dialogue_tone=dialogue.ref, bgm_tone=bgm.ref,
+            project_id=manifest.project_id,
+            episode_id=manifest.episode_id,
+            blue_video=blue.ref,
+            red_video=red.ref,
+            dialogue_tone=dialogue.ref,
+            bgm_tone=bgm.ref,
             test_script_version_id=manifest.script_version_id,
             test_script_content_hash=manifest.script_content_hash,
             first_script_block_id=manifest.first_block_id,
             second_script_block_id=manifest.second_block_id,
             subtitle_file_sha256=manifest.files["subtitle-test.srt"].sha256,
-            dialogue_gain_millidb=0, bgm_gain_millidb=0,
+            dialogue_gain_millidb=0,
+            bgm_gain_millidb=0,
             subtitle_font_family=request.subtitle_style.font_family,
             subtitle_font_size_px=request.subtitle_style.font_size_px,
             subtitle_color_rgba=request.subtitle_style.color_rgba,
         )
         plan = build_art04_synthetic_execution_plan(
-            bindings, test_script_record=script_record,
-            blue_probe=blue.probe, red_probe=red.probe,
+            bindings,
+            test_script_record=script_record,
+            blue_probe=blue.probe,
+            red_probe=red.probe,
             dialogue_inspection=dialogue.audio.inspection,
             bgm_inspection=bgm.audio.inspection,
         )
         return ResolvedEngineeringTest(
-            request=request, bindings=bindings, plan=plan,
+            request=request,
+            bindings=bindings,
+            plan=plan,
             fixture_manifest=MltFileIdentity(
-                path=request.manifest_path, sha256=QA02_FIVE_INPUT_MANIFEST_SHA256,
+                path=request.manifest_path,
+                sha256=QA02_FIVE_INPUT_MANIFEST_SHA256,
             ),
             subtitle_file=MltFileIdentity(
                 path=manifest.files["subtitle-test.srt"].path,

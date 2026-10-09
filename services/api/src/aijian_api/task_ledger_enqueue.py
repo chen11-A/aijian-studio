@@ -101,13 +101,21 @@ def enqueue_sub2api_node(
     id_factory: Callable[[str], str],
     transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
 ) -> QueuedTask:
-    if (request.sub2api_scope is None or request.dispatch_snapshot is not None
-            or request.task_kind != "sub2api.source.extract" or request.max_attempts != 1):
+    if (
+        request.sub2api_scope is None
+        or request.dispatch_snapshot is not None
+        or request.task_kind != "sub2api.source.extract"
+        or request.max_attempts != 1
+    ):
         raise ValueError("Sub2API requires its own frozen scope and one attempt")
     return _enqueue_node(
-        request, execution_mode="remote", dispatch_snapshot=None,
+        request,
+        execution_mode="remote",
+        dispatch_snapshot=None,
         sub2api_scope=request.sub2api_scope,
-        connection_factory=connection_factory, clock=clock, id_factory=id_factory,
+        connection_factory=connection_factory,
+        clock=clock,
+        id_factory=id_factory,
         transaction_validator=transaction_validator,
     )
 
@@ -165,7 +173,8 @@ def _enqueue_node(
             )
             if sub2api_scope is not None:
                 assert_existing_sub2api_scope(
-                    connection, draft=sub2api_scope,
+                    connection,
+                    draft=sub2api_scope,
                     project_id=request.project_id,
                     task_id=str(existing["task_id"]),
                     attempt_id=str(existing["attempt_id"]),
@@ -293,8 +302,11 @@ def _enqueue_node(
         )
         if sub2api_scope is not None:
             insert_sub2api_scope_in_connection(
-                connection, draft=sub2api_scope, project_id=request.project_id,
-                task_id=task_id, attempt_id=attempt_id,
+                connection,
+                draft=sub2api_scope,
+                project_id=request.project_id,
+                task_id=task_id,
+                attempt_id=attempt_id,
                 attempt_fingerprint=request.request_fingerprint,
                 now_text=now_text,
             )

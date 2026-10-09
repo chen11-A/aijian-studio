@@ -95,7 +95,10 @@ def create_sub2api_source_extract_router(
         operation_id="createSub2APISourceExtractRun",
         response_model=CreatedProposalRunResponse,
         status_code=status.HTTP_201_CREATED,
-        responses={200: {"description": "Idempotent run replay", "model": CreatedProposalRunResponse}, **errors},
+        responses={
+            200: {"description": "Idempotent run replay", "model": CreatedProposalRunResponse},
+            **errors,
+        },
     )
     def create_run(
         request: Request,
@@ -106,7 +109,9 @@ def create_sub2api_source_extract_router(
     ) -> CreatedProposalRunResponse | JSONResponse:
         if not idempotency_key or not idempotency_key.strip() or len(idempotency_key) > 240:
             return _error(
-                request, status_code=428, code="IDEMPOTENCY_KEY_REQUIRED",
+                request,
+                status_code=428,
+                code="IDEMPOTENCY_KEY_REQUIRED",
                 message="One bounded Idempotency-Key is required",
             )
         unavailable = _unavailable(request, availability_provider)
@@ -118,22 +123,30 @@ def create_sub2api_source_extract_router(
             )
         except ProjectNotFoundError:
             return _error(
-                request, status_code=404, code="PROJECT_NOT_FOUND",
+                request,
+                status_code=404,
+                code="PROJECT_NOT_FOUND",
                 message="The requested project was not found",
             )
         except IdempotencyKeyReusedError:
             return _error(
-                request, status_code=409, code="SUB2API_QUEUE_CONFLICT",
+                request,
+                status_code=409,
+                code="SUB2API_QUEUE_CONFLICT",
                 message="Idempotency-Key was reused with different run input",
             )
         except ProposalRunInputRejectedError:
             return _error(
-                request, status_code=422, code="SUB2API_INPUT_REJECTED",
+                request,
+                status_code=422,
+                code="SUB2API_INPUT_REJECTED",
                 message="Sub2API source or model selection is invalid",
             )
         except Sub2APISourceExtractConflictError:
             return _error(
-                request, status_code=409, code="SUB2API_SCOPE_CONFLICT",
+                request,
+                status_code=409,
+                code="SUB2API_SCOPE_CONFLICT",
                 message="Frozen Sub2API run scope conflicts with persisted state",
             )
         if result.replayed:
@@ -174,12 +187,16 @@ def create_sub2api_source_extract_router(
             data = store_provider().read_operation(project_id=project_id, run_id=run_id)
         except Sub2APISourceExtractNotFoundError:
             return _error(
-                request, status_code=404, code="SUB2API_RUN_NOT_FOUND",
+                request,
+                status_code=404,
+                code="SUB2API_RUN_NOT_FOUND",
                 message="The requested Sub2API run was not found",
             )
         except Sub2APISourceExtractConflictError:
             return _error(
-                request, status_code=409, code="SUB2API_OPERATION_INCONSISTENT",
+                request,
+                status_code=409,
+                code="SUB2API_OPERATION_INCONSISTENT",
                 message="The stored Sub2API operation is inconsistent",
             )
         return Sub2APISourceExtractRunResponse(
@@ -201,7 +218,9 @@ def create_sub2api_source_extract_router(
     ) -> Sub2APICallApprovalResponse | JSONResponse:
         if not idempotency_key or not idempotency_key.strip() or len(idempotency_key) > 240:
             return _error(
-                request, status_code=428, code="IDEMPOTENCY_KEY_REQUIRED",
+                request,
+                status_code=428,
+                code="IDEMPOTENCY_KEY_REQUIRED",
                 message="One bounded Idempotency-Key is required",
             )
         unavailable = _unavailable(request, availability_provider)
@@ -228,12 +247,16 @@ def create_sub2api_source_extract_router(
             data = store.read_approval(project_id=project_id, run_id=run_id)
         except Sub2APISourceExtractNotFoundError:
             return _error(
-                request, status_code=404, code="SUB2API_RUN_NOT_FOUND",
+                request,
+                status_code=404,
+                code="SUB2API_RUN_NOT_FOUND",
                 message="The requested Sub2API run was not found",
             )
         except Sub2APISourceExtractConflictError:
             return _error(
-                request, status_code=409, code="SUB2API_APPROVAL_CONFLICT",
+                request,
+                status_code=409,
+                code="SUB2API_APPROVAL_CONFLICT",
                 message="The explicit one-call approval conflicts with current task state",
             )
         return Sub2APICallApprovalResponse(
@@ -255,12 +278,16 @@ def create_sub2api_source_extract_router(
             )
         except Sub2APISourceExtractNotFoundError:
             return _error(
-                request, status_code=404, code="SUB2API_APPROVAL_NOT_FOUND",
+                request,
+                status_code=404,
+                code="SUB2API_APPROVAL_NOT_FOUND",
                 message="No Sub2API approval exists for this run",
             )
         except Sub2APISourceExtractConflictError:
             return _error(
-                request, status_code=409, code="SUB2API_OPERATION_INCONSISTENT",
+                request,
+                status_code=409,
+                code="SUB2API_OPERATION_INCONSISTENT",
                 message="The stored Sub2API approval is inconsistent",
             )
         return Sub2APICallApprovalResponse(

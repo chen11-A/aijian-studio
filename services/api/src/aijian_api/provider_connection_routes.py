@@ -141,7 +141,9 @@ def create_provider_connection_router(
                 for model in payload.models
             ],
         )
-        return ProviderConnectionResponse(data=_public_connection(view), request_id=request.state.request_id)
+        return ProviderConnectionResponse(
+            data=_public_connection(view), request_id=request.state.request_id
+        )
 
     @router.post(
         "/api/v1/provider-connections/{connection_id}/credential-rotations",
@@ -160,7 +162,9 @@ def create_provider_connection_router(
             operation_id=payload.operation_id,
             api_key=payload.api_key.get_secret_value(),
         )
-        return ProviderConnectionResponse(data=_public_connection(view), request_id=request.state.request_id)
+        return ProviderConnectionResponse(
+            data=_public_connection(view), request_id=request.state.request_id
+        )
 
     @router.get(
         "/api/v1/provider-connections/{connection_id}/credential-rotations/{operation_id}",
@@ -174,7 +178,8 @@ def create_provider_connection_router(
         request: Request,
     ) -> ProviderRotationOperationResponse:
         operation = service_provider().get_rotation_operation(
-            connection_id=connection_id, operation_id=operation_id,
+            connection_id=connection_id,
+            operation_id=operation_id,
         )
         return ProviderRotationOperationResponse(
             data=ProviderRotationOperationData(

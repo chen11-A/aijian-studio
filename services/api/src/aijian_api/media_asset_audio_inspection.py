@@ -53,8 +53,7 @@ def _managed_path(database_path: Path, digest: str) -> Path:
     prefix = blobs / digest[:2]
     try:
         directories = tuple(
-            managed_local_io_path(workspace, item)
-            for item in (workspace, root, blobs, prefix)
+            managed_local_io_path(workspace, item) for item in (workspace, root, blobs, prefix)
         )
     except (OSError, ValueError):
         _reject("AUDIO_PATH_UNSAFE", "Selected WAV must have a local managed source")
@@ -75,7 +74,9 @@ def _managed_path(database_path: Path, digest: str) -> Path:
 
 
 def _read_same_file(
-    workspace: Path, path: Path, selected: SelectedMediaAssetVersion,
+    workspace: Path,
+    path: Path,
+    selected: SelectedMediaAssetVersion,
 ) -> bytes:
     if selected.byte_size > MAX_TEST_WAV_BYTES:
         _reject("AUDIO_SIZE_UNSUPPORTED", "TEST WAV exceeds its fixed inspection limit")
@@ -117,7 +118,7 @@ def _pcm_sample_count(data: bytes) -> int:
     while position < len(data):
         if len(data) - position < 8:
             _reject("AUDIO_FORMAT_UNSUPPORTED", "WAV has a truncated chunk header")
-        chunk_id = data[position:position + 4]
+        chunk_id = data[position : position + 4]
         chunk_length = struct.unpack_from("<I", data, position + 4)[0]
         start = position + 8
         end = start + chunk_length
@@ -133,7 +134,7 @@ def _pcm_sample_count(data: bytes) -> int:
                 _reject("AUDIO_FORMAT_UNSUPPORTED", "WAV contains duplicate data chunks")
             sample_bytes = chunk_length
         elif chunk_id == b"LIST":
-            if chunk_length < 4 or data[start:start + 4] != b"INFO":
+            if chunk_length < 4 or data[start : start + 4] != b"INFO":
                 _reject("AUDIO_FORMAT_UNSUPPORTED", "Only bounded INFO metadata is allowed")
         else:
             _reject("AUDIO_FORMAT_UNSUPPORTED", "WAV contains an unsupported extension chunk")

@@ -120,10 +120,14 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
     except (OSError, ValueError):
         return "UNKNOWN_MEDIA_READ"
     if (
-        first.st_dev != last.st_dev or first.st_ino != last.st_ino
-        or first.st_size != last.st_size or first.st_mtime_ns != last.st_mtime_ns
-        or first.st_dev != named.st_dev or first.st_ino != named.st_ino
-        or first.st_size != named.st_size or first.st_mtime_ns != named.st_mtime_ns
+        first.st_dev != last.st_dev
+        or first.st_ino != last.st_ino
+        or first.st_size != last.st_size
+        or first.st_mtime_ns != last.st_mtime_ns
+        or first.st_dev != named.st_dev
+        or first.st_ino != named.st_ino
+        or first.st_size != named.st_size
+        or first.st_mtime_ns != named.st_mtime_ns
     ):
         return "UNKNOWN_MEDIA_CHANGED"
     return "VERIFIED" if total == byte_size and hasher.hexdigest() == digest else "CORRUPT"
@@ -137,29 +141,36 @@ def _media_refs(
         media = segment.media
         key = (media.asset_id, media.asset_version_id, media.sha256)
         if key in refs and refs[key][1] != segment.media_kind:
-            raise EpisodeMediaAssemblyError("MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds")
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds"
+            )
         refs[key] = (media, segment.media_kind)
     for audio_segment in content.audio_segments:
         media = audio_segment.media
         key = (media.asset_id, media.asset_version_id, media.sha256)
         if key in refs and refs[key][1] != "audio":
-            raise EpisodeMediaAssemblyError("MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds")
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_KIND_CONFLICT", "One media version has conflicting track kinds"
+            )
         refs[key] = (media, "audio")
     return tuple(refs.values())
 
 
 def script_speaker_id(
-    project_id: str, episode_id: str, script_version_id: str, speaker_label: str,
+    project_id: str,
+    episode_id: str,
+    script_version_id: str,
+    speaker_label: str,
 ) -> str:
     """Stable only within this exact script version; not a character registry ID."""
 
-    identity = canonical_content_bytes(
-        [project_id, episode_id, script_version_id, speaker_label]
-    )
+    identity = canonical_content_bytes([project_id, episode_id, script_version_id, speaker_label])
     return "spk_" + hashlib.sha256(identity).hexdigest()[:32]
 
 
-def _validate_script_refs(connection: sqlite3.Connection, content: EpisodeMediaAssemblyContentV1) -> None:
+def _validate_script_refs(
+    connection: sqlite3.Connection, content: EpisodeMediaAssemblyContentV1
+) -> None:
     bindings: dict[str, list[tuple[str, str | None, str | None]]] = {}
     for segment in content.audio_segments:
         if segment.track_kind == "DIALOGUE":
@@ -169,7 +180,9 @@ def _validate_script_refs(connection: sqlite3.Connection, content: EpisodeMediaA
             )
     for subtitle in content.subtitle_segments:
         if isinstance(subtitle, AssemblySubtitleSegmentV1):
-            bindings.setdefault(subtitle.script_version_id, []).append((subtitle.script_block_id, None, None))
+            bindings.setdefault(subtitle.script_version_id, []).append(
+                (subtitle.script_block_id, None, None)
+            )
     for version_id, references in bindings.items():
         row = connection.execute(
             """SELECT version.content_json FROM artifact_versions AS version
@@ -179,26 +192,43 @@ def _validate_script_refs(connection: sqlite3.Connection, content: EpisodeMediaA
             (content.project_id, content.episode_id, version_id),
         ).fetchone()
         if row is None:
-            raise EpisodeMediaAssemblyError("SCRIPT_VERSION_NOT_FOUND", "Referenced episode script version was not found")
+            raise EpisodeMediaAssemblyError(
+                "SCRIPT_VERSION_NOT_FOUND", "Referenced episode script version was not found"
+            )
         try:
             script = EpisodeScriptContentV1.model_validate(json.loads(str(row["content_json"])))
         except (ValueError, TypeError):
-            raise EpisodeMediaAssemblyError("SCRIPT_VERSION_CORRUPT", "Referenced episode script is invalid") from None
+            raise EpisodeMediaAssemblyError(
+                "SCRIPT_VERSION_CORRUPT", "Referenced episode script is invalid"
+            ) from None
         if script.project_id != content.project_id or script.episode_id != content.episode_id:
-            raise EpisodeMediaAssemblyError("SCRIPT_SCOPE_CONFLICT", "Referenced script belongs to another episode")
+            raise EpisodeMediaAssemblyError(
+                "SCRIPT_SCOPE_CONFLICT", "Referenced script belongs to another episode"
+            )
         blocks = {block.block_id: block for scene in script.scenes for block in scene.blocks}
         for block_id, delivery, speaker_id in references:
             block = blocks.get(block_id)
             if block is None:
-                raise EpisodeMediaAssemblyError("SCRIPT_BLOCK_NOT_FOUND", "Referenced script block was not found")
+                raise EpisodeMediaAssemblyError(
+                    "SCRIPT_BLOCK_NOT_FOUND", "Referenced script block was not found"
+                )
             if delivery is not None and (block.kind != "DIALOGUE" or block.delivery != delivery):
-                raise EpisodeMediaAssemblyError("DIALOGUE_CONFLICT", "Dialogue delivery differs from bound script version")
+                raise EpisodeMediaAssemblyError(
+                    "DIALOGUE_CONFLICT", "Dialogue delivery differs from bound script version"
+                )
             if speaker_id is not None and (
-                block.speaker is None or speaker_id != script_speaker_id(
-                    content.project_id, content.episode_id, version_id, block.speaker,
+                block.speaker is None
+                or speaker_id
+                != script_speaker_id(
+                    content.project_id,
+                    content.episode_id,
+                    version_id,
+                    block.speaker,
                 )
             ):
-                raise EpisodeMediaAssemblyError("SPEAKER_CONFLICT", "Speaker ID differs from bound script speaker")
+                raise EpisodeMediaAssemblyError(
+                    "SPEAKER_CONFLICT", "Speaker ID differs from bound script speaker"
+                )
 
 
 def _collect_checks(
@@ -209,9 +239,13 @@ def _collect_checks(
     writing: bool,
 ) -> tuple[AssemblyMediaCheckV1, ...]:
     checks: list[AssemblyMediaCheckV1] = []
-    has_probe_table = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'media_asset_probe_evidence'"
-    ).fetchone() is not None
+    has_probe_table = (
+        connection.execute(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'media_asset_probe_evidence'"
+        ).fetchone()
+        is not None
+    )
     for media, expected_kind in _media_refs(content):
         row = connection.execute(
             """SELECT version.kind, version.sha256, version.byte_size,
@@ -225,44 +259,74 @@ def _collect_checks(
         ).fetchone()
         if row is None:
             if writing:
-                raise EpisodeMediaAssemblyError("ASSET_VERSION_NOT_FOUND", "Selected media version was not found")
-            checks.append(AssemblyMediaCheckV1(
-                media=media, kind=expected_kind, availability="MISSING",
-                technical_status="STILL_HEADER_ONLY" if expected_kind == "image" else "PENDING_MEDIA_PROBE",
-                rights_status="PENDING_REVIEW",
-            ))
+                raise EpisodeMediaAssemblyError(
+                    "ASSET_VERSION_NOT_FOUND", "Selected media version was not found"
+                )
+            checks.append(
+                AssemblyMediaCheckV1(
+                    media=media,
+                    kind=expected_kind,
+                    availability="MISSING",
+                    technical_status="STILL_HEADER_ONLY"
+                    if expected_kind == "image"
+                    else "PENDING_MEDIA_PROBE",
+                    rights_status="PENDING_REVIEW",
+                )
+            )
             continue
         kind = str(row["kind"])
         digest = str(row["sha256"])
-        if kind != expected_kind or digest != media.sha256 or str(row["source_kind"]) != "LOCAL_IMPORT":
-            raise EpisodeMediaAssemblyError("MEDIA_IDENTITY_CONFLICT", "Selected media version identity differs from stored truth")
+        if (
+            kind != expected_kind
+            or digest != media.sha256
+            or str(row["source_kind"]) != "LOCAL_IMPORT"
+        ):
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_IDENTITY_CONFLICT",
+                "Selected media version identity differs from stored truth",
+            )
         try:
             byte_size = int(row["byte_size"])
             technical = json.loads(str(row["technical_json"]))
         except (ValueError, TypeError):
-            raise EpisodeMediaAssemblyError("MEDIA_RECORD_CORRUPT", "Selected media version metadata is invalid") from None
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_RECORD_CORRUPT", "Selected media version metadata is invalid"
+            ) from None
         if not isinstance(technical, dict):
-            raise EpisodeMediaAssemblyError("MEDIA_RECORD_CORRUPT", "Selected media technical metadata is invalid")
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_RECORD_CORRUPT", "Selected media technical metadata is invalid"
+            )
         try:
             rights_history = _validated_history(
-                connection, content.project_id, media.asset_id,
-                media.asset_version_id, digest,
+                connection,
+                content.project_id,
+                media.asset_id,
+                media.asset_version_id,
+                digest,
             )
         except RightsDecisionError:
             raise EpisodeMediaAssemblyError(
-                "RIGHTS_CHAIN_INVALID", "Selected media rights history is invalid",
+                "RIGHTS_CHAIN_INVALID",
+                "Selected media rights history is invalid",
             ) from None
         latest_rights = rights_history[-1] if rights_history else None
         rights_status = latest_rights.decision if latest_rights is not None else "PENDING_REVIEW"
         decision_id = latest_rights.decision_id if latest_rights is not None else None
         if rights_status == "RESTRICTED" and writing:
-            raise EpisodeMediaAssemblyError("RIGHTS_RESTRICTED", "Restricted media cannot be added to an assembly")
+            raise EpisodeMediaAssemblyError(
+                "RIGHTS_RESTRICTED", "Restricted media cannot be added to an assembly"
+            )
         availability = _availability(database_path, digest, byte_size)
         if writing and availability in {
-            "MISSING", "CORRUPT", "UNKNOWN_UNSAFE_PATH", "UNKNOWN_MEDIA_READ",
+            "MISSING",
+            "CORRUPT",
+            "UNKNOWN_UNSAFE_PATH",
+            "UNKNOWN_MEDIA_READ",
             "UNKNOWN_MEDIA_CHANGED",
         }:
-            raise EpisodeMediaAssemblyError("MEDIA_" + availability, "Selected media original is unavailable")
+            raise EpisodeMediaAssemblyError(
+                "MEDIA_" + availability, "Selected media original is unavailable"
+            )
         technical_status: AssemblyTechnicalStatus = (
             "STILL_HEADER_ONLY" if kind == "image" else "PENDING_MEDIA_PROBE"
         )
@@ -279,7 +343,9 @@ def _collect_checks(
                 try:
                     evidence = _from_row(probe_row)
                     if evidence.asset_sha256 != digest or evidence.byte_size != byte_size:
-                        raise MediaAssetProbeEvidenceError("PROBE_IDENTITY_CONFLICT", "Probe identity differs from media version")
+                        raise MediaAssetProbeEvidenceError(
+                            "PROBE_IDENTITY_CONFLICT", "Probe identity differs from media version"
+                        )
                     video = evidence.probe.video
                     rate = content.sequence_timebase.frame_rate
                     matching_rate = (
@@ -287,8 +353,7 @@ def _collect_checks(
                         and video.average_frame_rate.den == rate.den
                     )
                     segments = [
-                        segment for segment in content.visual_segments
-                        if segment.media == media
+                        segment for segment in content.visual_segments if segment.media == media
                     ]
                     ranges_fit = all(
                         segment.source_in_frame + segment.end_frame - segment.start_frame
@@ -299,7 +364,12 @@ def _collect_checks(
                         segment.embedded_audio == "MUTE" or evidence.probe.audio is not None
                         for segment in segments
                     )
-                    if video.is_variable_frame_rate or not matching_rate or not ranges_fit or not audio_fits:
+                    if (
+                        video.is_variable_frame_rate
+                        or not matching_rate
+                        or not ranges_fit
+                        or not audio_fits
+                    ):
                         technical_status = "INVALID_MEDIA_PROBE"
                     else:
                         technical_status = "PROBED_CFR_VIDEO"
@@ -308,13 +378,19 @@ def _collect_checks(
                         has_audio = evidence.probe.audio is not None
                 except MediaAssetProbeEvidenceError:
                     technical_status = "INVALID_MEDIA_PROBE"
-        checks.append(AssemblyMediaCheckV1(
-            media=media, kind=expected_kind, availability=availability,
-            technical_status=technical_status,
-            probe_evidence_id=probe_id, probed_video_frames=probed_frames,
-            probed_has_audio=has_audio,
-            rights_status=rights_status, rights_decision_id=decision_id,
-        ))
+        checks.append(
+            AssemblyMediaCheckV1(
+                media=media,
+                kind=expected_kind,
+                availability=availability,
+                technical_status=technical_status,
+                probe_evidence_id=probe_id,
+                probed_video_frames=probed_frames,
+                probed_has_audio=has_audio,
+                rights_status=rights_status,
+                rights_decision_id=decision_id,
+            )
+        )
     return tuple(checks)
 
 
@@ -328,9 +404,15 @@ def _result(
         playback = "BLOCKED_RIGHTS"
     elif any(check.availability != "VERIFIED" for check in checks):
         playback = "BLOCKED_MEDIA_BYTES"
-    elif any(check.kind == "audio" or check.technical_status in {
-        "PENDING_MEDIA_PROBE", "INVALID_MEDIA_PROBE",
-    } for check in checks):
+    elif any(
+        check.kind == "audio"
+        or check.technical_status
+        in {
+            "PENDING_MEDIA_PROBE",
+            "INVALID_MEDIA_PROBE",
+        }
+        for check in checks
+    ):
         playback = "BLOCKED_MEDIA_PROBE"
     elif any(check.kind == "video" for check in checks):
         playback = "DRAFT_VIDEO_PREVIEW"
@@ -362,7 +444,9 @@ class EpisodeMediaAssemblyStore:
     ) -> EpisodeMediaAssemblyVersionData:
         content = request.content
         if content.project_id != project_id or content.episode_id != episode_id:
-            raise EpisodeMediaAssemblyError("EPISODE_SCOPE_CONFLICT", "Assembly content differs from route scope")
+            raise EpisodeMediaAssemblyError(
+                "EPISODE_SCOPE_CONFLICT", "Assembly content differs from route scope"
+            )
         if not author_actor_id or len(author_actor_id) > 128:
             raise EpisodeMediaAssemblyError("INVALID_ACTOR", "An identified author is required")
         with self._repository._connection() as connection:
@@ -382,7 +466,9 @@ class EpisodeMediaAssemblyStore:
                     validate_storyboard_provenance(self._repository, connection, content)
                 except AssemblyStoryboardReferenceError as error:
                     raise EpisodeMediaAssemblyError(error.code, str(error)) from error
-                checks = _collect_checks(connection, self._repository.database_path, content, writing=True)
+                checks = _collect_checks(
+                    connection, self._repository.database_path, content, writing=True
+                )
                 record = self._repository._create_artifact_version_in_connection(
                     connection,
                     project_id=project_id,
@@ -412,11 +498,16 @@ class EpisodeMediaAssemblyStore:
     ) -> EpisodeMediaAssemblyVersionData:
         if version_id is None:
             record = self._repository.get_latest_artifact(
-                project_id, ASSEMBLY_ARTIFACT_TYPE, episode_id=episode_id,
+                project_id,
+                ASSEMBLY_ARTIFACT_TYPE,
+                episode_id=episode_id,
             )
         else:
             record = self._repository.get_artifact_version(
-                project_id, ASSEMBLY_ARTIFACT_TYPE, version_id, episode_id=episode_id,
+                project_id,
+                ASSEMBLY_ARTIFACT_TYPE,
+                version_id,
+                episode_id=episode_id,
             )
         try:
             content = EpisodeMediaAssemblyContentV1.model_validate(record.version.content)
@@ -428,19 +519,27 @@ class EpisodeMediaAssemblyStore:
                 raise ValueError("Assembly stored content is inconsistent")
         except (ValueError, TypeError) as error:
             raise EpisodeMediaAssemblyError(
-                "ASSEMBLY_CONTENT_CORRUPT", "Stored assembly failed integrity checks",
+                "ASSEMBLY_CONTENT_CORRUPT",
+                "Stored assembly failed integrity checks",
             ) from error
         if content.project_id != project_id or content.episode_id != episode_id:
-            raise EpisodeMediaAssemblyError("EPISODE_SCOPE_CONFLICT", "Persisted assembly has wrong scope")
+            raise EpisodeMediaAssemblyError(
+                "EPISODE_SCOPE_CONFLICT", "Persisted assembly has wrong scope"
+            )
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
             connection.execute("BEGIN")
             try:
                 validate_storyboard_provenance(
-                    self._repository, connection, content, assembly_record=record,
+                    self._repository,
+                    connection,
+                    content,
+                    assembly_record=record,
                 )
             except AssemblyStoryboardReferenceError as error:
                 raise EpisodeMediaAssemblyError(error.code, str(error)) from error
-            checks = _collect_checks(connection, self._repository.database_path, content, writing=False)
+            checks = _collect_checks(
+                connection, self._repository.database_path, content, writing=False
+            )
             connection.commit()
         return _result(record, content, checks)

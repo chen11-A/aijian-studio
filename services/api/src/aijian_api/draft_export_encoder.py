@@ -247,8 +247,13 @@ class _Runner:
     ) -> bytes:
         if not self.toolchain.external_selected:
             return self._run(
-                arguments, probe=probe, limit=limit, on_progress=on_progress,
-                total_frames=total_frames, output=output, work_directory=work_directory,
+                arguments,
+                probe=probe,
+                limit=limit,
+                on_progress=on_progress,
+                total_frames=total_frames,
+                output=output,
+                work_directory=work_directory,
             )
         from aijian_api.external_media_process import (
             external_process_session,
@@ -267,8 +272,13 @@ class _Runner:
                 if not selected_directory.is_relative_to(directory):
                     raise OSError("External media process directory must stay private")
                 return self._run(
-                    arguments, probe=probe, limit=limit, on_progress=on_progress,
-                    total_frames=total_frames, output=output, work_directory=selected_directory,
+                    arguments,
+                    probe=probe,
+                    limit=limit,
+                    on_progress=on_progress,
+                    total_frames=total_frames,
+                    output=output,
+                    work_directory=selected_directory,
                     external_environment=dict(environment),
                 )
         except OSError:
@@ -327,7 +337,8 @@ class _Runner:
                     env=environment,
                     **(
                         {"hardened_external_media": True}
-                        if self.toolchain.external_selected else {}
+                        if self.toolchain.external_selected
+                        else {}
                     ),
                 )
             else:
