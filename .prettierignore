@@ -6,6 +6,9 @@
 coverage/
 dist/
 downloads/
+# Historical source receipts must preserve their original bytes.
+handoff/
+work/
 node_modules/
 upstreams/
 pnpm-lock.yaml

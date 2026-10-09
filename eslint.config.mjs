@@ -10,6 +10,9 @@ export default tseslint.config(
       ".aijian-dev/**",
       ".cache/**",
       "downloads/**",
+      // Historical source receipts are immutable archives, not build inputs.
+      "handoff/**",
+      "work/**",
       "packages/contracts/src/generated.ts",
       "upstreams/**",
     ],
