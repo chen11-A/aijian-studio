@@ -133,7 +133,9 @@ PROVIDER_CREDENTIAL_REF_MIGRATION: tuple[str, ...] = (
           AND connection.credential_ref = NEW.candidate_credential_ref
           AND connection.revision = NEW.applied_revision
     )
-    BEGIN SELECT RAISE(ABORT, 'credential rotation application is not committed in this transaction'); END
+    BEGIN
+        SELECT RAISE(ABORT, 'credential rotation application is not committed in this transaction');
+    END
     """,
     """
     CREATE TRIGGER provider_credential_rotation_no_direct_delete

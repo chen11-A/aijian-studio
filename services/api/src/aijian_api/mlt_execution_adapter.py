@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
 
+from aijian_api.episode_media_execution_plan import ART04_MLT_TEST_SPEC_SHA256
+from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_execution_plan_contracts import (
     ExecutionAudioClipV1,
     ExecutionAudioTrackV1,
@@ -26,9 +28,6 @@ from aijian_api.media_execution_plan_contracts import (
     MediaExecutionPlanV1,
 )
 from aijian_api.media_probe import _open_local_source
-from aijian_api.managed_local_paths import managed_local_io_path
-from aijian_api.episode_media_execution_plan import ART04_MLT_TEST_SPEC_SHA256
-from aijian_api.product_timeline_export_contracts import ProductExportSpec
 from aijian_api.mlt_execution_worker import (
     MltExecutionError,
     MltExecutionTask,
@@ -36,7 +35,7 @@ from aijian_api.mlt_execution_worker import (
     _managed_directory,
     _plain_directory,
 )
-
+from aijian_api.product_timeline_export_contracts import ProductExportSpec
 
 SAMPLES_PER_FRAME = 1920
 _OPERATION_ID = re.compile(r"eteop_[0-9a-f]{32}\Z")
@@ -95,12 +94,14 @@ def _require_art04_plan(plan: MediaExecutionPlanV1) -> None:
         _reject("Plan differs from the frozen 125-frame ART04 test")
     blue, red = plan.video_tracks
     if (
-        len(blue.clips) != 1 or len(red.clips) != 1
+        len(blue.clips) != 1
+        or len(red.clips) != 1
         or (blue.layer_index, red.layer_index) != (0, 1)
         or (blue.clips[0].start_frame, blue.clips[0].end_frame) != (0, 75)
         or (red.clips[0].start_frame, red.clips[0].end_frame) != (50, 125)
         or any(
-            clip.source_in_frame != 0 or clip.source_frame_count != 75
+            clip.source_in_frame != 0
+            or clip.source_frame_count != 75
             or clip.embedded_audio != "MUTE"
             or (clip.source_width, clip.source_height) != (320, 568)
             or clip.scale_mode != "STRETCH_TO_CANVAS"
@@ -121,17 +122,29 @@ def _require_art04_plan(plan: MediaExecutionPlanV1) -> None:
     dialogue = by_role["DIALOGUE_TEST"].clips
     bgm = by_role["BGM_TEST"].clips
     if (
-        len(dialogue) != 2 or len(bgm) != 1
+        len(dialogue) != 2
+        or len(bgm) != 1
         or [(clip.start_frame, clip.end_frame) for clip in dialogue] != [(25, 50), (75, 100)]
         or (bgm[0].start_frame, bgm[0].end_frame) != (0, 125)
         or any(
-            (clip.source_in_sample, clip.source_end_sample, clip.source_total_samples,
-             clip.source_sample_rate_hz, clip.gain_millidb) != (0, 48000, 48000, 48000, 0)
+            (
+                clip.source_in_sample,
+                clip.source_end_sample,
+                clip.source_total_samples,
+                clip.source_sample_rate_hz,
+                clip.gain_millidb,
+            )
+            != (0, 48000, 48000, 48000, 0)
             for clip in dialogue
         )
-        or (bgm[0].source_in_sample, bgm[0].source_end_sample,
-            bgm[0].source_total_samples, bgm[0].source_sample_rate_hz,
-            bgm[0].gain_millidb) != (0, 240000, 240000, 48000, 0)
+        or (
+            bgm[0].source_in_sample,
+            bgm[0].source_end_sample,
+            bgm[0].source_total_samples,
+            bgm[0].source_sample_rate_hz,
+            bgm[0].gain_millidb,
+        )
+        != (0, 240000, 240000, 48000, 0)
         or dialogue[0].media != dialogue[1].media
     ):
         _reject("Audio sample ranges, source identity or gain differ from ART04")
@@ -143,16 +156,20 @@ def _require_art04_plan(plan: MediaExecutionPlanV1) -> None:
         _reject("The four named video and audio sources must be distinct versions and bytes")
     cues = plan.subtitle_cues
     if (
-        [(cue.start_frame, cue.end_frame, cue.text) for cue in cues] != [
+        [(cue.start_frame, cue.end_frame, cue.text) for cue in cues]
+        != [
             (25, 50, "TEST 提示音一（非语音）"),
             (75, 100, "TEST 提示音二（非语音）"),
         ]
         or cues[0].script_version_id != cues[1].script_version_id
         or cues[0].script_content_hash != cues[1].script_content_hash
         or cues[0].subtitle_file_sha256 != cues[1].subtitle_file_sha256
-        or any(cue.font_family != cues[0].font_family
-               or cue.font_size_px != cues[0].font_size_px
-               or cue.color_rgba != cues[0].color_rgba for cue in cues)
+        or any(
+            cue.font_family != cues[0].font_family
+            or cue.font_size_px != cues[0].font_size_px
+            or cue.color_rgba != cues[0].color_rgba
+            for cue in cues
+        )
         or [(clip.script_version_id, clip.script_block_id) for clip in dialogue]
         != [(cue.script_version_id, cue.script_block_id) for cue in cues]
     ):
@@ -162,13 +179,16 @@ def _require_art04_plan(plan: MediaExecutionPlanV1) -> None:
 def _source_identity(
     ref: ExecutionMediaRefV1,
     resolve_selected: Callable[[ExecutionMediaRefV1], MltResolvedSelection],
-    *, video: bool,
+    *,
+    video: bool,
 ) -> MltFileIdentity:
     if (
-        ref.rights_status != "CLEARED" or ref.rights_decision_id is None
+        ref.rights_status != "CLEARED"
+        or ref.rights_decision_id is None
         or (
             (ref.probe_evidence_id is None or ref.probe_sha256 is None)
-            if video else ref.inspection_sha256 is None
+            if video
+            else ref.inspection_sha256 is None
         )
     ):
         _reject("Every selected media version needs cleared rights and pinned inspection")
@@ -217,11 +237,15 @@ def _add_playlist(
             if not isinstance(clip, ExecutionVideoClipV1):
                 _reject("A video playlist requires video clips")
             source_in = clip.source_in_frame
-        ET.SubElement(playlist, "entry", {
-            "producer": producer_ids[clip.clip_id],
-            "in": str(source_in),
-            "out": str(source_in + clip.end_frame - clip.start_frame - 1),
-        })
+        ET.SubElement(
+            playlist,
+            "entry",
+            {
+                "producer": producer_ids[clip.clip_id],
+                "in": str(source_in),
+                "out": str(source_in + clip.end_frame - clip.start_frame - 1),
+            },
+        )
         cursor = clip.end_frame
     if cursor < 125:
         ET.SubElement(playlist, "blank", {"length": str(125 - cursor)})
@@ -266,7 +290,8 @@ def _manifest_tool_identity(
     raw_path = payload.get(path_key)
     raw_hash = payload.get(hash_key)
     if (
-        not isinstance(raw_path, str) or not isinstance(raw_hash, str)
+        not isinstance(raw_path, str)
+        or not isinstance(raw_hash, str)
         or re.fullmatch(r"[0-9A-Fa-f]{64}", raw_hash) is None
     ):
         _reject("The QA fixture manifest lacks a pinned generation tool")
@@ -277,7 +302,11 @@ def _manifest_tool_identity(
 
 
 def _verify_qa_origin_file(
-    root: Path, path_text: str, name: str, byte_size: int, digest: str,
+    root: Path,
+    path_text: str,
+    name: str,
+    byte_size: int,
+    digest: str,
 ) -> None:
     path = Path(path_text)
     try:
@@ -285,8 +314,11 @@ def _verify_qa_origin_file(
     except (OSError, ValueError):
         _reject("A QA fixture input escapes its isolated directory")
     if (
-        not path.is_absolute() or path.parent != root or path.name != name
-        or io_path.is_symlink() or not io_path.is_file()
+        not path.is_absolute()
+        or path.parent != root
+        or path.name != name
+        or io_path.is_symlink()
+        or not io_path.is_file()
     ):
         _reject("A QA fixture input escapes its isolated directory")
     try:
@@ -300,21 +332,30 @@ def _verify_qa_origin_file(
     except OSError:
         _reject("A QA fixture input could not be read")
     if (
-        before.st_size != byte_size or actual_digest.hexdigest() != digest
-        or before.st_dev != after.st_dev or before.st_ino != after.st_ino
-        or before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns
-        or before.st_dev != current.st_dev or before.st_ino != current.st_ino
-        or before.st_size != current.st_size or before.st_mtime_ns != current.st_mtime_ns
+        before.st_size != byte_size
+        or actual_digest.hexdigest() != digest
+        or before.st_dev != after.st_dev
+        or before.st_ino != after.st_ino
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or before.st_dev != current.st_dev
+        or before.st_ino != current.st_ino
+        or before.st_size != current.st_size
+        or before.st_mtime_ns != current.st_mtime_ns
     ):
         _reject("A QA fixture input bytes or identity changed")
 
 
 def _verify_fixture_manifest(
-    identity: MltFileIdentity, plan: MediaExecutionPlanV1,
+    identity: MltFileIdentity,
+    plan: MediaExecutionPlanV1,
     media_files: dict[tuple[str, str], MltFileIdentity],
     subtitle_file: MltFileIdentity,
 ) -> tuple[
-    tuple[MltFileIdentity, ...], MltFileIdentity, MltFileIdentity, MltFileIdentity,
+    tuple[MltFileIdentity, ...],
+    MltFileIdentity,
+    MltFileIdentity,
+    MltFileIdentity,
 ]:
     if (
         not isinstance(identity, MltFileIdentity)
@@ -387,7 +428,8 @@ def _verify_fixture_manifest(
             or not isinstance(entry.get("path"), str)
             or not isinstance(raw_hash, str)
             or re.fullmatch(r"[0-9A-Fa-f]{64}", raw_hash) is None
-            or isinstance(byte_size, bool) or not isinstance(byte_size, int)
+            or isinstance(byte_size, bool)
+            or not isinstance(byte_size, int)
             or byte_size <= 0
         ):
             _reject("The QA fixture manifest file identity is incomplete")
@@ -395,9 +437,14 @@ def _verify_fixture_manifest(
             actual = subtitle_file
             expected_sha = first.subtitle_file_sha256
             try:
-                expected_bytes = managed_local_io_path(
-                    subtitle_file.path.parent, subtitle_file.path,
-                ).stat().st_size
+                expected_bytes = (
+                    managed_local_io_path(
+                        subtitle_file.path.parent,
+                        subtitle_file.path,
+                    )
+                    .stat()
+                    .st_size
+                )
             except (OSError, ValueError):
                 _reject("Selected SRT is unavailable")
         else:
@@ -406,7 +453,8 @@ def _verify_fixture_manifest(
             expected_sha = ref.sha256
             expected_bytes = ref.byte_size
         if (
-            raw_hash.lower() != expected_sha or actual.sha256 != expected_sha
+            raw_hash.lower() != expected_sha
+            or actual.sha256 != expected_sha
             or byte_size != expected_bytes
         ):
             _reject("A QA fixture entry differs from its selected version")
@@ -447,23 +495,36 @@ def build_mlt_engineering_blueprint(
     _verify_subtitle_file(subtitle_file, plan)
 
     root = ET.Element("mlt", {"producer": "main", "LC_NUMERIC": "C"})
-    ET.SubElement(root, "profile", {
-        "description": "AIVORA ART04 engineering test 25 fps",
-        "width": "1080", "height": "1920", "progressive": "1",
-        "sample_aspect_num": "1", "sample_aspect_den": "1",
-        "display_aspect_num": "9", "display_aspect_den": "16",
-        "frame_rate_num": "25", "frame_rate_den": "1", "colorspace": "709",
-    })
+    ET.SubElement(
+        root,
+        "profile",
+        {
+            "description": "AIVORA ART04 engineering test 25 fps",
+            "width": "1080",
+            "height": "1920",
+            "progressive": "1",
+            "sample_aspect_num": "1",
+            "sample_aspect_den": "1",
+            "display_aspect_num": "9",
+            "display_aspect_den": "16",
+            "frame_rate_num": "25",
+            "frame_rate_den": "1",
+            "colorspace": "709",
+        },
+    )
     producer_ids: dict[str, str] = {}
     resources: dict[tuple[str, str], MltFileIdentity] = {}
     all_tracks: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
-        *plan.video_tracks, *plan.audio_tracks,
+        *plan.video_tracks,
+        *plan.audio_tracks,
     )
     for track in all_tracks:
         for clip in track.clips:
             key = (clip.media.asset_id, clip.media.asset_version_id)
             identity = _source_identity(
-                clip.media, resolve_selected, video=track in plan.video_tracks,
+                clip.media,
+                resolve_selected,
+                video=track in plan.video_tracks,
             )
             if key in resources and resources[key] != identity:
                 _reject("One selected version resolved to different local files")
@@ -479,30 +540,41 @@ def build_mlt_engineering_blueprint(
                 # Affine's documented distort property ignores source aspect.
                 stretch = ET.SubElement(producer, "filter")
                 for name, value in (
-                    ("mlt_service", "affine"), ("transition.distort", 1),
+                    ("mlt_service", "affine"),
+                    ("transition.distort", 1),
                     ("transition.rect", "0%/0%:100%x100%:100%"),
                     ("use_normalized", 1),
                 ):
                     _property(stretch, name, value)
             else:
                 _property(producer, "video_index", -1)
-    qa_origin_files, generation_lock, generation_ffmpeg, generation_ffprobe = _verify_fixture_manifest(
-        fixture_manifest, plan, resources, subtitle_file,
+    qa_origin_files, generation_lock, generation_ffmpeg, generation_ffprobe = (
+        _verify_fixture_manifest(
+            fixture_manifest,
+            plan,
+            resources,
+            subtitle_file,
+        )
     )
     ordered: tuple[ExecutionVideoTrackV1 | ExecutionAudioTrackV1, ...] = (
         *plan.video_tracks,
         *sorted(plan.audio_tracks, key=lambda item: item.role == "DIALOGUE_TEST"),
     )
     for index, track in enumerate(ordered):
-        _add_playlist(root, f"track_{index}", track.clips, producer_ids,
-                      audio=track in plan.audio_tracks)
+        _add_playlist(
+            root, f"track_{index}", track.clips, producer_ids, audio=track in plan.audio_tracks
+        )
     tractor = ET.SubElement(root, "tractor", {"id": "main", "in": "0", "out": "124"})
     multitrack = ET.SubElement(tractor, "multitrack")
     for index, track in enumerate(ordered):
-        ET.SubElement(multitrack, "track", {
-            "producer": f"track_{index}",
-            "hide": "video" if track in plan.audio_tracks else "audio",
-        })
+        ET.SubElement(
+            multitrack,
+            "track",
+            {
+                "producer": f"track_{index}",
+                "hide": "video" if track in plan.audio_tracks else "audio",
+            },
+        )
     dissolve = ET.SubElement(tractor, "transition", {"in": "50", "out": "74"})
     for name, value in (("a_track", 0), ("b_track", 1), ("mlt_service", "luma")):
         _property(dissolve, name, value)
@@ -511,19 +583,31 @@ def build_mlt_engineering_blueprint(
     for audio_index in (2, 3):
         mix = ET.SubElement(tractor, "transition", {"in": "0", "out": "124"})
         for name, value in (
-            ("a_track", 0), ("b_track", audio_index), ("mlt_service", "mix"),
-            ("start", "1.0"), ("end", "1.0"), ("sum", 1),
+            ("a_track", 0),
+            ("b_track", audio_index),
+            ("mlt_service", "mix"),
+            ("start", "1.0"),
+            ("end", "1.0"),
+            ("sum", 1),
         ):
             _property(mix, name, value)
     for cue in plan.subtitle_cues:
-        subtitle = ET.SubElement(tractor, "filter", {
-            "in": str(cue.start_frame), "out": str(cue.end_frame - 1),
-        })
+        subtitle = ET.SubElement(
+            tractor,
+            "filter",
+            {
+                "in": str(cue.start_frame),
+                "out": str(cue.end_frame - 1),
+            },
+        )
         for name, value in (
-            ("mlt_service", "qtext"), ("argument", cue.text),
+            ("mlt_service", "qtext"),
+            ("argument", cue.text),
             ("geometry", "0%/78%:100%x16%:100"),
-            ("halign", "center"), ("valign", "middle"),
-            ("family", cue.font_family), ("size", cue.font_size_px),
+            ("halign", "center"),
+            ("valign", "middle"),
+            ("family", cue.font_family),
+            ("size", cue.font_size_px),
             ("fgcolour", "0x" + cue.color_rgba[1:]),
             ("bgcolour", "0x00000000"),
         ):
@@ -536,17 +620,24 @@ def build_mlt_engineering_blueprint(
         "display_aspect_num=9\ndisplay_aspect_den=16\ncolorspace=709\n"
     ).encode("ascii")
     return MltEngineeringBlueprint(
-        plan=plan, xml_bytes=xml_bytes, profile_bytes=profile_bytes,
-        selected_resources=tuple(resources.values()), subtitle_file=subtitle_file,
-        fixture_manifest=fixture_manifest, qa_origin_files=qa_origin_files,
-        generation_lock=generation_lock, generation_ffmpeg=generation_ffmpeg,
+        plan=plan,
+        xml_bytes=xml_bytes,
+        profile_bytes=profile_bytes,
+        selected_resources=tuple(resources.values()),
+        subtitle_file=subtitle_file,
+        fixture_manifest=fixture_manifest,
+        qa_origin_files=qa_origin_files,
+        generation_lock=generation_lock,
+        generation_ffmpeg=generation_ffmpeg,
         generation_ffprobe=generation_ffprobe,
     )
 
 
 def materialize_mlt_engineering_task(
     blueprint: MltEngineeringBlueprint,
-    *, operation_id: str, work_root: Path,
+    *,
+    operation_id: str,
+    work_root: Path,
 ) -> MltExecutionTask:
     """Write one immutable candidate project/profile in an exclusive local job dir."""
     if _OPERATION_ID.fullmatch(operation_id) is None or not _managed_directory(work_root):
@@ -562,16 +653,25 @@ def materialize_mlt_engineering_task(
         with managed_local_io_path(work_root, profile_path).open("xb") as stream:
             stream.write(blueprint.profile_bytes)
     except (OSError, ValueError):
-        raise MltExecutionError("JOB_MATERIALIZATION_FAILED", "MLT job files could not be written") from None
+        raise MltExecutionError(
+            "JOB_MATERIALIZATION_FAILED", "MLT job files could not be written"
+        ) from None
     plan = blueprint.plan
     spec = ProductExportSpec(
-        container="MP4", width=1080, height=1920,
-        frame_rate_num=25, frame_rate_den=1, video_codec="H264", audio_codec="AAC",
+        container="MP4",
+        width=1080,
+        height=1920,
+        frame_rate_num=25,
+        frame_rate_den=1,
+        video_codec="H264",
+        audio_codec="AAC",
     )
     return MltExecutionTask(
-        operation_id=operation_id, plan=plan,
+        operation_id=operation_id,
+        plan=plan,
         execution_plan_hash=plan.content_hash,
-        assembly_artifact_id=None, assembly_version_id=None,
+        assembly_artifact_id=None,
+        assembly_version_id=None,
         assembly_content_hash=None,
         xml=MltFileIdentity(xml_path, hashlib.sha256(blueprint.xml_bytes).hexdigest()),
         profile=MltFileIdentity(profile_path, hashlib.sha256(blueprint.profile_bytes).hexdigest()),
@@ -581,6 +681,8 @@ def materialize_mlt_engineering_task(
         generation_lock=blueprint.generation_lock,
         generation_ffmpeg=blueprint.generation_ffmpeg,
         generation_ffprobe=blueprint.generation_ffprobe,
-        temporary_output=job_dir / "engineering-test.mp4", total_frames=125,
-        spec=spec, expect_audio=True,
+        temporary_output=job_dir / "engineering-test.mp4",
+        total_frames=125,
+        spec=spec,
+        expect_audio=True,
     )

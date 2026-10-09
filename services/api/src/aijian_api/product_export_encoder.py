@@ -17,12 +17,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 from aijian_api.managed_local_paths import managed_local_io_path
+from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_render_plan import EncoderPlan, render_arguments
 from aijian_api.product_export_windows_job import (
-    ProductExportJobError, ProductExportJobManager, ProductExportJobProcess,
+    ProductExportJobError,
+    ProductExportJobManager,
+    ProductExportJobProcess,
 )
 
 MAX_ENCODER_SECONDS = 3600.0
@@ -31,8 +33,9 @@ MAX_SOURCE_BYTES = 20 * 1024 * 1024 * 1024
 
 
 class ProductExportEncoderError(RuntimeError):
-    def __init__(self, code: str, message: str, *, exit_code: int | None = None,
-                 stderr_bytes: bytes = b"") -> None:
+    def __init__(
+        self, code: str, message: str, *, exit_code: int | None = None, stderr_bytes: bytes = b""
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.exit_code = exit_code
@@ -52,7 +55,11 @@ class ProductExportEncoderResult:
 def _plain_directory(path: Path) -> bool:
     try:
         io_path = managed_local_io_path(path, path)
-        return io_path.is_dir() and not io_path.is_symlink() and io_path.resolve(strict=True) == io_path
+        return (
+            io_path.is_dir()
+            and not io_path.is_symlink()
+            and io_path.resolve(strict=True) == io_path
+        )
     except (OSError, RuntimeError, ValueError):
         return False
 
@@ -79,26 +86,37 @@ def run_local_encoder(
         not isinstance(timeout_seconds, int | float)
         or isinstance(timeout_seconds, bool)
         or not math.isfinite(timeout_seconds)
-        or timeout_seconds <= 0 or timeout_seconds > MAX_ENCODER_SECONDS
+        or timeout_seconds <= 0
+        or timeout_seconds > MAX_ENCODER_SECONDS
         or plan.ffmpeg_sha256 != toolchain.ffmpeg_sha256
         or plan.ffprobe_sha256 != toolchain.ffprobe_sha256
         or plan.toolchain_profile_id != toolchain.profile_id
     ):
-        raise ProductExportEncoderError("PLAN_OR_TOOLCHAIN_INVALID", "Encoder plan or timeout is invalid")
+        raise ProductExportEncoderError(
+            "PLAN_OR_TOOLCHAIN_INVALID", "Encoder plan or timeout is invalid"
+        )
     try:
         source_io = managed_local_io_path(source.parent, source)
         temporary_io = managed_local_io_path(temporary_output.parent, temporary_output)
     except (OSError, ValueError):
-        raise ProductExportEncoderError("PATH_UNSAFE", "Encoder input or temporary output path is unsafe") from None
+        raise ProductExportEncoderError(
+            "PATH_UNSAFE", "Encoder input or temporary output path is unsafe"
+        ) from None
     if (
-        not source.is_absolute() or not temporary_output.is_absolute()
-        or _is_remote_windows_path(source) or _is_remote_windows_path(temporary_output)
+        not source.is_absolute()
+        or not temporary_output.is_absolute()
+        or _is_remote_windows_path(source)
+        or _is_remote_windows_path(temporary_output)
         or not _plain_directory(source.parent)
         or not _plain_directory(temporary_output.parent)
-        or source_io.is_symlink() or not source_io.is_file()
-        or temporary_io.exists() or temporary_io.is_symlink()
+        or source_io.is_symlink()
+        or not source_io.is_file()
+        or temporary_io.exists()
+        or temporary_io.is_symlink()
     ):
-        raise ProductExportEncoderError("PATH_UNSAFE", "Encoder input or temporary output path is unsafe")
+        raise ProductExportEncoderError(
+            "PATH_UNSAFE", "Encoder input or temporary output path is unsafe"
+        )
     start = time.monotonic()
     try:
         binary_hash = hashlib.sha256()
@@ -110,11 +128,15 @@ def run_local_encoder(
     except ProductExportEncoderError:
         raise
     except OSError:
-        raise ProductExportEncoderError("TOOLCHAIN_UNAVAILABLE", "Pinned encoder is unavailable") from None
+        raise ProductExportEncoderError(
+            "TOOLCHAIN_UNAVAILABLE", "Pinned encoder is unavailable"
+        ) from None
     try:
         source_stream = _open_local_source(source_io)
     except OSError:
-        raise ProductExportEncoderError("SOURCE_UNAVAILABLE", "Selected media original is unavailable") from None
+        raise ProductExportEncoderError(
+            "SOURCE_UNAVAILABLE", "Selected media original is unavailable"
+        ) from None
     with source_stream:
         before = os.fstat(source_stream.fileno())
         if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= MAX_SOURCE_BYTES:
@@ -123,16 +145,28 @@ def run_local_encoder(
         while chunk := source_stream.read(1024 * 1024):
             digest.update(chunk)
             if time.monotonic() - start > 120.0:
-                raise ProductExportEncoderError("SOURCE_HASH_TIMEOUT", "Selected original could not be hashed in time")
+                raise ProductExportEncoderError(
+                    "SOURCE_HASH_TIMEOUT", "Selected original could not be hashed in time"
+                )
         if digest.hexdigest() != plan.source_sha256:
-            raise ProductExportEncoderError("SOURCE_CHANGED", "Selected original differs from render plan")
+            raise ProductExportEncoderError(
+                "SOURCE_CHANGED", "Selected original differs from render plan"
+            )
         source_stream.seek(0)
         arguments = render_arguments(plan, source, temporary_output)
         environment = {
-            key: os.environ[key] for key in (
-                "COMSPEC", "PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT",
-                "TEMP", "TMP", "WINDIR",
-            ) if key in os.environ
+            key: os.environ[key]
+            for key in (
+                "COMSPEC",
+                "PATH",
+                "PATHEXT",
+                "SYSTEMDRIVE",
+                "SYSTEMROOT",
+                "TEMP",
+                "TMP",
+                "WINDIR",
+            )
+            if key in os.environ
         }
         frames: queue.Queue[int] = queue.Queue(maxsize=64)
         stderr_capture = bytearray()
@@ -167,12 +201,15 @@ def run_local_encoder(
             raise ProductExportEncoderError("CANCELLED", "Encoder was cancelled before launch")
         try:
             process = job_manager.spawn(
-                toolchain.ffmpeg_path, arguments,
-                cwd=toolchain.ffmpeg_path.parent, env=environment,
+                toolchain.ffmpeg_path,
+                arguments,
+                cwd=toolchain.ffmpeg_path.parent,
+                env=environment,
             )
         except ProductExportJobError:
             raise ProductExportEncoderError(
-                "JOB_LAUNCH_FAILED", "Managed export encoder could not start",
+                "JOB_LAUNCH_FAILED",
+                "Managed export encoder could not start",
             ) from None
         progress_started = False
         stderr_started = False
@@ -186,14 +223,18 @@ def run_local_encoder(
                 if stop_requested():
                     _stop(process)
                     raise ProductExportEncoderError(
-                        "CANCELLED", "Encoder was cancelled", exit_code=process.returncode,
+                        "CANCELLED",
+                        "Encoder was cancelled",
+                        exit_code=process.returncode,
                         stderr_bytes=bytes(stderr_capture),
                     )
                 if time.monotonic() - start >= timeout_seconds:
                     _stop(process)
                     raise ProductExportEncoderError(
-                        "TIMEOUT", "Encoder exceeded its runtime limit",
-                        exit_code=process.returncode, stderr_bytes=bytes(stderr_capture),
+                        "TIMEOUT",
+                        "Encoder exceeded its runtime limit",
+                        exit_code=process.returncode,
+                        stderr_bytes=bytes(stderr_capture),
                     )
                 try:
                     frame = frames.get(timeout=0.1)
@@ -205,25 +246,35 @@ def run_local_encoder(
             progress_reader.join(timeout=2.0)
             stderr_reader.join(timeout=2.0)
             if progress_reader.is_alive() or stderr_reader.is_alive():
-                raise ProductExportEncoderError("PIPE_STALLED", "Encoder output reader did not finish")
+                raise ProductExportEncoderError(
+                    "PIPE_STALLED", "Encoder output reader did not finish"
+                )
             while not frames.empty():
                 maximum_frame = max(maximum_frame, frames.get_nowait())
             if process.returncode != 0:
                 raise ProductExportEncoderError(
-                    "ENCODER_FAILED", "Encoder exited unsuccessfully",
-                    exit_code=process.returncode, stderr_bytes=bytes(stderr_capture),
+                    "ENCODER_FAILED",
+                    "Encoder exited unsuccessfully",
+                    exit_code=process.returncode,
+                    stderr_bytes=bytes(stderr_capture),
                 )
             after = os.fstat(source_stream.fileno())
             if (
-                before.st_dev != after.st_dev or before.st_ino != after.st_ino
+                before.st_dev != after.st_dev
+                or before.st_ino != after.st_ino
                 or before.st_size != after.st_size
                 or before.st_mtime_ns != after.st_mtime_ns
             ):
-                raise ProductExportEncoderError("SOURCE_CHANGED", "Selected original changed during encoding")
+                raise ProductExportEncoderError(
+                    "SOURCE_CHANGED", "Selected original changed during encoding"
+                )
             if not temporary_io.is_file() or temporary_io.stat().st_size <= 0:
-                raise ProductExportEncoderError("OUTPUT_MISSING", "Encoder produced no nonempty output")
+                raise ProductExportEncoderError(
+                    "OUTPUT_MISSING", "Encoder produced no nonempty output"
+                )
             return ProductExportEncoderResult(
-                exit_code=0, elapsed_seconds=time.monotonic() - start,
+                exit_code=0,
+                elapsed_seconds=time.monotonic() - start,
                 progress_frames=maximum_frame,
                 stderr_sha256=stderr_digest.hexdigest(),
                 stderr_bytes=bytes(stderr_capture),

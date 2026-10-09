@@ -450,7 +450,8 @@ def _read_sub2api_review_binding(
            JOIN sub2api_call_consumptions AS consume
              ON consume.attempt_id = scope.attempt_id AND consume.task_id = scope.task_id
            JOIN sub2api_call_approvals AS approval ON approval.approval_id = consume.approval_id
-           JOIN sub2api_call_observations AS observation ON observation.attempt_id = scope.attempt_id
+           JOIN sub2api_call_observations AS observation
+             ON observation.attempt_id = scope.attempt_id
            WHERE scope.attempt_id = ? AND scope.project_id = ?""",
         (persisted.producer_attempt_id, proposal.project_id),
     ).fetchone()
@@ -460,7 +461,8 @@ def _read_sub2api_review_binding(
         scope = json.loads(str(row["scope_json"]))
         approval = json.loads(str(row["approval_json"]))
         if (
-            not isinstance(scope, dict) or not isinstance(approval, dict)
+            not isinstance(scope, dict)
+            or not isinstance(approval, dict)
             or canonical_snapshot_json(scope) != str(row["scope_json"])
             or canonical_sha256(scope) != str(row["scope_hash"])
             or canonical_snapshot_json(approval) != str(row["approval_json"])
@@ -486,9 +488,8 @@ def _read_sub2api_review_binding(
             or not row["raw_output_sha256"]
             or str(row["response_content_type"]) != "application/json"
             or row["raw_response_body"] is None
-            or str(row["raw_response_sha256"]) != (
-                "sha256:" + hashlib.sha256(bytes(row["raw_response_body"])).hexdigest()
-            )
+            or str(row["raw_response_sha256"])
+            != ("sha256:" + hashlib.sha256(bytes(row["raw_response_body"])).hexdigest())
             or proposal.cost.status != "UNKNOWN"
             or proposal.cost.estimated_micros is not None
             or proposal.cost.actual_micros is not None

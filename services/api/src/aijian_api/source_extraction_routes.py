@@ -62,14 +62,18 @@ def _read(
     with repository._connection() as connection:
         connection.execute("PRAGMA query_only = ON")
         connection.execute("BEGIN")
-        if connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+        if (
+            connection.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+            is None
+        ):
             raise SourceExtractionNotFoundError
         if version_id is None:
             latest = connection.execute(
                 """SELECT head.latest_version_id
                    FROM artifacts AS artifact
                    JOIN artifact_heads AS head ON head.artifact_id = artifact.artifact_id
-                   WHERE artifact.project_id = ? AND artifact.artifact_type = 'source_extraction'""",
+                   WHERE artifact.project_id = ?
+                     AND artifact.artifact_type = 'source_extraction'""",
                 (project_id,),
             ).fetchone()
             if latest is None:
@@ -201,9 +205,7 @@ def _validated_data(
     if not isinstance(proposal_spans, list) or len(proposal_spans) != len(record.source_spans):
         raise SourceExtractionInconsistentError
     proposal_spans_by_id = {
-        span.get("source_span_id"): span
-        for span in proposal_spans
-        if isinstance(span, dict)
+        span.get("source_span_id"): span for span in proposal_spans if isinstance(span, dict)
     }
     if len(proposal_spans_by_id) != len(record.source_spans):
         raise SourceExtractionInconsistentError
@@ -227,9 +229,8 @@ def _validated_data(
             or span.version_id != version.id
             or source is None
             or manifest_document is None
-            or span.source_block_id not in {
-                block.source_block_id for block in manifest_document.blocks
-            }
+            or span.source_block_id
+            not in {block.source_block_id for block in manifest_document.blocks}
             or proposal_span is None
             or proposal_span.get("source_document_id") != span.source_document_id
             or proposal_span.get("source_block_id") != span.source_block_id
@@ -310,12 +311,16 @@ def create_source_extraction_router(repository_provider: RepositoryProvider) -> 
             data = _read(repository_provider(), project_id, version_id)
         except SourceExtractionNotFoundError:
             return _error(
-                request, status=404, code="SOURCE_EXTRACTION_NOT_FOUND",
+                request,
+                status=404,
+                code="SOURCE_EXTRACTION_NOT_FOUND",
                 message="The requested SourceExtraction was not found",
             )
         except SourceExtractionInconsistentError:
             return _error(
-                request, status=409, code="SOURCE_EXTRACTION_INCONSISTENT",
+                request,
+                status=409,
+                code="SOURCE_EXTRACTION_INCONSISTENT",
                 message="The stored SourceExtraction is inconsistent",
             )
         response.headers["ETag"] = (
@@ -323,9 +328,7 @@ def create_source_extraction_router(repository_provider: RepositoryProvider) -> 
             if version_id is None
             else f'"{data.version.content_hash}"'
         )
-        return SourceExtractionResponse(
-            data=data, request_id=cast(UUID, request.state.request_id)
-        )
+        return SourceExtractionResponse(data=data, request_id=cast(UUID, request.state.request_id))
 
     @router.get(
         "/api/v1/projects/{project_id}/source-extraction",
@@ -334,7 +337,8 @@ def create_source_extraction_router(repository_provider: RepositoryProvider) -> 
         responses=errors,
     )
     def get_source_extraction(
-        request: Request, response: Response,
+        request: Request,
+        response: Response,
         project_id: str = Path(pattern=PROJECT_ID_PATTERN),
     ) -> SourceExtractionResponse | JSONResponse:
         return response_for(request, response, project_id, None)
@@ -346,7 +350,8 @@ def create_source_extraction_router(repository_provider: RepositoryProvider) -> 
         responses=errors,
     )
     def get_source_extraction_version(
-        request: Request, response: Response,
+        request: Request,
+        response: Response,
         project_id: str = Path(pattern=PROJECT_ID_PATTERN),
         version_id: str = Path(pattern=VERSION_ID_PATTERN),
     ) -> SourceExtractionResponse | JSONResponse:

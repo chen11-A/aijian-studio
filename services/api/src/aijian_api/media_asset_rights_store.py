@@ -7,7 +7,7 @@ import json
 import re
 import sqlite3
 import unicodedata
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import uuid4
 
@@ -37,7 +37,10 @@ class RightsDecisionError(ValueError):
 
 def _canonical_hash(payload: dict[str, object]) -> str:
     encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -53,8 +56,12 @@ def _evidence_payload(basis_text: str, supporting_reference: str | None) -> dict
 
 
 def _request_payload(
-    project_id: str, asset_id: str, version_id: str, expected_revision: int,
-    command: HumanRightsDecisionInput, actor_id: str,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
+    expected_revision: int,
+    command: HumanRightsDecisionInput,
+    actor_id: str,
 ) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -78,7 +85,7 @@ def _decision_payload(decision: RightsDecisionAuditData) -> dict[str, object]:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _audit_from_row(row: sqlite3.Row) -> RightsDecisionAuditData:
@@ -108,8 +115,10 @@ def _audit_from_row(row: sqlite3.Row) -> RightsDecisionAuditData:
             created_at=str(row["created_at"]),
         )
         for value in (
-            decision.actor_id, decision.basis_text,
-            decision.supporting_reference or "", decision.created_at,
+            decision.actor_id,
+            decision.basis_text,
+            decision.supporting_reference or "",
+            decision.created_at,
         ):
             value.encode("utf-8", errors="strict")
         return decision
@@ -118,8 +127,11 @@ def _audit_from_row(row: sqlite3.Row) -> RightsDecisionAuditData:
 
 
 def _validated_history(
-    connection: sqlite3.Connection, project_id: str, asset_id: str,
-    version_id: str, asset_sha256: str,
+    connection: sqlite3.Connection,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
+    asset_sha256: str,
 ) -> tuple[RightsDecisionAuditData, ...]:
     head = connection.execute(
         """SELECT revision, decision_id FROM media_asset_rights_heads
@@ -160,17 +172,20 @@ def _validated_history(
             or decision.previous_decision_id != previous_id
             or decision.actor_id != unicodedata.normalize("NFC", decision.actor_id)
             or decision.actor_id != decision.actor_id.strip()
-            or any(
-                _unreadable(character, allow_layout=False) for character in decision.actor_id
-            )
+            or any(_unreadable(character, allow_layout=False) for character in decision.actor_id)
             or replay_command.basis_text != decision.basis_text
             or replay_command.supporting_reference != decision.supporting_reference
-            or decision.evidence_sha256 != _canonical_hash(
+            or decision.evidence_sha256
+            != _canonical_hash(
                 _evidence_payload(decision.basis_text, decision.supporting_reference)
             )
-            or decision.request_sha256 != _canonical_hash(
+            or decision.request_sha256
+            != _canonical_hash(
                 _request_payload(
-                    project_id, asset_id, version_id, revision - 1,
+                    project_id,
+                    asset_id,
+                    version_id,
+                    revision - 1,
                     replay_command,
                     decision.actor_id,
                 )
@@ -189,8 +204,13 @@ class MediaAssetRightsStore:
         self._repository = repository
 
     def append_human_decision(
-        self, project_id: str, asset_id: str, version_id: str,
-        command: HumanRightsDecisionInput, *, actor_id: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
+        command: HumanRightsDecisionInput,
+        *,
+        actor_id: str,
     ) -> RightsDecisionWriteReceipt:
         try:
             command = HumanRightsDecisionInput.model_validate(command.model_dump(mode="python"))
@@ -211,10 +231,16 @@ class MediaAssetRightsStore:
             or any(_unreadable(character, allow_layout=False) for character in normalized_actor)
         ):
             raise RightsDecisionError("INVALID_ACTOR", "Human actor identity is invalid")
-        request_hash = _canonical_hash(_request_payload(
-            project_id, asset_id, version_id, command.expected_revision,
-            command, normalized_actor,
-        ))
+        request_hash = _canonical_hash(
+            _request_payload(
+                project_id,
+                asset_id,
+                version_id,
+                command.expected_revision,
+                command,
+                normalized_actor,
+            )
+        )
         with self._repository._connection() as connection:
             try:
                 connection.execute("BEGIN IMMEDIATE")
@@ -233,26 +259,34 @@ class MediaAssetRightsStore:
                 if _HASH.fullmatch(asset_sha256) is None:
                     raise RightsDecisionError("CORRUPT_HISTORY", "Media version hash is invalid")
                 history = _validated_history(
-                    connection, project_id, asset_id, version_id, asset_sha256,
+                    connection,
+                    project_id,
+                    asset_id,
+                    version_id,
+                    asset_sha256,
                 )
                 current_revision = len(history)
                 old_operation = next(
-                    (item for item in history if item.operation_id == command.operation_id), None,
+                    (item for item in history if item.operation_id == command.operation_id),
+                    None,
                 )
                 if old_operation is not None:
                     if old_operation.request_sha256 != request_hash:
                         raise RightsDecisionError(
-                            "OPERATION_CONFLICT", "Rights operation identity has different input",
+                            "OPERATION_CONFLICT",
+                            "Rights operation identity has different input",
                         )
                     connection.commit()
                     return RightsDecisionWriteReceipt(
-                        decision=old_operation, replayed=True,
+                        decision=old_operation,
+                        replayed=True,
                         is_latest=old_operation.revision == current_revision,
                         current_revision=current_revision,
                     )
                 if command.expected_revision != current_revision:
                     raise RightsDecisionError(
-                        "REVISION_CONFLICT", "Rights decision was based on a stale revision",
+                        "REVISION_CONFLICT",
+                        "Rights decision was based on a stale revision",
                     )
                 if current_revision >= MAX_RIGHTS_HISTORY:
                     raise RightsDecisionError("HISTORY_LIMIT", "Rights history limit was reached")
@@ -272,15 +306,20 @@ class MediaAssetRightsStore:
                     actor_id=normalized_actor,
                     basis_text=command.basis_text,
                     supporting_reference=command.supporting_reference,
-                    evidence_sha256=_canonical_hash(_evidence_payload(
-                        command.basis_text, command.supporting_reference,
-                    )),
+                    evidence_sha256=_canonical_hash(
+                        _evidence_payload(
+                            command.basis_text,
+                            command.supporting_reference,
+                        )
+                    ),
                     decision_content_hash="0" * 64,
                     created_at=_utc_now(),
                 )
-                decision = decision.model_copy(update={
-                    "decision_content_hash": _canonical_hash(_decision_payload(decision)),
-                })
+                decision = decision.model_copy(
+                    update={
+                        "decision_content_hash": _canonical_hash(_decision_payload(decision)),
+                    }
+                )
                 connection.execute(
                     """INSERT INTO media_asset_rights_decisions (
                            id, schema_version, project_id, asset_id, version_id, asset_sha256,
@@ -289,12 +328,24 @@ class MediaAssetRightsStore:
                            evidence_sha256, decision_content_hash, created_at
                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
-                        decision.decision_id, 1, project_id, asset_id, version_id, asset_sha256,
-                        decision.revision, decision.previous_decision_id,
-                        decision.operation_id, decision.request_sha256, decision.decision,
-                        decision.actor_type, decision.actor_id, decision.basis_text,
-                        decision.supporting_reference, decision.evidence_sha256,
-                        decision.decision_content_hash, decision.created_at,
+                        decision.decision_id,
+                        1,
+                        project_id,
+                        asset_id,
+                        version_id,
+                        asset_sha256,
+                        decision.revision,
+                        decision.previous_decision_id,
+                        decision.operation_id,
+                        decision.request_sha256,
+                        decision.decision,
+                        decision.actor_type,
+                        decision.actor_id,
+                        decision.basis_text,
+                        decision.supporting_reference,
+                        decision.evidence_sha256,
+                        decision.decision_content_hash,
+                        decision.created_at,
                     ),
                 )
                 if history:
@@ -304,8 +355,13 @@ class MediaAssetRightsStore:
                            WHERE project_id = ? AND asset_id = ? AND version_id = ?
                              AND revision = ? AND decision_id = ?""",
                         (
-                            decision.revision, decision.decision_id, project_id, asset_id,
-                            version_id, current_revision, history[-1].decision_id,
+                            decision.revision,
+                            decision.decision_id,
+                            project_id,
+                            asset_id,
+                            version_id,
+                            current_revision,
+                            history[-1].decision_id,
                         ),
                     ).rowcount
                     if updated != 1:
@@ -319,25 +375,33 @@ class MediaAssetRightsStore:
                     )
                 connection.commit()
                 return RightsDecisionWriteReceipt(
-                    decision=decision, replayed=False,
-                    is_latest=True, current_revision=decision.revision,
+                    decision=decision,
+                    replayed=False,
+                    is_latest=True,
+                    current_revision=decision.revision,
                 )
             except sqlite3.IntegrityError:
                 connection.rollback()
                 raise RightsDecisionError(
-                    "REVISION_CONFLICT", "Rights decision transaction conflicted",
+                    "REVISION_CONFLICT",
+                    "Rights decision transaction conflicted",
                 ) from None
             except sqlite3.OperationalError:
                 connection.rollback()
                 raise RightsDecisionError(
-                    "WRITE_UNKNOWN", "Rights decision persistence could not be confirmed",
+                    "WRITE_UNKNOWN",
+                    "Rights decision persistence could not be confirmed",
                 ) from None
             except BaseException:
                 connection.rollback()
                 raise
 
     def get_operation_receipt(
-        self, project_id: str, asset_id: str, version_id: str, operation_id: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
+        operation_id: str,
     ) -> RightsDecisionWriteReceipt:
         if (
             _PROJECT_ID.fullmatch(project_id) is None
@@ -352,13 +416,17 @@ class MediaAssetRightsStore:
             raise RightsDecisionError("OPERATION_NOT_FOUND", "Rights operation was not found")
         current_revision = len(history)
         return RightsDecisionWriteReceipt(
-            decision=decision, replayed=True,
+            decision=decision,
+            replayed=True,
             is_latest=decision.revision == current_revision,
             current_revision=current_revision,
         )
 
     def audit_history(
-        self, project_id: str, asset_id: str, version_id: str,
+        self,
+        project_id: str,
+        asset_id: str,
+        version_id: str,
     ) -> tuple[RightsDecisionAuditData, ...]:
         if (
             _PROJECT_ID.fullmatch(project_id) is None
@@ -380,7 +448,11 @@ class MediaAssetRightsStore:
             if version is None:
                 raise RightsDecisionError("VERSION_NOT_FOUND", "Media version was not found")
             history = _validated_history(
-                connection, project_id, asset_id, version_id, str(version["sha256"]),
+                connection,
+                project_id,
+                asset_id,
+                version_id,
+                str(version["sha256"]),
             )
             connection.commit()
             return history

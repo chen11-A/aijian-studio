@@ -11,13 +11,14 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.managed_local_paths import managed_local_io_path
+from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_contracts import (
-    ProductExportClaimRequest, ProductExportOperationData,
+    ProductExportClaimRequest,
+    ProductExportOperationData,
 )
 from aijian_api.product_export_encoder import run_local_encoder
 from aijian_api.product_export_operation_coordinator import ProductExportOperationCoordinator
@@ -35,7 +36,9 @@ class ProductExportExecutionError(RuntimeError):
 
 class _SingleVideoExecutor:
     def __init__(
-        self, repository: StudioRepository, toolchain: MediaToolchain,
+        self,
+        repository: StudioRepository,
+        toolchain: MediaToolchain,
         job_manager: ProductExportJobManager,
     ) -> None:
         self._repository = repository
@@ -53,7 +56,8 @@ class _SingleVideoExecutor:
         stop_requested: Callable[[], bool],
     ) -> None:
         if (
-            os.name != "nt" or operation.status != "RUNNING"
+            os.name != "nt"
+            or operation.status != "RUNNING"
             or operation.operation_id != request.operation_id
             or operation.assembly != request.assembly
             or plan.mode != "SINGLE_VERIFIED_VIDEO"
@@ -66,7 +70,8 @@ class _SingleVideoExecutor:
             or len(request.media_rights) != 1
         ):
             raise ProductExportExecutionError(
-                "EXECUTION_IDENTITY_CONFLICT", "Running claim differs from its single-video plan",
+                "EXECUTION_IDENTITY_CONFLICT",
+                "Running claim differs from its single-video plan",
             )
         selected = request.media_rights[0].media
         if (
@@ -75,16 +80,14 @@ class _SingleVideoExecutor:
             or selected.sha256 != plan.source_sha256
         ):
             raise ProductExportExecutionError(
-                "SOURCE_IDENTITY_CONFLICT", "Claimed source differs from the render plan",
+                "SOURCE_IDENTITY_CONFLICT",
+                "Claimed source differs from the render plan",
             )
         # Re-run the same root policy used by the claim. The filename is one
         # validated component, so both output paths stay in this directory.
         output_target_identity(output_root, request)
         workspace = self._repository.database_path.parent
-        source = (
-            workspace / "media-assets" / "blobs"
-            / plan.source_sha256[:2] / plan.source_sha256
-        )
+        source = workspace / "media-assets" / "blobs" / plan.source_sha256[:2] / plan.source_sha256
         temporary = output_root / f".{operation.project_id}.{operation.operation_id}.partial.mp4"
         target = output_root / request.output_relative_path
         try:
@@ -92,25 +95,36 @@ class _SingleVideoExecutor:
             target_io = managed_local_io_path(output_root, target)
         except (OSError, ValueError):
             raise ProductExportExecutionError(
-                "OUTPUT_PATH_UNSAFE", "Export output path is not a plain managed path",
+                "OUTPUT_PATH_UNSAFE",
+                "Export output path is not a plain managed path",
             ) from None
         if (
-            temporary_io.exists() or temporary_io.is_symlink()
-            or target_io.exists() or target_io.is_symlink()
+            temporary_io.exists()
+            or temporary_io.is_symlink()
+            or target_io.exists()
+            or target_io.is_symlink()
         ):
             raise ProductExportExecutionError(
-                "OUTPUT_PATH_CONFLICT", "Export output or its operation temporary path already exists",
+                "OUTPUT_PATH_CONFLICT",
+                "Export output or its operation temporary path already exists",
             )
         if stop_requested():
-            raise ProductExportExecutionError("CANCEL_REQUESTED", "Export was cancelled before encoding")
+            raise ProductExportExecutionError(
+                "CANCEL_REQUESTED", "Export was cancelled before encoding"
+            )
         run_local_encoder(
-            plan, source, temporary, self._toolchain,
+            plan,
+            source,
+            temporary,
+            self._toolchain,
             job_manager=self._job_manager,
             on_progress=on_progress,
             stop_requested=stop_requested,
         )
         if stop_requested():
-            raise ProductExportExecutionError("CANCEL_REQUESTED", "Export was cancelled after encoding")
+            raise ProductExportExecutionError(
+                "CANCEL_REQUESTED", "Export was cancelled after encoding"
+            )
         # Windows os.rename refuses an existing destination. Both paths stay
         # in one managed directory; a crash before the DB receipt remains
         # UNKNOWN and must be reconciled without another encode.
@@ -121,8 +135,11 @@ class ProductExportSingleVideoService:
     """Product-callable entrypoint using one sidecar-owned job manager."""
 
     def __init__(
-        self, repository: StudioRepository, toolchain: MediaToolchain,
-        output_root: Path, job_manager: ProductExportJobManager,
+        self,
+        repository: StudioRepository,
+        toolchain: MediaToolchain,
+        output_root: Path,
+        job_manager: ProductExportJobManager,
     ) -> None:
         self._coordinator = ProductExportOperationCoordinator(repository)
         self._toolchain = toolchain
@@ -135,12 +152,17 @@ class ProductExportSingleVideoService:
         self._unresolved_failures: dict[tuple[str, str], BaseException] = {}
 
     def _run_claimed(
-        self, operation: ProductExportOperationData, request: ProductExportClaimRequest,
+        self,
+        operation: ProductExportOperationData,
+        request: ProductExportClaimRequest,
     ) -> None:
         key = (operation.project_id, operation.operation_id)
         try:
             self._coordinator.execute_claimed(
-                operation, request, self._output_root, self._toolchain,
+                operation,
+                request,
+                self._output_root,
+                self._toolchain,
                 execute=self._executor,
                 stop_requested_externally=self._stop_requested.is_set,
             )
@@ -148,7 +170,8 @@ class ProductExportSingleVideoService:
             # The coordinator records UNKNOWN for an acquired claim. Preserve
             # the raw failure in sidecar logs; never schedule another attempt.
             logging.getLogger(__name__).exception(
-                "Product export worker stopped without a success receipt: %s", key,
+                "Product export worker stopped without a success receipt: %s",
+                key,
             )
             unresolved: BaseException | None
             try:
@@ -162,7 +185,10 @@ class ProductExportSingleVideoService:
                     self._unresolved_failures[key] = unresolved
 
     def submit(
-        self, project_id: str, episode_id: str, request: ProductExportClaimRequest,
+        self,
+        project_id: str,
+        episode_id: str,
+        request: ProductExportClaimRequest,
     ) -> ProductExportOperationData:
         """Return a durable queued or old receipt; only a new claim gets a worker."""
         with self._lock:
@@ -171,17 +197,24 @@ class ProductExportSingleVideoService:
             }
             if not self._accepting:
                 raise ProductExportExecutionError(
-                    "SHUTTING_DOWN", "Product export service is no longer accepting work",
+                    "SHUTTING_DOWN",
+                    "Product export service is no longer accepting work",
                 )
             operation, existed = self._coordinator.claim_only(
-                project_id, episode_id, request, self._output_root, self._toolchain,
+                project_id,
+                episode_id,
+                request,
+                self._output_root,
+                self._toolchain,
             )
             if existed:
                 return operation
             key = (project_id, request.operation_id)
             worker = threading.Thread(
-                target=self._run_claimed, args=(operation, request),
-                name=f"product-export-{request.operation_id}", daemon=False,
+                target=self._run_claimed,
+                args=(operation, request),
+                name=f"product-export-{request.operation_id}",
+                daemon=False,
             )
             self._workers[key] = worker
             try:
@@ -193,7 +226,8 @@ class ProductExportSingleVideoService:
                 except BaseException as receipt_error:
                     self._unresolved_failures[key] = receipt_error
                     raise ProductExportExecutionError(
-                        "WORKER_START_UNKNOWN", "Export worker did not start and its claim is unresolved",
+                        "WORKER_START_UNKNOWN",
+                        "Export worker did not start and its claim is unresolved",
                     ) from receipt_error
                 raise
             return operation
@@ -212,7 +246,8 @@ class ProductExportSingleVideoService:
             or not 0 < timeout_seconds <= 300.0
         ):
             raise ProductExportExecutionError(
-                "INVALID_SHUTDOWN_TIMEOUT", "Product export worker timeout is invalid",
+                "INVALID_SHUTDOWN_TIMEOUT",
+                "Product export worker timeout is invalid",
             )
         self.stop_accepting()
         deadline = time.monotonic() + timeout_seconds
@@ -221,7 +256,8 @@ class ProductExportSingleVideoService:
         for worker in workers:
             if worker is threading.current_thread():
                 raise ProductExportExecutionError(
-                    "WORKER_JOIN_INVALID", "Export worker cannot join itself",
+                    "WORKER_JOIN_INVALID",
+                    "Export worker cannot join itself",
                 )
             worker.join(timeout=max(0.0, deadline - time.monotonic()))
         with self._lock:
@@ -230,11 +266,13 @@ class ProductExportSingleVideoService:
             }
         if any(worker.is_alive() for worker in workers):
             raise ProductExportExecutionError(
-                "WORKERS_NOT_STOPPED", "Product export workers did not stop cleanly",
+                "WORKERS_NOT_STOPPED",
+                "Product export workers did not stop cleanly",
             )
         if self._unresolved_failures:
             raise ProductExportExecutionError(
-                "WORKER_RECEIPT_UNCERTAIN", "A stopped export worker lacks a terminal receipt",
+                "WORKER_RECEIPT_UNCERTAIN",
+                "A stopped export worker lacks a terminal receipt",
             ) from next(iter(self._unresolved_failures.values()))
 
     def get(self, project_id: str, operation_id: str) -> ProductExportOperationData:

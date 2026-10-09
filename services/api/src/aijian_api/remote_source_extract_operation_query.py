@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
@@ -44,8 +44,11 @@ def _source(intent: RemoteSourceExtractEnqueueIntentV1) -> RemoteSourceExtractOp
         {
             key: bindings[key]
             for key in (
-                "source_manifest_version_id", "source_document_id", "source_block_id",
-                "start_byte", "end_byte",
+                "source_manifest_version_id",
+                "source_document_id",
+                "source_block_id",
+                "start_byte",
+                "end_byte",
             )
         }
     )
@@ -172,15 +175,13 @@ def _read_tracked(
         or dispatch["context_manifest_id"] != intent.context_manifest_id
         or dispatch["context_manifest_hash"] != intent.dispatch_snapshot.context_manifest_hash
         or dispatch["input_scope_hash"] != canonical_sha256(expected_scope)
-        or dispatch["snapshot_hash"] != expected_dispatch.snapshot_hash(
-            project_id=project_id, attempt_id=attempt_id
-        )
+        or dispatch["snapshot_hash"]
+        != expected_dispatch.snapshot_hash(project_id=project_id, attempt_id=attempt_id)
         or dispatch["endpoint_binding"] != frozen.endpoint_binding
         or dispatch["transport_contract_hash"] != frozen.transport_contract_hash
         or dispatch["scope_kind"] != frozen.dispatch_class
-        or dispatch["requested_additional_budget_micros"] != (
-            frozen.requested_additional_budget_micros
-        )
+        or dispatch["requested_additional_budget_micros"]
+        != (frozen.requested_additional_budget_micros)
         or dispatch["approved_currency"] != frozen.approved_currency
         or dispatch["policy_version"] != frozen.policy_version
         or json.loads(str(dispatch["scope_json"])) != expected_scope
@@ -248,14 +249,17 @@ def read_remote_source_extract_operation(
     settlement_verifier: RemoteSettlementVerifier | None = None,
 ) -> RemoteSourceExtractOperationData:
     """Return only persisted truth for the exact original enqueue intent."""
-    checked_at = datetime.now(timezone.utc)
+    checked_at = datetime.now(UTC)
     with repository._connection() as connection:
         connection.execute("PRAGMA query_only = ON")
         connection.execute("BEGIN")
-        if connection.execute(
-            "SELECT 1 FROM agent_runs WHERE project_id = ? AND agent_run_id = ?",
-            (project_id, run_id),
-        ).fetchone() is None:
+        if (
+            connection.execute(
+                "SELECT 1 FROM agent_runs WHERE project_id = ? AND agent_run_id = ?",
+                (project_id, run_id),
+            ).fetchone()
+            is None
+        ):
             raise RemoteSourceExtractOperationNotFoundError
         try:
             persisted = read_proposal_run_enqueue_intent_in_connection(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,10 +14,22 @@ CONTENT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
 ASSET_ID_PATTERN = r"^asset_[0-9a-f]{32}$"
 ASSET_VERSION_ID_PATTERN = r"^asv_[0-9a-f]{32}$"
 SHA256_HEX_PATTERN = r"^[0-9a-f]{64}$"
-ProductExportIssueScope: TypeAlias = Literal[
-    "PROJECT", "EPISODE", "TIMELINE", "PICTURE_LOCK", "MEDIA", "VIDEO",
-    "DIALOGUE", "BGM", "SFX", "SUBTITLE", "RIGHTS", "SPEC", "OUTPUT",
-    "TOOLCHAIN", "EXECUTION",
+ProductExportIssueScope = Literal[
+    "PROJECT",
+    "EPISODE",
+    "TIMELINE",
+    "PICTURE_LOCK",
+    "MEDIA",
+    "VIDEO",
+    "DIALOGUE",
+    "BGM",
+    "SFX",
+    "SUBTITLE",
+    "RIGHTS",
+    "SPEC",
+    "OUTPUT",
+    "TOOLCHAIN",
+    "EXECUTION",
 ]
 
 
@@ -40,7 +52,7 @@ class ProductExportAssetRef(BaseModel):
     sha256: str = Field(pattern=SHA256_HEX_PATTERN)
 
 
-ProductExportMediaRef: TypeAlias = ProductExportVersionRef | ProductExportAssetRef
+ProductExportMediaRef = ProductExportVersionRef | ProductExportAssetRef
 
 
 class ProductExportSpec(BaseModel):

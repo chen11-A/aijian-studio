@@ -8,13 +8,15 @@ substituted for the executor here. No call in this module retries an encoder.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_claim import ProductExportClaimService
 from aijian_api.product_export_contracts import (
-    ProductExportClaimRequest, ProductExportOperationData,
+    ProductExportClaimRequest,
+    ProductExportOperationData,
 )
 from aijian_api.product_export_render_plan import ProductExportRenderPlan
 from aijian_api.product_export_store import ProductExportStore
@@ -57,7 +59,10 @@ class ProductExportOperationCoordinator:
         return self._store.get(project_id, operation_id)
 
     def replay_existing(
-        self, project_id: str, episode_id: str, request: ProductExportClaimRequest,
+        self,
+        project_id: str,
+        episode_id: str,
+        request: ProductExportClaimRequest,
     ) -> ProductExportOperationData | None:
         """Match the claim's exact request identity before discovering tools."""
         return self._claims.replay_existing(project_id, episode_id, request)
@@ -75,7 +80,9 @@ class ProductExportOperationCoordinator:
         return self._store.mark_interrupted_unknown()
 
     def _read_single_video_plan(
-        self, project_id: str, operation_id: str,
+        self,
+        project_id: str,
+        operation_id: str,
     ) -> ProductExportRenderPlan:
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
@@ -87,19 +94,26 @@ class ProductExportOperationCoordinator:
                 (project_id, operation_id),
             ).fetchone()
         if row is None:
-            raise ProductExportCoordinatorError("CLAIM_MISSING", "Claim disappeared before execution")
+            raise ProductExportCoordinatorError(
+                "CLAIM_MISSING", "Claim disappeared before execution"
+            )
         try:
             raw = json.loads(str(row["render_plan_json"]))
         except (TypeError, ValueError):
-            raise ProductExportCoordinatorError("CLAIM_PLAN_CORRUPT", "Persisted render plan is invalid") from None
+            raise ProductExportCoordinatorError(
+                "CLAIM_PLAN_CORRUPT", "Persisted render plan is invalid"
+            ) from None
         if not isinstance(raw, dict) or raw.get("mode") != "SINGLE_VERIFIED_VIDEO":
             raise ProductExportCoordinatorError(
-                "MLT_PLAN_NOT_SUPPORTED", "Only the claimed single-video plan may execute",
+                "MLT_PLAN_NOT_SUPPORTED",
+                "Only the claimed single-video plan may execute",
             )
         try:
             plan = ProductExportRenderPlan.model_validate(raw)
         except ValueError:
-            raise ProductExportCoordinatorError("CLAIM_PLAN_CORRUPT", "Persisted render plan is invalid") from None
+            raise ProductExportCoordinatorError(
+                "CLAIM_PLAN_CORRUPT", "Persisted render plan is invalid"
+            ) from None
         if (
             plan.mode != "SINGLE_VERIFIED_VIDEO"
             or plan.content_hash != row["render_plan_hash"]
@@ -107,7 +121,8 @@ class ProductExportOperationCoordinator:
             or plan.assembly_content_hash != row["assembly_content_hash"]
         ):
             raise ProductExportCoordinatorError(
-                "CLAIM_PLAN_CONFLICT", "Persisted export plan differs from the claim",
+                "CLAIM_PLAN_CONFLICT",
+                "Persisted export plan differs from the claim",
             )
         return plan
 
@@ -128,13 +143,21 @@ class ProductExportOperationCoordinator:
         release gate, assembly, media, and rights claim have succeeded.
         """
         operation, existed = self.claim_only(
-            project_id, episode_id, request, output_root, toolchain,
+            project_id,
+            episode_id,
+            request,
+            output_root,
+            toolchain,
         )
         if existed:
             return operation
         return self.execute_claimed(
-            operation, request, output_root, toolchain,
-            execute=execute, stop_requested_externally=lambda: False,
+            operation,
+            request,
+            output_root,
+            toolchain,
+            execute=execute,
+            stop_requested_externally=lambda: False,
         )
 
     def claim_only(
@@ -147,7 +170,11 @@ class ProductExportOperationCoordinator:
     ) -> tuple[ProductExportOperationData, bool]:
         """Persist one claim or return its old receipt without scheduling it."""
         return self._claims.claim(
-            project_id, episode_id, request, output_root, toolchain,
+            project_id,
+            episode_id,
+            request,
+            output_root,
+            toolchain,
         )
 
     def mark_unstarted_unknown(self, project_id: str, operation_id: str) -> None:
@@ -172,7 +199,8 @@ class ProductExportOperationCoordinator:
             or operation.assembly != request.assembly
         ):
             raise ProductExportCoordinatorError(
-                "CLAIM_IDENTITY_CONFLICT", "Worker was given a different or old claim",
+                "CLAIM_IDENTITY_CONFLICT",
+                "Worker was given a different or old claim",
             )
         try:
             plan = self._read_single_video_plan(project_id, request.operation_id)
@@ -182,11 +210,13 @@ class ProductExportOperationCoordinator:
                 or plan.ffprobe_sha256 != toolchain.ffprobe_sha256
             ):
                 raise ProductExportCoordinatorError(
-                    "CLAIM_TOOLCHAIN_CONFLICT", "Claimed toolchain differs before execution",
+                    "CLAIM_TOOLCHAIN_CONFLICT",
+                    "Claimed toolchain differs before execution",
                 )
             if stop_requested_externally():
                 raise ProductExportCoordinatorError(
-                    "SHUTDOWN_BEFORE_START", "Sidecar stopped before the export worker started",
+                    "SHUTDOWN_BEFORE_START",
+                    "Sidecar stopped before the export worker started",
                 )
         except BaseException:
             self._store.mark_unknown(project_id, request.operation_id, "PRE_EXECUTION_REJECTED")
@@ -205,6 +235,7 @@ class ProductExportOperationCoordinator:
             raise
 
         try:
+
             def on_progress(frames: int) -> None:
                 self._store.record_progress(project_id, request.operation_id, frames)
 
@@ -212,18 +243,22 @@ class ProductExportOperationCoordinator:
                 if stop_requested_externally():
                     return True
                 current = self._store.get(project_id, request.operation_id)
-                return (
-                    current.status != "RUNNING"
-                    or current.cancel_requested_at is not None
-                )
+                return current.status != "RUNNING" or current.cancel_requested_at is not None
 
             execute(
-                running, plan, request, output_root,
-                on_progress=on_progress, stop_requested=stop_requested,
+                running,
+                plan,
+                request,
+                output_root,
+                on_progress=on_progress,
+                stop_requested=stop_requested,
             )
             self._store.mark_verifying(project_id, request.operation_id)
             return self._store.finalize_output(
-                project_id, request.operation_id, output_root, toolchain,
+                project_id,
+                request.operation_id,
+                output_root,
+                toolchain,
             )
         except BaseException:
             # A process may have launched, produced bytes, or exited before

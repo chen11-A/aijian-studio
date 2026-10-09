@@ -57,20 +57,20 @@ from aijian_api.domain import (
     SourceSpanRole,
     TrustedReviewActor,
 )
+from aijian_api.draft_export_schema import DRAFT_EXPORT_MIGRATION
+from aijian_api.draft_review_schema import DRAFT_REVIEW_MIGRATION
 from aijian_api.engineering_test_export_schema import ENGINEERING_TEST_EXPORT_MIGRATION
 from aijian_api.episode_schema import MIGRATION_17
 from aijian_api.episode_script_confirmation_schema import EPISODE_SCRIPT_CONFIRMATION_MIGRATION
 from aijian_api.episode_script_schema import EPISODE_SCRIPT_MIGRATION
-from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
 from aijian_api.episode_storyboard_schema import EPISODE_STORYBOARD_MIGRATION
-from aijian_api.draft_export_schema import DRAFT_EXPORT_MIGRATION
-from aijian_api.draft_review_schema import DRAFT_REVIEW_MIGRATION
 from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
 from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
 from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
 from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
 from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
 from aijian_api.project_creative_library_schema import PROJECT_CREATIVE_LIBRARY_MIGRATION
