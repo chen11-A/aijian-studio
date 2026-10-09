@@ -14,6 +14,7 @@ import queue
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -386,7 +387,7 @@ class _Runner:
         ]
 
         def terminate() -> None:
-            if isinstance(process, ProductExportJobProcess):
+            if sys.platform == "win32":
                 process.terminate()
             else:
                 try:

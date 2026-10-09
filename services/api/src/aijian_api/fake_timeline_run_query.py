@@ -7,6 +7,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from pydantic import ValidationError
 
@@ -72,7 +73,7 @@ def _required_row(connection: sqlite3.Connection, sql: str, values: tuple[object
     row = connection.execute(sql, values).fetchone()
     if row is None:
         raise FakeTimelineRunOperationConflictError("Fake Timeline operation link is missing")
-    return row
+    return cast(sqlite3.Row, row)
 
 
 class FakeTimelineRunOperationReader:

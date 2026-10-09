@@ -86,12 +86,14 @@ from aijian_api.development_timeline_export_routes import (
     create_development_timeline_export_router,
 )
 from aijian_api.domain import SourceDocument, TrustedReviewActor
+from aijian_api.draft_export_routes import create_draft_export_router
+from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.draft_review_routes import create_draft_review_router
 from aijian_api.episode_media_assembly_routes import (
     create_episode_media_assembly_public_router,
     create_episode_media_assembly_write_router,
 )
 from aijian_api.episode_routes import EpisodeStorageError, create_episode_router
-from aijian_api.official_text_routes import create_official_text_public_router, create_official_text_write_router
 from aijian_api.episode_script_confirmation_routes import (
     create_episode_script_confirmation_public_router,
     create_episode_script_confirmation_write_router,
@@ -128,6 +130,8 @@ from aijian_api.invalidation_routes import (
     InvalidationReportTooLargeError,
     create_invalidation_router,
 )
+from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
+from aijian_api.local_media_toolchain_routes import create_local_media_toolchain_router
 from aijian_api.media_asset_probe_routes import create_media_asset_probe_router
 from aijian_api.media_asset_rights_routes import create_media_asset_rights_router
 from aijian_api.media_asset_routes import create_media_asset_router
@@ -137,13 +141,12 @@ from aijian_api.media_toolchain import (
     discover_media_toolchain,
     load_media_toolchain_lock,
 )
-from aijian_api.local_media_toolchain import LocalMediaToolchainService, machine_settings_path
-from aijian_api.local_media_toolchain_routes import create_local_media_toolchain_router
+from aijian_api.official_text_routes import (
+    create_official_text_public_router,
+    create_official_text_write_router,
+)
 from aijian_api.product_export_operation_routes import create_product_export_operation_router
 from aijian_api.product_export_runtime import ProductExportRuntime
-from aijian_api.draft_export_runtime import DraftExportRuntime
-from aijian_api.draft_export_routes import create_draft_export_router
-from aijian_api.draft_review_routes import create_draft_review_router
 from aijian_api.product_timeline_export import ProductTimelineExportPreflightService
 from aijian_api.product_timeline_export_routes import create_product_timeline_export_router
 from aijian_api.production_brief_routes import (
@@ -1215,7 +1218,7 @@ def create_app(
         if product_export_runtime is not None:
             app.include_router(
                 create_product_export_operation_router(
-                    lambda: cast(ProductExportRuntime, product_export_runtime)
+                    lambda: product_export_runtime
                 )
             )
         app.include_router(create_app_preferences_router(get_app_preferences_store))

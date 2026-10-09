@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import UTC, datetime
 
+from pydantic import TypeAdapter
+
 from aijian_api.artifacts import canonical_content_hash
 from aijian_api.engineering_test_export_contracts import (
-    ENGINEERING_MEDIA_MAX_BYTES, ENGINEERING_OPERATION_ID_PATTERN,
-    EngineeringTestExportData, EngineeringTestExportOutput,
+    ENGINEERING_MEDIA_MAX_BYTES,
+    ENGINEERING_OPERATION_ID_PATTERN,
+    EngineeringProgressPhase,
+    EngineeringStatus,
+    EngineeringTestExportData,
+    EngineeringTestExportOutput,
     EngineeringTestExportRequest,
 )
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_output_verify import VerifiedProductOutput
 from aijian_api.repository import StudioRepository
-
-import re
 
 _OPERATION = re.compile(ENGINEERING_OPERATION_ID_PATTERN)
 
@@ -57,8 +62,9 @@ def _data(connection: sqlite3.Connection, operation_id: str) -> EngineeringTestE
             media_url=f"/api/v1/engineering-test/exports/{operation_id}/media",
         )
     return EngineeringTestExportData(
-        operation_id=str(row["operation_id"]), status=str(row["status"]),
-        progress_phase=str(row["progress_phase"]),
+        operation_id=str(row["operation_id"]),
+        status=TypeAdapter(EngineeringStatus).validate_python(row["status"]),
+        progress_phase=TypeAdapter(EngineeringProgressPhase).validate_python(row["progress_phase"]),
         progress_frames=row["progress_frames"],
         cancel_requested_at=row["cancel_requested_at"],
         unknown_reason=row["unknown_reason"], output=output,

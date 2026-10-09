@@ -39,6 +39,7 @@ from aijian_api.artifact_proposal_review_truth import (
 from aijian_api.artifact_proposal_store import (
     PROPOSAL_TRUTH_SELECT,
     ArtifactProposalConflictError,
+    PersistedArtifactProposal,
     decode_persisted_proposal_row,
 )
 from aijian_api.domain import TrustedReviewActor
@@ -424,7 +425,7 @@ def _acceptance_from_row(
 
 def _read_sub2api_review_binding(
     connection: sqlite3.Connection,
-    persisted,
+    persisted: PersistedArtifactProposal,
 ) -> Sub2APIProposalReviewBinding:
     """Build validator authority solely from the current acceptance transaction."""
     proposal = persisted.proposal

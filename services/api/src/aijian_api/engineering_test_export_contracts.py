@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Final, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ENGINEERING_OPERATION_ID_PATTERN = r"^etexp_[0-9a-f]{32}$"
-ENGINEERING_FIXTURE_ID = "vfr-pattern-25fps-proxy"
-ENGINEERING_FIXTURE_SHA256 = "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"
+ENGINEERING_FIXTURE_ID: Final = "vfr-pattern-25fps-proxy"
+ENGINEERING_FIXTURE_SHA256: Final = (
+    "0801c350d098061a9694017f4adcc3cbe8a37c24dce67c864644f928f286b67a"
+)
 ENGINEERING_MEDIA_MAX_BYTES = 32 * 1024 * 1024
 
 

@@ -223,7 +223,7 @@ class ProductExportJobProcess:
             result = self.poll()
             if result is not None:
                 return result
-            if deadline is not None and time.monotonic() >= deadline:
+            if timeout is not None and deadline is not None and time.monotonic() >= deadline:
                 raise subprocess.TimeoutExpired(self._command, timeout)
             time.sleep(0.05)
 

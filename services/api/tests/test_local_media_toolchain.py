@@ -250,7 +250,8 @@ def test_serialized_backend_status_matches_native_and_ui_fixture():
     payload = json.loads(fixture.read_text())
     for item in payload:
         assert LocalMediaToolchainStatus.model_validate(item).model_dump(mode="json") == item
-    assert payload[0] == _available(_toolchain(Path("/synthetic/local media/bin"))).model_dump(
+    expected = {**payload[0], "directory": str(Path(payload[0]["directory"]))}
+    assert expected == _available(_toolchain(Path("/synthetic/local media/bin"))).model_dump(
         mode="json"
     )
 
@@ -304,7 +305,11 @@ def test_external_draft_holds_pair_and_private_session_through_process(tmp_path,
 
     monkeypatch.setattr(external_media_process, "guarded_external_pair", pair)
     monkeypatch.setattr(external_media_process, "external_process_session", session)
-    runner = _Runner(_toolchain(tmp_path / "tools"), None, lambda: False)
+    from aijian_api.product_export_windows_job import ProductExportJobManager
+
+    # _run is replaced below; retain the platform's mandatory manager boundary.
+    manager = ProductExportJobManager() if sys.platform == "win32" else None
+    runner = _Runner(_toolchain(tmp_path / "tools"), manager, lambda: False)
 
     def run(_arguments, **kwargs):
         assert events == [("lock", tmp_path / "tools"), "session-open"]

@@ -9,6 +9,11 @@ from threading import Event
 from time import monotonic, sleep
 
 import pytest
+from aijian_api.agent_skill_builtins import (
+    SOURCE_ANALYST_SUB2API_REF,
+    SOURCE_EXTRACT_SUB2API_REF,
+    sub2api_source_extract_registry,
+)
 from aijian_api.agent_skill_contracts import (
     AgentSkillFixtureBundleV1,
     ArtifactProposalV1,
@@ -1275,6 +1280,24 @@ def test_qc_failure_retries_once_within_frozen_skill_budget_then_persists_pass(
     persisted = ArtifactProposalStore(database).get(project_id, proposal.proposal_id).proposal
     assert all(check.status == "PASS" for check in persisted.qc)
     assert (persisted.cost.estimated_micros, persisted.cost.actual_micros) == (5, 5)
+
+
+def test_fake_executor_rejects_unknown_remote_budget_before_claim(tmp_path: Path) -> None:
+    database, _, _, ledger, _, task_id = setup_fake_task(tmp_path)
+    delegation = sub2api_source_extract_registry().resolve_delegation(
+        SOURCE_ANALYST_SUB2API_REF, SOURCE_EXTRACT_SUB2API_REF,
+        contract_schema_version="2.0.0",
+    )
+    with pytest.raises(PermissionError, match="explicit local budget"):
+        FakeAgentSkillExecutor(
+            ledger, ArtifactProposalStore(database), worker_id="reject-unknown-budget",
+            lease_duration=timedelta(seconds=30), handler_timeout=timedelta(seconds=2),
+            handler=valid_fake_skill, delegation=delegation,
+        )
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT status FROM task_ledger WHERE task_id = ?", (task_id,),
+        ).fetchone() == ("READY",)
 
 
 def test_second_qc_failure_is_persisted_for_human_escalation_without_third_try(

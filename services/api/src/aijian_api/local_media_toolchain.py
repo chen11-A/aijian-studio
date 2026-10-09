@@ -93,14 +93,14 @@ def _frozen_override_guard() -> None:
 
 def machine_settings_path() -> Path | None:
     """Obtain machine-local user storage from Windows, not a renderer or environment override."""
-    if os.name != "nt":
+    if sys.platform != "win32":
         return None
     import ctypes
 
     buffer = ctypes.create_unicode_buffer(32768)
     shell32 = cast(
         ctypes.CDLL,
-        ctypes.WinDLL("shell32", use_last_error=True),  # type: ignore[attr-defined]
+        ctypes.WinDLL("shell32", use_last_error=True),
     )
     get_folder = shell32.SHGetFolderPathW
     get_folder.argtypes = [

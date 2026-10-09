@@ -271,7 +271,7 @@ def _validated_data(
             id=version.id,
             artifact_id=version.artifact_id,
             version_number=version.version_number,
-            schema_version=version.schema_version,
+            schema_version="1.0.0",
             content=content,
             content_hash=version.content_hash,
             parent_version_id=version.parent_version_id,

@@ -10,6 +10,7 @@ import errno
 import hashlib
 import os
 import stat
+import sys
 import threading
 from pathlib import Path
 from types import TracebackType
@@ -82,7 +83,7 @@ def _lock_io_path(lock_path: Path) -> Path:
 
 
 def _lock_file(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         # Python 3.12: https://docs.python.org/3.12/library/msvcrt.html#msvcrt.locking
@@ -97,7 +98,7 @@ def _lock_file(fd: int) -> None:
 
 
 def _unlock_file(fd: int) -> None:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         os.lseek(fd, 0, os.SEEK_SET)
