@@ -21,7 +21,14 @@ function manifest(accepted = false) {
         accepted_version_id: accepted ? versionId : null,
         revision: 2,
       },
-      latest_version: { id: versionId, artifact_id: "artifact", content_hash: hash },
+      latest_version: {
+        id: versionId,
+        artifact_id: "artifact",
+        content_hash: hash,
+        version_number: 1,
+        schema_version: "1.0.0",
+        content: { scope_type: "full_work", documents: [] },
+      },
       review_version: null,
       accepted_version: null,
     },
@@ -101,7 +108,38 @@ function bridge(overrides: Record<string, unknown> = {}) {
         return imported;
       },
     ),
-    getSourceManifest: vi.fn().mockResolvedValue(manifest()),
+    getSourceManifest: vi.fn(async () => {
+      const response = manifest();
+      return {
+        ...response,
+        data: {
+          ...response.data,
+          latest_version: {
+            ...response.data.latest_version,
+            content: {
+              scope_type: "full_work",
+              documents:
+                importedText === null
+                  ? []
+                  : [
+                      {
+                        source_document_id: `src_${"e".repeat(32)}`,
+                        filename: "story.txt",
+                        media_type: "text/plain",
+                        encoding: "utf-8",
+                        byte_size: new TextEncoder().encode(importedText).length,
+                        raw_sha256: importedHash,
+                        normalized_sha256: importedHash,
+                        import_order: 0,
+                        chapter_count: 1,
+                        blocks: [],
+                      },
+                    ],
+            },
+          },
+        },
+      };
+    }),
     getStoryBibleIndex: vi.fn().mockResolvedValue({
       request_id: "bible",
       data: { latest_version: null, review_version: null, accepted_version: null },
@@ -188,7 +226,7 @@ describe("selected renderer workspace callers", () => {
     fireEvent.change(within(dialog).getByLabelText("作品名称"), {
       target: { value: "QA pending" },
     });
-    const submit = within(dialog).getByRole("button", { name: "保存演示修改" });
+    const submit = within(dialog).getByRole("button", { name: "创建真实项目" });
     fireEvent.click(submit);
     await waitFor(() => expect(fake.createProject).toHaveBeenCalledTimes(1));
     expect(submit).toBeDisabled();
@@ -217,9 +255,9 @@ describe("selected renderer workspace callers", () => {
     fireEvent.change(within(dialog).getByLabelText("作品名称"), {
       target: { value: "QA unknown" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "创建真实项目" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("创建结果未知");
-    expect(within(dialog).getByRole("button", { name: "保存演示修改" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "创建真实项目" })).toBeDisabled();
     expect(fake.createProject).toHaveBeenCalledTimes(1);
   });
   it("does not initialize production pages with sample story, visual, or review facts", async () => {
@@ -266,7 +304,7 @@ describe("selected renderer workspace callers", () => {
     fireEvent.change(within(dialog).getByLabelText("作品名称"), {
       target: { value: "真实新项目" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "创建真实项目" }));
     await waitFor(() =>
       expect(fake.createProject).toHaveBeenCalledWith(
         expect.objectContaining({ name: "真实新项目" }),
@@ -292,18 +330,20 @@ describe("selected renderer workspace callers", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("状态").textContent).toContain("真实导入的来源"),
     );
+    fireEvent.click(screen.getByRole("button", { name: "提交来源审核" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "提交真实来源审核" }));
+    await waitFor(() => expect(fake.submitSourceManifest).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("状态").textContent).toContain('"submitted":"true"');
+    expect(screen.getByLabelText("状态").textContent).toContain('"approved":"false"');
     vi.mocked(fake.importTextSource).mockRejectedValueOnce(new Error("bridge lost"));
     fireEvent.change(screen.getByLabelText("替换原文文件"), {
       target: { files: [new File(["again"], "again.txt", { type: "text/plain" })] },
     });
     expect(await screen.findByText(/来源保存结果未知：导入状态未知/)).toBeInTheDocument();
     expect(fake.importTextSource).toHaveBeenCalledTimes(2);
-    fireEvent.click(screen.getByRole("button", { name: "开始理解故事" }));
-    const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "提交真实来源审核" }));
-    await waitFor(() => expect(fake.submitSourceManifest).toHaveBeenCalledTimes(1));
-    expect(screen.getByLabelText("状态").textContent).toContain('"submitted":"true"');
-    expect(screen.getByLabelText("状态").textContent).toContain('"approved":"false"');
+    expect(screen.getByRole("button", { name: "提交来源审核" })).toBeDisabled();
+    expect(fake.submitSourceManifest).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the selected source page unapproved when the review bridge reports an expired request", async () => {
@@ -334,7 +374,7 @@ describe("selected renderer workspace callers", () => {
     });
     await waitFor(() => expect(fake.importTextSource).toHaveBeenCalledTimes(1));
     await screen.findByText("来源已保存并读回确认：story.txt");
-    fireEvent.click(screen.getByRole("button", { name: "开始理解故事" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交来源审核" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "提交真实来源审核" }),
     );
@@ -354,7 +394,7 @@ describe("selected renderer workspace callers", () => {
       fireEvent.change(within(dialog).getByLabelText("作品名称"), {
         target: { value: "不会重复创建" },
       });
-      fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "创建真实项目" }));
       await waitFor(() => expect(fake.createProject).toHaveBeenCalled());
     };
     await submit();
