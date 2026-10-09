@@ -55,6 +55,15 @@ describe("protected local credential boundary", () => {
     await symlink("/does-not-exist", join(path, "profiles.enc"));
     await expect(store.read()).rejects.toThrow("SECURE_STORAGE_UNAVAILABLE");
   });
+  it("rejects symbolic links to an otherwise valid encrypted credential file", async () => {
+    const target = await folder();
+    await createProtectedStore(target, fixtureEncryption).write(data);
+    const path = await folder();
+    const store = createProtectedStore(path, fixtureEncryption);
+    await store.read();
+    await symlink(join(target, "profiles.enc"), join(path, "profiles.enc"));
+    await expect(store.read()).rejects.toThrow("SECURE_STORAGE_UNAVAILABLE");
+  });
   it("rejects wrong versions, invalid scopes and incoherent active profiles", () => {
     expect(validAuthData(data)).toBe(true);
     expect(validAuthData({ ...data, version: 2 })).toBe(false);

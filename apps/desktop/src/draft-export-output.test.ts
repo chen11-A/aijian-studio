@@ -188,7 +188,7 @@ describe("verified DRAFT output access", () => {
       "/dev/test-DRAFT.mp4",
       "/proc/test-DRAFT.mp4",
       "/sys/test-DRAFT.mp4",
-      "C:\\test-DRAFT.mp4",
+      ...(process.platform === "win32" ? [] : ["C:\\test-DRAFT.mp4"]),
       `${directory}/test\n-DRAFT.mp4`,
     ]) {
       job.output_path = candidate;

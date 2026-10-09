@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,7 @@ import { DRAFT_EXPORT_CHANNELS, type DraftExportCommand } from "./draft-export-c
 import { registerDraftExportHandlers, type DraftExportClient } from "./draft-export-ipc";
 const roots: string[] = [];
 async function root() {
-  const value = await mkdtemp(join(tmpdir(), "aivora-preview-cache-"));
+  const value = await realpath(await mkdtemp(join(tmpdir(), "aivora-preview-cache-")));
   roots.push(value);
   return value;
 }

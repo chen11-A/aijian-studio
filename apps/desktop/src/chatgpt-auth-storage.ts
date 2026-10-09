@@ -117,17 +117,31 @@ export function createProtectedStore(directory: string, encryption: Encryption):
     async read() {
       if (!available()) throw new ChatGPTError("SECURE_STORAGE_UNAVAILABLE");
       await checkDirectory();
-      let file;
+      let expected;
       try {
-        file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+        expected = await lstat(path);
       } catch (error) {
         if (isRecord(error) && error.code === "ENOENT") return null;
         throw new ChatGPTError("SECURE_STORAGE_UNAVAILABLE");
       }
+      // O_NOFOLLOW is not available on every platform, including Windows.
+      if (expected.isSymbolicLink()) throw new ChatGPTError("SECURE_STORAGE_UNAVAILABLE");
+      let file;
+      try {
+        file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+      } catch {
+        throw new ChatGPTError("SECURE_STORAGE_UNAVAILABLE");
+      }
       try {
         const stat = await file.stat();
+        const current = await lstat(path);
         if (
           !stat.isFile() ||
+          current.isSymbolicLink() ||
+          stat.dev !== expected.dev ||
+          stat.ino !== expected.ino ||
+          stat.dev !== current.dev ||
+          stat.ino !== current.ino ||
           stat.size > 2 * 1024 * 1024 ||
           (process.platform !== "win32" &&
             ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()))
