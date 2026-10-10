@@ -3,6 +3,7 @@ import { Button } from "../Common";
 import { useChatGPTConnection } from "./useChatGPTConnection";
 import type { ChatGPTBridge } from "./transport";
 import { ChatGPTLoginPreparation } from "./ChatGPTLoginPreparation";
+import type { OfficialConnectionState } from "./ChatGPTConnectionContext";
 import "./chatgpt-connection.css";
 
 export function ChatGPTConnectionCard({
@@ -17,7 +18,28 @@ export function ChatGPTConnectionCard({
   onOpenProjects?: () => void;
 }) {
   const connection = useChatGPTConnection(transport, onConnected);
-  const { status, loading, busy, notice, models } = connection;
+  return (
+    <ChatGPTConnectionControls
+      connection={connection}
+      onUseApi={onUseApi}
+      onOpenProjects={onOpenProjects}
+    />
+  );
+}
+
+/** Shares one account controller with the readiness view; never starts a second login lifecycle. */
+export function ChatGPTConnectionControls({
+  connection,
+  selection,
+  onUseApi,
+  onOpenProjects,
+}: {
+  connection: ReturnType<typeof useChatGPTConnection>;
+  selection?: OfficialConnectionState;
+  onUseApi?: () => void;
+  onOpenProjects?: () => void;
+}) {
+  const { status, loading, busy, notice, models, statusReadFailed } = connection;
   const [preparing, setPreparing] = useState(false);
   const [profileId, setProfileId] = useState<string | null | undefined>(undefined);
   const labels = {
@@ -38,7 +60,9 @@ export function ChatGPTConnectionCard({
           <h2>ChatGPT 官方登录</h2>
           <p>符合条件的 Plus / Pro 账号可授权文本能力使用套餐。</p>
         </div>
-        <span className="chatgpt-status">{loading ? "读取中" : labels[status.state]}</span>
+        <span className="chatgpt-status">
+          {loading || busy ? "核对中" : statusReadFailed ? "状态未确认" : labels[status.state]}
+        </span>
       </header>
       <p className="chatgpt-scope-note">
         适用于个人本机、开源项目和获准私有应用。商业或托管分发需先确认资格。
@@ -118,15 +142,79 @@ export function ChatGPTConnectionCard({
           }}
         />
       )}
-      {status.state === "CONNECTED" && (
+      {status.state === "CONNECTED" && !statusReadFailed && !loading && (
         <div className="chatgpt-models">
           <p>套餐权限已验证。模型与实际生成能力须分别核对，尚未验证真实推理。</p>
-          <Button disabled={busy} onClick={() => void connection.readModels()}>
+          <Button
+            disabled={busy}
+            onClick={() => void (selection ? selection.readModels() : connection.readModels())}
+          >
             读取此账号的可用模型
           </Button>
+          {selection && (
+            <>
+              <label>
+                默认官方文本模型
+                <select
+                  value={
+                    !selection.requiresReselection &&
+                    selection.catalogProfileId &&
+                    selection.preference.defaultModel?.profileId === selection.catalogProfileId &&
+                    models.some(
+                      (item) => item.slug === selection.preference.defaultModel?.modelSlug,
+                    )
+                      ? selection.preference.defaultModel.modelSlug
+                      : ""
+                  }
+                  disabled={busy || !selection.catalogProfileId || models.length === 0}
+                  onChange={(event) => selection.setDefaultModel(event.target.value)}
+                >
+                  <option value="">
+                    {selection.requiresReselection
+                      ? "请重新选择模型"
+                      : selection.catalogProfileId
+                        ? "请选择模型"
+                        : "先读取当前账号模型"}
+                  </option>
+                  {selection.catalogProfileId &&
+                    models.map((model) => (
+                      <option key={model.slug} value={model.slug}>
+                        {model.displayName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {selection.preference.defaultModel && !selection.catalogProfileId && (
+                <p role="status">已保存的默认模型待当前账号目录重新核验，暂不能用于生成。</p>
+              )}
+              {selection.preference.defaultModel &&
+                selection.catalogProfileId &&
+                (selection.preference.defaultModel.profileId !== selection.catalogProfileId ||
+                  !models.some(
+                    (item) => item.slug === selection.preference.defaultModel?.modelSlug,
+                  )) && <p role="status">已保存的默认模型与当前账号或目录不匹配，请重新选择。</p>}
+              {selection.preferenceError && (
+                <p role="alert">
+                  {selection.preferenceIssue === "CONFLICT"
+                    ? "其他窗口修改了模型偏好；当前选择已停用。请先重新读取偏好，再核对模型目录。"
+                    : "模型偏好保存或读取失败，当前选择已停用。请检查本机存储后重试。"}
+                </p>
+              )}
+              {selection.requiresReselection && (
+                <p role="status">账号已切换或退出后重连，请重新选择模型确认。</p>
+              )}
+              {selection.preferenceError && (
+                <Button onClick={selection.reloadPreference}>重新读取模型偏好</Button>
+              )}
+            </>
+          )}
           {models.length > 0 && (
             <>
-              <p>以下为账号返回的只读目录，不是在此处选择生成模型。</p>
+              <p>
+                {selection
+                  ? "以下目录仅证明当前账号返回了这些模型，尚未验证推理。"
+                  : "以下为账号返回的只读目录，不是在此处选择生成模型。"}
+              </p>
               <ul aria-label="当前账号可用模型（只读）">
                 {models.map((model) => (
                   <li key={model.slug}>
@@ -137,17 +225,18 @@ export function ChatGPTConnectionCard({
             </>
           )}
           <p>
-            选择模型：进入项目并选择分集，在分镜页打开 AI
-            导演提案，读取模型后使用“官方模型”下拉框。生成前需准备并确认剧本和制作意图。
+            {selection
+              ? "这里选择文本默认模型；项目中可覆盖。生成前还需核对当前账号、模型和作品输入。"
+              : "选择模型：进入项目并选择分集，在分镜页打开 AI 导演提案，读取模型后使用“官方模型”下拉框。生成前需准备并确认剧本和制作意图。"}
           </p>
           {onOpenProjects && (
             <Button disabled={busy} onClick={onOpenProjects}>
-              前往项目选择生成模型
+              {selection ? "前往项目准备生成" : "前往项目选择生成模型"}
             </Button>
           )}
           <p>
-            当前软件仅接入此通道的文本生成，尚未接入图像生成工具、图片结果处理、视频或配音。目录不等于这些能力已经可用；ChatGPT
-            的图像功能也不等于此账号授权通道已获图像调用权限。
+            当前软件仅接入此通道的文本生成，尚未接入图像生成工具、图片结果处理、视频或配音。ChatGPT
+            套餐接入通道目前不支持图像生成工具；网页里的生图功能不等于此通道可以调用。
           </p>
         </div>
       )}

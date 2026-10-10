@@ -46,7 +46,10 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
   let busy = false;
   let lastError: string | null = null;
   let needsReauth = false;
-  const generations = new Map<string, { hash: string; result: ChatGPTTextResult }>();
+  const generations = new Map<
+    string,
+    { hash: string; expectedProfileId: string; result: ChatGPTTextResult }
+  >();
   let restored: Promise<void> | null = null;
   function restore() {
     restored ??= dependencies.store
@@ -351,11 +354,19 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
       const hash = textRequestHash(input);
       const prior = generations.get(input.operationId);
       if (prior)
-        return prior.hash === hash
+        return input.expectedProfileId &&
+          prior.hash === hash &&
+          prior.expectedProfileId === input.expectedProfileId
           ? prior.result
           : { kind: "NOT_SENT", operationId: input.operationId, code: "OPERATION_MISMATCH" };
       if (busy)
         return { kind: "NOT_SENT", operationId: input.operationId, code: "OPERATION_IN_PROGRESS" };
+      if (!input.expectedProfileId)
+        return {
+          kind: "NOT_SENT",
+          operationId: input.operationId,
+          code: "ACCOUNT_SELECTION_REQUIRED",
+        };
       if (generations.size >= 200)
         return { kind: "NOT_SENT", operationId: input.operationId, code: "OPERATION_LIMIT" };
       busy = true;
@@ -365,6 +376,7 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         const profile = active();
         if (!profile?.tokens || !planEnabled(profile))
           throw new ChatGPTError("PLAN_USAGE_NOT_AUTHORIZED");
+        if (profile.id !== input.expectedProfileId) throw new ChatGPTError("ACCOUNT_MISMATCH");
         const signal = AbortSignal.timeout(120_000);
         const tokens = await validTokens(signal);
         if (!tokens.accessToken) throw new ChatGPTError("PLAN_USAGE_NOT_AUTHORIZED");
@@ -408,7 +420,11 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
           operationId: input.operationId,
           code: "REQUEST_IN_PROGRESS",
         };
-        generations.set(input.operationId, { hash, result: pending });
+        generations.set(input.operationId, {
+          hash,
+          expectedProfileId: input.expectedProfileId,
+          result: pending,
+        });
         const fetcher: Fetch = async (url, init) => {
           sent = true;
           return dependencies.fetch(url, init);
@@ -428,7 +444,11 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
           responseId: completion.responseId,
           completedAt: new Date().toISOString(),
         };
-        generations.set(input.operationId, { hash, result });
+        generations.set(input.operationId, {
+          hash,
+          expectedProfileId: input.expectedProfileId,
+          result,
+        });
         return result;
       } catch (error) {
         const result: ChatGPTTextResult = {
@@ -436,7 +456,11 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
           operationId: input.operationId,
           code: errorCode(error),
         };
-        generations.set(input.operationId, { hash, result });
+        generations.set(input.operationId, {
+          hash,
+          expectedProfileId: input.expectedProfileId,
+          result,
+        });
         return result;
       } finally {
         busy = false;
@@ -446,12 +470,16 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
       if (busy) return { kind: "ERROR", code: "OPERATION_IN_PROGRESS" };
       busy = true;
       try {
+        await restore();
+        const requestedProfileId = active()?.id;
+        if (!requestedProfileId) throw new ChatGPTError("PLAN_USAGE_NOT_AUTHORIZED");
         const signal = AbortSignal.timeout(30_000);
         const tokens = await validTokens(signal);
         if (!tokens.accessToken) throw new ChatGPTError("PLAN_USAGE_NOT_AUTHORIZED");
         const models = await listModels(tokens.accessToken, dependencies.fetch, signal);
+        if (active()?.id !== requestedProfileId) throw new ChatGPTError("ACCOUNT_MISMATCH");
         lastError = null;
-        return { kind: "OK", models };
+        return { kind: "OK", models, profileId: requestedProfileId };
       } catch (error) {
         lastError = errorCode(error);
         if (lastError === "REAUTH_REQUIRED") needsReauth = true;

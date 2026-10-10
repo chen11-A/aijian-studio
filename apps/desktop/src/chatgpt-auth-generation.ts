@@ -5,6 +5,8 @@ import { ChatGPTError } from "./chatgpt-auth-oauth";
 /** Main-process-only contract. Project context and durable operation ownership stay with the trusted adapter. */
 export type ChatGPTTextCommand = {
   operationId: string;
+  /** Selected account identity; excluded from the persisted text request digest. */
+  expectedProfileId?: string;
   model: string;
   text: string;
   instructions?: string;

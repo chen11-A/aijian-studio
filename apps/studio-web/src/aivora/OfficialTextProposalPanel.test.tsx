@@ -8,6 +8,8 @@ import type {
 } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import { OfficialTextProposalPanel } from "./OfficialTextProposalPanel";
+import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
+import { DESKTOP_REQUIRED } from "./chatgpt-auth/transport";
 const project = `prj_${"a".repeat(32)}`;
 const episode = `ep_${"b".repeat(32)}`;
 const id = "11111111-1111-4111-8111-111111111111";
@@ -176,13 +178,28 @@ describe("official proposal review in the original script editor", () => {
     const { bridge } = fixture([]);
     const models = vi.fn<ChatGPTBridge["models"]>(async () => ({
       kind: "OK",
+      profileId: "22222222-2222-4222-8222-222222222222",
       models: [{ slug: "synthetic-test-model", displayName: "Synthetic fixture" }],
     }));
     window.aijianChatGPT = {
       models,
-      status: async () => {
-        throw new Error("Not used in this synthetic fixture");
-      },
+      status: vi.fn(async () => ({
+        ...DESKTOP_REQUIRED,
+        runtime: "DESKTOP" as const,
+        state: "CONNECTED" as const,
+        secureStorage: "AVAILABLE" as const,
+        useScope: "LOCAL_PERSONAL" as const,
+        activeProfileId: "22222222-2222-4222-8222-222222222222",
+        profiles: [
+          {
+            id: "22222222-2222-4222-8222-222222222222",
+            label: "Fixture account",
+            email: null,
+            connected: true,
+            planUsage: true,
+          },
+        ],
+      })),
       signIn: async () => {
         throw new Error("No live authorization");
       },
@@ -203,23 +220,30 @@ describe("official proposal review in the original script editor", () => {
     });
     const onAdopted = vi.fn(async () => undefined);
     render(
-      <OfficialTextProposalPanel
-        projectId={project}
-        episodeId={episode}
-        base={null}
-        disabled={false}
-        onBusyChange={vi.fn()}
-        onAdopted={onAdopted}
-      />,
+      <OfficialConnectionProvider>
+        <OfficialTextProposalPanel
+          projectId={project}
+          episodeId={episode}
+          base={null}
+          disabled={false}
+          onBusyChange={vi.fn()}
+          onAdopted={onAdopted}
+        />
+      </OfficialConnectionProvider>,
     );
     show();
     await screen.findByText("本集还没有官方文本建议。");
+    await waitFor(() => expect(window.aijianChatGPT?.status).toHaveBeenCalled());
+    await act(async () => undefined);
     expect(models).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("此次发送的文本"), {
       target: { value: "Explicit synthetic prompt" },
     });
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
     await screen.findByRole("option", { name: "Synthetic fixture" });
+    fireEvent.change(screen.getByLabelText("官方模型"), {
+      target: { value: "synthetic-test-model" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "审阅并生成一次建议" }));
     await screen.findByText("此次请求未发送（TEXT_REQUEST_CANCELLED）。");
     expect(bridge.generate).toHaveBeenCalledExactlyOnceWith({
@@ -227,6 +251,7 @@ describe("official proposal review in the original script editor", () => {
       episodeId: episode,
       base: null,
       operationId: expect.any(String),
+      expectedProfileId: "22222222-2222-4222-8222-222222222222",
       model: "synthetic-test-model",
       text: "Explicit synthetic prompt",
     });

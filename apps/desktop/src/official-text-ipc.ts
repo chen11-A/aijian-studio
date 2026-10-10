@@ -102,6 +102,8 @@ async function generate(
   if (prior.kind === "OK") {
     const original = prior.operation.request;
     return original.model === command.model &&
+      (command.expectedProfileId === undefined ||
+        original.profile_id === command.expectedProfileId) &&
       original.input_text === command.text &&
       original.instructions === (command.instructions ?? null) &&
       sameBase(original.base, command.base)
@@ -110,10 +112,13 @@ async function generate(
   }
   if (prior.kind !== "ERROR" || prior.code !== "OFFICIAL_TEXT_NOT_FOUND")
     return { kind: "NOT_SENT", operationId: operation, code: "OPERATION_READ_FAILED" };
+  if (!command.expectedProfileId)
+    return { kind: "NOT_SENT", operationId: operation, code: "ACCOUNT_SELECTION_REQUIRED" };
   let reserved = false;
   let reservationFailure = "RESERVATION_FAILED";
   const input: ChatGPTTextCommand = {
     operationId: operation,
+    expectedProfileId: command.expectedProfileId,
     model: command.model,
     text: command.text,
     ...(command.instructions !== undefined ? { instructions: command.instructions } : {}),
@@ -123,6 +128,10 @@ async function generate(
   try {
     result = await runtime.generateText(input, {
       beforeSend: async (metadata) => {
+        if (metadata.profileId !== command.expectedProfileId) {
+          reservationFailure = "ACCOUNT_MISMATCH";
+          throw new Error("Selected account changed before reservation");
+        }
         if (
           metadata.operationId !== operation ||
           metadata.model !== command.model ||
@@ -190,6 +199,7 @@ async function generate(
   if (
     !reserved ||
     result.operationId !== operation ||
+    result.profileId !== command.expectedProfileId ||
     result.model !== command.model ||
     result.requestHash !== textRequestHash(input)
   )

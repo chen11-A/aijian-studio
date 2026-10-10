@@ -10,6 +10,8 @@ export type OfficialTextGenerate = {
   episodeId: string;
   base: OfficialTextBase | null;
   operationId: string;
+  /** Account confirmed with the model catalog; older read-only replays may omit it. */
+  expectedProfileId?: string;
   model: string;
   text: string;
   instructions?: string;

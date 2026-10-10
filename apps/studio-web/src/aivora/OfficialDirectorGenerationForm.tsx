@@ -23,6 +23,12 @@ export function OfficialDirectorGenerationForm({
         <Button disabled={!connected || state.busy} onClick={() => void state.loadModels()}>
           读取官方可用模型
         </Button>
+        {state.catalogNotice && <p role="status">{state.catalogNotice}</p>}
+        {state.catalogStatusFailed && (
+          <Button disabled={state.busy} onClick={() => void state.reloadAccount()}>
+            重新读取官方账号状态
+          </Button>
+        )}
         <label>
           官方模型
           <select
@@ -38,9 +44,23 @@ export function OfficialDirectorGenerationForm({
             ))}
           </select>
         </label>
+        {state.modelSource === "project" && (
+          <Button disabled={state.busy} onClick={() => state.restoreDefaultModel()}>
+            恢复服务默认模型
+          </Button>
+        )}
+        <p role="status">
+          {state.modelSource === "project"
+            ? "本项目已覆盖默认模型"
+            : state.modelSource === "default"
+              ? "使用 AI 服务页默认模型"
+              : "尚未选择官方文本模型"}
+          {!state.modelVerified && state.modelSource !== "none" ? " · 待核对当前账号目录" : ""}
+        </p>
+        {state.preferenceError && <p role="alert">模型偏好未能安全保存，请核对本机存储。</p>}
         <Button
           primary
-          disabled={state.locked || !state.preparation || !state.model || !validOptions}
+          disabled={state.locked || !state.preparation || !state.modelVerified || !validOptions}
           onClick={() => void state.generate()}
         >
           审阅输入并生成一次

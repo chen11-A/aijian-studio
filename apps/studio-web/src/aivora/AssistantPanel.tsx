@@ -7,6 +7,8 @@ import { Dropdown } from "./Dropdown";
 import { FixtureAssistantPanel } from "./FixtureAssistantPanel";
 import { AssistantTaskQueue } from "./AssistantTaskQueue";
 import { AssistantContext, AssistantServiceStatus, assistantServiceLabel } from "./AssistantStatus";
+import { assessChatGPTConnection } from "../domain/ai-capability-readiness";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import "./v2-assistant.css";
 import "./assistant-workbench.css";
 
@@ -21,6 +23,7 @@ export function AssistantPanel() {
 
 function ProductionAssistantPanel() {
   const d = useDemo();
+  const account = useOfficialConnection();
   const [tab, setTab] = useState("对话");
   const pageLabel = pages[d.page][0];
   const disabledReason =
@@ -38,7 +41,12 @@ function ProductionAssistantPanel() {
         <Logo />
         <div>
           <h2>Aivora AI</h2>
-          <p role="status">{assistantServiceLabel(d.providerSettings.state)}</p>
+          <p role="status">
+            {assistantServiceLabel(
+              d.providerSettings.state,
+              account ? assessChatGPTConnection(account.connection) : undefined,
+            )}
+          </p>
         </div>
       </header>
       <div className="v2-ai-context-row">

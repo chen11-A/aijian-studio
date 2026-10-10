@@ -49,14 +49,22 @@ export function validGenerate(value: unknown): value is OfficialTextGenerate {
   return (
     record(value) &&
     Object.keys(value).every((key) =>
-      ["projectId", "episodeId", "base", "operationId", "model", "text", "instructions"].includes(
-        key,
-      ),
+      [
+        "projectId",
+        "episodeId",
+        "base",
+        "operationId",
+        "expectedProfileId",
+        "model",
+        "text",
+        "instructions",
+      ].includes(key),
     ) &&
     projectId(value.projectId) &&
     episodeId(value.episodeId) &&
     validBase(value.base) &&
     operationId(value.operationId) &&
+    (!Object.hasOwn(value, "expectedProfileId") || operationId(value.expectedProfileId)) &&
     prose(value.model, 200) &&
     prose(value.text, 100_000) &&
     (value.instructions === undefined || prose(value.instructions, 20_000))

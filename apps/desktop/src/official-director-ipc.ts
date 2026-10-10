@@ -149,11 +149,13 @@ async function generate(
     return sameIntent(prior.operation.request, command) ? prior : notSent("OPERATION_REUSED");
   if (prior.kind !== "ERROR" || prior.code !== "OFFICIAL_DIRECTOR_NOT_FOUND")
     return notSent("OPERATION_READ_FAILED");
+  if (!command.expectedProfileId) return notSent("ACCOUNT_SELECTION_REQUIRED");
   let preparation;
   try {
     const status = await runtime.status();
     if (!operationId(status.activeProfileId) || status.state !== "CONNECTED")
       return notSent("PLAN_USAGE_NOT_AUTHORIZED");
+    if (status.activeProfileId !== command.expectedProfileId) return notSent("ACCOUNT_MISMATCH");
     const input: OfficialDirectorPrepare = {
       operation_id: operation,
       profile_id: status.activeProfileId,
@@ -173,6 +175,7 @@ async function generate(
   if (!sameIntent(request, command)) return notSent("PREPARATION_IDENTITY_MISMATCH");
   const input: ChatGPTTextCommand = {
     operationId: operation,
+    expectedProfileId: command.expectedProfileId,
     model: request.model,
     text: request.input_text,
     instructions: request.instructions,

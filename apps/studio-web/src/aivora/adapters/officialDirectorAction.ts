@@ -14,6 +14,7 @@ export function prepareDirectorAction({
   episodeId,
   preparation,
   model,
+  expectedProfileId,
   intent,
   count,
   pacing,
@@ -26,6 +27,7 @@ export function prepareDirectorAction({
   episodeId: string;
   preparation: ShotPlanPreparation | null;
   model: string;
+  expectedProfileId: string | null;
   intent: string;
   count: number | null;
   pacing: OfficialDirectorGenerate["options"]["pacing"];
@@ -38,6 +40,7 @@ export function prepareDirectorAction({
   if (kind === "GENERATE") {
     if (
       !preparation ||
+      !expectedProfileId ||
       !model ||
       !intent.trim() ||
       [...intent].length > 4000 ||
@@ -48,6 +51,7 @@ export function prepareDirectorAction({
       projectId,
       episodeId,
       operationId: crypto.randomUUID(),
+      expectedProfileId,
       model,
       authority: preparation.authority,
       storyboardBase: preparation.storyboard_base,

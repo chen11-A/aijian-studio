@@ -13,6 +13,8 @@ export type OfficialDirectorGenerate = {
   projectId: string;
   episodeId: string;
   operationId: string;
+  /** Account confirmed with the model catalog; older read-only replays may omit it. */
+  expectedProfileId?: string;
   model: string;
   authority: OfficialDirectorPrepare["authority"];
   storyboardBase: OfficialDirectorPrepare["storyboard_base"];

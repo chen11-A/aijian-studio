@@ -52,7 +52,7 @@ describe("assistant status distinguishes configuration from authorization", () =
     view.providerSettings.state = { kind };
     render(<AssistantServiceStatus />);
     expect(assistantServiceLabel({ kind })).toBe(
-      kind === "loading" ? "正在读取服务配置" : "服务配置读取失败",
+      kind === "loading" ? "正在读取 API 连接" : "API 连接读取失败",
     );
     const reload = screen.getByRole("button", { name: "重新读取服务配置" });
     if (kind === "loading") expect(reload).toBeDisabled();
@@ -86,7 +86,10 @@ describe("assistant status distinguishes configuration from authorization", () =
   test("empty configuration is not a ready provider", () => {
     view.providerSettings.state = { kind: "ready", response: { request_id: "empty", data: [] } };
     render(<AssistantServiceStatus />);
-    expect(assistantServiceLabel(view.providerSettings.state)).toBe("尚未配置 AI 服务");
+    expect(assistantServiceLabel(view.providerSettings.state)).toBe("没有 API 连接");
+    expect(assistantServiceLabel(view.providerSettings.state, "AUTHORIZED_UNVERIFIED")).toBe(
+      "ChatGPT 已连接 · 推理待验证；没有 API 连接",
+    );
     expect(screen.queryByText("查看连接与文本配置")).not.toBeInTheDocument();
   });
   test("context shows matching scope and never treats old acceptance as approval of latest", () => {

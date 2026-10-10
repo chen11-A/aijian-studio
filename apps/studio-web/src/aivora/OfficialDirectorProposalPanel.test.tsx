@@ -2,13 +2,14 @@ import { webcrypto } from "node:crypto";
 import {
   act,
   fireEvent,
-  render,
+  render as rtlRender,
   renderHook,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
 import type {
   OfficialDirectorBridge,
   OfficialDirectorOperation,
@@ -26,6 +27,43 @@ import {
   defaultDirectorIntent,
   type OfficialDirectorPanelProps,
 } from "./useOfficialDirectorProposals";
+import {
+  OfficialConnectionProvider,
+  useOfficialConnection,
+} from "./chatgpt-auth/ChatGPTConnectionContext";
+import { DESKTOP_REQUIRED } from "./chatgpt-auth/transport";
+
+const profileId = "11111111-1111-4111-8111-111111111111";
+function AccountProbe() {
+  const account = useOfficialConnection();
+  return (
+    <output hidden data-testid="account-state">
+      {account?.connection.loading
+        ? "loading"
+        : account?.connection.statusReadFailed
+          ? "failed"
+          : "ready"}
+    </output>
+  );
+}
+function render(ui: ReactElement) {
+  const view = rtlRender(
+    <OfficialConnectionProvider>
+      <AccountProbe />
+      {ui}
+    </OfficialConnectionProvider>,
+  );
+  return {
+    ...view,
+    rerender: (next: ReactElement) =>
+      view.rerender(
+        <OfficialConnectionProvider>
+          <AccountProbe />
+          {next}
+        </OfficialConnectionProvider>,
+      ),
+  };
+}
 
 function props(operations: OfficialDirectorOperation[] = []) {
   const fixture = directorGateway(operations);
@@ -50,10 +88,10 @@ async function ready() {
 }
 async function models() {
   await ready();
+  await waitFor(() => expect(screen.getByTestId("account-state")).toHaveTextContent("ready"));
   fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-  await waitFor(() =>
-    expect(screen.getByLabelText("官方模型")).toHaveValue("fixture-official-model"),
-  );
+  await screen.findByRole("option", { name: "Fixture official model" });
+  expect(screen.getByLabelText("官方模型")).toHaveValue("");
   fireEvent.change(screen.getByLabelText("官方模型"), { target: { value: "" } });
   fireEvent.change(screen.getByLabelText("官方模型"), {
     target: { value: "fixture-official-model" },
@@ -63,8 +101,20 @@ beforeEach(() => {
   vi.stubGlobal("crypto", webcrypto);
   vi.spyOn(window, "confirm").mockReturnValue(true);
   window.aijianChatGPT = {
+    status: vi.fn(async () => ({
+      ...DESKTOP_REQUIRED,
+      runtime: "DESKTOP" as const,
+      state: "CONNECTED" as const,
+      secureStorage: "AVAILABLE" as const,
+      useScope: "LOCAL_PERSONAL" as const,
+      activeProfileId: profileId,
+      profiles: [
+        { id: profileId, label: "Fixture account", email: null, connected: true, planUsage: true },
+      ],
+    })),
     models: vi.fn(async () => ({
       kind: "OK",
+      profileId,
       models: [{ slug: "fixture-official-model", displayName: "Fixture official model" }],
     })),
   } as unknown as NonNullable<Window["aijianChatGPT"]>;
@@ -72,10 +122,23 @@ beforeEach(() => {
 afterEach(() => {
   delete window.aijianChatGPT;
   vi.restoreAllMocks();
+  localStorage.clear();
   vi.unstubAllGlobals();
 });
 
 describe("compact native-only AI director review", () => {
+  it("keeps a manually chosen model unable to generate without shared account proof", async () => {
+    const fixture = props();
+    rtlRender(<OfficialDirectorProposalPanel {...fixture.input} />);
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
+    await screen.findByRole("option", { name: "Fixture official model" });
+    fireEvent.change(screen.getByLabelText("官方模型"), {
+      target: { value: "fixture-official-model" },
+    });
+    expect(screen.getByRole("button", { name: "审阅输入并生成一次" })).toBeDisabled();
+    expect(fixture.bridge.generate).not.toHaveBeenCalled();
+  });
   it("shows exact read-only current and historical input proofs and never interprets raw bytes as markup", async () => {
     const fixture = props();
     render(<OfficialDirectorInputProof input={fixture.inputs} />);
@@ -128,6 +191,7 @@ describe("compact native-only AI director review", () => {
     expect(input).toMatchObject({
       projectId: fixture.input.projectId,
       episodeId: fixture.input.episodeId,
+      expectedProfileId: profileId,
       authority: fixture.inputs.authority,
       storyboardBase: fixture.inputs.storyboard_base,
       intent: "保留沉默，用动作推动情节。",
@@ -136,6 +200,7 @@ describe("compact native-only AI director review", () => {
     expect(Object.keys(input ?? {}).sort()).toEqual([
       "authority",
       "episodeId",
+      "expectedProfileId",
       "intent",
       "model",
       "operationId",
@@ -249,7 +314,7 @@ describe("compact native-only AI director review", () => {
   });
   it("reports unavailable model bridge and blocked browser storage without starting inference", async () => {
     const fixture = props();
-    const view = render(<OfficialDirectorProposalPanel {...fixture.input} />);
+    const view = rtlRender(<OfficialDirectorProposalPanel {...fixture.input} />);
     await ready();
     delete window.aijianChatGPT;
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
@@ -258,7 +323,7 @@ describe("compact native-only AI director review", () => {
     vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
       throw new Error("storage denied");
     });
-    render(<OfficialDirectorProposalPanel {...fixture.input} storage={undefined} />);
+    rtlRender(<OfficialDirectorProposalPanel {...fixture.input} storage={undefined} />);
     await screen.findByText("本地恢复存储不可用，已暂停提交。");
     expect(fixture.bridge.generate).not.toHaveBeenCalled();
   });
@@ -433,13 +498,29 @@ describe("compact native-only AI director review", () => {
       code: "PLAN_USAGE_NOT_AUTHORIZED",
     });
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByText(/PLAN_USAGE_NOT_AUTHORIZED/);
+    await screen.findByText(/已登录不等于已授权套餐/);
+    fireEvent.click(screen.getByRole("button", { name: "重新读取官方账号状态" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "重新读取官方账号状态" }),
+      ).not.toBeInTheDocument(),
+    );
     vi.mocked(auth.models).mockRejectedValueOnce(new Error("offline"));
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByText("官方模型读取失败，请核对连接管理。");
-    vi.mocked(auth.models).mockResolvedValueOnce({ kind: "OK", models: [] });
+    await screen.findByText("模型目录尚未确认，请稍后重新读取。");
+    fireEvent.click(screen.getByRole("button", { name: "重新读取官方账号状态" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "重新读取官方账号状态" }),
+      ).not.toBeInTheDocument(),
+    );
+    vi.mocked(auth.models).mockResolvedValueOnce({
+      kind: "OK",
+      profileId,
+      models: [],
+    });
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByText("当前账号没有可用模型。");
+    await screen.findByText("当前账号未返回可选模型。");
   });
   it("reopens a durable REMOTE_UNKNOWN with an empty renderer journal and reconciles only by reading", async () => {
     const operation = directorOperation();
@@ -469,19 +550,39 @@ describe("compact native-only AI director review", () => {
           resolve = done;
         }),
     );
-    const { result, rerender } = renderHook(
-      (input: OfficialDirectorPanelProps) => useOfficialDirectorProposals(input),
-      { initialProps: fixture.input },
+    const view = renderHook(
+      (input: OfficialDirectorPanelProps) => ({
+        state: useOfficialDirectorProposals(input),
+        account: useOfficialConnection()!,
+      }),
+      { initialProps: fixture.input, wrapper: OfficialConnectionProvider },
     );
+    const result = {
+      get current() {
+        return view.result.current.state;
+      },
+    };
+    const rerender = view.rerender;
     await waitFor(() => expect(result.current.readState).toBe("ready"));
-    await act(() => result.current.loadModels());
+    await waitFor(() => expect(view.result.current.account.connection.loading).toBe(false));
+    await act(async () => view.result.current.account.readModels());
+    act(() =>
+      expect(
+        view.result.current.account.setProjectModel(
+          fixture.input.projectId,
+          "fixture-official-model",
+        ),
+      ).toBe(true),
+    );
     act(() => {
+      result.current.setModel("fixture-official-model");
       result.current.setCount(11);
     });
     let task: Promise<void> | undefined;
     act(() => {
       task = result.current.generate();
     });
+    await waitFor(() => expect(fixture.bridge.generate).toHaveBeenCalledOnce());
     const priorInput = vi.mocked(fixture.bridge.generate).mock.calls[0]?.[0];
     expect(priorInput).toBeDefined();
     rerender({ ...fixture.input, episodeId: `ep_${"f".repeat(32)}` });

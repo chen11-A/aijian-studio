@@ -47,6 +47,7 @@ const command: OfficialDirectorGenerate = {
   projectId: project,
   episodeId: episode,
   operationId: operation,
+  expectedProfileId: profile,
   model: "fixture-director",
   authority: preparation.data.authority,
   storyboardBase: preparation.data.storyboard_base,
@@ -253,6 +254,27 @@ function fixture() {
 }
 
 describe("dedicated trusted AI director IPC with offline fixtures", () => {
+  it("requires a selected account before preparation and rejects a changed account", async () => {
+    const missing = fixture();
+    const legacy = { ...command };
+    delete legacy.expectedProfileId;
+    expect(await missing.invoke(CHANNELS.generate, legacy)).toMatchObject({
+      kind: "NOT_SENT",
+      code: "ACCOUNT_SELECTION_REQUIRED",
+    });
+    expect(missing.api.prepareOfficialDirector).not.toHaveBeenCalled();
+    missing.saved(pending());
+    expect(await missing.invoke(CHANNELS.generate, legacy)).toMatchObject({
+      kind: "OK",
+      operation: pending(),
+    });
+    expect(missing.api.prepareOfficialDirector).not.toHaveBeenCalled();
+    const changed = fixture();
+    expect(
+      await changed.invoke(CHANNELS.generate, { ...command, expectedProfileId: requestId }),
+    ).toMatchObject({ kind: "NOT_SENT", code: "ACCOUNT_MISMATCH" });
+    expect(changed.api.prepareOfficialDirector).not.toHaveBeenCalled();
+  });
   it("freezes server prompt, reserves exact ledger identity before send and reads persisted completion once", async () => {
     const test = fixture();
     expect(await test.invoke(CHANNELS.generate, command)).toEqual({

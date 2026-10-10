@@ -6,6 +6,8 @@ import type {
 import { sameStoryboardJson } from "./adapters/episodeStoryboard";
 import { prepareDirectorAction, directorOutcomeMessage } from "./adapters/officialDirectorAction";
 import { useOfficialDirectorRecords } from "./useOfficialDirectorRecords";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
+import { verifySelectedModel } from "./chatgpt-auth/verifySelectedModel";
 import { readHumanShotPlanPreparation } from "./adapters/humanShotPlan";
 import { readDirectorJournal } from "./adapters/officialDirectorJournal";
 import { commitDirectorCommand, recoverDirectorCommand } from "./adapters/officialDirectorProposal";
@@ -15,6 +17,7 @@ export type { OfficialDirectorPanelProps } from "./officialDirectorTypes";
 export const defaultDirectorIntent = "依据已确认剧本和制作意图，规划完整覆盖的分镜镜头。";
 
 export function useOfficialDirectorProposals(props: OfficialDirectorPanelProps) {
+  const account = useOfficialConnection();
   const { projectId, episodeId, bridge, preparationGateway } = props;
   const storage = useMemo(() => {
     if (props.storage !== undefined) return props.storage;
@@ -100,6 +103,14 @@ export function useOfficialDirectorProposals(props: OfficialDirectorPanelProps) 
           live.current.currentStoryboardBase,
         ));
     try {
+      const expectedProfileId =
+        kind === "GENERATE" && account
+          ? await verifySelectedModel(account, projectId, model)
+          : null;
+      if (kind === "GENERATE" && !expectedProfileId) {
+        setNotice("当前账号或模型目录已变化，未发送。请重新读取模型并核对选择。");
+        return;
+      }
       if (kind === "RECOVER") {
         const result = await recoverDirectorCommand(bridge, storage, projectId, episodeId);
         await apply(result, ticket);
@@ -112,6 +123,7 @@ export function useOfficialDirectorProposals(props: OfficialDirectorPanelProps) 
         episodeId,
         preparation,
         model,
+        expectedProfileId,
         intent,
         count,
         pacing,

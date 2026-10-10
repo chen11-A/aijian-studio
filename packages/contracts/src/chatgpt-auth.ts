@@ -30,5 +30,7 @@ export type ChatGPTBridge = {
   cancel(): Promise<ChatGPTActionResult>;
   selectProfile(profileId: string): Promise<ChatGPTActionResult>;
   signOut(): Promise<ChatGPTActionResult>;
-  models(): Promise<{ kind: "OK"; models: ChatGPTModel[] } | { kind: "ERROR"; code: string }>;
+  models(): Promise<
+    { kind: "OK"; models: ChatGPTModel[]; profileId?: string } | { kind: "ERROR"; code: string }
+  >;
 };

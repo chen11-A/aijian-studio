@@ -412,6 +412,7 @@ describe("narrow native director actions", () => {
       episodeId: fixture.episode,
       preparation: fixture.inputs,
       model: "fixture-model",
+      expectedProfileId: "11111111-1111-4111-8111-111111111111",
       intent: "设计镜头",
       count: 1000,
       pacing: "SLOW" as const,
@@ -419,9 +420,14 @@ describe("narrow native director actions", () => {
       operation: fixture.operation,
     };
     expect(prepareDirectorAction(args)?.command.kind).toBe("GENERATE");
+    await prepareDirectorAction(args)?.transmit();
+    expect(fixture.bridge.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedProfileId: args.expectedProfileId }),
+    );
     for (const patch of [
       { preparation: null },
       { model: "" },
+      { expectedProfileId: null },
       { intent: " " },
       { intent: "x".repeat(4001) },
       { count: 0 },

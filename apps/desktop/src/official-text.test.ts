@@ -28,6 +28,7 @@ const command: OfficialTextGenerate = {
   episodeId: episode,
   base: null,
   operationId: operation,
+  expectedProfileId: profile,
   model: "synthetic-fixture",
   text: "Synthetic prompt, no live inference",
 };
@@ -139,6 +140,30 @@ function fixture() {
 }
 
 describe("trusted official text proposal IPC (synthetic only)", () => {
+  it("requires a selected account for a new send and rejects a different runtime profile", async () => {
+    const missing = fixture();
+    const legacy = { ...command };
+    delete legacy.expectedProfileId;
+    expect(await missing.invoke(OFFICIAL_TEXT_CHANNELS.generate, legacy)).toMatchObject({
+      kind: "NOT_SENT",
+      code: "ACCOUNT_SELECTION_REQUIRED",
+    });
+    expect(missing.runtime.generateText).not.toHaveBeenCalled();
+    missing.saved(completed());
+    expect(await missing.invoke(OFFICIAL_TEXT_CHANNELS.generate, legacy)).toMatchObject({
+      kind: "OK",
+      operation: completed(),
+    });
+    expect(missing.runtime.generateText).not.toHaveBeenCalled();
+    const changed = fixture();
+    expect(
+      await changed.invoke(OFFICIAL_TEXT_CHANNELS.generate, {
+        ...command,
+        expectedProfileId: requestId,
+      }),
+    ).toMatchObject({ kind: "NOT_SENT", code: "ACCOUNT_MISMATCH" });
+    expect(changed.api.reserveOfficialText).not.toHaveBeenCalled();
+  });
   it("reserves before inference, persists before return, and never regenerates a known operation", async () => {
     const test = fixture();
     expect(await test.invoke(OFFICIAL_TEXT_CHANNELS.generate, command)).toEqual({

@@ -98,6 +98,21 @@
   overflow: auto;
   font-size: 12px;
 }
+.chatgpt-models label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.chatgpt-models select {
+  width: min(100%, 420px);
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line, #c9cad1);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: inherit;
+}
 .chatgpt-models li {
   margin: 6px 0;
 }

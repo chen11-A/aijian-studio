@@ -37,6 +37,7 @@ function bridge(value = disconnected): ChatGPTBridge {
     signOut: vi.fn<ChatGPTBridge["signOut"]>(async () => ({ kind: "OK", status: disconnected })),
     models: vi.fn<ChatGPTBridge["models"]>(async () => ({
       kind: "OK",
+      profileId: profile.id,
       models: [{ slug: "fixture-text", displayName: "Fixture text" }],
     })),
     openHelp: vi.fn(async () => undefined),
@@ -226,16 +227,17 @@ it("reports model request rejection, network failure and an empty account direct
     .fn<ChatGPTBridge["models"]>()
     .mockResolvedValueOnce({ kind: "ERROR", code: "USAGE_LIMIT" })
     .mockRejectedValueOnce(new Error("fixture network"))
-    .mockResolvedValueOnce({ kind: "OK", models: [] });
+    .mockResolvedValueOnce({ kind: "OK", profileId: profile.id, models: [] });
   render(<ChatGPTConnectionCard transport={transport} />);
   const button = await screen.findByRole("button", { name: "读取此账号的可用模型" });
   fireEvent.click(button);
   await screen.findByText(/已达到当前账号的用量限制/);
-  await waitFor(() => expect(button).toBeEnabled());
-  fireEvent.click(button);
+  expect(screen.queryByRole("button", { name: "读取此账号的可用模型" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "重新读取状态" }));
+  fireEvent.click(await screen.findByRole("button", { name: "读取此账号的可用模型" }));
   await screen.findByText(/模型目录尚未确认/);
-  await waitFor(() => expect(button).toBeEnabled());
-  fireEvent.click(button);
+  fireEvent.click(screen.getByRole("button", { name: "重新读取状态" }));
+  fireEvent.click(await screen.findByRole("button", { name: "读取此账号的可用模型" }));
   await screen.findByText("当前账号未返回可选模型。");
 });
 it("reports uncertain sign-in and stops pending sign-in on explicit cancellation", async () => {

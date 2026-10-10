@@ -15,11 +15,18 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
     models,
     model,
     setModel,
+    modelSource,
+    modelVerified,
+    restoreDefaultModel,
+    preferenceError,
     text,
     setText,
     instructions,
     setInstructions,
     notice,
+    catalogNotice,
+    catalogStatusFailed,
+    reloadAccount,
     busy,
     unknown,
     reload,
@@ -59,6 +66,20 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
           ))}
         </select>
       </label>
+      {modelSource === "project" && (
+        <Button disabled={busy} onClick={() => restoreDefaultModel()}>
+          恢复服务默认模型
+        </Button>
+      )}
+      <p role="status">
+        {modelSource === "project"
+          ? "本项目已覆盖默认模型"
+          : modelSource === "default"
+            ? "使用 AI 服务页默认模型"
+            : "尚未选择官方文本模型"}
+        {!modelVerified && modelSource !== "none" ? " · 待核对当前账号目录" : ""}
+      </p>
+      {preferenceError && <p role="alert">模型偏好未能安全保存，请核对本机存储。</p>}
       <label>
         此次发送的文本
         <textarea
@@ -80,13 +101,25 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
       <Button
         primary
         disabled={
-          !bridge || disabled || busy || unknown || readState !== "ready" || !model || !text.trim()
+          !bridge ||
+          disabled ||
+          busy ||
+          unknown ||
+          readState !== "ready" ||
+          !modelVerified ||
+          !text.trim()
         }
         onClick={() => void generate()}
       >
         审阅并生成一次建议
       </Button>
       {notice && <p role="status">{notice}</p>}
+      {catalogNotice && <p role="status">{catalogNotice}</p>}
+      {catalogStatusFailed && (
+        <Button disabled={busy} onClick={() => void reloadAccount()}>
+          重新读取官方账号状态
+        </Button>
+      )}
       {readState === "ready" && !operations.length && <p>本集还没有官方文本建议。</p>}
       {operations.map((operation) => (
         <article key={operation.request.operation_id}>

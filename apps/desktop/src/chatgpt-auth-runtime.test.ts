@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AuthData } from "./chatgpt-auth-storage";
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
-import { fixtureFetch } from "./chatgpt-auth-test-fixture";
+import { fixtureFetch, json } from "./chatgpt-auth-test-fixture";
 function setup(confirmed = true) {
   let saved: AuthData | null = null;
   const writes: AuthData[] = [];
@@ -92,6 +92,7 @@ describe("official desktop account lifecycle using local fixtures only", () => {
     expect(status.profiles[0]?.email).toBe("fixture@example.test");
     expect(await runtime.models()).toEqual({
       kind: "OK",
+      profileId: status.activeProfileId,
       models: [{ slug: "fixture-text", displayName: "Fixture text" }],
     });
     expect(fetcher.mock.calls.some(([url]) => String(url).includes("backend-api"))).toBe(false);
@@ -154,6 +155,11 @@ const generationInput = {
   text: "A short fixture script",
   approvalContext: "Fixture project / episode",
 };
+async function selectedInput(runtime: ReturnType<typeof createChatGPTRuntime>) {
+  const expectedProfileId = (await runtime.status()).activeProfileId;
+  if (!expectedProfileId) throw new Error("fixture missing selected account");
+  return { ...generationInput, expectedProfileId };
+}
 function completionStream() {
   return new Response(
     `data: ${JSON.stringify({ type: "response.completed", response: { id: "resp_fixture", status: "completed", output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "Completed fixture script" }] }] } })}\n\n`,
@@ -164,6 +170,7 @@ describe("main-only generation and durable reservation", () => {
   it("approves exact input, reserves before HTTP, and returns trusted provenance once", async () => {
     const { runtime, fetcher, confirmText } = setup();
     await runtime.signIn("LOCAL_PERSONAL");
+    const selected = await selectedInput(runtime);
     let reserved = false;
     const original = fetcher.getMockImplementation();
     fetcher.mockImplementation(async (url, init) => {
@@ -178,7 +185,7 @@ describe("main-only generation and durable reservation", () => {
       expect(metadata.requestHash).toMatch(/^sha256:[0-9a-f]{64}$/);
       reserved = true;
     });
-    const result = await runtime.generateText(generationInput, { beforeSend });
+    const result = await runtime.generateText(selected, { beforeSend });
     expect(result).toMatchObject({
       kind: "COMPLETED",
       operationId: generationInput.operationId,
@@ -186,25 +193,26 @@ describe("main-only generation and durable reservation", () => {
       text: "Completed fixture script",
     });
     expect(confirmText).toHaveBeenCalledExactlyOnceWith({
-      ...generationInput,
+      ...selected,
       profileLabel: "fixture@example.test",
       modelLabel: "Fixture text",
     });
-    expect(await runtime.generateText(generationInput, { beforeSend })).toEqual(result);
+    expect(await runtime.generateText(selected, { beforeSend })).toEqual(result);
     expect(beforeSend).toHaveBeenCalledOnce();
     expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith("/responses"))).toHaveLength(
       1,
     );
     expect(
-      await runtime.generateText({ ...generationInput, text: "changed" }, { beforeSend }),
+      await runtime.generateText({ ...selected, text: "changed" }, { beforeSend }),
     ).toMatchObject({ kind: "NOT_SENT", code: "OPERATION_MISMATCH" });
   });
   it("does not reserve or infer when native request approval is declined", async () => {
     const { runtime, fetcher, confirmText } = setup();
     await runtime.signIn("LOCAL_PERSONAL");
+    const selected = await selectedInput(runtime);
     confirmText.mockResolvedValue(false);
     const beforeSend = vi.fn();
-    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+    expect(await runtime.generateText(selected, { beforeSend })).toMatchObject({
       kind: "NOT_SENT",
       code: "REQUEST_NOT_APPROVED",
     });
@@ -214,10 +222,11 @@ describe("main-only generation and durable reservation", () => {
   it("fails without remote send when durable reservation cannot be confirmed", async () => {
     const { runtime, fetcher } = setup();
     await runtime.signIn("LOCAL_PERSONAL");
+    const selected = await selectedInput(runtime);
     const beforeSend = vi.fn(async () => {
       throw new Error("fixture ledger unavailable");
     });
-    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+    expect(await runtime.generateText(selected, { beforeSend })).toMatchObject({
       kind: "NOT_SENT",
     });
     expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/responses"))).toBe(false);
@@ -225,6 +234,7 @@ describe("main-only generation and durable reservation", () => {
   it("retains unknown remote outcome after a dropped inference without retry", async () => {
     const { runtime, fetcher } = setup();
     await runtime.signIn("LOCAL_PERSONAL");
+    const selected = await selectedInput(runtime);
     const original = fetcher.getMockImplementation();
     fetcher.mockImplementation(async (url, init) => {
       if (String(url).endsWith("/responses")) throw new Error("fixture dropped after send");
@@ -232,10 +242,10 @@ describe("main-only generation and durable reservation", () => {
       return original(url, init);
     });
     const beforeSend = vi.fn(async () => undefined);
-    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+    expect(await runtime.generateText(selected, { beforeSend })).toMatchObject({
       kind: "REMOTE_UNKNOWN",
     });
-    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+    expect(await runtime.generateText(selected, { beforeSend })).toMatchObject({
       kind: "REMOTE_UNKNOWN",
     });
     expect(beforeSend).toHaveBeenCalledOnce();
@@ -310,6 +320,48 @@ it("blocks all other mutable operations while the native login dialog is pending
   });
   finish(false);
   await pending;
+});
+it("binds a pending model response to the requesting account and blocks account changes", async () => {
+  const { runtime, fetcher } = setup();
+  await runtime.signIn("LOCAL_PERSONAL");
+  const profileId = (await runtime.status()).activeProfileId;
+  if (!profileId) throw new Error("fixture missing active profile");
+  let finish!: (response: Response) => void;
+  fetcher.mockImplementationOnce(
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const pending = runtime.models();
+  await vi.waitFor(() =>
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/models"))).toBe(true),
+  );
+  expect(await runtime.selectProfile(profileId)).toMatchObject({ code: "OPERATION_IN_PROGRESS" });
+  expect(await runtime.signOut()).toMatchObject({ code: "OPERATION_IN_PROGRESS" });
+  finish(
+    json({ models: [{ slug: "fixture-text", display_name: "Fixture text", visibility: "list" }] }),
+  );
+  expect(await pending).toEqual({
+    kind: "OK",
+    profileId,
+    models: [{ slug: "fixture-text", displayName: "Fixture text" }],
+  });
+});
+it("rejects a changed selected account before catalog or inference", async () => {
+  const { runtime, fetcher } = setup();
+  await runtime.signIn("LOCAL_PERSONAL");
+  const previousFetches = fetcher.mock.calls.length;
+  expect(await runtime.generateText(generationInput, { beforeSend: vi.fn() })).toMatchObject({
+    kind: "NOT_SENT",
+    code: "ACCOUNT_SELECTION_REQUIRED",
+  });
+  const result = await runtime.generateText(
+    { ...generationInput, expectedProfileId: "22222222-2222-4222-8222-222222222222" },
+    { beforeSend: vi.fn() },
+  );
+  expect(result).toMatchObject({ kind: "NOT_SENT", code: "ACCOUNT_MISMATCH" });
+  expect(fetcher).toHaveBeenCalledTimes(previousFetches);
 });
 it("refreshes expired credentials atomically and never retries uncertain rotation", async () => {
   const seed = setup();
@@ -403,7 +455,7 @@ it("keeps the approved command immutable while reporting main-only provider resp
     if (!original) throw new Error("Missing fixture");
     return original(url, init);
   });
-  const command = { ...generationInput };
+  const command = await selectedInput(runtime);
   confirmText.mockImplementation(async () => {
     command.text = "Changed after approval opened";
     return true;
@@ -416,6 +468,7 @@ it("keeps the approved command immutable while reporting main-only provider resp
 it("director raw mode retains empty completed output for backend admission and leaves old callers strict", async () => {
   const { runtime, fetcher } = setup();
   await runtime.signIn("LOCAL_PERSONAL");
+  const selected = await selectedInput(runtime);
   const original = fetcher.getMockImplementation();
   fetcher.mockImplementation(async (url, init) => {
     if (String(url).endsWith("/responses"))
@@ -427,11 +480,11 @@ it("director raw mode retains empty completed output for backend admission and l
     return original(url, init);
   });
   expect(
-    await runtime.generateText(generationInput, { beforeSend: vi.fn(), allowEmptyOutput: true }),
+    await runtime.generateText(selected, { beforeSend: vi.fn(), allowEmptyOutput: true }),
   ).toMatchObject({ kind: "COMPLETED", text: "", responseId: "resp_fixture_empty" });
   expect(
     await runtime.generateText(
-      { ...generationInput, operationId: "22222222-2222-4222-8222-222222222222" },
+      { ...selected, operationId: "22222222-2222-4222-8222-222222222222" },
       { beforeSend: vi.fn() },
     ),
   ).toMatchObject({ kind: "REMOTE_UNKNOWN", code: "INFERENCE_EMPTY" });
@@ -442,6 +495,7 @@ it.each(["approval", "reservation"] as const)(
   async (phase) => {
     const { runtime, store, fetcher, confirmText } = setup();
     await runtime.signIn("LOCAL_PERSONAL");
+    const selected = await selectedInput(runtime);
     const internal = store.write.mock.lastCall?.[0];
     if (!internal) throw new Error("Missing synthetic protected account");
     const change = () => {
@@ -456,7 +510,7 @@ it.each(["approval", "reservation"] as const)(
       expect(Object.isFrozen(metadata)).toBe(true);
       if (phase === "reservation") change();
     });
-    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+    expect(await runtime.generateText(selected, { beforeSend })).toMatchObject({
       kind: "NOT_SENT",
       code: "GENERATION_SESSION_CHANGED",
     });

@@ -6,7 +6,12 @@ import { SettingsPage } from "./SettingsPage";
 import { MediaToolchainSettings } from "./MediaToolchainSettings";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
 import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
-import { ChatGPTConnectionCard } from "./chatgpt-auth/ChatGPTConnectionCard";
+import { ChatGPTConnectionControls } from "./chatgpt-auth/ChatGPTConnectionCard";
+import {
+  OfficialConnectionProvider,
+  useOfficialConnection,
+} from "./chatgpt-auth/ChatGPTConnectionContext";
+import { ServiceCapabilities } from "./ServiceCapabilities";
 import { rememberServiceEntryChoice } from "./FirstRunServiceChoice";
 import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
 import "./provider-connection-form.css";
@@ -90,6 +95,22 @@ function LocalState() {
 }
 function Services() {
   const d = useDemo();
+  return d.isFixture ? <ServicesContent /> : <ConnectedServices />;
+}
+function ConnectedServices() {
+  const account = useOfficialConnection();
+  if (!account)
+    return (
+      <OfficialConnectionProvider>
+        <ConnectedServices />
+      </OfficialConnectionProvider>
+    );
+  return <ServicesContent />;
+}
+function ServicesContent() {
+  const d = useDemo();
+  const account = useOfficialConnection();
+  const chatGPT = account?.connection;
   const settings = d.providerSettings;
   const state = settings.state;
   const official = useRef<HTMLDivElement>(null);
@@ -110,11 +131,20 @@ function Services() {
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
+      {chatGPT && (
+        <ServiceCapabilities
+          chatGPT={chatGPT}
+          providers={state}
+          onReloadProviders={settings.load}
+          onOpenProjects={() => d.go("project")}
+        />
+      )}
       {!d.isFixture && (
         <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
           <Button
             aria-pressed={serviceTab === "api"}
             primary={serviceTab === "api"}
+            disabled={chatGPT?.busy}
             onClick={() => setServiceTab("api")}
           >
             API / Sub2API
@@ -122,6 +152,7 @@ function Services() {
           <Button
             aria-pressed={serviceTab === "chatgpt"}
             primary={serviceTab === "chatgpt"}
+            disabled={chatGPT?.busy}
             onClick={() => setServiceTab("chatgpt")}
           >
             ChatGPT 官方账号
@@ -135,11 +166,10 @@ function Services() {
           hidden={serviceTab !== "chatgpt"}
           className="official-service-panel"
         >
-          {serviceTab === "chatgpt" && (
-            <ChatGPTConnectionCard
-              onConnected={() => {
-                rememberServiceEntryChoice("chatgpt");
-              }}
+          {serviceTab === "chatgpt" && chatGPT && (
+            <ChatGPTConnectionControls
+              connection={chatGPT}
+              selection={account ?? undefined}
               onUseApi={useApi}
               onOpenProjects={() => d.go("project")}
             />
@@ -174,8 +204,8 @@ function Services() {
           )}
           {state.kind === "ready" && state.response.data.length === 0 && (
             <div className="settings-empty">
-              <strong>还没有模型连接</strong>
-              <p>可添加 API 连接，或切换到 ChatGPT 官方账号。</p>
+              <strong>还没有 API 连接</strong>
+              <p>可添加 API Key 连接；ChatGPT 官方账号状态请看独立入口。</p>
             </div>
           )}
           {state.kind === "ready" &&

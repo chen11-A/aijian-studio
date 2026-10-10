@@ -86,6 +86,7 @@ export function validGenerate(value: unknown): value is OfficialDirectorGenerate
       "projectId",
       "episodeId",
       "operationId",
+      ...(record(value) && Object.hasOwn(value, "expectedProfileId") ? ["expectedProfileId"] : []),
       "model",
       "authority",
       "storyboardBase",
@@ -95,6 +96,7 @@ export function validGenerate(value: unknown): value is OfficialDirectorGenerate
     projectId(value.projectId) &&
     episodeId(value.episodeId) &&
     operationId(value.operationId) &&
+    (!Object.hasOwn(value, "expectedProfileId") || operationId(value.expectedProfileId)) &&
     text(value.model, 200) &&
     isShotPlanAuthority(value.authority) &&
     isShotPlanStoryboardBase(value.storyboardBase) &&
@@ -191,6 +193,7 @@ export function sameIntent(
 ): boolean {
   return (
     request.operation_id === command.operationId &&
+    (command.expectedProfileId === undefined || request.profile_id === command.expectedProfileId) &&
     request.model === command.model &&
     request.intent === command.intent &&
     canonical(request.options) === canonical(command.options) &&

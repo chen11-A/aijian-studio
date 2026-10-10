@@ -11,6 +11,7 @@ import {
 } from "./adapters/officialDirectorJournal";
 import { directorOperationInScope } from "./adapters/officialDirectorProposal";
 import type { OfficialDirectorPanelProps } from "./useOfficialDirectorProposals";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 
 /** Shared epoch and flight fence protect reads, writes and changing episode scopes. */
 export function useOfficialDirectorRecords({
@@ -29,13 +30,27 @@ export function useOfficialDirectorRecords({
   setJournal: Dispatch<SetStateAction<DirectorJournal>>;
 }) {
   const { projectId, episodeId, bridge, preparationGateway } = props;
+  const account = useOfficialConnection();
   const [preparation, setPreparation] = useState<ShotPlanPreparation | null>(null);
   const [operations, setOperations] = useState<OfficialDirectorOperation[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [readState, setReadState] = useState<"loading" | "ready" | "error">("loading");
   const [notice, setNotice] = useState("");
-  const [models, setModels] = useState<ChatGPTModel[]>([]);
-  const [model, setModel] = useState("");
+  const [localModels, setLocalModels] = useState<ChatGPTModel[]>([]);
+  const [localModel, setLocalModel] = useState("");
+  const models = account
+    ? account.catalogProfileId
+      ? account.connection.models
+      : []
+    : localModels;
+  const resolved = account?.resolve(projectId);
+  const model = account ? (resolved?.verified ? resolved.modelSlug : "") : localModel;
+  const setModel = (slug: string) => {
+    if (account) {
+      if (!account.setProjectModel(projectId, slug))
+        setNotice("模型选择未保存，请在 AI 服务页核对账号目录与本机存储。");
+    } else setLocalModel(slug);
+  };
   const leave = (ticket: number) => {
     if (ticket !== epoch.current) return;
     flight.current = false;
@@ -93,8 +108,8 @@ export function useOfficialDirectorRecords({
     setHasMore(false);
     setPreparation(null);
     setReadState("loading");
-    setModels([]);
-    setModel("");
+    setLocalModels([]);
+    setLocalModel("");
     setJournal(readDirectorJournal(storage, projectId, episodeId));
     void reload();
     return () => {
@@ -112,6 +127,10 @@ export function useOfficialDirectorRecords({
     };
   }, [storage, projectId, episodeId, setJournal]);
   async function loadModels() {
+    if (account) {
+      await account.readModels();
+      return;
+    }
     const auth = chatGPTBridge();
     if (!auth) {
       setNotice("官方模型接口不可用。请使用支持连接管理的桌面版，未开始登录或推理。");
@@ -124,8 +143,8 @@ export function useOfficialDirectorRecords({
     try {
       const result = await auth.models();
       if (ticket !== epoch.current) return;
-      setModels(result.kind === "OK" ? result.models : []);
-      setModel(result.kind === "OK" ? (result.models[0]?.slug ?? "") : "");
+      setLocalModels(result.kind === "OK" ? result.models : []);
+      setLocalModel("");
       setNotice(
         result.kind === "OK"
           ? result.models.length
@@ -147,10 +166,17 @@ export function useOfficialDirectorRecords({
     setOperations,
     readState,
     notice,
+    catalogNotice: account?.connection.notice ?? "",
+    catalogStatusFailed: account?.connection.statusReadFailed ?? false,
+    reloadAccount: () => account?.connection.load(),
     setNotice,
     models,
     model,
     setModel,
+    modelSource: resolved?.source ?? "none",
+    modelVerified: !!account && !!resolved?.verified,
+    restoreDefaultModel: () => account?.restoreProjectDefault(projectId) ?? false,
+    preferenceError: account?.preferenceError ?? false,
     reload,
     loadModels,
   };

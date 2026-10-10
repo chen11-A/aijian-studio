@@ -3,17 +3,36 @@ import { pages } from "./data";
 import { useDemo } from "./model";
 import { Button } from "./Common";
 import { selectProductionSourceStage } from "./adapters/productionSourceStage";
+import {
+  assessChatGPTConnection,
+  readinessLabels,
+  type ConnectionReadiness,
+} from "../domain/ai-capability-readiness";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 
-export function assistantServiceLabel(state: ProviderSettingsState): string {
-  if (state.kind === "loading") return "正在读取服务配置";
-  if (state.kind === "error") return "服务配置读取失败";
-  return state.response.data.length
-    ? `已配置 ${state.response.data.length} 个 · 能力未验证`
-    : "尚未配置 AI 服务";
+export function assistantServiceLabel(
+  state: ProviderSettingsState,
+  official?: ConnectionReadiness,
+): string {
+  const api =
+    state.kind === "loading"
+      ? "正在读取 API 连接"
+      : state.kind === "error"
+        ? "API 连接读取失败"
+        : state.response.data.length
+          ? `已配置 ${state.response.data.length} 个 · 能力未验证`
+          : "没有 API 连接";
+  if (!official) return api;
+  const account =
+    official === "AUTHORIZED_UNVERIFIED"
+      ? "ChatGPT 已连接 · 推理待验证"
+      : `ChatGPT：${readinessLabels[official]}`;
+  return `${account}；${api}`;
 }
 
 export function AssistantServiceStatus() {
   const d = useDemo();
+  const account = useOfficialConnection();
   const state = d.providerSettings.state;
   const connections = state.kind === "ready" ? state.response.data : [];
   const candidates = connections.filter(
@@ -26,6 +45,9 @@ export function AssistantServiceStatus() {
   return (
     <section className="v2-ai-detail" aria-label="真实服务配置">
       <h3>服务配置</h3>
+      {account && (
+        <p>ChatGPT 官方账号：{readinessLabels[assessChatGPTConnection(account.connection)]}</p>
+      )}
       {state.kind === "loading" && <p role="status">正在读取本地连接目录…</p>}
       {state.kind === "error" && <p role="alert">无法读取连接目录，请重新读取或检查 AI 服务页。</p>}
       {state.kind === "ready" && (

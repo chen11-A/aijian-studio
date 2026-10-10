@@ -13,22 +13,30 @@ import { MediaPages } from "./MediaPages";
 import { UtilityPages } from "./UtilityPages";
 import { Inspector } from "./Inspector";
 import { Dropdown } from "./Dropdown";
+import {
+  OfficialConnectionProvider,
+  useOfficialConnection,
+} from "./chatgpt-auth/ChatGPTConnectionContext";
+import { assessChatGPTConnection, readinessLabels } from "../domain/ai-capability-readiness";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
   const [revision, setRevision] = useState(0);
   return (
     <DemoProvider key={revision} fixture={fixture}>
-      <Workspace
-        reset={() => {
-          window.history.replaceState({}, "", "#project");
-          setRevision((old) => old + 1);
-        }}
-      />
+      <OfficialConnectionProvider>
+        <Workspace
+          reset={() => {
+            window.history.replaceState({}, "", "#project");
+            setRevision((old) => old + 1);
+          }}
+        />
+      </OfficialConnectionProvider>
     </DemoProvider>
   );
 }
 function Workspace({ reset }: { reset: () => void }) {
   const d = useDemo();
+  const account = useOfficialConnection();
   const global = pages[d.page][2] < 0;
   const activeStage = pages[d.page][2];
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));
@@ -74,8 +82,11 @@ function Workspace({ reset }: { reset: () => void }) {
       : providerState.kind === "error"
         ? "服务配置读取失败"
         : providerState.response.data.length === 0
-          ? "尚未配置模型连接"
+          ? "没有 API 连接"
           : `已配置 ${providerState.response.data.length} 个模型连接 · 可用性待核验`;
+  const officialStatus = account
+    ? readinessLabels[assessChatGPTConnection(account.connection)]
+    : "账号状态未读取";
   const taskState = d.taskQueue.state;
   const notificationDescription = d.isFixture
     ? d.tasks.length
@@ -242,7 +253,9 @@ function Workspace({ reset }: { reset: () => void }) {
         </div>
         <button className="service-indicator" onClick={() => d.go("services")}>
           <span />
-          {d.isFixture ? serviceStatus : `API / Sub2API：${serviceStatus} · 官方账号见 AI 服务`}
+          {d.isFixture
+            ? serviceStatus
+            : `API / Sub2API：${serviceStatus} · ChatGPT：${officialStatus}`}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">

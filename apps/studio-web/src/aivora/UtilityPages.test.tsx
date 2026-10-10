@@ -129,7 +129,7 @@ describe("real provider service configuration", () => {
   it("reads an empty real connection list without inventing a provider", async () => {
     const bridge = open();
     await ready();
-    expect(await screen.findByText("还没有模型连接")).toBeInTheDocument();
+    expect(await screen.findByText("还没有 API 连接")).toBeInTheDocument();
     expect(bridge.listProviderConnections).toHaveBeenCalledOnce();
     expect(bridge.createProviderConnection).not.toHaveBeenCalled();
   });
