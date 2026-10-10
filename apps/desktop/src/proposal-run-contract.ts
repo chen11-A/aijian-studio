@@ -425,9 +425,14 @@ export function isCreatedProposalRunResponse(
     entries: context.entries,
     total_byte_count: context.total_byte_count,
   });
+  const expectedContextManifestId = `ctx_${canonicalSha256({
+    domain: "agent-context-instance-v1",
+    manifest_hash: expectedManifestHash,
+    run_scope: agentRunId,
+  }).slice(7, 39)}`;
   if (
     context.manifest_hash !== expectedManifestHash ||
-    context.context_manifest_id !== `ctx_${expectedManifestHash.slice(7, 39)}`
+    context.context_manifest_id !== expectedContextManifestId
   )
     return false;
 

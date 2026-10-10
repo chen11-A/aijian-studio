@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { delimiter, resolve } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
@@ -121,6 +122,30 @@ describe("proposal run creation contract", () => {
       isCreatedProposalRunResponse(actual.replay, actual.project_id, actual.command, false),
     ).toBe(true);
   }, 30_000);
+
+  test("rejects the legacy manifest-only context ID even when both references agree", () => {
+    const unscoped = structuredClone(response);
+    const manifestHash = unscoped.data.context_manifest.manifest_hash;
+    const legacyId = `ctx_${manifestHash.slice(7, 39)}`;
+    unscoped.data.context_manifest.context_manifest_id = legacyId;
+    unscoped.data.skill_run.context_manifest_id = legacyId;
+    expect(isCreatedProposalRunResponse(unscoped, projectId, command, true)).toBe(false);
+  });
+
+  test("rejects a context ID scoped to another agent run", () => {
+    const wrongScope = structuredClone(response);
+    const digest = createHash("sha256")
+      .update(JSON.stringify({
+        domain: "agent-context-instance-v1",
+        manifest_hash: wrongScope.data.context_manifest.manifest_hash,
+        run_scope: `agr_${"0".repeat(32)}`,
+      }), "utf8")
+      .digest("hex");
+    const wrongId = `ctx_${digest.slice(0, 32)}`;
+    wrongScope.data.context_manifest.context_manifest_id = wrongId;
+    wrongScope.data.skill_run.context_manifest_id = wrongId;
+    expect(isCreatedProposalRunResponse(wrongScope, projectId, command, true)).toBe(false);
+  });
 
   test("binds a receipt to the exact operation and immutable input", () => {
     expect(
