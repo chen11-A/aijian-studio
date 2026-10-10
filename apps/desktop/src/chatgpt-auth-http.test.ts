@@ -10,6 +10,20 @@ import {
 import { fixtureFetch, json, signedIdentity } from "./chatgpt-auth-test-fixture";
 const signal = () => AbortSignal.timeout(5000);
 describe("official token and catalog transport", () => {
+  it("logs only the HTTP status and a fixed code, never response content", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      await expect(
+        readJson(new Response("private-token-and-email", { status: 403 })),
+      ).rejects.toThrow("OPENAI_REQUEST_FAILED");
+      expect(warning).toHaveBeenCalledExactlyOnceWith("[chatgpt-http]", {
+        status: 403,
+        code: "OPENAI_REQUEST_FAILED",
+      });
+    } finally {
+      warning.mockRestore();
+    }
+  });
   it("verifies signature, issuer, audience, time and nonce before exposing identity", async () => {
     expect(
       await verifyIdentity(

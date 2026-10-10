@@ -242,7 +242,7 @@ function Workspace({ reset }: { reset: () => void }) {
         </div>
         <button className="service-indicator" onClick={() => d.go("services")}>
           <span />
-          {serviceStatus}
+          {d.isFixture ? serviceStatus : `API / Sub2API：${serviceStatus} · 官方账号见 AI 服务`}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">

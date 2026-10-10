@@ -111,6 +111,15 @@ export async function readChatGPTStatus(bridge = chatGPTBridge()): Promise<ChatG
 }
 export function chatGPTErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    OPENAI_REQUEST_FAILED:
+      "官方服务请求未成功（OPENAI_REQUEST_FAILED）。这不等于账号未登录；请检查本机诊断日志中的 HTTP 状态。",
+    MODEL_CATALOG_INVALID:
+      "模型目录格式未通过校验（MODEL_CATALOG_INVALID），尚未确认可用模型；账号连接状态单独显示。",
+    RESPONSE_INVALID:
+      "官方服务响应格式异常（RESPONSE_INVALID），本次操作未确认成功；请检查连接后手动重试。",
+    RESPONSE_TOO_LARGE: "官方服务响应超出安全读取上限（RESPONSE_TOO_LARGE），本次操作已停止。",
+    OPERATION_IN_PROGRESS:
+      "已有账号操作正在进行（OPERATION_IN_PROGRESS），请等待完成，不要重复登录。",
     SECURE_STORAGE_UNAVAILABLE:
       "系统安全凭据库不可用。请在桌面系统解锁凭据库后重试；不会改为明文保存。",
     SECURE_STORAGE_INVALID: "保存的账号记录无法安全读取。保留现有文件，请检查桌面凭据库。",

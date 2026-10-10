@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatGPTBridge, ChatGPTStatus } from "./transport";
-import { DESKTOP_REQUIRED, validStatus } from "./transport";
+import { DESKTOP_REQUIRED, validStatus, chatGPTErrorMessage } from "./transport";
 import { ChatGPTConnectionCard } from "./ChatGPTConnectionCard";
 const disconnected: ChatGPTStatus = {
   ...DESKTOP_REQUIRED,
@@ -43,6 +43,16 @@ function bridge(value = disconnected): ChatGPTBridge {
   };
 }
 describe("official connection card", () => {
+  it.each([
+    "OPENAI_REQUEST_FAILED",
+    "MODEL_CATALOG_INVALID",
+    "RESPONSE_INVALID",
+    "RESPONSE_TOO_LARGE",
+    "OPERATION_IN_PROGRESS",
+  ])("explains %s without the generic verification warning", (code) => {
+    expect(chatGPTErrorMessage(code)).toContain(code);
+    expect(chatGPTErrorMessage(code)).not.toContain("操作未通过验证");
+  });
   it("keeps web preview honestly desktop-required and allows skipping to API", async () => {
     const skip = vi.fn();
     render(<ChatGPTConnectionCard onUseApi={skip} />);

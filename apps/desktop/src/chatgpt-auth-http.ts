@@ -43,14 +43,17 @@ export async function boundedText(response: Response, limit = MAX_JSON): Promise
   }
 }
 export async function readJson(response: Response): Promise<unknown> {
-  if (!response.ok)
-    throw new ChatGPTError(
+  if (!response.ok) {
+    const code =
       response.status === 401
         ? "REAUTH_REQUIRED"
         : response.status === 429
           ? "USAGE_LIMIT"
-          : "OPENAI_REQUEST_FAILED",
-    );
+          : "OPENAI_REQUEST_FAILED";
+    // Never log the URL, headers, response body, credentials or account identity.
+    console.warn("[chatgpt-http]", { status: response.status, code });
+    throw new ChatGPTError(code);
+  }
   if (!response.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new ChatGPTError("RESPONSE_INVALID");
   try {

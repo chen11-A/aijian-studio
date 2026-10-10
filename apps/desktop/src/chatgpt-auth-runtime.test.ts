@@ -36,6 +36,19 @@ function setup(confirmed = true) {
   return { store, writes, runtime, fetcher, confirm, authorize, confirmText };
 }
 describe("official desktop account lifecycle using local fixtures only", () => {
+  it("clears a model read error after recovery without claiming inference", async () => {
+    const { runtime, fetcher } = setup();
+    await runtime.signIn("LOCAL_PERSONAL");
+    fetcher.mockResolvedValueOnce(new Response("private upstream body", { status: 403 }));
+    expect(await runtime.models()).toMatchObject({ kind: "ERROR", code: "OPENAI_REQUEST_FAILED" });
+    expect((await runtime.status()).lastError).toBe("OPENAI_REQUEST_FAILED");
+    expect(await runtime.models()).toMatchObject({ kind: "OK" });
+    expect(await runtime.status()).toMatchObject({
+      state: "CONNECTED",
+      lastError: null,
+      liveVerified: false,
+    });
+  });
   it("status restores only protected local metadata and never contacts OpenAI", async () => {
     const { runtime, fetcher, authorize, store } = setup();
     expect(await runtime.status()).toMatchObject({

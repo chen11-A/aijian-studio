@@ -999,10 +999,6 @@ body,
   right: 260px;
   width: auto;
   top: 27px;
-  font-size: 0;
-}
-.demo-root.no-stage.no-rail .service-indicator:after {
-  content: "本地样例 · 未连接真实服务";
   font-size: 12px;
 }
 .demo-root.no-stage.no-rail .left-nav {

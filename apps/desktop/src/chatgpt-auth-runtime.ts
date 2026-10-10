@@ -449,10 +449,9 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         const signal = AbortSignal.timeout(30_000);
         const tokens = await validTokens(signal);
         if (!tokens.accessToken) throw new ChatGPTError("PLAN_USAGE_NOT_AUTHORIZED");
-        return {
-          kind: "OK",
-          models: await listModels(tokens.accessToken, dependencies.fetch, signal),
-        };
+        const models = await listModels(tokens.accessToken, dependencies.fetch, signal);
+        lastError = null;
+        return { kind: "OK", models };
       } catch (error) {
         lastError = errorCode(error);
         if (lastError === "REAUTH_REQUIRED") needsReauth = true;
