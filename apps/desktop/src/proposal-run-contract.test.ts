@@ -135,11 +135,14 @@ describe("proposal run creation contract", () => {
   test("rejects a context ID scoped to another agent run", () => {
     const wrongScope = structuredClone(response);
     const digest = createHash("sha256")
-      .update(JSON.stringify({
-        domain: "agent-context-instance-v1",
-        manifest_hash: wrongScope.data.context_manifest.manifest_hash,
-        run_scope: `agr_${"0".repeat(32)}`,
-      }), "utf8")
+      .update(
+        JSON.stringify({
+          domain: "agent-context-instance-v1",
+          manifest_hash: wrongScope.data.context_manifest.manifest_hash,
+          run_scope: `agr_${"0".repeat(32)}`,
+        }),
+        "utf8",
+      )
       .digest("hex");
     const wrongId = `ctx_${digest.slice(0, 32)}`;
     wrongScope.data.context_manifest.context_manifest_id = wrongId;
