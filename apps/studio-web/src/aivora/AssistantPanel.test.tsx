@@ -37,6 +37,7 @@ function Harness() {
           aiOpen: demo.aiOpen,
           managementAI: demo.value("managementAI"),
           rightTab: demo.rightTab,
+          backendProjectId: demo.backendProjectId,
         })}
       </output>
       <button onClick={() => void demo.connectRealWorkspace()}>Connect synthetic workspace</button>
@@ -54,6 +55,7 @@ function state() {
     aiOpen: boolean;
     managementAI: string;
     rightTab: string;
+    backendProjectId: string | null;
   };
 }
 
@@ -278,11 +280,12 @@ describe("production assistant boundaries without demo mode", () => {
     );
   }
 
-  it("keeps chat, attachments and voice disabled and navigates to project creation", () => {
+  it("keeps preview disabled without a verified desktop model and navigates to project creation", () => {
     openNative();
-    expect(screen.getByRole("textbox", { name: "AI 输入" })).toBeDisabled();
-    for (const name of ["发送消息", "AI 图片附件", "AI 附件", "引用素材", "语音输入暂未接入"])
-      expect(screen.getByRole("button", { name })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "给 AI 助手的消息" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "预览发送内容" })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     fireEvent.click(screen.getByRole("button", { name: "打开项目中心" }));
     expect(state().page).toBe("projects");
     expect(state().messages).toEqual([]);
@@ -293,6 +296,8 @@ describe("production assistant boundaries without demo mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "上下文" }));
     expect(screen.getByRole("heading", { name: "当前创作上下文" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "上下文" }));
+    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     expect(screen.getByRole("heading", { name: "当前作品的下一步" })).toBeInTheDocument();
     for (const tab of ["建议", "任务", "上下文", "对话"]) {
       fireEvent.click(screen.getByLabelText("助手工具"));
@@ -360,6 +365,9 @@ describe("production assistant boundaries without demo mode", () => {
     } as unknown as Window["aijian"];
     openNative();
     fireEvent.click(screen.getByRole("button", { name: "Connect synthetic workspace" }));
+    await waitFor(() => expect(state().backendProjectId).toBe(remoteProjectId));
+    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     await screen.findByRole("button", { name: "整理来源与原创灵感" });
     for (const [name, page] of [
       ["整理来源与原创灵感", "source"],
@@ -370,6 +378,8 @@ describe("production assistant boundaries without demo mode", () => {
       await waitFor(() => expect(state().page).toBe(page));
     }
     expect(state().messages).toEqual([]);
-    expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("button", { name: "切换到对话" }));
+    expect(screen.getByRole("button", { name: "预览发送内容" })).toBeDisabled();
   });
 });

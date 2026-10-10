@@ -390,6 +390,7 @@ describe("shot plan native IPC and sandbox preload boundaries", () => {
     });
     expect([...exposures.keys()].filter((name) => name !== "aijianShotPlan")).toEqual([
       "aijianChatGPT",
+      "aijianAssistantChat",
       "aijianOfficialText",
       "aijianOfficialDirector",
       "aijian",
@@ -422,12 +423,47 @@ describe("shot plan native IPC and sandbox preload boundaries", () => {
       await bridge[method]!(...args);
       expect(invoke.mock.lastCall).toEqual([channel, ...args]);
     }
+    const assistant = exposures.get("aijianAssistantChat")!;
+    const previewRequest = {
+      sessionId: operation,
+      scope: { projectId: project, episodeId: episode, page: "storyboard" },
+      userText: "这一镜如何更紧张？",
+      model: "fixture",
+      expectedProfileId: operation,
+      references: [],
+    };
+    const sendRequest = {
+      previewId: operation,
+      operationId: operation,
+      inputHash: `sha256:${"a".repeat(64)}`,
+      expectedProfileId: operation,
+    };
+    const assistantCalls: [string, string, unknown[]][] = [
+      ["preview", "assistant-chat:preview", [previewRequest]],
+      ["send", "assistant-chat:send", [sendRequest]],
+      ["discardPreview", "assistant-chat:discard-preview", [operation]],
+      [
+        "getOperation",
+        "assistant-chat:get-operation",
+        [{ operationId: operation, expectedProfileId: operation }],
+      ],
+      [
+        "listPending",
+        "assistant-chat:list-pending",
+        [{ scope: previewRequest.scope, expectedProfileId: operation }],
+      ],
+    ];
+    expect(Object.keys(assistant)).toEqual(assistantCalls.map(([name]) => name));
+    for (const [method, channel, args] of assistantCalls) {
+      await assistant[method]!(...args);
+      expect(invoke.mock.lastCall).toEqual([channel, ...args]);
+    }
     expect(source).toContain('import type { ShotPlanGateway } from "@aijian/contracts/shot-plan"');
     expect(source).not.toMatch(
       /ipcRenderer\.invoke\(channel|ipcRenderer\.send|Authorization|fetch\(/,
     );
     for (const forbidden of ["token", "origin", "fetch", "invoke", "generate", "complete"])
-      expect(bridge).not.toHaveProperty(forbidden);
+      for (const surface of [bridge, assistant]) expect(surface).not.toHaveProperty(forbidden);
     expect(exposures.get("aijian")).not.toHaveProperty("createHumanShotPlanProposal");
   });
 });

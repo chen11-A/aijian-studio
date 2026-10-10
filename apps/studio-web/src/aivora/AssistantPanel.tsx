@@ -2,13 +2,16 @@ import { useState } from "react";
 import { pages } from "./data";
 import { useDemo } from "./model";
 import { Button } from "./Common";
-import { Icon, Logo } from "./Icon";
+import { Logo } from "./Icon";
 import { Dropdown } from "./Dropdown";
 import { FixtureAssistantPanel } from "./FixtureAssistantPanel";
 import { AssistantTaskQueue } from "./AssistantTaskQueue";
 import { AssistantContext, AssistantServiceStatus, assistantServiceLabel } from "./AssistantStatus";
 import { assessChatGPTConnection } from "../domain/ai-capability-readiness";
 import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
+import { useOptionalAssistantSelection } from "./assistantSelection";
+import { AssistantChatConversation } from "./AssistantChatConversation";
+import { assistantChatBridge } from "./assistantChatTransport";
 import "./v2-assistant.css";
 import "./assistant-workbench.css";
 
@@ -24,10 +27,11 @@ export function AssistantPanel() {
 function ProductionAssistantPanel() {
   const d = useDemo();
   const account = useOfficialConnection();
+  const selection = useOptionalAssistantSelection();
   const [tab, setTab] = useState("对话");
   const pageLabel = pages[d.page][0];
-  const disabledReason =
-    "自由对话、附件与语音尚未接入可审批的发送流程。请使用故事页的来源提取；本面板不保存会话或上传文件。";
+  const chosen = account?.resolve(d.backendProjectId ?? "");
+  const profileId = account?.catalogProfileId ?? null;
   const closeAssistant = () => {
     if (d.professional) d.selectRightTab("inspector");
     else {
@@ -92,11 +96,36 @@ function ProductionAssistantPanel() {
         </Dropdown>
       </div>
       <div className="assistant-body" data-scroll-region="ai-chat">
-        {(tab === "对话" || tab === "建议") && (
+        <div hidden={tab !== "对话"}>
+          <AssistantChatConversation
+            key={`${profileId ?? "no-profile"}/${d.backendProjectId ?? "no-project"}/${d.selectedEpisodeId ?? "no-episode"}`}
+            bridge={assistantChatBridge()}
+            scope={{
+              projectId: d.backendProjectId,
+              episodeId: d.selectedEpisodeId,
+              page: d.page,
+            }}
+            profileId={profileId}
+            model={chosen?.verified ? chosen.modelSlug : ""}
+            modelVerified={chosen?.verified ?? false}
+            publication={selection?.publication ?? { kind: "NONE" }}
+            included={selection?.included ?? false}
+            setIncluded={(included) => selection?.setIncluded(included)}
+            onOpenServices={() => d.go("services")}
+            onOpenEditor={() =>
+              d.go(
+                selection?.publication.kind === "AVAILABLE"
+                  ? selection.publication.selection.page
+                  : "script",
+              )
+            }
+          />
+        </div>
+        {tab === "建议" && (
           <>
             <section className="v2-ai-detail" aria-label="助手工作范围">
               <h3>当前作品的下一步</h3>
-              <p>这里显示本地作品、服务配置和真实任务。自由对话尚未接入，以下为操作指引。</p>
+              <p>这里显示本地作品、服务配置和真实任务。</p>
               {!d.backendProjectId ? (
                 <>
                   <p>先新建或打开作品，再整理来源或原创灵感。</p>
@@ -125,38 +154,6 @@ function ProductionAssistantPanel() {
           </section>
         )}
         {tab === "上下文" && <AssistantContext />}
-      </div>
-      <div className="ai-composer" aria-describedby="assistant-send-unavailable">
-        <textarea
-          aria-label="AI 输入"
-          disabled
-          value=""
-          readOnly
-          placeholder="自由对话尚未接入，请先使用来源提取"
-        />
-        <p id="assistant-send-unavailable">{disabledReason}</p>
-        <div className="v2-composer-tools">
-          {[
-            ["AI 图片附件", "image"],
-            ["AI 附件", "attach"],
-            ["引用素材", "folder"],
-            ["语音输入暂未接入", "mic"],
-          ].map(([label, icon]) => (
-            <Button key={label} aria-label={label} disabled title={disabledReason}>
-              <Icon name={icon ?? "attach"} size={18} />
-            </Button>
-          ))}
-          <button
-            className="button primary send-button"
-            aria-label="发送消息"
-            type="button"
-            disabled
-            title={disabledReason}
-            aria-describedby="assistant-send-unavailable"
-          >
-            <Icon name="send" size={18} />
-          </button>
-        </div>
       </div>
     </aside>
   );

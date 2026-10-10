@@ -132,7 +132,9 @@ export function AssistantContext() {
         )}
       </dl>
       {sourceStatus.baselineNote && d.backendProjectId && <p>{sourceStatus.baselineNote}</p>}
-      <p>以上仅用于查看。调用输入需在来源提取页明确选择，不会自动附带整部作品或附件。</p>
+      <p>
+        助手可引用当前已保存的选中内容；发送前需预览确认。未保存内容、整部作品与附件不会自动发送。
+      </p>
       <Button disabled={!d.backendProjectId} onClick={() => d.go("project")}>
         返回当前作品
       </Button>

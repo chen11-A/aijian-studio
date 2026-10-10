@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { DemoProvider, useDemo } from "./model";
 import type { DemoFixture } from "./model";
 import { art, pages, projectNav, stages } from "./data";
@@ -18,20 +18,38 @@ import {
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { assessChatGPTConnection, readinessLabels } from "../domain/ai-capability-readiness";
+import { AssistantSelectionProvider } from "./assistantSelection";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
   const [revision, setRevision] = useState(0);
   return (
     <DemoProvider key={revision} fixture={fixture}>
       <OfficialConnectionProvider>
-        <Workspace
-          reset={() => {
-            window.history.replaceState({}, "", "#project");
-            setRevision((old) => old + 1);
-          }}
-        />
+        <AssistantSelectionBoundary>
+          <Workspace
+            reset={() => {
+              window.history.replaceState({}, "", "#project");
+              setRevision((old) => old + 1);
+            }}
+          />
+        </AssistantSelectionBoundary>
       </OfficialConnectionProvider>
     </DemoProvider>
+  );
+}
+function AssistantSelectionBoundary({ children }: { children: ReactNode }) {
+  const d = useDemo();
+  return (
+    <AssistantSelectionProvider
+      scope={{
+        fixture: d.isFixture,
+        projectId: d.backendProjectId,
+        episodeId: d.selectedEpisodeId,
+        page: d.page,
+      }}
+    >
+      {children}
+    </AssistantSelectionProvider>
   );
 }
 function Workspace({ reset }: { reset: () => void }) {

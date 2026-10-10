@@ -1,5 +1,18 @@
 /** Credential-free official text domain types. HTTP DTOs come from OpenAPI. */
 import type { components } from "./generated.js";
+export type {
+  AssistantChatBridge,
+  AssistantChatOperationQuery,
+  AssistantChatOperationResult,
+  AssistantChatPendingQuery,
+  AssistantChatPendingResult,
+  AssistantChatPreviewRequest,
+  AssistantChatPreviewResult,
+  AssistantChatReference,
+  AssistantChatScope,
+  AssistantChatSendRequest,
+  AssistantChatSendResult,
+} from "./assistant-chat.js";
 export type OfficialTextOperation = components["schemas"]["OfficialTextOperation"];
 export type OfficialTextBase = components["schemas"]["OfficialTextScriptBase"];
 export type OfficialTextReserve = components["schemas"]["ReserveOfficialTextRequest"];

@@ -23,6 +23,7 @@ import type {
   DraftReviewRevisionScopeResult,
 } from "./draft-review-revision-contract";
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
+import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import type {
   DraftExportPreviewResult,
@@ -183,6 +184,14 @@ contextBridge.exposeInMainWorld("aijianChatGPT", {
   models: () => ipcRenderer.invoke("chatgpt-auth:models"),
   openHelp: (topic) => ipcRenderer.invoke("chatgpt-auth:help", topic),
 } satisfies ChatGPTBridge);
+
+contextBridge.exposeInMainWorld("aijianAssistantChat", {
+  preview: (request) => ipcRenderer.invoke("assistant-chat:preview", request),
+  send: (request) => ipcRenderer.invoke("assistant-chat:send", request),
+  discardPreview: (previewId) => ipcRenderer.invoke("assistant-chat:discard-preview", previewId),
+  getOperation: (query) => ipcRenderer.invoke("assistant-chat:get-operation", query),
+  listPending: (query) => ipcRenderer.invoke("assistant-chat:list-pending", query),
+} satisfies AssistantChatBridge);
 
 // Trusted proposal surface. There is deliberately no renderer completion/reservation endpoint.
 contextBridge.exposeInMainWorld("aijianOfficialText", {

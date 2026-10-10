@@ -6,6 +6,7 @@ import { officialDirectorBridge } from "./adapters/officialDirectorGateway";
 import "./storyboard-director-host.css";
 import { Button, PageTitle } from "./Common";
 import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
+import { buildStoryboardSelection, usePublishAssistantSelection } from "./assistantSelection";
 import {
   newStoryboardShot,
   reorderStoryboardShots,
@@ -66,6 +67,17 @@ export function EpisodeStoryboardPanel({
   }
   const titleInput = useRef<HTMLInputElement>(null);
   const shot = content.shots.find((item) => item.shot_id === selectedId) ?? content.shots[0];
+  usePublishAssistantSelection(
+    buildStoryboardSelection({
+      projectId,
+      episodeId,
+      version,
+      selectedShotId: shot?.shot_id ?? null,
+      dirty,
+      readState: state.readState,
+      directorView: directorOpen || officialOpen,
+    }),
+  );
   const index = shot ? content.shots.indexOf(shot) : -1;
   const totalFrames = content.shots.reduce((sum, item) => sum + item.duration_frames, 0);
   function add() {

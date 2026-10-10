@@ -3,6 +3,7 @@ import { Button, PageTitle, Pill } from "./Common";
 import { Icon } from "./Icon";
 import { useDemo } from "./model";
 import { useCreativeLibrary } from "./useCreativeLibrary";
+import { buildCreativeSelection, usePublishAssistantSelection } from "./assistantSelection";
 import { emptyCreativeWorld, newCreativeId } from "./adapters/creativeLibrary";
 import type { CreativeCharacter, CreativeScene, CreativeWorld } from "./adapters/creativeLibrary";
 import "./v2-visual.css";
@@ -44,6 +45,7 @@ export function ManualCreativePage({ kind }: { kind: Kind }) {
       key={`${d.backendProjectId ?? "unselected"}:${kind}`}
       kind={kind}
       projectId={d.backendProjectId}
+      episodeId={d.selectedEpisodeId}
       setNavigationGuard={d.setNavigationGuard}
     />
   );
@@ -51,10 +53,12 @@ export function ManualCreativePage({ kind }: { kind: Kind }) {
 export function ManualCreativeEditor({
   kind,
   projectId,
+  episodeId = null,
   setNavigationGuard,
 }: {
   kind: Kind;
   projectId: string | null;
+  episodeId?: string | null;
   setNavigationGuard: (guard: (() => boolean) | null) => void;
 }) {
   const library = useCreativeLibrary(projectId, setNavigationGuard);
@@ -68,6 +72,19 @@ export function ManualCreativeEditor({
   const idOf = (item: CreativeCharacter | CreativeScene) =>
     "character_id" in item ? item.character_id : item.scene_id;
   const selected = items.find((item) => idOf(item) === selectedId) ?? items[0];
+  usePublishAssistantSelection(
+    projectId
+      ? buildCreativeSelection({
+          projectId,
+          episodeId,
+          kind,
+          version: library.version,
+          selectedId: selected ? idOf(selected) : null,
+          dirty: library.dirty,
+          readState: library.readState,
+        })
+      : { kind: "NONE" },
+  );
   const selectedIndex = selected
     ? items.indexOf(selected as CreativeCharacter & CreativeScene)
     : -1;

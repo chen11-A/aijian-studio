@@ -3,6 +3,7 @@ import { createStudioTransport } from "../api/studio";
 import { Button } from "./Common";
 import { ScriptSceneBlocks } from "./ScriptSceneBlocks";
 import { ScriptWorkspaceView } from "./ScriptWorkspaceView";
+import { buildScriptSelection, usePublishAssistantSelection } from "./assistantSelection";
 import { AcceptedSourceSummarySeed } from "./AcceptedSourceSummarySeed";
 import { OfficialTextProposalPanel } from "./OfficialTextProposalPanel";
 import { summaryStartingScene } from "./adapters/acceptedSourceSummary";
@@ -212,6 +213,18 @@ export function EpisodeScriptEditor({
   const dirty =
     bindCurrentBrief ||
     JSON.stringify(normalizeScenes(scenes)) !== JSON.stringify(version?.content.scenes ?? []);
+  usePublishAssistantSelection(
+    projectId && episodeId
+      ? buildScriptSelection({
+          projectId,
+          episodeId,
+          version,
+          selectedSceneId: selected?.scene_id ?? null,
+          dirty,
+          readState,
+        })
+      : { kind: "NONE" },
+  );
   const unknownDelivery = scenes.some((scene) =>
     scene.blocks.some((block) => block.kind === "DIALOGUE" && block.delivery == null),
   );
@@ -708,7 +721,7 @@ export function EpisodeScriptEditor({
 
   const importControl = !version && scenes.length === 0 && projectId && (
     <AcceptedSourceSummarySeed
-      key={`${projectId}/${episodeId}`}
+      key={`accepted-source/${projectId}/${episodeId}`}
       projectId={projectId}
       disabled={locked || dirty}
       onImport={(value) => {

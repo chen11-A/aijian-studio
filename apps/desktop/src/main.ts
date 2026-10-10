@@ -1,6 +1,8 @@
 import { registerOfficialDirectorHandlers } from "./official-director-ipc";
 import { registerMediaToolchainHandlers } from "./media-toolchain-ipc";
 import { registerOfficialTextHandlers } from "./official-text-ipc";
+import { registerAssistantChatHandlers } from "./assistant-chat-ipc";
+import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assistant-chat-receipts";
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
@@ -242,6 +244,14 @@ function clientFor(event: IpcMainInvokeEvent): LocalApiClient {
 }
 
 let chatgptRuntime: ReturnType<typeof createChatGPTRuntime> | null = null;
+let assistantAuthEpoch = 0;
+let assistantReceiptStore: AssistantReceiptStore | null = null;
+function getAssistantReceiptStore(): AssistantReceiptStore {
+  assistantReceiptStore ??= createAssistantReceiptStore(
+    join(app.getPath("userData"), "assistant-chat-receipts"),
+  );
+  return assistantReceiptStore;
+}
 function getChatGPTRuntime() {
   chatgptRuntime ??= createChatGPTRuntime({
     store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
@@ -290,8 +300,52 @@ registerChatGPTHandlers<IpcMainInvokeEvent>(
     mainWindow !== null &&
     event.sender === mainWindow.webContents &&
     event.senderFrame === mainWindow.webContents.mainFrame,
-  getChatGPTRuntime,
+  () => {
+    const runtime = getChatGPTRuntime();
+    return {
+      ...runtime,
+      signIn: async (...args: Parameters<typeof runtime.signIn>) => {
+        assistantAuthEpoch++;
+        return runtime.signIn(...args);
+      },
+      cancel: async () => {
+        assistantAuthEpoch++;
+        return runtime.cancel();
+      },
+      selectProfile: async (profileId: string) => {
+        assistantAuthEpoch++;
+        return runtime.selectProfile(profileId);
+      },
+      signOut: async () => {
+        assistantAuthEpoch++;
+        return runtime.signOut();
+      },
+    };
+  },
   (url) => shell.openExternal(url),
+);
+
+registerAssistantChatHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  getChatGPTRuntime,
+  {
+    reserve: (receipt) => getAssistantReceiptStore().reserve(receipt),
+    finish: (operationId, status, responseHash) =>
+      getAssistantReceiptStore().finish(operationId, status, responseHash),
+    get: (operationId) => getAssistantReceiptStore().get(operationId),
+    pending: (scope, profileId) => getAssistantReceiptStore().pending(scope, profileId),
+  },
+  () => assistantAuthEpoch,
 );
 
 registerOfficialTextHandlers<IpcMainInvokeEvent>(
