@@ -10,6 +10,75 @@ import {
 import { fixtureFetch, json, signedIdentity } from "./chatgpt-auth-test-fixture";
 const signal = () => AbortSignal.timeout(5000);
 describe("official token and catalog transport", () => {
+  it("accepts a catalog at exactly 8 MiB and counts UTF-8 bytes", async () => {
+    const base = JSON.stringify({ models: [], metadata: "中" });
+    const payload = base + " ".repeat(8 * 1024 * 1024 - Buffer.byteLength(base));
+    expect(
+      await listModels(
+        "synthetic",
+        vi.fn(
+          async () => new Response(payload, { headers: { "Content-Type": "application/json" } }),
+        ),
+        signal(),
+      ),
+    ).toEqual([]);
+    await expect(boundedText(new Response("中"), 2)).rejects.toThrow("RESPONSE_TOO_LARGE");
+  });
+  it("keeps the size failure even if cancelling an oversized declared body fails", async () => {
+    const response = new Response("unused", { headers: { "Content-Length": "524289" } });
+    const cancel = vi
+      .spyOn(response.body!, "cancel")
+      .mockRejectedValue(new Error("private cleanup detail"));
+    await expect(boundedText(response)).rejects.toThrow("RESPONSE_TOO_LARGE");
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+  it("reads a bounded large model catalog without relaxing authentication JSON limits", async () => {
+    const catalog = {
+      models: [
+        {
+          slug: "fixture",
+          display_name: "Fixture",
+          visibility: "list",
+          metadata: "x".repeat(600_000),
+        },
+      ],
+    };
+    const fetcher = vi.fn(async () => json(catalog));
+    expect(await listModels("synthetic", fetcher, signal())).toEqual([
+      { slug: "fixture", displayName: "Fixture" },
+    ]);
+    expect(fetcher).toHaveBeenCalledOnce();
+    await expect(readJson(json(catalog))).rejects.toThrow("RESPONSE_TOO_LARGE");
+  });
+  it.each([false, true])(
+    "rejects catalogs above 8 MiB (declared length: %s) with size-only diagnostics",
+    async (declared) => {
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const size = 8 * 1024 * 1024 + 1;
+      const response = new Response("x".repeat(size), {
+        headers: {
+          "Content-Type": "application/json",
+          ...(declared ? { "Content-Length": String(size) } : {}),
+        },
+      });
+      try {
+        await expect(
+          listModels(
+            "synthetic-private-token",
+            vi.fn(async () => response),
+            signal(),
+          ),
+        ).rejects.toThrow("RESPONSE_TOO_LARGE");
+        expect(warning).toHaveBeenCalledWith("[chatgpt-http]", {
+          code: "RESPONSE_TOO_LARGE",
+          limitBytes: 8 * 1024 * 1024,
+          observedBytes: size,
+        });
+      } finally {
+        warning.mockRestore();
+      }
+    },
+  );
   it("logs only the HTTP status and a fixed code, never response content", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
@@ -188,7 +257,7 @@ it("rejects malformed and oversized JSON and duplicate display models", async ()
         headers: { "Content-Type": "application/json", "Content-Length": "999999999" },
       }),
     ),
-  ).rejects.toThrow("RESPONSE_INVALID");
+  ).rejects.toThrow("RESPONSE_TOO_LARGE");
   const model = { slug: "fixture", display_name: "Fixture", visibility: "list" };
   await expect(
     listModels(

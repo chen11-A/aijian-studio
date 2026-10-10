@@ -22,9 +22,19 @@ export type Tokens = {
 };
 const DISCOVERY = `${ISSUER}/.well-known/openid-configuration`;
 const MAX_JSON = 512 * 1024;
+// Account catalogs include capability metadata; auth/JWKS responses keep the smaller limit.
+const MAX_MODEL_CATALOG_JSON = 8 * 1024 * 1024;
+function responseTooLarge(limitBytes: number, observedBytes: number): never {
+  console.warn("[chatgpt-http]", { code: "RESPONSE_TOO_LARGE", limitBytes, observedBytes });
+  throw new ChatGPTError("RESPONSE_TOO_LARGE");
+}
 export async function boundedText(response: Response, limit = MAX_JSON): Promise<string> {
-  if (!response.body || Number(response.headers.get("content-length") ?? 0) > limit)
-    throw new ChatGPTError("RESPONSE_INVALID");
+  if (!response.body) throw new ChatGPTError("RESPONSE_INVALID");
+  const declaredBytes = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isSafeInteger(declaredBytes) && declaredBytes > limit) {
+    await response.body.cancel().catch(() => undefined);
+    responseTooLarge(limit, declaredBytes);
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let text = "";
@@ -34,7 +44,7 @@ export async function boundedText(response: Response, limit = MAX_JSON): Promise
       const value = await reader.read();
       if (value.done) return text + decoder.decode();
       bytes += value.value.byteLength;
-      if (bytes > limit) throw new ChatGPTError("RESPONSE_TOO_LARGE");
+      if (bytes > limit) responseTooLarge(limit, bytes);
       text += decoder.decode(value.value, { stream: true });
     }
   } finally {
@@ -42,7 +52,7 @@ export async function boundedText(response: Response, limit = MAX_JSON): Promise
     reader.releaseLock();
   }
 }
-export async function readJson(response: Response): Promise<unknown> {
+export async function readJson(response: Response, limit = MAX_JSON): Promise<unknown> {
   if (!response.ok) {
     const code =
       response.status === 401
@@ -57,7 +67,7 @@ export async function readJson(response: Response): Promise<unknown> {
   if (!response.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new ChatGPTError("RESPONSE_INVALID");
   try {
-    return JSON.parse(await boundedText(response));
+    return JSON.parse(await boundedText(response, limit));
   } catch (error) {
     if (error instanceof ChatGPTError) throw error;
     throw new ChatGPTError("RESPONSE_INVALID");
@@ -269,6 +279,7 @@ export async function listModels(
       redirect: "error",
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     }),
+    MAX_MODEL_CATALOG_JSON,
   );
   if (!isRecord(value) || !Array.isArray(value.models) || value.models.length > 1000)
     throw new ChatGPTError("MODEL_CATALOG_INVALID");
