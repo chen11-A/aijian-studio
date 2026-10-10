@@ -88,6 +88,7 @@ from aijian_api.development_timeline_export_routes import (
 from aijian_api.domain import SourceDocument, TrustedReviewActor
 from aijian_api.draft_export_routes import create_draft_export_router
 from aijian_api.draft_export_runtime import DraftExportRuntime
+from aijian_api.draft_review_revision_routes import create_draft_review_revision_router
 from aijian_api.draft_review_routes import create_draft_review_router
 from aijian_api.episode_media_assembly_routes import (
     create_episode_media_assembly_public_router,
@@ -140,6 +141,10 @@ from aijian_api.media_toolchain import (
     MediaToolchain,
     discover_media_toolchain,
     load_media_toolchain_lock,
+)
+from aijian_api.official_director_routes import (
+    create_official_director_public_router,
+    create_official_director_write_router,
 )
 from aijian_api.official_text_routes import (
     create_official_text_public_router,
@@ -1185,6 +1190,7 @@ def create_app(
     app.include_router(create_episode_router(get_repository))
     app.include_router(create_episode_script_public_router(get_repository))
     app.include_router(create_official_text_public_router(get_repository))
+    app.include_router(create_official_director_public_router(get_repository))
     app.include_router(create_episode_storyboard_public_router(get_repository))
     app.include_router(create_shot_plan_public_router(get_repository))
     app.include_router(create_project_creative_library_public_router(get_repository))
@@ -1210,10 +1216,20 @@ def create_app(
         app.include_router(create_local_media_toolchain_router(resolved_local_media_toolchain))
         app.include_router(create_official_text_write_router(get_repository, trusted_review_actor))
         app.include_router(
+            create_official_director_write_router(get_repository, trusted_review_actor)
+        )
+        app.include_router(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
         )
         app.include_router(
             create_draft_review_router(
+                get_repository,
+                lambda: cast(DraftExportRuntime, draft_export_runtime),
+                trusted_review_actor,
+            )
+        )
+        app.include_router(
+            create_draft_review_revision_router(
                 get_repository,
                 lambda: cast(DraftExportRuntime, draft_export_runtime),
                 trusted_review_actor,

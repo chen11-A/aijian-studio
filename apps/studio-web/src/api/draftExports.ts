@@ -4,6 +4,12 @@ import type { AijianDesktopBridge } from "./studio";
 /** Optional capabilities keep older desktop versions usable without unsafe fallbacks. */
 export function desktopDraftExports(bridge: AijianDesktopBridge): DraftExportGateway | undefined {
   const {
+    listDraftReviewRevisionPlans,
+    getDraftReviewRevisionScope,
+    createDraftReviewRevisionPlan,
+    approveDraftReviewRevisionPlan,
+    attachDraftReviewRevisionCandidate,
+    recheckDraftReviewRevisionCandidate,
     listDraftReviewNotes,
     createDraftReviewNote,
     resolveDraftReviewNote,
@@ -36,6 +42,28 @@ export function desktopDraftExports(bridge: AijianDesktopBridge): DraftExportGat
             listDraftReviewNotes: (...args) => listDraftReviewNotes.call(bridge, ...args),
             createDraftReviewNote: (...args) => createDraftReviewNote.call(bridge, ...args),
             resolveDraftReviewNote: (...args) => resolveDraftReviewNote.call(bridge, ...args),
+          }
+        : undefined,
+    revision:
+      typeof listDraftReviewRevisionPlans === "function" &&
+      typeof getDraftReviewRevisionScope === "function" &&
+      typeof createDraftReviewRevisionPlan === "function" &&
+      typeof approveDraftReviewRevisionPlan === "function" &&
+      typeof attachDraftReviewRevisionCandidate === "function" &&
+      typeof recheckDraftReviewRevisionCandidate === "function"
+        ? {
+            listDraftReviewRevisionPlans: (...args) =>
+              listDraftReviewRevisionPlans.call(bridge, ...args),
+            getDraftReviewRevisionScope: (...args) =>
+              getDraftReviewRevisionScope.call(bridge, ...args),
+            createDraftReviewRevisionPlan: (...args) =>
+              createDraftReviewRevisionPlan.call(bridge, ...args),
+            approveDraftReviewRevisionPlan: (...args) =>
+              approveDraftReviewRevisionPlan.call(bridge, ...args),
+            attachDraftReviewRevisionCandidate: (...args) =>
+              attachDraftReviewRevisionCandidate.call(bridge, ...args),
+            recheckDraftReviewRevisionCandidate: (...args) =>
+              recheckDraftReviewRevisionCandidate.call(bridge, ...args),
           }
         : undefined,
     list: (projectId, episodeId) => listDraftExports.call(bridge, projectId, episodeId),

@@ -29,6 +29,33 @@
         "title": "AddAssetEpisodeReferenceRequest",
         "type": "object"
       },
+      "AdoptOfficialDirectorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "const": true,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "proposal_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Content Hash",
+            "type": "string"
+          },
+          "proposal_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Proposal Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_content_hash",
+          "confirm",
+          "proposal_version_id"
+        ],
+        "title": "AdoptOfficialDirectorRequest",
+        "type": "object"
+      },
       "AdoptOfficialTextRequest": {
         "additionalProperties": false,
         "properties": {
@@ -353,6 +380,27 @@
           "request_id"
         ],
         "title": "AppPreferencesResponse",
+        "type": "object"
+      },
+      "ApproveDraftReviewRevisionPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "pattern": "^dra_[0-9a-f]{32}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "expected_plan_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Expected Plan Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "expected_plan_hash"
+        ],
+        "title": "ApproveDraftReviewRevisionPlanRequest",
         "type": "object"
       },
       "ArtifactHeadData": {
@@ -1479,6 +1527,70 @@
         "title": "AssetVersionData",
         "type": "object"
       },
+      "AttachDraftReviewRevisionCandidateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "pattern": "^dra_[0-9a-f]{32}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "assembly_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Assembly Content Hash",
+            "type": "string"
+          },
+          "assembly_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Assembly Version Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^drc_[0-9a-f]{32}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_operation_id": {
+            "pattern": "^dmp_[0-9a-f]{32}$",
+            "title": "Candidate Operation Id",
+            "type": "string"
+          },
+          "change_summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "expected_plan_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Expected Plan Hash",
+            "type": "string"
+          },
+          "output_bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Output Bytes",
+            "type": "integer"
+          },
+          "output_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Output Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assembly_version_id",
+          "assembly_content_hash",
+          "output_sha256",
+          "output_bytes",
+          "candidate_id",
+          "expected_plan_hash",
+          "approval_id",
+          "candidate_operation_id",
+          "change_summary"
+        ],
+        "title": "AttachDraftReviewRevisionCandidateRequest",
+        "type": "object"
+      },
       "AttemptSnapshotV1": {
         "additionalProperties": false,
         "properties": {
@@ -2350,6 +2462,60 @@
         "title": "ClientRefV1",
         "type": "object"
       },
+      "CompleteOfficialDirectorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_at": {
+            "maxLength": 40,
+            "minLength": 20,
+            "title": "Completed At",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "operation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "profile_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "request_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "response_id": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Response Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 4194304,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation_id",
+          "profile_id",
+          "model",
+          "request_hash",
+          "response_id",
+          "text",
+          "completed_at"
+        ],
+        "title": "CompleteOfficialDirectorRequest",
+        "type": "object"
+      },
       "CompleteOfficialTextRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3156,6 +3322,72 @@
           "text"
         ],
         "title": "CreateDraftReviewNoteRequest",
+        "type": "object"
+      },
+      "CreateDraftReviewRevisionPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Affected Segment Ids",
+            "type": "array"
+          },
+          "assembly_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Assembly Content Hash",
+            "type": "string"
+          },
+          "assembly_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Assembly Version Id",
+            "type": "string"
+          },
+          "instruction": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Instruction",
+            "type": "string"
+          },
+          "note_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Note Ids",
+            "type": "array"
+          },
+          "output_bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Output Bytes",
+            "type": "integer"
+          },
+          "output_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Output Sha256",
+            "type": "string"
+          },
+          "plan_id": {
+            "pattern": "^drp_[0-9a-f]{32}$",
+            "title": "Plan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assembly_version_id",
+          "assembly_content_hash",
+          "output_sha256",
+          "output_bytes",
+          "plan_id",
+          "note_ids",
+          "affected_segment_ids",
+          "instruction"
+        ],
+        "title": "CreateDraftReviewRevisionPlanRequest",
         "type": "object"
       },
       "CreateEpisodeRequest": {
@@ -4545,6 +4777,580 @@
           "request_id"
         ],
         "title": "DraftReviewResponse",
+        "type": "object"
+      },
+      "DraftReviewRevisionApproval": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "approval_id": {
+            "pattern": "^dra_[0-9a-f]{32}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "assembly_version_number_at_approval": {
+            "exclusiveMinimum": 0.0,
+            "title": "Assembly Version Number At Approval",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "plan_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Hash",
+            "type": "string"
+          },
+          "plan_id": {
+            "pattern": "^drp_[0-9a-f]{32}$",
+            "title": "Plan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "plan_id",
+          "plan_hash",
+          "assembly_version_number_at_approval",
+          "actor_id",
+          "created_at"
+        ],
+        "title": "DraftReviewRevisionApproval",
+        "type": "object"
+      },
+      "DraftReviewRevisionCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "approval_id": {
+            "pattern": "^dra_[0-9a-f]{32}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "candidate_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Candidate Hash",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^drc_[0-9a-f]{32}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "change_summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/DraftReviewRevisionComparison"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "plan_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Hash",
+            "type": "string"
+          },
+          "plan_id": {
+            "pattern": "^drp_[0-9a-f]{32}$",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionSegment"
+            },
+            "maxItems": 3000,
+            "title": "Segments",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/DraftReviewTarget"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "plan_id",
+          "plan_hash",
+          "approval_id",
+          "target",
+          "segments",
+          "comparison",
+          "change_summary",
+          "actor_id",
+          "created_at",
+          "candidate_hash"
+        ],
+        "title": "DraftReviewRevisionCandidate",
+        "type": "object"
+      },
+      "DraftReviewRevisionCandidateEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DraftReviewRevisionCandidate"
+          },
+          "output_verified": {
+            "title": "Output Verified",
+            "type": "boolean"
+          },
+          "recheck": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftReviewRevisionRecheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "candidate",
+          "output_verified",
+          "recheck"
+        ],
+        "title": "DraftReviewRevisionCandidateEntry",
+        "type": "object"
+      },
+      "DraftReviewRevisionComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "added_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Added Segment Ids",
+            "type": "array"
+          },
+          "changed_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Changed Segment Ids",
+            "type": "array"
+          },
+          "out_of_scope_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Out Of Scope Segment Ids",
+            "type": "array"
+          },
+          "removed_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Removed Segment Ids",
+            "type": "array"
+          },
+          "sequence_settings_changed": {
+            "title": "Sequence Settings Changed",
+            "type": "boolean"
+          },
+          "unchanged_segment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Unchanged Segment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "unchanged_segment_ids",
+          "changed_segment_ids",
+          "removed_segment_ids",
+          "added_segment_ids",
+          "out_of_scope_segment_ids",
+          "sequence_settings_changed"
+        ],
+        "title": "DraftReviewRevisionComparison",
+        "type": "object"
+      },
+      "DraftReviewRevisionData": {
+        "additionalProperties": false,
+        "properties": {
+          "manual_review_only": {
+            "const": true,
+            "default": true,
+            "title": "Manual Review Only",
+            "type": "boolean"
+          },
+          "output_verified": {
+            "title": "Output Verified",
+            "type": "boolean"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionPlanEntry"
+            },
+            "maxItems": 100,
+            "title": "Plans",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DraftReviewTarget"
+          }
+        },
+        "required": [
+          "source",
+          "output_verified",
+          "plans"
+        ],
+        "title": "DraftReviewRevisionData",
+        "type": "object"
+      },
+      "DraftReviewRevisionNoteSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "frame_index": {
+            "exclusiveMaximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Frame Index",
+            "type": "integer"
+          },
+          "note_id": {
+            "pattern": "^drn_[0-9a-f]{32}$",
+            "title": "Note Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note_id",
+          "frame_index",
+          "text",
+          "actor_id",
+          "created_at"
+        ],
+        "title": "DraftReviewRevisionNoteSnapshot",
+        "type": "object"
+      },
+      "DraftReviewRevisionPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "affected_segments": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionSegment"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Affected Segments",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "instruction": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Instruction",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionNoteSnapshot"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Notes",
+            "type": "array"
+          },
+          "plan_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Plan Hash",
+            "type": "string"
+          },
+          "plan_id": {
+            "pattern": "^drp_[0-9a-f]{32}$",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DraftReviewTarget"
+          }
+        },
+        "required": [
+          "plan_id",
+          "source",
+          "notes",
+          "affected_segments",
+          "instruction",
+          "actor_id",
+          "created_at",
+          "plan_hash"
+        ],
+        "title": "DraftReviewRevisionPlan",
+        "type": "object"
+      },
+      "DraftReviewRevisionPlanEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftReviewRevisionApproval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionCandidateEntry"
+            },
+            "maxItems": 50,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/DraftReviewRevisionPlan"
+          }
+        },
+        "required": [
+          "plan",
+          "approval",
+          "candidates"
+        ],
+        "title": "DraftReviewRevisionPlanEntry",
+        "type": "object"
+      },
+      "DraftReviewRevisionRecheck": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "candidate_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Candidate Hash",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^drc_[0-9a-f]{32}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "NEEDS_MORE_WORK",
+              "MANUALLY_CHECKED"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "recheck_id": {
+            "pattern": "^drk_[0-9a-f]{32}$",
+            "title": "Recheck Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recheck_id",
+          "candidate_id",
+          "candidate_hash",
+          "outcome",
+          "reason",
+          "actor_id",
+          "created_at"
+        ],
+        "title": "DraftReviewRevisionRecheck",
+        "type": "object"
+      },
+      "DraftReviewRevisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DraftReviewRevisionData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "DraftReviewRevisionResponse",
+        "type": "object"
+      },
+      "DraftReviewRevisionScopeData": {
+        "additionalProperties": false,
+        "properties": {
+          "manual_review_only": {
+            "const": true,
+            "default": true,
+            "title": "Manual Review Only",
+            "type": "boolean"
+          },
+          "output_verified": {
+            "title": "Output Verified",
+            "type": "boolean"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/DraftReviewRevisionSegment"
+            },
+            "maxItems": 3000,
+            "title": "Segments",
+            "type": "array"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DraftReviewTarget"
+          }
+        },
+        "required": [
+          "source",
+          "output_verified",
+          "segments"
+        ],
+        "title": "DraftReviewRevisionScopeData",
+        "type": "object"
+      },
+      "DraftReviewRevisionScopeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DraftReviewRevisionScopeData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "DraftReviewRevisionScopeResponse",
+        "type": "object"
+      },
+      "DraftReviewRevisionSegment": {
+        "additionalProperties": false,
+        "properties": {
+          "end_frame": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "End Frame",
+            "type": "integer"
+          },
+          "media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssemblyMediaRefV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "segment_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Segment Hash",
+            "type": "string"
+          },
+          "segment_id": {
+            "pattern": "^seg_[a-z0-9._-]{1,80}$",
+            "title": "Segment Id",
+            "type": "string"
+          },
+          "start_frame": {
+            "exclusiveMaximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Start Frame",
+            "type": "integer"
+          },
+          "storyboard_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssemblyStoryboardRefV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "track_kind": {
+            "enum": [
+              "VISUAL",
+              "DIALOGUE",
+              "BGM",
+              "SFX",
+              "SUBTITLE"
+            ],
+            "title": "Track Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "segment_id",
+          "track_kind",
+          "start_frame",
+          "end_frame",
+          "segment_hash",
+          "media",
+          "storyboard_ref"
+        ],
+        "title": "DraftReviewRevisionSegment",
         "type": "object"
       },
       "DraftReviewTarget": {
@@ -8113,6 +8919,577 @@
         "title": "NumberStateValueV1",
         "type": "object"
       },
+      "OfficialDirectorContentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "episode_id": {
+            "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanIssueV1"
+            },
+            "maxItems": 1000,
+            "title": "Issues",
+            "type": "array"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provenance": {
+            "const": "AI",
+            "title": "Provenance",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanShotV1"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Shots",
+            "type": "array"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timebase": {
+            "$ref": "#/components/schemas/SequenceTimebaseData"
+          },
+          "visual_constraints": {
+            "items": {
+              "maxLength": 4000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Visual Constraints",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "provenance",
+          "project_id",
+          "episode_id",
+          "authority",
+          "storyboard_base",
+          "timebase",
+          "visual_constraints",
+          "shots",
+          "issues"
+        ],
+        "title": "OfficialDirectorContentV1",
+        "type": "object"
+      },
+      "OfficialDirectorListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialDirectorOperation"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "has_more",
+          "request_id"
+        ],
+        "title": "OfficialDirectorListResponse",
+        "type": "object"
+      },
+      "OfficialDirectorMutationData": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/OfficialDirectorOperation"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operation",
+          "replayed"
+        ],
+        "title": "OfficialDirectorMutationData",
+        "type": "object"
+      },
+      "OfficialDirectorMutationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OfficialDirectorMutationData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "OfficialDirectorMutationResponse",
+        "type": "object"
+      },
+      "OfficialDirectorNotSentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "OfficialDirectorNotSentRequest",
+        "type": "object"
+      },
+      "OfficialDirectorOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanAdoptionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_id": {
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "attempt_status": {
+            "enum": [
+              "REMOTE_UNKNOWN",
+              "SUCCEEDED",
+              "FAILED",
+              "NOT_SUBMITTED"
+            ],
+            "title": "Attempt Status",
+            "type": "string"
+          },
+          "completion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompleteOfficialDirectorRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "episode_id": {
+            "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "project_id": {
+            "pattern": "^prj_[0-9a-f]{32}$",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfficialDirectorProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfficialDirectorRejection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/OfficialDirectorPreparedRequest"
+          },
+          "status": {
+            "enum": [
+              "REMOTE_UNKNOWN",
+              "COMPLETED",
+              "NOT_SENT",
+              "INVALID"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "validation_issues": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialDirectorValidationIssue"
+            },
+            "maxItems": 100,
+            "title": "Validation Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "episode_id",
+          "request",
+          "status",
+          "error_code",
+          "created_at",
+          "task_id",
+          "attempt_id",
+          "attempt_status",
+          "completion",
+          "validation_issues",
+          "proposal",
+          "adoption",
+          "rejection"
+        ],
+        "title": "OfficialDirectorOperation",
+        "type": "object"
+      },
+      "OfficialDirectorOperationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OfficialDirectorOperation"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "OfficialDirectorOperationResponse",
+        "type": "object"
+      },
+      "OfficialDirectorOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "pacing": {
+            "enum": [
+              "BALANCED",
+              "FAST",
+              "SLOW"
+            ],
+            "title": "Pacing",
+            "type": "string"
+          },
+          "target_shot_count": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Shot Count"
+          }
+        },
+        "required": [
+          "target_shot_count",
+          "pacing"
+        ],
+        "title": "OfficialDirectorOptions",
+        "type": "object"
+      },
+      "OfficialDirectorPreparationData": {
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/OfficialDirectorPreparedRequest"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "OfficialDirectorPreparationData",
+        "type": "object"
+      },
+      "OfficialDirectorPreparationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OfficialDirectorPreparationData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "OfficialDirectorPreparationResponse",
+        "type": "object"
+      },
+      "OfficialDirectorPreparedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "input_text": {
+            "maxLength": 100000,
+            "title": "Input Text",
+            "type": "string"
+          },
+          "instructions": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "intent": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "operation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/OfficialDirectorOptions"
+          },
+          "production_brief_stored_content": {
+            "additionalProperties": true,
+            "title": "Production Brief Stored Content",
+            "type": "object"
+          },
+          "profile_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "request_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "script_stored_content": {
+            "additionalProperties": true,
+            "title": "Script Stored Content",
+            "type": "object"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "profile_id",
+          "model",
+          "authority",
+          "storyboard_base",
+          "intent",
+          "options",
+          "request_hash",
+          "input_text",
+          "instructions",
+          "script_stored_content",
+          "production_brief_stored_content"
+        ],
+        "title": "OfficialDirectorPreparedRequest",
+        "type": "object"
+      },
+      "OfficialDirectorProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_losses": {
+            "items": {
+              "$ref": "#/components/schemas/ShotPlanIssueV1"
+            },
+            "title": "Capability Losses",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/OfficialDirectorContentV1"
+          },
+          "content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "content_hash",
+          "content",
+          "capability_losses"
+        ],
+        "title": "OfficialDirectorProposal",
+        "type": "object"
+      },
+      "OfficialDirectorRejection": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "rejected_at": {
+            "title": "Rejected At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor_id",
+          "reason",
+          "rejected_at"
+        ],
+        "title": "OfficialDirectorRejection",
+        "type": "object"
+      },
+      "OfficialDirectorValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,79}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "OfficialDirectorValidationIssue",
+        "type": "object"
+      },
       "OfficialTextAdoption": {
         "additionalProperties": false,
         "properties": {
@@ -8805,6 +10182,75 @@
           "den"
         ],
         "title": "PositiveRationalData",
+        "type": "object"
+      },
+      "PrepareOfficialDirectorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "intent": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "operation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/OfficialDirectorOptions"
+          },
+          "profile_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "profile_id",
+          "model",
+          "authority",
+          "storyboard_base",
+          "intent",
+          "options"
+        ],
+        "title": "PrepareOfficialDirectorRequest",
         "type": "object"
       },
       "ProductExportAssetRef": {
@@ -10909,6 +12355,43 @@
         "title": "ProviderRotationOperationResponse",
         "type": "object"
       },
+      "RecheckDraftReviewRevisionCandidateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_candidate_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Expected Candidate Hash",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "NEEDS_MORE_WORK",
+              "MANUALLY_CHECKED"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "recheck_id": {
+            "pattern": "^drk_[0-9a-f]{32}$",
+            "title": "Recheck Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recheck_id",
+          "expected_candidate_hash",
+          "outcome",
+          "reason"
+        ],
+        "title": "RecheckDraftReviewRevisionCandidateRequest",
+        "type": "object"
+      },
       "ReferenceDeclarationV1": {
         "additionalProperties": false,
         "properties": {
@@ -10933,6 +12416,40 @@
           "description"
         ],
         "title": "ReferenceDeclarationV1",
+        "type": "object"
+      },
+      "RejectOfficialDirectorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "const": true,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "proposal_content_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Proposal Content Hash",
+            "type": "string"
+          },
+          "proposal_version_id": {
+            "pattern": "^ver_[0-9a-f]{32}$",
+            "title": "Proposal Version Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_content_hash",
+          "confirm",
+          "proposal_version_id",
+          "reason"
+        ],
+        "title": "RejectOfficialDirectorRequest",
         "type": "object"
       },
       "RelationshipFactDraftV1": {
@@ -11754,6 +13271,81 @@
           "expected_revision"
         ],
         "title": "ReplaceTimelineClipRequest",
+        "type": "object"
+      },
+      "ReserveOfficialDirectorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "discriminator": {
+              "mapping": {
+                "ADAPTED": "#/components/schemas/ShotPlanAdaptedAuthority",
+                "ORIGINAL": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              "propertyName": "mode"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanOriginalAuthority"
+              },
+              {
+                "$ref": "#/components/schemas/ShotPlanAdaptedAuthority"
+              }
+            ],
+            "title": "Authority"
+          },
+          "intent": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "operation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/OfficialDirectorOptions"
+          },
+          "profile_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "request_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "storyboard_base": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShotPlanStoryboardBase"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "profile_id",
+          "model",
+          "authority",
+          "storyboard_base",
+          "intent",
+          "options",
+          "request_hash"
+        ],
+        "title": "ReserveOfficialDirectorRequest",
         "type": "object"
       },
       "ReserveOfficialTextRequest": {
@@ -21720,6 +23312,444 @@
         "summary": "Resolve"
       }
     },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans": {
+      "get": {
+        "operationId": "listDraftReviewRevisionPlans",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History"
+      },
+      "post": {
+        "operationId": "createDraftReviewRevisionPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDraftReviewRevisionPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/scope": {
+      "get": {
+        "operationId": "getDraftReviewRevisionScope",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionScopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scope"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/approvals": {
+      "post": {
+        "operationId": "approveDraftReviewRevisionPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "pattern": "^drp_[0-9a-f]{32}$",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveDraftReviewRevisionPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/candidates": {
+      "post": {
+        "operationId": "attachDraftReviewRevisionCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "pattern": "^drp_[0-9a-f]{32}$",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachDraftReviewRevisionCandidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/candidates/{candidate_id}/rechecks": {
+      "post": {
+        "operationId": "recheckDraftReviewRevisionCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dmp_[0-9a-f]{32}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "pattern": "^drp_[0-9a-f]{32}$",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "pattern": "^drc_[0-9a-f]{32}$",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecheckDraftReviewRevisionCandidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftReviewRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recheck"
+      }
+    },
     "/api/v1/projects/{project_id}/episodes/{episode_id}/media-assembly": {
       "get": {
         "operationId": "getEpisodeMediaAssembly",
@@ -21928,6 +23958,514 @@
           }
         },
         "summary": "Get Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director": {
+      "get": {
+        "operationId": "listOfficialDirectorOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Operations"
+      },
+      "post": {
+        "operationId": "reserveOfficialDirectorOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveOfficialDirectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reserve"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/preparation": {
+      "post": {
+        "operationId": "prepareOfficialDirectorOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareOfficialDirectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorPreparationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}": {
+      "get": {
+        "operationId": "getOfficialDirectorOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorOperationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Operation"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/adoption": {
+      "post": {
+        "operationId": "adoptOfficialDirectorProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptOfficialDirectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/completion": {
+      "post": {
+        "operationId": "completeOfficialDirectorOperation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteOfficialDirectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/not-sent": {
+      "post": {
+        "operationId": "recordOfficialDirectorNotSent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialDirectorNotSentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Not Sent"
+      }
+    },
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/rejection": {
+      "post": {
+        "operationId": "rejectOfficialDirectorProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "pattern": "^ep_(?:prj_)?[0-9a-f]{32}$",
+              "title": "Episode Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectOfficialDirectorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialDirectorMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject"
       }
     },
     "/api/v1/projects/{project_id}/episodes/{episode_id}/official-text": {

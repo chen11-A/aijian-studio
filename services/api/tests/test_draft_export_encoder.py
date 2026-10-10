@@ -364,7 +364,7 @@ def test_rejects_unsupported_and_changed_sources(tmp_path: Path, toolchain: Medi
     assert not output.exists()
 
 
-def test_rejects_subtitles_and_dialogue(tmp_path: Path, toolchain: MediaToolchain) -> None:
+def test_rejects_legacy_bound_subtitles(tmp_path: Path, toolchain: MediaToolchain) -> None:
     image = _png(tmp_path / "still.png", (50, 20, 50))
     subtitle = {
         "segment_id": "seg_subtitle",
@@ -384,25 +384,6 @@ def test_rejects_subtitles_and_dialogue(tmp_path: Path, toolchain: MediaToolchai
             stop_requested=lambda: False,
         )
     assert error.value.code == "SUBTITLE_UNSUPPORTED"
-    audio = _audio(image, 0, 24, kind="DIALOGUE")
-    audio.update(
-        {
-            "script_version_id": subtitle["script_version_id"],
-            "script_block_id": subtitle["script_block_id"],
-            "speaker_id": "spk_" + "8" * 32,
-            "delivery": "ON_SCREEN",
-        }
-    )
-    with pytest.raises(DraftEncodeError) as error:
-        encode_draft(
-            _assembly([_visual(image, 0, 24)], [audio]),
-            {},
-            tmp_path / "no.mp4",
-            toolchain,
-            on_progress=lambda _: None,
-            stop_requested=lambda: False,
-        )
-    assert error.value.code == "DIALOGUE_UNSUPPORTED"
 
 
 def test_rejects_video_range_and_rate(tmp_path: Path, toolchain: MediaToolchain) -> None:
@@ -510,13 +491,23 @@ def test_ntsc_frame_boundaries_and_nonstandard_native_audio_rate(
     assert evidence["audio"]["assembly_samples"] == 97698
 
 
+@pytest.mark.parametrize("kind", ["BGM", "SFX", "DIALOGUE"])
 def test_source_audio_range_and_existing_output_rejected(
     tmp_path: Path,
     toolchain: MediaToolchain,
+    kind: str,
 ) -> None:
     image = _png(tmp_path / "still.png", (20, 30, 40))
     audio = _wav(tmp_path / "audio.wav", 44100, [(1, 100)])
-    assembly = _assembly([_visual(image, 0, 24)], [_audio(audio, 0, 24, kind="BGM", offset=1)])
+    selected = _audio(audio, 0, 24, kind=kind, offset=1)
+    if kind == "DIALOGUE":
+        selected.update(
+            script_version_id="ver_" + "6" * 32,
+            script_block_id="sblk_" + "7" * 32,
+            speaker_id="spk_" + "8" * 32,
+            delivery="ON_SCREEN",
+        )
+    assembly = _assembly([_visual(image, 0, 24)], [selected])
     with pytest.raises(DraftEncodeError) as error:
         encode_draft(
             assembly,

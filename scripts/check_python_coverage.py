@@ -12,6 +12,7 @@ CRITICAL_FULL_COVERAGE_MODULES = (
     "services/api/src/aijian_api/local_executor.py",
     "services/api/src/aijian_api/media_contracts.py",
     "services/api/src/aijian_api/media_toolchain.py",
+    "services/api/src/aijian_api/official_director_task.py",
     "services/api/src/aijian_api/provider_connection_repository.py",
     "services/api/src/aijian_api/provider_connection_routes.py",
     "services/api/src/aijian_api/provider_connections.py",

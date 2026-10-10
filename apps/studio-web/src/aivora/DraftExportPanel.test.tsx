@@ -415,4 +415,32 @@ describe("real saved-assembly DRAFT export", () => {
     ] as AssemblyVersion["content"]["audio_segments"];
     expect(draftExportProblem(version)).toContain("对白轨");
   });
+  it("accepts complete saved dialogue bindings for draft export and preview while rejecting malformed identities", () => {
+    const version = structuredClone(saved.data);
+    version.content.audio_segments = [
+      {
+        segment_id: "seg_recording",
+        media,
+        track_kind: "DIALOGUE",
+        start_frame: 0,
+        end_frame: 25,
+        source_in_sample: 0,
+        script_version_id: `ver_${"a".repeat(32)}`,
+        script_block_id: `sblk_${"b".repeat(32)}`,
+        speaker_id: `spk_${"c".repeat(32)}`,
+        delivery: "OFF_SCREEN",
+      },
+    ];
+    expect(draftExportProblem(version)).toBeNull();
+    for (const field of [
+      "script_version_id",
+      "script_block_id",
+      "speaker_id",
+      "delivery",
+    ] as const) {
+      const malformed = structuredClone(version);
+      malformed.content.audio_segments[0]![field] = null;
+      expect(draftExportProblem(malformed)).toContain("对白轨缺少有效");
+    }
+  });
 });

@@ -209,8 +209,6 @@ class DraftExportRuntime:
             validate_draft_subtitles(content)
         except DraftSubtitleError as error:
             raise DraftExportError(error.code, str(error)) from None
-        if any(segment.track_kind == "DIALOGUE" for segment in content.audio_segments):
-            raise DraftExportError("UNSUPPORTED_TRACK", "Dialogue export is not supported yet")
         if any(check.rights_status == "RESTRICTED" for check in assembly.media_checks):
             raise DraftExportError(
                 "RIGHTS_RESTRICTED", "Restricted media cannot be exported as a draft"

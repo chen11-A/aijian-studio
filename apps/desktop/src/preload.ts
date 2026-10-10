@@ -1,3 +1,4 @@
+import type { OfficialDirectorBridge } from "@aijian/contracts/official-director";
 import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
 import type {
   MediaToolchainResult,
@@ -13,6 +14,14 @@ import type {
   ResolveDraftReviewNoteRequest,
   DraftReviewResult,
 } from "./draft-review-contract";
+import type {
+  CreateDraftReviewRevisionPlanRequest,
+  ApproveDraftReviewRevisionPlanRequest,
+  AttachDraftReviewRevisionCandidateRequest,
+  RecheckDraftReviewRevisionCandidateRequest,
+  DraftReviewRevisionResult,
+  DraftReviewRevisionScopeResult,
+} from "./draft-review-revision-contract";
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import type {
@@ -184,6 +193,18 @@ contextBridge.exposeInMainWorld("aijianOfficialText", {
   adopt: (project, episode, operation, input) =>
     ipcRenderer.invoke("official-text:adopt", project, episode, operation, input),
 } satisfies OfficialTextBridge);
+
+// AI director requests and human decisions only. Trusted prompts/completions stay in main.
+contextBridge.exposeInMainWorld("aijianOfficialDirector", {
+  list: (project, episode) => ipcRenderer.invoke("official-director:list", project, episode),
+  get: (project, episode, operation) =>
+    ipcRenderer.invoke("official-director:get", project, episode, operation),
+  generate: (command) => ipcRenderer.invoke("official-director:generate", command),
+  adopt: (project, episode, operation, input) =>
+    ipcRenderer.invoke("official-director:adopt", project, episode, operation, input),
+  reject: (project, episode, operation, input) =>
+    ipcRenderer.invoke("official-director:reject", project, episode, operation, input),
+} satisfies OfficialDirectorBridge);
 
 // HUMAN-only proposal surface. There is no arbitrary path, renderer fetch or AI completion API.
 contextBridge.exposeInMainWorld("aijianShotPlan", {
@@ -742,6 +763,88 @@ contextBridge.exposeInMainWorld("aijian", {
       noteId,
       command,
     ) as Promise<DraftReviewResult>,
+  listDraftReviewRevisionPlans: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftReviewRevisionResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:list",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftReviewRevisionResult>,
+  getDraftReviewRevisionScope: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+  ): Promise<DraftReviewRevisionScopeResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:scope",
+      projectId,
+      episodeId,
+      operationId,
+    ) as Promise<DraftReviewRevisionScopeResult>,
+  createDraftReviewRevisionPlan: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    command: CreateDraftReviewRevisionPlanRequest,
+  ): Promise<DraftReviewRevisionResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:create-plan",
+      projectId,
+      episodeId,
+      operationId,
+      command,
+    ) as Promise<DraftReviewRevisionResult>,
+  approveDraftReviewRevisionPlan: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    planId: string,
+    command: ApproveDraftReviewRevisionPlanRequest,
+  ): Promise<DraftReviewRevisionResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:approve-plan",
+      projectId,
+      episodeId,
+      operationId,
+      planId,
+      command,
+    ) as Promise<DraftReviewRevisionResult>,
+  attachDraftReviewRevisionCandidate: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    planId: string,
+    command: AttachDraftReviewRevisionCandidateRequest,
+  ): Promise<DraftReviewRevisionResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:attach-candidate",
+      projectId,
+      episodeId,
+      operationId,
+      planId,
+      command,
+    ) as Promise<DraftReviewRevisionResult>,
+  recheckDraftReviewRevisionCandidate: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    planId: string,
+    candidateId: string,
+    command: RecheckDraftReviewRevisionCandidateRequest,
+  ): Promise<DraftReviewRevisionResult> =>
+    ipcRenderer.invoke(
+      "draft-review-revision:recheck-candidate",
+      projectId,
+      episodeId,
+      operationId,
+      planId,
+      candidateId,
+      command,
+    ) as Promise<DraftReviewRevisionResult>,
   listDraftExports: (projectId: string, episodeId: string): Promise<DraftExportListResult> =>
     ipcRenderer.invoke(
       "draft-exports:list",

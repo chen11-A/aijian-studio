@@ -564,6 +564,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["listDraftReviewRevisionPlans"];
+        put?: never;
+        /** Create */
+        post: operations["createDraftReviewRevisionPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scope */
+        get: operations["getDraftReviewRevisionScope"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve */
+        post: operations["approveDraftReviewRevisionPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach */
+        post: operations["attachDraftReviewRevisionCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/draft-exports/{operation_id}/revision-plans/{plan_id}/candidates/{candidate_id}/rechecks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recheck */
+        post: operations["recheckDraftReviewRevisionCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/episodes/{episode_id}/media-assembly": {
         parameters: {
             query?: never;
@@ -592,6 +678,126 @@ export interface paths {
         get: operations["getEpisodeMediaAssemblyVersion"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Operations */
+        get: operations["listOfficialDirectorOperations"];
+        put?: never;
+        /** Reserve */
+        post: operations["reserveOfficialDirectorOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare */
+        post: operations["prepareOfficialDirectorOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Operation */
+        get: operations["getOfficialDirectorOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adopt */
+        post: operations["adoptOfficialDirectorProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete */
+        post: operations["completeOfficialDirectorOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/not-sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Not Sent */
+        post: operations["recordOfficialDirectorNotSent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/episodes/{episode_id}/official-director/{operation_id}/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject */
+        post: operations["rejectOfficialDirectorProposal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1623,6 +1829,18 @@ export interface components {
             /** Version Id */
             version_id: string;
         };
+        /** AdoptOfficialDirectorRequest */
+        AdoptOfficialDirectorRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
+            /** Proposal Content Hash */
+            proposal_content_hash: string;
+            /** Proposal Version Id */
+            proposal_version_id: string;
+        };
         /** AdoptOfficialTextRequest */
         AdoptOfficialTextRequest: {
             /**
@@ -1746,6 +1964,13 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** ApproveDraftReviewRevisionPlanRequest */
+        ApproveDraftReviewRevisionPlanRequest: {
+            /** Approval Id */
+            approval_id: string;
+            /** Expected Plan Hash */
+            expected_plan_hash: string;
         };
         /** ArtifactHeadData */
         ArtifactHeadData: {
@@ -2134,6 +2359,27 @@ export interface components {
                 [key: string]: string | number;
             };
         };
+        /** AttachDraftReviewRevisionCandidateRequest */
+        AttachDraftReviewRevisionCandidateRequest: {
+            /** Approval Id */
+            approval_id: string;
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Candidate Operation Id */
+            candidate_operation_id: string;
+            /** Change Summary */
+            change_summary: string;
+            /** Expected Plan Hash */
+            expected_plan_hash: string;
+            /** Output Bytes */
+            output_bytes: number;
+            /** Output Sha256 */
+            output_sha256: string;
+        };
         /** AttemptSnapshotV1 */
         AttemptSnapshotV1: {
             agent_definition_id: components["schemas"]["DefinitionId"];
@@ -2431,6 +2677,23 @@ export interface components {
              */
             ref_type: "client_key";
         };
+        /** CompleteOfficialDirectorRequest */
+        CompleteOfficialDirectorRequest: {
+            /** Completed At */
+            completed_at: string;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            /** Profile Id */
+            profile_id: string;
+            /** Request Hash */
+            request_hash: string;
+            /** Response Id */
+            response_id: string;
+            /** Text */
+            text: string;
+        };
         /** CompleteOfficialTextRequest */
         CompleteOfficialTextRequest: {
             /** Completed At */
@@ -2643,6 +2906,25 @@ export interface components {
             output_sha256: string;
             /** Text */
             text: string;
+        };
+        /** CreateDraftReviewRevisionPlanRequest */
+        CreateDraftReviewRevisionPlanRequest: {
+            /** Affected Segment Ids */
+            affected_segment_ids: string[];
+            /** Assembly Content Hash */
+            assembly_content_hash: string;
+            /** Assembly Version Id */
+            assembly_version_id: string;
+            /** Instruction */
+            instruction: string;
+            /** Note Ids */
+            note_ids: string[];
+            /** Output Bytes */
+            output_bytes: number;
+            /** Output Sha256 */
+            output_sha256: string;
+            /** Plan Id */
+            plan_id: string;
         };
         /**
          * CreateEpisodeRequest
@@ -3151,6 +3433,188 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** DraftReviewRevisionApproval */
+        DraftReviewRevisionApproval: {
+            /** Actor Id */
+            actor_id: string;
+            /** Approval Id */
+            approval_id: string;
+            /** Assembly Version Number At Approval */
+            assembly_version_number_at_approval: number;
+            /** Created At */
+            created_at: string;
+            /** Plan Hash */
+            plan_hash: string;
+            /** Plan Id */
+            plan_id: string;
+        };
+        /** DraftReviewRevisionCandidate */
+        DraftReviewRevisionCandidate: {
+            /** Actor Id */
+            actor_id: string;
+            /** Approval Id */
+            approval_id: string;
+            /** Candidate Hash */
+            candidate_hash: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Change Summary */
+            change_summary: string;
+            comparison: components["schemas"]["DraftReviewRevisionComparison"];
+            /** Created At */
+            created_at: string;
+            /** Plan Hash */
+            plan_hash: string;
+            /** Plan Id */
+            plan_id: string;
+            /** Segments */
+            segments: components["schemas"]["DraftReviewRevisionSegment"][];
+            target: components["schemas"]["DraftReviewTarget"];
+        };
+        /** DraftReviewRevisionCandidateEntry */
+        DraftReviewRevisionCandidateEntry: {
+            candidate: components["schemas"]["DraftReviewRevisionCandidate"];
+            /** Output Verified */
+            output_verified: boolean;
+            recheck: components["schemas"]["DraftReviewRevisionRecheck"] | null;
+        };
+        /** DraftReviewRevisionComparison */
+        DraftReviewRevisionComparison: {
+            /** Added Segment Ids */
+            added_segment_ids: string[];
+            /** Changed Segment Ids */
+            changed_segment_ids: string[];
+            /** Out Of Scope Segment Ids */
+            out_of_scope_segment_ids: string[];
+            /** Removed Segment Ids */
+            removed_segment_ids: string[];
+            /** Sequence Settings Changed */
+            sequence_settings_changed: boolean;
+            /** Unchanged Segment Ids */
+            unchanged_segment_ids: string[];
+        };
+        /** DraftReviewRevisionData */
+        DraftReviewRevisionData: {
+            /**
+             * Manual Review Only
+             * @default true
+             * @constant
+             */
+            manual_review_only: true;
+            /** Output Verified */
+            output_verified: boolean;
+            /** Plans */
+            plans: components["schemas"]["DraftReviewRevisionPlanEntry"][];
+            source: components["schemas"]["DraftReviewTarget"];
+        };
+        /** DraftReviewRevisionNoteSnapshot */
+        DraftReviewRevisionNoteSnapshot: {
+            /** Actor Id */
+            actor_id: string;
+            /** Created At */
+            created_at: string;
+            /** Frame Index */
+            frame_index: number;
+            /** Note Id */
+            note_id: string;
+            /** Text */
+            text: string;
+        };
+        /** DraftReviewRevisionPlan */
+        DraftReviewRevisionPlan: {
+            /** Actor Id */
+            actor_id: string;
+            /** Affected Segments */
+            affected_segments: components["schemas"]["DraftReviewRevisionSegment"][];
+            /** Created At */
+            created_at: string;
+            /** Instruction */
+            instruction: string;
+            /** Notes */
+            notes: components["schemas"]["DraftReviewRevisionNoteSnapshot"][];
+            /** Plan Hash */
+            plan_hash: string;
+            /** Plan Id */
+            plan_id: string;
+            source: components["schemas"]["DraftReviewTarget"];
+        };
+        /** DraftReviewRevisionPlanEntry */
+        DraftReviewRevisionPlanEntry: {
+            approval: components["schemas"]["DraftReviewRevisionApproval"] | null;
+            /** Candidates */
+            candidates: components["schemas"]["DraftReviewRevisionCandidateEntry"][];
+            plan: components["schemas"]["DraftReviewRevisionPlan"];
+        };
+        /** DraftReviewRevisionRecheck */
+        DraftReviewRevisionRecheck: {
+            /** Actor Id */
+            actor_id: string;
+            /** Candidate Hash */
+            candidate_hash: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "NEEDS_MORE_WORK" | "MANUALLY_CHECKED";
+            /** Reason */
+            reason: string;
+            /** Recheck Id */
+            recheck_id: string;
+        };
+        /** DraftReviewRevisionResponse */
+        DraftReviewRevisionResponse: {
+            data: components["schemas"]["DraftReviewRevisionData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** DraftReviewRevisionScopeData */
+        DraftReviewRevisionScopeData: {
+            /**
+             * Manual Review Only
+             * @default true
+             * @constant
+             */
+            manual_review_only: true;
+            /** Output Verified */
+            output_verified: boolean;
+            /** Segments */
+            segments: components["schemas"]["DraftReviewRevisionSegment"][];
+            source: components["schemas"]["DraftReviewTarget"];
+        };
+        /** DraftReviewRevisionScopeResponse */
+        DraftReviewRevisionScopeResponse: {
+            data: components["schemas"]["DraftReviewRevisionScopeData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** DraftReviewRevisionSegment */
+        DraftReviewRevisionSegment: {
+            /** End Frame */
+            end_frame: number;
+            media: components["schemas"]["AssemblyMediaRefV1"] | null;
+            /** Segment Hash */
+            segment_hash: string;
+            /** Segment Id */
+            segment_id: string;
+            /** Start Frame */
+            start_frame: number;
+            storyboard_ref: components["schemas"]["AssemblyStoryboardRefV1"] | null;
+            /**
+             * Track Kind
+             * @enum {string}
+             */
+            track_kind: "VISUAL" | "DIALOGUE" | "BGM" | "SFX" | "SUBTITLE";
         };
         /** DraftReviewTarget */
         DraftReviewTarget: {
@@ -4331,6 +4795,184 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** OfficialDirectorContentV1 */
+        OfficialDirectorContentV1: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Episode Id */
+            episode_id: string;
+            /** Issues */
+            issues: components["schemas"]["ShotPlanIssueV1"][];
+            /** Project Id */
+            project_id: string;
+            /**
+             * Provenance
+             * @constant
+             */
+            provenance: "AI";
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.0.0";
+            /** Shots */
+            shots: components["schemas"]["ShotPlanShotV1"][];
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
+            timebase: components["schemas"]["SequenceTimebaseData"];
+            /** Visual Constraints */
+            visual_constraints: string[];
+        };
+        /** OfficialDirectorListResponse */
+        OfficialDirectorListResponse: {
+            /** Data */
+            data: components["schemas"]["OfficialDirectorOperation"][];
+            /** Has More */
+            has_more: boolean;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialDirectorMutationData */
+        OfficialDirectorMutationData: {
+            operation: components["schemas"]["OfficialDirectorOperation"];
+            /** Replayed */
+            replayed: boolean;
+        };
+        /** OfficialDirectorMutationResponse */
+        OfficialDirectorMutationResponse: {
+            data: components["schemas"]["OfficialDirectorMutationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialDirectorNotSentRequest */
+        OfficialDirectorNotSentRequest: {
+            /** Code */
+            code: string;
+        };
+        /** OfficialDirectorOperation */
+        OfficialDirectorOperation: {
+            adoption: components["schemas"]["ShotPlanAdoptionData"] | null;
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Attempt Status
+             * @enum {string}
+             */
+            attempt_status: "REMOTE_UNKNOWN" | "SUCCEEDED" | "FAILED" | "NOT_SUBMITTED";
+            completion: components["schemas"]["CompleteOfficialDirectorRequest"] | null;
+            /** Created At */
+            created_at: string;
+            /** Episode Id */
+            episode_id: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Project Id */
+            project_id: string;
+            proposal: components["schemas"]["OfficialDirectorProposal"] | null;
+            rejection: components["schemas"]["OfficialDirectorRejection"] | null;
+            request: components["schemas"]["OfficialDirectorPreparedRequest"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "REMOTE_UNKNOWN" | "COMPLETED" | "NOT_SENT" | "INVALID";
+            /** Task Id */
+            task_id: string;
+            /** Validation Issues */
+            validation_issues: components["schemas"]["OfficialDirectorValidationIssue"][];
+        };
+        /** OfficialDirectorOperationResponse */
+        OfficialDirectorOperationResponse: {
+            data: components["schemas"]["OfficialDirectorOperation"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialDirectorOptions */
+        OfficialDirectorOptions: {
+            /**
+             * Pacing
+             * @enum {string}
+             */
+            pacing: "BALANCED" | "FAST" | "SLOW";
+            /** Target Shot Count */
+            target_shot_count: number | null;
+        };
+        /** OfficialDirectorPreparationData */
+        OfficialDirectorPreparationData: {
+            request: components["schemas"]["OfficialDirectorPreparedRequest"];
+        };
+        /** OfficialDirectorPreparationResponse */
+        OfficialDirectorPreparationResponse: {
+            data: components["schemas"]["OfficialDirectorPreparationData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** OfficialDirectorPreparedRequest */
+        OfficialDirectorPreparedRequest: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Input Text */
+            input_text: string;
+            /** Instructions */
+            instructions: string;
+            /** Intent */
+            intent: string;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            options: components["schemas"]["OfficialDirectorOptions"];
+            /** Production Brief Stored Content */
+            production_brief_stored_content: {
+                [key: string]: unknown;
+            };
+            /** Profile Id */
+            profile_id: string;
+            /** Request Hash */
+            request_hash: string;
+            /** Script Stored Content */
+            script_stored_content: {
+                [key: string]: unknown;
+            };
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
+        };
+        /** OfficialDirectorProposal */
+        OfficialDirectorProposal: {
+            /** Capability Losses */
+            capability_losses: components["schemas"]["ShotPlanIssueV1"][];
+            content: components["schemas"]["OfficialDirectorContentV1"];
+            /** Content Hash */
+            content_hash: string;
+            /** Version Id */
+            version_id: string;
+        };
+        /** OfficialDirectorRejection */
+        OfficialDirectorRejection: {
+            /** Actor Id */
+            actor_id: string;
+            /** Reason */
+            reason: string;
+            /** Rejected At */
+            rejected_at: string;
+        };
+        /** OfficialDirectorValidationIssue */
+        OfficialDirectorValidationIssue: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /** OfficialTextAdoption */
         OfficialTextAdoption: {
             /** Actor Id */
@@ -4533,6 +5175,21 @@ export interface components {
             den: number;
             /** Num */
             num: number;
+        };
+        /** PrepareOfficialDirectorRequest */
+        PrepareOfficialDirectorRequest: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Intent */
+            intent: string;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            options: components["schemas"]["OfficialDirectorOptions"];
+            /** Profile Id */
+            profile_id: string;
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
         };
         /**
          * ProductExportAssetRef
@@ -5270,6 +5927,20 @@ export interface components {
              */
             request_id: string;
         };
+        /** RecheckDraftReviewRevisionCandidateRequest */
+        RecheckDraftReviewRevisionCandidateRequest: {
+            /** Expected Candidate Hash */
+            expected_candidate_hash: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "NEEDS_MORE_WORK" | "MANUALLY_CHECKED";
+            /** Reason */
+            reason: string;
+            /** Recheck Id */
+            recheck_id: string;
+        };
         /** ReferenceDeclarationV1 */
         ReferenceDeclarationV1: {
             /** Description */
@@ -5279,6 +5950,20 @@ export interface components {
              * @enum {string}
              */
             reference_kind: "inspiration" | "research" | "other";
+        };
+        /** RejectOfficialDirectorRequest */
+        RejectOfficialDirectorRequest: {
+            /**
+             * Confirm
+             * @constant
+             */
+            confirm: true;
+            /** Proposal Content Hash */
+            proposal_content_hash: string;
+            /** Proposal Version Id */
+            proposal_version_id: string;
+            /** Reason */
+            reason: string;
         };
         /** RelationshipFactDraftV1 */
         RelationshipFactDraftV1: {
@@ -5513,6 +6198,23 @@ export interface components {
             replacement_asset_id: string;
             /** Replacement Source In Frame */
             replacement_source_in_frame: number;
+        };
+        /** ReserveOfficialDirectorRequest */
+        ReserveOfficialDirectorRequest: {
+            /** Authority */
+            authority: components["schemas"]["ShotPlanOriginalAuthority"] | components["schemas"]["ShotPlanAdaptedAuthority"];
+            /** Intent */
+            intent: string;
+            /** Model */
+            model: string;
+            /** Operation Id */
+            operation_id: string;
+            options: components["schemas"]["OfficialDirectorOptions"];
+            /** Profile Id */
+            profile_id: string;
+            /** Request Hash */
+            request_hash: string;
+            storyboard_base: components["schemas"]["ShotPlanStoryboardBase"] | null;
         };
         /** ReserveOfficialTextRequest */
         ReserveOfficialTextRequest: {
@@ -10435,6 +11137,224 @@ export interface operations {
             };
         };
     };
+    listDraftReviewRevisionPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createDraftReviewRevisionPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftReviewRevisionPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDraftReviewRevisionScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionScopeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approveDraftReviewRevisionPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveDraftReviewRevisionPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attachDraftReviewRevisionCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachDraftReviewRevisionCandidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recheckDraftReviewRevisionCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+                plan_id: string;
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecheckDraftReviewRevisionCandidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftReviewRevisionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getEpisodeMediaAssembly: {
         parameters: {
             query?: never;
@@ -10586,6 +11506,291 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listOfficialDirectorOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reserveOfficialDirectorOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReserveOfficialDirectorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepareOfficialDirectorOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareOfficialDirectorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorPreparationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getOfficialDirectorOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorOperationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adoptOfficialDirectorProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptOfficialDirectorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    completeOfficialDirectorOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteOfficialDirectorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recordOfficialDirectorNotSent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfficialDirectorNotSentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rejectOfficialDirectorProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                episode_id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectOfficialDirectorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficialDirectorMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -575,7 +575,9 @@ class SourceExtractRunFactory:
                 content=('{"additionalProperties":false,"required":["summary"],"type":"object"}'),
             ),
         )
-        built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
+        built_context = build_context(
+            delegation=delegation, trusted_inputs=trusted_inputs, run_scope=agent_run_id
+        )
         input_payload = {
             "project_id": project_id,
             **payload.model_dump(mode="json"),

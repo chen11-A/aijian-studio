@@ -323,18 +323,23 @@ describe("fake timeline run creation contract", () => {
     }
   });
 
-  test("accepts actual fresh and replay receipts from the Sidecar contract", () => {
+  test("accepts Sidecar enqueue-only fresh and replay receipts with synthetic toolchain identity", () => {
     const repositoryRoot = resolve(process.cwd(), "../..");
     const python = [
       "import json, runpy, tempfile",
       "from pathlib import Path",
+      "from types import SimpleNamespace",
+      "from aijian_api.fake_media_package import FakeMediaToolchainIdentityV1",
       `root = Path(${JSON.stringify(repositoryRoot)})`,
       "ns = runpy.run_path(str(root / 'services/api/tests/test_fake_timeline_run_api.py'))",
       "operation_id = '7e0df32e-299a-4bb7-b77e-b85f20c41d61'",
       "with tempfile.TemporaryDirectory() as directory:",
       "    workspace = Path(directory) / 'workspace'",
       "    repository = ns['StudioRepository'](workspace / 'workspace.sqlite3')",
-      "    generator = ns['_generator'](workspace)",
+      // Enqueue/replay freezes identity only; media execution keeps its real toolchain tests.
+      "    generator = SimpleNamespace(identity=FakeMediaToolchainIdentityV1(",
+      "        toolchain_profile_id='synthetic-contract-only', toolchain_version='0.0.0',",
+      "        ffmpeg_sha256='sha256:' + 'a' * 64, ffprobe_sha256='sha256:' + 'b' * 64))",
       "    factory = ns['FakeTimelineRunFactory'](repository, generator)",
       "    client = ns['_sidecar_client'](repository, factory)",
       "    project_id, source_id, version_id = ns['_project_and_source'](client, approve_manifest=True)",

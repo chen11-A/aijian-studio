@@ -18,6 +18,47 @@ from test_provider_connection_runtime_baseline import MODELS, create_connection
 from test_remote_execution_authorization import NOW, _remote_fixture
 
 
+@pytest.mark.parametrize("provider_state", ["missing", "disabled"])
+def test_remote_snapshot_rejects_unavailable_provider_without_inserting(tmp_path, provider_state):
+    database, _, project_id, _, _, _, _, draft = _remote_fixture(tmp_path)
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        if provider_state == "missing":
+            # Keep the real provider and its foreign-key references intact.
+            draft = replace(
+                draft, connection_id="pcn_" + "f" * 32, scope=json.loads(draft.scope_json())
+            )
+            assert (
+                connection.execute(
+                    "SELECT 1 FROM provider_connections WHERE connection_id = ?",
+                    (draft.connection_id,),
+                ).fetchone()
+                is None
+            )
+        else:
+            connection.execute(
+                "UPDATE provider_connections SET enabled = 0, revision = revision + 1 "
+                "WHERE connection_id = ?",
+                (draft.connection_id,),
+            )
+            # Match the updated revision to isolate the disabled-provider guard.
+            draft = replace(
+                draft,
+                connection_revision=draft.connection_revision + 1,
+                scope=json.loads(draft.scope_json()),
+            )
+        before = tuple(connection.iterdump())
+        with pytest.raises(ValueError, match="provider connection is unavailable"):
+            _insert_remote_dispatch_snapshot(
+                connection,
+                attempt_id="att_" + "f" * 32,
+                project_id=project_id,
+                draft=draft,
+                created_at=timestamp(NOW),
+            )
+        assert tuple(connection.iterdump()) == before
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [

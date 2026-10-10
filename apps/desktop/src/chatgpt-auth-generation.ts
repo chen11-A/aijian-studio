@@ -17,10 +17,19 @@ export type ChatGPTTextReservation = {
   requestHash: string;
 };
 export type ChatGPTTextResult =
-  | ({ kind: "COMPLETED"; text: string; completedAt: string } & ChatGPTTextReservation)
+  | ({
+      kind: "COMPLETED";
+      text: string;
+      completedAt: string;
+      responseId?: string;
+    } & ChatGPTTextReservation)
   | { kind: "NOT_SENT"; operationId: string; code: string }
   | { kind: "REMOTE_UNKNOWN"; operationId: string; code: string };
 export type ChatGPTTextOptions = {
+  /** Director JSON admission retains even empty completed provider text as INVALID. Main only. */
+  allowEmptyOutput?: boolean;
+  /** Preserve exact bounded completed output for backend oversized-output rejection. Main only. */
+  allowOversizedOutput?: boolean;
   /** Persist pessimistic pending/unknown state before HTTP. Throwing must stop the request. */
   beforeSend(metadata: ChatGPTTextReservation): Promise<void>;
 };

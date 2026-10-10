@@ -58,6 +58,7 @@ from aijian_api.domain import (
     TrustedReviewActor,
 )
 from aijian_api.draft_export_schema import DRAFT_EXPORT_MIGRATION
+from aijian_api.draft_review_revision_schema import DRAFT_REVIEW_REVISION_MIGRATION
 from aijian_api.draft_review_schema import DRAFT_REVIEW_MIGRATION
 from aijian_api.engineering_test_export_schema import ENGINEERING_TEST_EXPORT_MIGRATION
 from aijian_api.episode_schema import MIGRATION_17
@@ -70,6 +71,7 @@ from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
 from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
 from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
 from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.official_director_schema import OFFICIAL_DIRECTOR_MIGRATION
 from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
 from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
 from aijian_api.production_brief import ProductionBriefContentV1
@@ -106,7 +108,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 40
+SCHEMA_VERSION = 42
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -843,6 +845,8 @@ _MIGRATIONS = {
     38: DRAFT_REVIEW_MIGRATION,
     39: PROVIDER_CREDENTIAL_CLEANUP_MIGRATION,
     40: SHOT_PLAN_MIGRATION,
+    41: OFFICIAL_DIRECTOR_MIGRATION,
+    42: DRAFT_REVIEW_REVISION_MIGRATION,
 }
 
 

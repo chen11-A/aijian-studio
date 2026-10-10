@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
+import { useRef, useState } from "react";
 import { ShotPlanProposalReview } from "./ShotPlanProposalReview";
-import { readScriptJournal, readConfirmationJournal } from "./adapters/episodeScript";
-import { readPendingProductionBriefCommand } from "./adapters/productionBriefWorkspace";
+import { useStoryboardDirectorHost } from "./useStoryboardDirectorHost";
+import { OfficialDirectorProposalPanel } from "./OfficialDirectorProposalPanel";
+import { officialDirectorBridge } from "./adapters/officialDirectorGateway";
 import "./storyboard-director-host.css";
 import { Button, PageTitle } from "./Common";
 import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
@@ -26,87 +26,27 @@ export function EpisodeStoryboardPanel({
 }) {
   // Both views keep the same authoritative storyboard controller. Switching views
   // never discards edits; route/project/episode changes still use one combined guard.
-  const storyboardGuard = useRef<(() => boolean) | null>(null);
-  const captureStoryboardGuard = useCallback((guard: (() => boolean) | null) => {
-    storyboardGuard.current = guard;
-  }, []);
-  const state = useEpisodeStoryboard(projectId, episodeId, captureStoryboardGuard);
+  const director = useStoryboardDirectorHost(projectId, episodeId, setNavigationGuard);
+  const state = useEpisodeStoryboard(projectId, episodeId, director.captureStoryboardGuard);
   const [directorOpen, setDirectorOpen] = useState(false);
   const [directorVisited, setDirectorVisited] = useState(false);
-  const [directorWork, setDirectorWork] = useState({ dirty: false, pending: false, busy: false });
-  const directorWorkRef = useRef(directorWork);
-  directorWorkRef.current = directorWork;
-  const onDirectorWork = useCallback((work: typeof directorWork) => setDirectorWork(work), []);
-  const directorGateway = useMemo(() => {
-    const bridge = (window as Window & { aijianShotPlan?: ShotPlanGateway }).aijianShotPlan;
-    const methods: (keyof ShotPlanGateway)[] = [
-      "prepareHumanShotPlan",
-      "getShotPlanProposal",
-      "getShotPlanProposalVersion",
-      "getHumanShotPlanWriteStatus",
-      "getShotPlanAdoptionStatus",
-      "createHumanShotPlanProposal",
-      "adoptHumanShotPlanProposal",
-    ];
-    return bridge && methods.every((method) => typeof bridge[method] === "function")
-      ? bridge
-      : null;
-  }, []);
-  const [, refreshRecoveryState] = useState(0);
-  useEffect(() => {
-    const refresh = () => refreshRecoveryState((value) => value + 1);
-    window.addEventListener("storage", refresh);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("focus", refresh);
-    };
-  }, []);
-  let upstreamPending = true;
-  try {
-    const brief = readPendingProductionBriefCommand(projectId);
-    upstreamPending =
-      readScriptJournal(window.localStorage, projectId, episodeId).kind !== "EMPTY" ||
-      readConfirmationJournal(window.localStorage, projectId, episodeId).kind !== "EMPTY" ||
-      brief.kind !== "READY" ||
-      brief.command !== null;
-  } catch {
-    /* Unreadable recovery state must block new adoption. */
-  }
-  useEffect(() => {
-    setNavigationGuard(() => {
-      const work = directorWorkRef.current;
-      if (work.busy) return false;
-      if (
-        work.dirty &&
-        !window.confirm(
-          work.pending
-            ? "人工导演提案有保存结果待核对，原提交恢复记录会保留。离开此页吗？"
-            : "人工导演提案有未保存修改。放弃修改并离开吗？",
-        )
-      )
-        return false;
-      return storyboardGuard.current?.() ?? true;
-    });
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      const work = directorWorkRef.current;
-      if (!work.dirty && !work.busy) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => {
-      setNavigationGuard(null);
-      window.removeEventListener("beforeunload", beforeUnload);
-    };
-  }, [setNavigationGuard]);
+  const [officialOpen, setOfficialOpen] = useState(false);
+  const [officialVisited, setOfficialVisited] = useState(false);
+  const [officialGateway] = useState(officialDirectorBridge);
   const showDirector = () => {
-    if (state.busy || directorWork.busy) return;
+    if (state.busy || director.busy) return;
     setDirectorVisited(true);
+    setOfficialOpen(false);
     setDirectorOpen((current) => !current);
   };
+  const showOfficial = () => {
+    if (state.busy || director.busy) return;
+    setOfficialVisited(true);
+    setDirectorOpen(false);
+    setOfficialOpen((current) => !current);
+  };
   const { content, version, dirty, busy } = state;
-  const locked = state.locked || directorWork.busy || directorWork.pending;
+  const locked = state.locked || director.busy || director.pending;
   const selectionKey = `aivora.storyboard.selection.v1.${projectId}.${episodeId}`;
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     try {
@@ -181,14 +121,21 @@ export function EpisodeStoryboardPanel({
         actions={
           <>
             <Button
+              aria-pressed={officialOpen}
+              disabled={busy || director.busy}
+              onClick={showOfficial}
+            >
+              {officialOpen ? "返回手写分镜" : "AI 导演"}
+            </Button>
+            <Button
               aria-pressed={directorOpen}
-              disabled={busy || directorWork.busy}
+              disabled={busy || director.busy}
               onClick={showDirector}
             >
               {directorOpen ? "返回手写分镜" : "导演提案"}
             </Button>
             <Button
-              disabled={busy || directorWork.busy || directorOpen}
+              disabled={busy || director.busy || directorOpen || officialOpen}
               onClick={() => void state.reload()}
             >
               重新读取
@@ -196,7 +143,7 @@ export function EpisodeStoryboardPanel({
             <Button
               primary
               icon="plus"
-              disabled={locked || directorOpen || content.shots.length >= 1000}
+              disabled={locked || directorOpen || officialOpen || content.shots.length >= 1000}
               onClick={add}
             >
               添加镜头
@@ -204,24 +151,62 @@ export function EpisodeStoryboardPanel({
           </>
         }
       />
+      {officialVisited && (
+        <div className="storyboard-director-host" hidden={!officialOpen}>
+          <OfficialDirectorProposalPanel
+            projectId={projectId}
+            episodeId={episodeId}
+            bridge={officialGateway}
+            preparationGateway={director.humanGateway}
+            scriptDirty={false}
+            storyboardDirty={dirty}
+            currentStoryboardBase={
+              version
+                ? {
+                    version_id: version.version_id,
+                    content_hash: version.content_hash,
+                    head_revision: version.head_revision,
+                  }
+                : null
+            }
+            pendingOperations={
+              director.upstreamPending ||
+              state.journal.kind !== "EMPTY" ||
+              state.busy ||
+              state.readState === "loading" ||
+              state.readState === "error" ||
+              director.humanWork.dirty ||
+              director.humanWork.pending ||
+              director.humanWork.busy
+            }
+            onWorkStateChange={director.onOfficialWork}
+            onAdopted={async () => {
+              await state.reload();
+              select(null);
+            }}
+          />
+        </div>
+      )}
       {directorVisited && (
         <div className="storyboard-director-host" hidden={!directorOpen}>
           <ShotPlanProposalReview
             projectId={projectId}
             episodeId={episodeId}
-            gateway={directorGateway}
+            gateway={director.humanGateway}
             // The route guard has already dealt with the unmounted script editor's
             // dirty draft. Its durable write/confirmation journals are checked above.
             scriptDirty={false}
             storyboardDirty={dirty}
             pendingOperations={
-              upstreamPending ||
+              director.upstreamPending ||
               state.journal.kind !== "EMPTY" ||
               state.busy ||
               state.readState === "loading" ||
-              state.readState === "error"
+              state.readState === "error" ||
+              (director.officialWork.storyboardPending ?? director.officialWork.pending) ||
+              director.officialWork.busy
             }
-            onWorkStateChange={onDirectorWork}
+            onWorkStateChange={director.onHumanWork}
             onAdopted={async () => {
               await state.reload();
               select(null);
@@ -233,7 +218,7 @@ export function EpisodeStoryboardPanel({
       )}
       <section
         className="episode-storyboard storyboard-manual-host"
-        hidden={directorOpen}
+        hidden={directorOpen || officialOpen}
         aria-label="分集手写分镜"
       >
         <div className="storyboard-status">

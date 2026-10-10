@@ -1,4 +1,4 @@
-import { completeText } from "./chatgpt-auth-inference";
+import { completeTextWithResponseId } from "./chatgpt-auth-inference";
 import {
   textRequestHash,
   validateTextCommand,
@@ -346,7 +346,8 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         busy = false;
       }
     },
-    async generateText(input, options) {
+    async generateText(command, options) {
+      const input = structuredClone(command);
       const hash = textRequestHash(input);
       const prior = generations.get(input.operationId);
       if (prior)
@@ -380,13 +381,28 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         )
           throw new ChatGPTError("REQUEST_NOT_APPROVED");
         if (signal.aborted) throw new ChatGPTError("REQUEST_TIMED_OUT");
-        const metadata = {
+        if (
+          active() !== profile ||
+          profile.tokens !== tokens ||
+          !planEnabled(profile) ||
+          needsReauth
+        )
+          throw new ChatGPTError("GENERATION_SESSION_CHANGED");
+        const metadata = Object.freeze({
           operationId: input.operationId,
           profileId: profile.id,
           model: input.model,
           requestHash: hash,
-        };
+        });
         await options.beforeSend(metadata);
+        if (signal.aborted) throw new ChatGPTError("REQUEST_TIMED_OUT");
+        if (
+          active() !== profile ||
+          profile.tokens !== tokens ||
+          !planEnabled(profile) ||
+          needsReauth
+        )
+          throw new ChatGPTError("GENERATION_SESSION_CHANGED");
         const pending: ChatGPTTextResult = {
           kind: "REMOTE_UNKNOWN",
           operationId: input.operationId,
@@ -397,15 +413,19 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
           sent = true;
           return dependencies.fetch(url, init);
         };
-        const text = await completeText(
+        const completion = await completeTextWithResponseId(
           { ...input, catalog, accessToken: tokens.accessToken },
           fetcher,
           signal,
+          { allowOversizedOutput: options.allowOversizedOutput },
         );
+        if (!options.allowEmptyOutput && !completion.text.trim())
+          throw new ChatGPTError("INFERENCE_EMPTY");
         const result: ChatGPTTextResult = {
           kind: "COMPLETED",
           ...metadata,
-          text,
+          text: completion.text,
+          responseId: completion.responseId,
           completedAt: new Date().toISOString(),
         };
         generations.set(input.operationId, { hash, result });

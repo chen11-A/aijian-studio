@@ -3,7 +3,7 @@ import { ChatGPTError, RESOURCE, isRecord, safeString } from "./chatgpt-auth-oau
 import type { Fetch } from "./chatgpt-auth-http";
 
 /** Only call after the main-process caller obtains explicit approval for this input and one request. */
-export async function completeText(
+export async function completeTextWithResponseId(
   input: {
     model: string;
     text: string;
@@ -13,7 +13,8 @@ export async function completeText(
   },
   fetcher: Fetch,
   signal: AbortSignal,
-): Promise<string> {
+  options: { allowOversizedOutput?: boolean } = {},
+): Promise<{ text: string; responseId: string }> {
   if (
     !input.catalog.some((model) => model.slug === input.model) ||
     !(
@@ -62,7 +63,7 @@ export async function completeText(
   let buffer = "";
   let bytes = 0;
   let responseId: string | null = null;
-  function consume(block: string): string | null {
+  function consume(block: string): { text: string; responseId: string } | null {
     const raw = block
       .split("\n")
       .filter((line) => line.startsWith("data:"))
@@ -78,18 +79,21 @@ export async function completeText(
     if (!isRecord(event)) throw new ChatGPTError("STREAM_INVALID");
     if (["error", "response.failed", "response.incomplete"].includes(String(event.type)))
       throw new ChatGPTError("INFERENCE_INCOMPLETE");
-    if (
-      event.type === "response.created" &&
-      isRecord(event.response) &&
-      safeString(event.response.id)
-    )
+    if (event.type === "response.created" || event.type === "response.in_progress") {
+      if (
+        !isRecord(event.response) ||
+        !safeString(event.response.id, 240) ||
+        (responseId !== null && responseId !== event.response.id)
+      )
+        throw new ChatGPTError("STREAM_INVALID");
       responseId = event.response.id;
+    }
     if (event.type !== "response.completed") return null;
     const result = event.response;
     if (
       !isRecord(result) ||
       result.status !== "completed" ||
-      !safeString(result.id) ||
+      !safeString(result.id, 240) ||
       (responseId !== null && result.id !== responseId) ||
       !Array.isArray(result.output)
     )
@@ -109,9 +113,9 @@ export async function completeText(
       )
       .map((part) => part.text)
       .join("");
-    if (!text.trim()) throw new ChatGPTError("INFERENCE_EMPTY");
-    if (text.length > 100_000) throw new ChatGPTError("INFERENCE_OUTPUT_TOO_LARGE");
-    return text;
+    if (!options.allowOversizedOutput && text.length > 100_000)
+      throw new ChatGPTError("INFERENCE_OUTPUT_TOO_LARGE");
+    return { text, responseId: result.id };
   }
   try {
     while (true) {
@@ -134,4 +138,15 @@ export async function completeText(
     await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
+}
+
+/** Compatibility surface for existing text-only callers. Provenance stays main-process-only. */
+export async function completeText(
+  input: Parameters<typeof completeTextWithResponseId>[0],
+  fetcher: Fetch,
+  signal: AbortSignal,
+): Promise<string> {
+  const completion = await completeTextWithResponseId(input, fetcher, signal);
+  if (!completion.text.trim()) throw new ChatGPTError("INFERENCE_EMPTY");
+  return completion.text;
 }

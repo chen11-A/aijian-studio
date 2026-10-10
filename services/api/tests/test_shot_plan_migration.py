@@ -3,7 +3,7 @@
 import sqlite3
 
 import pytest
-from aijian_api.repository import StudioRepository
+from aijian_api.repository import SCHEMA_VERSION, StudioRepository
 from aijian_api.shot_plan_schema import SHOT_PLAN_MIGRATION
 from test_migrations import migrate_through
 
@@ -29,7 +29,7 @@ def test_schema39_to40_partial_failure_rolls_back_and_preserves_security_schema(
         assert tuple(connection.iterdump()) == before
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 40
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         tables = {
             row[0]

@@ -35,7 +35,7 @@ from aijian_api.episode_media_assembly_contracts import (
     EpisodeMediaAssemblyContentV1,
     EpisodeMediaAssemblyVersionData,
 )
-from aijian_api.episode_script_contracts import EpisodeScriptContentV1
+from aijian_api.episode_script_contracts import MAX_SCRIPT_BYTES, EpisodeScriptContentV1
 from aijian_api.managed_local_paths import managed_local_io_path
 from aijian_api.media_asset_probe_store import MediaAssetProbeEvidenceError, _from_row
 from aijian_api.media_asset_rights_store import RightsDecisionError, _validated_history
@@ -185,7 +185,8 @@ def _validate_script_refs(
             )
     for version_id, references in bindings.items():
         row = connection.execute(
-            """SELECT version.content_json FROM artifact_versions AS version
+            """SELECT version.content_json, version.content_hash, version.schema_version
+               FROM artifact_versions AS version
                JOIN artifacts AS artifact ON artifact.artifact_id = version.artifact_id
                WHERE artifact.project_id = ? AND artifact.episode_id = ?
                  AND artifact.artifact_type = 'episode_script' AND version.version_id = ?""",
@@ -196,7 +197,17 @@ def _validate_script_refs(
                 "SCRIPT_VERSION_NOT_FOUND", "Referenced episode script version was not found"
             )
         try:
-            script = EpisodeScriptContentV1.model_validate(json.loads(str(row["content_json"])))
+            stored_content = json.loads(str(row["content_json"]))
+            script = EpisodeScriptContentV1.model_validate(stored_content)
+            # Match the script store's canonical persisted-version checks. Keep
+            # legacy optional defaults valid by hashing stored JSON, not a dump
+            # of the parsed model that would insert newer optional fields.
+            if (
+                row["schema_version"] != "1.0.0"
+                or row["content_hash"] != canonical_content_hash(stored_content)
+                or len(canonical_content_bytes(stored_content)) > MAX_SCRIPT_BYTES
+            ):
+                raise ValueError("Referenced script failed integrity checks")
         except (ValueError, TypeError):
             raise EpisodeMediaAssemblyError(
                 "SCRIPT_VERSION_CORRUPT", "Referenced episode script is invalid"
@@ -529,6 +540,7 @@ class EpisodeMediaAssemblyStore:
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
             connection.execute("BEGIN")
+            _validate_script_refs(connection, content)
             try:
                 validate_storyboard_provenance(
                     self._repository,

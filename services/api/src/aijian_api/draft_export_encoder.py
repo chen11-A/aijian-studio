@@ -726,8 +726,9 @@ def encode_draft(
 ) -> VerifiedProductOutput:
     """Encode exact saved edit decisions and return only verified temporary bytes.
 
-    Visuals fit inside the saved canvas with black letterboxing. BGM/SFX and
-    explicitly enabled embedded audio mix at unity gain with a peak limiter.
+    Visuals fit inside the saved canvas with black letterboxing. Imported
+    DIALOGUE/BGM/SFX and enabled embedded audio mix at unity gain with a peak limiter.
+    The caller validates saved dialogue bindings; no speech is generated here.
     Audio boundaries use the assembly's absolute-frame nearest-ties-up policy.
     """
     content = assembly.content
@@ -737,13 +738,9 @@ def encode_draft(
         validate_draft_subtitles(content)
     except DraftSubtitleError as error:
         raise DraftEncodeError(error.code, str(error)) from None
-    if any(segment.track_kind == "DIALOGUE" for segment in content.audio_segments):
-        raise DraftEncodeError(
-            "DIALOGUE_UNSUPPORTED", "DRAFT export does not yet render DIALOGUE tracks"
-        )
     if len(content.visual_segments) > 32 or len(content.audio_segments) > 32:
         raise DraftEncodeError(
-            "SEGMENT_LIMIT", "DRAFT supports at most 32 visuals and 32 BGM/SFX clips"
+            "SEGMENT_LIMIT", "DRAFT supports at most 32 visuals and 32 audio clips"
         )
     rate_data = content.sequence_timebase.frame_rate
     rate = Fraction(rate_data.num, rate_data.den)

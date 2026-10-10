@@ -377,3 +377,77 @@ it("distinguishes authorization timeout from explicit cancellation without conta
     vi.useRealTimers();
   }
 });
+
+it("keeps the approved command immutable while reporting main-only provider response ID", async () => {
+  const { runtime, fetcher, confirmText } = setup();
+  await runtime.signIn("LOCAL_PERSONAL");
+  const original = fetcher.getMockImplementation();
+  fetcher.mockImplementation(async (url, init) => {
+    if (String(url).endsWith("/responses")) {
+      expect(JSON.parse(String(init?.body)).input[0].content).toBe(generationInput.text);
+      return completionStream();
+    }
+    if (!original) throw new Error("Missing fixture");
+    return original(url, init);
+  });
+  const command = { ...generationInput };
+  confirmText.mockImplementation(async () => {
+    command.text = "Changed after approval opened";
+    return true;
+  });
+  expect(await runtime.generateText(command, { beforeSend: vi.fn() })).toMatchObject({
+    kind: "COMPLETED",
+    responseId: "resp_fixture",
+  });
+});
+it("director raw mode retains empty completed output for backend admission and leaves old callers strict", async () => {
+  const { runtime, fetcher } = setup();
+  await runtime.signIn("LOCAL_PERSONAL");
+  const original = fetcher.getMockImplementation();
+  fetcher.mockImplementation(async (url, init) => {
+    if (String(url).endsWith("/responses"))
+      return new Response(
+        `data: ${JSON.stringify({ type: "response.completed", response: { id: "resp_fixture_empty", status: "completed", output: [] } })}\n\n`,
+        { headers: { "Content-Type": "text/event-stream" } },
+      );
+    if (!original) throw new Error("Missing fixture");
+    return original(url, init);
+  });
+  expect(
+    await runtime.generateText(generationInput, { beforeSend: vi.fn(), allowEmptyOutput: true }),
+  ).toMatchObject({ kind: "COMPLETED", text: "", responseId: "resp_fixture_empty" });
+  expect(
+    await runtime.generateText(
+      { ...generationInput, operationId: "22222222-2222-4222-8222-222222222222" },
+      { beforeSend: vi.fn() },
+    ),
+  ).toMatchObject({ kind: "REMOTE_UNKNOWN", code: "INFERENCE_EMPTY" });
+});
+
+it.each(["approval", "reservation"] as const)(
+  "blocks a profile lifecycle change after %s before any provider request",
+  async (phase) => {
+    const { runtime, store, fetcher, confirmText } = setup();
+    await runtime.signIn("LOCAL_PERSONAL");
+    const internal = store.write.mock.lastCall?.[0];
+    if (!internal) throw new Error("Missing synthetic protected account");
+    const change = () => {
+      internal.activeId = null;
+    };
+    if (phase === "approval")
+      confirmText.mockImplementation(async () => {
+        change();
+        return true;
+      });
+    const beforeSend = vi.fn(async (metadata) => {
+      expect(Object.isFrozen(metadata)).toBe(true);
+      if (phase === "reservation") change();
+    });
+    expect(await runtime.generateText(generationInput, { beforeSend })).toMatchObject({
+      kind: "NOT_SENT",
+      code: "GENERATION_SESSION_CHANGED",
+    });
+    expect(beforeSend).toHaveBeenCalledTimes(phase === "approval" ? 0 : 1);
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/responses"))).toBe(false);
+  },
+);

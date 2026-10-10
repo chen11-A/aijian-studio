@@ -227,22 +227,26 @@
   white-space: nowrap;
 }
 
-.demo-root .assembly-storyboard-references {
+.demo-root .assembly-storyboard-references,
+.demo-root .assembly-dialogue-editor {
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--border, #34313f);
   border-radius: 8px;
 }
-.demo-root .assembly-storyboard-references p {
+.demo-root .assembly-storyboard-references p,
+.demo-root .assembly-dialogue-editor p {
   margin: 0;
   overflow-wrap: anywhere;
 }
-.demo-root .assembly-storyboard-references label {
+.demo-root .assembly-storyboard-references label,
+.demo-root .assembly-dialogue-editor label {
   display: grid;
   gap: 8px;
   min-width: 0;
 }
-.demo-root .assembly-storyboard-references select {
+.demo-root .assembly-storyboard-references select,
+.demo-root .assembly-dialogue-editor select {
   width: 100%;
   min-width: 0;
 }
@@ -252,17 +256,20 @@
   white-space: normal;
 }
 
-.demo-root .assembly-storyboard-references > summary {
+.demo-root .assembly-storyboard-references > summary,
+.demo-root .assembly-dialogue-editor > summary {
   cursor: pointer;
   overflow-wrap: anywhere;
 }
-.demo-root .assembly-storyboard-body {
+.demo-root .assembly-storyboard-body,
+.demo-root .assembly-dialogue-body {
   display: grid;
   gap: 12px;
   min-width: 0;
   margin-top: 12px;
 }
-.demo-root .assembly-storyboard-body > button {
+.demo-root .assembly-storyboard-body > button,
+.demo-root .assembly-dialogue-body > button {
   justify-self: start;
   max-width: 100%;
   white-space: normal;

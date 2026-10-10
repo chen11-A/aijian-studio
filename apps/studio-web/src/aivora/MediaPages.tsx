@@ -1339,6 +1339,7 @@ export function MediaPages() {
             assets={transport.assetLibrary}
             assembly={transport.episodeMediaAssembly}
             exports={transport.draftExports}
+            script={transport}
             setNavigationGuard={d.setNavigationGuard}
           />
         </div>

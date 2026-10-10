@@ -154,7 +154,7 @@ export function AssemblyTrackEditor({
             <p>
               {index === 0
                 ? "尚无画面，选择图片或视频加入。"
-                : "可在已有画面范围内加入 BGM / SFX。"}
+                : "可在已有画面范围内加入音频，再绑定剧本对白或作为 BGM / SFX。"}
             </p>
           )}
           <ol className="assembly-segments" aria-label={index === 0 ? "画面片段" : "音频片段"}>

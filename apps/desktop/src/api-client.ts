@@ -1,3 +1,7 @@
+import {
+  createOfficialDirectorClient,
+  type OfficialDirectorPersistenceClient,
+} from "./official-director-client";
 import { createMediaToolchainClient, type MediaToolchainClient } from "./media-toolchain-client";
 import {
   createMediaAssetProbeClient,
@@ -9,6 +13,8 @@ import {
 } from "./official-text-client";
 import { createDraftReviewClient } from "./draft-review-client";
 import type { DraftReviewGateway } from "./draft-review-contract";
+import { createDraftReviewRevisionClient } from "./draft-review-revision-client";
+import type { DraftReviewRevisionGateway } from "./draft-review-revision-contract";
 import { createDraftExportClient } from "./draft-export-client";
 import type { DraftExportClient } from "./draft-export-ipc";
 import { createEpisodeMediaAssemblyClient } from "./episode-media-assembly-client";
@@ -493,6 +499,7 @@ export interface SourceManifestReviewClient {
 
 export interface LocalApiClient
   extends
+    OfficialDirectorPersistenceClient,
     MediaAssetProbeClient,
     MediaToolchainClient,
     OfficialTextPersistenceClient,
@@ -501,6 +508,7 @@ export interface LocalApiClient
     EpisodeMediaAssemblyClient,
     DraftExportClient,
     DraftReviewGateway,
+    DraftReviewRevisionGateway,
     ShotPlanGateway {
   getHealth(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
@@ -3206,9 +3214,11 @@ export function createLocalApiClient(
       headers,
     ),
     ...createOfficialTextClient(requestSub2APIMutationHttp, headers),
+    ...createOfficialDirectorClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
     ...createDraftExportClient(requestSub2APIMutationHttp, headers),
     ...createDraftReviewClient(requestSub2APIMutationHttp, headers),
+    ...createDraftReviewRevisionClient(requestSub2APIMutationHttp, headers),
     ...createMediaToolchainClient(
       (path, init) => requestSub2APIMutationHttp(path, init, 90_000),
       headers,

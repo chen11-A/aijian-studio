@@ -351,7 +351,9 @@ class Sub2APISourceExtractRunFactory:
                 content='{"additionalProperties":false,"required":["summary"],"type":"object"}',
             ),
         )
-        built_context = build_context(delegation=delegation, trusted_inputs=trusted_inputs)
+        built_context = build_context(
+            delegation=delegation, trusted_inputs=trusted_inputs, run_scope=agent_run_id
+        )
         origin_hash = canonical_sha256(
             sub2api_origin_binding(connection.base_url, connection.origin_mode, connection.revision)
         )

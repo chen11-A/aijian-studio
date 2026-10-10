@@ -17,6 +17,12 @@ playback, an MLT execution path, or a formal export/review approval.
   media, source availability, supported tracks, dimensions, duration and formats.
   Newly supported literal subtitle cues use the same DRAFT encoder without any
   preview-specific subtitle renderer.
+- Imported dialogue audio follows that same saved DRAFT path. Its exact audio
+  version, script version, dialogue block, speaker identity, delivery, source
+  sample offset and sequence frame interval remain in the saved assembly.
+  Reading the saved assembly revalidates its script bindings; refreshing a
+  newer script does not rebind older dialogue. The mixed preview is an editing
+  aid, not voice generation, word alignment or a lip-sync approval.
 - A successful same-version DRAFT output may be reused, including an ordinary
   user-saved DRAFT. It is reverified at playback. Merely opening the panel or
   revisiting a saved version never starts another encode.

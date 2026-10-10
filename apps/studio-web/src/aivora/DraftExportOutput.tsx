@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./Common";
 import { DraftReviewNotes } from "./DraftReviewNotes";
 import {
@@ -17,7 +17,10 @@ type Props = {
   projectId: string;
   episodeId: string;
   job: DraftExportJob;
-  gateway: Pick<DraftExportGateway, "preview" | "reveal" | "review"> | undefined;
+  gateway:
+    | (Pick<DraftExportGateway, "preview" | "reveal" | "review" | "revision"> &
+        Partial<Pick<DraftExportGateway, "list" | "get">>)
+    | undefined;
 };
 type PreviewState =
   { kind: "idle" | "loading" } | { kind: "ready"; url: string } | { kind: "error"; notice: string };
@@ -40,6 +43,13 @@ export function DraftExportOutput(props: Props) {
   return <VerifiedDraftOutput key={identityKey} {...props} />;
 }
 function VerifiedDraftOutput({ job, projectId, episodeId, gateway }: Props) {
+  const revisionExports = useMemo(
+    () =>
+      gateway?.list && gateway.get
+        ? { list: gateway.list, get: gateway.get, preview: gateway.preview, reveal: gateway.reveal }
+        : undefined,
+    [gateway?.list, gateway?.get, gateway?.preview, gateway?.reveal],
+  );
   const [playbackSeconds, setPlaybackSeconds] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const [reveal, setReveal] = useState<RevealState>({ kind: "idle" });
@@ -190,7 +200,13 @@ function VerifiedDraftOutput({ job, projectId, episodeId, gateway }: Props) {
           <p>已读取与任务记录一致的本地 DRAFT 文件。不代表帧精确审片或正式发布批准。</p>
         </>
       )}
-      <DraftReviewNotes job={job} gateway={gateway?.review} playbackSeconds={playbackSeconds} />
+      <DraftReviewNotes
+        job={job}
+        gateway={gateway?.review}
+        playbackSeconds={playbackSeconds}
+        revision={gateway?.revision}
+        exports={revisionExports}
+      />
       {reveal.kind === "loading" && <p role="status">正在核验草稿并请求打开文件夹…</p>}
       {(reveal.kind === "ready" || reveal.kind === "error") && (
         <p role={reveal.kind === "error" ? "alert" : "status"}>{reveal.notice}</p>

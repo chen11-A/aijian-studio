@@ -5,6 +5,7 @@ import {
 import type { MediaToolchainGateway } from "../aivora/mediaToolchainContract";
 import { desktopMediaToolchain } from "../aivora/adapters/mediaToolchain";
 import type { DraftReviewGateway } from "../aivora/adapters/draftReview";
+import type { DraftReviewRevisionGateway } from "../aivora/adapters/draftReviewRevision";
 import type { DraftExportGateway } from "../aivora/adapters/draftExport";
 import { desktopDraftExports } from "./draftExports";
 import type { components } from "@aijian/contracts";
@@ -792,6 +793,12 @@ export interface AijianDesktopBridge {
   addProjectMediaAssetEpisodeReference?: AssetLibraryGateway["addProjectMediaAssetEpisodeReference"];
   removeProjectMediaAssetEpisodeReference?: AssetLibraryGateway["removeProjectMediaAssetEpisodeReference"];
   deleteProjectMediaAsset?: AssetLibraryGateway["deleteProjectMediaAsset"];
+  listDraftReviewRevisionPlans?: DraftReviewRevisionGateway["listDraftReviewRevisionPlans"];
+  getDraftReviewRevisionScope?: DraftReviewRevisionGateway["getDraftReviewRevisionScope"];
+  createDraftReviewRevisionPlan?: DraftReviewRevisionGateway["createDraftReviewRevisionPlan"];
+  approveDraftReviewRevisionPlan?: DraftReviewRevisionGateway["approveDraftReviewRevisionPlan"];
+  attachDraftReviewRevisionCandidate?: DraftReviewRevisionGateway["attachDraftReviewRevisionCandidate"];
+  recheckDraftReviewRevisionCandidate?: DraftReviewRevisionGateway["recheckDraftReviewRevisionCandidate"];
   listDraftReviewNotes?: DraftReviewGateway["listDraftReviewNotes"];
   createDraftReviewNote?: DraftReviewGateway["createDraftReviewNote"];
   resolveDraftReviewNote?: DraftReviewGateway["resolveDraftReviewNote"];

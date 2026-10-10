@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { createHash, webcrypto } from "node:crypto";
 import {
   act,
   cleanup,
@@ -13,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
 import { useEpisodeAssembly } from "./useEpisodeAssembly";
 import { bindAssemblyShot } from "./adapters/assemblyStoryboard";
+import type { ScriptVersion } from "./adapters/episodeScript";
 import { staticAnimaticContent } from "./adapters/episodeMediaAssembly";
 import type { AssetLibraryGateway, AssetVersion, MediaAsset } from "./adapters/assetLibrary";
 import type {
@@ -165,6 +167,150 @@ afterEach(() => {
 });
 
 describe("native local-media episode assembly panel", () => {
+  it("authors imported dialogue audio through undo, save, readback and reopen without rewriting old versions", async () => {
+    vi.stubGlobal("crypto", webcrypto);
+    const dialogueEpisode = `ep_${"a".repeat(32)}`;
+    const blockId = `sblk_${"b".repeat(32)}`;
+    const source: ScriptVersion = {
+      project_id: projectId,
+      episode_id: dialogueEpisode,
+      version_id: `ver_${"c".repeat(32)}`,
+      version_number: 1,
+      head_revision: 1,
+      parent_version_id: null,
+      content_hash: `sha256:${"d".repeat(64)}`,
+      author_actor_id: "local-user",
+      change_summary: "Recorded dialogue source",
+      created_at: "2026-10-09T00:00:00Z",
+      content: {
+        schema_version: "1.0.0",
+        project_id: projectId,
+        episode_id: dialogueEpisode,
+        scenes: [
+          {
+            scene_id: `scn_${"e".repeat(32)}`,
+            ordinal: 1,
+            heading: "码头 · 夜",
+            blocks: [
+              {
+                block_id: blockId,
+                ordinal: 1,
+                kind: "DIALOGUE",
+                speaker: "阿岚 🎙",
+                text: "出发吧。",
+                delivery: "ON_SCREEN",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const script = {
+      getEpisodeScript: vi
+        .fn()
+        .mockResolvedValue({ kind: "FOUND", receipt: { data: source, request_id: "script" } }),
+      getEpisodeScriptVersion: vi
+        .fn()
+        .mockResolvedValue({ kind: "FOUND", receipt: { data: source, request_id: "script-pin" } }),
+    };
+    const env = setup();
+    let view = render(
+      <EpisodeMediaAssemblyPanel
+        projectId={projectId}
+        episodeId={dialogueEpisode}
+        script={script}
+        {...env}
+      />,
+    );
+    await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
+    await add("image");
+    await add("audio");
+    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    await screen.findByText("已读回保存版本");
+    const old = env.stored()!;
+    fireEvent.click(screen.getByText(/^对白轨 ·/, { selector: "summary" }));
+    fireEvent.change(await screen.findByLabelText("本集已保存剧本对白"), {
+      target: { value: blockId },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "绑定所选音频为对白轨" }));
+    expect(screen.getByText("有未保存修改")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", {
+        name: /^DIALOGUE/,
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "撤销" }));
+    expect(screen.getByText("已读回保存版本")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重做" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    await screen.findByText("已读回保存版本");
+    const audio = env.stored()!.data.content.audio_segments[0]!;
+    expect(audio).toMatchObject({
+      track_kind: "DIALOGUE",
+      script_version_id: source.version_id,
+      script_block_id: blockId,
+      delivery: "ON_SCREEN",
+      speaker_id: `spk_${createHash("sha256")
+        .update(JSON.stringify([projectId, dialogueEpisode, source.version_id, "阿岚 🎙"]), "utf8")
+        .digest("hex")
+        .slice(0, 32)}`,
+    });
+    expect(audio.media).toEqual(old.data.content.audio_segments[0]!.media);
+    expect(audio.source_in_sample).toBe(old.data.content.audio_segments[0]!.source_in_sample);
+    expect(old.data.content.audio_segments[0]!.track_kind).toBe("BGM");
+    view.unmount();
+    view = render(
+      <EpisodeMediaAssemblyPanel
+        projectId={projectId}
+        episodeId={dialogueEpisode}
+        script={script}
+        {...env}
+      />,
+    );
+    await screen.findByText("已读回保存版本");
+    fireEvent.click(
+      within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", {
+        name: /^DIALOGUE/,
+      }),
+    );
+    fireEvent.click(screen.getByText(/^对白轨 ·/, { selector: "summary" }));
+    await screen.findByText(`固定对白：${source.version_id} / ${blockId}`);
+    expect(env.assembly.createVersion).toHaveBeenCalledTimes(2);
+    expect(env.stored()!.data.parent_version_id).toBe(old.data.version_id);
+    expect(script.getEpisodeScriptVersion).toHaveBeenCalledWith(
+      projectId,
+      dialogueEpisode,
+      source.version_id,
+    );
+    const boundVersion = env.stored()!;
+    fireEvent.click(screen.getByRole("button", { name: "改为 BGM 并移除对白绑定" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+    await screen.findByText("已读回保存版本");
+    expect(env.stored()!.data.content.audio_segments[0]).toMatchObject({
+      track_kind: "BGM",
+      script_version_id: null,
+      script_block_id: null,
+      speaker_id: null,
+      delivery: null,
+    });
+    expect(screen.queryByText(/先前写入结果未知/)).not.toBeInTheDocument();
+    expect(localStorage.length).toBe(0);
+    expect(boundVersion.data.content.audio_segments[0]!.track_kind).toBe("DIALOGUE");
+    view.unmount();
+    render(
+      <EpisodeMediaAssemblyPanel
+        projectId={projectId}
+        episodeId={dialogueEpisode}
+        script={script}
+        {...env}
+      />,
+    );
+    await screen.findByText("已读回保存版本");
+    expect(
+      within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", { name: /^BGM/ }),
+    ).toBeInTheDocument();
+    expect(env.assembly.createVersion).toHaveBeenCalledTimes(3);
+  });
   it("saves exact shot links through undo, readback and reopening without changing old content", async () => {
     const env = setup();
     let view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));

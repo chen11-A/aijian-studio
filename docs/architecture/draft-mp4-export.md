@@ -23,16 +23,24 @@ replace the existing DevelopmentExportPanel fixture workflow.
 
 ## Supported edit decisions
 
-Maximum 32 image/video segments and 32 BGM/SFX segments; 30 minutes; saved even
+Maximum 32 image/video segments and 32 DIALOGUE/BGM/SFX segments; 30 minutes; saved even
 canvas dimensions up to 1920 × 1920. Output is MP4, H.264 yuv420p and, if needed,
 48 kHz stereo AAC. Frame rate comes from the saved assembly. Visuals are fitted
 with letterboxing, ordered and frame-trimmed exactly as saved. Source videos must
 prove CFR at the assembly rate. Native source-sample audio trims are resampled
-and placed at the assembly's absolute frame/sample boundaries. BGM, SFX and
+and placed at the assembly's absolute frame/sample boundaries. DIALOGUE, BGM, SFX and
 explicitly enabled embedded video audio are mixed at unity gain with a peak
 limiter. There are no implicit transitions or missing-media replacements.
 
-DIALOGUE, legacy script-bound subtitles without literal text, animated images, ambiguous stream layouts, unsupported
+Dialogue uses imported audio, bound to an exact saved episode-script version,
+dialogue block, version-specific speaker identity and on/off-screen delivery.
+Saving and reading an assembly validate those references against that immutable
+script. A newer script or audio version never silently replaces the saved pins.
+Both local DRAFT export and saved composition preview use the same audio trim,
+resampling, placement and mix path. This does not generate a voice, certify the
+recorded words or lip sync, or approve professional sound or a formal release.
+
+Legacy script-bound subtitles without literal text, animated images, ambiguous stream layouts, unsupported
 rotation/timestamp gaps and out-of-source ranges fail explicitly. They are never
 silently omitted. Imported originals are capped at 1 GiB each and 2 GiB total.
 

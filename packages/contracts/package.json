@@ -28,6 +28,10 @@
     "./shot-plan": {
       "types": "./src/shot-plan.ts",
       "default": "./src/shot-plan.ts"
+    },
+    "./official-director": {
+      "types": "./src/official-director.ts",
+      "default": "./src/official-director.ts"
     }
   },
   "scripts": {

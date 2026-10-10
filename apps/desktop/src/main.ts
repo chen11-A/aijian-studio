@@ -1,3 +1,4 @@
+import { registerOfficialDirectorHandlers } from "./official-director-ipc";
 import { registerMediaToolchainHandlers } from "./media-toolchain-ipc";
 import { registerOfficialTextHandlers } from "./official-text-ipc";
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
@@ -5,6 +6,7 @@ import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
+import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
 import { registerDraftExportHandlers } from "./draft-export-ipc";
 import { prepareCompositionPreviewPath } from "./composition-preview-cache";
 import { registerEpisodeMediaAssemblyHandlers } from "./episode-media-assembly-ipc";
@@ -299,6 +301,21 @@ registerOfficialTextHandlers<IpcMainInvokeEvent>(
   getChatGPTRuntime,
 );
 
+registerOfficialDirectorHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  getChatGPTRuntime,
+);
+
 const episodeClientFor = createTopLevelEpisodeClientFor(
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
@@ -365,6 +382,11 @@ registerDraftExportOutputHandlers<IpcMainInvokeEvent>(
   (trustedPath) => shell.showItemInFolder(trustedPath),
 );
 registerDraftReviewHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerDraftReviewRevisionHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,

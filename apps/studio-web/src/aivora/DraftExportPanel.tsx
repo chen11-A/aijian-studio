@@ -156,7 +156,12 @@ export function DraftExportPanel(props: DraftExportProps) {
               </>
             )}
             {job.error_code === "OUTPUT_CHANGED" && (
-              <DraftReviewNotes job={job} gateway={props.exports?.review} />
+              <DraftReviewNotes
+                job={job}
+                gateway={props.exports?.review}
+                revision={props.exports?.revision}
+                exports={props.exports}
+              />
             )}
             {job.error_code && (
               <p role="alert">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DraftExportGateway } from "./adapters/draftExport";
+import type { AssemblyScriptGateway } from "./useAssemblyScriptSources";
 import { readAssetLibrary } from "./adapters/assetLibrary";
 import type { AssetLibraryGateway, MediaAsset } from "./adapters/assetLibrary";
 import { assemblyEditProblem, emptyAssembly } from "./adapters/assemblyEditing";
@@ -18,6 +19,7 @@ export type EpisodeAssemblyProps = {
   setNavigationGuard: (guard: (() => boolean) | null) => void;
   hasPendingInput?: boolean;
   exports?: DraftExportGateway;
+  script?: AssemblyScriptGateway;
 };
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

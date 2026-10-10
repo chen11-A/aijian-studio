@@ -607,3 +607,9 @@ export function isShotPlanAdoptedResponse(
     )
   );
 }
+
+/** Shared structural guards; provenance-specific authoring remains separately closed. */
+export const isShotPlanAuthority = authority;
+export const isShotPlanStoryboardBase = storyboardBase;
+export const isShotPlanAdoption = adoption;
+export const isShotPlanIssues = issues;

@@ -28,6 +28,7 @@ const modules = [
   "invalidation-operation",
   "chatgpt-auth",
   "official-text",
+  "official-director",
   "shot-plan",
 ];
 

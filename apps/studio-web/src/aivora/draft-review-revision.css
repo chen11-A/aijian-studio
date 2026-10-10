@@ -1,0 +1,90 @@
+.draft-review-revision {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.draft-revision-editor,
+.draft-revision-plan,
+.draft-revision-candidate,
+.draft-revision-compose {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.draft-revision-editor {
+  margin-top: 12px;
+}
+.draft-revision-plan,
+.draft-revision-candidate {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.draft-revision-editor h4,
+.draft-revision-editor h5,
+.draft-revision-editor p {
+  margin: 0;
+}
+.draft-revision-editor p,
+.draft-revision-editor small,
+.draft-revision-editor label {
+  overflow-wrap: anywhere;
+}
+.draft-revision-choices {
+  max-height: 240px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.draft-revision-choices label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.draft-revision-choices input {
+  flex-shrink: 0;
+}
+.draft-revision-editor textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.draft-revision-text {
+  white-space: pre-wrap;
+}
+.draft-revision-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.draft-revision-comparison > div {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.draft-revision-playback {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.draft-revision-playback video {
+  width: 100%;
+  max-height: 280px;
+  background: #111;
+}
+.draft-revision-editor fieldset {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+.draft-revision-editor small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+@media (max-width: 760px) {
+  .draft-revision-comparison {
+    grid-template-columns: 1fr;
+  }
+}

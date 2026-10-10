@@ -1,5 +1,7 @@
 import { isLiteralSubtitle, subtitleTrackProblem } from "./assemblySubtitles";
+import { validDialogueBinding } from "./assemblyDialogue";
 import type { DraftReviewGateway } from "./draftReview";
+import type { DraftReviewRevisionGateway } from "./draftReviewRevision";
 import type { components } from "@aijian/contracts";
 import type { AssemblyVersion } from "./episodeMediaAssembly";
 
@@ -63,6 +65,7 @@ export interface DraftExportGateway {
     command: DraftExportCommand,
   ): Promise<DraftExportSubmitResult>;
   review?: DraftReviewGateway;
+  revision?: DraftReviewRevisionGateway;
   preview?(
     projectId: string,
     episodeId: string,
@@ -97,8 +100,12 @@ export function draftExportProblem(version: AssemblyVersion | null): string | nu
     )
   )
     return "原素材尚未验证可用；请在素材库核对文件后重读。";
-  if (content.audio_segments.some((segment) => segment.track_kind === "DIALOGUE"))
-    return "对白轨尚未支持草稿编码；请先修改并保存。";
+  if (
+    content.audio_segments.some(
+      (segment) => segment.track_kind === "DIALOGUE" && !validDialogueBinding(segment),
+    )
+  )
+    return "对白轨缺少有效的固定剧本、段落、说话者或呈现方式；请重新绑定并保存。";
   if (content.subtitle_segments.some((cue) => !isLiteralSubtitle(cue)))
     return "旧版剧本绑定字幕尚无固定文字；请先移除或换成文字字幕并保存。";
   if (content.subtitle_segments.length > 128) return "单次草稿最多支持 128 条文字字幕。";

@@ -2,13 +2,24 @@ import { useEffect, useState } from "react";
 import { Button } from "./Common";
 import { DraftReviewScope } from "./DraftReviewScope";
 import { DraftReviewNoteList } from "./DraftReviewNoteList";
+import { DraftReviewRevisionPlans } from "./DraftReviewRevisionPlans";
+import type {
+  DraftReviewRevisionExportGateway,
+  DraftReviewRevisionGateway,
+} from "./adapters/draftReviewRevision";
 import type { DraftExportJob } from "./adapters/draftExport";
 import { approximateFrame, reviewIdentity, type DraftReviewGateway } from "./adapters/draftReview";
 import { useDraftReview } from "./useDraftReview";
 import { useDraftReviewInput } from "./useDraftReviewInput";
 import "./draft-review.css";
 
-type Props = { job: DraftExportJob; gateway?: DraftReviewGateway; playbackSeconds?: number | null };
+type Props = {
+  job: DraftExportJob;
+  gateway?: DraftReviewGateway;
+  playbackSeconds?: number | null;
+  revision?: DraftReviewRevisionGateway;
+  exports?: DraftReviewRevisionExportGateway;
+};
 export function DraftReviewNotes(props: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -37,7 +48,13 @@ export function DraftReviewNotes(props: Props) {
     </section>
   );
 }
-function ReviewEditor({ job, gateway, playbackSeconds }: Props & { gateway: DraftReviewGateway }) {
+function ReviewEditor({
+  job,
+  gateway,
+  playbackSeconds,
+  revision,
+  exports,
+}: Props & { gateway: DraftReviewGateway }) {
   const state = useDraftReview(job, gateway);
   const draft = useDraftReviewInput(job);
   const { frame, text } = draft.input;
@@ -172,6 +189,14 @@ function ReviewEditor({ job, gateway, playbackSeconds }: Props & { gateway: Draf
             reason={draft.input.reason}
             select={(noteId) => draft.edit({ noteId })}
             setReason={(reason) => draft.edit({ reason })}
+          />
+          <DraftReviewRevisionPlans
+            job={job}
+            sourceTarget={state.data.target}
+            notes={state.data.notes}
+            notesReady={state.pending === null}
+            gateway={revision}
+            exports={exports}
           />
           <div className="draft-review-compose">
             <label>

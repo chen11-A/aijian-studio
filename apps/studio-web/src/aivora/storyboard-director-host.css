@@ -19,6 +19,10 @@
   padding: 10px;
   overflow: hidden;
 }
+.storyboard-director-host > .official-director-workspace {
+  height: 100%;
+  min-height: 0;
+}
 .storyboard-director-host > .shot-plan-proposal:is(details):not([open]) {
   height: auto;
 }

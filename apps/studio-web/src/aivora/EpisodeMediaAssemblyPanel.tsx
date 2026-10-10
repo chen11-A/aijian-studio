@@ -5,6 +5,7 @@ import { SavedCompositionPreview } from "./SavedCompositionPreview";
 import { AssemblySubtitleEditor } from "./AssemblySubtitleEditor";
 import { AssemblyTrackEditor } from "./AssemblyTrackEditor";
 import { AssemblyStoryboardReferences } from "./AssemblyStoryboardReferences";
+import { AssemblyDialogueAudioEditor } from "./AssemblyDialogueAudioEditor";
 import { useEpisodeAssembly } from "./useEpisodeAssembly";
 import type { EpisodeAssemblyProps } from "./useEpisodeAssembly";
 import {
@@ -303,6 +304,13 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps) {
         selectedId={selected}
         locked={locked}
         onEdit={edit}
+      />
+      <AssemblyDialogueAudioEditor
+        content={content}
+        selectedId={selected}
+        locked={locked}
+        onEdit={edit}
+        gateway={props.script}
       />
       {current && state.reliable && (
         <AssemblyMediaPreview
