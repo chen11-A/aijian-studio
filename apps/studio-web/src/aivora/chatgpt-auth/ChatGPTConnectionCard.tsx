@@ -9,10 +9,12 @@ export function ChatGPTConnectionCard({
   transport,
   onConnected,
   onUseApi,
+  onOpenProjects,
 }: {
   transport?: ChatGPTBridge;
   onConnected?: () => void;
   onUseApi?: () => void;
+  onOpenProjects?: () => void;
 }) {
   const connection = useChatGPTConnection(transport, onConnected);
   const { status, loading, busy, notice, models } = connection;
@@ -123,14 +125,30 @@ export function ChatGPTConnectionCard({
             读取此账号的可用模型
           </Button>
           {models.length > 0 && (
-            <ul aria-label="当前账号可用模型">
-              {models.map((model) => (
-                <li key={model.slug}>
-                  {model.displayName} <span>{model.slug}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <p>以下为账号返回的只读目录，不是在此处选择生成模型。</p>
+              <ul aria-label="当前账号可用模型（只读）">
+                {models.map((model) => (
+                  <li key={model.slug}>
+                    {model.displayName} <span>{model.slug}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
+          <p>
+            选择模型：进入项目并选择分集，在分镜页打开 AI
+            导演提案，读取模型后使用“官方模型”下拉框。生成前需准备并确认剧本和制作意图。
+          </p>
+          {onOpenProjects && (
+            <Button disabled={busy} onClick={onOpenProjects}>
+              前往项目选择生成模型
+            </Button>
+          )}
+          <p>
+            当前软件仅接入此通道的文本生成，尚未接入图像生成工具、图片结果处理、视频或配音。目录不等于这些能力已经可用；ChatGPT
+            的图像功能也不等于此账号授权通道已获图像调用权限。
+          </p>
         </div>
       )}
       <footer className="chatgpt-actions">

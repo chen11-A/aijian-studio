@@ -141,6 +141,7 @@ function Services() {
                 rememberServiceEntryChoice("chatgpt");
               }}
               onUseApi={useApi}
+              onOpenProjects={() => d.go("project")}
             />
           )}
         </div>

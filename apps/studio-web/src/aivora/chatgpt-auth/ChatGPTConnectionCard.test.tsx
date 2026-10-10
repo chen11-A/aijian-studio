@@ -150,6 +150,17 @@ describe("official connection card", () => {
     await screen.findByText("Fixture text");
     expect(transport.models).toHaveBeenCalledOnce();
     expect(screen.getByText(/尚未执行模型推理/)).toBeInTheDocument();
+    expect(screen.getByText(/只读目录，不是在此处选择生成模型/)).toBeInTheDocument();
+    expect(screen.getByText(/当前软件仅接入此通道的文本生成/)).toBeInTheDocument();
+  });
+  it("opens the project workflow without selecting or invoking a model", async () => {
+    const transport = bridge(connected);
+    const openProjects = vi.fn();
+    render(<ChatGPTConnectionCard transport={transport} onOpenProjects={openProjects} />);
+    fireEvent.click(await screen.findByRole("button", { name: "前往项目选择生成模型" }));
+    expect(openProjects).toHaveBeenCalledOnce();
+    expect(transport.models).not.toHaveBeenCalled();
+    expect(transport.signIn).not.toHaveBeenCalled();
   });
   it("rejects statuses with secret fields or impossible connected states", () => {
     expect(validStatus({ ...connected, accessToken: "fixture" })).toBe(false);
