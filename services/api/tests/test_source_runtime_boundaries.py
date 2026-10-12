@@ -168,7 +168,10 @@ def test_invalid_stop_deadline_does_not_stop_runtime(supervisor, timeout):
     assert supervisor.runtime.availability() == "CONFIGURED_NOT_STARTED"
 
 
-def test_lifecycle_starts_once_joins_and_cannot_restart(supervisor):
+def test_lifecycle_starts_once_joins_and_cannot_restart(supervisor, monkeypatch):
+    # Equal readings are legal at the clock's resolution. At this uptime the
+    # deadline subtraction rounds slightly above 0.2 unless it is capped.
+    monkeypatch.setattr(supervisor.module, "monotonic", lambda: 10_000.0)
     runtime = supervisor.runtime
     runtime._thread = Mock()
     runtime._thread.is_alive.return_value = False

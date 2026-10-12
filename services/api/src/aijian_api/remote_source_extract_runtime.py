@@ -118,10 +118,10 @@ class RemoteSourceExtractRuntime:
         deadline = monotonic() + timeout
         self._stop.set()
         if self._started:
-            self._thread.join(timeout=max(0.0, deadline - monotonic()))
+            self._thread.join(timeout=min(timeout, max(0.0, deadline - monotonic())))
             if self._thread.is_alive():
                 raise RuntimeError("remote source.extract runtime did not stop in time")
-        if not self._iteration.acquire(timeout=max(0.0, deadline - monotonic())):
+        if not self._iteration.acquire(timeout=min(timeout, max(0.0, deadline - monotonic()))):
             raise RuntimeError("remote source.extract operation did not stop in time")
         self._iteration.release()
 
