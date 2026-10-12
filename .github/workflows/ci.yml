@@ -33,6 +33,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
+      - name: Bind container Git trust to this workspace only
+        if: runner.os == 'Linux'
+        run: |
+          test "$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+          test -z "${GIT_CONFIG_COUNT:-}"
+          echo "GIT_CONFIG_COUNT=1" >> "$GITHUB_ENV"
+          echo "GIT_CONFIG_KEY_0=safe.directory" >> "$GITHUB_ENV"
+          echo "GIT_CONFIG_VALUE_0=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+
       - name: Set up Node.js
         uses: actions/setup-node@v7.0.0
         with:
