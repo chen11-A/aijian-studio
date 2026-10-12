@@ -36,6 +36,7 @@ describe("original confirmation mutation error attribution", () => {
     [401, "SOME_OTHER_ERROR"],
     [403, "SOME_OTHER_ERROR"],
     [409, "SOME_OTHER_ERROR"],
+    [409, "REVISION_CONFLICT"],
     [404, "SCRIPT_CONFIRMATION_NOT_FOUND"],
     [422, "SCRIPT_CONFIRMATION_CONFLICT"],
     [409, "SIDECAR_AUTH_REQUIRED"],

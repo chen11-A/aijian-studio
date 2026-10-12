@@ -198,12 +198,18 @@ describe.each(operations)("episode $name transport", (operation) => {
   );
 
   test("retains a definite revision conflict without retrying", async () => {
+    // The confirmation POST has its own rejection code; generic revision errors
+    // do not prove that this mutation was rejected.
+    const code =
+      operation.name === "create confirmation"
+        ? "SCRIPT_CONFIRMATION_CONFLICT"
+        : "REVISION_CONFLICT";
     const fetcher = vi.fn(async () =>
       Response.json(
         {
           request_id: requestId,
           error: {
-            code: "REVISION_CONFLICT",
+            code,
             message: "Synthetic conflict",
             retryable: false,
             details: {},
@@ -215,7 +221,7 @@ describe.each(operations)("episode $name transport", (operation) => {
     expect(await operation.call(createLocalApiClient(fetcher, session), project)).toEqual({
       kind: "DEFINITE_SERVER_ERROR",
       status: 409,
-      code: "REVISION_CONFLICT",
+      code,
       request_id: requestId,
     });
     expect(fetcher).toHaveBeenCalledOnce();
