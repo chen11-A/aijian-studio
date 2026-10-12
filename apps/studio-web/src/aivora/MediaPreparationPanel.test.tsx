@@ -220,14 +220,33 @@ test("reopen restores the exact selected history version even beyond the first p
     },
   });
   const onSelected = vi.fn();
+  let finishRead!: (
+    result: Awaited<ReturnType<MediaPreparationGateway["getMediaPreparation"]>>,
+  ) => void;
+  api.getMediaPreparation.mockImplementationOnce(
+    () => new Promise((resolve) => (finishRead = resolve)),
+  );
   render(<MediaPreparationPanel {...props} onSelected={onSelected} />);
+  await waitFor(() => expect(api.getMediaPreparation).toHaveBeenCalledTimes(2));
+  expect(screen.queryByLabelText("精确请求详情")).toBeNull();
+  expect(onSelected).toHaveBeenLastCalledWith(null);
+  await act(async () => {
+    finishRead({
+      kind: "FOUND",
+      receipt: {
+        data: f.operation.version as MediaPreparationOperation["version"],
+        request_id: f.request_id,
+      },
+    });
+  });
   await screen.findByLabelText("精确请求详情");
   expect(api.getMediaPreparation).toHaveBeenLastCalledWith(
     f.project_id,
     f.episode_id,
     f.operation.version.version_id,
   );
-  expect(onSelected).toHaveBeenLastCalledWith(f.operation.version);
+  // DOM commit and the parent's passive-effect notification are separate boundaries.
+  await waitFor(() => expect(onSelected).toHaveBeenLastCalledWith(f.operation.version));
   expect(screen.getByLabelText("完整提示词")).toHaveValue("");
   expect(api.saveMediaPreparation).not.toHaveBeenCalled();
   expect(api.getMediaPreparationOperation).not.toHaveBeenCalled();
