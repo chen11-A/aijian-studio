@@ -1,10 +1,12 @@
 """Two real Gate process exits; synthetic fixture approvals, never film approval."""
 
+import faulthandler
 import json
 import multiprocessing
 import os
 import sqlite3
 import sys
+import threading
 from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
@@ -141,8 +143,23 @@ def _read_recovered(database: Path, project_id: str, output: Path) -> None:
     )
 
 
+def _diagnosed_child(target: Callable[..., None], args: tuple[Any, ...]) -> None:
+    # Keep this armed through interpreter teardown: a written recovery result does
+    # not prove the process exited. The parent still enforces its original 30s bound.
+    faulthandler.dump_traceback_later(20)
+    target(*args)
+    print(
+        f"{target.__name__} target returned; pid={os.getpid()}; "
+        f"threads={[(thread.name, thread.daemon) for thread in threading.enumerate()]}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def _run_child(target: Callable[..., None], args: tuple[Any, ...], exit_code: int) -> None:
-    process = multiprocessing.get_context("spawn").Process(target=target, args=args)
+    process = multiprocessing.get_context("spawn").Process(
+        target=_diagnosed_child, args=(target, args)
+    )
     try:
         process.start()
         process.join(timeout=30)
