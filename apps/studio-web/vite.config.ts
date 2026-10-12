@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { developmentCoreAssets } from "./build/developmentCoreAssets.ts";
@@ -21,6 +22,9 @@ export default defineConfig({
     },
   },
   test: {
+    // pnpm runs desktop and renderer suites together; share CPU capacity.
+    // https://v4.vitest.dev/config/maxworkers
+    maxWorkers: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
     coverage: {

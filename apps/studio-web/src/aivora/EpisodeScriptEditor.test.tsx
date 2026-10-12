@@ -223,7 +223,13 @@ const change = (name: string, value: string) =>
 const mount = () =>
   render(<EpisodeScriptEditor projectId={project} episodeId={episode} briefVersionId={brief} />);
 async function ready() {
-  await waitFor(() => expect(screen.getByRole("button", { name: "确认此剧本版本" })).toBeEnabled());
+  // Initial script and confirmation reads settle in separate effects. The
+  // coverage-enabled Windows runner can exceed RTL's 1 s default; still require
+  // the actual guarded button to become enabled before any mutation.
+  await waitFor(
+    () => expect(screen.getByRole("button", { name: "确认此剧本版本" })).toBeEnabled(),
+    { timeout: 5_000 },
+  );
 }
 
 beforeEach(() => {

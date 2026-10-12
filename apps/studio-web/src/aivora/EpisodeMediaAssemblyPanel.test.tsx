@@ -31,6 +31,9 @@ import type {
   EpisodeMediaAssemblyGateway,
 } from "./adapters/episodeMediaAssembly";
 
+// These multi-save/remount journeys exceeded Vitest's 5 s default under
+// coverage on Windows CI. Keep every per-state assertion and a bounded budget.
+
 const projectId = `prj_${"1".repeat(32)}`,
   episodeId = `ep_${"8".repeat(32)}`;
 function asset(kind: "video" | "image" | "audio", digit: string): MediaAsset {
@@ -320,9 +323,10 @@ describe("native local-media episode assembly panel", () => {
       getEpisodeScript: vi
         .fn()
         .mockResolvedValue({ kind: "FOUND", receipt: { data: source, request_id: "script" } }),
-      getEpisodeScriptVersion: vi
-        .fn()
-        .mockResolvedValue({ kind: "FOUND", receipt: { data: source, request_id: "script-pin" } }),
+      getEpisodeScriptVersion: vi.fn().mockResolvedValue({
+        kind: "FOUND",
+        receipt: { data: source, request_id: "script-pin" },
+      }),
     };
     const env = setup();
     let view = render(
@@ -418,10 +422,12 @@ describe("native local-media episode assembly panel", () => {
     );
     await screen.findByText("已从项目重新读回装配版本。");
     expect(
-      within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", { name: /^BGM/ }),
+      within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", {
+        name: /^BGM/,
+      }),
     ).toBeInTheDocument();
     expect(env.assembly.saveExact).toHaveBeenCalledTimes(3);
-  });
+  }, 15_000);
   it("saves exact shot links through undo, readback and reopening without changing old content", async () => {
     const env = setup();
     let view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
@@ -515,7 +521,7 @@ describe("native local-media episode assembly panel", () => {
       within(screen.getByRole("list", { name: "音频片段" })).getAllByRole("button"),
     ).toHaveLength(1);
     expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
-  });
+  }, 15_000);
   it("keeps unknown writes locked across reopen and never resubmits", async () => {
     const env = setup();
     vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
@@ -865,7 +871,7 @@ it("saves literal subtitle IDs and exact frames, protects unapplied input, and r
   expect(screen.queryByText("修改字幕")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "撤销" }));
   expect(screen.getByText("修改字幕")).toBeInTheDocument();
-});
+}, 15_000);
 
 it("rejects unsupported subtitle text and overlap without silently saving or clipping", async () => {
   const env = setup();

@@ -1,7 +1,11 @@
+import { availableParallelism } from "node:os";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // pnpm runs desktop and renderer suites together; share CPU capacity.
+    // https://v4.vitest.dev/config/maxworkers
+    maxWorkers: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
     environment: "node",
     include: ["src/**/*.test.ts"],
     coverage: {
