@@ -104,6 +104,7 @@ describe("reversible desktop editor presentation", () => {
               head_revision: 2,
               content: payload.content,
               parent_version_id: payload.parent_version_id,
+              change_summary: payload.change_summary,
             };
             return {
               kind: "CREATED",

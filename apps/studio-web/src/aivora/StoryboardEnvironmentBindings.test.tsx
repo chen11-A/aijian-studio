@@ -336,7 +336,9 @@ it("restores separate episode environment choices through A to B to A", async ()
     />,
   );
   await waitFor(() => expect(screen.getByLabelText("本镜地点状态")).toHaveValue(variant));
-  expect(screen.getByLabelText("环境参考：雨后状态")).toBeChecked();
+  // The saved binding is visible before its exact library finishes loading.
+  // Verify the asynchronously materialized reference, not the placeholder state.
+  await waitFor(() => expect(screen.getByLabelText("环境参考：雨后状态")).toBeChecked());
   expect(api.createEpisodeStoryboardVersion).not.toHaveBeenCalled();
 });
 

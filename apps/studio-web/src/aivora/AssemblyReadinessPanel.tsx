@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   readinessData,
   readinessTarget,
@@ -101,7 +101,9 @@ export function AssemblyReadinessPanel(props: Props) {
     setLatest({ version_id: value.version_id, content_hash: value.content_hash });
     setState("idle");
   }
-  useEffect(() => {
+  // Finish invalidating the old selection before the new selection can be
+  // clicked. A deferred effect could otherwise cancel that fresh request.
+  useLayoutEffect(() => {
     ++request.current;
     setReport(null);
     setState("idle");

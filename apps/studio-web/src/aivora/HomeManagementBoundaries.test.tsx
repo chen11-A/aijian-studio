@@ -293,7 +293,11 @@ describe("project and episode creation entry boundaries", () => {
       const callback = view.edit.mock.calls[0]?.[2];
       if (!callback) throw new Error("Expected new project editor");
       await act(async () => {
-        await callback({ title: " New project ", input: " Original inspiration " });
+        await callback({
+          title: " New project ",
+          aspect_ratio: "16:9",
+          input: " Original inspiration ",
+        });
       });
       if (kind === "SUCCEEDED") {
         expect(view.put).toHaveBeenCalledWith("input", "Original inspiration");
