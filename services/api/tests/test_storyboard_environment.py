@@ -316,7 +316,7 @@ def test_shared_fixture_is_canonical_backend_contract():
         (
             Path(__file__).resolve().parents[3]
             / "packages/contracts/fixtures/storyboard-environment.json"
-        ).read_text()
+        ).read_text(encoding="utf-8")
     )
     request = CreateEpisodeStoryboardVersionRequest.model_validate(fixture["request"])
     assert request.content.model_dump(mode="json") == fixture["response"]["data"]["content"]

@@ -289,7 +289,7 @@ def test_authenticated_http_exact_content_and_fixture(tmp_path: Path) -> None:
         (
             Path(__file__).resolve().parents[3]
             / "packages/contracts/fixtures/project-environment.json"
-        ).read_text()
+        ).read_text(encoding="utf-8")
     )
     checked = CreateProjectCreativeLibraryVersionRequest.model_validate(fixture["request"])
     assert checked.content.model_dump(mode="json") == fixture["response"]["data"]["content"]
