@@ -26,6 +26,7 @@ import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
 import { lstatSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { developmentPythonLaunch } from "./development-python";
 
 import {
   app,
@@ -129,15 +130,13 @@ function developmentSidecarOptions(): StartSidecarOptions {
     throw new Error("Packaged sidecar runtime is not available");
   }
   const repositoryRoot = resolve(__dirname, "../../..");
-  const command =
-    process.platform === "win32"
-      ? join(repositoryRoot, ".venv", "Scripts", "python.exe")
-      : join(repositoryRoot, ".venv", "bin", "python");
+  const python = developmentPythonLaunch(repositoryRoot);
   return {
-    command,
+    command: python.command,
     args: ["-m", "aijian_api.sidecar"],
     cwd: repositoryRoot,
     env: {
+      ...python.env,
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK

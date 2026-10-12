@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { existsSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
@@ -47,6 +47,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 
 import { createLocalApiClient } from "./api-client";
 import { SidecarStartupError, startSidecar, type SidecarHandle } from "./sidecar-process";
+import { developmentPythonLaunch } from "./development-python";
 
 let activeSidecar: SidecarHandle | null = null;
 const repositoryRoot = resolve(__dirname, "../../..");
@@ -218,20 +219,22 @@ test(
   async () => {
     const phases: Phase[] = [];
     phaseCapture.current = phases;
-    const testWorkspace = mkdtempSync(join(tmpdir(), "aivora-private-sidecar-"));
+    // Windows TEMP may use an 8.3 alias; supply a canonical test-owned path
+    // without weakening production workspace link/junction rejection.
+    const testWorkspace = mkdtempSync(
+      join(realpathSync.native(tmpdir()), "aivora-private-sidecar-"),
+    );
     try {
-      const python =
-        process.platform === "win32"
-          ? join(repositoryRoot, ".venv", "Scripts", "python.exe")
-          : join(repositoryRoot, ".venv", "bin", "python");
-      expect(existsSync(python)).toBe(true);
+      const python = developmentPythonLaunch(repositoryRoot);
+      expect(existsSync(python.command)).toBe(true);
 
       mark(phases, "spawn.start");
       activeSidecar = await startSidecar({
-        command: python,
+        command: python.command,
         args: ["-m", "aijian_api.sidecar"],
         cwd: repositoryRoot,
         env: {
+          ...python.env,
           PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
           AIJIAN_DATA_DIR: join(testWorkspace, "workspace"),
         },

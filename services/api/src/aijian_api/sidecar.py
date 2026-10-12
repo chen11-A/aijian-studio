@@ -549,7 +549,11 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         sub2api_worker_started = True
 
         handshake = create_handshake(port=port, token=token, pid=os.getpid())
-        print(json.dumps(handshake, separators=(",", ":"), sort_keys=True), flush=True)
+        # Keep UTF-8/LF wire framing independent of Windows text newline translation.
+        sys.stdout.buffer.write(
+            (json.dumps(handshake, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+        )
+        sys.stdout.buffer.flush()
         server.run(sockets=[listener])
     finally:
         shutdown_error: BaseException | None = None
