@@ -307,3 +307,89 @@ test("a cached selection's late A read cannot replace the new A generation after
   expect(onSelected).toHaveBeenLastCalledWith(selected);
   expect(api.saveMediaPreparation).not.toHaveBeenCalled();
 });
+
+test("edits the complete image/video request locally and preserves exact frame and shot pins", async () => {
+  const api = gateway();
+  const go = vi.fn();
+  render(
+    <MediaPreparationPanel
+      projectId={f.project_id}
+      episodeId={f.episode_id}
+      gateway={api}
+      sessionIntents={new Map()}
+      go={go}
+    />,
+  );
+  await waitFor(() => expect(screen.getByRole("button", { name: "核对请求 1" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "核对请求 1" }));
+  await screen.findByLabelText("精确请求详情");
+  fireEvent.click(screen.getByRole("button", { name: "用当前已保存分镜另编输入" }));
+  expect(screen.getByLabelText("完整提示词")).toHaveValue(f.command.payload.input.prompt);
+  fireEvent.change(screen.getByLabelText("已保存镜头"), {
+    target: { value: version.content.shots[0]!.shot_id },
+  });
+  fireEvent.change(screen.getByLabelText("画面意图"), { target: { value: "VIDEO" } });
+  expect(screen.getByLabelText("期望帧数")).toBeEnabled();
+  fireEvent.change(screen.getByLabelText("期望帧数"), { target: { value: "72" } });
+  fireEvent.change(screen.getByLabelText("期望宽度"), { target: { value: "1280" } });
+  fireEvent.change(screen.getByLabelText("期望高度"), { target: { value: "720" } });
+  fireEvent.change(screen.getByLabelText("负面提示词"), { target: { value: "不出现字幕和标记" } });
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  expect(unload.defaultPrevented).toBe(true);
+  fireEvent.change(screen.getByLabelText("画面意图"), { target: { value: "IMAGE" } });
+  expect(screen.getByLabelText("期望帧数")).toHaveValue(1);
+  expect(screen.getByLabelText("期望帧数")).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("画面意图"), { target: { value: "VIDEO" } });
+  fireEvent.change(screen.getByLabelText("期望帧数"), { target: { value: "72" } });
+  fireEvent.click(screen.getByRole("button", { name: "另存制作请求" }));
+  await waitFor(() => expect(api.saveMediaPreparation).toHaveBeenCalledOnce());
+  expect(api.saveMediaPreparation.mock.calls[0]![2].payload.input).toMatchObject({
+    capability_intent: "VIDEO",
+    width: 1280,
+    height: 720,
+    requested_frames: 72,
+    negative_prompt: "不出现字幕和标记",
+    storyboard_version_id: version.version_id,
+    storyboard_content_hash: version.content_hash,
+    shot_id: version.content.shots[0]!.shot_id,
+  });
+  for (const [name, target] of [
+    ["分镜编排", "storyboard"],
+    ["导入和管理素材", "assets"],
+    ["成片组装", "assembly"],
+    ["AI 服务配置", "services"],
+  ]) {
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(go).toHaveBeenLastCalledWith(target);
+  }
+  expect(api.getMediaPreparationOperation).not.toHaveBeenCalled();
+});
+
+test.each(["unknown", "throw"])(
+  "exact detail %s preserves the dirty request and sends no write",
+  async (outcome) => {
+    const api = gateway();
+    if (outcome === "throw") api.getMediaPreparation.mockRejectedValue(new Error("unavailable"));
+    else api.getMediaPreparation.mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    render(
+      <MediaPreparationPanel
+        projectId={f.project_id}
+        episodeId={f.episode_id}
+        gateway={api}
+        sessionIntents={new Map()}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "核对请求 1" })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("完整提示词"), {
+      target: { value: "保留未保存的完整输入" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "核对请求 1" }));
+    await screen.findByText(
+      outcome === "throw" ? "精确请求读取未知。" : "精确请求回执或哈希无法核对。",
+    );
+    expect(screen.getByLabelText("完整提示词")).toHaveValue("保留未保存的完整输入");
+    expect(screen.queryByLabelText("精确请求详情")).toBeNull();
+    expect(api.saveMediaPreparation).not.toHaveBeenCalled();
+  },
+);

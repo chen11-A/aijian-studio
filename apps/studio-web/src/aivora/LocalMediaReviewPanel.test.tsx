@@ -181,6 +181,190 @@ afterEach(() => {
 });
 
 describe("explicit local human review in production renderer", () => {
+  it.each(["history", "status"])(
+    "ignores a late %s response after the saved assembly changes",
+    async (kind) => {
+      const { api, props } = setup();
+      const view = render(<LocalMediaReviewPanel {...props} />);
+      await choose();
+      fill();
+      await readyWrite();
+      const read = await screen.findByRole("button", {
+        name: `读取自审记录 ver_${"1".repeat(32)}`,
+      });
+      let finish!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      if (kind === "history") {
+        const actual = vi.mocked(api.getLocalMediaReview).getMockImplementation()!;
+        vi.mocked(api.getLocalMediaReview).mockImplementation(async (...args) => {
+          await waiting;
+          return actual(...args);
+        });
+        fireEvent.click(read);
+      } else {
+        const actual = vi.mocked(api.getLocalMediaReviewStatus).getMockImplementation()!;
+        vi.mocked(api.getLocalMediaReviewStatus).mockImplementation(async (...args) => {
+          await waiting;
+          return actual(...args);
+        });
+        fireEvent.click(screen.getByRole("button", { name: "只读核对当前适用状态" }));
+      }
+      view.rerender(
+        <LocalMediaReviewPanel
+          {...props}
+          savedVersion={{ ...saved, version_id: `ver_${"e".repeat(32)}`, head_revision: 2 }}
+        />,
+      );
+      await act(async () => finish());
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "读取本集自审历史" })).toBeEnabled(),
+      );
+      expect(screen.queryByText("当前绑定仍适用 · 仅此自审记录")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("精确历史自审记录")).toBeInTheDocument();
+      expect(api.saveLocalMediaReview).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("keeps the observation after definite conflict and requires a fresh history before saving", async () => {
+    const { api, props } = setup();
+    vi.mocked(api.saveLocalMediaReview).mockResolvedValue({
+      kind: "DEFINITE_SERVER_ERROR",
+      status: 409,
+      code: "LOCAL_MEDIA_REVIEW_CONFLICT",
+      request_id,
+    });
+    render(<LocalMediaReviewPanel {...props} />);
+    await choose();
+    fill();
+    await readyWrite();
+    await screen.findByText(/自审保存明确被拒绝：LOCAL_MEDIA_REVIEW_CONFLICT/);
+    expect(screen.getByLabelText("具体自审观察")).toHaveValue(
+      "记录逐字核对的观察，第二行需要修改。",
+    );
+    expect(screen.getByRole("button", { name: "显式保存本次自审记录" })).toBeDisabled();
+    expect(readLocalReviewJournal(window.localStorage, p, e).kind).toBe("EMPTY");
+    expect(api.getLocalMediaReviewOperation).not.toHaveBeenCalled();
+    expect(api.saveLocalMediaReview).toHaveBeenCalledTimes(1);
+  });
+  it("recovers a durable operation after process memory is gone using only its exact GET", async () => {
+    const { api, props, operations } = setup();
+    const original = command();
+    expect(preserveLocalReviewJournal(window.localStorage, original)).toBe(true);
+    operations.set(original.operation_id, captured);
+    render(<LocalMediaReviewPanel {...props} />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "只读核对原自审保存" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "只读核对原自审保存" }));
+    await screen.findByLabelText("精确历史自审记录");
+    expect(api.getLocalMediaReviewOperation).toHaveBeenCalledExactlyOnceWith(p, e, original);
+    expect(api.saveLocalMediaReview).not.toHaveBeenCalled();
+    expect(readLocalReviewJournal(window.localStorage, p, e).kind).toBe("EMPTY");
+  });
+  it("keeps observations and locks writes when refreshing history throws", async () => {
+    const { api, props } = setup();
+    render(<LocalMediaReviewPanel {...props} />);
+    await choose();
+    fill();
+    vi.mocked(api.listLocalMediaReviews).mockRejectedValue(new Error("offline"));
+    fireEvent.click(screen.getByRole("button", { name: "读取本集自审历史" }));
+    await screen.findByText(/本集自审历史未可靠读回/);
+    expect(screen.getByLabelText("具体自审观察")).toHaveValue(
+      "记录逐字核对的观察，第二行需要修改。",
+    );
+    expect(screen.getByRole("button", { name: "显式保存本次自审记录" })).toBeDisabled();
+    expect(api.saveLocalMediaReview).not.toHaveBeenCalled();
+  });
+  it("refuses an older history head after a verified saved review", async () => {
+    const { api, props } = setup();
+    render(<LocalMediaReviewPanel {...props} />);
+    await choose();
+    fill();
+    await readyWrite();
+    await screen.findByRole("button", { name: `读取自审记录 ver_${"1".repeat(32)}` });
+    vi.mocked(api.listLocalMediaReviews).mockResolvedValue(
+      found({
+        project_id: p,
+        episode_id: e,
+        head_version_id: null,
+        head_revision: null,
+        items: [],
+        next_cursor: null,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "读取本集自审历史" }));
+    await screen.findByText(/自审历史头回执过旧/);
+    expect(screen.getByLabelText("精确历史自审记录")).toBeInTheDocument();
+    expect(api.saveLocalMediaReview).toHaveBeenCalledTimes(1);
+  });
+  it("asks before changing a dirty review target and clears only after consent", async () => {
+    const { api, props } = setup();
+    render(<LocalMediaReviewPanel {...props} />);
+    await choose();
+    fill();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.change(screen.getByLabelText("选择已保存的自审片段"), {
+      target: { value: "AUDIO:seg_audio" },
+    });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("具体自审观察")).toHaveValue(
+      "记录逐字核对的观察，第二行需要修改。",
+    );
+    expect(api.getLocalMediaReviewTarget).toHaveBeenCalledTimes(1);
+    confirm.mockReturnValue(true);
+    fireEvent.change(screen.getByLabelText("选择已保存的自审片段"), { target: { value: "" } });
+    expect(screen.queryByLabelText("具体自审观察")).not.toBeInTheDocument();
+    expect(api.saveLocalMediaReview).not.toHaveBeenCalled();
+  });
+  it.each(["unknown", "throws"])(
+    "does not create a review when the target read %s",
+    async (mode) => {
+      const { api, props } = setup();
+      if (mode === "throws")
+        vi.mocked(api.getLocalMediaReviewTarget).mockRejectedValue(new Error("offline"));
+      else vi.mocked(api.getLocalMediaReviewTarget).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+      render(<LocalMediaReviewPanel {...props} />);
+      await waitFor(() => expect(screen.getByLabelText("选择已保存的自审片段")).toBeEnabled());
+      fireEvent.change(screen.getByLabelText("选择已保存的自审片段"), {
+        target: { value: "LITERAL_SUBTITLE:seg_subtitle" },
+      });
+      await screen.findByText(/原件、来源、保存版本或对象哈希无法核实/);
+      expect(screen.queryByLabelText("具体自审观察")).not.toBeInTheDocument();
+      expect(api.saveLocalMediaReview).not.toHaveBeenCalled();
+    },
+  );
+  it("keeps immutable history after status and detail reads fail", async () => {
+    const { api, props } = setup();
+    render(<LocalMediaReviewPanel {...props} />);
+    await choose();
+    fill();
+    await readyWrite();
+    const read = await screen.findByRole("button", { name: `读取自审记录 ver_${"1".repeat(32)}` });
+    vi.mocked(api.getLocalMediaReviewStatus).mockRejectedValue(new Error("offline"));
+    fireEvent.click(screen.getByRole("button", { name: "只读核对当前适用状态" }));
+    await screen.findByText(/当前适用性回执无法核实/);
+    vi.mocked(api.getLocalMediaReview).mockRejectedValue(new Error("offline"));
+    fireEvent.click(read);
+    await screen.findByText(/所选历史自审记录未可靠读回/);
+    expect(screen.getByLabelText("精确历史自审记录")).toHaveTextContent(
+      "记录逐字核对的观察，第二行需要修改。",
+    );
+    expect(api.saveLocalMediaReview).toHaveBeenCalledTimes(1);
+  });
+  it("never recreates an operation from a corrupt pending journal", async () => {
+    const { api, props } = setup();
+    window.localStorage.setItem(pendingKey, "not-json");
+    render(<LocalMediaReviewPanel {...props} />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "只读核对原自审保存" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "只读核对原自审保存" }));
+    await screen.findByText(/原保存日志缺少完整命令/);
+    expect(api.saveLocalMediaReview).not.toHaveBeenCalled();
+    expect(api.getLocalMediaReviewOperation).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(pendingKey)).toBe("not-json");
+  });
   it("recovers initial read ownership after StrictMode effect remount and ignores the first delayed response", async () => {
     const { api, props } = setup();
     let resolve!: (value: ReturnType<typeof found<LocalMediaReviewPage>>) => void;

@@ -5,6 +5,7 @@ import {
   waitFor,
   render,
   screen,
+  within,
   cleanup,
   fireEvent,
 } from "@testing-library/react";
@@ -570,3 +571,158 @@ it("unconditional journal deletion is refused; exact identity and deletion readb
   expect(clearVisualJournal(p, original)).toBe(false);
   expect(readVisualJournal(p)).toEqual({ kind: "PENDING", value: original });
 });
+
+it("edits candidate reference and prop choices without changing source assets or signing G5", async () => {
+  const g = bridge();
+  render(<VisualBibleEditor projectId={p} setNavigationGuard={setter} />);
+  await screen.findByLabelText("共享改动原因");
+  const references = screen.getByRole("group", { name: "身份与服装参考范围" });
+  const reference = within(references).getAllByRole("checkbox")[0]!;
+  const initiallySelected = (reference as HTMLInputElement).checked;
+  fireEvent.click(reference);
+  expect(reference).toHaveProperty("checked", !initiallySelected);
+  fireEvent.click(reference);
+  expect(reference).toHaveProperty("checked", initiallySelected);
+
+  const scene = screen.getByRole("group", { name: "场景参考" });
+  fireEvent.click(within(scene).getByRole("button", { name: "移除此候选引用" }));
+  const choice = within(scene).getByRole("combobox");
+  const assetKey = `${fixture.asset.id}/${fixture.asset.versions[0]!.id}`;
+  fireEvent.change(choice, { target: { value: assetKey } });
+  fireEvent.change(choice, { target: { value: assetKey } });
+  expect(within(scene).getAllByRole("button", { name: "移除此候选引用" })).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "添加道具版本" }));
+  fireEvent.change(screen.getByLabelText("道具1名称"), { target: { value: "本地测试灯" } });
+  fireEvent.change(screen.getByLabelText("道具说明"), { target: { value: "仅用于当前候选" } });
+  const props = screen.getByRole("group", { name: "道具版本" });
+  fireEvent.change(within(props).getByRole("combobox"), { target: { value: assetKey } });
+  fireEvent.click(within(props).getByRole("button", { name: "移除此候选引用" }));
+  fireEvent.click(screen.getByRole("button", { name: "移除此候选道具" }));
+  expect(screen.getByLabelText("道具1名称")).toHaveValue("本地测试灯");
+  vi.mocked(window.confirm).mockReturnValue(true);
+  fireEvent.click(screen.getByRole("button", { name: "移除此候选道具" }));
+  expect(screen.queryByLabelText("道具1名称")).toBeNull();
+  fireEvent.change(screen.getByLabelText("width"), { target: { value: "-" } });
+  expect(screen.getByRole("button", { name: "另存视觉候选版本" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("width"), { target: { value: "972" } });
+  fireEvent.change(screen.getByLabelText("共享改动原因"), {
+    target: { value: "候选参考已人工编辑" },
+  });
+  fireEvent.change(screen.getByLabelText("本次版本说明"), { target: { value: "测试候选编辑" } });
+  fireEvent.click(screen.getByRole("button", { name: "另存视觉候选版本" }));
+  await waitFor(() => expect(g.saveVisualBible).toHaveBeenCalledOnce());
+  expect(g.saveVisualBible.mock.calls[0]![2]).toMatchObject({
+    change_summary: "测试候选编辑",
+    content: {
+      props: [],
+      change_reason: "候选参考已人工编辑",
+      scenes: fixture.saved.version.content.scenes,
+    },
+  });
+  expect(g.inspectVisualReference).not.toHaveBeenCalled();
+  expect(g.prepareVisualReview).not.toHaveBeenCalled();
+  expect(g.confirmVisualReview).not.toHaveBeenCalled();
+});
+
+it("requires discard consent for a new candidate and keeps the latest library pinned", async () => {
+  const g = bridge();
+  const { result } = renderHook(() => useVisualWorkspace(p, setter));
+  await ready(result);
+  act(() => result.current.setContent((c) => (c ? { ...c, change_reason: "未保存" } : c)));
+  act(() => result.current.newCandidate());
+  expect(result.current.content?.change_reason).toBe("未保存");
+  vi.mocked(window.confirm).mockReturnValue(true);
+  act(() => result.current.newCandidate());
+  expect(result.current.selected).toBeNull();
+  expect(result.current.content).toMatchObject({
+    creative_library_version_id: fixture.library.version_id,
+    creative_library_content_hash: fixture.library.content_hash,
+    props: [],
+    change_reason: "建立作品共享视觉候选",
+  });
+  expect(result.current.authority).toBeNull();
+  expect(result.current.dirty).toBe(true);
+  expect(g.saveVisualBible).not.toHaveBeenCalled();
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(true);
+});
+
+it.each(["success", "cancelled", "rejected", "throw", "unknown"])(
+  "attributes an explicit image inspection %s without implying approval or retrying",
+  async (outcome) => {
+    const g = bridge();
+    g.inspectVisualReference.mockImplementation(async (_p, _a, _v, _hash, operationId) => {
+      if (outcome === "throw") throw new Error("transport unavailable");
+      if (outcome === "cancelled") return { kind: "CANCELLED" };
+      if (outcome === "rejected")
+        return {
+          kind: "DEFINITE_SERVER_ERROR",
+          status: 409,
+          code: "VISUAL_CONFLICT",
+          request_id: fixture.request_id,
+        };
+      if (outcome === "unknown") return { kind: "REMOTE_UNKNOWN" };
+      const data = structuredClone(fixture.inspection);
+      data.evidence.operation_id = operationId;
+      data.evidence_hash = sha(
+        Object.fromEntries(Object.entries(data).filter(([key]) => key !== "evidence_hash")),
+      );
+      return found(data);
+    });
+    const { result } = renderHook(() => useVisualWorkspace(p, setter));
+    await ready(result);
+    await act(() =>
+      result.current.inspect(
+        fixture.asset.id,
+        fixture.asset.versions[0]!.id,
+        fixture.inspection.evidence.asset_sha256,
+      ),
+    );
+    expect(g.inspectVisualReference).toHaveBeenCalledOnce();
+    const unknown = outcome === "throw" || outcome === "unknown";
+    expect(readVisualJournal(p).kind).toBe(unknown ? "PENDING" : "EMPTY");
+    expect(result.current.locked).toBe(unknown);
+    if (outcome === "success") expect(result.current.notice).toContain("不表示身份或权利批准");
+    if (unknown) {
+      g.getVisualInspectionOperation.mockRejectedValueOnce(new Error("read unavailable"));
+      await act(() => result.current.recover());
+      expect(readVisualJournal(p).kind).toBe("PENDING");
+      expect(result.current.notice).toContain("不重发");
+      expect(g.inspectVisualReference).toHaveBeenCalledOnce();
+    }
+    expect(g.prepareVisualReview).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["cancelled", "rejected", "throw"])(
+  "retains exact review state after confirmation %s without a second write",
+  async (outcome) => {
+    const g = bridge();
+    const { ticket } = completedReview("decision");
+    g.prepareVisualReview.mockResolvedValue(found(ticket));
+    if (outcome === "throw")
+      g.confirmVisualReview.mockRejectedValue(new Error("transport unavailable"));
+    else
+      g.confirmVisualReview.mockResolvedValue(
+        outcome === "cancelled"
+          ? { kind: "CANCELLED" }
+          : {
+              kind: "DEFINITE_SERVER_ERROR",
+              status: 409,
+              code: "VISUAL_CONFLICT",
+              request_id: fixture.request_id,
+            },
+      );
+    const { result } = renderHook(() => useVisualWorkspace(p, setter));
+    await ready(result);
+    // The challenge must identify the exact currently selected head.
+    ticket.expected_revision = result.current.selected!.head.revision;
+    await act(() => result.current.act(ticket.input));
+    expect(g.confirmVisualReview).toHaveBeenCalledOnce();
+    expect(readVisualJournal(p).kind).toBe(outcome === "throw" ? "PENDING" : "EMPTY");
+    expect(result.current.selected?.version.id).toBe(v);
+    expect(g.saveVisualBible).not.toHaveBeenCalled();
+  },
+);

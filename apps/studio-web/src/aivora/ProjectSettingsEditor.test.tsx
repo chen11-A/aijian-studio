@@ -104,6 +104,81 @@ afterEach(() => {
 async function ready() {
   await waitFor(() => expect(screen.getByLabelText("项目名称")).toHaveValue("A"));
 }
+it("does not invent settings after a failed load and permits explicit recovery", async () => {
+  const e = env();
+  vi.mocked(e.api.getProjectSettings).mockRejectedValueOnce(new Error("offline"));
+  render(<ProjectSettingsEditor projectId={p} gateway={e.api} />);
+  await screen.findByText("读取失败；未填入演示默认值。");
+  expect(screen.getByLabelText("项目名称")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "保存项目设置" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "重新读取项目" }));
+  await ready();
+  expect(e.api.updateProjectSettings).not.toHaveBeenCalled();
+});
+it("rejects invalid text before creating an operation journal", async () => {
+  const e = env();
+  render(<ProjectSettingsEditor projectId={p} gateway={e.api} />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("项目名称"), { target: { value: " " } });
+  fireEvent.click(screen.getByRole("button", { name: "保存项目设置" }));
+  await screen.findByText(/名称需为1–80字/);
+  expect(e.api.updateProjectSettings).not.toHaveBeenCalled();
+  expect(window.localStorage.length).toBe(0);
+});
+it.each(["throws", "not durable", "existing"])(
+  "sends no update when the operation journal is %s",
+  async (mode) => {
+    const e = env();
+    render(<ProjectSettingsEditor projectId={p} gateway={e.api} />);
+    await ready();
+    fireEvent.change(screen.getByLabelText("项目说明"), { target: { value: "必须保留的草稿" } });
+    if (mode === "existing")
+      window.localStorage.setItem(`aivora:project-settings:operation:v1:${p}`, "foreign-operation");
+    else
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        if (mode === "throws") throw new Error("quota");
+      });
+    fireEvent.click(screen.getByRole("button", { name: "保存项目设置" }));
+    await screen.findByText("本地操作记录不可用，未发送保存请求。");
+    expect(screen.getByLabelText("项目说明")).toHaveValue("必须保留的草稿");
+    expect(e.api.updateProjectSettings).not.toHaveBeenCalled();
+  },
+);
+it("retains a thrown update as UNKNOWN and permits leaving only with a durable journal", async () => {
+  const e = env(),
+    guard = vi.fn();
+  vi.mocked(e.api.updateProjectSettings).mockRejectedValue(new Error("connection lost"));
+  render(<ProjectSettingsEditor projectId={p} gateway={e.api} setNavigationGuard={guard} />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("项目说明"), { target: { value: "pending" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存项目设置" }));
+  await screen.findByText("保存结果未知；原操作已锁定，不会自动重发。");
+  expect(guard.mock.calls.at(-1)?.[0]()).toBe(true);
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  expect(unload.defaultPrevented).toBe(false);
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("storage unavailable");
+  });
+  act(() => {
+    expect(guard.mock.calls.at(-1)?.[0]()).toBe(false);
+  });
+  const unsafe = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unsafe);
+  expect(unsafe.defaultPrevented).toBe(true);
+  expect(e.api.updateProjectSettings).toHaveBeenCalledTimes(1);
+});
+it.each(["[]", '{"projectId":"wrong","command":{},"hash":"wrong"}'])(
+  "blocks structurally invalid journals %s",
+  async (raw) => {
+    const e = env();
+    window.localStorage.setItem(`aivora:project-settings:operation:v1:${p}`, raw);
+    render(<ProjectSettingsEditor projectId={p} gateway={e.api} />);
+    await screen.findByText("本地操作记录无法核实，已阻止保存。");
+    expect(e.api.getProjectSettings).not.toHaveBeenCalled();
+    expect(e.api.updateProjectSettings).not.toHaveBeenCalled();
+  },
+);
 it.each(["9:16", "16:9"] as const)(
   "saves metadata preserving readonly %s aspect and exact receipt",
   async (aspect) => {

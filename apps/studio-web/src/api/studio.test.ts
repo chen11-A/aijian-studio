@@ -23,6 +23,42 @@ import {
 } from "./studio";
 
 const requestId = "e6225937-1243-427b-bc98-56eda28e9dd3";
+
+describe("optional native preparation and review routes", () => {
+  test.each([
+    "getLocalMediaReviewTarget",
+    "listLocalMediaReviews",
+    "getLocalMediaReview",
+    "getLocalMediaReviewStatus",
+    "saveLocalMediaReview",
+    "getLocalMediaReviewOperation",
+    "getEpisodeAssemblyReadiness",
+    "listMediaPreparations",
+    "getMediaPreparation",
+    "saveMediaPreparation",
+    "getMediaPreparationOperation",
+    "listManualMediaCandidates",
+    "getManualMediaCandidate",
+    "saveManualMediaCandidate",
+    "getManualMediaCandidateOperation",
+  ] as const)("%s forwards the exact scoped command and preserves UNKNOWN", async (method) => {
+    const native = vi.fn().mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    const fetcher = vi.spyOn(globalThis, "fetch");
+    window.aijian = { [method]: native } as unknown as AijianDesktopBridge;
+    const command = { original_operation_id: "unmodified-test-command" };
+    const transport = createStudioTransport();
+    // This is a transport-only test: validation stays in the typed caller and IPC.
+    const forward = transport[method] as (...args: unknown[]) => Promise<unknown>;
+    await expect(forward("project-a", "episode-b", command)).resolves.toEqual({
+      kind: "REMOTE_UNKNOWN",
+    });
+    expect(native).toHaveBeenCalledExactlyOnceWith("project-a", "episode-b", command);
+    expect(fetcher).not.toHaveBeenCalled();
+    delete window.aijian![method];
+    expect(createStudioTransport()[method]).toBeUndefined();
+    fetcher.mockRestore();
+  });
+});
 const health: HealthResponse = {
   data: { status: "ok", service: "aijian-api", version: "0.1.0" },
   request_id: requestId,

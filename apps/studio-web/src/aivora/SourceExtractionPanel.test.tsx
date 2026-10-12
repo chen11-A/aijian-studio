@@ -298,6 +298,25 @@ async function readSub2() {
 }
 
 describe("source panel explicit single-call approval", () => {
+  test("switching execution modes clears the visible selection without losing the original operation", async () => {
+    const h = setup(true);
+    await choose();
+    await readProposal();
+    const original = localStorage.getItem(queueKey);
+    click("Sub2API 文本");
+    expect(screen.getByText("当前执行方式：Sub2API")).toBeInTheDocument();
+    expect(screen.queryByText(/来源摘录摘要/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("来源块")).toHaveValue("");
+    expect(screen.getByLabelText("TEXT 模型")).toHaveValue("");
+    expect(localStorage.getItem(queueKey)).toBe(original);
+    click("CPA 本地文本");
+    expect(screen.getByText("当前执行方式：CPA 本地")).toBeInTheDocument();
+    await readProposal();
+    expect(screen.getByText(/来源摘录摘要：Fixture summary/)).toBeInTheDocument();
+    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
+    expect(h.api.proposalDecisions.acceptAsDraft).not.toHaveBeenCalled();
+    expect(localStorage.getItem(queueKey)).toBe(original);
+  });
   test.each([
     "valid",
     "project",
