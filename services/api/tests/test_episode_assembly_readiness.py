@@ -2,6 +2,9 @@
 
 import copy
 import os
+from collections import Counter
+from contextlib import contextmanager
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -41,6 +44,27 @@ def inspect(repo, project, episode, version):
 
 def codes(result):
     return {item.code for item in result.blockers}
+
+
+def track_original_bytes(monkeypatch):
+    """Count actual hash input, not metadata-only handle opens on cache hits."""
+    real_open = originals._open_local_source
+    read_bytes = Counter()
+
+    @contextmanager
+    def track(path):
+        with real_open(path) as stream:
+
+            def read(size):
+                chunk = stream.read(size)
+                if chunk:
+                    read_bytes[path.name] += len(chunk)
+                return chunk
+
+            yield SimpleNamespace(fileno=stream.fileno, read=read)
+
+    monkeypatch.setattr(originals, "_open_local_source", track)
+    return read_bytes
 
 
 def snapshot(repository):
@@ -360,20 +384,14 @@ def test_recursive_candidate_and_g5_originals_share_direct_read_allowance(
     monkeypatch.setattr(
         readiness_module, "MAX_READINESS_ORIGINAL_BYTES", asset.latest_version.byte_size
     )
-    real_open, opened = originals._open_local_source, []
-
-    def track(path):
-        opened.append(path)
-        return real_open(path)
-
-    monkeypatch.setattr(originals, "_open_local_source", track)
+    read_bytes = track_original_bytes(monkeypatch)
     before = snapshot(repo)
     result = inspect(repo, p, e, saved)
     assert result.source_checks[1].status == "BLOCKED"
     assert ("MANUAL_CANDIDATE_SOURCE_INVALID" if manual else "G5_AUTHORITY_CHANGED") in codes(
         result
     )
-    assert len(opened) == 1
+    assert read_bytes == {asset.latest_version.sha256: asset.latest_version.byte_size}
     assert result.assembly.media_checks[0].availability == "VERIFIED"
     assert snapshot(repo) == before
 
@@ -384,18 +402,14 @@ def test_recursive_duplicate_originals_hash_once_and_independent_request_resets(
     repo, p, e, asset, environment, saved = recursive_fixture(tmp_path, manual=True)
     allowance = asset.latest_version.byte_size + environment.latest_version.byte_size
     monkeypatch.setattr(readiness_module, "MAX_READINESS_ORIGINAL_BYTES", allowance)
-    real_open, opened = originals._open_local_source, []
-
-    def track(path):
-        opened.append(path)
-        return real_open(path)
-
-    monkeypatch.setattr(originals, "_open_local_source", track)
+    read_bytes = track_original_bytes(monkeypatch)
     for _ in range(2):
         result = inspect(repo, p, e, saved)
         assert result.source_checks[1].status == "CURRENT"
-    assert len(opened) == 4
-    assert len(set(opened)) == 2
+    assert read_bytes == {
+        asset.latest_version.sha256: 2 * asset.latest_version.byte_size,
+        environment.latest_version.sha256: 2 * environment.latest_version.byte_size,
+    }
 
 
 def test_original_scope_does_not_cache_changed_identity_and_always_resets(tmp_path):

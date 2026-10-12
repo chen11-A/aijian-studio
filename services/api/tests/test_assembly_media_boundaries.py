@@ -79,13 +79,13 @@ def test_open_failure_is_unknown_not_verified(managed, monkeypatch, failure):
     assert originals._availability(database, digest, len(data)) == "UNKNOWN_MEDIA_READ"
 
 
-@pytest.mark.parametrize("field", ["st_dev", "st_ino", "st_size", "st_mtime_ns"])
+@pytest.mark.parametrize("field", ["st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"])
 def test_handle_identity_change_is_unknown(managed, monkeypatch, field):
     database, path, data, digest = managed
     before = path.stat()
     values = {
         key: getattr(before, key)
-        for key in ("st_mode", "st_dev", "st_ino", "st_size", "st_mtime_ns")
+        for key in ("st_mode", "st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
     }
     values[field] += 1
     monkeypatch.setattr(

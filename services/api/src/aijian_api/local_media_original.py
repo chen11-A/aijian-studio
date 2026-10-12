@@ -18,13 +18,14 @@ from aijian_api.media_asset_store import MAX_INLINE_PREVIEW_BYTES
 from aijian_api.media_probe import _is_remote_windows_path, _open_local_source
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+_StatIdentity = tuple[int, int, int, int, int]
 
 
 @dataclass
 class _AvailabilityReadBudget:
     max_bytes: int
     used_bytes: int = 0
-    verified: dict[tuple[str, str, int], tuple[int, int, int, int, int]] = field(
+    verified: dict[tuple[str, str, int], tuple[_StatIdentity, _StatIdentity]] = field(
         default_factory=dict
     )
 
@@ -53,7 +54,7 @@ def availability_read_scope(max_bytes: int) -> Iterator[None]:
         _READ_BUDGET.reset(token)
 
 
-def _stat_identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
+def _stat_identity(value: os.stat_result) -> _StatIdentity:
     return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
 
 
@@ -111,7 +112,28 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
     if budget is not None:
         cached = budget.verified.get(key)
         if cached is not None:
-            return "VERIFIED" if cached == _stat_identity(file_stat) else "UNKNOWN_MEDIA_CHANGED"
+            named_identity, held_identity = cached
+            if named_identity != _stat_identity(file_stat):
+                return "UNKNOWN_MEDIA_CHANGED"
+            try:
+                # Windows stat and fstat can expose different ctime semantics.
+                # Keep both observation domains, including handle change time,
+                # so a same-size rewrite with restored mtime cannot hit cache.
+                with _open_local_source(io_path) as stream:
+                    first = os.fstat(stream.fileno())
+                    if io_path.is_symlink():
+                        return "UNKNOWN_MEDIA_CHANGED"
+                    named = io_path.stat()
+                    last = os.fstat(stream.fileno())
+            except (OSError, ValueError):
+                return "UNKNOWN_MEDIA_READ"
+            if (
+                named_identity != _stat_identity(named)
+                or held_identity != _stat_identity(first)
+                or held_identity != _stat_identity(last)
+            ):
+                return "UNKNOWN_MEDIA_CHANGED"
+            return "VERIFIED"
         if byte_size > budget.max_bytes - budget.used_bytes:
             return "UNVERIFIED_SIZE_LIMIT"
         # Failed or changed reads still consume the allowance. Never refund a
@@ -147,10 +169,12 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
     except (OSError, ValueError):
         return "UNKNOWN_MEDIA_READ"
     if (
-        first.st_dev != last.st_dev
-        or first.st_ino != last.st_ino
-        or first.st_size != last.st_size
-        or first.st_mtime_ns != last.st_mtime_ns
+        _stat_identity(first) != _stat_identity(last)
+        or _stat_identity(file_stat) != _stat_identity(named)
+        or file_stat.st_dev != first.st_dev
+        or file_stat.st_ino != first.st_ino
+        or file_stat.st_size != first.st_size
+        or file_stat.st_mtime_ns != first.st_mtime_ns
         or first.st_dev != named.st_dev
         or first.st_ino != named.st_ino
         or first.st_size != named.st_size
@@ -160,9 +184,5 @@ def _availability(database_path: Path, digest: str, byte_size: int) -> AssemblyM
     if total != byte_size or hasher.hexdigest() != digest:
         return "CORRUPT"
     if budget is not None:
-        if _stat_identity(file_stat) != _stat_identity(first) or _stat_identity(
-            first
-        ) != _stat_identity(named):
-            return "UNKNOWN_MEDIA_CHANGED"
-        budget.verified[key] = _stat_identity(named)
+        budget.verified[key] = (_stat_identity(named), _stat_identity(last))
     return "VERIFIED"
