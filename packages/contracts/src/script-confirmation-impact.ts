@@ -1,5 +1,5 @@
 import type { components } from "./generated.js";
-import { SCRIPT_IMPACT_SCHEMAS } from "./script-confirmation-impact-schema.js";
+import { SCRIPT_IMPACT_SCHEMAS } from "./script-confirmation-impact-schema.ts";
 
 export type ScriptImpactReport = components["schemas"]["ScriptConfirmationImpactReportV1"];
 export type ScriptImpactPage = components["schemas"]["ScriptConfirmationImpactPageData"];

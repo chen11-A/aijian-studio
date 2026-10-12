@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
+    "rewriteRelativeImportExtensions": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ES2022",

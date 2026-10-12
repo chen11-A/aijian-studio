@@ -1,5 +1,5 @@
 import type { components } from "./generated.js";
-import { isProjectAspectRatio } from "./project-aspect.js";
+import { isProjectAspectRatio } from "./project-aspect.ts";
 import { visualJson } from "./visual-bible.js";
 
 export type ProjectSettings = components["schemas"]["ProjectSettingsDataV1"];

@@ -1,4 +1,4 @@
-import { impactCanonical, impactUuid } from "./script-confirmation-impact.js";
+import { impactCanonical, impactUuid } from "./script-confirmation-impact.ts";
 const record = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 

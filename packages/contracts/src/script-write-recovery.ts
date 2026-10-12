@@ -1,4 +1,4 @@
-import { impactCanonical } from "./script-confirmation-impact.js";
+import { impactCanonical } from "./script-confirmation-impact.ts";
 
 export type ScriptWriteOperation<V> = {
   operation_id: string;

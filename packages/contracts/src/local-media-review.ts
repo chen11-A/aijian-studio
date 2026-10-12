@@ -1,8 +1,8 @@
 /** Local human observations remain separate from formal approval and assembly CAS. */
 import type { components } from "./generated.js";
-import { validateClosedModel } from "./closed-json-schema.js";
-import { LOCAL_MEDIA_REVIEW_SCHEMAS } from "./local-media-review-schema.js";
-import { impactCanonical, impactUuid } from "./script-confirmation-impact.js";
+import { validateClosedModel } from "./closed-json-schema.ts";
+import { LOCAL_MEDIA_REVIEW_SCHEMAS } from "./local-media-review-schema.ts";
+import { impactCanonical, impactUuid } from "./script-confirmation-impact.ts";
 import {
   mediaHash,
   mediaNonblank,
@@ -10,7 +10,7 @@ import {
   mediaVersionId,
   sameMediaInput,
   type MediaRead,
-} from "./media-preparation.js";
+} from "./media-preparation.ts";
 
 export type LocalMediaReviewTarget = components["schemas"]["LocalMediaReviewTargetData"];
 export type LocalMediaReviewInput = components["schemas"]["LocalMediaReviewInputV1"];

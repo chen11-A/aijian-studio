@@ -1,9 +1,9 @@
 /** Full original-operation attribution; its revision never grants a current-head CAS. */
 import type { components } from "./generated.js";
-import { validateClosedModel } from "./closed-json-schema.js";
-import { LOCAL_MEDIA_OPERATION_SCHEMAS } from "./local-media-operations-schema.js";
-import { impactUuid } from "./script-confirmation-impact.js";
-import { mediaHash, sameMediaInput, mediaScope, type MediaRead } from "./media-preparation.js";
+import { validateClosedModel } from "./closed-json-schema.ts";
+import { LOCAL_MEDIA_OPERATION_SCHEMAS } from "./local-media-operations-schema.ts";
+import { impactUuid } from "./script-confirmation-impact.ts";
+import { mediaHash, sameMediaInput, mediaScope, type MediaRead } from "./media-preparation.ts";
 
 export type AssemblyExactWrite = {
   content: components["schemas"]["EpisodeMediaAssemblyContentV1"];

@@ -1,7 +1,7 @@
 import type { components } from "./generated.js";
-import { LOCAL_MEDIA_OPERATION_SCHEMAS } from "./local-media-operations-schema.js";
-import { validateClosedModel } from "./closed-json-schema.js";
-import { impactCanonical, impactUuid } from "./script-confirmation-impact.js";
+import { LOCAL_MEDIA_OPERATION_SCHEMAS } from "./local-media-operations-schema.ts";
+import { validateClosedModel } from "./closed-json-schema.ts";
+import { impactCanonical, impactUuid } from "./script-confirmation-impact.ts";
 
 export type ManualMediaCandidateInput = components["schemas"]["ManualMediaCandidateInputV1"];
 export type ManualMediaCandidateVersion = components["schemas"]["ManualMediaCandidateVersionData"];
@@ -60,7 +60,7 @@ export const candidateVersionId = (v: unknown): v is string =>
   typeof v === "string" && /^ver_[0-9a-f]{32}$/.test(v);
 const record = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
-import { mediaNonblank, mediaHash, sameMediaInput, mediaScope } from "./media-preparation.js";
+import { mediaNonblank, mediaHash, sameMediaInput, mediaScope } from "./media-preparation.ts";
 const model = (v: unknown, name: string, max = 256 * 1024) =>
   validateClosedModel(v, name, LOCAL_MEDIA_OPERATION_SCHEMAS, max);
 export function candidateInput(
@@ -183,4 +183,4 @@ export function candidateScope(p: unknown, e: unknown): boolean {
   return mediaScope(p, e);
 }
 
-export { mediaHash, sameMediaInput, mediaScope, mediaVersionId } from "./media-preparation.js";
+export { mediaHash, sameMediaInput, mediaScope, mediaVersionId } from "./media-preparation.ts";

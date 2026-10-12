@@ -1,12 +1,12 @@
 import type { components } from "./generated.js";
-import { MEDIA_PREPARATION_SCHEMAS } from "./media-preparation-schema.js";
-import { validateClosedModel } from "./closed-json-schema.js";
+import { MEDIA_PREPARATION_SCHEMAS } from "./media-preparation-schema.ts";
+import { validateClosedModel } from "./closed-json-schema.ts";
 import {
   impactCanonical,
   impactEpisode,
   impactProject,
   impactUuid,
-} from "./script-confirmation-impact.js";
+} from "./script-confirmation-impact.ts";
 
 export type MediaPreparationInput = components["schemas"]["MediaPreparationInputV1"];
 export type MediaPreparationVersion = components["schemas"]["MediaPreparationVersionData"];
