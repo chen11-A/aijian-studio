@@ -2244,7 +2244,18 @@ def assert_preserved_rows(
         }
         assert after == before
         for table in database_columns(path).keys() - columns.keys() - {"episodes"}:
-            assert connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone() == (0,)
+            if table == "script_confirmation_impact_coverage":
+                # Migration 44 intentionally persists the legacy coverage fence;
+                # it is metadata, not a fabricated confirmation or review fact.
+                expected = connection.execute(
+                    "SELECT 1, 44, COALESCE(MAX(rowid), 0), COUNT(*) "
+                    "FROM episode_script_confirmations"
+                ).fetchone()
+                assert connection.execute(f'SELECT * FROM "{table}"').fetchall() == [expected]
+            else:
+                assert connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone() == (0,), (
+                    table
+                )
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 

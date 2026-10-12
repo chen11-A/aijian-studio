@@ -226,7 +226,36 @@ def _assert_existing_guards_preserved(path: Path, before: list[tuple]) -> None:
             continue  # These are the deliberately extended/rebuilt parent definitions.
         actual = after[name]
         assert actual[:3] == (kind, name, table)
-        assert " ".join(actual[3].split()) == " ".join(sql.split()), name
+        actual_sql = " ".join(actual[3].split())
+        prior_sql = " ".join(sql.split())
+        if name == "episode_script_confirmations" and "impact_coverage_version" not in prior_sql:
+            # Migration 44 adds one defaulted coverage marker, preserving all
+            # pre-existing rows and the table's ownership/uniqueness constraints.
+            extension = (
+                " impact_coverage_version INTEGER NOT NULL DEFAULT 0 CHECK "
+                "(typeof(impact_coverage_version) = 'integer' AND "
+                "impact_coverage_version IN (0, 1)),"
+            )
+            assert actual_sql.count(extension) == 1, name
+            actual_sql = actual_sql.replace(extension, "")
+        if name == "gate_decision_policy_and_ownership" and "'visual_bible'" not in prior_sql:
+            # Migration 43 deliberately adds project-scoped G5 decisions. Undo
+            # only its three exact policy extensions for this legacy comparison;
+            # every ownership, challenge, waiver and G1/G2 signoff guard must
+            # still be byte-equivalent after whitespace normalization.
+            extensions = (
+                (
+                    " OR (artifact.artifact_type = 'visual_bible' AND artifact.episode_id "
+                    "IS NULL AND NEW.gate = 'G5')",
+                    "",
+                ),
+                (" AND NEW.gate IN ('G1','G2')", ""),
+                ("NEW.gate IN ('G2','G5')", "NEW.gate = 'G2'"),
+            )
+            for extension, original in extensions:
+                assert actual_sql.count(extension) == 1, (name, extension)
+                actual_sql = actual_sql.replace(extension, original)
+        assert actual_sql == prior_sql, name
 
 
 def _backup(source: Path, destination: Path) -> None:
