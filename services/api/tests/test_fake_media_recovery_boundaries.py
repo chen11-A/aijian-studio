@@ -64,7 +64,7 @@ def test_windows_process_identity_closes_each_opened_handle(monkeypatch, stage):
 
     kernel.GetProcessTimes.side_effect = get_times
     kernel.GetExitCodeProcess.side_effect = get_exit
-    monkeypatch.setattr(ctypes, "windll", SimpleNamespace(kernel32=kernel))
+    monkeypatch.setattr(ctypes, "windll", SimpleNamespace(kernel32=kernel), raising=False)
     monkeypatch.setattr(media, "sys", SimpleNamespace(platform="win32"))
     result = media._windows_process_identity(321)
     if stage in {"open", "times", "exit"}:

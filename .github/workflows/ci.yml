@@ -11,12 +11,25 @@ jobs:
   quality:
     name: quality (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Linux host stays Ubuntu; Debian supplies the exact existing dev-tool pin.
+    # This is a test container, not an additional supported product platform.
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            container: python:3.12.15-slim-trixie
+          - os: windows-latest
+            container: null
 
     steps:
+      - name: Prepare Debian test container and pinned development media tools
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates curl libstdc++6 ffmpeg=7:7.1.5-0+deb13u1
+
       - name: Check out repository
         uses: actions/checkout@v7.0.1
 
@@ -31,6 +44,7 @@ jobs:
         run: corepack enable pnpm
 
       - name: Set up Python
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
@@ -45,6 +59,19 @@ jobs:
 
       - name: Install Python dependencies
         run: uv sync --frozen --python 3.12
+
+      - name: Verify exact Linux development media binaries
+        if: runner.os == 'Linux'
+        run: uv run python scripts/ci_media_tools.py --verify-only --root /usr/bin
+
+      - name: Prepare exact Windows development media binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $prepared = uv run python scripts/ci_media_tools.py --root "${{ runner.temp }}/aivora-quality-media"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output $prepared
+          ($prepared | ConvertFrom-Json).root | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Verify generated contracts
         run: pnpm contracts:check

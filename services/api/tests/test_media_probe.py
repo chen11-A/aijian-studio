@@ -516,7 +516,9 @@ def test_probe_uses_one_guarded_snapshot_when_the_source_is_replaced_and_restore
     )
 
     assert result.video.codec_name == "codec-a"
-    assert mutation_blocked is True
+    # Deny-write handles are Windows-only. POSIX still probes the one copied
+    # snapshot, even when the original file can be changed and restored.
+    assert mutation_blocked is (os.name == "nt")
     assert len({command[-1] for command in commands}) == 1
     assert commands[0][-1] != str(source.resolve())
 
@@ -552,7 +554,9 @@ def test_probe_holds_a_snapshot_lock_while_the_probe_process_runs(tmp_path: Path
         command_runner=tampering_runner,
     )
 
-    assert tamper_blocked is True
+    # The owning POSIX process can undo chmod; this is not native deny-write
+    # acceptance. The Windows runner must continue proving handle exclusion.
+    assert tamper_blocked is (os.name == "nt")
     assert result.video.codec_name == "ffv1"
 
 

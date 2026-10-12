@@ -6,14 +6,37 @@ digest. The production QA02 pin is never changed on disk or used as test input.
 
 import hashlib
 import json
+import os
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from aijian_api import mlt_test_selection_resolver as resolver
 from aijian_api.episode_script_contracts import CreateEpisodeScriptVersionRequest
 from aijian_api.episode_script_store import EpisodeScriptStore
 from aijian_api.repository import StudioRepository
+
+
+@pytest.fixture(autouse=True)
+def snapshot_platform_boundary(monkeypatch):
+    # Simulate only resolver admission on POSIX, not Windows handle semantics.
+    # The Windows runner continues to use the actual deny-write source opener.
+    if os.name != "nt":
+        monkeypatch.setattr(resolver, "os", SimpleNamespace(name="nt", fstat=os.fstat))
+
+
+def test_frozen_database_rejects_unsupported_platform_before_io(tmp_path, monkeypatch):
+    monkeypatch.setattr(resolver, "os", SimpleNamespace(name="posix"))
+
+    def unexpected_open(_path):
+        pytest.fail("unsupported platform must not open the database")
+
+    monkeypatch.setattr(resolver, "_open_local_source", unexpected_open)
+    path = tmp_path / "absent.db"
+    with rejected("DATABASE_UNAVAILABLE"), resolver._frozen_database(path):
+        pytest.fail("unsupported platform cannot yield a snapshot")
+    assert not path.exists()
 
 
 def pin_synthetic_manifest(monkeypatch, path, raw):

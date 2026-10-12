@@ -26,29 +26,19 @@ from aijian_api.fake_media_package import (
     _parse_proc_start_ticks,
 )
 from aijian_api.media_contracts import SequenceTimebaseData
-from aijian_api.media_toolchain import (
-    discover_media_toolchain,
-    load_media_toolchain_lock,
-)
 from aijian_api.timeline import TimelineAssetV1, TimelineClipV1, TimelineVersionV1
 from aijian_api.timeline_export import (
     TimelineExportPurpose,
     TimelineMediaBinding,
     export_timeline_mp4,
 )
+from media_test_toolchain import test_media_lock as _lock
+from media_test_toolchain import test_media_tools as _toolchain
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 PROJECT_ID = "prj_0123456789abcdef0123456789abcdef"
 SOURCE_ID = "src_0123456789abcdef0123456789abcdef"
 SOURCE_HASH = "sha256:" + "42" * 32
-
-
-def _toolchain():
-    return discover_media_toolchain(_lock())
-
-
-def _lock():
-    return load_media_toolchain_lock(REPOSITORY_ROOT / "config" / "media-toolchain-lock.json")
 
 
 def _generator(workspace: Path, **kwargs) -> FakeMediaPackageGenerator:

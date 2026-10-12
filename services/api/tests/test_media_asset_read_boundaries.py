@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import os
 import sqlite3
 import time
 from dataclasses import replace
@@ -15,6 +16,37 @@ from aijian_api.media_asset_rights_contracts import HumanRightsDecisionInput
 from aijian_api.media_asset_rights_store import MediaAssetRightsStore
 from aijian_api.media_asset_store import MediaAssetStore
 from aijian_api.repository import StudioRepository
+
+
+@pytest.fixture(autouse=True)
+def snapshot_platform_boundary(monkeypatch):
+    """Exercise snapshot logic on POSIX; Windows keeps its real deny-write handles.
+
+    Only these two modules see the platform facade. pathlib, SQLite, and the
+    production source opener retain the host OS; this is not Linux admission.
+    """
+    if os.name != "nt":
+        for module in (reader, rights_reader):
+            monkeypatch.setattr(module, "os", SimpleNamespace(name="nt", fstat=os.fstat))
+
+
+@pytest.mark.parametrize("module", [reader, rights_reader])
+def test_unsupported_platform_is_rejected_before_database_io(tmp_path, monkeypatch, module):
+    monkeypatch.setattr(module, "os", SimpleNamespace(name="posix"))
+
+    def unexpected_open(_path):
+        pytest.fail("unsupported platform must not open the database")
+
+    monkeypatch.setattr(module, "_open_local_source", unexpected_open)
+    path = tmp_path / "absent.sqlite3"
+    read = (
+        module.read_selected_media_asset_version
+        if module is reader
+        else module.read_latest_rights_decision
+    )
+    result = read(path, "prj_" + "1" * 32, "asset_" + "2" * 32, "asv_" + "3" * 32)
+    assert result.status == "UNKNOWN_UNSUPPORTED_PLATFORM"
+    assert not path.exists()
 
 
 @pytest.fixture

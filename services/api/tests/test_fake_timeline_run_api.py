@@ -15,11 +15,12 @@ from aijian_api.artifacts import canonical_content_hash
 from aijian_api.fake_media_package import FakeMediaPackageError, FakeMediaPackageGenerator
 from aijian_api.fake_timeline_run import FakeTimelineRunFactory, LocalFakeTimelineWorker
 from aijian_api.main import create_app
-from aijian_api.media_toolchain import discover_media_toolchain, load_media_toolchain_lock
 from aijian_api.repository import ArtifactNotFoundError, StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.task_ledger import LocalTaskLedger
 from fastapi.testclient import TestClient
+from media_test_toolchain import test_media_lock as _media_lock
+from media_test_toolchain import test_media_tools as _media_tools
 
 TOKEN = "t" * 43
 HOST = "127.0.0.1:43129"
@@ -28,8 +29,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _generator(workspace: Path) -> FakeMediaPackageGenerator:
-    lock = load_media_toolchain_lock(REPOSITORY_ROOT / "config" / "media-toolchain-lock.json")
-    toolchain = discover_media_toolchain(lock)
+    lock = _media_lock()
+    toolchain = _media_tools()
     workspace.mkdir(parents=True, exist_ok=True)
     return FakeMediaPackageGenerator.from_locked_tool_root(
         workspace,

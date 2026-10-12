@@ -1,9 +1,10 @@
 """Native authentication, episode identity and terminal receipt route coverage."""
 
+from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.security import SidecarSecurity
 from fastapi.testclient import TestClient
-from test_draft_export_runtime import fixture, request_for, runtime_for, wait_final
+from test_draft_export_runtime import fixture, request_for, runtime_for, toolchain, wait_final
 
 TOKEN = "d" * 43
 HOST = "127.0.0.1:43123"
@@ -15,6 +16,7 @@ def test_draft_route_is_native_authenticated_scoped_and_durable(tmp_path):
     app = create_app(
         repository=repository,
         draft_export_runtime=runtime,
+        local_media_toolchain=LocalMediaToolchainService(None, fallback=toolchain),
         sidecar_security=SidecarSecurity(token=TOKEN, host=HOST),
     )
     path = f"/api/v1/projects/{project}/episodes/{episode}/draft-exports"

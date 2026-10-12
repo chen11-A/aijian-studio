@@ -1,5 +1,8 @@
+import hashlib
 import os
 from pathlib import Path
+
+import pytest
 
 REPOSITORY_ROOT = Path(__file__).parents[3]
 EXCLUDED_PARTS = {
@@ -28,6 +31,26 @@ TEXT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
+# Byte-preserved handoff archive, not readable Python source. Only this exact
+# opaque blob is outside the text assertion; unknown encodings still fail.
+OPAQUE_ARCHIVE_SHA256 = {
+    "handoff/2026-10-08/archive/"
+    "fdb79d7355dbbaeca044688b66a914930c05a506a847584a2e5479d359f2c926/"
+    "_internal_dataclass.py": "dd152601c9ad910bb9c7e9e3c25e5bb027e088c0e6ce640b0758b61a7154cffd",
+}
+
+
+def repository_text(path: Path, root: Path = REPOSITORY_ROOT) -> str:
+    body = path.read_bytes()
+    expected = OPAQUE_ARCHIVE_SHA256.get(path.relative_to(root).as_posix())
+    if expected is not None:
+        digest = hashlib.sha256(body).hexdigest()
+        if digest == expected:
+            return ""
+        # The Windows Python reader can receive the transparent plaintext view.
+        # Its original content hash is the archive directory name; scan it too.
+        assert digest == path.parent.name, "Opaque archive bytes changed"
+    return body.decode("utf-8")
 
 
 def repository_text_files() -> list[Path]:
@@ -48,9 +71,24 @@ def test_mistaken_person_name_is_absent_from_repository_text() -> None:
     matches = [
         str(path.relative_to(REPOSITORY_ROOT))
         for path in repository_text_files()
-        if forbidden_name in path.read_text(encoding="utf-8")
+        if forbidden_name in repository_text(path)
     ]
     assert matches == []
+
+
+def test_unknown_binary_source_still_fails_text_audit(tmp_path):
+    path = tmp_path / "unknown.py"
+    path.write_bytes(b"\xff")
+    with pytest.raises(UnicodeDecodeError):
+        repository_text(path, tmp_path)
+
+
+def test_opaque_archive_exception_is_bound_to_exact_bytes(tmp_path):
+    path = tmp_path / next(iter(OPAQUE_ARCHIVE_SHA256))
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"changed archive")
+    with pytest.raises(AssertionError, match="Opaque archive bytes changed"):
+        repository_text(path, tmp_path)
 
 
 def test_default_agent_roles_use_stable_ids_and_explicit_boundaries() -> None:

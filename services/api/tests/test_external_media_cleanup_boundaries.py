@@ -231,8 +231,18 @@ def test_executable_handle_ownership_closes_exactly_once(monkeypatch, tmp_path, 
     source.write_bytes(b"synthetic bytes only")
     descriptor = None
     converted = Mock()
+    # POSIX has no text/binary descriptor distinction. Keep the adapter local
+    # to the module under test rather than adding Windows fields to global os.
+    binary_flag = getattr(os, "O_BINARY", 0)
+    monkeypatch.setattr(
+        external,
+        "os",
+        SimpleNamespace(
+            O_BINARY=binary_flag, O_RDONLY=os.O_RDONLY, close=os.close, fdopen=os.fdopen
+        ),
+    )
     if kind in {"fdopen_failure", "success"}:
-        descriptor = os.open(source, os.O_RDONLY | os.O_BINARY)
+        descriptor = os.open(source, os.O_RDONLY | binary_flag)
         converted.return_value = descriptor
     monkeypatch.setitem(
         sys.modules,
@@ -248,7 +258,7 @@ def test_executable_handle_ownership_closes_exactly_once(monkeypatch, tmp_path, 
             external,
             "os",
             SimpleNamespace(
-                O_BINARY=os.O_BINARY,
+                O_BINARY=binary_flag,
                 O_RDONLY=os.O_RDONLY,
                 close=os.close,
                 fdopen=Mock(side_effect=OSError("synthetic fdopen failure")),
