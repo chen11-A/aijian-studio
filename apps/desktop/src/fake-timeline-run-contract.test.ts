@@ -356,7 +356,11 @@ describe("fake timeline run creation contract", () => {
       env: {
         ...process.env,
         PYTHONIOENCODING: "utf-8",
-        PYTHONPATH: [resolve(repositoryRoot, "services/api/src"), process.env.PYTHONPATH]
+        PYTHONPATH: [
+          resolve(repositoryRoot, "services/api/src"),
+          resolve(repositoryRoot, "services/api/tests"),
+          process.env.PYTHONPATH,
+        ]
           .filter(Boolean)
           .join(delimiter),
       },
