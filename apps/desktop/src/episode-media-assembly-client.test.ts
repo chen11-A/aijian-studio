@@ -6,6 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { createLocalApiClient } from "./api-client";
 import { registerEpisodeMediaAssemblyHandlers } from "./episode-media-assembly-ipc";
 import type { CreateEpisodeMediaAssemblyVersionRequest } from "./episode-media-assembly-contract";
+import f from "../../../packages/contracts/fixtures/manual-media-candidate.json";
+import { ASSEMBLY_EXACT_CHANNELS } from "@aijian/contracts/assembly-exact";
+import { MANUAL_MEDIA_CANDIDATE_CHANNELS } from "@aijian/contracts/manual-media-candidate";
+import { MEDIA_PREPARATION_CHANNELS } from "@aijian/contracts/media-preparation";
+import { IMPACT_CHANNELS } from "@aijian/contracts/script-confirmation-impact";
 
 const project = `prj_${"a".repeat(32)}`,
   episode = `ep_${"b".repeat(32)}`;
@@ -164,5 +169,23 @@ describe("actual desktop assembly bridge", () => {
       episode,
       command,
     );
+    await exposed.saveExact!(f.project_id, f.episode_id, f.assembly_command);
+    await exposed.getOriginal!(f.project_id, f.episode_id, f.assembly_command);
+    await exposed.saveManualMediaCandidate!(f.project_id, f.episode_id, f.candidate_command);
+    await exposed.getManualMediaCandidateOperation!(
+      f.project_id,
+      f.episode_id,
+      f.candidate_command,
+    );
+    await exposed.getMediaPreparation!(f.project_id, f.episode_id, f.preparation.version_id);
+    await exposed.listScriptConfirmationImpacts!(f.project_id);
+    expect(invoke.mock.calls.slice(2)).toEqual([
+      [ASSEMBLY_EXACT_CHANNELS.save, f.project_id, f.episode_id, f.assembly_command],
+      [ASSEMBLY_EXACT_CHANNELS.original, f.project_id, f.episode_id, f.assembly_command],
+      [MANUAL_MEDIA_CANDIDATE_CHANNELS.save, f.project_id, f.episode_id, f.candidate_command],
+      [MANUAL_MEDIA_CANDIDATE_CHANNELS.original, f.project_id, f.episode_id, f.candidate_command],
+      [MEDIA_PREPARATION_CHANNELS.get, f.project_id, f.episode_id, f.preparation.version_id],
+      [IMPACT_CHANNELS.list, f.project_id, undefined],
+    ]);
   });
 });

@@ -1,4 +1,5 @@
 import type { AssemblyContent, AssemblyTextSubtitleSegment } from "./episodeMediaAssembly";
+import { subtitleScriptRef } from "@aijian/contracts/assembly-script-provenance";
 
 export const SUBTITLE_PROFILE = "noto-cjk-sc-bottom-v1" as const;
 export function subtitleTextProblem(text: string): string | null {
@@ -17,7 +18,8 @@ export function isLiteralSubtitle(value: unknown): value is AssemblyTextSubtitle
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const cue = value as Record<string, unknown>;
   return (
-    Object.keys(cue).length === 5 &&
+    Object.keys(cue).length === (Object.hasOwn(cue, "script_ref") ? 6 : 5) &&
+    (!Object.hasOwn(cue, "script_ref") || subtitleScriptRef(cue.script_ref)) &&
     typeof cue.segment_id === "string" &&
     /^seg_[a-z0-9._-]{1,80}$/.test(cue.segment_id) &&
     Number.isSafeInteger(cue.start_frame) &&
@@ -28,6 +30,14 @@ export function isLiteralSubtitle(value: unknown): value is AssemblyTextSubtitle
     typeof cue.text === "string" &&
     subtitleTextProblem(cue.text) === null
   );
+}
+export function scriptSubtitleText(text: string): string | null {
+  const chars = [...text];
+  const formatted =
+    !text.includes("\n") && chars.length > 28 && chars.length <= 56
+      ? chars.slice(0, 28).join("") + "\n" + chars.slice(28).join("")
+      : text;
+  return subtitleTextProblem(formatted) ? null : formatted;
 }
 export function subtitleTrackProblem(content: AssemblyContent): string | null {
   for (const cue of content.subtitle_segments) {

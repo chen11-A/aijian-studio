@@ -139,6 +139,7 @@ def _formal_script_subtitles(
 
 
 def _assembly_in_transaction(
+    repository: StudioRepository,
     connection: sqlite3.Connection,
     project_id: str,
     episode_id: str,
@@ -186,7 +187,7 @@ def _assembly_in_transaction(
         or canonical_content_hash(raw) != request.assembly.content_hash
     ):
         raise ProductExportClaimError("ASSEMBLY_CORRUPT", "Stored assembly bytes or scope differ")
-    _validate_script_refs(connection, content)
+    _validate_script_refs(repository, connection, content)
     return content
 
 
@@ -260,7 +261,9 @@ class ProductExportClaimService:
         with self._repository._connection() as connection:
             connection.execute("PRAGMA query_only = ON")
             connection.execute("BEGIN")
-            content = _assembly_in_transaction(connection, project_id, episode_id, request)
+            content = _assembly_in_transaction(
+                self._repository, connection, project_id, episode_id, request
+            )
             connection.commit()
         subtitles = _formal_script_subtitles(content)
         selected = _selected_tracks(content)
@@ -342,7 +345,9 @@ class ProductExportClaimService:
                     receipt = self._store.get(project_id, request.operation_id)
                     _require_matching_operation_hash(receipt.request_hash, request_hash)
                     return receipt, True
-                confirmed = _assembly_in_transaction(connection, project_id, episode_id, request)
+                confirmed = _assembly_in_transaction(
+                    self._repository, connection, project_id, episode_id, request
+                )
                 if (
                     canonical_content_hash(confirmed.model_dump(mode="json"))
                     != plan.assembly_content_hash

@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 from aijian_api import episode_media_assembly_store as assembly_store
+from aijian_api import local_media_original as originals
 from aijian_api.media_asset_probe_store import MediaAssetProbeEvidenceError
 from aijian_api.media_asset_rights_store import RightsDecisionError
 from test_media_execution_plan_boundaries import SHA, assembly, probe
@@ -24,7 +25,7 @@ def managed(tmp_path):
 
 def test_availability_checks_actual_bytes_without_creating_database(managed):
     database, path, data, digest = managed
-    assert assembly_store._availability(database, digest, len(data)) == "VERIFIED"
+    assert originals._availability(database, digest, len(data)) == "VERIFIED"
     assert path.read_bytes() == data
     assert not database.exists()
 
@@ -32,8 +33,8 @@ def test_availability_checks_actual_bytes_without_creating_database(managed):
 @pytest.mark.parametrize(("digest", "size"), [("bad", 1), ("f" * 64, 0), ("f" * 64, -1)])
 def test_corrupt_identity_stops_before_filesystem_admission(tmp_path, monkeypatch, digest, size):
     resolve = Mock(side_effect=AssertionError("must not resolve"))
-    monkeypatch.setattr(assembly_store, "managed_local_io_path", resolve)
-    assert assembly_store._availability(tmp_path / "unused.db", digest, size) == "CORRUPT"
+    monkeypatch.setattr(originals, "managed_local_io_path", resolve)
+    assert originals._availability(tmp_path / "unused.db", digest, size) == "CORRUPT"
     resolve.assert_not_called()
 
 
@@ -50,7 +51,7 @@ def test_directory_and_blob_resolution_fail_closed(
     managed, monkeypatch, failure, status, call_index
 ):
     database, _, data, digest = managed
-    real = assembly_store.managed_local_io_path
+    real = originals.managed_local_io_path
     calls = 0
 
     def resolve(*args):
@@ -60,26 +61,22 @@ def test_directory_and_blob_resolution_fail_closed(
             raise failure("synthetic unavailable")
         return real(*args)
 
-    monkeypatch.setattr(assembly_store, "managed_local_io_path", resolve)
-    assert assembly_store._availability(database, digest, len(data)) == status
+    monkeypatch.setattr(originals, "managed_local_io_path", resolve)
+    assert originals._availability(database, digest, len(data)) == status
 
 
 @pytest.mark.parametrize("failure", [OSError, ValueError])
 def test_workspace_resolution_failure_is_unknown(managed, monkeypatch, failure):
     database, _, data, digest = managed
-    monkeypatch.setattr(
-        assembly_store, "managed_local_io_path", Mock(side_effect=failure("synthetic"))
-    )
-    assert assembly_store._availability(database, digest, len(data)) == "UNKNOWN_UNSAFE_PATH"
+    monkeypatch.setattr(originals, "managed_local_io_path", Mock(side_effect=failure("synthetic")))
+    assert originals._availability(database, digest, len(data)) == "UNKNOWN_UNSAFE_PATH"
 
 
 @pytest.mark.parametrize("failure", [OSError, ValueError])
 def test_open_failure_is_unknown_not_verified(managed, monkeypatch, failure):
     database, _, data, digest = managed
-    monkeypatch.setattr(
-        assembly_store, "_open_local_source", Mock(side_effect=failure("synthetic"))
-    )
-    assert assembly_store._availability(database, digest, len(data)) == "UNKNOWN_MEDIA_READ"
+    monkeypatch.setattr(originals, "_open_local_source", Mock(side_effect=failure("synthetic")))
+    assert originals._availability(database, digest, len(data)) == "UNKNOWN_MEDIA_READ"
 
 
 @pytest.mark.parametrize("field", ["st_dev", "st_ino", "st_size", "st_mtime_ns"])
@@ -92,17 +89,17 @@ def test_handle_identity_change_is_unknown(managed, monkeypatch, field):
     }
     values[field] += 1
     monkeypatch.setattr(
-        assembly_store,
+        originals,
         "os",
         SimpleNamespace(fstat=Mock(side_effect=[before, SimpleNamespace(**values)])),
     )
-    assert assembly_store._availability(database, digest, len(data)) == "UNKNOWN_MEDIA_CHANGED"
+    assert originals._availability(database, digest, len(data)) == "UNKNOWN_MEDIA_CHANGED"
 
 
 def test_size_limit_does_not_claim_verified_media(managed, monkeypatch):
     database, _, data, digest = managed
-    monkeypatch.setattr(assembly_store, "MAX_INLINE_PREVIEW_BYTES", len(data) - 1)
-    assert assembly_store._availability(database, digest, len(data)) == "UNVERIFIED_SIZE_LIMIT"
+    monkeypatch.setattr(originals, "MAX_INLINE_PREVIEW_BYTES", len(data) - 1)
+    assert originals._availability(database, digest, len(data)) == "UNVERIFIED_SIZE_LIMIT"
 
 
 @pytest.mark.parametrize("mutation", ["size", "hash", "missing"])
@@ -114,7 +111,7 @@ def test_original_file_drift_does_not_pass(managed, mutation):
         path.write_bytes(b"x" * len(data))
     else:
         path.unlink()
-    assert assembly_store._availability(database, digest, len(data)) == (
+    assert originals._availability(database, digest, len(data)) == (
         "MISSING" if mutation == "missing" else "CORRUPT"
     )
 
@@ -122,7 +119,7 @@ def test_original_file_drift_does_not_pass(managed, mutation):
 @pytest.mark.parametrize("error", [OSError, RuntimeError])
 def test_directory_inspection_errors_are_not_plain_directories(error):
     path = Mock(is_dir=Mock(side_effect=error("synthetic")))
-    assert assembly_store._plain_directory(path) is False
+    assert originals._plain_directory(path) is False
 
 
 @pytest.fixture

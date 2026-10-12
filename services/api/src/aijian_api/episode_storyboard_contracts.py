@@ -12,6 +12,7 @@ from pydantic import (
     Field,
     StrictInt,
     StrictStr,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
@@ -72,10 +73,80 @@ class EpisodeStoryboardShotV1(_Closed):
         return self
 
 
-class EpisodeStoryboardContentV1(_Closed):
+class EpisodeStoryboardCharacterBindingV1(_Closed):
+    character_id: CharacterId
+    costume_id: StrictStr | None = Field(pattern=r"^cst_[0-9a-f]{32}$")
+    reference_ids: tuple[Annotated[StrictStr, Field(pattern=r"^crf_[0-9a-f]{32}$")], ...] = Field(
+        max_length=2_000
+    )
+
+    @field_validator("reference_ids", mode="before")
+    @classmethod
+    def accept_reference_ids(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode="after")
+    def unique_references(self) -> Self:
+        if len(set(self.reference_ids)) != len(self.reference_ids):
+            raise ValueError("Character reference IDs must be unique")
+        return self
+
+
+class EpisodeStoryboardShotV2(EpisodeStoryboardShotV1):
+    character_bindings: tuple[EpisodeStoryboardCharacterBindingV1, ...] = Field(max_length=500)
+
+    @field_validator("character_bindings", mode="before")
+    @classmethod
+    def accept_bindings(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode="after")
+    def validate_binding_membership(self) -> Self:
+        ids = [item.character_id for item in self.character_bindings]
+        if len(set(ids)) != len(ids) or not set(ids).issubset(self.character_ids):
+            raise ValueError("Bindings must uniquely belong to characters in this shot")
+        return self
+
+
+class EpisodeStoryboardShotV3(EpisodeStoryboardShotV2):
+    """Manual shot planning intent, distinct from review findings or approval."""
+
+    coverage_notes: LongText
+    continuity_notes: LongText
+    transition_notes: LongText
+
+
+class EpisodeStoryboardEnvironmentBindingV1(_Closed):
+    variant_id: StrictStr | None = Field(pattern=r"^scv_[0-9a-f]{32}$")
+    reference_ids: tuple[Annotated[StrictStr, Field(pattern=r"^erf_[0-9a-f]{32}$")], ...] = Field(
+        max_length=2_000
+    )
+
+    @field_validator("reference_ids", mode="before")
+    @classmethod
+    def accept_reference_ids(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode="after")
+    def unique_ids(self) -> Self:
+        if len(set(self.reference_ids)) != len(self.reference_ids):
+            raise ValueError("Environment references must be unique")
+        return self
+
+
+class EpisodeStoryboardShotV4(EpisodeStoryboardShotV3):
+    environment_binding: EpisodeStoryboardEnvironmentBindingV1
+
+    @model_validator(mode="after")
+    def state_requires_location(self) -> Self:
+        if self.environment_binding.variant_id is not None and self.location_id is None:
+            raise ValueError("A selected environment state needs a location")
+        return self
+
+
+class _EpisodeStoryboardContent(_Closed):
     """An empty manual draft is valid; this is not an accepted ShotOutline."""
 
-    schema_version: Literal["1.0.0"]
     project_id: StrictStr = Field(pattern=PROJECT_ID_PATTERN)
     episode_id: StrictStr = Field(pattern=EPISODE_ID_PATTERN)
     fps: StrictInt = Field(ge=1, le=120)
@@ -105,8 +176,102 @@ class EpisodeStoryboardContentV1(_Closed):
         return self
 
 
+class EpisodeStoryboardContentV1(_EpisodeStoryboardContent):
+    """An empty manual draft is valid; this is not an accepted ShotOutline."""
+
+    schema_version: Literal["1.0.0"]
+
+
+class EpisodeStoryboardContentV2(_EpisodeStoryboardContent):
+    schema_version: Literal["1.1.0"]
+    shots: tuple[EpisodeStoryboardShotV2, ...] = Field(max_length=1_000)
+
+
+class StoryboardVisualBiblePinV1(_Closed):
+    version_id: StrictStr = Field(pattern=VERSION_ID_PATTERN)
+    content_hash: StrictStr = Field(pattern=CONTENT_HASH_PATTERN)
+
+
+class EpisodeStoryboardContentV3(_EpisodeStoryboardContent):
+    schema_version: Literal["1.2.0"]
+    shots: tuple[EpisodeStoryboardShotV2, ...] = Field(max_length=1_000)
+    visual_bible_pin: StoryboardVisualBiblePinV1 | None
+
+    @model_validator(mode="after")
+    def visual_basis(self) -> Self:
+        if self.visual_bible_pin is not None and self.creative_library_version_id is None:
+            raise ValueError("An approved visual pin needs its exact creative-library basis")
+        return self
+
+
+class EpisodeStoryboardContentV4(_EpisodeStoryboardContent):
+    schema_version: Literal["1.3.0"]
+    shots: tuple[EpisodeStoryboardShotV3, ...] = Field(max_length=1_000)
+    visual_bible_pin: StoryboardVisualBiblePinV1 | None
+
+    @model_validator(mode="after")
+    def visual_basis(self) -> Self:
+        if self.visual_bible_pin is not None and self.creative_library_version_id is None:
+            raise ValueError("An approved visual pin needs its exact creative-library basis")
+        return self
+
+
+class EpisodeStoryboardContentV5(_EpisodeStoryboardContent):
+    schema_version: Literal["1.4.0"]
+    shots: tuple[EpisodeStoryboardShotV4, ...] = Field(max_length=1_000)
+    visual_bible_pin: StoryboardVisualBiblePinV1 | None
+
+    @model_validator(mode="after")
+    def exact_manual_environment_basis(self) -> Self:
+        chosen = any(
+            shot.environment_binding.variant_id is not None
+            or shot.environment_binding.reference_ids
+            for shot in self.shots
+        )
+        if (
+            chosen or self.visual_bible_pin is not None
+        ) and self.creative_library_version_id is None:
+            raise ValueError("Environment/G5 choices require an exact creative-library basis")
+        if chosen and self.visual_bible_pin is not None:
+            raise ValueError(
+                "The existing G5 scope does not approve independent environment choices"
+            )
+        return self
+
+
+class EpisodeStoryboardContentV6(_EpisodeStoryboardContent):
+    schema_version: Literal["1.5.0"]
+    shots: tuple[EpisodeStoryboardShotV4, ...] = Field(max_length=1_000)
+    visual_bible_pin: StoryboardVisualBiblePinV1 | None
+
+    @model_validator(mode="after")
+    def environment_basis(self) -> Self:
+        chosen = any(
+            shot.environment_binding.variant_id is not None
+            or shot.environment_binding.reference_ids
+            for shot in self.shots
+        )
+        if (
+            chosen or self.visual_bible_pin is not None
+        ) and self.creative_library_version_id is None:
+            raise ValueError("Environment/G5 choices require an exact creative-library basis")
+        return self
+
+
+type EpisodeStoryboardContent = Annotated[
+    EpisodeStoryboardContentV1
+    | EpisodeStoryboardContentV2
+    | EpisodeStoryboardContentV3
+    | EpisodeStoryboardContentV4
+    | EpisodeStoryboardContentV5
+    | EpisodeStoryboardContentV6,
+    Field(discriminator="schema_version"),
+]
+STORYBOARD_CONTENT: TypeAdapter[EpisodeStoryboardContent] = TypeAdapter(EpisodeStoryboardContent)
+
+
 class CreateEpisodeStoryboardVersionRequest(_Closed):
-    content: EpisodeStoryboardContentV1
+    content: EpisodeStoryboardContent
     parent_version_id: StrictStr | None = Field(pattern=VERSION_ID_PATTERN)
     expected_revision: StrictInt | None = Field(ge=1, le=9_007_199_254_740_991)
     change_summary: StrictStr = Field(min_length=1, max_length=240)
@@ -127,7 +292,7 @@ class EpisodeStoryboardVersionData(_Closed):
     version_number: StrictInt = Field(ge=1)
     head_revision: StrictInt = Field(ge=1)
     parent_version_id: StrictStr | None = Field(pattern=VERSION_ID_PATTERN)
-    content: EpisodeStoryboardContentV1
+    content: EpisodeStoryboardContent
     stored_content: dict[str, object] = Field(exclude=True, repr=False)
     content_hash: StrictStr = Field(pattern=CONTENT_HASH_PATTERN)
     author_actor_id: StrictStr = Field(min_length=1, max_length=240)

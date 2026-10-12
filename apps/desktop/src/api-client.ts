@@ -1,3 +1,38 @@
+import { createLocalMediaReviewClient } from "./local-media-review-client";
+import {
+  scriptWriteOperationId,
+  verifyScriptWriteOperation,
+} from "@aijian/contracts/script-write-recovery";
+import { impactCanonical } from "@aijian/contracts/script-confirmation-impact";
+import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
+import { createAssemblyReadinessClient } from "./assembly-readiness-client";
+import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
+import { createAssemblyExactClient } from "./assembly-exact-client";
+import type { AssemblyExactGateway } from "@aijian/contracts/assembly-exact";
+import { createManualMediaCandidateClient } from "./manual-media-candidate-client";
+import type { ManualMediaCandidateGateway } from "@aijian/contracts/manual-media-candidate";
+import { createMediaPreparationClient } from "./media-preparation-client";
+import type { MediaPreparationGateway } from "@aijian/contracts/media-preparation";
+import { createScriptConfirmationImpactClient } from "./script-confirmation-impact-client";
+import type { ScriptImpactGateway } from "@aijian/contracts/script-confirmation-impact";
+import { createProjectSettingsClient } from "./project-settings-client";
+import type { ProjectSettingsGateway } from "@aijian/contracts/project-settings";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
+import {
+  createNativePreviewPlanClient,
+  type NativePreviewPlanClient,
+} from "./media-preview-plan-client";
+import {
+  createAudioAssetProbeClient,
+  type AudioAssetProbeClient,
+} from "./audio-asset-probe-client";
+import {
+  invalidationConsumerIdentity,
+  invalidationConsumerResponse,
+  type InvalidationConsumerIdentity,
+  type InvalidationConsumerResponse,
+} from "@aijian/contracts/invalidation-consumer";
+import { createVisualBibleClient, type VisualHttpClient } from "./visual-bible-client";
 import {
   createOfficialDirectorClient,
   type OfficialDirectorPersistenceClient,
@@ -110,10 +145,12 @@ import {
   isEpisodeScriptVersionCreatedResponse,
   isEpisodeScriptVersionId,
   isEpisodeScriptVersionResponse,
+  isEpisodeScriptWriteOperationResponse,
   type CreateEpisodeScriptVersionRequest,
   type EpisodeScriptCreateResult,
   type EpisodeScriptLatestResult,
   type EpisodeScriptVersionResult,
+  type EpisodeScriptWriteOperationResult,
 } from "./episode-script-contract";
 import {
   episodeScriptConfirmationDefiniteError,
@@ -299,6 +336,7 @@ export type {
   EpisodeScriptCreateResult,
   EpisodeScriptLatestResult,
   EpisodeScriptVersionResult,
+  EpisodeScriptWriteOperationResult,
 } from "./episode-script-contract";
 export type {
   CreateEpisodeScriptConfirmationRequest,
@@ -499,13 +537,22 @@ export interface SourceManifestReviewClient {
 
 export interface LocalApiClient
   extends
+    ScriptImpactGateway,
+    VisualHttpClient,
     OfficialDirectorPersistenceClient,
     MediaAssetProbeClient,
+    AudioAssetProbeClient,
+    NativePreviewPlanClient,
     MediaToolchainClient,
     OfficialTextPersistenceClient,
     ProjectCreativeLibraryGateway,
     EpisodeStoryboardGateway,
+    MediaPreparationGateway,
+    ManualMediaCandidateGateway,
+    AssemblyExactGateway,
     EpisodeMediaAssemblyClient,
+    AssemblyReadinessGateway,
+    LocalMediaReviewGateway,
     DraftExportClient,
     DraftReviewGateway,
     DraftReviewRevisionGateway,
@@ -514,11 +561,20 @@ export interface LocalApiClient
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
+  getProjectSettings: ProjectSettingsGateway["getProjectSettings"];
+  getProjectSettingsReceipt: ProjectSettingsGateway["getProjectSettingsReceipt"];
+  updateProjectSettings: ProjectSettingsGateway["updateProjectSettings"];
   updateProject(projectId: string, command: ProjectUpdateCommand): Promise<ProjectUpdateResult>;
   listEpisodes(projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse>;
   getEpisode(projectId: string, episodeId: string): Promise<EpisodeResponse>;
   createEpisode(projectId: string, input: CreateEpisodeInput): Promise<EpisodeCreateResult>;
   getEpisodeScript(projectId: string, episodeId: string): Promise<EpisodeScriptLatestResult>;
+  getEpisodeScriptWriteOperation(
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    payload: CreateEpisodeScriptVersionRequest,
+  ): Promise<EpisodeScriptWriteOperationResult>;
   getEpisodeScriptVersion(
     projectId: string,
     episodeId: string,
@@ -645,6 +701,9 @@ export interface LocalApiClient
     projectId: string,
     operationId: string,
   ): Promise<InvalidationOperationResponse>;
+  inspectInvalidationConsumer(
+    identity: InvalidationConsumerIdentity,
+  ): Promise<InvalidationConsumerResponse>;
   getArtifactProposal(projectId: string, proposalId: string): Promise<ArtifactProposalResponse>;
   acceptArtifactProposalAsDraft(
     projectId: string,
@@ -1234,7 +1293,7 @@ function isProject(value: unknown): boolean {
     typeof value.id === "string" &&
     PROJECT_ID_PATTERN.test(value.id) &&
     typeof value.name === "string" &&
-    value.aspect_ratio === "9:16" &&
+    isProjectAspectRatio(value.aspect_ratio) &&
     Number.isInteger(value.target_duration_seconds) &&
     value.source_language === "zh-CN" &&
     (value.status === "active" || value.status === "archived") &&
@@ -2190,7 +2249,7 @@ function isCreateProjectInput(value: unknown): value is CreateProjectInput {
     value.name.trim().length > 0 &&
     nameLength <= 80 &&
     !hasControlCharacter(value.name) &&
-    value.aspect_ratio === "9:16" &&
+    isProjectAspectRatio(value.aspect_ratio) &&
     Number.isInteger(value.target_duration_seconds) &&
     Number(value.target_duration_seconds) >= 30 &&
     Number(value.target_duration_seconds) <= 180 &&
@@ -3207,7 +3266,25 @@ export function createLocalApiClient(
   }
 
   return {
+    ...createLocalMediaReviewClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 30_000, 1_500_000),
+      headers,
+    ),
+    ...createMediaPreparationClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 30_000, 6_500_000),
+      headers,
+    ),
+    ...createManualMediaCandidateClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 30_000, 6_500_000),
+      headers,
+    ),
+    ...createAssemblyExactClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 30_000, 6_500_000),
+      headers,
+    ),
+    ...createScriptConfirmationImpactClient(requestSub2APIMutationHttp, headers),
     ...createProjectCreativeLibraryClient(requestSub2APIMutationHttp, headers),
+    ...createVisualBibleClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeStoryboardClient(requestSub2APIMutationHttp, headers),
     ...createShotPlanClient(
       (path, init) => requestSub2APIMutationHttp(path, init, 15_000, 9_000_000),
@@ -3216,6 +3293,12 @@ export function createLocalApiClient(
     ...createOfficialTextClient(requestSub2APIMutationHttp, headers),
     ...createOfficialDirectorClient(requestSub2APIMutationHttp, headers),
     ...createEpisodeMediaAssemblyClient(requestSub2APIMutationHttp, headers),
+    ...createAssemblyReadinessClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 30_000, 4_250_000),
+      headers,
+    ),
+    ...createProjectSettingsClient(requestSub2APIMutationHttp, headers),
+    ...createNativePreviewPlanClient(requestSub2APIMutationHttp, headers),
     ...createDraftExportClient(requestSub2APIMutationHttp, headers),
     ...createDraftReviewClient(requestSub2APIMutationHttp, headers),
     ...createDraftReviewRevisionClient(requestSub2APIMutationHttp, headers),
@@ -3224,6 +3307,10 @@ export function createLocalApiClient(
       headers,
     ),
     ...createMediaAssetProbeClient(
+      (path, init) => requestSub2APIMutationHttp(path, init, 5 * 60_000),
+      headers,
+    ),
+    ...createAudioAssetProbeClient(
       (path, init) => requestSub2APIMutationHttp(path, init, 5 * 60_000),
       headers,
     ),
@@ -3715,7 +3802,13 @@ export function createLocalApiClient(
       if (!isCreateProjectInput(input)) {
         throw new Error("Local API client requires valid project input");
       }
-      return requestJson("/api/v1/projects", isProjectResponse, postInit(input));
+      const aspectRatio = input.aspect_ratio;
+      return requestJson(
+        "/api/v1/projects",
+        (value): value is ProjectResponse =>
+          isProjectResponse(value) && value.data.aspect_ratio === aspectRatio,
+        postInit(input),
+      );
     },
     async getProject(projectId: string): Promise<ProjectResponse> {
       if (!PROJECT_ID_PATTERN.test(projectId)) {
@@ -4207,6 +4300,22 @@ export function createLocalApiClient(
       }
       return requestFakeTimelineRunOperation(projectId, originalCommand);
     },
+    async inspectInvalidationConsumer(
+      identity: InvalidationConsumerIdentity,
+    ): Promise<InvalidationConsumerResponse> {
+      if (!invalidationConsumerIdentity(identity))
+        throw new Error("Impact consumer requires an exact saved path identity");
+      const path = `/api/v1/projects/${identity.project_id}/invalidation-operations/${identity.operation_id}/paths/${identity.path_id}/consumer`;
+      const result = await readBoundedScriptHttp(path, { headers });
+      if (
+        !result ||
+        result.status !== 200 ||
+        result.requestId === null ||
+        !invalidationConsumerResponse(result.payload, identity, result.requestId)
+      )
+        throw new Error("Exact affected-version context is unknown");
+      return result.payload;
+    },
     async getInvalidationOperation(
       projectId: string,
       operationId: string,
@@ -4501,6 +4610,44 @@ export function createLocalApiClient(
     },
     listProviderConnections: () =>
       requestJson("/api/v1/provider-connections", isProviderConnectionListResponse, { headers }),
+    async getEpisodeScriptWriteOperation(projectId, episodeId, operationId, originalPayload) {
+      if (
+        !isEpisodeScriptProjectId(projectId) ||
+        !isEpisodeScriptEpisodeId(episodeId) ||
+        !scriptWriteOperationId(operationId) ||
+        !isCreateEpisodeScriptVersionRequest(originalPayload, projectId, episodeId)
+      ) {
+        throw new Error("Original script write read requires exact original identity and input");
+      }
+      const captured = structuredClone(originalPayload);
+      const result = await readBoundedScriptHttp(
+        `/api/v1/projects/${projectId}/episodes/${episodeId}/script/write-operations/${operationId}`,
+        { headers },
+      );
+      if (
+        result === null ||
+        result.status !== 200 ||
+        !isEpisodeScriptWriteOperationResponse(
+          result.payload,
+          projectId,
+          episodeId,
+          operationId,
+          result.requestId,
+        )
+      )
+        return { kind: "REMOTE_UNKNOWN" };
+      const receipt = result.payload;
+      if (
+        !(await verifyScriptWriteOperation(
+          receipt.data,
+          captured,
+          async (v) =>
+            `sha256:${createHash("sha256").update(impactCanonical(v), "utf8").digest("hex")}`,
+        ))
+      )
+        return { kind: "REMOTE_UNKNOWN" };
+      return { kind: "FOUND", receipt };
+    },
     async getEpisodeScript(
       projectId: string,
       episodeId: string,
@@ -4654,7 +4801,7 @@ export function createLocalApiClient(
           : { kind: "REMOTE_UNKNOWN" };
       }
       return (
-        episodeScriptConfirmationDefiniteError(status, response, requestId) ?? {
+        episodeScriptConfirmationDefiniteError(status, response, requestId, "write") ?? {
           kind: "REMOTE_UNKNOWN",
         }
       );

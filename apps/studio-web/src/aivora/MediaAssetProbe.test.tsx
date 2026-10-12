@@ -236,3 +236,30 @@ it("keeps a late probe attached to its original project after project navigation
     items[0]!.latest_version.id,
   );
 });
+
+it("reads saved video probe evidence for the explicitly selected historical asset version", async () => {
+  const { native, items, saved } = setup();
+  const original = items[0]!;
+  const oldVersion = original.latest_version;
+  saved.set(oldVersion.id, probeReceipt(original));
+  const newer = {
+    ...oldVersion,
+    id: `asv_${"a".repeat(32)}`,
+    ordinal: 2,
+    filename: "video-next.mp4",
+    sha256: "a".repeat(64),
+  };
+  Object.assign(original, { latest_version: newer, versions: [oldVersion, newer] });
+  render(<AssetsPage />);
+  await screen.findByRole("heading", { name: "视频探测 · video-next.mp4" });
+  fireEvent.change(screen.getByLabelText("查看素材版本"), { target: { value: oldVersion.id } });
+  await screen.findByRole("heading", { name: `视频探测 · ${oldVersion.filename}` });
+  await screen.findByText(/已验证探测：320 × 180/);
+  expect(native.getMediaAssetProbeEvidence).toHaveBeenCalledWith(
+    probeProjectId,
+    original.id,
+    oldVersion.id,
+  );
+  expect(native.probeSelectedMediaAssetVersion).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("查看素材版本")).toHaveValue(oldVersion.id);
+});

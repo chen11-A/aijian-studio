@@ -108,3 +108,11 @@ literal subtitle restrictions and immutable DRAFT receipts remain in force.
 Host-safe mocks and static PE inspection cannot establish actual Windows locking,
 DACL, mitigation, loader or export behavior. The native acceptance plan below is a
 mandatory next gate before describing this feature as usable on Windows.
+
+## Selected pure audio timing evidence
+
+The authenticated desktop sidecar exposes GET/POST `audio-probe-evidence` for canonical project/asset/version ids. This does not widen the existing video `probe-evidence`, proxy, execution plan, or fixed MLT TEST WAV contracts. `LocalAudioProbeData` requires exactly one audio stream, no video/cover art or other streams, a bounded positive source sample rate (up to 384 kHz), channels (up to 64), and decoded sample count. These are source metadata bounds, not formal export support.
+
+The same guarded local snapshot, pinned ffprobe, immutable selected-version identity, transaction and `media_asset_probe_evidence` table persist both explicitly selected media kinds. Audio uses a separate strict DTO; no new migration, Provider, model dispatch, or credentials. Readback can inspect an old receipt without its original; every explicitly started new probe rechecks original bytes. The native client and renderer check closed shape, exact ids/raw hash/size, request id, and canonical probe body hash.
+
+The shared selected-probe recovery controller preserves the video journal namespace and adds a scoped audio pending marker. A lost POST never retries automatically; read-only reconciliation and explicit finished acknowledgement remain separate from starting a new probe. Asset, Voice, and assembly views use the exact referenced version, including historical versions, and use source sample rate for splitting. Browser resampling does not redefine a source sample offset. This provides timing evidence, not continuous playback, mix/decoder acceptance, spoken-content or rights approval. Windows acceptance remains separate.

@@ -1,3 +1,45 @@
+import type {
+  LocalMediaReviewGateway,
+  LOCAL_MEDIA_REVIEW_CHANNELS as SharedLocalReviewChannels,
+} from "@aijian/contracts/local-media-review";
+import type {
+  AssemblyReadinessTarget,
+  AssemblyReadinessResult,
+} from "@aijian/contracts/assembly-readiness";
+import type {
+  AssemblyExactGateway,
+  ASSEMBLY_EXACT_CHANNELS as SharedAssemblyExactChannels,
+} from "@aijian/contracts/assembly-exact";
+import type {
+  ManualMediaCandidateGateway,
+  MANUAL_MEDIA_CANDIDATE_CHANNELS as SharedManualCandidateChannels,
+} from "@aijian/contracts/manual-media-candidate";
+import type {
+  MediaPreparationGateway,
+  MEDIA_PREPARATION_CHANNELS as SharedPreparationChannels,
+} from "@aijian/contracts/media-preparation";
+import type {
+  ScriptImpactGateway,
+  IMPACT_CHANNELS as SharedImpactChannels,
+} from "@aijian/contracts/script-confirmation-impact";
+import type { ProjectSettingsGateway } from "@aijian/contracts/project-settings";
+import type { NativePreviewPlanResult } from "@aijian/contracts/native-preview-plan";
+import type {
+  OpenMediaPreviewCommand,
+  MediaPreviewMutation,
+  SeekMediaPreviewCommand,
+  MediaPreviewStatusQuery,
+  MediaPreviewResult,
+} from "./media-preview-session-contract";
+import type {
+  AudioAssetProbeReadResult,
+  AudioAssetProbeWriteResult,
+} from "./audio-asset-probe-contract";
+import type {
+  InvalidationConsumerIdentity,
+  InvalidationConsumerResponse,
+} from "@aijian/contracts/invalidation-consumer";
+import type { VisualGateway, VisualHistoryGateway } from "@aijian/contracts/visual-bible";
 import type { OfficialDirectorBridge } from "@aijian/contracts/official-director";
 import type { ShotPlanGateway } from "@aijian/contracts/shot-plan";
 import type {
@@ -95,6 +137,7 @@ import type {
   EpisodeScriptCreateResult,
   EpisodeScriptLatestResult,
   EpisodeScriptVersionResult,
+  EpisodeScriptWriteOperationResult,
   CreateEpisodeScriptConfirmationRequest,
   EpisodeScriptConfirmationCreateResult,
   EpisodeScriptConfirmationReadResult,
@@ -107,6 +150,37 @@ import type {
   InvalidationOperationPageResponse,
 } from "@aijian/contracts/invalidation-operation";
 
+// Sandbox preload is emitted by tsc without bundling. Only Electron may be a
+// runtime import; these fixed literals are checked against the shared channels.
+const LOCAL_MEDIA_REVIEW_CHANNELS: typeof SharedLocalReviewChannels = {
+  target: "local-media-review:target",
+  list: "local-media-review:list",
+  get: "local-media-review:get",
+  status: "local-media-review:status",
+  save: "local-media-review:save",
+  original: "local-media-review:original",
+};
+const ASSEMBLY_EXACT_CHANNELS: typeof SharedAssemblyExactChannels = {
+  save: "assembly-exact:save",
+  original: "assembly-exact:original",
+};
+const MANUAL_MEDIA_CANDIDATE_CHANNELS: typeof SharedManualCandidateChannels = {
+  list: "manual-media-candidate:list",
+  get: "manual-media-candidate:get",
+  save: "manual-media-candidate:save",
+  original: "manual-media-candidate:original",
+};
+const MEDIA_PREPARATION_CHANNELS: typeof SharedPreparationChannels = {
+  list: "media-preparation:list",
+  get: "media-preparation:get",
+  save: "media-preparation:save",
+  original: "media-preparation:original",
+};
+const IMPACT_CHANNELS: typeof SharedImpactChannels = {
+  list: "script-confirmation-impact:list",
+  detail: "script-confirmation-impact:detail",
+  operation: "script-confirmation-impact:original-operation",
+};
 type HealthResponse = components["schemas"]["HealthResponse"];
 type CreateProjectInput = components["schemas"]["CreateProjectRequest"];
 type ImportTextSourceInput = components["schemas"]["ImportTextSourceRequest"];
@@ -162,6 +236,12 @@ type ReplaceTimelineClipInput = components["schemas"]["ReplaceTimelineClipReques
 type CreateProviderConnectionInput = components["schemas"]["CreateProviderConnectionRequest"];
 type ProviderConnectionListResponse = components["schemas"]["ProviderConnectionListResponse"];
 type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
+// Sandbox preload permits Electron only; keep fixed invokes inline, checked against IPC contracts.
+const SETTINGS_CHANNELS = {
+  read: "aivora:project-settings:read",
+  receipt: "aivora:project-settings:receipt",
+  write: "aivora:project-settings:write",
+} as const;
 type ProductionBriefResponse = components["schemas"]["ProductionBriefResponse"];
 type ProductionBriefCreateInput = {
   content: components["schemas"]["ProductionBriefContentV1"];
@@ -263,6 +343,28 @@ contextBridge.exposeInMainWorld("aijian", {
       assetId,
       versionId,
     ) as Promise<MediaAssetProbeWriteResult>,
+  getAudioAssetProbeEvidence: (
+    projectId: string,
+    assetId: string,
+    versionId: string,
+  ): Promise<AudioAssetProbeReadResult> =>
+    ipcRenderer.invoke(
+      "audio-asset-probe:get",
+      projectId,
+      assetId,
+      versionId,
+    ) as Promise<AudioAssetProbeReadResult>,
+  probeSelectedAudioAssetVersion: (
+    projectId: string,
+    assetId: string,
+    versionId: string,
+  ): Promise<AudioAssetProbeWriteResult> =>
+    ipcRenderer.invoke(
+      "audio-asset-probe:probe-selected",
+      projectId,
+      assetId,
+      versionId,
+    ) as Promise<AudioAssetProbeWriteResult>,
   getMediaToolchainStatus: (): Promise<MediaToolchainResult> =>
     ipcRenderer.invoke("media-toolchain:status") as Promise<MediaToolchainResult>,
   selectMediaToolchain: (): Promise<MediaToolchainSelectionResult> =>
@@ -293,6 +395,94 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       assetId,
     ) as Promise<MediaAssetImportResult>,
+  getVisualReviewState: (p: string, v: string): ReturnType<VisualGateway["getVisualReviewState"]> =>
+    ipcRenderer.invoke("visual-bible:review-state", p, v) as ReturnType<
+      VisualGateway["getVisualReviewState"]
+    >,
+  getVisualBible: (p: string): ReturnType<VisualGateway["getVisualBible"]> =>
+    ipcRenderer.invoke("visual-bible:index", p) as ReturnType<VisualGateway["getVisualBible"]>,
+  listVisualBibleVersions: (
+    p: string,
+    cursor: string | null,
+  ): ReturnType<VisualHistoryGateway["listVisualBibleVersions"]> =>
+    ipcRenderer.invoke("visual-bible:history", p, cursor) as ReturnType<
+      VisualHistoryGateway["listVisualBibleVersions"]
+    >,
+  getVisualBibleVersion: (
+    p: string,
+    v: string,
+  ): ReturnType<VisualGateway["getVisualBibleVersion"]> =>
+    ipcRenderer.invoke("visual-bible:version", p, v) as ReturnType<
+      VisualGateway["getVisualBibleVersion"]
+    >,
+  getVisualBibleReadiness: (
+    p: string,
+    v: string,
+  ): ReturnType<VisualGateway["getVisualBibleReadiness"]> =>
+    ipcRenderer.invoke("visual-bible:readiness", p, v) as ReturnType<
+      VisualGateway["getVisualBibleReadiness"]
+    >,
+  getVisualBibleAuthority: (
+    p: string,
+    v: string,
+  ): ReturnType<VisualGateway["getVisualBibleAuthority"]> =>
+    ipcRenderer.invoke("visual-bible:authority", p, v) as ReturnType<
+      VisualGateway["getVisualBibleAuthority"]
+    >,
+  readVisualReviewOperation: (
+    p: string,
+    v: string,
+    c: string,
+  ): ReturnType<VisualGateway["readVisualReviewOperation"]> =>
+    ipcRenderer.invoke("visual-bible:review-operation", p, v, c) as ReturnType<
+      VisualGateway["readVisualReviewOperation"]
+    >,
+  getVisualInspectionOperation: (
+    p: string,
+    op: string,
+  ): ReturnType<VisualGateway["getVisualInspectionOperation"]> =>
+    ipcRenderer.invoke("visual-bible:inspection-operation", p, op) as ReturnType<
+      VisualGateway["getVisualInspectionOperation"]
+    >,
+  saveVisualBible: (
+    p: string,
+    key: string,
+    payload: Parameters<VisualGateway["saveVisualBible"]>[2],
+  ): ReturnType<VisualGateway["saveVisualBible"]> =>
+    ipcRenderer.invoke("visual-bible:save", p, key, payload) as ReturnType<
+      VisualGateway["saveVisualBible"]
+    >,
+  getVisualSaveOperation: (
+    p: string,
+    key: string,
+    payload: Parameters<VisualGateway["getVisualSaveOperation"]>[2],
+  ): ReturnType<VisualGateway["getVisualSaveOperation"]> =>
+    ipcRenderer.invoke("visual-bible:save-operation", p, key, payload) as ReturnType<
+      VisualGateway["getVisualSaveOperation"]
+    >,
+  prepareVisualReview: (
+    identity: Parameters<VisualGateway["prepareVisualReview"]>[0],
+    input: Parameters<VisualGateway["prepareVisualReview"]>[1],
+  ): ReturnType<VisualGateway["prepareVisualReview"]> =>
+    ipcRenderer.invoke("visual-bible:prepare", identity, input) as ReturnType<
+      VisualGateway["prepareVisualReview"]
+    >,
+  confirmVisualReview: (
+    ticket: Parameters<VisualGateway["confirmVisualReview"]>[0],
+  ): ReturnType<VisualGateway["confirmVisualReview"]> =>
+    ipcRenderer.invoke("visual-bible:confirm", ticket) as ReturnType<
+      VisualGateway["confirmVisualReview"]
+    >,
+  inspectVisualReference: (
+    p: string,
+    a: string,
+    v: string,
+    hash: string,
+    op: string,
+  ): ReturnType<VisualGateway["inspectVisualReference"]> =>
+    ipcRenderer.invoke("visual-bible:inspect", p, a, v, hash, op) as ReturnType<
+      VisualGateway["inspectVisualReference"]
+    >,
   readProjectMediaAssetPreview: (
     projectId: string,
     assetId: string,
@@ -340,6 +530,23 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
+  getProjectSettings: ((projectId) =>
+    ipcRenderer.invoke(
+      SETTINGS_CHANNELS.read,
+      projectId,
+    )) as ProjectSettingsGateway["getProjectSettings"],
+  getProjectSettingsReceipt: ((projectId, operationId) =>
+    ipcRenderer.invoke(
+      SETTINGS_CHANNELS.receipt,
+      projectId,
+      operationId,
+    )) as ProjectSettingsGateway["getProjectSettingsReceipt"],
+  updateProjectSettings: ((projectId, command) =>
+    ipcRenderer.invoke(
+      SETTINGS_CHANNELS.write,
+      projectId,
+      command,
+    )) as ProjectSettingsGateway["updateProjectSettings"],
   updateProject: (projectId: string, command: ProjectUpdateCommand): Promise<ProjectUpdateResult> =>
     ipcRenderer.invoke("projects:update", projectId, command) as Promise<ProjectUpdateResult>,
   listEpisodes: (projectId: string, query?: EpisodeListQuery): Promise<EpisodeListResponse> =>
@@ -437,6 +644,13 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       query === undefined ? {} : query,
     ) as Promise<InvalidationOperationPageResponse>,
+  inspectInvalidationConsumer: (
+    identity: InvalidationConsumerIdentity,
+  ): Promise<InvalidationConsumerResponse> =>
+    ipcRenderer.invoke(
+      "invalidation-operations:inspect-consumer",
+      identity,
+    ) as Promise<InvalidationConsumerResponse>,
   getInvalidationOperation: (
     projectId: string,
     operationId: string,
@@ -904,6 +1118,59 @@ contextBridge.exposeInMainWorld("aijian", {
       episodeId,
       operationId,
     ) as Promise<DraftExportResult>,
+  getLocalMediaReviewTarget: ((p, e, q) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.target,
+      p,
+      e,
+      q,
+    )) as LocalMediaReviewGateway["getLocalMediaReviewTarget"],
+  listLocalMediaReviews: ((p, e, cursor) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.list,
+      p,
+      e,
+      cursor,
+    )) as LocalMediaReviewGateway["listLocalMediaReviews"],
+  getLocalMediaReview: ((p, e, id) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.get,
+      p,
+      e,
+      id,
+    )) as LocalMediaReviewGateway["getLocalMediaReview"],
+  getLocalMediaReviewStatus: ((p, e, q) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.status,
+      p,
+      e,
+      q,
+    )) as LocalMediaReviewGateway["getLocalMediaReviewStatus"],
+  saveLocalMediaReview: ((p, e, c) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.save,
+      p,
+      e,
+      c,
+    )) as LocalMediaReviewGateway["saveLocalMediaReview"],
+  getLocalMediaReviewOperation: ((p, e, c) =>
+    ipcRenderer.invoke(
+      LOCAL_MEDIA_REVIEW_CHANNELS.original,
+      p,
+      e,
+      c,
+    )) as LocalMediaReviewGateway["getLocalMediaReviewOperation"],
+  getEpisodeAssemblyReadiness: (
+    projectId: string,
+    episodeId: string,
+    target: AssemblyReadinessTarget,
+  ): Promise<AssemblyReadinessResult> =>
+    ipcRenderer.invoke(
+      "episode-assembly-readiness:read",
+      projectId,
+      episodeId,
+      target,
+    ) as Promise<AssemblyReadinessResult>,
   readLatestEpisodeMediaAssembly: (
     projectId: string,
     episodeId: string,
@@ -913,6 +1180,29 @@ contextBridge.exposeInMainWorld("aijian", {
       projectId,
       episodeId,
     ) as Promise<EpisodeMediaAssemblyResult>,
+  getNativeMediaPreviewPlan: (
+    projectId: string,
+    episodeId: string,
+    versionId: string,
+  ): Promise<NativePreviewPlanResult> =>
+    ipcRenderer.invoke(
+      "media-preview:plan",
+      projectId,
+      episodeId,
+      versionId,
+    ) as Promise<NativePreviewPlanResult>,
+  openMediaPreviewSession: (command: OpenMediaPreviewCommand): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:open", command) as Promise<MediaPreviewResult>,
+  playMediaPreviewSession: (command: MediaPreviewMutation): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:play", command) as Promise<MediaPreviewResult>,
+  pauseMediaPreviewSession: (command: MediaPreviewMutation): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:pause", command) as Promise<MediaPreviewResult>,
+  seekMediaPreviewSession: (command: SeekMediaPreviewCommand): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:seek", command) as Promise<MediaPreviewResult>,
+  readMediaPreviewSessionStatus: (query: MediaPreviewStatusQuery): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:status", query) as Promise<MediaPreviewResult>,
+  closeMediaPreviewSession: (command: MediaPreviewMutation): Promise<MediaPreviewResult> =>
+    ipcRenderer.invoke("media-preview:close", command) as Promise<MediaPreviewResult>,
   getEpisodeMediaAssemblyVersion: (
     projectId: string,
     episodeId: string,
@@ -968,6 +1258,19 @@ contextBridge.exposeInMainWorld("aijian", {
       idempotencyKey,
       payload,
     ) as Promise<EpisodeStoryboardCreateResult>,
+  getEpisodeScriptWriteOperation: (
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    payload: CreateEpisodeScriptVersionRequest,
+  ): Promise<EpisodeScriptWriteOperationResult> =>
+    ipcRenderer.invoke(
+      "episode-script:original-write",
+      projectId,
+      episodeId,
+      operationId,
+      payload,
+    ) as Promise<EpisodeScriptWriteOperationResult>,
   getEpisodeScript: (projectId: string, episodeId: string): Promise<EpisodeScriptLatestResult> =>
     ipcRenderer.invoke(
       "episode-script:latest",
@@ -998,6 +1301,92 @@ contextBridge.exposeInMainWorld("aijian", {
       idempotencyKey,
       payload,
     ) as Promise<EpisodeScriptCreateResult>,
+  listMediaPreparations: ((p, e, cursor) =>
+    ipcRenderer.invoke(
+      MEDIA_PREPARATION_CHANNELS.list,
+      p,
+      e,
+      cursor,
+    )) as MediaPreparationGateway["listMediaPreparations"],
+  getMediaPreparation: ((p, e, id) =>
+    ipcRenderer.invoke(
+      MEDIA_PREPARATION_CHANNELS.get,
+      p,
+      e,
+      id,
+    )) as MediaPreparationGateway["getMediaPreparation"],
+  saveMediaPreparation: ((p, e, c) =>
+    ipcRenderer.invoke(
+      MEDIA_PREPARATION_CHANNELS.save,
+      p,
+      e,
+      c,
+    )) as MediaPreparationGateway["saveMediaPreparation"],
+  getMediaPreparationOperation: ((p, e, c) =>
+    ipcRenderer.invoke(
+      MEDIA_PREPARATION_CHANNELS.original,
+      p,
+      e,
+      c,
+    )) as MediaPreparationGateway["getMediaPreparationOperation"],
+  listManualMediaCandidates: ((p, e, cursor) =>
+    ipcRenderer.invoke(
+      MANUAL_MEDIA_CANDIDATE_CHANNELS.list,
+      p,
+      e,
+      cursor,
+    )) as ManualMediaCandidateGateway["listManualMediaCandidates"],
+  getManualMediaCandidate: ((p, e, id) =>
+    ipcRenderer.invoke(
+      MANUAL_MEDIA_CANDIDATE_CHANNELS.get,
+      p,
+      e,
+      id,
+    )) as ManualMediaCandidateGateway["getManualMediaCandidate"],
+  saveManualMediaCandidate: ((p, e, c) =>
+    ipcRenderer.invoke(
+      MANUAL_MEDIA_CANDIDATE_CHANNELS.save,
+      p,
+      e,
+      c,
+    )) as ManualMediaCandidateGateway["saveManualMediaCandidate"],
+  getManualMediaCandidateOperation: ((p, e, c) =>
+    ipcRenderer.invoke(
+      MANUAL_MEDIA_CANDIDATE_CHANNELS.original,
+      p,
+      e,
+      c,
+    )) as ManualMediaCandidateGateway["getManualMediaCandidateOperation"],
+  saveExact: ((p, e, c) =>
+    ipcRenderer.invoke(ASSEMBLY_EXACT_CHANNELS.save, p, e, c)) as AssemblyExactGateway["saveExact"],
+  getOriginal: ((p, e, c) =>
+    ipcRenderer.invoke(
+      ASSEMBLY_EXACT_CHANNELS.original,
+      p,
+      e,
+      c,
+    )) as AssemblyExactGateway["getOriginal"],
+
+  listScriptConfirmationImpacts: ((projectId, cursor) =>
+    ipcRenderer.invoke(
+      IMPACT_CHANNELS.list,
+      projectId,
+      cursor,
+    )) as ScriptImpactGateway["listScriptConfirmationImpacts"],
+  getScriptConfirmationImpact: ((projectId, reportId) =>
+    ipcRenderer.invoke(
+      IMPACT_CHANNELS.detail,
+      projectId,
+      reportId,
+    )) as ScriptImpactGateway["getScriptConfirmationImpact"],
+  getEpisodeScriptConfirmationOperation: ((projectId, episodeId, operationId, payload) =>
+    ipcRenderer.invoke(
+      IMPACT_CHANNELS.operation,
+      projectId,
+      episodeId,
+      operationId,
+      payload,
+    )) as ScriptImpactGateway["getEpisodeScriptConfirmationOperation"],
   getEpisodeScriptConfirmation: (
     projectId: string,
     episodeId: string,

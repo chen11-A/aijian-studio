@@ -1,3 +1,19 @@
+import {
+  impactInput,
+  impactOperation,
+  sameImpactValue,
+  impactCanonical,
+  verifyImpactHash,
+  isScriptConfirmationMutationRejection,
+  type ScriptImpactGateway,
+  type ScriptConfirmationOperation,
+} from "@aijian/contracts/script-confirmation-impact";
+import {
+  scriptWriteOperationShape,
+  verifyScriptWriteOperation,
+  scriptWriteMutationRejection,
+  type ScriptWriteOperationResult,
+} from "@aijian/contracts/script-write-recovery";
 export type ScriptBlock = {
   block_id: string;
   ordinal: number;
@@ -69,6 +85,12 @@ type DefiniteError = {
   request_id: string;
 };
 export type ScriptGateway = {
+  getEpisodeScriptWriteOperation?(
+    projectId: string,
+    episodeId: string,
+    operationId: string,
+    payload: ScriptWriteCommand["payload"],
+  ): Promise<ScriptWriteOperationResult<ScriptVersion>>;
   getEpisodeScript(
     projectId: string,
     episodeId: string,
@@ -95,7 +117,12 @@ export type ScriptGateway = {
   >;
 };
 type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-type Pending = { project_id: string; episode_id: string; command: ScriptWriteCommand };
+export type PendingScriptWrite = {
+  project_id: string;
+  episode_id: string;
+  command: ScriptWriteCommand;
+};
+type Pending = PendingScriptWrite;
 export type ScriptJournal =
   { kind: "EMPTY" } | { kind: "PENDING"; pending: Pending } | { kind: "BLOCKED" };
 export type ScriptRead =
@@ -121,8 +148,13 @@ const journalKey = (projectId: string, episodeId: string) =>
   `aivora.episode-script.pending.v1.${projectId}.${episodeId}`;
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
-const positive = (value: unknown) =>
+const positive = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+const exactKeys = (value: Record<string, unknown>, keys: string[]) =>
+  Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+const knownKeys = (value: Record<string, unknown>, required: string[], optional: string[]) =>
+  required.every((key) => Object.hasOwn(value, key)) &&
+  Object.keys(value).every((key) => required.includes(key) || optional.includes(key));
 
 function validContent(
   value: unknown,
@@ -132,6 +164,16 @@ function validContent(
 ): value is ScriptContent {
   if (
     !record(value) ||
+    !knownKeys(
+      value,
+      ["schema_version", "project_id", "episode_id", "scenes"],
+      [
+        "production_brief_version_id",
+        "story_bible_version_id",
+        "source_extraction_version_id",
+        "source_proposal_acceptance_id",
+      ],
+    ) ||
     value.schema_version !== "1.0.0" ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
@@ -161,6 +203,7 @@ function validContent(
   return value.scenes.every((scene, index) => {
     if (
       !record(scene) ||
+      !exactKeys(scene, ["scene_id", "ordinal", "heading", "blocks"]) ||
       typeof scene.scene_id !== "string" ||
       !SCENE.test(scene.scene_id) ||
       ids.has(scene.scene_id) ||
@@ -176,6 +219,7 @@ function validContent(
     return scene.blocks.every((block, blockIndex) => {
       if (
         !record(block) ||
+        !knownKeys(block, ["block_id", "ordinal", "kind", "text", "speaker"], ["delivery"]) ||
         typeof block.block_id !== "string" ||
         !BLOCK.test(block.block_id) ||
         ids.has(block.block_id) ||
@@ -206,12 +250,38 @@ export function validScriptVersion(
 ): value is ScriptVersion {
   if (
     !record(value) ||
+    !exactKeys(value, [
+      "version_id",
+      "project_id",
+      "episode_id",
+      "version_number",
+      "head_revision",
+      "parent_version_id",
+      "content",
+      "content_hash",
+      "author_actor_id",
+      "change_summary",
+      "created_at",
+    ]) ||
     typeof value.version_id !== "string" ||
     !VERSION.test(value.version_id) ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
     !positive(value.version_number) ||
     !positive(value.head_revision) ||
+    value.head_revision < value.version_number ||
+    !(
+      value.parent_version_id === null ||
+      (typeof value.parent_version_id === "string" && VERSION.test(value.parent_version_id))
+    ) ||
+    typeof value.author_actor_id !== "string" ||
+    !value.author_actor_id.trim() ||
+    [...value.author_actor_id].length > 240 ||
+    typeof value.change_summary !== "string" ||
+    !value.change_summary.trim() ||
+    [...value.change_summary].length > 240 ||
+    typeof value.created_at !== "string" ||
+    !Number.isFinite(Date.parse(value.created_at)) ||
     typeof value.content_hash !== "string" ||
     !HASH.test(value.content_hash)
   )
@@ -242,6 +312,7 @@ export async function readLatestScript(
 function validPending(value: unknown, projectId: string, episodeId: string): value is Pending {
   if (
     !record(value) ||
+    !exactKeys(value, ["project_id", "episode_id", "command"]) ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
     !record(value.command)
@@ -251,17 +322,21 @@ function validPending(value: unknown, projectId: string, episodeId: string): val
   if (
     typeof command.operation_id !== "string" ||
     !UUID.test(command.operation_id) ||
+    !exactKeys(command, ["operation_id", "payload"]) ||
     !record(command.payload)
   )
     return false;
   const input = command.payload;
   return (
+    exactKeys(input, ["content", "parent_version_id", "expected_revision", "change_summary"]) &&
     validContent(input.content, projectId, episodeId, true) &&
     typeof input.change_summary === "string" &&
-    input.change_summary.length > 0 &&
+    input.change_summary.trim().length > 0 &&
+    [...input.change_summary].length <= 240 &&
     (input.parent_version_id === null ||
       (typeof input.parent_version_id === "string" && VERSION.test(input.parent_version_id))) &&
-    (input.expected_revision === null || positive(input.expected_revision))
+    (input.expected_revision === null || positive(input.expected_revision)) &&
+    (input.parent_version_id === null) === (input.expected_revision === null)
   );
 }
 
@@ -296,20 +371,76 @@ function writeJournal(storage: StoragePort, pending: Pending): boolean {
   }
 }
 
-export function closeScriptJournal(
-  storage: StoragePort,
-  projectId: string,
-  episodeId: string,
-  operationId: string,
-): boolean {
+function closeScriptJournal(storage: StoragePort, pending: Pending): boolean {
+  const { project_id: projectId, episode_id: episodeId } = pending;
   const current = readScriptJournal(storage, projectId, episodeId);
-  if (current.kind !== "PENDING" || current.pending.command.operation_id !== operationId)
-    return false;
+  if (current.kind !== "PENDING" || !sameScriptJson(current.pending, pending)) return false;
   try {
     storage.removeItem(journalKey(projectId, episodeId));
     return readScriptJournal(storage, projectId, episodeId).kind === "EMPTY";
   } catch {
     return false;
+  }
+}
+
+/** Retain an owned unresolved command if storage is lost; never overwrite other evidence. */
+export function preserveScriptJournal(storage: StoragePort, pending: Pending): boolean {
+  if (!validPending(pending, pending.project_id, pending.episode_id)) return false;
+  const current = readScriptJournal(storage, pending.project_id, pending.episode_id);
+  if (current.kind === "EMPTY") return writeJournal(storage, pending);
+  return current.kind === "PENDING" && sameScriptJson(current.pending, pending);
+}
+
+export async function recoverScriptWrite(
+  gateway: ScriptGateway,
+  storage: StoragePort,
+  pending: Pending,
+  canFinalize: () => boolean = () => true,
+): Promise<ScriptWrite> {
+  if (!validPending(pending, pending.project_id, pending.episode_id)) return { kind: "UNKNOWN" };
+  const captured: Pending = JSON.parse(JSON.stringify(pending));
+  const { project_id: projectId, episode_id: episodeId, command } = captured;
+  if (
+    !gateway.getEpisodeScriptWriteOperation ||
+    !canFinalize() ||
+    !preserveScriptJournal(storage, captured)
+  )
+    return { kind: "UNKNOWN" };
+  try {
+    const result = await gateway.getEpisodeScriptWriteOperation(
+      projectId,
+      episodeId,
+      command.operation_id,
+      command.payload,
+    );
+    if (
+      !canFinalize() ||
+      result.kind !== "FOUND" ||
+      !scriptWriteOperationShape(
+        result.receipt.data,
+        projectId,
+        episodeId,
+        command.operation_id,
+        (v): v is ScriptVersion => validScriptVersion(v, projectId, episodeId),
+      ) ||
+      !(await verifyScriptWriteOperation(result.receipt.data, command.payload))
+    )
+      return { kind: "UNKNOWN" };
+    if (!canFinalize()) return { kind: "UNKNOWN" };
+    const original = result.receipt.data.version;
+    const exact = await gateway.getEpisodeScriptVersion(projectId, episodeId, original.version_id);
+    if (
+      !canFinalize() ||
+      exact.kind !== "FOUND" ||
+      !validScriptVersion(exact.receipt.data, projectId, episodeId) ||
+      !sameScriptJson({ ...exact.receipt.data, head_revision: original.head_revision }, original) ||
+      exact.receipt.data.head_revision < original.head_revision ||
+      !closeScriptJournal(storage, captured)
+    )
+      return { kind: "UNKNOWN" };
+    return { kind: "SAVED", version: exact.receipt.data };
+  } catch {
+    return { kind: "UNKNOWN" };
   }
 }
 
@@ -338,29 +469,35 @@ export async function saveScriptVersion(
   projectId: string,
   episodeId: string,
   command: ScriptWriteCommand,
+  options: { canFinalize?: () => boolean; onPrepared?: (pending: Pending) => void } = {},
 ): Promise<ScriptWrite> {
+  const canFinalize = options.canFinalize ?? (() => true);
   if (
     !PROJECT.test(projectId) ||
     !EPISODE.test(episodeId) ||
+    !canFinalize() ||
     !validPending({ project_id: projectId, episode_id: episodeId, command }, projectId, episodeId)
   )
     return { kind: "BLOCKED", message: "剧本范围或保存身份无效。" };
+  const captured: ScriptWriteCommand = JSON.parse(JSON.stringify(command));
   if (readScriptJournal(storage, projectId, episodeId).kind !== "EMPTY")
     return { kind: "BLOCKED", message: "已有待核对的剧本提交，未重复发送。" };
-  const pending = { project_id: projectId, episode_id: episodeId, command };
+  const pending = { project_id: projectId, episode_id: episodeId, command: captured };
   if (!writeJournal(storage, pending))
     return { kind: "BLOCKED", message: "无法持久记录提交身份，未发送剧本。" };
   try {
+    options.onPrepared?.(JSON.parse(JSON.stringify(pending)) as Pending);
+    if (!canFinalize()) return { kind: "UNKNOWN" };
     const result = await gateway.createEpisodeScriptVersion(
       projectId,
       episodeId,
-      command.operation_id,
-      command.payload,
+      captured.operation_id,
+      captured.payload,
     );
+    if (!canFinalize()) return { kind: "UNKNOWN" };
     if (result.kind === "DEFINITE_SERVER_ERROR") {
-      if ([401, 403, 409, 413, 422, 428].includes(result.status)) {
-        if (!closeScriptJournal(storage, projectId, episodeId, command.operation_id))
-          return { kind: "UNKNOWN" };
+      if (scriptWriteMutationRejection(result)) {
+        if (!closeScriptJournal(storage, pending)) return { kind: "UNKNOWN" };
         return { kind: "REJECTED", status: result.status, code: result.code };
       }
       return { kind: "UNKNOWN" };
@@ -371,18 +508,26 @@ export async function saveScriptVersion(
     )
       return { kind: "UNKNOWN" };
     const version = result.receipt.data.version;
+    if (
+      version.parent_version_id !== captured.payload.parent_version_id ||
+      version.version_number !== (captured.payload.expected_revision ?? 0) + 1 ||
+      version.head_revision !== version.version_number ||
+      version.change_summary !== captured.payload.change_summary ||
+      !sameScriptJson(version.content, captured.payload.content)
+    )
+      return { kind: "UNKNOWN" };
     const exact = await gateway.getEpisodeScriptVersion(projectId, episodeId, version.version_id);
     if (
+      !canFinalize() ||
       exact.kind !== "FOUND" ||
       !validScriptVersion(exact.receipt.data, projectId, episodeId) ||
       exact.receipt.data.version_id !== version.version_id ||
       exact.receipt.data.head_revision !== version.head_revision ||
       exact.receipt.data.content_hash !== version.content_hash ||
-      !sameScriptJson(exact.receipt.data.content, version.content)
+      !sameScriptJson(exact.receipt.data, version)
     )
       return { kind: "UNKNOWN" };
-    if (!closeScriptJournal(storage, projectId, episodeId, command.operation_id))
-      return { kind: "UNKNOWN" };
+    if (!closeScriptJournal(storage, pending)) return { kind: "UNKNOWN" };
     return { kind: "SAVED", version: exact.receipt.data };
   } catch {
     return { kind: "UNKNOWN" };
@@ -522,7 +667,10 @@ export type ScriptConfirmationPayload = {
   expected_head_revision: number;
   confirm: true;
 };
-export type ConfirmationGateway = {
+export type ConfirmationGateway = Pick<
+  ScriptImpactGateway,
+  "getEpisodeScriptConfirmationOperation"
+> & {
   getEpisodeScriptConfirmation(
     projectId: string,
     episodeId: string,
@@ -551,7 +699,7 @@ export type ConfirmationGateway = {
     | { kind: "REMOTE_UNKNOWN" }
   >;
 };
-type PendingConfirmation = {
+export type PendingConfirmation = {
   project_id: string;
   episode_id: string;
   operation_id: string;
@@ -616,7 +764,7 @@ function validConfirmationStatus(
 }
 
 export async function readScriptConfirmation(
-  gateway: ConfirmationGateway,
+  gateway: Pick<ConfirmationGateway, "getEpisodeScriptConfirmation">,
   projectId: string,
   episodeId: string,
 ): Promise<ConfirmationRead> {
@@ -642,6 +790,10 @@ function validPendingConfirmation(
 ): value is PendingConfirmation {
   if (
     !record(value) ||
+    Object.keys(value).length !== 4 ||
+    !["project_id", "episode_id", "operation_id", "payload"].every((k) =>
+      Object.hasOwn(value, k),
+    ) ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
     typeof value.operation_id !== "string" ||
@@ -649,15 +801,7 @@ function validPendingConfirmation(
     !record(value.payload)
   )
     return false;
-  const payload = value.payload;
-  return (
-    typeof payload.version_id === "string" &&
-    VERSION.test(payload.version_id) &&
-    typeof payload.expected_content_hash === "string" &&
-    HASH.test(payload.expected_content_hash) &&
-    positive(payload.expected_head_revision) &&
-    payload.confirm === true
-  );
+  return impactInput(value.payload);
 }
 
 export function readConfirmationJournal(
@@ -679,19 +823,84 @@ export function readConfirmationJournal(
   }
 }
 
+export function preserveConfirmationJournal(
+  storage: StoragePort,
+  pending: PendingConfirmation,
+): boolean {
+  if (!validPendingConfirmation(pending, pending.project_id, pending.episode_id)) return false;
+  try {
+    let current = readConfirmationJournal(storage, pending.project_id, pending.episode_id);
+    if (current.kind === "EMPTY") {
+      storage.setItem(
+        confirmationKey(pending.project_id, pending.episode_id),
+        impactCanonical(pending),
+      );
+      current = readConfirmationJournal(storage, pending.project_id, pending.episode_id);
+    }
+    return current.kind === "PENDING" && sameImpactValue(current.pending, pending);
+  } catch {
+    return false;
+  }
+}
 export function closeConfirmationJournal(
   storage: StoragePort,
   projectId: string,
   episodeId: string,
-  operationId: string,
+  pending: PendingConfirmation,
 ): boolean {
-  const current = readConfirmationJournal(storage, projectId, episodeId);
-  if (current.kind !== "PENDING" || current.pending.operation_id !== operationId) return false;
+  if (
+    pending.project_id !== projectId ||
+    pending.episode_id !== episodeId ||
+    !preserveConfirmationJournal(storage, pending)
+  )
+    return false;
   try {
     storage.removeItem(confirmationKey(projectId, episodeId));
     return readConfirmationJournal(storage, projectId, episodeId).kind === "EMPTY";
   } catch {
     return false;
+  }
+}
+export type ConfirmationRecovery =
+  { kind: "RECOVERED"; operation: ScriptConfirmationOperation } | { kind: "UNKNOWN" };
+export async function recoverScriptConfirmation(
+  gateway: Pick<ConfirmationGateway, "getEpisodeScriptConfirmationOperation">,
+  storage: StoragePort,
+  pending: PendingConfirmation,
+  expected?: ScriptConfirmation,
+  canFinalize?: () => boolean,
+): Promise<ConfirmationRecovery> {
+  if (!preserveConfirmationJournal(storage, pending)) return { kind: "UNKNOWN" };
+  try {
+    const result = await gateway.getEpisodeScriptConfirmationOperation(
+      pending.project_id,
+      pending.episode_id,
+      pending.operation_id,
+      pending.payload,
+    );
+    if (
+      result.kind !== "FOUND" ||
+      !impactOperation(
+        result.receipt.data,
+        pending.project_id,
+        pending.episode_id,
+        pending.operation_id,
+        pending.payload,
+      )
+    )
+      return { kind: "UNKNOWN" };
+    const report = result.receipt.data.lookup.report;
+    if (report && !(await verifyImpactHash(report))) return { kind: "UNKNOWN" };
+    if (
+      (expected && !sameImpactValue(result.receipt.data.lookup.confirmation, expected)) ||
+      (canFinalize && !canFinalize())
+    )
+      return { kind: "UNKNOWN" };
+    if (!closeConfirmationJournal(storage, pending.project_id, pending.episode_id, pending))
+      return { kind: "UNKNOWN" };
+    return { kind: "RECOVERED", operation: result.receipt.data };
+  } catch {
+    return { kind: "UNKNOWN" };
   }
 }
 
@@ -702,6 +911,8 @@ export async function confirmScriptVersion(
   episodeId: string,
   version: ScriptVersion,
   operationId: string,
+  onPrepared?: (pending: PendingConfirmation) => void,
+  canFinalize?: () => boolean,
 ): Promise<ConfirmationWrite> {
   const pending: PendingConfirmation = {
     project_id: projectId,
@@ -728,6 +939,8 @@ export async function confirmScriptVersion(
     const persisted = readConfirmationJournal(storage, projectId, episodeId);
     if (persisted.kind !== "PENDING" || JSON.stringify(persisted.pending) !== raw)
       return { kind: "BLOCKED", message: "无法持久记录确认身份，未发送。" };
+    onPrepared?.(pending);
+    if (canFinalize && !canFinalize()) return { kind: "UNKNOWN" };
     const result = await gateway.createEpisodeScriptConfirmation(
       projectId,
       episodeId,
@@ -735,8 +948,9 @@ export async function confirmScriptVersion(
       pending.payload,
     );
     if (result.kind === "DEFINITE_SERVER_ERROR") {
-      if ([401, 403, 404, 409, 422, 428].includes(result.status)) {
-        if (!closeConfirmationJournal(storage, projectId, episodeId, operationId))
+      if (isScriptConfirmationMutationRejection(result)) {
+        if (canFinalize && !canFinalize()) return { kind: "UNKNOWN" };
+        if (!closeConfirmationJournal(storage, projectId, episodeId, pending))
           return { kind: "UNKNOWN" };
         return { kind: "REJECTED", status: result.status, code: result.code };
       }
@@ -749,34 +963,23 @@ export async function confirmScriptVersion(
       return { kind: "UNKNOWN" };
     const status = result.receipt.data.status;
     const confirmed = status.confirmation;
-    const receiptId = confirmed?.confirmation_id;
     if (
-      !receiptId ||
+      !confirmed ||
+      confirmed.actor_id !== "local-user" ||
       confirmed.version_id !== version.version_id ||
       confirmed.content_hash !== version.content_hash ||
-      confirmed.head_revision !== version.head_revision ||
-      !status.current
+      confirmed.head_revision !== version.head_revision
     )
       return { kind: "UNKNOWN" };
-    const exact = await gateway.getEpisodeScriptConfirmationReceipt(
-      projectId,
-      episodeId,
-      receiptId,
+    const recovered = await recoverScriptConfirmation(
+      gateway,
+      storage,
+      pending,
+      confirmed,
+      canFinalize,
     );
-    const exactConfirmed = exact.kind === "FOUND" ? exact.receipt.data.confirmation : null;
-    if (
-      exact.kind !== "FOUND" ||
-      !validConfirmationStatus(exact.receipt.data, projectId, episodeId) ||
-      !exact.receipt.data.current ||
-      !exactConfirmed ||
-      exactConfirmed.confirmation_id !== receiptId ||
-      exactConfirmed.version_id !== version.version_id ||
-      exactConfirmed.content_hash !== version.content_hash
-    )
-      return { kind: "UNKNOWN" };
-    if (!closeConfirmationJournal(storage, projectId, episodeId, operationId))
-      return { kind: "UNKNOWN" };
-    return { kind: "CONFIRMED", status: exact.receipt.data };
+    if (recovered.kind !== "RECOVERED") return { kind: "UNKNOWN" };
+    return { kind: "CONFIRMED", status };
   } catch {
     return { kind: "UNKNOWN" };
   }

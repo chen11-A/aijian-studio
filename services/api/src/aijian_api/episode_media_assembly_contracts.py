@@ -13,6 +13,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from aijian_api.assembly_subtitles import validate_subtitle_text
 from aijian_api.contracts import PROJECT_ID_PATTERN
 from aijian_api.episode_contracts import EPISODE_ID_PATTERN
+from aijian_api.episode_script_confirmation_contracts import (
+    CONFIRMATION_ID_PATTERN,
+    EpisodeScriptConfirmationData,
+)
 from aijian_api.episode_script_contracts import BLOCK_ID_PATTERN, VERSION_ID_PATTERN
 from aijian_api.episode_storyboard_contracts import SHOT_ID_PATTERN
 from aijian_api.media_asset_contracts import ASSET_ID_PATTERN, ASSET_VERSION_ID_PATTERN
@@ -65,6 +69,16 @@ class AssemblyStoryboardRefV1(_Closed):
     shot_id: str = Field(pattern=SHOT_ID_PATTERN)
 
 
+class AssemblyManualCandidateRefV1(_Closed):
+    """Explicit human source adoption; no generation or shot fulfillment claim."""
+
+    candidate_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    candidate_content_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    preparation_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    preparation_content_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    adoption_intent: Literal["MANUAL_ADOPTION"]
+
+
 class AssemblyVisualSegmentV1(_Closed):
     segment_id: str = Field(pattern=_SEGMENT_ID)
     media_kind: Literal["image", "video"]
@@ -79,8 +93,15 @@ class AssemblyVisualSegmentV1(_Closed):
         exclude_if=lambda value: value is None,
     )
 
+    manual_candidate_ref: AssemblyManualCandidateRefV1 | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+
     @model_validator(mode="after")
     def valid_interval(self) -> Self:
+        if self.manual_candidate_ref is not None and self.storyboard_ref is None:
+            raise ValueError("Manual candidate adoption needs its exact storyboard source")
         if self.end_frame <= self.start_frame:
             raise ValueError("visual segment must have a positive half-open interval")
         if self.media_kind == "image" and self.source_in_frame != 0:
@@ -135,6 +156,23 @@ class AssemblySubtitleSegmentV1(_Closed):
         return self
 
 
+class AssemblyScriptRefV1(_Closed):
+    script_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    script_block_id: str = Field(pattern=BLOCK_ID_PATTERN)
+    script_content_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class AssemblyDraftScriptProvenanceV1(_Closed):
+    mode: Literal["DRAFT"]
+
+
+class AssemblyConfirmedScriptProvenanceV1(_Closed):
+    mode: Literal["CONFIRMED"]
+    confirmation_id: str = Field(pattern=CONFIRMATION_ID_PATTERN)
+    script_version_id: str = Field(pattern=VERSION_ID_PATTERN)
+    script_content_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
 class AssemblyTextSubtitleSegmentV1(_Closed):
     """User-authored text, frozen with its exact frame span and closed render profile."""
 
@@ -143,6 +181,9 @@ class AssemblyTextSubtitleSegmentV1(_Closed):
     end_frame: int = Field(gt=0)
     text: str = Field(min_length=1, max_length=57)
     render_profile: Literal["noto-cjk-sc-bottom-v1"]
+    script_ref: AssemblyScriptRefV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @field_validator("text")
     @classmethod
@@ -164,6 +205,9 @@ class EpisodeMediaAssemblyContentV1(_Closed):
     canvas_width: int = Field(ge=1, le=8192)
     canvas_height: int = Field(ge=1, le=8192)
     total_frames: int = Field(ge=1, le=1_000_000)
+    script_provenance: (
+        AssemblyDraftScriptProvenanceV1 | AssemblyConfirmedScriptProvenanceV1 | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
     visual_segments: tuple[AssemblyVisualSegmentV1, ...] = Field(min_length=1, max_length=1000)
     audio_segments: tuple[AssemblyAudioSegmentV1, ...] = Field(default=(), max_length=1000)
     subtitle_segments: tuple[AssemblySubtitleSegmentV1 | AssemblyTextSubtitleSegmentV1, ...] = (
@@ -180,6 +224,11 @@ class EpisodeMediaAssemblyContentV1(_Closed):
 
     @model_validator(mode="after")
     def valid_sequence(self) -> Self:
+        if self.script_provenance is None and any(
+            isinstance(cue, AssemblyTextSubtitleSegmentV1) and cue.script_ref is not None
+            for cue in self.subtitle_segments
+        ):
+            raise ValueError("script-derived text requires explicit script provenance")
         SequenceFrameRateData.model_validate(self.sequence_timebase.frame_rate.model_dump())
         visual = self.visual_segments
         cursor = 0
@@ -226,6 +275,16 @@ class AssemblyMediaCheckV1(_Closed):
     rights_decision_id: str | None = None
 
 
+class AssemblyScriptSourceStatusV1(_Closed):
+    state: Literal[
+        "DRAFT_UNCONFIRMED", "CONFIRMED_CURRENT", "CONFIRMATION_SUPERSEDED", "AUTHORITY_UNKNOWN"
+    ]
+    latest_confirmation: EpisodeScriptConfirmationData | None
+    newer_draft_available: bool
+    dialogue_segment_ids: tuple[str, ...]
+    subtitle_segment_ids: tuple[str, ...]
+
+
 class EpisodeMediaAssemblyVersionData(_Closed):
     artifact_id: str = Field(pattern=r"^art_[0-9a-f]{32}$")
     version_id: str = Field(pattern=VERSION_ID_PATTERN)
@@ -233,6 +292,18 @@ class EpisodeMediaAssemblyVersionData(_Closed):
     head_revision: int = Field(ge=1)
     parent_version_id: str | None = Field(pattern=VERSION_ID_PATTERN)
     content: EpisodeMediaAssemblyContentV1
+    script_source_status: AssemblyScriptSourceStatusV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     media_checks: tuple[AssemblyMediaCheckV1, ...]
     playback_status: AssemblyPlaybackStatus
     export_status: Literal["NO_EXPORT_CLAIM"] = "NO_EXPORT_CLAIM"
+
+
+class AssemblyExactOperationData(_Closed):
+    result_revision: int = Field(ge=1)
+    operation_id: str = Field(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    )
+    payload: CreateEpisodeMediaAssemblyVersionRequest
+    version: EpisodeMediaAssemblyVersionData

@@ -6,6 +6,7 @@ import {
 } from "./useAssemblyStoryboardSources";
 import { bindAssemblyShot, storyboardImpact } from "./adapters/assemblyStoryboard";
 import type { AssemblyContent } from "./adapters/episodeMediaAssembly";
+import { useVisualAuthority, visualAuthorityLabel } from "./useVisualAuthority";
 
 /** A provenance edit over real imported media, with no fulfillment or review claim. */
 export function AssemblyStoryboardReferences({
@@ -31,6 +32,15 @@ export function AssemblyStoryboardReferences({
   );
   const latestVersion = latest.version;
   const pinnedVersion = pinned.version;
+  const visualPin =
+    pinnedVersion && "visual_bible_pin" in pinnedVersion.content
+      ? pinnedVersion.content.visual_bible_pin
+      : null;
+  const { authority: visualAuthority } = useVisualAuthority(
+    content.project_id,
+    visualPin?.version_id,
+    visualPin?.content_hash,
+  );
   const pinnedShot = pinnedVersion?.content.shots.find(
     (shot) => shot.shot_id === reference?.shot_id,
   );
@@ -65,7 +75,7 @@ export function AssemblyStoryboardReferences({
     if (
       reference &&
       !window.confirm(
-        `将所选片段从分镜 ${reference.storyboard_version_id} / ${reference.shot_id} 改绑到 v${latestVersion.version_number}「${candidate.title}」？只改变来源标记，素材和剪辑范围不会自动更新；旧保存版本保留。`,
+        `将所选片段从分镜 ${reference.storyboard_version_id} / ${reference.shot_id} 改绑到 v${latestVersion.version_number}「${candidate.title}」？只改变来源标记，素材和剪辑范围不会自动更新；${segment.manual_candidate_ref ? "同时解除原手工候选来源；" : ""}旧保存版本保留。`,
       )
     )
       return;
@@ -97,6 +107,9 @@ export function AssemblyStoryboardReferences({
           <p>先选择一个画面片段，再关联本集已保存的分镜镜头。</p>
         ) : (
           <>
+            {segment.manual_candidate_ref && (
+              <p>重绑定或解除分镜来源会同时解除此片段的手工候选来源；请明确核对后再操作。</p>
+            )}
             <p>
               所选片段：{segment.segment_id} · 素材版本 {segment.media.asset_version_id}
             </p>
@@ -108,6 +121,12 @@ export function AssemblyStoryboardReferences({
                 {pinnedShot && pinnedVersion && (
                   <p>
                     分镜 v{pinnedVersion.version_number} · {pinnedShot.ordinal}. {pinnedShot.title}
+                  </p>
+                )}
+                {visualPin && (
+                  <p role="status">
+                    此来源固定G5视觉 {visualPin.version_id}：{visualAuthorityLabel(visualAuthority)}
+                    。历史剪辑保留；新保存和另行DRAFT导出会重新核对，失效时拒绝，不自动改绑。
                   </p>
                 )}
                 {sourceUnavailable && (

@@ -137,6 +137,75 @@ afterEach(() => {
 });
 
 describe("native manual episode storyboard", () => {
+  it("keeps planning in the original UNKNOWN operation across reopen without automatic resend", async () => {
+    const original = service.api.createEpisodeStoryboardVersion;
+    let lost = true;
+    service.api.createEpisodeStoryboardVersion = vi.fn<
+      StoryboardGateway["createEpisodeStoryboardVersion"]
+    >(async (p, e, key, payload) => {
+      const result = await original(p, e, key, payload);
+      if (!lost) return result;
+      lost = false;
+      return { kind: "REMOTE_UNKNOWN" };
+    });
+    const view = mount();
+    await add("带计划的镜头");
+    fill("叙事覆盖说明", "保留完整输入");
+    fill("连续性说明", "沿用相同造型");
+    fill("转场说明", "匹配动作");
+    fireEvent.click(screen.getByRole("button", { name: "保存分镜草稿" }));
+    await screen.findByText(/保存结果待核对。请使用/);
+    expect(original).toHaveBeenCalledTimes(1);
+    const [p, e, key, payload] = vi.mocked(original).mock.calls[0]!;
+    view.unmount();
+    mount();
+    await screen.findByDisplayValue("保留完整输入");
+    expect(original).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("叙事覆盖说明")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "核对原提交" }));
+    await screen.findByText(/已保存，并已回读核对/);
+    expect(original).toHaveBeenNthCalledWith(2, p, e, key, payload);
+    expect(service.versions.size).toBe(1);
+    expect(screen.getByLabelText("转场说明")).toHaveValue("匹配动作");
+    expect(localStorage.length).toBe(0);
+  });
+  it("saves and reopens planning on the same shot while keeping legacy versions and another episode intact", async () => {
+    let view = mount();
+    await add("桥边相遇");
+    await save();
+    const old = service.heads.get(`${project}/${episode}`)!;
+    const id = old.content.shots[0]!.shot_id;
+    fill("叙事覆盖说明", "覆盖对话后的反应");
+    fill("连续性说明", "右手持杯，服装与前镜一致");
+    fill("转场说明", "随角色回头匹配切");
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    expect(guard.mock.calls.at(-1)![0]!()).toBe(false);
+    await save();
+    const saved = service.heads.get(`${project}/${episode}`)!;
+    expect(saved.content.schema_version).toBe("1.3.0");
+    expect(saved.content.shots[0]!.shot_id).toBe(id);
+    expect(service.versions.get(old.version_id)!.content.schema_version).toBe("1.0.0");
+    expect("coverage_notes" in service.versions.get(old.version_id)!.content.shots[0]!).toBe(false);
+    view.unmount();
+    view = mount(otherEpisode);
+    await screen.findByText("本集还没有镜头。");
+    expect(screen.queryByDisplayValue("覆盖对话后的反应")).not.toBeInTheDocument();
+    view.unmount();
+    mount();
+    await screen.findByDisplayValue("覆盖对话后的反应");
+    expect(screen.getByLabelText("连续性说明")).toHaveValue("右手持杯，服装与前镜一致");
+    expect(screen.getByLabelText("转场说明")).toHaveValue("随角色回头匹配切");
+    await add("新镜头");
+    await save();
+    const added = service.heads.get(`${project}/${episode}`)!.content;
+    expect(added.schema_version).toBe("1.3.0");
+    expect(added.shots[0]).toMatchObject({ shot_id: id, coverage_notes: "覆盖对话后的反应" });
+    expect(added.shots[1]).toMatchObject({
+      coverage_notes: "",
+      continuity_notes: "",
+      transition_notes: "",
+    });
+  });
   it("starts empty, saves a text-only storyboard, reopens it and isolates the next episode", async () => {
     let view = mount();
     await screen.findByText("本集还没有镜头。");

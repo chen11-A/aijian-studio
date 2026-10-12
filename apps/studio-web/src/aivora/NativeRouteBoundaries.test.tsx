@@ -113,8 +113,8 @@ describe("production routes without demo fixtures", () => {
   });
 
   it.each([
-    ["review", "草稿审片与手工核对"],
-    ["changes", "版本化修改方案待接入"],
+    ["review", "审片"],
+    ["changes", "修改方案"],
   ])("keeps %s separate from legacy fixture execution", (page, heading) => {
     window.history.replaceState({}, "", `#${page}`);
     render(
@@ -123,6 +123,10 @@ describe("production routes without demo fixtures", () => {
       </DemoProvider>,
     );
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(
+      screen.getByText("请先选择真实项目和剧集，再读取此分集的草稿、批注和修改计划。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选择项目和剧集" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "确认并执行" })).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "审片时间轴" })).not.toBeInTheDocument();
   });

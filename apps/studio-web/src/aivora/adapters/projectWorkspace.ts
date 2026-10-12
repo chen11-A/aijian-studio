@@ -4,6 +4,8 @@ import type {
   SourceDocumentResponse,
   StudioTransport,
 } from "../../api/studio";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
+import { validProjectCreateInput } from "./projectCreateJournal";
 
 export type ProjectCreateOutcome =
   { kind: "SUCCEEDED"; project: ProjectData } | { kind: "REMOTE_UNKNOWN" };
@@ -31,8 +33,19 @@ export async function createWorkspaceProject(
   transport: StudioTransport,
   input: CreateProjectInput,
 ): Promise<ProjectCreateOutcome> {
+  if (!validProjectCreateInput(input)) return { kind: "REMOTE_UNKNOWN" };
+  const requested = { ...input };
+  if (!isProjectAspectRatio(requested.aspect_ratio)) return { kind: "REMOTE_UNKNOWN" };
   try {
-    return { kind: "SUCCEEDED", project: (await transport.createProject(input)).data };
+    const project = (await transport.createProject({ ...requested })).data;
+    if (
+      project.aspect_ratio !== requested.aspect_ratio ||
+      project.name !== requested.name.trim() ||
+      project.target_duration_seconds !== requested.target_duration_seconds ||
+      project.source_language !== requested.source_language
+    )
+      return { kind: "REMOTE_UNKNOWN" };
+    return { kind: "SUCCEEDED", project };
   } catch {
     return { kind: "REMOTE_UNKNOWN" };
   }

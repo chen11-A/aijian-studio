@@ -1,7 +1,7 @@
 """Server-owned Gate policies and deterministic readiness evaluation."""
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from aijian_api.artifacts import canonical_content_hash
 
@@ -77,7 +77,28 @@ def _source_manifest_readiness(content: dict[str, object]) -> dict[str, object]:
     return {"ready": not blocking, "blocking": blocking}
 
 
+def _visual_bible_readiness(content: dict[str, object]) -> dict[str, object]:
+    # External originals/rights/technical evidence require the repository transaction.
+    # The content-only evaluator must never accidentally mint a ready G5 report.
+    return {"ready": False, "blocking": ["transactional_visual_evidence_required"]}
+
+
 DEFAULT_GATE_POLICIES: Mapping[str, GatePolicy] = {
+    "visual_bible": GatePolicy(
+        artifact_type="visual_bible",
+        gate="G5",
+        policy_code="g5.visual-bible",
+        policy_version="1",
+        readiness_contract_hash=canonical_content_hash(
+            {"contract": "visual-bible-fresh-originals-rights-native-inspection-v1"}
+        ),
+        required_roles=("continuity_reviewer", "producer"),
+        decision_roles=("producer",),
+        submit_roles=("writer", "producer"),
+        allow_self_review=True,
+        allow_multi_role_signoff=True,
+        evaluator=_visual_bible_readiness,
+    ),
     "source_manifest": GatePolicy(
         artifact_type="source_manifest",
         gate="G1",
@@ -107,3 +128,11 @@ DEFAULT_GATE_POLICIES: Mapping[str, GatePolicy] = {
         evaluator=_story_bible_readiness,
     ),
 }
+
+VISUAL_ENVIRONMENT_GATE_POLICY_V2 = replace(
+    DEFAULT_GATE_POLICIES["visual_bible"],
+    policy_version="2",
+    readiness_contract_hash=canonical_content_hash(
+        {"contract": "visual-bible-fresh-originals-rights-native-inspection-environment-v2"}
+    ),
+)

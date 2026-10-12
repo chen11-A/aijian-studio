@@ -5,11 +5,15 @@ from __future__ import annotations
 import sqlite3
 
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.creative_reference_verification import (
+    CreativeReferenceRejectedError,
+    verify_creative_references,
+)
 from aijian_api.domain import ArtifactVersionRecord
 from aijian_api.project_creative_library_contracts import (
+    CREATIVE_LIBRARY_CONTENT,
     MAX_CREATIVE_LIBRARY_BYTES,
     CreateProjectCreativeLibraryVersionRequest,
-    ProjectCreativeLibraryContentV1,
     ProjectCreativeLibraryVersionData,
 )
 from aijian_api.repository import (
@@ -61,9 +65,9 @@ class ProjectCreativeLibraryStore:
     ) -> ProjectCreativeLibraryVersionData:
         version = record.version
         try:
-            content = ProjectCreativeLibraryContentV1.model_validate(version.content)
+            content = CREATIVE_LIBRARY_CONTENT.validate_python(version.content)
             if (
-                version.schema_version != "1.0.0"
+                version.schema_version != content.schema_version
                 or content.project_id != project_id
                 or content.episode_id is not None
                 or record.source_spans
@@ -216,6 +220,46 @@ class ProjectCreativeLibraryStore:
                 raise ProjectCreativeLibraryConflictError(
                     "Creative library head revision has changed"
                 )
+            if head is not None:
+                try:
+                    parent = self._repository._get_artifact_version_in_connection(
+                        connection,
+                        project_id=project_id,
+                        artifact_type=_ARTIFACT_TYPE,
+                        version_id=str(head["latest_version_id"]),
+                        episode_id=None,
+                    )
+                except ArtifactConflictError as error:
+                    raise ProjectCreativeLibraryStorageError(
+                        "Creative library parent is invalid"
+                    ) from error
+                current_schema = self._version_data(
+                    parent, project_id=project_id
+                ).content.schema_version
+                schemas = ("1.0.0", "1.1.0", "1.2.0", "1.3.0")
+                if schemas.index(payload.content.schema_version) < schemas.index(current_schema):
+                    raise ProjectCreativeLibraryConflictError(
+                        "Creative library schema cannot be downgraded"
+                    )
+            if payload.content.schema_version in ("1.2.0", "1.3.0"):
+                try:
+                    verify_creative_references(
+                        self._repository,
+                        project_id,
+                        payload.content.references,
+                        connection=connection,
+                    )
+                    if payload.content.schema_version == "1.3.0":
+                        verify_creative_references(
+                            self._repository,
+                            project_id,
+                            payload.content.environment_references,
+                            connection=connection,
+                        )
+                except CreativeReferenceRejectedError as error:
+                    raise ProjectCreativeLibraryInputError(
+                        "Reference asset verification failed"
+                    ) from error
 
             def validate_candidate(candidate: ArtifactVersionRecord) -> None:
                 self._version_data(candidate, project_id=project_id)
@@ -225,7 +269,7 @@ class ProjectCreativeLibraryStore:
                     project_id=project_id,
                     artifact_type=_ARTIFACT_TYPE,
                     episode_id=None,
-                    schema_version="1.0.0",
+                    schema_version=payload.content.schema_version,
                     content=content,
                     author_actor_type="human",
                     author_actor_id=actor_id,

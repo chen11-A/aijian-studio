@@ -1,10 +1,15 @@
 import type { components } from "@aijian/contracts";
+import {
+  hasCreativeLibraryContentKeys,
+  hasValidCreativeLibraryDetails,
+} from "@aijian/contracts/creative-library-details";
 
 /** Project-shared, manually authored creative drafts. Media and approvals live elsewhere. */
 export type CreativeCharacter = components["schemas"]["ProjectCharacterV1"];
 export type CreativeWorld = components["schemas"]["ProjectWorldV1"];
 export type CreativeScene = components["schemas"]["ProjectSceneV1"];
-export type CreativeContent = components["schemas"]["ProjectCreativeLibraryContentV1"];
+export type CreativeContent =
+  components["schemas"]["CreateProjectCreativeLibraryVersionRequest"]["content"];
 export type CreativeVersion = components["schemas"]["ProjectCreativeLibraryVersionData"];
 export type CreativeWriteCommand = {
   operation_id: string;
@@ -92,6 +97,21 @@ export const cloneCreativeContent = (value: CreativeContent): CreativeContent =>
   characters: value.characters.map((item) => ({ ...item })),
   world: { ...value.world },
   scenes: value.scenes.map((item) => ({ ...item })),
+  ...(value.schema_version !== "1.0.0"
+    ? {
+        relationships: value.relationships.map((item) => ({ ...item })),
+        costumes: value.costumes.map((item) => ({ ...item })),
+      }
+    : {}),
+  ...(value.schema_version === "1.2.0" || value.schema_version === "1.3.0"
+    ? { references: value.references.map((item) => ({ ...item })) }
+    : {}),
+  ...(value.schema_version === "1.3.0"
+    ? {
+        scene_variants: value.scene_variants.map((item) => ({ ...item })),
+        environment_references: value.environment_references.map((item) => ({ ...item })),
+      }
+    : {}),
 });
 export function sameCreativeJson(left: unknown, right: unknown): boolean {
   if (left === right) return true;
@@ -112,15 +132,7 @@ export function validCreativeContent(value: unknown, projectId: string): value i
   if (
     !CREATIVE_PROJECT_ID.test(projectId) ||
     !record(value) ||
-    !exactKeys(value, [
-      "schema_version",
-      "project_id",
-      "episode_id",
-      "characters",
-      "world",
-      "scenes",
-    ]) ||
-    value.schema_version !== "1.0.0" ||
+    !hasCreativeLibraryContentKeys(value) ||
     value.project_id !== projectId ||
     value.episode_id !== null ||
     !Array.isArray(value.characters) ||
@@ -196,7 +208,11 @@ export function validCreativeContent(value: unknown, projectId: string): value i
         return false;
       ids.add(item.scene_id);
       return true;
-    })
+    }) &&
+    hasValidCreativeLibraryDetails(
+      value,
+      value.characters.map((item) => item.character_id),
+    )
   );
 }
 export function validCreativeVersion(value: unknown, projectId: string): value is CreativeVersion {
@@ -360,7 +376,9 @@ export async function saveCreativeLibrary(
     return { kind: "UNKNOWN" };
   }
 }
-export function newCreativeId(prefix: "chr" | "loc"): string | null {
+export function newCreativeId(
+  prefix: "chr" | "loc" | "rel" | "cst" | "crf" | "scv" | "erf",
+): string | null {
   try {
     return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
   } catch {

@@ -200,7 +200,7 @@ describe("imported dialogue audio binding", () => {
     render(<Harness initial={initial} api={gateway(source(2))} edit={edit} />);
     expand();
     await screen.findByText(/固定对白尚未可靠读回或身份不符/);
-    expect(screen.getByLabelText("本集已保存剧本对白")).toBeDisabled();
+    expect(await screen.findByLabelText("本集已保存剧本对白")).toBeDisabled();
     expect(screen.getByRole("button", { name: "将所选音频改绑到此对白" })).toBeDisabled();
     expect(edit).not.toHaveBeenCalled();
   });

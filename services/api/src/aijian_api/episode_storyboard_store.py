@@ -5,18 +5,25 @@ from __future__ import annotations
 import sqlite3
 
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.creative_reference_verification import (
+    CreativeReferenceRejectedError,
+    verify_creative_references,
+)
 from aijian_api.domain import ArtifactDependencyDraft, ArtifactVersionRecord
 from aijian_api.episode_script_store import EpisodeScriptStorageError, EpisodeScriptStore
 from aijian_api.episode_storyboard_contracts import (
     MAX_STORYBOARD_BYTES,
+    STORYBOARD_CONTENT,
     CreateEpisodeStoryboardVersionRequest,
-    EpisodeStoryboardContentV1,
+    EpisodeStoryboardContent,
     EpisodeStoryboardVersionData,
 )
+from aijian_api.project_character_details_contracts import ProjectCharacterReferenceV1
 from aijian_api.project_creative_library_store import (
     ProjectCreativeLibraryStorageError,
     ProjectCreativeLibraryStore,
 )
+from aijian_api.project_environment_contracts import ProjectEnvironmentReferenceV1
 from aijian_api.repository import (
     ArtifactConflictError,
     ArtifactNotFoundError,
@@ -24,6 +31,9 @@ from aijian_api.repository import (
     ProjectNotFoundError,
     StudioRepository,
 )
+from aijian_api.storyboard_character_bindings import selected_character_references
+from aijian_api.storyboard_environment_bindings import selected_environment_references
+from aijian_api.storyboard_visual_bible import storyboard_source_ids, verify_storyboard_visual_pin
 
 _ARTIFACT_TYPE = "episode_storyboard"
 
@@ -80,9 +90,35 @@ class EpisodeStoryboardStore:
     def _require_references(
         self,
         connection: sqlite3.Connection,
-        content: EpisodeStoryboardContentV1,
+        content: EpisodeStoryboardContent,
+        *,
+        verify_originals: bool = False,
+        original_shot_ids: frozenset[str] | None = None,
+        exact_originals: bool = False,
     ) -> None:
         """Resolve membership against exact immutable source versions, never latest."""
+
+        def verify_selected(
+            references: tuple[ProjectCharacterReferenceV1 | ProjectEnvironmentReferenceV1, ...],
+        ) -> None:
+            if exact_originals:
+                from aijian_api.manual_media_original import exact_local_original
+
+                for reference in references:
+                    exact_local_original(
+                        self._repository,
+                        connection,
+                        content.project_id,
+                        reference.asset_id,
+                        reference.asset_version_id,
+                        reference.asset_sha256,
+                        fresh=True,
+                    )
+            else:
+                verify_creative_references(
+                    self._repository, content.project_id, references, connection=connection
+                )
+
         try:
             if content.script_version_id is not None:
                 record = self._repository._get_artifact_version_in_connection(
@@ -129,6 +165,48 @@ class EpisodeStoryboardStore:
                     raise EpisodeStoryboardInputError(
                         "Character or location is not in the pinned library version"
                     )
+                selected = content
+                try:
+                    references = selected_character_references(content, library)
+                    if verify_originals:
+                        # Only new consumption selects a subset. This transient view is
+                        # never persisted or hashed; membership above checks the full board.
+                        if original_shot_ids is not None:
+                            selected = content.model_copy(
+                                update={
+                                    "shots": tuple(
+                                        shot
+                                        for shot in content.shots
+                                        if shot.shot_id in original_shot_ids
+                                    )
+                                }
+                            )
+                            references = selected_character_references(selected, library)
+                        verify_selected(references)
+                except (ValueError, CreativeReferenceRejectedError) as error:
+                    raise EpisodeStoryboardInputError(
+                        "Shot character binding is invalid"
+                    ) from error
+                try:
+                    environment_references = selected_environment_references(content, library)
+                    if verify_originals:
+                        if original_shot_ids is not None:
+                            environment_references = selected_environment_references(
+                                selected, library
+                            )
+                        verify_selected(environment_references)
+                except (ValueError, CreativeReferenceRejectedError) as error:
+                    raise EpisodeStoryboardInputError(
+                        "Shot environment binding is invalid"
+                    ) from error
+            try:
+                verify_storyboard_visual_pin(
+                    self._repository, connection, content, fresh=verify_originals
+                )
+            except (ValueError, RuntimeError) as error:
+                raise EpisodeStoryboardInputError(
+                    "G5 visual pin is invalid or no longer current"
+                ) from error
         except ArtifactConflictError as error:
             raise EpisodeStoryboardInputError(
                 "Pinned version must exist in the required project, episode and artifact type"
@@ -153,13 +231,10 @@ class EpisodeStoryboardStore:
     ) -> EpisodeStoryboardVersionData:
         version = record.version
         try:
-            content = EpisodeStoryboardContentV1.model_validate(version.content)
+            content = STORYBOARD_CONTENT.validate_python(version.content)
             expected_dependencies = tuple(
                 (version_id, "derived_from", "blocking")
-                for version_id in (
-                    content.script_version_id,
-                    content.creative_library_version_id,
-                )
+                for version_id in storyboard_source_ids(content)
                 if version_id is not None
             )
             actual_dependencies = tuple(
@@ -167,7 +242,7 @@ class EpisodeStoryboardStore:
                 for item in record.dependencies
             )
             if (
-                version.schema_version != "1.0.0"
+                version.schema_version != content.schema_version
                 or content.project_id != project_id
                 or content.episode_id != episode_id
                 or version.content_hash != canonical_content_hash(version.content)
@@ -321,7 +396,7 @@ class EpisodeStoryboardStore:
 
             if len(canonical_content_bytes(content_json)) > MAX_STORYBOARD_BYTES:
                 raise EpisodeStoryboardTooLargeError("EpisodeStoryboard exceeds the supported size")
-            self._require_references(connection, content)
+            self._require_references(connection, content, verify_originals=True)
             head = connection.execute(
                 """
                 SELECT artifact_heads.latest_version_id, artifact_heads.revision
@@ -339,6 +414,20 @@ class EpisodeStoryboardStore:
                 head["latest_version_id"]
             ) or payload.expected_revision != int(head["revision"]):
                 raise EpisodeStoryboardConflictError("Storyboard head revision has changed")
+            if head is not None:
+                parent = self._repository._get_artifact_version_in_connection(
+                    connection,
+                    project_id=project_id,
+                    artifact_type=_ARTIFACT_TYPE,
+                    version_id=str(head["latest_version_id"]),
+                    episode_id=episode_id,
+                )
+                previous = self._version_data(
+                    parent, project_id=project_id, episode_id=episode_id
+                ).content
+                schemas = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0")
+                if schemas.index(content.schema_version) < schemas.index(previous.schema_version):
+                    raise EpisodeStoryboardConflictError("Storyboard schema cannot be downgraded")
 
             def validate_candidate(candidate: ArtifactVersionRecord) -> None:
                 self._verified_version_data(
@@ -353,7 +442,7 @@ class EpisodeStoryboardStore:
                     project_id=project_id,
                     artifact_type=_ARTIFACT_TYPE,
                     episode_id=episode_id,
-                    schema_version="1.0.0",
+                    schema_version=content.schema_version,
                     content=content_json,
                     author_actor_type="human",
                     author_actor_id=actor_id,
@@ -366,10 +455,7 @@ class EpisodeStoryboardStore:
                             relationship="derived_from",
                             impact="blocking",
                         )
-                        for version_id in (
-                            content.script_version_id,
-                            content.creative_library_version_id,
-                        )
+                        for version_id in storyboard_source_ids(content)
                         if version_id is not None
                     ),
                     record_validator=validate_candidate,

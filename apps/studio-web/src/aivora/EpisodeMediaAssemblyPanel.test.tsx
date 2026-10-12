@@ -11,21 +11,28 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
-import { useEpisodeAssembly } from "./useEpisodeAssembly";
+import {
+  ASSEMBLY_MONITOR_SIZES,
+  ASSEMBLY_VIEW_POSITIONS,
+  EpisodeMediaAssemblyPanel,
+} from "./EpisodeMediaAssemblyPanel";
+import { assemblyScriptSources } from "@aijian/contracts/assembly-script-provenance";
+import { ASSEMBLY_SESSION_HEADS, useEpisodeAssembly } from "./useEpisodeAssembly";
 import { bindAssemblyShot } from "./adapters/assemblyStoryboard";
+import { ASSEMBLY_SESSION_INTENTS } from "./adapters/assemblyExact";
+import type { AssemblyExactGateway, AssemblyExactCommand } from "@aijian/contracts/assembly-exact";
+import { impactCanonical } from "@aijian/contracts/script-confirmation-impact";
 import type { ScriptVersion } from "./adapters/episodeScript";
 import { staticAnimaticContent } from "./adapters/episodeMediaAssembly";
 import type { AssetLibraryGateway, AssetVersion, MediaAsset } from "./adapters/assetLibrary";
 import type {
   AssemblyContent,
   AssemblyReceipt,
-  CreateAssemblyCommand,
   EpisodeMediaAssemblyGateway,
 } from "./adapters/episodeMediaAssembly";
 
 const projectId = `prj_${"1".repeat(32)}`,
-  episodeId = "ep_edit";
+  episodeId = `ep_${"8".repeat(32)}`;
 function asset(kind: "video" | "image" | "audio", digit: string): MediaAsset {
   const version: AssetVersion = {
     id: `asv_${digit.repeat(32)}`,
@@ -57,14 +64,29 @@ function makeReceipt(
   revision: number,
 ): AssemblyReceipt {
   return {
-    request_id: "assembly-test",
+    request_id: "11111111-1111-4111-8111-111111111111",
     data: {
       artifact_id: `art_${"5".repeat(32)}`,
       version_id: `ver_${String(revision).repeat(32)}`,
-      content_hash: `sha256:${"6".repeat(64)}`,
+      content_hash: `sha256:${createHash("sha256").update(impactCanonical(content)).digest("hex")}`,
       head_revision: revision,
       parent_version_id: parent,
       content,
+      ...(content.script_provenance?.mode === "DRAFT"
+        ? {
+            script_source_status: {
+              state: "DRAFT_UNCONFIRMED" as const,
+              latest_confirmation: null,
+              newer_draft_available: false,
+              dialogue_segment_ids: assemblyScriptSources(content)
+                .filter((s) => s.kind === "DIALOGUE")
+                .map((s) => s.segmentId),
+              subtitle_segment_ids: assemblyScriptSources(content)
+                .filter((s) => s.kind === "SUBTITLE")
+                .map((s) => s.segmentId),
+            },
+          }
+        : {}),
       playback_status: "BLOCKED_MEDIA_PROBE",
       export_status: "NO_EXPORT_CLAIM",
       media_checks: library.map((item) => ({
@@ -105,19 +127,38 @@ function setup() {
     removeProjectMediaAssetEpisodeReference: vi.fn(),
     deleteProjectMediaAsset: vi.fn(),
   };
-  const assembly: EpisodeMediaAssemblyGateway = {
+  const operations = new Map<string, Awaited<ReturnType<AssemblyExactGateway["saveExact"]>>>();
+  const assembly: EpisodeMediaAssemblyGateway & AssemblyExactGateway = {
     readLatest: vi.fn(async () =>
       stored
         ? { kind: "FOUND" as const, receipt: stored }
         : { kind: "NOT_FOUND" as const, request_id: "empty" },
     ),
-    createVersion: vi.fn(async (_p: string, _e: string, command: CreateAssemblyCommand) => {
+    createVersion: vi.fn(),
+    saveExact: vi.fn(async (_p: string, _e: string, command: AssemblyExactCommand) => {
       stored = makeReceipt(
-        command.content,
-        command.parent_version_id,
-        (command.expected_revision ?? 0) + 1,
+        command.payload.content,
+        command.payload.parent_version_id,
+        (command.payload.expected_revision ?? 0) + 1,
       );
-      return { kind: "CREATED" as const, receipt: stored };
+      const result = {
+        kind: "FOUND" as const,
+        receipt: {
+          request_id: stored.request_id,
+          data: {
+            operation_id: command.operation_id,
+            payload: command.payload,
+            result_revision: stored.data.head_revision,
+            version: stored.data,
+          },
+        },
+      };
+      operations.set(command.operation_id, result);
+      return result;
+    }),
+    getOriginal: vi.fn(async (_p: string, _e: string, command: AssemblyExactCommand) => {
+      const result = operations.get(command.operation_id);
+      return result?.kind === "FOUND" ? result : { kind: "REMOTE_UNKNOWN" as const };
     }),
   };
   const setNavigationGuard = vi.fn<(guard: (() => boolean) | null) => void>();
@@ -154,6 +195,11 @@ async function add(kind: "video" | "image" | "audio") {
 }
 beforeEach(() => {
   localStorage.clear();
+  ASSEMBLY_SESSION_INTENTS.clear();
+  ASSEMBLY_SESSION_HEADS.clear();
+  ASSEMBLY_VIEW_POSITIONS.clear();
+  ASSEMBLY_MONITOR_SIZES.clear();
+  vi.stubGlobal("crypto", webcrypto);
   vi.spyOn(window, "confirm").mockReturnValue(true);
   vi.stubGlobal("URL", {
     createObjectURL: vi.fn(() => "blob:verified-local-original"),
@@ -167,6 +213,71 @@ afterEach(() => {
 });
 
 describe("native local-media episode assembly panel", () => {
+  it("reopens the same verified saved segment and frame after the audio-only view without any save", async () => {
+    const api = setup();
+    const content = draftContent();
+    content.visual_segments.push({
+      ...content.visual_segments[0]!,
+      segment_id: `seg_${"9".repeat(32)}`,
+      start_frame: 50,
+      end_frame: 100,
+    });
+    content.total_frames = 100;
+    const saved = makeReceipt(content, null, 1);
+    vi.mocked(api.assembly.readLatest).mockResolvedValue({ kind: "FOUND", receipt: saved });
+    const props = { ...api, projectId, episodeId };
+    const first = render(<EpisodeMediaAssemblyPanel {...props} />);
+    await screen.findByText("已读回保存版本");
+    const segments = within(screen.getByRole("list", { name: "画面片段" })).getAllByRole("button");
+    await waitFor(() => expect(segments[1]).toBeEnabled());
+    fireEvent.click(segments[1]!);
+    fireEvent.change(screen.getByLabelText("剪切位置（序列帧）"), { target: { value: "85" } });
+    first.unmount();
+    const voice = render(<EpisodeMediaAssemblyPanel {...props} audioOnly />);
+    await screen.findByText("已读回保存版本");
+    fireEvent.change(screen.getByLabelText("剪切位置（序列帧）"), { target: { value: "12" } });
+    voice.unmount();
+    render(<EpisodeMediaAssemblyPanel {...props} />);
+    await waitFor(() => expect(screen.getByLabelText("剪切位置（序列帧）")).toHaveValue(85));
+    expect(
+      within(screen.getByRole("list", { name: "画面片段" })).getAllByRole("button")[1],
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(api.assembly.saveExact).not.toHaveBeenCalled();
+    expect(api.assembly.createVersion).not.toHaveBeenCalled();
+    expect(api.assembly.getOriginal).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("does not apply a saved position to a changed version or another episode", async () => {
+    const api = setup();
+    const content = draftContent(),
+      saved = makeReceipt(content, null, 1);
+    ASSEMBLY_VIEW_POSITIONS.set(`${projectId}/${episodeId}/assembly`, {
+      versionId: `ver_${"9".repeat(32)}`,
+      hash: saved.data.content_hash,
+      segmentId: content.visual_segments[0]!.segment_id,
+      frame: 30,
+    });
+    vi.mocked(api.assembly.readLatest).mockResolvedValue({ kind: "FOUND", receipt: saved });
+    const view = render(
+      <EpisodeMediaAssemblyPanel {...api} projectId={projectId} episodeId={episodeId} />,
+    );
+    await screen.findByText(/未套用原片段与帧定位/);
+    expect(screen.getByLabelText("剪切位置（序列帧）")).toHaveValue(0);
+    expect(
+      within(screen.getByRole("list", { name: "画面片段" })).getByRole("button"),
+    ).toHaveAttribute("aria-pressed", "false");
+    view.unmount();
+    const otherEpisode = `ep_${"a".repeat(32)}`;
+    vi.mocked(api.assembly.readLatest).mockResolvedValue({
+      kind: "FOUND",
+      receipt: makeReceipt({ ...content, episode_id: otherEpisode }, null, 1),
+    });
+    render(<EpisodeMediaAssemblyPanel {...api} projectId={projectId} episodeId={otherEpisode} />);
+    await screen.findByText("已读回保存版本");
+    expect(screen.getByLabelText("剪切位置（序列帧）")).toHaveValue(0);
+    expect(api.assembly.saveExact).not.toHaveBeenCalled();
+  });
   it("authors imported dialogue audio through undo, save, readback and reopen without rewriting old versions", async () => {
     vi.stubGlobal("crypto", webcrypto);
     const dialogueEpisode = `ep_${"a".repeat(32)}`;
@@ -226,7 +337,7 @@ describe("native local-media episode assembly panel", () => {
     await add("image");
     await add("audio");
     fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
-    await screen.findByText("已读回保存版本");
+    await screen.findByText("已从项目重新读回装配版本。");
     const old = env.stored()!;
     fireEvent.click(screen.getByText(/^对白轨 ·/, { selector: "summary" }));
     fireEvent.change(await screen.findByLabelText("本集已保存剧本对白"), {
@@ -240,10 +351,10 @@ describe("native local-media episode assembly panel", () => {
       }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "撤销" }));
-    expect(screen.getByText("已读回保存版本")).toBeInTheDocument();
+    expect(screen.getByText("已撤销本地修改。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "重做" }));
     fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
-    await screen.findByText("已读回保存版本");
+    await screen.findByText("已从项目重新读回装配版本。");
     const audio = env.stored()!.data.content.audio_segments[0]!;
     expect(audio).toMatchObject({
       track_kind: "DIALOGUE",
@@ -267,7 +378,7 @@ describe("native local-media episode assembly panel", () => {
         {...env}
       />,
     );
-    await screen.findByText("已读回保存版本");
+    await screen.findByText("已从项目重新读回装配版本。");
     fireEvent.click(
       within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", {
         name: /^DIALOGUE/,
@@ -275,7 +386,7 @@ describe("native local-media episode assembly panel", () => {
     );
     fireEvent.click(screen.getByText(/^对白轨 ·/, { selector: "summary" }));
     await screen.findByText(`固定对白：${source.version_id} / ${blockId}`);
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(2);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(2);
     expect(env.stored()!.data.parent_version_id).toBe(old.data.version_id);
     expect(script.getEpisodeScriptVersion).toHaveBeenCalledWith(
       projectId,
@@ -285,7 +396,7 @@ describe("native local-media episode assembly panel", () => {
     const boundVersion = env.stored()!;
     fireEvent.click(screen.getByRole("button", { name: "改为 BGM 并移除对白绑定" }));
     fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
-    await screen.findByText("已读回保存版本");
+    await screen.findByText("已从项目重新读回装配版本。");
     expect(env.stored()!.data.content.audio_segments[0]).toMatchObject({
       track_kind: "BGM",
       script_version_id: null,
@@ -305,11 +416,11 @@ describe("native local-media episode assembly panel", () => {
         {...env}
       />,
     );
-    await screen.findByText("已读回保存版本");
+    await screen.findByText("已从项目重新读回装配版本。");
     expect(
       within(screen.getByRole("list", { name: "音频片段" })).getByRole("button", { name: /^BGM/ }),
     ).toBeInTheDocument();
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(3);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(3);
   });
   it("saves exact shot links through undo, readback and reopening without changing old content", async () => {
     const env = setup();
@@ -383,7 +494,7 @@ describe("native local-media episode assembly panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "重做" }));
     await add("audio");
     fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
-    await waitFor(() => expect(screen.getByText("已读回保存版本")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("已从项目重新读回装配版本。")).toBeInTheDocument());
     const saved = env.stored()!.data.content;
     expect(saved.sequence_timebase.frame_rate).toEqual({ num: 30000, den: 1001 });
     expect(
@@ -396,18 +507,18 @@ describe("native local-media episode assembly panel", () => {
     expect(localStorage.length).toBe(0);
     view.unmount();
     render(<EpisodeMediaAssemblyPanel projectId={projectId} episodeId={episodeId} {...env} />);
-    await waitFor(() => expect(screen.getByText("已读回保存版本")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("已从项目重新读回装配版本。")).toBeInTheDocument());
     expect(
       within(screen.getByRole("list", { name: "画面片段" })).getAllByRole("button"),
     ).toHaveLength(2);
     expect(
       within(screen.getByRole("list", { name: "音频片段" })).getAllByRole("button"),
     ).toHaveLength(1);
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(1);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
   });
   it("keeps unknown writes locked across reopen and never resubmits", async () => {
     const env = setup();
-    vi.mocked(env.assembly.createVersion).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
     const view = render(
       <EpisodeMediaAssemblyPanel projectId={projectId} episodeId={episodeId} {...env} />,
     );
@@ -419,7 +530,136 @@ describe("native local-media episode assembly panel", () => {
     render(<EpisodeMediaAssemblyPanel projectId={projectId} episodeId={episodeId} {...env} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(1);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
+  });
+  it.each(["replaced", "removed"])(
+    "a late source rejection cannot clear a %s unresolved journal or allow resend",
+    async (mutation) => {
+      const env = setup();
+      let resolve!: (r: Awaited<ReturnType<AssemblyExactGateway["saveExact"]>>) => void;
+      vi.mocked(env.assembly.saveExact).mockImplementation(
+        () =>
+          new Promise((done) => {
+            resolve = done;
+          }),
+      );
+      const view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
+      await waitFor(() => expect(view.result.current.locked).toBe(false));
+      act(() => {
+        view.result.current.edit(draftContent());
+      });
+      let saving!: Promise<void>;
+      act(() => {
+        saving = view.result.current.save();
+      });
+      const key = `aivora.assembly-exact.pending.v2.${projectId}.${episodeId}`,
+        original = localStorage.getItem(key)!;
+      if (mutation === "replaced") localStorage.setItem(key, "another-unresolved-record");
+      else localStorage.removeItem(key);
+      await act(async () => {
+        resolve({
+          kind: "DEFINITE_SERVER_ERROR",
+          status: 409,
+          code: "SCRIPT_CONFIRMATION_SUPERSEDED",
+          request_id: "11111111-1111-4111-8111-111111111111",
+        });
+        await saving;
+      });
+      expect(localStorage.getItem(key)).toBe(
+        mutation === "replaced" ? "another-unresolved-record" : original,
+      );
+      await act(async () => {
+        await view.result.current.load();
+        await view.result.current.save();
+      });
+      expect(view.result.current.writeUnknown).toBe(true);
+      expect(view.result.current.locked).toBe(true);
+      expect(env.assembly.saveExact).toHaveBeenCalledOnce();
+    },
+  );
+  it("a matching latest head cannot unlock UNKNOWN; exact original GET does, then reads current head", async () => {
+    const env = setup(),
+      c = draftContent();
+    c.subtitle_segments = [
+      {
+        segment_id: "seg_confirmed",
+        start_frame: 0,
+        end_frame: 20,
+        text: "旧确认。",
+        render_profile: "noto-cjk-sc-bottom-v1",
+        script_ref: {
+          script_version_id: `ver_${"a".repeat(32)}`,
+          script_block_id: `sblk_${"b".repeat(32)}`,
+          script_content_hash: `sha256:${"c".repeat(64)}`,
+        },
+      },
+    ];
+    c.script_provenance = {
+      mode: "CONFIRMED",
+      confirmation_id: `esc_${"d".repeat(32)}`,
+      script_version_id: `ver_${"a".repeat(32)}`,
+      script_content_hash: `sha256:${"c".repeat(64)}`,
+    };
+    vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    const view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
+    await waitFor(() => expect(view.result.current.locked).toBe(false));
+    act(() => {
+      view.result.current.edit(c);
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(view.result.current.writeUnknown).toBe(true);
+    const r = makeReceipt(c, null, 1);
+    r.data.script_source_status = {
+      state: "CONFIRMATION_SUPERSEDED",
+      latest_confirmation: {
+        confirmation_id: `esc_${"e".repeat(32)}`,
+        project_id: projectId,
+        episode_id: episodeId,
+        artifact_id: `art_${"f".repeat(32)}`,
+        version_id: `ver_${"e".repeat(32)}`,
+        content_hash: `sha256:${"f".repeat(64)}`,
+        head_revision: 2,
+        actor_id: "local-user",
+        confirmed_at: "2026-10-11T00:00:00Z",
+      },
+      newer_draft_available: false,
+      dialogue_segment_ids: [],
+      subtitle_segment_ids: ["seg_confirmed"],
+    };
+    vi.mocked(env.assembly.readLatest).mockResolvedValue({ kind: "FOUND", receipt: r });
+    await act(async () => {
+      await view.result.current.load();
+    });
+    expect(view.result.current.writeUnknown).toBe(true);
+    expect(env.assembly.getOriginal).not.toHaveBeenCalled();
+    const pending = JSON.parse(
+      localStorage.getItem(`aivora.assembly-exact.pending.v2.${projectId}.${episodeId}`)!,
+    ) as AssemblyExactCommand;
+    vi.mocked(env.assembly.getOriginal).mockResolvedValue({
+      kind: "FOUND",
+      receipt: {
+        request_id: r.request_id,
+        data: {
+          operation_id: pending.operation_id,
+          payload: pending.payload,
+          result_revision: 1,
+          version: r.data,
+        },
+      },
+    });
+    await act(async () => {
+      await view.result.current.recover();
+    });
+    expect(view.result.current.writeUnknown).toBe(false);
+    expect(view.result.current.version!.script_source_status!.state).toBe(
+      "CONFIRMATION_SUPERSEDED",
+    );
+    expect(env.assembly.saveExact).toHaveBeenCalledOnce();
+    expect(
+      localStorage.getItem(`aivora.assembly-exact.pending.v2.${projectId}.${episodeId}`),
+    ).toBeNull();
   });
   it("guards the latest dirty edits on navigation and close, and requires discard for a manual reload", async () => {
     const env = setup();
@@ -471,9 +711,9 @@ describe("native local-media episode assembly panel", () => {
     let finishSave: () => void = () => {
       throw new Error("save was not started");
     };
-    const originalSave = vi.mocked(env.assembly.createVersion).getMockImplementation();
+    const originalSave = vi.mocked(env.assembly.saveExact).getMockImplementation();
     if (!originalSave) throw new Error("save fixture is missing");
-    vi.mocked(env.assembly.createVersion).mockImplementationOnce(
+    vi.mocked(env.assembly.saveExact).mockImplementationOnce(
       (...args) =>
         new Promise((resolve) => {
           finishSave = () => {
@@ -499,13 +739,13 @@ describe("native local-media episode assembly panel", () => {
       void current.load();
       expect(guard?.()).toBe(false);
     });
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(1);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
     expect(env.assembly.readLatest).toHaveBeenCalledTimes(1);
     expect(unloadPrevented()).toBe(true);
     await act(async () => {
       finishSave();
     });
-    expect(env.assembly.readLatest).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(env.assembly.readLatest).toHaveBeenCalledTimes(2));
     act(() => {
       expect(guard?.()).toBe(false);
     });
@@ -517,13 +757,13 @@ describe("native local-media episode assembly panel", () => {
     });
     expect(view.result.current.dirty).toBe(false);
     expect(view.result.current.writeUnknown).toBe(false);
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(1);
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
     expect(guard?.()).toBe(true);
     expect(unloadPrevented()).toBe(false);
   });
   it("preserves unresolved submitted edits on reload and protects pending writes even after a clean reopen", async () => {
     const env = setup();
-    vi.mocked(env.assembly.createVersion).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+    vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
     let view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
     await waitFor(() => expect(view.result.current.locked).toBe(false));
     act(() => {
@@ -533,7 +773,7 @@ describe("native local-media episode assembly panel", () => {
       await view.result.current.save();
     });
     const marker = localStorage.getItem(
-      `aivora:episode-media-assembly:pending:${projectId}:${episodeId}`,
+      `aivora.assembly-exact.pending.v2.${projectId}.${episodeId}`,
     );
     await act(async () => {
       await view.result.current.load();
@@ -543,7 +783,7 @@ describe("native local-media episode assembly panel", () => {
     view.unmount();
     view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
     await waitFor(() => expect(view.result.current.busy).toBe(false));
-    expect(view.result.current.dirty).toBe(false);
+    expect(view.result.current.dirty).toBe(true);
     const guard = env.setNavigationGuard.mock.calls.at(-1)?.[0];
     vi.mocked(window.confirm).mockReturnValue(false);
     act(() => {
@@ -555,10 +795,10 @@ describe("native local-media episode assembly panel", () => {
     act(() => {
       expect(guard?.()).toBe(true);
     });
-    expect(
-      localStorage.getItem(`aivora:episode-media-assembly:pending:${projectId}:${episodeId}`),
-    ).toBe(marker);
-    expect(env.assembly.createVersion).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(`aivora.assembly-exact.pending.v2.${projectId}.${episodeId}`)).toBe(
+      marker,
+    );
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
   });
   it("rejects mismatched preview bytes and explicitly preserves an unsupported source", async () => {
     const env = setup();
@@ -575,7 +815,7 @@ describe("native local-media episode assembly panel", () => {
       expect(screen.getByText("原素材字节、大小或哈希身份不符；未播放。")).toBeInTheDocument(),
     );
     expect(screen.queryByLabelText("所选视频原件")).not.toBeInTheDocument();
-    expect(env.assembly.createVersion).not.toHaveBeenCalled();
+    expect(env.assembly.saveExact).not.toHaveBeenCalled();
   });
 });
 
@@ -636,7 +876,7 @@ it("rejects unsupported subtitle text and overlap without silently saving or cli
   fireEvent.change(screen.getByLabelText("字幕文字"), { target: { value: "不支持😀" } });
   fireEvent.click(screen.getByRole("button", { name: "应用字幕" }));
   expect(screen.getByRole("alert")).toHaveTextContent("暂不支持 emoji");
-  expect(env.assembly.createVersion).not.toHaveBeenCalled();
+  expect(env.assembly.saveExact).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("字幕文字"), { target: { value: "第一条" } });
   fireEvent.click(screen.getByRole("button", { name: "应用字幕" }));
   fireEvent.click(screen.getByRole("button", { name: "添加文字字幕" }));
@@ -646,4 +886,171 @@ it("rejects unsupported subtitle text and overlap without silently saving or cli
   expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "放弃字幕输入" }));
   expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeEnabled();
+});
+
+it.each(["lower-revision", "missing-head", "contradictory-identity"] as const)(
+  "keeps the submitted input and blocks another CAS when the head read is %s",
+  async (fault) => {
+    const env = setup();
+    const view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
+    await waitFor(() => expect(view.result.current.locked).toBe(false));
+    act(() => {
+      view.result.current.edit(draftContent());
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    const first = structuredClone(env.stored()!);
+    act(() => {
+      view.result.current.edit({ ...view.result.current.content, canvas_width: 180 });
+    });
+    vi.mocked(env.assembly.readLatest).mockImplementationOnce(async () => {
+      if (fault === "missing-head") return { kind: "NOT_FOUND", request_id: "controlled-missing" };
+      if (fault === "lower-revision") return { kind: "FOUND", receipt: first };
+      const contradictory = makeReceipt(
+        { ...draftContent(), canvas_width: 200 },
+        first.data.version_id,
+        2,
+      );
+      contradictory.data.version_id = `ver_${"f".repeat(32)}`;
+      return { kind: "FOUND", receipt: contradictory };
+    });
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(view.result.current.content.canvas_width).toBe(180);
+    expect(view.result.current.reliable).toBe(false);
+    expect(view.result.current.locked).toBe(true);
+    expect(view.result.current.writeUnknown).toBe(false);
+    expect(view.result.current.journalKind).toBe("EMPTY");
+    await act(async () => {
+      await view.result.current.save();
+    });
+    expect(env.assembly.saveExact).toHaveBeenCalledTimes(2);
+    expect(env.assembly.getOriginal).not.toHaveBeenCalled();
+    await act(async () => {
+      await view.result.current.load();
+    });
+    expect(view.result.current.reliable).toBe(true);
+    expect(view.result.current.version?.head_revision).toBe(2);
+    expect(view.result.current.content.canvas_width).toBe(180);
+  },
+);
+
+it("attributes a historical original before separately accepting the newer current head", async () => {
+  const env = setup();
+  vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  const view = renderHook(() => useEpisodeAssembly({ projectId, episodeId, ...env }));
+  await waitFor(() => expect(view.result.current.locked).toBe(false));
+  act(() => {
+    view.result.current.edit(draftContent());
+  });
+  await act(async () => {
+    await view.result.current.save();
+  });
+  const command = vi.mocked(env.assembly.saveExact).mock.calls[0]![2];
+  const historical = makeReceipt(command.payload.content, null, 1).data;
+  historical.head_revision = 5;
+  vi.mocked(env.assembly.getOriginal).mockResolvedValue({
+    kind: "FOUND",
+    receipt: {
+      request_id: command.operation_id,
+      data: {
+        operation_id: command.operation_id,
+        payload: command.payload,
+        result_revision: 1,
+        version: historical,
+      },
+    },
+  });
+  const current = makeReceipt({ ...draftContent(), canvas_width: 220 }, `ver_${"4".repeat(32)}`, 5);
+  vi.mocked(env.assembly.readLatest).mockResolvedValue({ kind: "FOUND", receipt: current });
+  await act(async () => {
+    await view.result.current.recover();
+  });
+  expect(view.result.current.writeUnknown).toBe(false);
+  expect(view.result.current.reliable).toBe(true);
+  expect(view.result.current.version?.version_id).toBe(current.data.version_id);
+  expect(view.result.current.content.canvas_width).toBe(220);
+  expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
+  expect(env.assembly.getOriginal).toHaveBeenCalledTimes(1);
+});
+
+it("resizes the mounted original without losing trim, subtitle or timecode drafts or issuing a write", async () => {
+  const env = setup();
+  render(<EpisodeMediaAssemblyPanel projectId={projectId} episodeId={episodeId} {...env} />);
+  await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
+  await add("video");
+  const video = (await screen.findByLabelText("所选视频原件")) as HTMLVideoElement;
+  await waitFor(() => expect(video).toHaveAttribute("src", "blob:verified-local-original"));
+  video.currentTime = 1.25;
+  fireEvent.change(screen.getByLabelText("剪切位置（序列帧）"), { target: { value: "29" } });
+  fireEvent.click(screen.getByRole("button", { name: "放大时间轴" }));
+  const region = screen.getByRole("region", { name: "生产时间轴快捷键区域" });
+  const code = screen.getByLabelText("定位时间码");
+  fireEvent.change(code, { target: { value: "00:00:01:09" } });
+  const duration = screen.getByLabelText("片段时长（帧）");
+  fireEvent.change(duration, { target: { value: "37" } });
+  const readCount = vi.mocked(env.assets.readProjectMediaAssetPreview).mock.calls.length;
+  const storage = () =>
+    Object.fromEntries(Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]));
+  for (const name of ["较大监看", "紧凑监看", "较大监看"]) {
+    const beforeLayout = storage();
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(storage()).toEqual(beforeLayout);
+    expect(screen.getByLabelText("所选视频原件")).toBe(video);
+    expect(video.currentTime).toBe(1.25);
+    expect(screen.getByLabelText("片段时长（帧）")).toBe(duration);
+    expect(duration).toHaveValue(37);
+    expect(code).toHaveValue("00:00:01:09");
+    expect(screen.getByLabelText("剪切位置（序列帧）")).toHaveValue(29);
+    expect(within(region).getByText("2×")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+    expect(unloadPrevented()).toBe(true);
+  }
+  fireEvent.click(screen.getByRole("button", { name: "应用裁剪" }));
+  fireEvent.click(screen.getByRole("button", { name: "添加文字字幕" }));
+  const subtitle = screen.getByLabelText("字幕文字");
+  fireEvent.change(subtitle, { target: { value: "仍未应用的字幕\n原文保留" } });
+  const beforeSubtitleLayout = storage();
+  fireEvent.click(screen.getByRole("button", { name: "紧凑监看" }));
+  expect(storage()).toEqual(beforeSubtitleLayout);
+  expect(screen.getByLabelText("字幕文字")).toBe(subtitle);
+  expect(subtitle).toHaveValue("仍未应用的字幕\n原文保留");
+  expect(screen.getByLabelText("所选视频原件")).toBe(video);
+  expect(env.assets.readProjectMediaAssetPreview).toHaveBeenCalledTimes(readCount);
+  expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  expect(env.assembly.saveExact).not.toHaveBeenCalled();
+  expect(env.assembly.getOriginal).not.toHaveBeenCalled();
+  expect(unloadPrevented()).toBe(true);
+});
+
+it("keeps the full original UNKNOWN journal and one UUID across layout toggles and reopening", async () => {
+  const env = setup();
+  vi.mocked(env.assembly.saveExact).mockResolvedValue({ kind: "REMOTE_UNKNOWN" });
+  const props = { projectId, episodeId, ...env };
+  const view = render(<EpisodeMediaAssemblyPanel {...props} />);
+  await waitFor(() => expect(screen.getByLabelText("选择已导入素材版本")).toBeEnabled());
+  await add("image");
+  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  await screen.findByText("先前写入结果未知；保存已锁定，请准确核对原保存。");
+  const before = Object.fromEntries(
+    Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]),
+  );
+  expect(JSON.stringify(before)).toContain(
+    vi.mocked(env.assembly.saveExact).mock.calls[0]![2].operation_id,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "较大监看" }));
+  fireEvent.click(screen.getByRole("button", { name: "紧凑监看" }));
+  fireEvent.click(screen.getByRole("button", { name: "较大监看" }));
+  view.unmount();
+  render(<EpisodeMediaAssemblyPanel {...props} />);
+  await screen.findByText("先前写入结果未知；保存已锁定，请准确核对原保存。");
+  expect(screen.getByRole("button", { name: "较大监看" })).toHaveAttribute("aria-pressed", "true");
+  expect(
+    Object.fromEntries(Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)])),
+  ).toEqual(before);
+  expect(env.assembly.saveExact).toHaveBeenCalledTimes(1);
+  expect(env.assembly.getOriginal).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
 });

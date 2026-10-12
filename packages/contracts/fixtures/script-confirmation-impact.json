@@ -1,0 +1,312 @@
+{
+  "request_id": "bef04c3e-df3b-4b5d-97ef-e3d9add32adb",
+  "project_id": "prj_356991ce8cff4734be7e168248279440",
+  "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+  "operation_id": "85641C32-61CB-48E1-B4FC-C5F84879CACF",
+  "payload": {
+    "version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+    "expected_content_hash": "sha256:a175f449692a356f07d816d6a58716d2dd6e21de7fe55ebe170b85e737362dd0",
+    "expected_head_revision": 3,
+    "confirm": true
+  },
+  "operation": {
+    "operation_id": "85641C32-61CB-48E1-B4FC-C5F84879CACF",
+    "project_id": "prj_356991ce8cff4734be7e168248279440",
+    "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+    "payload": {
+      "version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+      "expected_content_hash": "sha256:a175f449692a356f07d816d6a58716d2dd6e21de7fe55ebe170b85e737362dd0",
+      "expected_head_revision": 3,
+      "confirm": true
+    },
+    "lookup": {
+      "coverage": "RECORDED",
+      "confirmation": {
+        "confirmation_id": "esc_2fe199c6b6004005bf8eb36e0346e027",
+        "project_id": "prj_356991ce8cff4734be7e168248279440",
+        "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+        "artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+        "version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+        "content_hash": "sha256:a175f449692a356f07d816d6a58716d2dd6e21de7fe55ebe170b85e737362dd0",
+        "head_revision": 3,
+        "actor_id": "local-user",
+        "confirmed_at": "2026-10-11T12:33:11.693716Z"
+      },
+      "report": {
+        "report_id": "sci_67bd2a61a04843a8a6878ac4713576cd",
+        "assessment_hash": "sha256:1ae6b7e8ad3420a1a1c3484c7c4adfd0ff8f25f14a2a3a33753fce323a2bd898",
+        "created_at": "2026-10-11T12:33:11.693716Z",
+        "assessment": {
+          "schema_version": "1.0.0",
+          "algorithm_version": "script-confirmation-exact-dependencies-v1",
+          "source_kind": "EPISODE_SCRIPT_CONFIRMATION",
+          "project_id": "prj_356991ce8cff4734be7e168248279440",
+          "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+          "event_kind": "SOURCE_REPLACED",
+          "old_confirmation": {
+            "confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+            "project_id": "prj_356991ce8cff4734be7e168248279440",
+            "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+            "artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+            "version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+            "content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+            "head_revision": 2,
+            "actor_id": "local-user",
+            "confirmed_at": "2026-10-11T12:33:11.673329Z"
+          },
+          "new_confirmation": {
+            "confirmation_id": "esc_2fe199c6b6004005bf8eb36e0346e027",
+            "project_id": "prj_356991ce8cff4734be7e168248279440",
+            "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+            "artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+            "version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+            "content_hash": "sha256:a175f449692a356f07d816d6a58716d2dd6e21de7fe55ebe170b85e737362dd0",
+            "head_revision": 3,
+            "actor_id": "local-user",
+            "confirmed_at": "2026-10-11T12:33:11.693716Z"
+          },
+          "targets": [
+            {
+              "artifact_id": "art_18723c8ec6a04262ba537a4e066be2d0",
+              "version_id": "ver_ccf22cc7f8a244a8b20a8bc454816134",
+              "content_hash": "sha256:54944963dab7b164b0e56e0f81b0d76196b7770d2da4f4db733797214693d804",
+              "artifact_type": "episode_media_assembly",
+              "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+              "classification": "SOURCE_SUPERSEDED",
+              "aggregate_impact": "blocking",
+              "reasons": [
+                {
+                  "origin": "EXACT_DEPENDENCY_PATH",
+                  "effective_impact": "blocking",
+                  "edges": [
+                    {
+                      "dependency_id": "dep_c261cee2c4c5425da0cfd085b61fe294",
+                      "project_id": "prj_356991ce8cff4734be7e168248279440",
+                      "upstream_artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+                      "upstream_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                      "downstream_artifact_id": "art_18723c8ec6a04262ba537a4e066be2d0",
+                      "downstream_version_id": "ver_ccf22cc7f8a244a8b20a8bc454816134",
+                      "relationship": "references",
+                      "impact": "blocking"
+                    }
+                  ]
+                }
+              ],
+              "context": {
+                "kind": "ASSEMBLY",
+                "sequence_timebase": {
+                  "frame_rate": {
+                    "num": 24,
+                    "den": 1
+                  },
+                  "timecode_mode": "NON_DROP_FRAME"
+                },
+                "script_provenance": {
+                  "mode": "CONFIRMED",
+                  "confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+                  "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                  "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b"
+                },
+                "segments": [
+                  {
+                    "kind": "DIALOGUE_AUDIO",
+                    "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+                    "segment": {
+                      "segment_id": "seg_dialogue",
+                      "track_kind": "DIALOGUE",
+                      "media": {
+                        "asset_id": "asset_2f1bf4bccc6844ca926327593eafccb8",
+                        "asset_version_id": "asv_202b0dc09475413781dc185b97776cb0",
+                        "sha256": "813b29ec046c677d42d968228c390e76e0e93f41f30a605b1264364a06901b66"
+                      },
+                      "start_frame": 12,
+                      "end_frame": 36,
+                      "source_in_sample": 44100,
+                      "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                      "script_block_id": "sblk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "speaker_id": "spk_59e0f3fcd51889353a1ec5dfd8ee2502",
+                      "delivery": "ON_SCREEN"
+                    }
+                  },
+                  {
+                    "kind": "TEXT_SUBTITLE",
+                    "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+                    "segment": {
+                      "segment_id": "seg_script_subtitle",
+                      "start_frame": 12,
+                      "end_frame": 36,
+                      "text": "Synthetic test line.",
+                      "render_profile": "noto-cjk-sc-bottom-v1",
+                      "script_ref": {
+                        "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                        "script_block_id": "sblk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b"
+                      }
+                    }
+                  }
+                ],
+                "storyboard_references": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "report": {
+    "report_id": "sci_67bd2a61a04843a8a6878ac4713576cd",
+    "assessment_hash": "sha256:1ae6b7e8ad3420a1a1c3484c7c4adfd0ff8f25f14a2a3a33753fce323a2bd898",
+    "created_at": "2026-10-11T12:33:11.693716Z",
+    "assessment": {
+      "schema_version": "1.0.0",
+      "algorithm_version": "script-confirmation-exact-dependencies-v1",
+      "source_kind": "EPISODE_SCRIPT_CONFIRMATION",
+      "project_id": "prj_356991ce8cff4734be7e168248279440",
+      "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+      "event_kind": "SOURCE_REPLACED",
+      "old_confirmation": {
+        "confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+        "project_id": "prj_356991ce8cff4734be7e168248279440",
+        "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+        "artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+        "version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+        "content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+        "head_revision": 2,
+        "actor_id": "local-user",
+        "confirmed_at": "2026-10-11T12:33:11.673329Z"
+      },
+      "new_confirmation": {
+        "confirmation_id": "esc_2fe199c6b6004005bf8eb36e0346e027",
+        "project_id": "prj_356991ce8cff4734be7e168248279440",
+        "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+        "artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+        "version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+        "content_hash": "sha256:a175f449692a356f07d816d6a58716d2dd6e21de7fe55ebe170b85e737362dd0",
+        "head_revision": 3,
+        "actor_id": "local-user",
+        "confirmed_at": "2026-10-11T12:33:11.693716Z"
+      },
+      "targets": [
+        {
+          "artifact_id": "art_18723c8ec6a04262ba537a4e066be2d0",
+          "version_id": "ver_ccf22cc7f8a244a8b20a8bc454816134",
+          "content_hash": "sha256:54944963dab7b164b0e56e0f81b0d76196b7770d2da4f4db733797214693d804",
+          "artifact_type": "episode_media_assembly",
+          "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+          "classification": "SOURCE_SUPERSEDED",
+          "aggregate_impact": "blocking",
+          "reasons": [
+            {
+              "origin": "EXACT_DEPENDENCY_PATH",
+              "effective_impact": "blocking",
+              "edges": [
+                {
+                  "dependency_id": "dep_c261cee2c4c5425da0cfd085b61fe294",
+                  "project_id": "prj_356991ce8cff4734be7e168248279440",
+                  "upstream_artifact_id": "art_2255b51800e5421a811bc8047935dafe",
+                  "upstream_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                  "downstream_artifact_id": "art_18723c8ec6a04262ba537a4e066be2d0",
+                  "downstream_version_id": "ver_ccf22cc7f8a244a8b20a8bc454816134",
+                  "relationship": "references",
+                  "impact": "blocking"
+                }
+              ]
+            }
+          ],
+          "context": {
+            "kind": "ASSEMBLY",
+            "sequence_timebase": {
+              "frame_rate": {
+                "num": 24,
+                "den": 1
+              },
+              "timecode_mode": "NON_DROP_FRAME"
+            },
+            "script_provenance": {
+              "mode": "CONFIRMED",
+              "confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+              "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+              "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b"
+            },
+            "segments": [
+              {
+                "kind": "DIALOGUE_AUDIO",
+                "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+                "segment": {
+                  "segment_id": "seg_dialogue",
+                  "track_kind": "DIALOGUE",
+                  "media": {
+                    "asset_id": "asset_2f1bf4bccc6844ca926327593eafccb8",
+                    "asset_version_id": "asv_202b0dc09475413781dc185b97776cb0",
+                    "sha256": "813b29ec046c677d42d968228c390e76e0e93f41f30a605b1264364a06901b66"
+                  },
+                  "start_frame": 12,
+                  "end_frame": 36,
+                  "source_in_sample": 44100,
+                  "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                  "script_block_id": "sblk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "speaker_id": "spk_59e0f3fcd51889353a1ec5dfd8ee2502",
+                  "delivery": "ON_SCREEN"
+                }
+              },
+              {
+                "kind": "TEXT_SUBTITLE",
+                "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b",
+                "segment": {
+                  "segment_id": "seg_script_subtitle",
+                  "start_frame": 12,
+                  "end_frame": 36,
+                  "text": "Synthetic test line.",
+                  "render_profile": "noto-cjk-sc-bottom-v1",
+                  "script_ref": {
+                    "script_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+                    "script_block_id": "sblk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "script_content_hash": "sha256:588b4eadc2917eaf542a966ceca40c00c4bbcded2d75e4ce577aba0fe3f3aa0b"
+                  }
+                }
+              }
+            ],
+            "storyboard_references": []
+          }
+        }
+      ]
+    }
+  },
+  "page": {
+    "project_id": "prj_356991ce8cff4734be7e168248279440",
+    "items": [
+      {
+        "report_id": "sci_67bd2a61a04843a8a6878ac4713576cd",
+        "project_id": "prj_356991ce8cff4734be7e168248279440",
+        "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+        "new_confirmation_id": "esc_2fe199c6b6004005bf8eb36e0346e027",
+        "old_confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+        "new_version_id": "ver_fbb0d33071f54de59878599688c1ef3e",
+        "old_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+        "event_kind": "SOURCE_REPLACED",
+        "assessment_hash": "sha256:1ae6b7e8ad3420a1a1c3484c7c4adfd0ff8f25f14a2a3a33753fce323a2bd898",
+        "target_count": 1,
+        "reason_path_count": 1,
+        "segment_count": 2,
+        "created_at": "2026-10-11T12:33:11.693716Z"
+      },
+      {
+        "report_id": "sci_e3c5a2f6152a4cadb9c7131dbf5871b4",
+        "project_id": "prj_356991ce8cff4734be7e168248279440",
+        "episode_id": "ep_prj_356991ce8cff4734be7e168248279440",
+        "new_confirmation_id": "esc_8dc06d3249fd466292548798fb211230",
+        "old_confirmation_id": null,
+        "new_version_id": "ver_a7ed9e815ca744b581f298d9ca906427",
+        "old_version_id": null,
+        "event_kind": "BASELINE",
+        "assessment_hash": "sha256:edda43cc0edaf4a3c05b9d9d924bb1c184476cd4eda8db16365167e311c03b0b",
+        "target_count": 0,
+        "reason_path_count": 0,
+        "segment_count": 0,
+        "created_at": "2026-10-11T12:33:11.673329Z"
+      }
+    ],
+    "next_cursor": null,
+    "preexisting_confirmation_count": 0
+  }
+}

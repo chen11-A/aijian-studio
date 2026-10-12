@@ -3,6 +3,8 @@ import { useDemo } from "./model";
 import { Button, FlowFooter } from "./Common";
 import { Icon } from "./Icon";
 import { SettingsPage } from "./SettingsPage";
+import { NativeCostsPage } from "./NativeCostsPage";
+import { NativeVoicePage } from "./NativeVoicePage";
 import { MediaToolchainSettings } from "./MediaToolchainSettings";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
 import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
@@ -23,8 +25,8 @@ import "./v2-utility.css";
 export function UtilityPages() {
   const d = useDemo();
   if (d.page === "services") return <Services />;
-  if (d.page === "costs") return <Costs />;
-  if (d.page === "voice") return <Voice />;
+  if (d.page === "costs") return d.isFixture ? <Costs /> : <NativeCostsPage />;
+  if (d.page === "voice") return d.isFixture ? <Voice /> : <NativeVoicePage />;
   if (!d.isFixture && d.page === "settings") return <MediaEnabledSettings />;
   return <SettingsPage />;
 }
@@ -318,13 +320,8 @@ function Costs() {
               <strong>—</strong>
               <p>未连接账本 · 不编造金额</p>
               {index === 1 && (
-                <button
-                  className="v2-detail-tool"
-                  onClick={d.isFixture ? budget : undefined}
-                  disabled={!d.isFixture}
-                  title={d.isFixture ? undefined : "真实预算账本尚未接入，本页不保存预算修改"}
-                >
-                  {d.isFixture ? "预算设置" : "预算设置待接入"}
+                <button className="v2-detail-tool" onClick={budget}>
+                  预算设置
                 </button>
               )}
             </section>
@@ -351,11 +348,9 @@ function Costs() {
               <>
                 <p>账本尚未接入；已有界面不代表已经发生调用或费用。</p>
                 <Button onClick={() => d.go("services")}>前往 AI 服务</Button>
-                {d.isFixture && (
-                  <button className="v2-cost-sample" onClick={sampleLedger}>
-                    查看固定演示账单
-                  </button>
-                )}
+                <button className="v2-cost-sample" onClick={sampleLedger}>
+                  查看固定演示账单
+                </button>
               </>
             )}
           </div>
@@ -367,21 +362,6 @@ function Costs() {
 }
 function Voice() {
   const d = useDemo();
-  if (!d.isFixture)
-    return (
-      <div className="v2-utility-page v2-utility-management">
-        <Heading title="声音制作" />
-        <section className="native-pending-review" role="status">
-          <h2>真实语音制作待接入</h2>
-          <p>声线授权、真实语音任务和对白对齐尚未接入本页。不会提供默认对白或模拟生成结果。</p>
-          <p>已有本地音频可在素材库导入，并在成片组装中作为 BGM / SFX 使用。</p>
-          <div className="actions">
-            <Button onClick={() => d.go("assets")}>打开真实素材库</Button>
-            <Button onClick={() => d.go("script")}>编辑本集对白</Button>
-          </div>
-        </section>
-      </div>
-    );
   const selected = d.characters.find((p) => p.id === d.selectedCharacter);
   const key = (name: string) => `character-${d.selectedCharacter}-${name}`;
   const tone = () =>

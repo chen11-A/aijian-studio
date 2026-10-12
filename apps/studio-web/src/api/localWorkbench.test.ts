@@ -54,6 +54,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("local workbench project updates", () => {
+  test.each(["9:16", "16:9"])(
+    "reads metadata PATCH receipt with saved %s aspect",
+    async (aspect) => {
+      const data = { ...project, aspect_ratio: aspect };
+      fetchMock.mockResolvedValue(response(data, 200, { ETag: '"revision-2"' }));
+      expect(await update()).toEqual({
+        kind: "SUCCEEDED",
+        receipt: { data, request_id: requestId },
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)).toEqual({ name: "新名称" });
+    },
+  );
   test.each([1, 2])("accepts exact revision %i for no-op or changed writes", async (revision) => {
     const data = { ...project, revision };
     fetchMock.mockResolvedValue(response(data, 200, { ETag: `"revision-${revision}"` }));
@@ -111,7 +124,7 @@ describe("local workbench project updates", () => {
     { id: `prj_${"c".repeat(32)}` },
     { revision: 3 },
     { name: "another command" },
-    { aspect_ratio: "16:9" },
+    { aspect_ratio: "1:1" },
     { target_duration_seconds: 0 },
     { status: "deleted" },
     { created_at: "invalid" },

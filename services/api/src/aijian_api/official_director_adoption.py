@@ -12,7 +12,7 @@ from aijian_api.official_director_contracts import (
     OfficialDirectorProposal,
     RejectOfficialDirectorRequest,
 )
-from aijian_api.shot_plan_projection import project_storyboard
+from aijian_api.shot_plan_projection import project_storyboard, projection_schema_for_base
 from aijian_api.shot_plan_validation import resolve_authority, storyboard_base, validate_coverage
 from aijian_api.task_ledger_models import timestamp
 
@@ -77,7 +77,13 @@ def adopt_director(
             raise OfficialDirectorError("OFFICIAL_DIRECTOR_STORYBOARD_STALE")
         validate_coverage(plan, script)
         try:
-            projected = project_storyboard(plan, script)
+            projected = project_storyboard(
+                plan,
+                script,
+                target_schema=projection_schema_for_base(
+                    store.repository, connection, project, episode, plan.storyboard_base
+                ),
+            )
         except ValueError as error:
             raise OfficialDirectorError("OFFICIAL_DIRECTOR_PROJECTION_UNSUPPORTED", 422) from error
         base = plan.storyboard_base
@@ -92,7 +98,7 @@ def adopt_director(
             project_id=project,
             episode_id=episode,
             artifact_type="episode_storyboard",
-            schema_version="1.0.0",
+            schema_version=projected.schema_version,
             content=projected.model_dump(mode="json"),
             author_actor_type="human",
             author_actor_id=actor,

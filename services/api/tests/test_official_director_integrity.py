@@ -262,7 +262,8 @@ def test_projection_failure_after_review_rolls_back_before_storyboard_write(tmp_
     store.reserve(project, episode, reserve)
     completed, _ = store.complete(project, episode, completion)
 
-    def unsupported(*args):
+    def unsupported(*args, **kwargs):
+        assert kwargs["target_schema"] == "1.0.0"
         raise ValueError("future projection unsupported")
 
     monkeypatch.setattr("aijian_api.official_director_adoption.project_storyboard", unsupported)

@@ -22,6 +22,11 @@ import {
   restoreLatestSource,
 } from "./adapters/projectWorkspace";
 import {
+  ProjectCreateJournal,
+  validProjectCreateInput,
+  type ProjectCreateIntent,
+} from "./adapters/projectCreateJournal";
+import {
   importTextSource,
   readSourceDocumentText,
   sourceFileSha256,
@@ -85,7 +90,9 @@ export type Editor = {
   save?: (values: Record<string, string>) => void | false | Promise<void | false>;
 };
 export type ProjectCreateUiState =
-  { kind: "idle" } | { kind: "SUBMITTING" } | { kind: "REMOTE_UNKNOWN" };
+  | { kind: "idle" }
+  | { kind: "SUBMITTING" }
+  | { kind: "REMOTE_UNKNOWN"; intent?: ProjectCreateIntent | null };
 export type SourceImportUiState =
   | { kind: "idle" }
   | { kind: "pending"; projectId: string }
@@ -259,9 +266,26 @@ function useDemoModel(fixture?: DemoFixture) {
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>({
-    kind: "idle",
+  const [projectCreateJournal] = useState(() => {
+    try {
+      return new ProjectCreateJournal(window.localStorage);
+    } catch {
+      return new ProjectCreateJournal(null);
+    }
   });
+  const [projectCreateState, setProjectCreateState] = useState<ProjectCreateUiState>(() => {
+    const read = fixture ? { kind: "READY" as const, intent: null } : projectCreateJournal.read();
+    return read.kind === "READY" && !read.intent
+      ? { kind: "idle" }
+      : { kind: "REMOTE_UNKNOWN", intent: read.intent };
+  });
+  const creationMounted = useRef(true);
+  useEffect(() => {
+    creationMounted.current = true;
+    return () => {
+      creationMounted.current = false;
+    };
+  }, []);
   const [toast, setToast] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() => ({
     source: "",
@@ -416,9 +440,17 @@ function useDemoModel(fixture?: DemoFixture) {
   const [references, setReferences] = useState<string[]>([]);
   const [rightTabs, setRightTabs] = useState<Partial<Record<PageId, "inspector" | "ai">>>({});
   const rightTab = rightTabs[page] ?? "inspector";
+  // Page-scoped view preference only; it never changes the selected object or permissions.
+  const [professionalDockPages, setProfessionalDockPages] = useState<
+    Partial<Record<PageId, boolean>>
+  >({});
+  const professionalDockCollapsed = professionalDockPages[page] ?? false;
+  const setProfessionalDockCollapsed = (collapsed: boolean) =>
+    setProfessionalDockPages((old) => ({ ...old, [page]: collapsed }));
   const selectRightTab = (tab: "inspector" | "ai") =>
     setRightTabs((old) => ({ ...old, [page]: tab }));
   function focusAssistant(request: string) {
+    setProfessionalDockCollapsed(false);
     selectRightTab("ai");
     setAiOpen(true);
     setAiDraft(request);
@@ -843,9 +875,8 @@ function useDemoModel(fixture?: DemoFixture) {
       const remote = await connectWorkspace(studio);
       if (!projectGate.isCurrent(generation)) return;
       const mapped = remote.map(mapProject);
-      // A successful authoritative list read is the reconciliation point for an
-      // earlier create whose outcome was unknown.
-      createUnknown.current = false;
+      // A project list is not an original creation receipt. It never releases
+      // the retained creation intent or authorizes another create.
       setProjects(mapped);
       const savedProjectId = selectionAvailable.current
         ? selectionSnapshot.current.selection?.projectId
@@ -896,12 +927,33 @@ function useDemoModel(fixture?: DemoFixture) {
   }
   async function createRealProject(input: CreateProjectInput) {
     if (!canNavigate()) return { kind: "UNAVAILABLE" } as const;
-    if (createPending.current || createUnknown.current) {
+    const retained = projectCreateJournal.read();
+    if (
+      createPending.current ||
+      createUnknown.current ||
+      retained.kind !== "READY" ||
+      retained.intent
+    ) {
+      if (!createPending.current) {
+        createUnknown.current = true;
+        setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: retained.intent });
+      }
       notify(
-        createUnknown.current
-          ? "上次创建结果未知。请刷新项目列表后确认，未自动重试。"
-          : "正在创建项目，请等待结果后再试。",
+        createPending.current
+          ? "正在创建项目，请等待结果后再试。"
+          : "原创建结果或保存记录尚未核实；列表读取不会解除锁定，未发送新创建。",
       );
+      return { kind: "REMOTE_UNKNOWN" } as const;
+    }
+    if (!validProjectCreateInput(input)) {
+      notify("创建内容无效；未发送创建请求。");
+      return { kind: "UNAVAILABLE" } as const;
+    }
+    const intent = projectCreateJournal.begin(input);
+    if (!intent) {
+      createUnknown.current = true;
+      setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: projectCreateJournal.read().intent });
+      notify("创建保存记录无法核实；未发送本次创建请求。");
       return { kind: "REMOTE_UNKNOWN" } as const;
     }
     createPending.current = true;
@@ -911,16 +963,24 @@ function useDemoModel(fixture?: DemoFixture) {
     sourceStageGate.invalidate();
     storyGate.invalidate();
     episodeGate.invalidate();
-    const outcome = await createWorkspaceProject(studio, input);
+    const outcome = await createWorkspaceProject(studio, intent.input);
     createPending.current = false;
-    if (outcome.kind !== "SUCCEEDED") {
-      setProjectCreateState(outcome);
+    if (
+      outcome.kind !== "SUCCEEDED" ||
+      !creationMounted.current ||
+      !projectGate.isCurrent(generation) ||
+      !projectCreateJournal.complete(intent)
+    ) {
       createUnknown.current = true;
-      notify("创建结果未知。请刷新项目列表后确认，未自动重试。");
-      return outcome;
+      const kept = projectCreateJournal.read();
+      if (creationMounted.current) {
+        setProjectCreateState({ kind: "REMOTE_UNKNOWN", intent: kept.intent });
+        notify("创建结果尚未归因；原记录保留，列表读取不会解除锁定，未自动重试。");
+      }
+      return { kind: "REMOTE_UNKNOWN" } as const;
     }
+    createUnknown.current = false;
     setProjectCreateState({ kind: "idle" });
-    if (!projectGate.isCurrent(generation)) return outcome;
     const mapped = mapProject(outcome.project, 0);
     clearProjectScopedState();
     setBackendProjectId(mapped.backendId ?? null);
@@ -1503,7 +1563,28 @@ function useDemoModel(fixture?: DemoFixture) {
     onSave?: (data: Record<string, string>) => void | false | Promise<void | false>,
   ) {
     const creatingRealProject = !fixture && title === "新建项目" && !!onSave;
-    if (title === "新建项目") setProjectCreateState({ kind: "idle" });
+    if (title === "新建项目") {
+      const read = creatingRealProject
+        ? projectCreateJournal.read()
+        : { kind: "READY" as const, intent: null };
+      const locked =
+        creatingRealProject && (createUnknown.current || read.kind !== "READY" || !!read.intent);
+      setProjectCreateState(
+        createPending.current
+          ? { kind: "SUBMITTING" }
+          : locked
+            ? { kind: "REMOTE_UNKNOWN", intent: read.intent }
+            : { kind: "idle" },
+      );
+      if (read.intent)
+        fields = fields.map((field) =>
+          field.key === "title"
+            ? { ...field, value: read.intent!.input.name }
+            : field.key === "aspect_ratio"
+              ? { ...field, value: read.intent!.input.aspect_ratio! }
+              : field,
+        );
+    }
     setEditor({
       title,
       fields,
@@ -1614,6 +1695,8 @@ function useDemoModel(fixture?: DemoFixture) {
     recoverProductionBrief,
     pendingProductionBrief,
     rightTab,
+    professionalDockCollapsed,
+    setProfessionalDockCollapsed,
     selectRightTab,
     focusAssistant,
   };

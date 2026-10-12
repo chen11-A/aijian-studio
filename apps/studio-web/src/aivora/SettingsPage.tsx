@@ -1,3 +1,5 @@
+import { ProjectSettingsEditor } from "./ProjectSettingsEditor";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
@@ -21,7 +23,7 @@ export function SettingsPage() {
   if (!d.isFixture && d.page === "settings") return <PersistedUserSettings />;
   if (!d.isFixture && d.page === "projectSettings")
     return (
-      <PersistedProjectSettings key={d.backendProjectId ?? "none"} projectId={d.backendProjectId} />
+      <NativeProjectSettings key={d.backendProjectId ?? "none"} projectId={d.backendProjectId} />
     );
   return <FixtureSettingsPage />;
 }
@@ -364,7 +366,7 @@ function validProject(value: unknown, projectId: string): value is ProjectData {
     project.id === projectId &&
     typeof project.name === "string" &&
     project.name.length > 0 &&
-    project.aspect_ratio === "9:16" &&
+    isProjectAspectRatio(project.aspect_ratio) &&
     Number.isSafeInteger(project.target_duration_seconds) &&
     (project.target_duration_seconds ?? 0) >= 30 &&
     project.source_language === "zh-CN" &&
@@ -372,6 +374,58 @@ function validProject(value: unknown, projectId: string): value is ProjectData {
     Number.isSafeInteger(project.revision) &&
     (project.revision ?? 0) >= 1 &&
     typeof project.updated_at === "string"
+  );
+}
+
+function NativeProjectSettings({ projectId }: { projectId: string | null }) {
+  const d = useDemo();
+  const transport = useMemo(createStudioTransport, []);
+  let legacyPending: boolean;
+  try {
+    legacyPending =
+      !!projectId && readProjectUpdateJournal(window.localStorage, projectId).kind !== "EMPTY";
+  } catch {
+    legacyPending = true;
+  }
+  if (
+    legacyPending ||
+    !projectId ||
+    !transport.getProjectSettings ||
+    !transport.getProjectSettingsReceipt ||
+    !transport.updateProjectSettings
+  )
+    return <PersistedProjectSettings projectId={projectId} />;
+  return (
+    <ProjectSettingsEditor
+      projectId={projectId}
+      gateway={
+        transport as Required<
+          Pick<
+            typeof transport,
+            "getProjectSettings" | "getProjectSettingsReceipt" | "updateProjectSettings"
+          >
+        >
+      }
+      setNavigationGuard={d.setNavigationGuard}
+      leave={() => d.go("project")}
+      onCurrent={(current) => {
+        d.setProjects((old) =>
+          old.map((item) =>
+            item.backendId === current.project_id && (item.revision ?? 0) <= current.revision
+              ? {
+                  ...item,
+                  name: current.name,
+                  revision: current.revision,
+                  updated: current.updated_at,
+                  episode: `REV ${current.revision}`,
+                  status: current.status === "archived" ? "已归档" : "进行中",
+                }
+              : item,
+          ),
+        );
+        d.put("title", current.name);
+      }}
+    />
   );
 }
 

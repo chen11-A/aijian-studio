@@ -120,6 +120,13 @@ const routes: Route[] = [
     args: [project, version],
   },
   { bridge: "updateProject", path: "updateProject", args: [project, command] },
+  { bridge: "getProjectSettings", path: "getProjectSettings", args: [project] },
+  {
+    bridge: "getProjectSettingsReceipt",
+    path: "getProjectSettingsReceipt",
+    args: [project, operation],
+  },
+  { bridge: "updateProjectSettings", path: "updateProjectSettings", args: [project, command] },
   { bridge: "getSourceText", path: "getSourceText", args: [project, `src_${"f".repeat(32)}`] },
   {
     bridge: "readVersionedSourceExtractionProposal",

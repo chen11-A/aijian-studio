@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   closeConfirmationJournal,
-  closeScriptJournal,
   confirmScriptVersion,
   readAcceptedSourceBinding,
   readConfirmationJournal,
@@ -73,8 +72,8 @@ function version(): ScriptVersion {
     parent_version_id: null,
     content: command().payload.content,
     content_hash: hash,
-    author_actor_id: "local-test",
-    change_summary: "Synthetic",
+    author_actor_id: "local-user",
+    change_summary: command().payload.change_summary,
     created_at: "2026-10-10T00:00:00Z",
   };
 }
@@ -111,7 +110,7 @@ function status(): ScriptConfirmationStatus {
       version_id: versionId,
       content_hash: hash,
       head_revision: 1,
-      actor_id: "local-test",
+      actor_id: "local-user",
       confirmed_at: "2026-10-10T00:00:00Z",
     },
   };
@@ -125,6 +124,25 @@ function confirmationGateway() {
     getEpisodeScriptConfirmationReceipt: vi
       .fn<ConfirmationGateway["getEpisodeScriptConfirmationReceipt"]>()
       .mockResolvedValue({ kind: "FOUND", receipt: { data: status(), request_id: "exact" } }),
+    getEpisodeScriptConfirmationOperation: vi
+      .fn<ConfirmationGateway["getEpisodeScriptConfirmationOperation"]>()
+      .mockImplementation(async (project_id, episode_id, operation_id, payload) => ({
+        kind: "FOUND",
+        receipt: {
+          request_id: "original",
+          data: {
+            project_id,
+            episode_id,
+            operation_id,
+            payload,
+            lookup: {
+              coverage: "UNCOVERED_LEGACY",
+              confirmation: status().confirmation!,
+              report: null,
+            },
+          },
+        },
+      })),
     createEpisodeScriptConfirmation: vi
       .fn<ConfirmationGateway["createEpisodeScriptConfirmation"]>()
       .mockResolvedValue({
@@ -157,18 +175,25 @@ describe("script journal and exact readback", () => {
     expect(readScriptJournal(localStorage, project, episode)).toEqual({ kind: "EMPTY" });
   });
 
-  test.each([401, 403, 409, 413, 422, 428])("definite rejection %s closes intent", async (code) => {
+  test.each([
+    [401, "SIDECAR_AUTH_REQUIRED"],
+    [403, "SIDECAR_REQUEST_REJECTED"],
+    [409, "SCRIPT_CONFLICT"],
+    [413, "SCRIPT_TOO_LARGE"],
+    [422, "SCRIPT_INPUT_REJECTED"],
+    [428, "PRECONDITION_REQUIRED"],
+  ] as const)("exact POST rejection %s/%s closes original intent", async (status, code) => {
     const gateway = scriptGateway();
     gateway.createEpisodeScriptVersion.mockResolvedValue({
       kind: "DEFINITE_SERVER_ERROR",
-      status: code,
-      code: "REJECTED",
-      request_id: "post",
+      status,
+      code,
+      request_id: operation,
     });
     expect(await saveScriptVersion(gateway, localStorage, project, episode, command())).toEqual({
       kind: "REJECTED",
-      status: code,
-      code: "REJECTED",
+      status,
+      code,
     });
     expect(localStorage.getItem(scriptKey)).toBeNull();
     expect(gateway.getEpisodeScriptVersion).not.toHaveBeenCalled();
@@ -191,7 +216,6 @@ describe("script journal and exact readback", () => {
         await saveScriptVersion(gateway, localStorage, project, episode, command()),
       ).toMatchObject({ kind: "BLOCKED" });
       expect(gateway.createEpisodeScriptVersion).toHaveBeenCalledTimes(1);
-      expect(closeScriptJournal(localStorage, project, episode, "wrong")).toBe(false);
       expect(readScriptJournal(localStorage, project, episode).kind).toBe("PENDING");
     },
   );
@@ -297,30 +321,67 @@ describe("confirmation authority", () => {
     expect(
       await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
     ).toEqual({ kind: "CONFIRMED", status: status() });
-    expect(gateway.getEpisodeScriptConfirmationReceipt).toHaveBeenCalledWith(
+    expect(gateway.getEpisodeScriptConfirmationOperation).toHaveBeenCalledWith(
       project,
       episode,
-      status().confirmation?.confirmation_id,
+      operation,
+      {
+        version_id: versionId,
+        expected_content_hash: hash,
+        expected_head_revision: 1,
+        confirm: true,
+      },
     );
     expect(readConfirmationJournal(localStorage, project, episode)).toEqual({ kind: "EMPTY" });
   });
 
-  test.each([401, 403, 404, 409, 422, 428])(
-    "definite confirmation rejection %s closes journal",
-    async (code) => {
-      const gateway = confirmationGateway();
-      gateway.createEpisodeScriptConfirmation.mockResolvedValue({
-        kind: "DEFINITE_SERVER_ERROR",
-        status: code,
-        code: "REJECTED",
-        request_id: "post",
-      });
-      expect(
-        await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
-      ).toEqual({ kind: "REJECTED", status: code, code: "REJECTED" });
-      expect(readConfirmationJournal(localStorage, project, episode).kind).toBe("EMPTY");
-    },
-  );
+  test.each([
+    [401, "SIDECAR_AUTH_REQUIRED"],
+    [403, "SIDECAR_REQUEST_REJECTED"],
+    [404, "SCRIPT_NOT_FOUND"],
+    [409, "SCRIPT_CONFIRMATION_CONFLICT"],
+    [422, "SCRIPT_CONFIRMATION_INPUT_REJECTED"],
+    [428, "PRECONDITION_REQUIRED"],
+  ])("definite confirmation rejection %s/%s closes journal", async (status, code) => {
+    const gateway = confirmationGateway();
+    gateway.createEpisodeScriptConfirmation.mockResolvedValue({
+      kind: "DEFINITE_SERVER_ERROR",
+      status,
+      code,
+      request_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    expect(
+      await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
+    ).toEqual({ kind: "REJECTED", status, code });
+    expect(readConfirmationJournal(localStorage, project, episode).kind).toBe("EMPTY");
+  });
+
+  test.each([
+    [404, "SCRIPT_CONFIRMATION_OPERATION_UNKNOWN"],
+    [401, "SOME_OTHER_ERROR"],
+    [403, "SOME_OTHER_ERROR"],
+    [409, "SOME_OTHER_ERROR"],
+    [404, "SCRIPT_CONFIRMATION_NOT_FOUND"],
+    [422, "SCRIPT_CONFIRMATION_CONFLICT"],
+    [409, "SIDECAR_AUTH_REQUIRED"],
+  ])("unattributed confirmation error %s/%s retains original intent", async (status, code) => {
+    const gateway = confirmationGateway();
+    gateway.createEpisodeScriptConfirmation.mockResolvedValue({
+      kind: "DEFINITE_SERVER_ERROR",
+      status,
+      code,
+      request_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    expect(
+      await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
+    ).toEqual({ kind: "UNKNOWN" });
+    expect(readConfirmationJournal(localStorage, project, episode).kind).toBe("PENDING");
+    expect(
+      (await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation))
+        .kind,
+    ).toBe("BLOCKED");
+    expect(gateway.createEpisodeScriptConfirmation).toHaveBeenCalledTimes(1);
+  });
 
   test.each([413, 429, 500])("uncertain confirmation rejection %s blocks replay", async (code) => {
     const gateway = confirmationGateway();
@@ -337,17 +398,29 @@ describe("confirmation authority", () => {
       await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
     ).toMatchObject({ kind: "BLOCKED" });
     expect(gateway.createEpisodeScriptConfirmation).toHaveBeenCalledTimes(1);
-    expect(closeConfirmationJournal(localStorage, project, episode, "wrong")).toBe(false);
+    expect(
+      closeConfirmationJournal(localStorage, project, episode, {
+        project_id: project,
+        episode_id: episode,
+        operation_id: "wrong",
+        payload: {
+          version_id: versionId,
+          expected_content_hash: hash,
+          expected_head_revision: 1,
+          confirm: true,
+        },
+      }),
+    ).toBe(false);
     expect(readConfirmationJournal(localStorage, project, episode).kind).toBe("PENDING");
   });
 
-  test.each(["current", "confirmation_id", "content_hash", "version_id"] as const)(
+  test.each(["actor_id", "confirmation_id", "content_hash", "version_id"] as const)(
     "exact receipt drift in %s preserves pending",
     async (field) => {
       const gateway = confirmationGateway();
       const changed = status();
       if (!changed.confirmation) throw new Error("fixture missing confirmation");
-      if (field === "current") changed.current = false;
+      if (field === "actor_id") changed.confirmation.actor_id = "another-actor";
       if (field === "confirmation_id")
         changed.confirmation.confirmation_id = `esc_${"9".repeat(32)}`;
       if (field === "content_hash") changed.confirmation.content_hash = `sha256:${"9".repeat(64)}`;
@@ -355,10 +428,25 @@ describe("confirmation authority", () => {
         changed.confirmation.version_id = `ver_${"9".repeat(32)}`;
         changed.latest_version_id = changed.confirmation.version_id;
       }
-      gateway.getEpisodeScriptConfirmationReceipt.mockResolvedValue({
-        kind: "FOUND",
-        receipt: { data: changed, request_id: "exact" },
-      });
+      gateway.getEpisodeScriptConfirmationOperation.mockImplementation(
+        async (project_id, episode_id, operation_id, payload) => ({
+          kind: "FOUND",
+          receipt: {
+            request_id: "original",
+            data: {
+              project_id,
+              episode_id,
+              operation_id,
+              payload,
+              lookup: {
+                coverage: "UNCOVERED_LEGACY",
+                confirmation: changed.confirmation!,
+                report: null,
+              },
+            },
+          },
+        }),
+      );
       expect(
         await confirmScriptVersion(gateway, localStorage, project, episode, version(), operation),
       ).toEqual({ kind: "UNKNOWN" });

@@ -19,6 +19,7 @@ from aijian_api.episode_script_contracts import (
     EpisodeScriptVersionCreatedData,
     EpisodeScriptVersionCreatedResponse,
     EpisodeScriptVersionResponse,
+    EpisodeScriptWriteOperationResponse,
 )
 from aijian_api.episode_script_store import (
     EpisodeScriptConflictError,
@@ -27,6 +28,7 @@ from aijian_api.episode_script_store import (
     EpisodeScriptStorageError,
     EpisodeScriptStore,
     EpisodeScriptTooLargeError,
+    EpisodeScriptWriteOperationUnknownError,
 )
 from aijian_api.repository import StudioRepository
 
@@ -34,6 +36,12 @@ type RepositoryProvider = Callable[[], StudioRepository]
 ProjectId = Annotated[str, Path(pattern=PROJECT_ID_PATTERN)]
 EpisodeId = Annotated[str, Path(pattern=EPISODE_ID_PATTERN)]
 VersionId = Annotated[str, Path(pattern=VERSION_ID_PATTERN)]
+OperationId = Annotated[
+    str,
+    Path(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    ),
+]
 
 
 def _request_id(request: Request) -> UUID:
@@ -127,6 +135,35 @@ def create_episode_script_public_router(repository_provider: RepositoryProvider)
             )
         response.headers["ETag"] = f'"{data.content_hash}"'
         return EpisodeScriptVersionResponse(data=data, request_id=_request_id(request))
+
+    @router.get(
+        "/api/v1/projects/{project_id}/episodes/{episode_id}/script/write-operations/{operation_id}",
+        operation_id="getEpisodeScriptWriteOperation",
+        response_model=EpisodeScriptWriteOperationResponse,
+        responses=_ERRORS,
+    )
+    def get_write_operation(
+        request: Request, project_id: ProjectId, episode_id: EpisodeId, operation_id: OperationId
+    ) -> Any:
+        try:
+            data = store().get_write_operation(
+                project_id=project_id, episode_id=episode_id, operation_id=operation_id
+            )
+        except EpisodeScriptWriteOperationUnknownError:
+            return _error(
+                request,
+                code="SCRIPT_WRITE_OPERATION_UNKNOWN",
+                message="Original script write cannot be attributed",
+                status_code=404,
+            )
+        except EpisodeScriptStorageError:
+            return _error(
+                request,
+                code="SCRIPT_STORAGE_FAILED",
+                message="Original script write read failed safely",
+                status_code=500,
+            )
+        return EpisodeScriptWriteOperationResponse(data=data, request_id=_request_id(request))
 
     return router
 

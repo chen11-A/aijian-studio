@@ -271,6 +271,17 @@ class EpisodeScriptConfirmationStore:
                     episode_id=episode_id,
                     confirmation_id=str(prior["confirmation_id"]),
                 )
+                # A replay resolves only the original immutable receipt/report pair.
+                from aijian_api.script_confirmation_impact_store import (
+                    ScriptConfirmationImpactStore,
+                )
+
+                ScriptConfirmationImpactStore(self._repository)._lookup(
+                    connection,
+                    project_id,
+                    episode_id,
+                    str(prior["confirmation_id"]),
+                )
                 connection.commit()
                 return status, True
 
@@ -283,7 +294,10 @@ class EpisodeScriptConfirmationStore:
                     "Script version or head changed before confirmation"
                 )
             try:
-                record = self._repository._get_artifact_version_in_connection(
+                from aijian_api.script_confirmation_impact_projection import bounded_version_record
+
+                record = bounded_version_record(
+                    self._repository,
                     connection,
                     project_id=project_id,
                     artifact_type="episode_script",
@@ -323,16 +337,32 @@ class EpisodeScriptConfirmationStore:
                 raise EpisodeScriptConfirmationInputError(
                     "A confirmed script needs scenes, blocks, and an upstream version"
                 )
+            from aijian_api.script_confirmation_impact_store import ScriptConfirmationImpactStore
+
+            ScriptConfirmationImpactStore(self._repository)._require_project(connection, project_id)
+            previous = connection.execute(
+                "SELECT confirmation_id FROM episode_script_confirmations "
+                "WHERE project_id = ? AND episode_id = ? ORDER BY rowid DESC LIMIT 1",
+                (project_id, episode_id),
+            ).fetchone()
+            old_confirmation_id = None if previous is None else str(previous[0])
+            if old_confirmation_id is not None:
+                ScriptConfirmationImpactStore(self._repository)._lookup(
+                    connection,
+                    project_id,
+                    episode_id,
+                    old_confirmation_id,
+                )
             confirmation_id = self._id_factory()
             cursor = connection.execute(
                 """
                 INSERT INTO episode_script_confirmations (
                     confirmation_id, project_id, episode_id, artifact_id, version_id,
                     content_hash, head_revision, actor_id, idempotency_key_hash,
-                    request_hash, confirmed_at
+                    request_hash, confirmed_at, impact_coverage_version
                 )
                 SELECT ?, ?, ?, artifact.artifact_id, version.version_id,
-                       version.content_hash, head.revision, ?, ?, ?, ?
+                       version.content_hash, head.revision, ?, ?, ?, ?, 1
                 FROM artifacts AS artifact
                 JOIN artifact_heads AS head ON head.artifact_id = artifact.artifact_id
                 JOIN artifact_versions AS version
@@ -372,12 +402,36 @@ class EpisodeScriptConfirmationStore:
                 raise EpisodeScriptConfirmationStorageError(
                     "New confirmation did not bind the current script"
                 )
+            self._repository._transaction_step("script_confirmation_impact", "receipt_inserted")
+            from aijian_api.script_confirmation_impact_store import record_confirmation_impact
+
+            record_confirmation_impact(
+                self._repository,
+                connection,
+                project_id=project_id,
+                episode_id=episode_id,
+                new_confirmation_id=confirmation_id,
+                old_confirmation_id=old_confirmation_id,
+            )
+            self._repository._transaction_step("script_confirmation_impact", "report_verified")
             connection.commit()
             return status, False
         except sqlite3.DatabaseError as error:
             connection.rollback()
             raise EpisodeScriptConfirmationStorageError(
                 "Script confirmation failed safely"
+            ) from error
+        except (
+            EpisodeScriptConfirmationConflictError,
+            EpisodeScriptConfirmationInputError,
+            EpisodeScriptConfirmationStorageError,
+        ):
+            connection.rollback()
+            raise
+        except (ValueError, RuntimeError) as error:
+            connection.rollback()
+            raise EpisodeScriptConfirmationStorageError(
+                "Script confirmation impact failed verification"
             ) from error
         except Exception:
             connection.rollback()

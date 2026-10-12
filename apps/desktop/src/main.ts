@@ -1,3 +1,11 @@
+import { registerLocalMediaReviewHandlers } from "./local-media-review-ipc";
+import { registerAssemblyReadinessHandler } from "./assembly-readiness-ipc";
+import { registerAssemblyExactHandlers } from "./assembly-exact-ipc";
+import { registerManualMediaCandidateHandlers } from "./manual-media-candidate-ipc";
+import { registerMediaPreparationHandlers } from "./media-preparation-ipc";
+import { registerScriptConfirmationImpactHandlers } from "./script-confirmation-impact-ipc";
+import { registerProjectSettingsHandlers } from "./project-settings-ipc";
+import { registerVisualBibleHandlers } from "./visual-bible-ipc";
 import { registerOfficialDirectorHandlers } from "./official-director-ipc";
 import { registerMediaToolchainHandlers } from "./media-toolchain-ipc";
 import { registerOfficialTextHandlers } from "./official-text-ipc";
@@ -12,6 +20,10 @@ import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc
 import { registerDraftExportHandlers } from "./draft-export-ipc";
 import { prepareCompositionPreviewPath } from "./composition-preview-cache";
 import { registerEpisodeMediaAssemblyHandlers } from "./episode-media-assembly-ipc";
+import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
+import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
+import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
+import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
 import { lstatSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
@@ -21,6 +33,7 @@ import {
   dialog,
   ipcMain,
   safeStorage,
+  nativeImage,
   shell,
   type IpcMainInvokeEvent,
 } from "electron";
@@ -39,6 +52,7 @@ import {
 import { registerAgentSkillCatalogHandlers } from "./agent-skill-catalog-ipc";
 import { registerAppPreferencesHandlers } from "./app-preferences-ipc";
 import { registerMediaAssetHandlers } from "./media-asset-ipc";
+import { registerAudioAssetProbeHandlers } from "./audio-asset-probe-ipc";
 import { registerMediaAssetProbeHandlers } from "./media-asset-probe-ipc";
 import { registerEpisodeScriptHandlers } from "./episode-script-ipc";
 import { registerProjectCreativeLibraryHandlers } from "./project-creative-library-ipc";
@@ -60,7 +74,10 @@ import {
 } from "./e2e-proposal-run-response-fault";
 import { registerFakeTimelineRunHandlers } from "./fake-timeline-run-contract";
 import { registerDevelopmentExportHandlers } from "./development-export-ipc";
-import { registerInvalidationOperationHandlers } from "./invalidation-operation-ipc";
+import {
+  registerInvalidationOperationHandlers,
+  registerInvalidationConsumerHandler,
+} from "./invalidation-operation-ipc";
 import { registerProposalRunHandlers } from "./proposal-run-contract";
 import { isProjectUpdateId, normalizeProjectUpdateCommand } from "./project-update-contract";
 import {
@@ -92,6 +109,7 @@ let sourceManifestReviewController: ReturnType<typeof createSourceManifestReview
   null;
 let sidecar: SidecarHandle | null = null;
 let quitting = false;
+let nativePreviewDocumentEpoch = 0;
 
 function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
@@ -224,9 +242,17 @@ function createMainWindow(): BrowserWindow {
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("did-start-navigation", (_event, _url, isSameDocument, isMainFrame) => {
+    if (isMainFrame && !isSameDocument) {
+      nativePreviewDocumentEpoch += 1;
+      nativePreviewHost.invalidateAll();
+    }
+  });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.once("ready-to-show", () => window.show());
   window.on("closed", () => {
+    nativePreviewDocumentEpoch += 1;
+    nativePreviewHost.invalidateAll();
     mainWindow = null;
   });
 
@@ -398,6 +424,50 @@ registerMediaAssetProbeHandlers<IpcMainInvokeEvent>(
     !event.senderFrame.isDestroyed() &&
     !event.senderFrame.detached,
 );
+registerAudioAssetProbeHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) =>
+    mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.senderFrame === mainWindow.webContents.mainFrame &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached,
+);
+registerVisualBibleHandlers((channel, listener) => ipcMain.handle(channel, listener), {
+  getWindow: () => mainWindow,
+  getClient: () => apiClient,
+  confirm: async (window, detail, signal) => {
+    try {
+      const result = await dialog.showMessageBox(window, {
+        type: "warning",
+        title: "人工 G5 视觉审签",
+        message: "请明确核对本次精确视觉版本与动作",
+        detail,
+        buttons: ["取消", "确认本次动作"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+        signal,
+      });
+      return result.response === 1 && !signal.aborted;
+    } catch {
+      return false;
+    }
+  },
+  decode: (bytes) => {
+    const image = nativeImage.createFromBuffer(Buffer.from(bytes));
+    if (image.isEmpty()) throw new Error("Native image decoder rejected original");
+    const size = image.getSize();
+    return { ...size, bitmap: image.toBitmap() };
+  },
+  decoderVersion: () => {
+    if (!process.versions.electron) throw new Error("Native image decoder version unavailable");
+    return process.versions.electron;
+  },
+});
 registerMediaAssetHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
@@ -467,12 +537,81 @@ registerEpisodeMediaAssemblyHandlers<IpcMainInvokeEvent>(
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
+function nativePreviewAuthorized(event: IpcMainInvokeEvent): boolean {
+  return (
+    mainWindow !== null &&
+    apiClient !== null &&
+    !mainWindow.isDestroyed() &&
+    !mainWindow.webContents.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame !== null &&
+    !event.senderFrame.isDestroyed() &&
+    !event.senderFrame.detached &&
+    event.senderFrame === mainWindow.webContents.mainFrame
+  );
+}
+registerLocalMediaReviewHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+);
+registerAssemblyReadinessHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+);
+registerNativePreviewPlanHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  nativePreviewAuthorized,
+  () => nativePreviewDocumentEpoch,
+);
+const nativePreviewHost = createManagedMediaPreviewHost({
+  resolvePlan: async (identity) =>
+    apiClient?.getNativeMediaPreviewPlan(
+      identity.project_id,
+      identity.episode_id,
+      identity.assembly_version_id,
+    ) ?? { kind: "UNKNOWN" },
+  // Actual installed-source composition; empty compiled policy still returns null.
+  runtime: createInstalledMltNativeRuntime({
+    platform: process.platform,
+    packaged: app.isPackaged,
+    getPipe: () => sidecar?.nativePipe ?? null,
+  }),
+});
+registerMediaPreviewSessionHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  nativePreviewHost,
+  nativePreviewAuthorized,
+  () => nativePreviewDocumentEpoch,
+);
 registerShotPlanHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
 registerEpisodeStoryboardHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerMediaPreparationHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerManualMediaCandidateHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerAssemblyExactHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerScriptConfirmationImpactHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
@@ -543,6 +682,10 @@ registerArtifactProposalHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
 );
+registerInvalidationConsumerHandler<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+);
 registerInvalidationOperationHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
@@ -562,6 +705,11 @@ registerVersionedSourceExtractionProposalHandler<IpcMainInvokeEvent>(
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
 );
 registerSub2APISourceExtractHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  clientFor,
+  (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
+);
+registerProjectSettingsHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
@@ -666,12 +814,18 @@ void startApplication().catch((error: unknown) => {
 });
 
 app.on("before-quit", (event) => {
+  nativePreviewHost.invalidateAll();
   void chatgptRuntime?.cancel();
-  if (quitting || sidecar === null) return;
+  if (quitting) return;
   event.preventDefault();
   quitting = true;
-  void sidecar
-    .stop()
+  const stoppedSidecar = sidecar;
+  // Preserve the private channel until supervisor-owned stop attempts settle.
+  // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
+  void nativePreviewHost
+    .shutdown()
+    .catch(() => undefined)
+    .then(() => stoppedSidecar?.stop())
     .catch(() => undefined)
     .finally(() => {
       sidecar = null;

@@ -3,6 +3,7 @@ import { Button } from "./Common";
 import { bindAssemblyDialogue } from "./adapters/assemblyDialogue";
 import type { AssemblyContent } from "./adapters/episodeMediaAssembly";
 import { useAssemblyScriptSources, type AssemblyScriptGateway } from "./useAssemblyScriptSources";
+import { useConfirmedAssemblyScript } from "./useConfirmedAssemblyScript";
 
 /** Binds imported audio to one immutable saved script block; no voice generation. */
 export function AssemblyDialogueAudioEditor({
@@ -20,12 +21,25 @@ export function AssemblyDialogueAudioEditor({
 }) {
   const segment = content.audio_segments.find((item) => item.segment_id === selectedId);
   const bound = segment?.track_kind === "DIALOGUE" ? segment : undefined;
-  const { latest, pinned, refresh } = useAssemblyScriptSources(
+  const {
+    latest: latestDraft,
+    pinned,
+    refresh: refreshDraft,
+  } = useAssemblyScriptSources(
     content.project_id,
     content.episode_id,
     bound?.script_version_id ?? undefined,
     gateway,
   );
+  const confirmed = useConfirmedAssemblyScript(content.project_id, content.episode_id, gateway);
+  const scope = `${content.project_id}/${content.episode_id}`;
+  const [sourceChoice, setSourceChoice] = useState({ scope: "", confirmed: false });
+  const latest =
+    sourceChoice.scope === scope && sourceChoice.confirmed ? confirmed.source : latestDraft;
+  const refresh = () => {
+    refreshDraft();
+    confirmed.refresh();
+  };
   const choiceKey = `${content.project_id}/${content.episode_id}/${selectedId}/${latest.version?.version_id ?? ""}`;
   const [choice, setChoice] = useState({ key: "", blockId: "" });
   const blockId =
@@ -129,6 +143,21 @@ export function AssemblyDialogueAudioEditor({
             {latest.state === "empty" && (
               <p>本集还没有已保存剧本。先到「剧本」保存真实对白，再回来绑定。</p>
             )}
+            <label>
+              对白来源版本
+              <select
+                disabled={locked || sourceUnavailable}
+                value={
+                  sourceChoice.scope === scope && sourceChoice.confirmed ? "confirmed" : "draft"
+                }
+                onChange={(event) =>
+                  setSourceChoice({ scope, confirmed: event.target.value === "confirmed" })
+                }
+              >
+                <option value="draft">最新已保存草稿</option>
+                <option value="confirmed">最近人工确认的精确版本</option>
+              </select>
+            </label>
             {latest.version && (
               <>
                 <label>

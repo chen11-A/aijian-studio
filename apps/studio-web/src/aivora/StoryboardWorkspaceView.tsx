@@ -3,9 +3,12 @@ import { Button } from "./Common";
 import { CreativeWorkspaceFrame } from "./CreativeWorkspaceFrame";
 import { StoryboardReferences } from "./StoryboardReferences";
 import { StoryboardTextPreview } from "./StoryboardTextPreview";
+import { StoryboardAssemblyPreview } from "./StoryboardAssemblyPreview";
+import { StoryboardPlanningFields } from "./StoryboardPlanningFields";
 import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
 import {
   newStoryboardShot,
+  withStoryboardShots,
   reorderStoryboardShots,
   type StoryboardShot,
 } from "./adapters/episodeStoryboard";
@@ -33,7 +36,7 @@ export function StoryboardWorkspaceView({
   const [preview, setPreview] = useState(false);
   const titleInput = useRef<HTMLInputElement>(null);
   const shot = content.shots.find((item) => item.shot_id === selectedId) ?? content.shots[0];
-  const index = shot ? content.shots.indexOf(shot) : -1;
+  const index = shot ? content.shots.findIndex((item) => item.shot_id === shot.shot_id) : -1;
   const totalFrames = content.shots.reduce((sum, item) => sum + item.duration_frames, 0);
   function select(id: string | null) {
     setSelectedId(id);
@@ -51,7 +54,7 @@ export function StoryboardWorkspaceView({
       state.setNotice("无法生成可靠的镜头标识，请重新打开软件。");
       return;
     }
-    state.edit((value) => ({ ...value, shots: [...value.shots, next] }));
+    state.edit((value) => withStoryboardShots(value, [...value.shots, next]));
     select(next.shot_id);
     setPreview(false);
     window.setTimeout(() => {
@@ -61,12 +64,12 @@ export function StoryboardWorkspaceView({
   }
   function updateShot(patch: Partial<StoryboardShot>) {
     if (!shot) return;
-    state.edit((value) => ({
-      ...value,
-      shots: value.shots.map((item) =>
-        item.shot_id === shot.shot_id ? { ...item, ...patch } : item,
+    state.edit((value) =>
+      withStoryboardShots(
+        value,
+        value.shots.map((item) => (item.shot_id === shot.shot_id ? { ...item, ...patch } : item)),
       ),
-    }));
+    );
   }
   function remove() {
     if (
@@ -77,12 +80,14 @@ export function StoryboardWorkspaceView({
       )
     )
       return;
-    state.edit((value) => ({
-      ...value,
-      shots: value.shots
-        .filter((item) => item.shot_id !== shot.shot_id)
-        .map((item, ordinal) => ({ ...item, ordinal: ordinal + 1 })),
-    }));
+    state.edit((value) =>
+      withStoryboardShots(
+        value,
+        value.shots
+          .filter((item) => item.shot_id !== shot.shot_id)
+          .map((item, ordinal) => ({ ...item, ordinal: ordinal + 1 })),
+      ),
+    );
     select(content.shots[index + 1]?.shot_id ?? content.shots[index - 1]?.shot_id ?? null);
   }
   const stateLabel = busy
@@ -191,10 +196,12 @@ export function StoryboardWorkspaceView({
                         locked || index + offset < 0 || index + offset >= content.shots.length
                       }
                       onClick={() =>
-                        state.edit((value) => ({
-                          ...value,
-                          shots: reorderStoryboardShots(value.shots, index, offset),
-                        }))
+                        state.edit((value) =>
+                          withStoryboardShots(
+                            value,
+                            reorderStoryboardShots(value.shots, index, offset),
+                          ),
+                        )
                       }
                     >
                       {offset < 0 ? "上移" : "下移"}
@@ -285,7 +292,16 @@ export function StoryboardWorkspaceView({
       }
     >
       {preview ? (
-        <StoryboardTextPreview content={content} />
+        <>
+          <StoryboardTextPreview content={content} />
+          <StoryboardAssemblyPreview
+            projectId={projectId}
+            episodeId={episodeId}
+            version={version}
+            dirty={dirty}
+            disabled={locked || state.readState !== "ready"}
+          />
+        </>
       ) : shot ? (
         <article className="cw-shot-document">
           <header>
@@ -324,6 +340,12 @@ export function StoryboardWorkspaceView({
               />
             </label>
           </fieldset>
+          <StoryboardPlanningFields
+            content={content}
+            shot={shot}
+            locked={locked}
+            edit={state.edit}
+          />
         </article>
       ) : (
         <div className="cw-document-empty">

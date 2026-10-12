@@ -8,11 +8,17 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from aijian_api.artifacts import canonical_content_bytes
 from aijian_api.managed_local_paths import managed_local_io_path
-from aijian_api.media_probe import LocalMediaProbeData, _is_remote_windows_path, probe_local_media
+from aijian_api.media_probe import (
+    LocalAudioProbeData,
+    LocalMediaProbeData,
+    _is_remote_windows_path,
+    probe_local_media,
+)
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.repository import StudioRepository
 
@@ -54,6 +60,8 @@ def _selected_row(
     project_id: str,
     asset_id: str,
     version_id: str,
+    *,
+    kind: Literal["video", "audio"] = "video",
 ) -> sqlite3.Row:
     row: object = connection.execute(
         """SELECT version.sha256, version.byte_size, version.kind
@@ -74,10 +82,12 @@ def _selected_row(
             "MEDIA_RECORD_CORRUPT",
             "Selected media metadata is not a SQLite row",
         )
-    if str(row["kind"]) != "video":
+    if str(row["kind"]) != kind:
         raise MediaAssetProbeEvidenceError(
-            "VIDEO_REQUIRED",
-            "Only video originals can use this probe contract",
+            "VIDEO_REQUIRED" if kind == "video" else "AUDIO_REQUIRED",
+            "Only video originals can use this probe contract"
+            if kind == "video"
+            else "Only audio originals can use this probe contract",
         )
     return row
 
@@ -117,7 +127,7 @@ def _managed_path(repository: StudioRepository, digest: str) -> Path:
     return source
 
 
-def _from_row(row: sqlite3.Row) -> MediaAssetProbeEvidence:
+def _verify_probe_row(row: sqlite3.Row) -> bytes:
     raw = str(row["probe_json"]).encode("utf-8")
     if len(raw) > MAX_PERSISTED_PROBE_BYTES or hashlib.sha256(raw).hexdigest() != str(
         row["probe_sha256"]
@@ -125,6 +135,11 @@ def _from_row(row: sqlite3.Row) -> MediaAssetProbeEvidence:
         raise MediaAssetProbeEvidenceError(
             "PROBE_RECORD_CORRUPT", "Stored probe evidence hash is invalid"
         )
+    return raw
+
+
+def _from_row(row: sqlite3.Row) -> MediaAssetProbeEvidence:
+    raw = _verify_probe_row(row)
     try:
         probe = LocalMediaProbeData.model_validate(json.loads(raw))
     except (ValueError, TypeError):
@@ -209,71 +224,96 @@ class MediaAssetProbeEvidenceStore:
             raise MediaAssetProbeEvidenceError(
                 "MEDIA_IDENTITY_CHANGED", "Probed bytes differ from the selected version"
             )
-        payload = probe.model_dump(mode="json")
-        canonical = canonical_content_bytes(payload)
-        if len(canonical) > MAX_PERSISTED_PROBE_BYTES:
-            raise MediaAssetProbeEvidenceError(
-                "PROBE_EVIDENCE_TOO_LARGE", "Probe evidence exceeds persistence limit"
+        row = persist_selected_probe(
+            self._repository, project_id, asset_id, version_id, probe, toolchain, kind="video"
+        )
+        return _from_row(row)
+
+
+def persist_selected_probe(
+    repository: StudioRepository,
+    project_id: str,
+    asset_id: str,
+    version_id: str,
+    probe: LocalMediaProbeData | LocalAudioProbeData,
+    toolchain: MediaToolchain,
+    *,
+    kind: Literal["video", "audio"],
+) -> sqlite3.Row:
+    """One immutable evidence table and transaction for either explicitly selected media kind."""
+    digest = probe.source_asset_sha256.removeprefix("sha256:")
+    byte_size = probe.byte_size
+    payload = probe.model_dump(mode="json")
+    canonical = canonical_content_bytes(payload)
+    if len(canonical) > MAX_PERSISTED_PROBE_BYTES:
+        raise MediaAssetProbeEvidenceError(
+            "PROBE_EVIDENCE_TOO_LARGE", "Probe evidence exceeds persistence limit"
+        )
+    probe_sha256 = hashlib.sha256(canonical).hexdigest()
+    with repository._connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            current = (
+                _selected_row(connection, project_id, asset_id, version_id)
+                if kind == "video"
+                else _selected_row(connection, project_id, asset_id, version_id, kind="audio")
             )
-        probe_sha256 = hashlib.sha256(canonical).hexdigest()
-        with self._repository._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            try:
-                current = _selected_row(connection, project_id, asset_id, version_id)
-                if str(current["sha256"]) != digest or int(current["byte_size"]) != byte_size:
+            if str(current["sha256"]) != digest or int(current["byte_size"]) != byte_size:
+                raise MediaAssetProbeEvidenceError(
+                    "MEDIA_IDENTITY_CHANGED", "Selected version changed during probe"
+                )
+            existing = connection.execute(
+                """SELECT * FROM media_asset_probe_evidence
+                   WHERE project_id = ? AND asset_id = ? AND version_id = ?""",
+                (project_id, asset_id, version_id),
+            ).fetchone()
+            if existing is not None:
+                _verify_probe_row(existing)
+                if (
+                    str(existing["probe_sha256"]) != probe_sha256
+                    or str(existing["toolchain_profile_id"]) != toolchain.profile_id
+                    or str(existing["toolchain_version"]) != toolchain.version
+                    or str(existing["ffmpeg_sha256"]) != toolchain.ffmpeg_sha256
+                    or str(existing["ffprobe_sha256"]) != toolchain.ffprobe_sha256
+                ):
                     raise MediaAssetProbeEvidenceError(
-                        "MEDIA_IDENTITY_CHANGED", "Selected version changed during probe"
+                        "PROBE_EVIDENCE_CONFLICT", "A different immutable probe already exists"
                     )
-                existing = connection.execute(
-                    """SELECT * FROM media_asset_probe_evidence
-                       WHERE project_id = ? AND asset_id = ? AND version_id = ?""",
-                    (project_id, asset_id, version_id),
+            else:
+                evidence_id = f"mpe_{uuid4().hex}"
+                timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+                connection.execute(
+                    """INSERT INTO media_asset_probe_evidence (
+                         id, project_id, asset_id, version_id, asset_sha256, byte_size,
+                         probe_json, probe_sha256, toolchain_profile_id, toolchain_version,
+                         ffmpeg_sha256, ffprobe_sha256, created_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        evidence_id,
+                        project_id,
+                        asset_id,
+                        version_id,
+                        digest,
+                        byte_size,
+                        canonical.decode("utf-8"),
+                        probe_sha256,
+                        toolchain.profile_id,
+                        toolchain.version,
+                        toolchain.ffmpeg_sha256,
+                        toolchain.ffprobe_sha256,
+                        timestamp,
+                    ),
+                )
+                row = connection.execute(
+                    "SELECT * FROM media_asset_probe_evidence WHERE id = ?",
+                    (evidence_id,),
                 ).fetchone()
-                if existing is not None:
-                    evidence = _from_row(existing)
-                    if (
-                        evidence.probe_sha256 != probe_sha256
-                        or evidence.toolchain_profile_id != toolchain.profile_id
-                        or evidence.toolchain_version != toolchain.version
-                        or evidence.ffmpeg_sha256 != toolchain.ffmpeg_sha256
-                        or evidence.ffprobe_sha256 != toolchain.ffprobe_sha256
-                    ):
-                        raise MediaAssetProbeEvidenceError(
-                            "PROBE_EVIDENCE_CONFLICT", "A different immutable probe already exists"
-                        )
-                else:
-                    evidence_id = f"mpe_{uuid4().hex}"
-                    timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-                    connection.execute(
-                        """INSERT INTO media_asset_probe_evidence (
-                             id, project_id, asset_id, version_id, asset_sha256, byte_size,
-                             probe_json, probe_sha256, toolchain_profile_id, toolchain_version,
-                             ffmpeg_sha256, ffprobe_sha256, created_at
-                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (
-                            evidence_id,
-                            project_id,
-                            asset_id,
-                            version_id,
-                            digest,
-                            byte_size,
-                            canonical.decode("utf-8"),
-                            probe_sha256,
-                            toolchain.profile_id,
-                            toolchain.version,
-                            toolchain.ffmpeg_sha256,
-                            toolchain.ffprobe_sha256,
-                            timestamp,
-                        ),
-                    )
-                    row = connection.execute(
-                        "SELECT * FROM media_asset_probe_evidence WHERE id = ?",
-                        (evidence_id,),
-                    ).fetchone()
-                    assert row is not None
-                    evidence = _from_row(row)
-                connection.commit()
-            except BaseException:
-                connection.rollback()
-                raise
-        return evidence
+                assert row is not None
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+    result = existing if existing is not None else row
+    if not isinstance(result, sqlite3.Row):
+        raise MediaAssetProbeEvidenceError("PROBE_RECORD_CORRUPT", "Probe row is unavailable")
+    return result

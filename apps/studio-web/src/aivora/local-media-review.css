@@ -1,0 +1,56 @@
+.local-media-review {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--v2-border, #d9e0eb);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+.local-media-review label {
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.local-media-review .local-review-subject {
+  min-width: 0;
+  max-width: 100%;
+}
+.local-media-review select,
+.local-media-review textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.local-media-review textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.local-media-review pre,
+.local-review-observation {
+  white-space: pre-wrap;
+}
+.local-media-review .local-review-declaration {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+.local-media-review .local-review-declaration input[type="checkbox"] {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  margin-top: 2px;
+}
+.local-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-review-history {
+  margin-top: 16px;
+}

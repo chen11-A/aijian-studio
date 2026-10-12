@@ -65,12 +65,22 @@ from aijian_api.episode_schema import MIGRATION_17
 from aijian_api.episode_script_confirmation_schema import EPISODE_SCRIPT_CONFIRMATION_MIGRATION
 from aijian_api.episode_script_schema import EPISODE_SCRIPT_MIGRATION
 from aijian_api.episode_storyboard_schema import EPISODE_STORYBOARD_MIGRATION
-from aijian_api.gate_policy import DEFAULT_GATE_POLICIES, GatePolicy
+from aijian_api.gate_policy import (
+    DEFAULT_GATE_POLICIES,
+    VISUAL_ENVIRONMENT_GATE_POLICY_V2,
+    GatePolicy,
+)
 from aijian_api.ingestion import ParsedSource
 from aijian_api.invalidation_schema import MIGRATION_15, migration_15_statements
+from aijian_api.local_media_review_schema import LOCAL_MEDIA_REVIEW_MIGRATION
+from aijian_api.manual_media_candidate_schema import (
+    ASSEMBLY_WRITE_RECEIPT_MIGRATION,
+    MANUAL_MEDIA_CANDIDATE_MIGRATION,
+)
 from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
 from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
 from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.media_preparation_schema import MEDIA_PREPARATION_MIGRATION
 from aijian_api.official_director_schema import OFFICIAL_DIRECTOR_MIGRATION
 from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
 from aijian_api.product_export_schema import PRODUCT_EXPORT_MIGRATION
@@ -86,6 +96,7 @@ from aijian_api.provider_schema import (
     migration_22_statements,
 )
 from aijian_api.remote_settlement_contracts import migration_21_statements
+from aijian_api.script_confirmation_impact_schema import SCRIPT_CONFIRMATION_IMPACT_MIGRATION
 from aijian_api.shot_plan_schema import SHOT_PLAN_MIGRATION
 from aijian_api.source_manifest import (
     SourceManifestBlockV1,
@@ -93,6 +104,7 @@ from aijian_api.source_manifest import (
     SourceManifestDocumentV1,
 )
 from aijian_api.sub2api_source_extract_schema import migration_23_statements
+from aijian_api.visual_bible_schema import VISUAL_BIBLE_MIGRATION
 from aijian_api.workflow_schema import (
     MIGRATION_4,
     MIGRATION_5,
@@ -108,7 +120,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 42
+SCHEMA_VERSION = 47
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -847,6 +859,11 @@ _MIGRATIONS = {
     40: SHOT_PLAN_MIGRATION,
     41: OFFICIAL_DIRECTOR_MIGRATION,
     42: DRAFT_REVIEW_REVISION_MIGRATION,
+    43: VISUAL_BIBLE_MIGRATION,
+    44: SCRIPT_CONFIRMATION_IMPACT_MIGRATION,
+    45: MEDIA_PREPARATION_MIGRATION,
+    46: (*MANUAL_MEDIA_CANDIDATE_MIGRATION, *ASSEMBLY_WRITE_RECEIPT_MIGRATION),
+    47: LOCAL_MEDIA_REVIEW_MIGRATION,
 }
 
 
@@ -2542,6 +2559,11 @@ class StudioRepository:
                 )
                 if int(head_row["revision"]) != expected_revision:
                     raise ArtifactConflictError("Artifact head revision has changed")
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, action, action_payload, actor)
+                bound_payload = self._bound_action_payload(action_payload, actor, policy)
                 if (
                     action in ("signoff", "decision")
                     and not policy.allow_self_review
@@ -2565,8 +2587,12 @@ class StudioRepository:
 
                 if readiness_report_id is None:
                     content = cast(dict[str, object], json.loads(str(version_row["content_json"])))
-                    readiness_report = policy.evaluate(content)
-                    if readiness_report.get("ready") is not True:
+                    readiness_report = self._evaluate_gate_readiness(
+                        connection, policy, version_row, content
+                    )
+                    if readiness_report.get("ready") is not True and not self._g5_rejection(
+                        policy, action, action_payload
+                    ):
                         raise GateNotReadyError("Gate readiness has blocking checks")
                     report = GateReadinessReport(
                         id=self._id_factory("rpt"),
@@ -2625,11 +2651,26 @@ class StudioRepository:
                         or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
                         or report.review_evidence_revision
                         != int(head_row["review_evidence_revision"])
-                        or report.expires_at <= now
-                        or report.report.get("ready") is not True
+                        or (report.expires_at <= now and policy.artifact_type != "visual_bible")
+                        or (
+                            report.report.get("ready") is not True
+                            and not self._g5_rejection(policy, action, action_payload)
+                        )
                         or report.submission_id != str(head_row["review_submission_id"])
                     ):
                         raise ReviewInvalidError("Readiness report does not match review evidence")
+
+                if artifact_type == "visual_bible" and readiness_report_id is not None:
+                    fresh = self._evaluate_gate_readiness(
+                        connection,
+                        policy,
+                        version_row,
+                        cast(dict[str, object], json.loads(str(version_row["content_json"]))),
+                    )
+                    if canonical_content_hash(fresh) != report.report_hash:
+                        raise ReviewInvalidError(
+                            "G5 originals or rights/inspection evidence changed"
+                        )
 
                 challenge_id = self._id_factory("chg")
                 confirmation_token = self._challenge_token_factory()
@@ -2711,6 +2752,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "submit", {}, actor)
                 report = self._consume_challenge(
                     connection,
                     challenge_id=challenge_id,
@@ -2810,6 +2855,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "signoff", payload, actor)
                 submission_id = self._require_open_review(head_row, version_id)
                 report = self._consume_challenge(
                     connection,
@@ -2926,6 +2975,10 @@ class StudioRepository:
                     artifact_type=artifact_type,
                     version_id=version_id,
                 )
+                policy = self._gate_policy(
+                    artifact_type, content_schema_version=str(version_row["schema_version"])
+                )
+                self._authorize_review_action(policy, "decision", payload, actor)
                 submission_id = self._require_open_review(head_row, version_id)
                 report = self._consume_challenge(
                     connection,
@@ -3167,23 +3220,100 @@ class StudioRepository:
             report.version_id != version_id
             or report.gate != gate
             or report.review_evidence_revision != expected_evidence_revision
-            or report.expires_at <= consumed_at
+            or (report.expires_at <= consumed_at and policy.artifact_type != "visual_bible")
             or report.policy_code != policy.policy_code
             or report.policy_version != policy.policy_version
             or report.report.get("policy_snapshot_hash") != policy.snapshot_hash
-            or report.report.get("ready") is not True
+            or (
+                report.report.get("ready") is not True
+                and not self._g5_rejection(policy, expected_action, action_payload)
+            )
         ):
             raise ReviewInvalidError("Readiness report no longer matches the review")
+        if policy.artifact_type == "visual_bible":
+            version_row = connection.execute(
+                "SELECT * FROM artifact_versions WHERE version_id = ?",
+                (version_id,),
+            ).fetchone()
+            if version_row is None:
+                raise ReviewInvalidError("G5 visual version is missing")
+            fresh = self._evaluate_gate_readiness(
+                connection,
+                policy,
+                version_row,
+                cast(dict[str, object], json.loads(str(version_row["content_json"]))),
+            )
+            if canonical_content_hash(fresh) != report.report_hash:
+                raise ReviewInvalidError("G5 originals or rights/inspection evidence changed")
         return report
+
+    @staticmethod
+    def _g5_rejection(
+        policy: GatePolicy,
+        action: ReviewAction,
+        payload: dict[str, object],
+    ) -> bool:
+        return (
+            policy.artifact_type == "visual_bible"
+            and action == "decision"
+            and payload.get("decision") == "rejected"
+        )
+
+    def _evaluate_gate_readiness(
+        self,
+        connection: sqlite3.Connection,
+        policy: GatePolicy,
+        version_row: sqlite3.Row,
+        content: dict[str, object],
+    ) -> dict[str, object]:
+        if policy.artifact_type != "visual_bible":
+            return policy.evaluate(content)
+        from aijian_api.visual_bible_integrity import fresh_visual_readiness
+
+        owner = connection.execute(
+            "SELECT project_id, episode_id, artifact_type FROM artifacts WHERE artifact_id=?",
+            (str(version_row["artifact_id"]),),
+        ).fetchone()
+        if (
+            owner is None
+            or owner["episode_id"] is not None
+            or owner["artifact_type"] != "visual_bible"
+        ):
+            raise ReviewInvalidError("G5 artifact scope is inconsistent")
+        record = self._get_artifact_version_in_connection(
+            connection,
+            project_id=str(owner["project_id"]),
+            artifact_type="visual_bible",
+            version_id=str(version_row["version_id"]),
+            episode_id=None,
+        )
+        report = fresh_visual_readiness(self, connection, record, str(owner["project_id"]))
+        return {
+            **report,
+            "policy_code": policy.policy_code,
+            "policy_version": policy.policy_version,
+            "policy_snapshot_hash": policy.snapshot_hash,
+        }
 
     def _transaction_step(self, operation: str, step: str) -> None:
         if self._transaction_hook is not None:
             self._transaction_hook(operation, step)
 
-    def _gate_policy(self, artifact_type: str) -> GatePolicy:
+    def _gate_policy(
+        self, artifact_type: str, *, content_schema_version: str | None = None
+    ) -> GatePolicy:
         policy = self._gate_policies.get(artifact_type)
         if policy is None or policy.artifact_type != artifact_type:
             raise ReviewInvalidError("Artifact type does not have a registered Gate policy")
+        if artifact_type == "visual_bible" and content_schema_version is not None:
+            if content_schema_version == "1.1.0":
+                if policy != DEFAULT_GATE_POLICIES["visual_bible"]:
+                    raise ReviewInvalidError(
+                        "Environment Gate policy is not registered for this configuration"
+                    )
+                return VISUAL_ENVIRONMENT_GATE_POLICY_V2
+            if content_schema_version != "1.0.0":
+                raise ReviewInvalidError("Visual schema has no registered Gate policy")
         return policy
 
     @staticmethod

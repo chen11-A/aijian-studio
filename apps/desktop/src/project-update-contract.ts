@@ -1,4 +1,5 @@
 import type { components } from "@aijian/contracts";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { hasControlCharacter, hasRequestId, isRecord } from "./api-contract-guards";
 
 export type ProjectResponse = components["schemas"]["ProjectResponse"];
@@ -104,7 +105,7 @@ export function isProjectUpdateReceipt(
     hasExactKeys(data, PROJECT_DATA_KEYS) &&
     data.id === projectId &&
     typeof data.name === "string" &&
-    data.aspect_ratio === "9:16" &&
+    isProjectAspectRatio(data.aspect_ratio) &&
     typeof data.target_duration_seconds === "number" &&
     Number.isSafeInteger(data.target_duration_seconds) &&
     data.source_language === "zh-CN" &&

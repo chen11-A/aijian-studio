@@ -17,9 +17,9 @@ from contextlib import ExitStack
 from enum import StrEnum
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from aijian_api.media_contracts import MediaTimestampData, PositiveRationalData
 from aijian_api.media_toolchain import MediaToolchain
@@ -97,6 +97,49 @@ class LocalMediaProbeData(BaseModel):
     container_duration: PositiveRationalData
     video: VideoProbeData
     audio: AudioProbeData | None
+
+
+class AudioSourceRationalData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    num: int = Field(gt=0, le=JSON_SAFE_INTEGER_MAX)
+    den: int = Field(gt=0, le=2_147_483_647)
+
+
+class AudioSourceTimingData(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    stream_index: int = Field(ge=0, le=JSON_SAFE_INTEGER_MAX)
+    codec_name: str = Field(min_length=1, max_length=256)
+    sample_rate_hz: int = Field(ge=1, le=384_000)
+    channels: int = Field(ge=1, le=64)
+    channel_layout: str | None = Field(max_length=256)
+    time_base: AudioSourceRationalData
+    total_samples: int = Field(gt=0, le=JSON_SAFE_INTEGER_MAX)
+
+
+class LocalAudioProbeData(BaseModel):
+    """A pure audio original; it cannot satisfy a video or proxy contract."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    source_asset_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    byte_size: int = Field(gt=0, le=JSON_SAFE_INTEGER_MAX)
+    format_names: tuple[str, ...]
+    container_duration: AudioSourceRationalData
+    video: None
+    audio: AudioSourceTimingData
+
+    @model_validator(mode="after")
+    def validate_audio_source(self) -> LocalAudioProbeData:
+        if (
+            not self.format_names
+            or len(self.format_names) > 64
+            or any(not name or len(name) > 128 for name in self.format_names)
+            or not 1 <= self.audio.sample_rate_hz <= 384_000
+            or not 1 <= self.audio.channels <= 64
+            or not 1 <= self.audio.total_samples <= JSON_SAFE_INTEGER_MAX
+        ):
+            raise ValueError("Audio source timing is incomplete or outside safety bounds")
+        return self
 
 
 def run_ffprobe_command(
@@ -551,12 +594,18 @@ def _parse_video(
 def _parse_audio(
     stream: dict[str, Any],
     frame_payload: dict[str, Any],
+    *,
+    audio_only: bool = False,
 ) -> AudioProbeData:
     sample_rate = _strict_int(stream.get("sample_rate"), minimum=1)
-    if sample_rate not in ACCEPTED_AUDIO_SAMPLE_RATES:
+    if not (
+        1 <= sample_rate <= 384_000 if audio_only else sample_rate in ACCEPTED_AUDIO_SAMPLE_RATES
+    ):
         raise MediaProbeError(
             MediaProbeErrorCode.UNSUPPORTED_LAYOUT,
-            "audio sample rate is not accepted by the Phase 0 contract",
+            "audio sample rate exceeds audio source bounds"
+            if audio_only
+            else "audio sample rate is not accepted by the Phase 0 contract",
         )
     stream_index = _strict_int(stream.get("index"))
     raw_frames = frame_payload.get("frames")
@@ -593,6 +642,34 @@ def probe_local_media(
     command_runner: CommandRunner = run_ffprobe_command,
 ) -> LocalMediaProbeData:
     """Probe one immutable local file and return canonical timing metadata."""
+
+    result = _probe_local_media(source, toolchain, command_runner=command_runner, kind="video")
+    if not isinstance(result, LocalMediaProbeData):
+        raise MediaProbeError(MediaProbeErrorCode.INVALID_OUTPUT, "Video probe kind differs")
+    return result
+
+
+def probe_local_audio(
+    source: Path,
+    toolchain: MediaToolchain,
+    *,
+    command_runner: CommandRunner = run_ffprobe_command,
+) -> LocalAudioProbeData:
+    """Use the same guarded snapshot and pinned tools, without a fabricated video stream."""
+
+    result = _probe_local_media(source, toolchain, command_runner=command_runner, kind="audio")
+    if not isinstance(result, LocalAudioProbeData):
+        raise MediaProbeError(MediaProbeErrorCode.INVALID_OUTPUT, "Audio probe kind differs")
+    return result
+
+
+def _probe_local_media(
+    source: Path,
+    toolchain: MediaToolchain,
+    *,
+    command_runner: CommandRunner,
+    kind: Literal["video", "audio"],
+) -> LocalMediaProbeData | LocalAudioProbeData:
 
     if not source.is_absolute() or _is_remote_windows_path(source):
         raise MediaProbeError(
@@ -684,27 +761,33 @@ def probe_local_media(
                 video_streams = [item for item in streams if item.get("codec_type") == "video"]
                 audio_streams = [item for item in streams if item.get("codec_type") == "audio"]
                 if (
-                    len(video_streams) != 1
-                    or len(audio_streams) > 1
-                    or len(video_streams) + len(audio_streams) != len(streams)
-                ):
+                    len(video_streams) != 1 or len(audio_streams) > 1
+                    if kind == "video"
+                    else len(video_streams) != 0 or len(audio_streams) != 1
+                ) or len(video_streams) + len(audio_streams) != len(streams):
                     raise MediaProbeError(
                         MediaProbeErrorCode.UNSUPPORTED_LAYOUT,
-                        "only one video stream and at most one audio stream are supported",
+                        "only one video stream and at most one audio stream are supported"
+                        if kind == "video"
+                        else "Expected exactly one pure audio stream",
                     )
 
-                video_frames = _run_probe(
-                    toolchain,
-                    snapshot,
-                    source_hash,
-                    (
-                        "-select_streams",
-                        "v:0",
-                        "-show_frames",
-                        "-show_entries",
-                        "frame=media_type,stream_index,key_frame,pts,duration",
-                    ),
-                    command_runner,
+                video_frames = (
+                    _run_probe(
+                        toolchain,
+                        snapshot,
+                        source_hash,
+                        (
+                            "-select_streams",
+                            "v:0",
+                            "-show_frames",
+                            "-show_entries",
+                            "frame=media_type,stream_index,key_frame,pts,duration",
+                        ),
+                        command_runner,
+                    )
+                    if kind == "video"
+                    else None
                 )
                 audio_frames = None
                 if audio_streams:
@@ -741,12 +824,27 @@ def probe_local_media(
                     format_names = tuple(
                         _strict_text(part.strip()) for part in format_name.split(",")
                     )
-                    video = _parse_video(video_streams[0], video_frames)
                     audio = (
-                        _parse_audio(audio_streams[0], audio_frames)
+                        _parse_audio(audio_streams[0], audio_frames, audio_only=kind == "audio")
                         if audio_streams and audio_frames is not None
                         else None
                     )
+                    if kind == "audio":
+                        if audio is None:
+                            raise ValueError("Audio-only probe has no decoded audio samples")
+                        return LocalAudioProbeData(
+                            source_asset_sha256=f"sha256:{source_hash}",
+                            byte_size=snapshot_size,
+                            format_names=format_names,
+                            container_duration=AudioSourceRationalData.model_validate(
+                                _decimal_rational(format_data.get("duration")).model_dump()
+                            ),
+                            video=None,
+                            audio=AudioSourceTimingData.model_validate(audio.model_dump()),
+                        )
+                    if video_frames is None:
+                        raise ValueError("Video probe has no frame evidence")
+                    video = _parse_video(video_streams[0], video_frames)
                     return LocalMediaProbeData(
                         source_asset_sha256=f"sha256:{source_hash}",
                         byte_size=snapshot_size,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Button } from "./Common";
 import { ASSEMBLY_TIMEBASES } from "./adapters/assemblyEditing";
-import type { MediaAsset } from "./adapters/assetLibrary";
+import type { AssetVersion, MediaAsset } from "./adapters/assetLibrary";
 import {
   createMediaProbeStore,
   sharedMediaProbeStore,
@@ -12,17 +12,19 @@ import {
 export function MediaAssetProbe({
   projectId,
   asset,
+  version: providedVersion,
   gateway,
   canProbe,
   disabled = false,
 }: {
   projectId: string;
   asset: MediaAsset;
+  version?: AssetVersion;
   gateway?: MediaAssetProbeGateway;
   canProbe: boolean;
   disabled?: boolean;
 }) {
-  const version = asset.latest_version;
+  const version = providedVersion ?? asset.latest_version;
   const scope: MediaProbeScope = {
     projectId,
     assetId: asset.id,
@@ -39,7 +41,10 @@ export function MediaAssetProbe({
   useEffect(() => {
     void store.refresh();
   }, [store]);
-  const unavailable = version.availability === "MISSING" || version.availability === "CORRUPT";
+  const unavailable =
+    version.kind !== "video" ||
+    version.availability === "MISSING" ||
+    version.availability === "CORRUPT";
   const evidence = state.evidence;
   const video = evidence?.probe.video;
   const supportedRate =

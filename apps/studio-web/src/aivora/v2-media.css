@@ -848,3 +848,75 @@
     font-size: 10px;
   }
 }
+
+/* Local preparation and candidate inputs share one bounded, reachable page region. */
+.media-preparation-workflow {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 20px;
+}
+.media-preparation-workflow fieldset,
+.media-preparation-workflow label,
+.media-preparation-workflow input,
+.media-preparation-workflow select,
+.media-preparation-workflow textarea {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.media-preparation-workflow p,
+.media-preparation-workflow button,
+.media-preparation-workflow summary {
+  overflow-wrap: anywhere;
+}
+.manual-candidate-section {
+  padding: 16px;
+}
+.manual-media-candidate-panel {
+  padding: 12px 0;
+}
+.manual-media-candidate-panel fieldset {
+  display: grid;
+  gap: 12px;
+}
+.manual-media-candidate-panel label {
+  display: grid;
+  gap: 6px;
+}
+.manual-media-candidate-panel textarea {
+  min-height: 100px;
+}
+.media-input-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+/* Exact local preparation inputs must remain reachable by mouse in bounded windows. */
+.demo-root .page-generation .page-scroll > .v2-media-body.media-preparation-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+}
+.demo-root .media-preparation-scroll fieldset,
+.demo-root .media-preparation-scroll label,
+.demo-root .media-preparation-scroll input,
+.demo-root .media-preparation-scroll select,
+.demo-root .media-preparation-scroll textarea {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.demo-root .media-preparation-scroll fieldset {
+  margin-inline: 0;
+}
+.demo-root .media-preparation-scroll p {
+  overflow-wrap: anywhere;
+}

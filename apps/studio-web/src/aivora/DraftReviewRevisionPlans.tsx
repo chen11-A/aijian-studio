@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./Common";
+import { TargetEvidence, SegmentEvidence } from "./DraftReviewRevisionEvidence";
 import { DraftReviewRevisionPlayback } from "./DraftReviewRevisionPlayback";
 import type { DraftExportJob } from "./adapters/draftExport";
 import { draftJobMatches } from "./adapters/draftExport";
@@ -14,7 +15,6 @@ import {
   type DraftReviewRevisionExportGateway,
   type DraftReviewRevisionGateway,
   type DraftReviewRevisionPlanEntry,
-  type DraftReviewRevisionSegment,
   type DraftReviewRevisionSource,
   type PendingRevision,
 } from "./adapters/draftReviewRevision";
@@ -29,6 +29,9 @@ type Props = {
   notesReady?: boolean;
   gateway?: DraftReviewRevisionGateway;
   exports?: DraftReviewRevisionExportGateway;
+  expanded?: boolean;
+  onAssembly?: () => void;
+  onExport?: () => void;
 };
 type RevisionState = ReturnType<typeof useDraftReviewRevision>;
 type InputState = ReturnType<typeof useDraftReviewRevisionInput>;
@@ -44,9 +47,15 @@ function newId(
   }
 }
 export function DraftReviewRevisionPlans(props: Props) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(!!props.expanded);
+  const [mounted, setMounted] = useState(!!props.expanded);
   const identity = props.sourceTarget ?? props.job;
+  useEffect(() => {
+    if (props.expanded) {
+      setOpen(true);
+      setMounted(true);
+    }
+  }, [props.expanded]);
   return (
     <section className="draft-review-revision" aria-label="当前草稿人工修改计划">
       <Button
@@ -138,61 +147,6 @@ function PendingEvidence({ pending }: { pending: PendingRevision }) {
     </details>
   );
 }
-function TargetEvidence({ target, label }: { target: DraftReviewTarget; label: string }) {
-  return (
-    <details>
-      <summary>{label}精确版本与文件证据</summary>
-      <p>
-        项目：{target.project_id} · 分集：{target.episode_id}
-      </p>
-      <p>导出：{target.operation_id}</p>
-      <p>
-        装配 v{target.assembly_version_number}：{target.assembly_version_id}
-      </p>
-      <p>装配校验值：{target.assembly_content_hash}</p>
-      <p>
-        文件 SHA-256：{target.output_sha256} · {target.output_bytes} 字节
-      </p>
-      <p>
-        {label}：{target.total_frames} 帧 · {target.frame_rate_num}/{target.frame_rate_den} fps
-      </p>
-    </details>
-  );
-}
-function SegmentEvidence({
-  segment,
-  label,
-}: {
-  segment: DraftReviewRevisionSegment;
-  label: string;
-}) {
-  return (
-    <div>
-      <p>
-        {segment.track_kind} · {segment.segment_id} · {label}帧 [{segment.start_frame},{" "}
-        {segment.end_frame})
-      </p>
-      {segment.storyboard_ref && (
-        <p>
-          镜头：{segment.storyboard_ref.shot_id} · 原分镜：
-          {segment.storyboard_ref.storyboard_version_id}
-        </p>
-      )}
-      <details>
-        <summary>片段版本证据</summary>
-        <p>{segment.segment_hash}</p>
-        {segment.media && (
-          <>
-            <p>
-              素材：{segment.media.asset_id} · {segment.media.asset_version_id}
-            </p>
-            <p>{segment.media.sha256}</p>
-          </>
-        )}
-      </details>
-    </div>
-  );
-}
 function RevisionEditor({
   job,
   sourceTarget,
@@ -200,6 +154,8 @@ function RevisionEditor({
   exports,
   notes,
   notesReady = true,
+  onAssembly,
+  onExport,
 }: Props & { gateway: DraftReviewRevisionGateway }) {
   const sourceIdentity = sourceTarget ?? job;
   const state = useDraftReviewRevision(sourceIdentity, gateway);
@@ -492,6 +448,8 @@ function RevisionEditor({
               jobs={jobs}
               jobsBusy={jobsBusy}
               notify={setLocalNotice}
+              onAssembly={onAssembly}
+              onExport={onExport}
             />
           ))}
         </>
@@ -507,8 +465,12 @@ function RevisionPlan({
   jobs,
   jobsBusy,
   notify,
+  onAssembly,
+  onExport,
 }: {
   job: DraftReviewRevisionSource;
+  onAssembly?: () => void;
+  onExport?: () => void;
   entry: DraftReviewRevisionPlanEntry;
   state: RevisionState;
   exports?: DraftReviewRevisionExportGateway;
@@ -621,6 +583,10 @@ function RevisionPlan({
             <p>{approval.plan_hash}</p>
             <p>批准时装配版本：v{approval.assembly_version_number_at_approval}</p>
           </details>
+          <div className="assembly-actions">
+            {onAssembly && <Button onClick={onAssembly}>按已批准计划编辑本集装配</Button>}
+            {onExport && <Button onClick={onExport}>另行导出本集新装配 DRAFT</Button>}
+          </div>
           <h5>3. 关联批准后另行导出的候选草稿</h5>
           <p>
             先在成片组装中修改并保存新装配，再另行导出草稿。只列出此分集在批准之后创建、使用不同装配的成功导出；服务端会重新核验版本与文件。

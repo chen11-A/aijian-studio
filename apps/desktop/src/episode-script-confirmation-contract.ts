@@ -1,4 +1,5 @@
 import { hasRequestId, isRecord } from "./api-contract-guards";
+import { isScriptConfirmationMutationRejection } from "@aijian/contracts/script-confirmation-impact";
 import { isEpisodeScriptVersionId } from "./episode-script-contract";
 
 export type CreateEpisodeScriptConfirmationRequest = {
@@ -197,6 +198,7 @@ export function episodeScriptConfirmationDefiniteError(
   status: number,
   value: unknown,
   requestId: string | null,
+  phase: "read" | "write" = "read",
 ): EpisodeScriptConfirmationDefiniteError | null {
   if (
     status !== 401 &&
@@ -222,10 +224,11 @@ export function episodeScriptConfirmationDefiniteError(
     value.error.retryable !== false
   )
     return null;
-  return {
+  const result: EpisodeScriptConfirmationDefiniteError = {
     kind: "DEFINITE_SERVER_ERROR",
     status,
     code: value.error.code,
     request_id: value.request_id,
   };
+  return phase === "write" && !isScriptConfirmationMutationRejection(result) ? null : result;
 }

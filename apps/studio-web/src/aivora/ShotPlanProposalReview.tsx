@@ -316,6 +316,9 @@ export function ShotPlanProposalReview(props: ShotPlanProposalReviewProps) {
         >
           审阅并采纳到新分镜
         </Button>
+        <p>
+          已有镜头服装或参考选用时，整集替换会被拒绝。请先在分镜中明确处理并保存这些选用；提案和历史版本保留。
+        </p>
       </footer>
     </section>
   );

@@ -1,8 +1,8 @@
 import type { MediaPreviewSessionHost } from "./media-preview-session-ipc";
 import type { MediaPreviewResult } from "./media-preview-session-contract";
 
-// No native host executable or plan resolver is included in this source candidate.
-// Keep every command fail closed until the pinned plan, binary, and clock are verified.
+// The read-only plan bridge does not install a native executable or authorize launch.
+// Keep commands closed until a trusted launch resolver, binary, and clock are verified.
 export function createUnavailableMediaPreviewHost(): MediaPreviewSessionHost {
   const unavailable = async (): Promise<MediaPreviewResult> => ({
     kind: "UNAVAILABLE",

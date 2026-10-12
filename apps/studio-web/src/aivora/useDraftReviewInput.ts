@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DraftExportJob } from "./adapters/draftExport";
+import { useDraftReviewLeaveGuard } from "./DraftReviewNavigation";
 
 type Input = { frame: string; text: string; noteId: string | null; reason: string };
 const empty: Input = { frame: "0", text: "", noteId: null, reason: "" };
@@ -42,6 +43,10 @@ export function useDraftReviewInput(job: DraftExportJob) {
   const [initial] = useState(() => read(key));
   const [input, setInput] = useState(initial.input);
   const [status, setStatus] = useState(initial.status);
+  useDraftReviewLeaveGuard(
+    !!(input.text || input.reason || input.frame !== "0"),
+    status !== "READY",
+  );
   const current = useRef(input);
   const edit = (patch: Partial<Input>) => {
     if (status === "INVALID") return;

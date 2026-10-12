@@ -1,19 +1,48 @@
 import { useEffect, useState } from "react";
 import { Button } from "./Common";
 import { newAssemblySegmentId } from "./adapters/assemblyEditing";
-import { SUBTITLE_PROFILE, subtitleTextProblem } from "./adapters/assemblySubtitles";
+import {
+  SUBTITLE_PROFILE,
+  subtitleTextProblem,
+  scriptSubtitleText,
+} from "./adapters/assemblySubtitles";
+import type { SubtitleScriptRef } from "@aijian/contracts/assembly-script-provenance";
+import { useConfirmedAssemblyScript } from "./useConfirmedAssemblyScript";
+import type { AssemblyScriptGateway } from "./useAssemblyScriptSources";
 import type { AssemblyContent, AssemblySubtitleSegment } from "./adapters/episodeMediaAssembly";
 import "./assembly-subtitles.css";
 
-type Fields = { id: string; text: string; start: string; end: string };
+type Fields = {
+  id: string;
+  text: string;
+  start: string;
+  end: string;
+  scriptRef?: SubtitleScriptRef;
+  sourceText?: string;
+};
 type Props = {
   content: AssemblyContent;
   frame: number;
   locked: boolean;
   onEdit(content: AssemblyContent): boolean;
   onPendingInput(pending: boolean): void;
+  gateway?: AssemblyScriptGateway;
 };
-export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendingInput }: Props) {
+export function AssemblySubtitleEditor({
+  content,
+  frame,
+  locked,
+  onEdit,
+  onPendingInput,
+  gateway,
+}: Props) {
+  const confirmed = useConfirmedAssemblyScript(content.project_id, content.episode_id, gateway);
+  const sourceKey = `${content.project_id}/${content.episode_id}/${confirmed.source.version?.version_id ?? ""}`;
+  const [sourceChoice, setSourceChoice] = useState({ key: "", blockId: "" });
+  const candidate =
+    sourceChoice.key === sourceKey
+      ? confirmed.source.dialogues.find((d) => d.block.block_id === sourceChoice.blockId)
+      : undefined;
   const [form, setForm] = useState<Fields | null>(null);
   const [initial, setInitial] = useState<Fields | null>(null);
   const [notice, setNotice] = useState("");
@@ -35,12 +64,15 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
   function begin(cue?: AssemblySubtitleSegment) {
     if (locked || (dirty && !window.confirm("放弃尚未应用的字幕输入吗？"))) return;
     const start = Math.max(0, Math.min(frame, content.total_frames - 1));
-    const fields = cue
+    const fields: Fields = cue
       ? {
           id: cue.segment_id,
           text: "text" in cue ? cue.text : "",
           start: String(cue.start_frame),
           end: String(cue.end_frame),
+          ...("text" in cue && cue.script_ref
+            ? { scriptRef: cue.script_ref, sourceText: cue.text }
+            : {}),
         }
       : {
           id: newAssemblySegmentId(),
@@ -64,6 +96,52 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
     setInitial(cue && "text" in cue ? fields : null);
     setNotice("");
   }
+  function fromScript() {
+    const source = confirmed.source.version;
+    if (locked || !source || !candidate) return;
+    const text = scriptSubtitleText(candidate.block.text);
+    if (text === null) {
+      setNotice(
+        "此对白超出当前 DRAFT 字幕长度或字形范围；没有截断或替换。请在剧本中明确调整后另行确认。",
+      );
+      return;
+    }
+    if (
+      form &&
+      !window.confirm(
+        "以所选已确认对白替换当前字幕输入？帧范围保留；旧保存版本保留，需应用后另行保存。",
+      )
+    )
+      return;
+    const start = Math.max(0, Math.min(frame, content.total_frames - 1));
+    setForm({
+      id: form?.id ?? newAssemblySegmentId(),
+      text,
+      start: form?.start ?? String(start),
+      end:
+        form?.end ??
+        String(
+          Math.min(
+            content.total_frames,
+            start +
+              Math.max(
+                1,
+                Math.round(
+                  (2 * content.sequence_timebase.frame_rate.num) /
+                    content.sequence_timebase.frame_rate.den,
+                ),
+              ),
+          ),
+        ),
+      scriptRef: {
+        script_version_id: source.version_id,
+        script_block_id: candidate.block.block_id,
+        script_content_hash: source.content_hash,
+      },
+      sourceText: text,
+    });
+    setNotice("已将精确确认对白放入字幕输入。请核对帧范围并应用，再另行保存装配。");
+  }
   function apply() {
     if (!form || locked) return;
     const problem = subtitleTextProblem(form.text);
@@ -83,17 +161,30 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
       setNotice("字幕入点、出点须为画面范围内的整数帧，且出点大于入点。");
       return;
     }
+    const keepSource = !!form.scriptRef && form.text === form.sourceText;
+    if (
+      form.scriptRef &&
+      !keepSource &&
+      !window.confirm(
+        "字幕文字已改变，明确转为手工文字并移除剧本来源？原版本保留；这一字幕不再计为该剧本对白。",
+      )
+    )
+      return;
     const next = {
       segment_id: form.id,
       start_frame,
       end_frame,
       text: form.text,
       render_profile: SUBTITLE_PROFILE,
+      ...(keepSource ? { script_ref: form.scriptRef } : {}),
     };
     const exists = content.subtitle_segments.some((cue) => cue.segment_id === form.id);
     if (
       onEdit({
         ...content,
+        ...(keepSource && !content.script_provenance
+          ? { script_provenance: { mode: "DRAFT" as const } }
+          : {}),
         subtitle_segments: exists
           ? content.subtitle_segments.map((cue) => (cue.segment_id === form.id ? next : cue))
           : [...content.subtitle_segments, next],
@@ -112,6 +203,33 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
         <Button disabled={locked || !content.total_frames} onClick={() => begin()}>
           添加文字字幕
         </Button>
+        <label>
+          已确认剧本字幕对白
+          <select
+            value={sourceChoice.key === sourceKey ? sourceChoice.blockId : ""}
+            disabled={locked || confirmed.source.state !== "ready" || !content.total_frames}
+            onChange={(e) => setSourceChoice({ key: sourceKey, blockId: e.target.value })}
+          >
+            <option value="">选择精确已确认对白</option>
+            {confirmed.source.dialogues.map((d) => (
+              <option key={d.block.block_id} value={d.block.block_id}>
+                {d.block.speaker}：{d.block.text}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button disabled={locked || !candidate || !content.total_frames} onClick={fromScript}>
+          将所选剧本对白设为字幕
+        </Button>
+        <Button
+          disabled={locked || confirmed.source.state === "loading"}
+          onClick={confirmed.refresh}
+        >
+          核对字幕剧本确认
+        </Button>
+        {confirmed.source.state === "error" && (
+          <p role="status">字幕确认来源未可靠读回；现有字幕与未保存输入保留。</p>
+        )}
         {!content.total_frames && <p>请先加入画面，再设置字幕范围。</p>}
         <ol className="assembly-subtitle-list" aria-label="字幕片段">
           {content.subtitle_segments.map((cue) => (
@@ -120,6 +238,12 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
               <span>
                 {cue.start_frame}–{cue.end_frame} 帧 · 左闭右开
               </span>
+              {"text" in cue && cue.script_ref && (
+                <p>
+                  剧本来源：{cue.script_ref.script_version_id} / {cue.script_ref.script_block_id} ·{" "}
+                  {cue.script_ref.script_content_hash}
+                </p>
+              )}
               {!("text" in cue) && (
                 <p>此绑定暂不能编码。可明确输入文字替换；历史装配版本保留原剧本引用。</p>
               )}
@@ -156,6 +280,12 @@ export function AssemblySubtitleEditor({ content, frame, locked, onEdit, onPendi
               apply();
             }}
           >
+            {form.scriptRef && (
+              <p>
+                固定剧本：{form.scriptRef.script_version_id} / {form.scriptRef.script_block_id}
+                。帧编辑保留来源，文字编辑需明确转为手工字幕。
+              </p>
+            )}
             <label className="assembly-subtitle-text">
               字幕文字
               <textarea

@@ -1,3 +1,18 @@
+import type { AssemblyReadinessGateway } from "@aijian/contracts/assembly-readiness";
+import type { LocalMediaReviewGateway } from "@aijian/contracts/local-media-review";
+import type { AssemblyExactGateway } from "@aijian/contracts/assembly-exact";
+import type { ManualMediaCandidateGateway } from "@aijian/contracts/manual-media-candidate";
+import type { MediaPreparationGateway } from "@aijian/contracts/media-preparation";
+import type { ScriptImpactGateway } from "@aijian/contracts/script-confirmation-impact";
+import type { ProjectSettingsGateway } from "@aijian/contracts/project-settings";
+import type { NativePreviewPlanGateway } from "@aijian/contracts/native-preview-plan";
+import type { MediaPreviewSessionGateway } from "../aivora/adapters/mediaPreviewSession";
+import {
+  desktopAudioAssetProbe,
+  type AudioAssetProbeGateway,
+} from "../aivora/adapters/audioAssetProbe";
+import type { InvalidationConsumerGateway } from "@aijian/contracts/invalidation-consumer";
+import type { VisualGateway, VisualHistoryGateway } from "@aijian/contracts/visual-bible";
 import {
   desktopMediaAssetProbe,
   type MediaAssetProbeGateway,
@@ -632,7 +647,17 @@ export interface EpisodeCapability {
 }
 
 export interface StudioTransport {
+  getLocalMediaReviewTarget?: LocalMediaReviewGateway["getLocalMediaReviewTarget"];
+  listLocalMediaReviews?: LocalMediaReviewGateway["listLocalMediaReviews"];
+  getLocalMediaReview?: LocalMediaReviewGateway["getLocalMediaReview"];
+  getLocalMediaReviewStatus?: LocalMediaReviewGateway["getLocalMediaReviewStatus"];
+  saveLocalMediaReview?: LocalMediaReviewGateway["saveLocalMediaReview"];
+  getLocalMediaReviewOperation?: LocalMediaReviewGateway["getLocalMediaReviewOperation"];
+  getEpisodeAssemblyReadiness?: AssemblyReadinessGateway["getEpisodeAssemblyReadiness"];
+  nativePreviewPlan?: NativePreviewPlanGateway;
+  mediaPreviewSession?: MediaPreviewSessionGateway;
   mediaAssetProbe?: MediaAssetProbeGateway;
+  audioAssetProbe?: AudioAssetProbeGateway;
   mediaToolchain?: MediaToolchainGateway;
   getAppPreferences?: AppPreferencesGateway["getAppPreferences"];
   saveAppPreferences?: AppPreferencesGateway["saveAppPreferences"];
@@ -646,8 +671,20 @@ export interface StudioTransport {
   getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
   createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
+  getEpisodeScriptWriteOperation?: ScriptGateway["getEpisodeScriptWriteOperation"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
+  listManualMediaCandidates?: ManualMediaCandidateGateway["listManualMediaCandidates"];
+  getManualMediaCandidate?: ManualMediaCandidateGateway["getManualMediaCandidate"];
+  saveManualMediaCandidate?: ManualMediaCandidateGateway["saveManualMediaCandidate"];
+  getManualMediaCandidateOperation?: ManualMediaCandidateGateway["getManualMediaCandidateOperation"];
+  listMediaPreparations?: MediaPreparationGateway["listMediaPreparations"];
+  getMediaPreparation?: MediaPreparationGateway["getMediaPreparation"];
+  saveMediaPreparation?: MediaPreparationGateway["saveMediaPreparation"];
+  getMediaPreparationOperation?: MediaPreparationGateway["getMediaPreparationOperation"];
+  listScriptConfirmationImpacts?: ScriptImpactGateway["listScriptConfirmationImpacts"];
+  getScriptConfirmationImpact?: ScriptImpactGateway["getScriptConfirmationImpact"];
+  getEpisodeScriptConfirmationOperation?: ScriptImpactGateway["getEpisodeScriptConfirmationOperation"];
   getEpisodeScriptConfirmation?: ConfirmationGateway["getEpisodeScriptConfirmation"];
   createEpisodeScriptConfirmation?: ConfirmationGateway["createEpisodeScriptConfirmation"];
   getEpisodeScriptConfirmationReceipt?: ConfirmationGateway["getEpisodeScriptConfirmationReceipt"];
@@ -656,6 +693,9 @@ export interface StudioTransport {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
+  getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
+  getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];
+  updateProjectSettings?: ProjectSettingsGateway["updateProjectSettings"];
   updateProject?: (
     projectId: string,
     command: UpdateProjectCommand,
@@ -689,6 +729,7 @@ export interface StudioTransport {
     projectId: string,
     query?: InvalidationOperationPageQuery,
   ): Promise<InvalidationOperationPageResponse>;
+  inspectInvalidationConsumer?: InvalidationConsumerGateway["inspectInvalidationConsumer"];
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -776,7 +817,14 @@ export interface StudioTransport {
   ): Promise<Sub2APIRotationReadResult>;
 }
 
-export interface AijianDesktopBridge {
+export interface AijianDesktopBridge
+  extends
+    Partial<VisualGateway>,
+    Partial<VisualHistoryGateway>,
+    Partial<MediaPreviewSessionGateway> {
+  getNativeMediaPreviewPlan?: NativePreviewPlanGateway["getNativeMediaPreviewPlan"];
+  getAudioAssetProbeEvidence?: AudioAssetProbeGateway["getAudioAssetProbeEvidence"];
+  probeSelectedAudioAssetVersion?: AudioAssetProbeGateway["probeSelectedAudioAssetVersion"];
   getMediaAssetProbeEvidence?: MediaAssetProbeGateway["getMediaAssetProbeEvidence"];
   probeSelectedMediaAssetVersion?: MediaAssetProbeGateway["probeSelectedMediaAssetVersion"];
   getMediaToolchainStatus?: MediaToolchainGateway["getMediaToolchainStatus"];
@@ -809,8 +857,17 @@ export interface AijianDesktopBridge {
   cancelDraftExport?: DraftExportGateway["cancel"];
   readDraftExportPreview?: DraftExportGateway["preview"];
   revealDraftExportOutput?: DraftExportGateway["reveal"];
+  getEpisodeAssemblyReadiness?: AssemblyReadinessGateway["getEpisodeAssemblyReadiness"];
+  getLocalMediaReviewTarget?: LocalMediaReviewGateway["getLocalMediaReviewTarget"];
+  listLocalMediaReviews?: LocalMediaReviewGateway["listLocalMediaReviews"];
+  getLocalMediaReview?: LocalMediaReviewGateway["getLocalMediaReview"];
+  getLocalMediaReviewStatus?: LocalMediaReviewGateway["getLocalMediaReviewStatus"];
+  saveLocalMediaReview?: LocalMediaReviewGateway["saveLocalMediaReview"];
+  getLocalMediaReviewOperation?: LocalMediaReviewGateway["getLocalMediaReviewOperation"];
   readLatestEpisodeMediaAssembly?: EpisodeMediaAssemblyGateway["readLatest"];
   createEpisodeMediaAssemblyVersion?: EpisodeMediaAssemblyGateway["createVersion"];
+  saveExact?: AssemblyExactGateway["saveExact"];
+  getOriginal?: AssemblyExactGateway["getOriginal"];
   getEpisodeStoryboard?: StoryboardGateway["getEpisodeStoryboard"];
   getEpisodeStoryboardVersion?: StoryboardGateway["getEpisodeStoryboardVersion"];
   createEpisodeStoryboardVersion?: StoryboardGateway["createEpisodeStoryboardVersion"];
@@ -818,8 +875,20 @@ export interface AijianDesktopBridge {
   getProjectCreativeLibraryVersion?: CreativeGateway["getProjectCreativeLibraryVersion"];
   createProjectCreativeLibraryVersion?: CreativeGateway["createProjectCreativeLibraryVersion"];
   getEpisodeScript?: ScriptGateway["getEpisodeScript"];
+  getEpisodeScriptWriteOperation?: ScriptGateway["getEpisodeScriptWriteOperation"];
   getEpisodeScriptVersion?: ScriptGateway["getEpisodeScriptVersion"];
   createEpisodeScriptVersion?: ScriptGateway["createEpisodeScriptVersion"];
+  listManualMediaCandidates?: ManualMediaCandidateGateway["listManualMediaCandidates"];
+  getManualMediaCandidate?: ManualMediaCandidateGateway["getManualMediaCandidate"];
+  saveManualMediaCandidate?: ManualMediaCandidateGateway["saveManualMediaCandidate"];
+  getManualMediaCandidateOperation?: ManualMediaCandidateGateway["getManualMediaCandidateOperation"];
+  listMediaPreparations?: MediaPreparationGateway["listMediaPreparations"];
+  getMediaPreparation?: MediaPreparationGateway["getMediaPreparation"];
+  saveMediaPreparation?: MediaPreparationGateway["saveMediaPreparation"];
+  getMediaPreparationOperation?: MediaPreparationGateway["getMediaPreparationOperation"];
+  listScriptConfirmationImpacts?: ScriptImpactGateway["listScriptConfirmationImpacts"];
+  getScriptConfirmationImpact?: ScriptImpactGateway["getScriptConfirmationImpact"];
+  getEpisodeScriptConfirmationOperation?: ScriptImpactGateway["getEpisodeScriptConfirmationOperation"];
   getEpisodeScriptConfirmation?: ConfirmationGateway["getEpisodeScriptConfirmation"];
   createEpisodeScriptConfirmation?: ConfirmationGateway["createEpisodeScriptConfirmation"];
   getEpisodeScriptConfirmationReceipt?: ConfirmationGateway["getEpisodeScriptConfirmationReceipt"];
@@ -831,6 +900,9 @@ export interface AijianDesktopBridge {
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
   getProject(projectId: string): Promise<ProjectResponse>;
+  getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
+  getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];
+  updateProjectSettings?: ProjectSettingsGateway["updateProjectSettings"];
   updateProject?: (
     projectId: string,
     command: UpdateProjectCommand,
@@ -867,6 +939,7 @@ export interface AijianDesktopBridge {
     projectId: string,
     query?: InvalidationOperationPageQuery,
   ): Promise<InvalidationOperationPageResponse>;
+  inspectInvalidationConsumer?: InvalidationConsumerGateway["inspectInvalidationConsumer"];
   getInvalidationOperation(
     projectId: string,
     operationId: string,
@@ -1166,6 +1239,7 @@ export function createStudioTransport(): StudioTransport {
     return {
       mediaToolchain: desktopMediaToolchain(bridge),
       mediaAssetProbe: desktopMediaAssetProbe(bridge),
+      audioAssetProbe: desktopAudioAssetProbe(bridge),
       getAppPreferences:
         typeof bridge.getAppPreferences === "function"
           ? () => bridge.getAppPreferences!()
@@ -1202,10 +1276,70 @@ export function createStudioTransport(): StudioTransport {
             }
           : undefined,
       draftExports: desktopDraftExports(bridge),
+      nativePreviewPlan:
+        typeof bridge.getNativeMediaPreviewPlan === "function"
+          ? {
+              getNativeMediaPreviewPlan: (projectId, episodeId, versionId) =>
+                bridge.getNativeMediaPreviewPlan!(projectId, episodeId, versionId),
+            }
+          : undefined,
+      mediaPreviewSession:
+        typeof bridge.openMediaPreviewSession === "function" &&
+        typeof bridge.playMediaPreviewSession === "function" &&
+        typeof bridge.pauseMediaPreviewSession === "function" &&
+        typeof bridge.seekMediaPreviewSession === "function" &&
+        typeof bridge.readMediaPreviewSessionStatus === "function" &&
+        typeof bridge.closeMediaPreviewSession === "function"
+          ? {
+              openMediaPreviewSession: (command) => bridge.openMediaPreviewSession!(command),
+              playMediaPreviewSession: (command) => bridge.playMediaPreviewSession!(command),
+              pauseMediaPreviewSession: (command) => bridge.pauseMediaPreviewSession!(command),
+              seekMediaPreviewSession: (command) => bridge.seekMediaPreviewSession!(command),
+              readMediaPreviewSessionStatus: (query) =>
+                bridge.readMediaPreviewSessionStatus!(query),
+              closeMediaPreviewSession: (command) => bridge.closeMediaPreviewSession!(command),
+            }
+          : undefined,
+      getLocalMediaReviewTarget:
+        typeof bridge.getLocalMediaReviewTarget === "function"
+          ? (p, e, q) => bridge.getLocalMediaReviewTarget!(p, e, q)
+          : undefined,
+      listLocalMediaReviews:
+        typeof bridge.listLocalMediaReviews === "function"
+          ? (p, e, c) => bridge.listLocalMediaReviews!(p, e, c)
+          : undefined,
+      getLocalMediaReview:
+        typeof bridge.getLocalMediaReview === "function"
+          ? (p, e, v) => bridge.getLocalMediaReview!(p, e, v)
+          : undefined,
+      getLocalMediaReviewStatus:
+        typeof bridge.getLocalMediaReviewStatus === "function"
+          ? (p, e, q) => bridge.getLocalMediaReviewStatus!(p, e, q)
+          : undefined,
+      saveLocalMediaReview:
+        typeof bridge.saveLocalMediaReview === "function"
+          ? (p, e, c) => bridge.saveLocalMediaReview!(p, e, c)
+          : undefined,
+      getLocalMediaReviewOperation:
+        typeof bridge.getLocalMediaReviewOperation === "function"
+          ? (p, e, c) => bridge.getLocalMediaReviewOperation!(p, e, c)
+          : undefined,
+      getEpisodeAssemblyReadiness:
+        typeof bridge.getEpisodeAssemblyReadiness === "function"
+          ? (p, e, target) => bridge.getEpisodeAssemblyReadiness!(p, e, target)
+          : undefined,
       episodeMediaAssembly:
         typeof bridge.readLatestEpisodeMediaAssembly === "function" &&
         typeof bridge.createEpisodeMediaAssemblyVersion === "function"
           ? {
+              saveExact:
+                typeof bridge.saveExact === "function"
+                  ? (p, e, c) => bridge.saveExact!(p, e, c)
+                  : undefined,
+              getOriginal:
+                typeof bridge.getOriginal === "function"
+                  ? (p, e, c) => bridge.getOriginal!(p, e, c)
+                  : undefined,
               readLatest: (projectId, episodeId) =>
                 bridge.readLatestEpisodeMediaAssembly!(projectId, episodeId),
               createVersion: (projectId, episodeId, command) =>
@@ -1243,6 +1377,10 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.getEpisodeScript === "function"
           ? (projectId, episodeId) => bridge.getEpisodeScript!(projectId, episodeId)
           : undefined,
+      getEpisodeScriptWriteOperation:
+        typeof bridge.getEpisodeScriptWriteOperation === "function"
+          ? (p, e, id, payload) => bridge.getEpisodeScriptWriteOperation!(p, e, id, payload)
+          : undefined,
       getEpisodeScriptVersion:
         typeof bridge.getEpisodeScriptVersion === "function"
           ? (projectId, episodeId, versionId) =>
@@ -1252,6 +1390,56 @@ export function createStudioTransport(): StudioTransport {
         typeof bridge.createEpisodeScriptVersion === "function"
           ? (projectId, episodeId, idempotencyKey, payload) =>
               bridge.createEpisodeScriptVersion!(projectId, episodeId, idempotencyKey, payload)
+          : undefined,
+      listMediaPreparations:
+        typeof bridge.listMediaPreparations === "function"
+          ? (p, e, c) => bridge.listMediaPreparations!(p, e, c)
+          : undefined,
+      getMediaPreparation:
+        typeof bridge.getMediaPreparation === "function"
+          ? (p, e, id) => bridge.getMediaPreparation!(p, e, id)
+          : undefined,
+      saveMediaPreparation:
+        typeof bridge.saveMediaPreparation === "function"
+          ? (p, e, c) => bridge.saveMediaPreparation!(p, e, c)
+          : undefined,
+      getMediaPreparationOperation:
+        typeof bridge.getMediaPreparationOperation === "function"
+          ? (p, e, c) => bridge.getMediaPreparationOperation!(p, e, c)
+          : undefined,
+      listManualMediaCandidates:
+        typeof bridge.listManualMediaCandidates === "function"
+          ? (p, e, c) => bridge.listManualMediaCandidates!(p, e, c)
+          : undefined,
+      getManualMediaCandidate:
+        typeof bridge.getManualMediaCandidate === "function"
+          ? (p, e, id) => bridge.getManualMediaCandidate!(p, e, id)
+          : undefined,
+      saveManualMediaCandidate:
+        typeof bridge.saveManualMediaCandidate === "function"
+          ? (p, e, c) => bridge.saveManualMediaCandidate!(p, e, c)
+          : undefined,
+      getManualMediaCandidateOperation:
+        typeof bridge.getManualMediaCandidateOperation === "function"
+          ? (p, e, c) => bridge.getManualMediaCandidateOperation!(p, e, c)
+          : undefined,
+      listScriptConfirmationImpacts:
+        typeof bridge.listScriptConfirmationImpacts === "function"
+          ? (projectId, cursor) => bridge.listScriptConfirmationImpacts!(projectId, cursor)
+          : undefined,
+      getScriptConfirmationImpact:
+        typeof bridge.getScriptConfirmationImpact === "function"
+          ? (projectId, reportId) => bridge.getScriptConfirmationImpact!(projectId, reportId)
+          : undefined,
+      getEpisodeScriptConfirmationOperation:
+        typeof bridge.getEpisodeScriptConfirmationOperation === "function"
+          ? (projectId, episodeId, operationId, payload) =>
+              bridge.getEpisodeScriptConfirmationOperation!(
+                projectId,
+                episodeId,
+                operationId,
+                payload,
+              )
           : undefined,
       getEpisodeScriptConfirmation:
         typeof bridge.getEpisodeScriptConfirmation === "function"
@@ -1276,6 +1464,18 @@ export function createStudioTransport(): StudioTransport {
       listProjects: () => bridge.listProjects(),
       createProject: (input) => bridge.createProject(input),
       getProject: (projectId) => bridge.getProject(projectId),
+      getProjectSettings:
+        typeof bridge.getProjectSettings === "function"
+          ? (projectId) => bridge.getProjectSettings!(projectId)
+          : undefined,
+      getProjectSettingsReceipt:
+        typeof bridge.getProjectSettingsReceipt === "function"
+          ? (projectId, operationId) => bridge.getProjectSettingsReceipt!(projectId, operationId)
+          : undefined,
+      updateProjectSettings:
+        typeof bridge.updateProjectSettings === "function"
+          ? (projectId, command) => bridge.updateProjectSettings!(projectId, command)
+          : undefined,
       updateProject:
         typeof bridge.updateProject === "function"
           ? (projectId, command) => bridge.updateProject!(projectId, command)

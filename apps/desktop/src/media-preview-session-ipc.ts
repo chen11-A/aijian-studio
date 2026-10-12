@@ -28,6 +28,7 @@ export function registerMediaPreviewSessionHandlers<TEvent>(
   ) => void,
   host: MediaPreviewSessionHost,
   isTopLevelFrame: (event: TEvent) => boolean,
+  authorityFor: (event: TEvent) => unknown = () => null,
 ): void {
   const register = <T>(
     channel: string,
@@ -41,8 +42,11 @@ export function registerMediaPreviewSessionHandlers<TEvent>(
       if (args.length !== 1 || !valid(args[0])) {
         throw new Error("Media preview IPC requires a canonical command");
       }
+      const authority = authorityFor(event);
       try {
-        const result = await action(args[0]);
+        const result = await action(structuredClone(args[0]));
+        if (!isTopLevelFrame(event) || authorityFor(event) !== authority)
+          return { kind: "UNKNOWN" };
         return isMediaPreviewResult(result) ? result : { kind: "UNKNOWN" };
       } catch {
         // The native command may have executed. A read-only status call can reconcile it.

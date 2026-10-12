@@ -176,7 +176,7 @@ def test_returns_stable_safe_errors_for_project_and_source_failures(
         },
         {
             "name": "项目",
-            "aspect_ratio": "16:9",
+            "aspect_ratio": "1:1",
             "target_duration_seconds": 90,
             "source_language": "zh-CN",
         },

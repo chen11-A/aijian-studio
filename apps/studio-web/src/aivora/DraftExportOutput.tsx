@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  DraftExportOutputProps as Props,
+  PreviewState,
+  RevealState,
+} from "./DraftExportOutputProps";
+import { draftOutputKey, revisionExportGateway } from "./DraftExportOutputProps";
 import { Button } from "./Common";
 import { DraftReviewNotes } from "./DraftReviewNotes";
-import {
-  draftJobMatches,
-  type DraftExportGateway,
-  type DraftExportJob,
-} from "./adapters/draftExport";
+import { draftJobMatches } from "./adapters/draftExport";
 import {
   DRAFT_PREVIEW_LIMIT_BYTES,
   DRAFT_PREVIEW_TOO_LARGE,
@@ -13,41 +15,25 @@ import {
   draftOutputIdentityMatches,
 } from "./adapters/draftExportOutput";
 
-type Props = {
-  projectId: string;
-  episodeId: string;
-  job: DraftExportJob;
-  gateway:
-    | (Pick<DraftExportGateway, "preview" | "reveal" | "review" | "revision"> &
-        Partial<Pick<DraftExportGateway, "list" | "get">>)
-    | undefined;
-};
-type PreviewState =
-  { kind: "idle" | "loading" } | { kind: "ready"; url: string } | { kind: "error"; notice: string };
-type RevealState = { kind: "idle" | "loading" } | { kind: "ready" | "error"; notice: string };
-
 /** Remount for an immutable receipt or scope change, even when the operation ID is reused. */
 export function DraftExportOutput(props: Props) {
   const { job, projectId, episodeId } = props;
   if (job.status !== "SUCCEEDED" || !draftJobMatches(job, projectId, episodeId)) return null;
-  const identityKey = JSON.stringify([
-    projectId,
-    episodeId,
-    job.operation_id,
-    job.assembly_version_id,
-    job.assembly_content_hash,
-    job.output_sha256,
-    job.output_bytes,
-    job.output_path,
-  ]);
-  return <VerifiedDraftOutput key={identityKey} {...props} />;
+  return <VerifiedDraftOutput key={draftOutputKey(props)} {...props} />;
 }
-function VerifiedDraftOutput({ job, projectId, episodeId, gateway }: Props) {
+function VerifiedDraftOutput({
+  job,
+  projectId,
+  episodeId,
+  gateway,
+  showReview = true,
+  reviewExpanded,
+  revisionExpanded,
+  onAssembly,
+  onExport,
+}: Props) {
   const revisionExports = useMemo(
-    () =>
-      gateway?.list && gateway.get
-        ? { list: gateway.list, get: gateway.get, preview: gateway.preview, reveal: gateway.reveal }
-        : undefined,
+    () => revisionExportGateway(gateway),
     [gateway?.list, gateway?.get, gateway?.preview, gateway?.reveal],
   );
   const [playbackSeconds, setPlaybackSeconds] = useState<number | null>(null);
@@ -200,13 +186,19 @@ function VerifiedDraftOutput({ job, projectId, episodeId, gateway }: Props) {
           <p>已读取与任务记录一致的本地 DRAFT 文件。不代表帧精确审片或正式发布批准。</p>
         </>
       )}
-      <DraftReviewNotes
-        job={job}
-        gateway={gateway?.review}
-        playbackSeconds={playbackSeconds}
-        revision={gateway?.revision}
-        exports={revisionExports}
-      />
+      {showReview && (
+        <DraftReviewNotes
+          job={job}
+          gateway={gateway?.review}
+          playbackSeconds={playbackSeconds}
+          revision={gateway?.revision}
+          exports={revisionExports}
+          expanded={reviewExpanded}
+          revisionExpanded={revisionExpanded}
+          onAssembly={onAssembly}
+          onExport={onExport}
+        />
+      )}
       {reveal.kind === "loading" && <p role="status">正在核验草稿并请求打开文件夹…</p>}
       {(reveal.kind === "ready" || reveal.kind === "error") && (
         <p role={reveal.kind === "error" ? "alert" : "status"}>{reveal.notice}</p>

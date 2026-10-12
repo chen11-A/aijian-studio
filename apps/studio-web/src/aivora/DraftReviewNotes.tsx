@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "./Common";
+import { DraftReviewCommentComposer } from "./DraftReviewCommentComposer";
 import { DraftReviewScope } from "./DraftReviewScope";
 import { DraftReviewNoteList } from "./DraftReviewNoteList";
 import { DraftReviewRevisionPlans } from "./DraftReviewRevisionPlans";
@@ -19,10 +20,14 @@ type Props = {
   playbackSeconds?: number | null;
   revision?: DraftReviewRevisionGateway;
   exports?: DraftReviewRevisionExportGateway;
+  expanded?: boolean;
+  revisionExpanded?: boolean;
+  onAssembly?: () => void;
+  onExport?: () => void;
 };
 export function DraftReviewNotes(props: Props) {
-  const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(!!props.expanded);
+  const [mounted, setMounted] = useState(!!props.expanded);
   return (
     <section className="draft-review" aria-label="当前草稿手工核对记录">
       <Button
@@ -54,6 +59,9 @@ function ReviewEditor({
   playbackSeconds,
   revision,
   exports,
+  revisionExpanded,
+  onAssembly,
+  onExport,
 }: Props & { gateway: DraftReviewGateway }) {
   const state = useDraftReview(job, gateway);
   const draft = useDraftReviewInput(job);
@@ -197,60 +205,24 @@ function ReviewEditor({
             notesReady={state.pending === null}
             gateway={revision}
             exports={exports}
+            expanded={revisionExpanded}
+            onAssembly={onAssembly}
+            onExport={onExport}
           />
-          <div className="draft-review-compose">
-            <label>
-              帧号（从 0 开始）
-              <input
-                type="number"
-                min={0}
-                max={target.total_frames - 1}
-                step={1}
-                value={frame}
-                disabled={locked || !state.data.output_verified}
-                onChange={(event) => setFrame(event.currentTarget.value)}
-              />
-            </label>
-            <Button
-              disabled={
-                locked ||
-                playbackSeconds === null ||
-                playbackSeconds === undefined ||
-                !state.data.output_verified
-              }
-              onClick={capture}
-            >
-              从播放位置估算帧号
-            </Button>
-            <p>
-              有效帧号 0–{target.total_frames - 1}。保存以输入的整数帧为准；播放器时间只供近似定位。
-            </p>
-            <label>
-              评论
-              <textarea
-                maxLength={2000}
-                value={text}
-                disabled={locked || !state.data.output_verified}
-                onChange={(event) => setText(event.currentTarget.value)}
-                placeholder="例如：核对动作衔接、构图或声音位置"
-              />
-            </label>
-            <small>保存成功并读回后才会清除对应缓存。</small>
-            <Button
-              primary
-              disabled={
-                locked ||
-                !validFrame ||
-                !text.trim() ||
-                text.includes("\0") ||
-                !state.data.output_verified ||
-                state.data.notes.length >= 500
-              }
-              onClick={() => void create()}
-            >
-              保存此帧手工评论
-            </Button>
-          </div>
+          <DraftReviewCommentComposer
+            target={target}
+            locked={locked}
+            verified={state.data.output_verified}
+            frame={frame}
+            text={text}
+            playbackSeconds={playbackSeconds}
+            validFrame={validFrame}
+            noteCount={state.data.notes.length}
+            setFrame={setFrame}
+            setText={setText}
+            capture={capture}
+            create={create}
+          />
         </>
       )}
     </div>

@@ -1,4 +1,9 @@
 import { hasRequestId, isRecord } from "./api-contract-guards";
+import {
+  scriptWriteOperationShape,
+  type ScriptWriteOperationResult,
+} from "@aijian/contracts/script-write-recovery";
+export type EpisodeScriptWriteOperationResult = ScriptWriteOperationResult<EpisodeScriptVersion>;
 
 export type EpisodeScriptBlock = {
   block_id: string;
@@ -314,6 +319,27 @@ export function isEpisodeScriptVersionResponse(
     hasRequestId(value) &&
     value.request_id === requestId &&
     isVersion(value.data, projectId, episodeId, versionId)
+  );
+}
+export function isEpisodeScriptWriteOperationResponse(
+  value: unknown,
+  projectId: string,
+  episodeId: string,
+  operationId: string,
+  requestId: string | null,
+): value is Extract<EpisodeScriptWriteOperationResult, { kind: "FOUND" }>["receipt"] {
+  return (
+    isRecord(value) &&
+    exact(value, ["data", "request_id"]) &&
+    hasRequestId(value) &&
+    value.request_id === requestId &&
+    scriptWriteOperationShape(
+      value.data,
+      projectId,
+      episodeId,
+      operationId,
+      (v): v is EpisodeScriptVersion => isVersion(v, projectId, episodeId),
+    )
   );
 }
 export function isEpisodeScriptVersionCreatedResponse(

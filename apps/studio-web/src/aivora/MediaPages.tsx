@@ -1,4 +1,6 @@
-import { DraftExportPanel } from "./DraftExportPanel";
+import { MediaPreparationWorkflow } from "./MediaPreparationWorkflow";
+import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
+import { NativeDraftPages } from "./NativeDraftPages";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useDemo, moveShot, shotAtTime } from "./model";
@@ -896,89 +898,12 @@ function editChange(d: ReturnType<typeof useDemo>, note: Annotation) {
   );
 }
 function InvalidationHistory({ d }: { d: ReturnType<typeof useDemo> }) {
-  const history = d.invalidationHistory;
-  const rows = useRef(new Map<string, HTMLButtonElement>());
-  useEffect(() => {
-    if (!history.selectedOperationId && history.lastSelectedOperationId)
-      rows.current.get(history.lastSelectedOperationId)?.focus();
-  }, [history.lastSelectedOperationId, history.selectedOperationId]);
-  if (!d.backendProjectId)
-    return <p className="v2-media-muted">尚未连接本地项目，无法读取真实影响报告。</p>;
-  if (history.detail !== "idle") {
-    const operationId = history.selectedOperationId!;
-    return (
-      <div className="v2-invalidation-detail" aria-label="影响报告详情">
-        <Button onClick={() => d.invalidationHistoryController.backToList()}>返回影响报告</Button>
-        {history.detail === "loading" && <p role="status">正在读取报告详情…</p>}
-        {history.detail === "error" && (
-          <div role="alert">
-            <p>{history.detailError}</p>
-            <Button onClick={() => void d.invalidationHistoryController.select(operationId)}>
-              重新读取报告
-            </Button>
-          </div>
-        )}
-        {history.detail === "ready" && (
-          <>
-            <p>报告编号 · {history.operation!.operation_id}</p>
-            {history.operation!.paths.length === 0 ? (
-              <p>本次没有下游影响路径</p>
-            ) : (
-              <ul>
-                {history.operation!.paths.map((path) => (
-                  <li key={path.path_id}>
-                    影响类别：{path.classification} · 影响结果：{path.effective_impact} · 关联产物：
-                    {path.affected_artifact_id}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
   return (
-    <div className="v2-invalidation-history" aria-label="影响报告">
-      {history.list === "loading" && <p role="status">正在读取影响报告…</p>}
-      {history.list === "error" && (
-        <div role="alert">
-          <p>{history.listError}</p>
-          <Button onClick={() => void d.invalidationHistoryController.loadInitial()}>
-            重新读取
-          </Button>
-        </div>
-      )}
-      {history.list === "ready" && history.items.length === 0 && <p>暂无影响报告</p>}
-      {history.items.map((item) => (
-        <button
-          key={item.operation_id}
-          ref={(element) => {
-            if (element) rows.current.set(item.operation_id, element);
-            else rows.current.delete(item.operation_id);
-          }}
-          onClick={() => void d.invalidationHistoryController.select(item.operation_id)}
-        >
-          内容版本发生变更 · {item.reason_path_count} 条影响路径
-        </button>
-      ))}
-      {history.more === "error" && (
-        <div role="alert">
-          <p>{history.moreError}</p>
-          <Button onClick={() => void d.invalidationHistoryController.loadMore()}>
-            重新加载更多
-          </Button>
-        </div>
-      )}
-      {history.nextCursor !== null && history.more !== "error" && (
-        <Button
-          disabled={history.more === "loading"}
-          onClick={() => void d.invalidationHistoryController.loadMore()}
-        >
-          {history.more === "loading" ? "正在读取…" : "加载更多"}
-        </Button>
-      )}
-    </div>
+    <SavedInvalidationHistory
+      projectId={d.backendProjectId}
+      history={d.invalidationHistory}
+      controller={d.invalidationHistoryController}
+    />
   );
 }
 
@@ -1228,91 +1153,36 @@ export function MediaPages() {
   const d = useDemo();
   const actions = useMediaActions();
   const transport = useMemo(createStudioTransport, []);
-  if (!d.isFixture && (d.page === "review" || d.page === "changes")) {
-    const reviewing = d.page === "review";
-    return (
-      <>
-        <PageTitle />
-        <section className="native-pending-review" role="status">
-          <h2>{reviewing ? "草稿审片与手工核对" : "版本化修改方案待接入"}</h2>
-          <p>
-            {reviewing
-              ? "打开已导出的真实草稿，回看并记录绑定具体文件、编排版本与帧号的手工批注。处理评论不代表正式审片批准；自动修改方案和版本对比尚未接入。"
-              : "本页尚未接入与成片版本绑定的批注、影响分析和修改执行；不会建立仅在内存中的确认方案。"}
-          </p>
-          <p>可以先打开已验证的草稿 MP4，或返回本集真实剪辑继续编辑。</p>
-          <div className="actions">
-            <Button primary onClick={() => d.go("export")}>
-              {reviewing ? "回看草稿并记录批注" : "回看已导出草稿"}
-            </Button>
-            <Button onClick={() => d.go("assembly")}>编辑本集剪辑</Button>
-            {reviewing && <Button onClick={() => d.go("changes")}>查看修改方案状态</Button>}
-          </div>
-        </section>
-        <FlowFooter
-          label="回看已导出草稿"
-          action={() => d.go("export")}
-          secondaryLabel="返回本集剪辑"
-          secondaryAction={() => d.go("assembly")}
-          reason={
-            reviewing
-              ? "手工记录固定到原版本；正式审片批准尚未接入"
-              : "本地 DRAFT 回看可用；修改执行与正式批准尚未接入"
-          }
-        />
-      </>
-    );
-  }
-  if (!d.isFixture && d.page === "export") {
-    return (
-      <>
-        <PageTitle />
-        <div className="v2-media-body native-assembly-body">
-          {d.backendProjectId && d.selectedEpisodeId ? (
-            <DraftExportPanel
-              key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
-              projectId={d.backendProjectId}
-              episodeId={d.selectedEpisodeId}
-              assembly={transport.episodeMediaAssembly}
-              exports={transport.draftExports}
-            />
-          ) : (
-            <section role="status">
-              <p>请先选择真实项目和剧集，再导出已保存的本集草稿。</p>
-              <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
-            </section>
-          )}
-        </div>
-        <FlowFooter
-          label="返回成片组装"
-          action={() => d.go("assembly")}
-          reason="本地 DRAFT 草稿 · 不代表正式发布批准"
-          secondaryLabel="项目素材"
-          secondaryAction={() => d.go("assets")}
-        />
-      </>
-    );
-  }
+  if (!d.isFixture && (d.page === "review" || d.page === "changes" || d.page === "export"))
+    return <NativeDraftPages d={d} transport={transport} />;
   if (!d.isFixture && d.page === "generation") {
     return (
       <>
-        <PageTitle />
-        <section className="v2-media-body" aria-label="本地制作入口">
-          <div className="v2-visual-card" style={{ padding: 24, alignSelf: "start" }}>
-            <h2>从本地素材开始制作</h2>
-            <p>
-              导入自己的图片、视频或音频，再在成片组装中剪切、排序和保存。AI
-              媒体生成需要已验证的服务、素材授权和费用批准，当前尚未接通。
-            </p>
-            <div className="actions">
-              <Button onClick={() => d.go("assets")}>导入和管理素材</Button>
-              <Button primary onClick={() => d.go("assembly")}>
-                成片组装
-              </Button>
-              <Button onClick={() => d.go("services")}>AI 服务配置</Button>
-            </div>
-          </div>
-        </section>
+        <PageTitle
+          actions={
+            <Button
+              disabled={!d.backendProjectId || !d.selectedEpisodeId}
+              onClick={() => d.go("voice")}
+            >
+              声音与字幕
+            </Button>
+          }
+        />
+        {d.backendProjectId && d.selectedEpisodeId ? (
+          <MediaPreparationWorkflow
+            key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
+            projectId={d.backendProjectId}
+            episodeId={d.selectedEpisodeId}
+            gateway={transport}
+            setNavigationGuard={d.setNavigationGuard}
+            go={d.go}
+          />
+        ) : (
+          <section className="v2-media-body">
+            <p>请先选择真实作品和分集，再准备镜头制作请求。</p>
+            <Button onClick={() => d.go("project")}>选择作品和分集</Button>
+          </section>
+        )}
       </>
     );
   }
@@ -1330,7 +1200,7 @@ export function MediaPages() {
   if (d.page === "assembly" && d.backendProjectId && d.selectedEpisodeId && !d.isFixture) {
     return (
       <>
-        <PageTitle />
+        <PageTitle actions={<Button onClick={() => d.go("voice")}>声音与字幕</Button>} />
         <div className="v2-media-body native-assembly-body">
           <EpisodeMediaAssemblyPanel
             key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
@@ -1340,6 +1210,7 @@ export function MediaPages() {
             assembly={transport.episodeMediaAssembly}
             exports={transport.draftExports}
             script={transport}
+            candidates={transport}
             setNavigationGuard={d.setNavigationGuard}
           />
         </div>

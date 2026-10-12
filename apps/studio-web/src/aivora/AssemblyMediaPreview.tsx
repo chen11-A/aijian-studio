@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AssetLibraryGateway, AssetVersion } from "./adapters/assetLibrary";
 import type { AssemblyMediaRef } from "./adapters/episodeMediaAssembly";
 import { wavSampleRate } from "./adapters/assemblyEditing";
 
 type Props = {
+  compactNotice?: boolean;
   projectId: string;
   media: AssemblyMediaRef;
   version: AssetVersion | undefined;
@@ -11,8 +12,31 @@ type Props = {
   onSampleRate(rate: number): void;
 };
 /** One verified local original, independently decoded by the desktop's media element. */
-export function AssemblyMediaPreview({ projectId, media, version, gateway, onSampleRate }: Props) {
+export function AssemblyMediaPreview(props: Props) {
+  const { projectId, media, version } = props;
+  const scope = JSON.stringify([
+    projectId,
+    media,
+    version?.id,
+    version?.sha256,
+    version?.kind,
+    version?.mime_type,
+    version?.byte_size,
+    version?.availability,
+    version?.rights_status,
+  ]);
+  return <ScopedAssemblyMediaPreview key={scope} {...props} />;
+}
+function ScopedAssemblyMediaPreview({
+  projectId,
+  media,
+  version,
+  gateway,
+  onSampleRate,
+  compactNotice,
+}: Props) {
   const [url, setUrl] = useState<string | null>(null);
+  const ownedUrl = useRef<string | null>(null);
   const [notice, setNotice] = useState("正在读取所选原素材…");
   useEffect(() => {
     let active = true;
@@ -26,6 +50,8 @@ export function AssemblyMediaPreview({ projectId, media, version, gateway, onSam
     if (
       !gateway ||
       !version ||
+      version.id !== media.asset_version_id ||
+      version.sha256 !== media.sha256 ||
       version.availability !== "VERIFIED" ||
       version.rights_status === "RESTRICTED"
     ) {
@@ -65,6 +91,7 @@ export function AssemblyMediaPreview({ projectId, media, version, gateway, onSam
         objectUrl = URL.createObjectURL(
           new Blob([new Uint8Array(result.bytes)], { type: result.mime_type }),
         );
+        ownedUrl.current = objectUrl;
         setUrl(objectUrl);
         setNotice(
           "已读取核验原素材。此播放器独立播放完整原件，不应用序列裁剪、字幕或混音；不代表帧精确审片通过。",
@@ -75,7 +102,10 @@ export function AssemblyMediaPreview({ projectId, media, version, gateway, onSam
     })();
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl && ownedUrl.current === objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        ownedUrl.current = null;
+      }
     };
   }, [
     projectId,
@@ -87,12 +117,18 @@ export function AssemblyMediaPreview({ projectId, media, version, gateway, onSam
     onSampleRate,
   ]);
   const failed = () => {
+    if (ownedUrl.current !== url) return;
+    if (ownedUrl.current) URL.revokeObjectURL(ownedUrl.current);
+    ownedUrl.current = null;
     setUrl(null);
     setNotice("桌面解码器无法播放此原件格式，或文件内容损坏。剪辑引用仍保留；没有生成替代预览。");
   };
   return (
     <section className="assembly-preview" aria-label="所选原素材预览">
-      <h3>所选原素材 · {version?.filename ?? media.asset_version_id}</h3>
+      <h3 title={version?.filename ?? media.asset_version_id}>
+        {compactNotice && url ? "已核验原件" : "所选原素材"} ·{" "}
+        {version?.filename ?? media.asset_version_id}
+      </h3>
       {url && version?.kind === "image" && (
         <img src={url} alt={version.filename} onError={failed} />
       )}
@@ -116,7 +152,17 @@ export function AssemblyMediaPreview({ projectId, media, version, gateway, onSam
           onError={failed}
         />
       )}
-      <p role="status">{notice}</p>
+      {compactNotice && !url && (
+        <p className="assembly-monitor-boundary">原件监看 · 裁剪、字幕、混音未应用</p>
+      )}
+      {compactNotice && url ? (
+        <details className="assembly-original-status">
+          <summary>原件监看 · 裁剪、字幕、混音未应用</summary>
+          <p role="status">{notice}</p>
+        </details>
+      ) : (
+        <p role="status">{notice}</p>
+      )}
     </section>
   );
 }

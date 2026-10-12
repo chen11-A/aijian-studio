@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { readChatGPTStatus } from "./chatgpt-auth/transport";
@@ -95,6 +96,7 @@ export function HomePages() {
       "新建项目",
       [
         { key: "title", label: "作品名称", value: "", required: true },
+        { key: "aspect_ratio", label: "项目画幅", value: "16:9", options: ["16:9", "9:16"] },
         { key: "input", label: "故事灵感", type: "textarea", value: d.value("input") },
       ],
       async (data) => {
@@ -104,9 +106,13 @@ export function HomePages() {
         }
         const title = data.title!.trim();
         if (!title) return false;
+        if (!isProjectAspectRatio(data.aspect_ratio)) {
+          d.notify("请选择 16:9 或 9:16 项目画幅，再创建项目。");
+          return false;
+        }
         const outcome = await d.createRealProject({
           name: title,
-          aspect_ratio: "9:16",
+          aspect_ratio: data.aspect_ratio,
           target_duration_seconds: 60,
           source_language: "zh-CN",
         });

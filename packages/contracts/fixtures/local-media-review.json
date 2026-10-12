@@ -1,0 +1,412 @@
+{
+  "scope": {
+    "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+    "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+    "assembly": {
+      "artifact_id": "art_47d3ec66f1f64a34abddc15e1fdf46bd",
+      "version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+      "content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+      "head_revision": 1,
+      "parent_version_id": null,
+      "content": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+        "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+        "sequence_timebase": {
+          "frame_rate": {
+            "num": 24,
+            "den": 1
+          },
+          "timecode_mode": "NON_DROP_FRAME"
+        },
+        "canvas_width": 160,
+        "canvas_height": 90,
+        "total_frames": 24,
+        "visual_segments": [
+          {
+            "segment_id": "seg_visual",
+            "media_kind": "image",
+            "media": {
+              "asset_id": "asset_2438439ca0864729a0e56fa80a8bc027",
+              "asset_version_id": "asv_6271eaaee9624d9ba65634b9e04f31fb",
+              "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+            },
+            "start_frame": 0,
+            "end_frame": 24,
+            "source_in_frame": 0,
+            "embedded_audio": "MUTE"
+          }
+        ],
+        "audio_segments": [
+          {
+            "segment_id": "seg_audio",
+            "track_kind": "BGM",
+            "media": {
+              "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+              "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+              "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e"
+            },
+            "start_frame": 0,
+            "end_frame": 24,
+            "source_in_sample": 0,
+            "script_version_id": null,
+            "script_block_id": null,
+            "speaker_id": null,
+            "delivery": null
+          }
+        ],
+        "subtitle_segments": [
+          {
+            "segment_id": "seg_subtitle",
+            "start_frame": 0,
+            "end_frame": 24,
+            "text": "自有字幕测试",
+            "render_profile": "noto-cjk-sc-bottom-v1"
+          }
+        ]
+      },
+      "media_checks": [
+        {
+          "media": {
+            "asset_id": "asset_2438439ca0864729a0e56fa80a8bc027",
+            "asset_version_id": "asv_6271eaaee9624d9ba65634b9e04f31fb",
+            "sha256": "5503ff8fef5a4d87e1fe0bdc07254b11153a86debfa97500641c7abbf93357ef"
+          },
+          "kind": "image",
+          "availability": "VERIFIED",
+          "technical_status": "STILL_HEADER_ONLY",
+          "probe_evidence_id": null,
+          "probed_video_frames": null,
+          "probed_has_audio": null,
+          "rights_status": "PENDING_REVIEW",
+          "rights_decision_id": null
+        },
+        {
+          "media": {
+            "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+            "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+            "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e"
+          },
+          "kind": "audio",
+          "availability": "VERIFIED",
+          "technical_status": "PENDING_MEDIA_PROBE",
+          "probe_evidence_id": null,
+          "probed_video_frames": null,
+          "probed_has_audio": null,
+          "rights_status": "PENDING_REVIEW",
+          "rights_decision_id": null
+        }
+      ],
+      "playback_status": "BLOCKED_MEDIA_PROBE",
+      "export_status": "NO_EXPORT_CLAIM"
+    },
+    "audio_asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+    "audio_asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+    "audio_sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e"
+  },
+  "provenance": {
+    "note": "Real Store/HTTP capture on owned isolated SQLite, not quality/native acceptance",
+    "sources": {
+      "audio-target.json": "c0400d21fbcfabd97da6b1ad7b6e5518ca0f6af36a8841433274dfa5b4c04f56",
+      "audio-operation.json": "ee8933dabe665507cb4531d229a2f7d616e9ef309e1c52c1cc53912bbc1457ee",
+      "audio-status.json": "d99c372a2e97cc8beb8b03cc8621cf68fa3b013df435c120535a80c138000cd3",
+      "literal_subtitle-target.json": "1f2a6e787442ac3cdd386727c87c9cfa076c1fb088ca96e6778f904d4a3fdc53",
+      "literal_subtitle-operation.json": "bc66580b138ab894b6ae2fdd100e60a50e4a6e169c0a346275f61f86ac73c644",
+      "literal_subtitle-status.json": "e9142d1ac6318637b121135f0090dc65956acc1776ad7beaae13a005612113a6"
+    }
+  },
+  "audio_target": {
+    "snapshot": {
+      "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+      "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+      "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+      "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+      "assembly_head_revision": 1,
+      "segment_kind": "AUDIO",
+      "segment_id": "seg_audio",
+      "segment_content_hash": "sha256:dc0e2a9f9f853ba0bb1eee990fec9879a1ed9a78fb313bec5542a1da0c9cd568",
+      "sequence_timebase": {
+        "frame_rate": {
+          "num": 24,
+          "den": 1
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      "total_frames": 24,
+      "canvas_width": 160,
+      "canvas_height": 90,
+      "audio_segment": {
+        "segment_id": "seg_audio",
+        "track_kind": "BGM",
+        "media": {
+          "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+          "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+          "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e"
+        },
+        "start_frame": 0,
+        "end_frame": 24,
+        "source_in_sample": 0,
+        "script_version_id": null,
+        "script_block_id": null,
+        "speaker_id": null,
+        "delivery": null
+      },
+      "subtitle_segment": null,
+      "media_original": {
+        "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+        "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+        "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e",
+        "byte_size": 96044,
+        "mime_type": "audio/wav",
+        "filename": "owned-review.wav",
+        "origin": "LOCAL_IMPORT"
+      },
+      "script_source": null,
+      "script_provenance": null
+    },
+    "snapshot_hash": "sha256:19980257c26ac07f6857c9e22d6354956bd79460fa9c3571a20d8ae6ff66d8d8"
+  },
+  "audio_operation": {
+    "operation_id": "0FB3F6D6-88E2-480D-8B3A-CE0B923F123F",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+        "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+        "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+        "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+        "assembly_head_revision": 1,
+        "segment_kind": "AUDIO",
+        "segment_id": "seg_audio",
+        "segment_content_hash": "sha256:dc0e2a9f9f853ba0bb1eee990fec9879a1ed9a78fb313bec5542a1da0c9cd568",
+        "target_snapshot_hash": "sha256:19980257c26ac07f6857c9e22d6354956bd79460fa9c3571a20d8ae6ff66d8d8",
+        "outcome": "NEEDS_CHANGES",
+        "observation": "受控HTTP证据：自有测试原件/文字人工观察，不能表示正式音质或混音批准。",
+        "self_review": true
+      },
+      "parent_version_id": null,
+      "expected_revision": null
+    },
+    "version": {
+      "version_id": "ver_3e0db4636b974dabb332fb9e8cfd1f41",
+      "version_number": 1,
+      "parent_version_id": null,
+      "author_actor_id": "local-user",
+      "content": {
+        "schema_version": "1.0.0",
+        "input": {
+          "schema_version": "1.0.0",
+          "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+          "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+          "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+          "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+          "assembly_head_revision": 1,
+          "segment_kind": "AUDIO",
+          "segment_id": "seg_audio",
+          "segment_content_hash": "sha256:dc0e2a9f9f853ba0bb1eee990fec9879a1ed9a78fb313bec5542a1da0c9cd568",
+          "target_snapshot_hash": "sha256:19980257c26ac07f6857c9e22d6354956bd79460fa9c3571a20d8ae6ff66d8d8",
+          "outcome": "NEEDS_CHANGES",
+          "observation": "受控HTTP证据：自有测试原件/文字人工观察，不能表示正式音质或混音批准。",
+          "self_review": true
+        },
+        "target_snapshot": {
+          "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+          "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+          "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+          "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+          "assembly_head_revision": 1,
+          "segment_kind": "AUDIO",
+          "segment_id": "seg_audio",
+          "segment_content_hash": "sha256:dc0e2a9f9f853ba0bb1eee990fec9879a1ed9a78fb313bec5542a1da0c9cd568",
+          "sequence_timebase": {
+            "frame_rate": {
+              "num": 24,
+              "den": 1
+            },
+            "timecode_mode": "NON_DROP_FRAME"
+          },
+          "total_frames": 24,
+          "canvas_width": 160,
+          "canvas_height": 90,
+          "audio_segment": {
+            "segment_id": "seg_audio",
+            "track_kind": "BGM",
+            "media": {
+              "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+              "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+              "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e"
+            },
+            "start_frame": 0,
+            "end_frame": 24,
+            "source_in_sample": 0,
+            "script_version_id": null,
+            "script_block_id": null,
+            "speaker_id": null,
+            "delivery": null
+          },
+          "subtitle_segment": null,
+          "media_original": {
+            "asset_id": "asset_ee0613ae792840a885db699f50456f5d",
+            "asset_version_id": "asv_191796afe5df4a90a837614b41cd1942",
+            "sha256": "a584720e879228265973580db96474d6c7bc751de6d0d36a46cda5c0d57cdb9e",
+            "byte_size": 96044,
+            "mime_type": "audio/wav",
+            "filename": "owned-review.wav",
+            "origin": "LOCAL_IMPORT"
+          },
+          "script_source": null,
+          "script_provenance": null
+        },
+        "observation_method": "ORIGINAL_AUDIO_LISTENING",
+        "manual_review_only": true,
+        "formal_status": "BLOCKED"
+      },
+      "content_hash": "sha256:95cfdb3c53ac29510a0f43bcb09dc2af2ce727a601e11c7426f120b5c700d06b",
+      "created_at": "2026-10-11T19:34:15.736401Z"
+    },
+    "result_revision": 1
+  },
+  "audio_status": {
+    "review_version_id": "ver_3e0db4636b974dabb332fb9e8cfd1f41",
+    "review_content_hash": "sha256:95cfdb3c53ac29510a0f43bcb09dc2af2ce727a601e11c7426f120b5c700d06b",
+    "applicability": "CURRENT",
+    "current_assembly": {
+      "version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+      "content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+      "head_revision": 1
+    },
+    "reasons": [],
+    "checked_at": "2026-10-11T19:34:15.773225Z",
+    "formal_status": "BLOCKED"
+  },
+  "literal_subtitle_target": {
+    "snapshot": {
+      "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+      "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+      "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+      "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+      "assembly_head_revision": 1,
+      "segment_kind": "LITERAL_SUBTITLE",
+      "segment_id": "seg_subtitle",
+      "segment_content_hash": "sha256:2297eafbabf480a4ae2f0ef1cdd698669a19087f637a6fdf503e290305d3053b",
+      "sequence_timebase": {
+        "frame_rate": {
+          "num": 24,
+          "den": 1
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      "total_frames": 24,
+      "canvas_width": 160,
+      "canvas_height": 90,
+      "audio_segment": null,
+      "subtitle_segment": {
+        "segment_id": "seg_subtitle",
+        "start_frame": 0,
+        "end_frame": 24,
+        "text": "自有字幕测试",
+        "render_profile": "noto-cjk-sc-bottom-v1"
+      },
+      "media_original": null,
+      "script_source": null,
+      "script_provenance": null
+    },
+    "snapshot_hash": "sha256:3173e0a2138f5e23d0e261ac2f2c3e9823d5992f51fcb78752c4819addb2f02b"
+  },
+  "literal_subtitle_operation": {
+    "operation_id": "EF93874C-DDF2-4E54-BAA0-FB6D6E878C97",
+    "payload": {
+      "input": {
+        "schema_version": "1.0.0",
+        "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+        "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+        "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+        "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+        "assembly_head_revision": 1,
+        "segment_kind": "LITERAL_SUBTITLE",
+        "segment_id": "seg_subtitle",
+        "segment_content_hash": "sha256:2297eafbabf480a4ae2f0ef1cdd698669a19087f637a6fdf503e290305d3053b",
+        "target_snapshot_hash": "sha256:3173e0a2138f5e23d0e261ac2f2c3e9823d5992f51fcb78752c4819addb2f02b",
+        "outcome": "NEEDS_CHANGES",
+        "observation": "受控HTTP证据：自有测试原件/文字人工观察，不能表示正式音质或混音批准。",
+        "self_review": true
+      },
+      "parent_version_id": "ver_3e0db4636b974dabb332fb9e8cfd1f41",
+      "expected_revision": 1
+    },
+    "version": {
+      "version_id": "ver_d7c678e9d246465186a1ea3b034d869d",
+      "version_number": 2,
+      "parent_version_id": "ver_3e0db4636b974dabb332fb9e8cfd1f41",
+      "author_actor_id": "local-user",
+      "content": {
+        "schema_version": "1.0.0",
+        "input": {
+          "schema_version": "1.0.0",
+          "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+          "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+          "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+          "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+          "assembly_head_revision": 1,
+          "segment_kind": "LITERAL_SUBTITLE",
+          "segment_id": "seg_subtitle",
+          "segment_content_hash": "sha256:2297eafbabf480a4ae2f0ef1cdd698669a19087f637a6fdf503e290305d3053b",
+          "target_snapshot_hash": "sha256:3173e0a2138f5e23d0e261ac2f2c3e9823d5992f51fcb78752c4819addb2f02b",
+          "outcome": "NEEDS_CHANGES",
+          "observation": "受控HTTP证据：自有测试原件/文字人工观察，不能表示正式音质或混音批准。",
+          "self_review": true
+        },
+        "target_snapshot": {
+          "project_id": "prj_ff5a5f890734438d8c70f0975c43f618",
+          "episode_id": "ep_prj_ff5a5f890734438d8c70f0975c43f618",
+          "assembly_version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+          "assembly_content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+          "assembly_head_revision": 1,
+          "segment_kind": "LITERAL_SUBTITLE",
+          "segment_id": "seg_subtitle",
+          "segment_content_hash": "sha256:2297eafbabf480a4ae2f0ef1cdd698669a19087f637a6fdf503e290305d3053b",
+          "sequence_timebase": {
+            "frame_rate": {
+              "num": 24,
+              "den": 1
+            },
+            "timecode_mode": "NON_DROP_FRAME"
+          },
+          "total_frames": 24,
+          "canvas_width": 160,
+          "canvas_height": 90,
+          "audio_segment": null,
+          "subtitle_segment": {
+            "segment_id": "seg_subtitle",
+            "start_frame": 0,
+            "end_frame": 24,
+            "text": "自有字幕测试",
+            "render_profile": "noto-cjk-sc-bottom-v1"
+          },
+          "media_original": null,
+          "script_source": null,
+          "script_provenance": null
+        },
+        "observation_method": "LITERAL_SUBTITLE_TEXT_AND_RANGE",
+        "manual_review_only": true,
+        "formal_status": "BLOCKED"
+      },
+      "content_hash": "sha256:400d540f6b8ccb1b4df340204a1d2cfc26fbc58b65535ae7601b4b3aaccf811a",
+      "created_at": "2026-10-11T19:34:15.792161Z"
+    },
+    "result_revision": 2
+  },
+  "literal_subtitle_status": {
+    "review_version_id": "ver_d7c678e9d246465186a1ea3b034d869d",
+    "review_content_hash": "sha256:400d540f6b8ccb1b4df340204a1d2cfc26fbc58b65535ae7601b4b3aaccf811a",
+    "applicability": "CURRENT",
+    "current_assembly": {
+      "version_id": "ver_0c4c785b263543c6802d27857b4ea77f",
+      "content_hash": "sha256:0bb00b831b19ec2dc2a0c3835d264a54aa5331a701b1b356d2c2c1611d013ab6",
+      "head_revision": 1
+    },
+    "reasons": [],
+    "checked_at": "2026-10-11T19:34:15.824863Z",
+    "formal_status": "BLOCKED"
+  }
+}

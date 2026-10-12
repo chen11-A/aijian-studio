@@ -5,7 +5,11 @@ import { createStudioTransport } from "../api/studio";
 import { StoryboardReferences } from "./StoryboardReferences";
 import { emptyCreativeContent, type CreativeVersion } from "./adapters/creativeLibrary";
 import type { ScriptVersion } from "./adapters/episodeScript";
-import type { StoryboardContent, StoryboardShot } from "./adapters/episodeStoryboard";
+import {
+  withStoryboardShots,
+  type StoryboardContent,
+  type StoryboardShot,
+} from "./adapters/episodeStoryboard";
 
 vi.mock("../api/studio", () => ({ createStudioTransport: vi.fn() }));
 const project = `prj_${"a".repeat(32)}`;
@@ -124,12 +128,14 @@ function Harness({
         locked={locked}
         edit={setContent}
         updateShot={(patch) =>
-          setContent((value) => ({
-            ...value,
-            shots: value.shots.map((item) =>
-              item.shot_id === currentShot.shot_id ? { ...item, ...patch } : item,
+          setContent((value) =>
+            withStoryboardShots(
+              value,
+              value.shots.map((item) =>
+                item.shot_id === currentShot.shot_id ? { ...item, ...patch } : item,
+              ),
             ),
-          }))
+          )
         }
       />
       <output aria-label="分镜状态">{JSON.stringify(content)}</output>

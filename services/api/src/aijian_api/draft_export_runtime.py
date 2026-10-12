@@ -184,6 +184,31 @@ class DraftExportRuntime:
             version_id=request.assembly_version_id,
         )
         content = assembly.content
+        # Historic sources remain readable, but a new encode must consume current G5 evidence.
+        from aijian_api.assembly_script_provenance import (
+            AssemblyScriptProvenanceError,
+            validate_script_provenance,
+        )
+        from aijian_api.assembly_storyboard_provenance import (
+            AssemblyStoryboardReferenceError,
+            validate_storyboard_provenance,
+        )
+
+        try:
+            with self.repository._connection() as connection:
+                from aijian_api.script_confirmation_impact_projection import (
+                    ImpactMaterializationBudget,
+                )
+
+                budget = ImpactMaterializationBudget()
+                validate_storyboard_provenance(
+                    self.repository, connection, content, fresh=True, budget=budget
+                )
+                validate_script_provenance(
+                    self.repository, connection, content, fresh=True, budget=budget
+                )
+        except (AssemblyStoryboardReferenceError, AssemblyScriptProvenanceError) as error:
+            raise DraftExportError(error.code, str(error)) from None
         if (
             assembly.content_hash != request.assembly_content_hash
             or canonical_content_hash(
@@ -468,6 +493,7 @@ class DraftExportRuntime:
             return event.is_set() or self._closing
 
         try:
+            self._read_assembly(project, episode, request)
             self._update(operation, status="RUNNING")
             workspace = self.repository.database_path.parent.absolute()
             root = workspace / "draft-export-work"
@@ -504,6 +530,7 @@ class DraftExportRuntime:
                 originals[digest] = (source, int(row["byte_size"]))
             if stopped():
                 raise DraftExportError("CANCELLED", "Draft export was cancelled")
+            self._read_assembly(project, episode, request)
             verified = encode_draft(
                 assembly,
                 sources,

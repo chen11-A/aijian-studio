@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import { Button } from "./Common";
+import { StoryboardCharacters } from "./StoryboardCharacters";
 import { StoryboardReferencePin } from "./StoryboardReferencePin";
+import { StoryboardVisualBiblePin } from "./StoryboardVisualBiblePin";
+import { StoryboardEnvironmentBindings } from "./StoryboardEnvironmentBindings";
+import { environmentForLocation, shotEnvironment } from "./adapters/storyboardEnvironment";
+import { sameStoryboardJson } from "./adapters/episodeStoryboard";
 import { validScriptVersion, type ScriptVersion } from "./adapters/episodeScript";
 import { validCreativeVersion, type CreativeVersion } from "./adapters/creativeLibrary";
 import type { StoryboardContent, StoryboardShot } from "./adapters/episodeStoryboard";
@@ -90,6 +95,20 @@ export function StoryboardReferences({
       active = false;
     };
   }, [transport, projectId, libraryPin, refresh]);
+  const activeLibrary =
+    library.state === "ready" &&
+    library.version &&
+    validCreativeVersion(library.version, projectId) &&
+    (!libraryPin || library.version.version_id === libraryPin)
+      ? library.version
+      : null;
+  const activeScript =
+    script.state === "ready" &&
+    script.version &&
+    validScriptVersion(script.version, projectId, episodeId) &&
+    (!scriptPin || script.version.version_id === scriptPin)
+      ? script.version
+      : null;
   const sourceLabel = (state: Source<unknown>["state"]) =>
     ({
       loading: "正在读取…",
@@ -110,7 +129,7 @@ export function StoryboardReferences({
       <StoryboardReferencePin
         kind="script"
         content={content}
-        version={script.state === "ready" ? script.version : null}
+        version={activeScript}
         sourceLabel={sourceLabel(script.state)}
         locked={locked}
         transport={transport}
@@ -120,12 +139,12 @@ export function StoryboardReferences({
         <label>
           对应剧本场次
           <select
-            disabled={locked || script.state !== "ready"}
+            disabled={locked || !activeScript}
             value={shot.script_scene_id ?? ""}
             onChange={(event) => updateShot({ script_scene_id: event.target.value || null })}
           >
             <option value="">不关联场次</option>
-            {script.version?.content.scenes.map((scene) => (
+            {activeScript?.content.scenes.map((scene) => (
               <option key={scene.scene_id} value={scene.scene_id}>
                 {scene.ordinal}. {scene.heading}
               </option>
@@ -137,57 +156,68 @@ export function StoryboardReferences({
       <StoryboardReferencePin
         kind="library"
         content={content}
-        version={library.state === "ready" ? library.version : null}
+        version={activeLibrary}
         sourceLabel={sourceLabel(library.state)}
-        locked={locked}
+        locked={locked || ("visual_bible_pin" in content && content.visual_bible_pin !== null)}
         transport={transport}
         edit={edit}
       />
+      <StoryboardVisualBiblePin
+        content={content}
+        library={activeLibrary}
+        locked={locked}
+        edit={edit}
+      />
+      {"visual_bible_pin" in content && content.visual_bible_pin && (
+        <p>G5固定了对应设定版本；改换设定请先显式解除G5引用，或核对并固定新的批准视觉版本。</p>
+      )}
       {libraryPin && (
         <>
           <label>
             镜头地点
             <select
-              disabled={locked || library.state !== "ready"}
+              disabled={locked || !activeLibrary}
               value={shot.location_id ?? ""}
-              onChange={(event) => updateShot({ location_id: event.target.value || null })}
+              onChange={(event) => {
+                const location_id = event.currentTarget.value || null;
+                if (!activeLibrary) return;
+                if (content.schema_version !== "1.4.0" && content.schema_version !== "1.5.0") {
+                  updateShot({ location_id });
+                  return;
+                }
+                const before = shotEnvironment(shot),
+                  next = environmentForLocation(shot, activeLibrary, location_id);
+                if (
+                  !sameStoryboardJson(before, next) &&
+                  !window.confirm("更换地点会调整当前镜头草稿的不兼容环境状态/参考；历史版本保留。")
+                )
+                  return;
+                updateShot({ location_id, environment_binding: next });
+              }}
             >
               <option value="">不关联地点</option>
-              {library.version?.content.scenes.map((scene) => (
+              {activeLibrary?.content.scenes.map((scene) => (
                 <option key={scene.scene_id} value={scene.scene_id}>
                   {scene.name}
                 </option>
               ))}
             </select>
           </label>
-          <fieldset
-            disabled={locked || library.state !== "ready"}
-            className="storyboard-characters"
-          >
-            <legend>出场角色（可多选）</legend>
-            {library.version?.content.characters.map((character) => (
-              <label key={character.character_id}>
-                <input
-                  type="checkbox"
-                  checked={shot.character_ids.includes(character.character_id)}
-                  onChange={(event) =>
-                    updateShot({
-                      character_ids: event.target.checked
-                        ? [...shot.character_ids, character.character_id]
-                        : shot.character_ids.filter((id) => id !== character.character_id),
-                    })
-                  }
-                />
-                {character.name}
-              </label>
-            ))}
-            {library.state === "ready" && !library.version?.content.characters.length && (
-              <small>这个设定版本还没有角色。</small>
-            )}
-            {library.state !== "ready" && (
-              <small>{sourceLabel(library.state)}；现有引用已保留。</small>
-            )}
-          </fieldset>
+          <StoryboardCharacters
+            content={content}
+            shot={shot}
+            library={activeLibrary}
+            locked={locked}
+            edit={edit}
+            updateShot={updateShot}
+          />
+          <StoryboardEnvironmentBindings
+            content={content}
+            shot={shot}
+            library={activeLibrary}
+            locked={locked}
+            edit={edit}
+          />
         </>
       )}
     </section>

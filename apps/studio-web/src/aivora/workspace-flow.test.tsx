@@ -61,6 +61,7 @@ function bridge(overrides: Record<string, unknown> = {}) {
       data: {
         id: projectId,
         name: "新项目",
+        aspect_ratio: "16:9",
         status: "active",
         revision: 1,
         updated_at: "2026-09-11T00:00:00Z",
@@ -238,6 +239,9 @@ describe("selected renderer workspace callers", () => {
       data: {
         id: projectId,
         name: "QA pending",
+        aspect_ratio: "16:9",
+        target_duration_seconds: 60,
+        source_language: "zh-CN",
         status: "active",
         revision: 1,
         updated_at: "2026-09-17T00:00:00Z",
@@ -383,7 +387,7 @@ describe("selected renderer workspace callers", () => {
     expect(screen.getByLabelText("状态").textContent).toContain('"approved":"false"');
   });
 
-  it("locks an unknown create result until a fresh list read reconciles it", async () => {
+  it("retains an unknown create through a fresh list read without authorizing a second POST", async () => {
     const fake = bridge({ createProject: vi.fn().mockRejectedValue(new Error("bridge lost")) })!;
     window.aijian = fake;
     renderHome();
@@ -398,12 +402,18 @@ describe("selected renderer workspace callers", () => {
       await waitFor(() => expect(fake.createProject).toHaveBeenCalled());
     };
     await submit();
+    const original = window.localStorage.getItem("aivora.project-create.intent.v1");
+    expect(original).not.toBeNull();
     await submit();
     expect(fake.createProject).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
     await waitFor(() => expect(fake.listProjects).toHaveBeenCalledTimes(2));
     await submit();
-    await waitFor(() => expect(fake.createProject).toHaveBeenCalledTimes(2));
+    expect(fake.createProject).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem("aivora.project-create.intent.v1")).toBe(original);
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "创建真实项目" }),
+    ).toBeDisabled();
   });
 
   it("clears project-scoped source and review state when switching to a project with no source", async () => {

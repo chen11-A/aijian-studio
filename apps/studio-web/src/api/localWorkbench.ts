@@ -1,4 +1,5 @@
 import type { components } from "@aijian/contracts";
+import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { validScriptVersion, type ScriptVersion } from "../aivora/adapters/episodeScript";
 import type {
   EpisodeResponse,
@@ -268,7 +269,7 @@ function projectReceipt(
   return (
     data.id === projectId &&
     typeof data.name === "string" &&
-    data.aspect_ratio === "9:16" &&
+    isProjectAspectRatio(data.aspect_ratio) &&
     positive(data.target_duration_seconds) &&
     data.source_language === "zh-CN" &&
     (data.status === "active" || data.status === "archived") &&

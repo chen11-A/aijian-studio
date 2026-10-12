@@ -1,7 +1,18 @@
 import { useRef, useState } from "react";
 import { Button, PageTitle, Pill } from "./Common";
 import { Icon } from "./Icon";
-import { useDemo } from "./model";
+import { ManualCreativeTextFields } from "./ManualCreativeTextFields";
+import { CharacterDetails } from "./CharacterDetails";
+import { SceneVariants } from "./SceneVariants";
+import { EnvironmentReferences } from "./EnvironmentReferences";
+import { removeCreativeScene } from "./adapters/creativeEnvironment";
+import {
+  characterRemovalDetails,
+  removeCreativeCharacter,
+} from "./adapters/creativeCharacterDetails";
+import { CharacterUsagePanel } from "./CharacterUsagePanel";
+import type { CharacterUsageEpisode } from "./useCharacterUsage";
+export { ManualCreativePage, ManualCreativeInspector } from "./NativeCreativePage";
 import { useCreativeLibrary } from "./useCreativeLibrary";
 import { buildCreativeSelection, usePublishAssistantSelection } from "./assistantSelection";
 import { emptyCreativeWorld, newCreativeId } from "./adapters/creativeLibrary";
@@ -37,28 +48,19 @@ function initialSelection(projectId: string, kind: Kind): string | null {
   }
 }
 
-/** The key discards a previous project's asynchronous view before rendering the next project. */
-export function ManualCreativePage({ kind }: { kind: Kind }) {
-  const d = useDemo();
-  return (
-    <ManualCreativeEditor
-      key={`${d.backendProjectId ?? "unselected"}:${kind}`}
-      kind={kind}
-      projectId={d.backendProjectId}
-      episodeId={d.selectedEpisodeId}
-      setNavigationGuard={d.setNavigationGuard}
-    />
-  );
-}
 export function ManualCreativeEditor({
   kind,
   projectId,
   episodeId = null,
+  episodes = [],
+  episodeListReady = false,
   setNavigationGuard,
 }: {
   kind: Kind;
   projectId: string | null;
   episodeId?: string | null;
+  episodes?: readonly CharacterUsageEpisode[];
+  episodeListReady?: boolean;
   setNavigationGuard: (guard: (() => boolean) | null) => void;
 }) {
   const library = useCreativeLibrary(projectId, setNavigationGuard);
@@ -173,7 +175,7 @@ export function ManualCreativeEditor({
       library.locked ||
       !selected ||
       !window.confirm(
-        `从当前草稿删除“${selected.name || `未命名${titles[kind]}`}”吗？保存后将产生新版本，旧版本会保留。`,
+        `从当前草稿删除“${selected.name || `未命名${titles[kind]}`}”吗？保存后将产生新版本，旧版本会保留。${"character_id" in selected ? characterRemovalDetails(library.content, selected.character_id) : "此地点的状态与参考关联将从当前草稿一同移除。"}`,
       )
     )
       return;
@@ -181,18 +183,8 @@ export function ManualCreativeEditor({
     const next = items.filter((item) => idOf(item) !== id);
     library.edit((current) =>
       kind === "characters"
-        ? {
-            ...current,
-            characters: current.characters
-              .filter((item) => item.character_id !== id)
-              .map((item, i) => ({ ...item, ordinal: i + 1 })),
-          }
-        : {
-            ...current,
-            scenes: current.scenes
-              .filter((item) => item.scene_id !== id)
-              .map((item, i) => ({ ...item, ordinal: i + 1 })),
-          },
+        ? removeCreativeCharacter(current, id)
+        : removeCreativeScene(current, id),
     );
     setSelectedId(next[0] ? idOf(next[0]) : null);
   }
@@ -284,7 +276,7 @@ export function ManualCreativeEditor({
                   : "从世界定位开始，逐步完善规则与视觉约束。"}
               </p>
               <p className="manual-creative-muted">
-                纯文本设定可以单独保存。参考图片和批准状态尚未绑定。
+                文字与真实参考保存为同一作品版本；制作批准仍需独立核对。
               </p>
               <Button
                 disabled={library.locked || !hasWorld}
@@ -336,6 +328,15 @@ export function ManualCreativeEditor({
                   </label>
                 ))}
               </fieldset>
+              <EnvironmentReferences
+                key={library.content.project_id}
+                content={library.content}
+                sceneId={null}
+                variantId={null}
+                locked={library.locked}
+                edit={library.edit}
+                onNotice={library.setNotice}
+              />
             </div>
           </div>
         ) : !items.length ? (
@@ -415,126 +416,44 @@ export function ManualCreativeEditor({
                   </div>
                 </header>
                 <fieldset disabled={library.locked} className="manual-creative-fields">
-                  {"character_id" in selected ? (
-                    <>
-                      <label>
-                        角色名称
-                        <input
-                          ref={nameInput}
-                          value={selected.name}
-                          maxLength={120}
-                          required
-                          placeholder="填写角色名称"
-                          onChange={(event) => updateCharacter("name", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        身份与作用
-                        <input
-                          value={selected.role}
-                          maxLength={240}
-                          placeholder="人物身份及其在故事中的作用"
-                          onChange={(event) => updateCharacter("role", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        角色经历与关系
-                        <textarea
-                          value={selected.description}
-                          maxLength={20_000}
-                          rows={5}
-                          placeholder="经历、动机与人物关系"
-                          onChange={(event) => updateCharacter("description", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        外观设定
-                        <textarea
-                          value={selected.appearance}
-                          maxLength={20_000}
-                          rows={4}
-                          placeholder="外貌、服饰与辨识特征"
-                          onChange={(event) => updateCharacter("appearance", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        性格与行为
-                        <textarea
-                          value={selected.personality}
-                          maxLength={20_000}
-                          rows={4}
-                          placeholder="性格、习惯与行为边界"
-                          onChange={(event) => updateCharacter("personality", event.target.value)}
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <>
-                      <label>
-                        场景名称
-                        <input
-                          ref={nameInput}
-                          value={selected.name}
-                          maxLength={120}
-                          required
-                          placeholder="填写场景名称"
-                          onChange={(event) => updateScene("name", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        地点
-                        <input
-                          value={selected.location}
-                          maxLength={240}
-                          placeholder="地点、方位或所属区域"
-                          onChange={(event) => updateScene("location", event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        空间与叙事
-                        <textarea
-                          value={selected.description}
-                          maxLength={20_000}
-                          rows={5}
-                          placeholder="空间布局、关键区域与叙事用途"
-                          onChange={(event) => updateScene("description", event.target.value)}
-                        />
-                      </label>
-                      <div className="manual-creative-field-row">
-                        <label>
-                          时间
-                          <input
-                            value={selected.time_of_day}
-                            maxLength={240}
-                            placeholder="例如：凌晨"
-                            onChange={(event) => updateScene("time_of_day", event.target.value)}
-                          />
-                        </label>
-                        <label>
-                          天气
-                          <input
-                            value={selected.weather}
-                            maxLength={240}
-                            placeholder="例如：雨后"
-                            onChange={(event) => updateScene("weather", event.target.value)}
-                          />
-                        </label>
-                      </div>
-                      <label>
-                        连续性要求
-                        <textarea
-                          value={selected.continuity}
-                          maxLength={20_000}
-                          rows={5}
-                          placeholder="光线、关键物件、空间方向与需要跨镜头保持的细节"
-                          onChange={(event) => updateScene("continuity", event.target.value)}
-                        />
-                      </label>
-                    </>
-                  )}
+                  <ManualCreativeTextFields
+                    selected={selected}
+                    nameInput={nameInput}
+                    updateCharacter={updateCharacter}
+                    updateScene={updateScene}
+                  />
                 </fieldset>
+                {"character_id" in selected && (
+                  <CharacterDetails
+                    content={library.content}
+                    characterId={selected.character_id}
+                    locked={library.locked}
+                    edit={library.edit}
+                    onNotice={library.setNotice}
+                  />
+                )}
+                {"scene_id" in selected && (
+                  <SceneVariants
+                    key={`${library.content.project_id}:${selected.scene_id}`}
+                    content={library.content}
+                    sceneId={selected.scene_id}
+                    locked={library.locked}
+                    edit={library.edit}
+                    onNotice={library.setNotice}
+                  />
+                )}
+                {projectId && "character_id" in selected && (
+                  <CharacterUsagePanel
+                    projectId={projectId}
+                    characterId={selected.character_id}
+                    episodes={episodes}
+                    episodeListReady={episodeListReady}
+                    selectedEpisodeId={episodeId}
+                    dirty={library.dirty}
+                  />
+                )}
                 <p className="manual-creative-muted">
-                  文字设定独立保存；此草稿尚未绑定参考素材、镜头或批准记录。
+                  设定与参考随同一作品版本保存，镜头必须选用精确版本；保存不替代制作批准。
                 </p>
               </section>
             )}
@@ -561,33 +480,5 @@ export function ManualCreativeEditor({
         </footer>
       </section>
     </>
-  );
-}
-
-/** Professional mode must not expose fixture-only controls for real creative records. */
-export function ManualCreativeInspector() {
-  const d = useDemo();
-  const project = d.projects.find((item) => item.backendId === d.backendProjectId);
-  return (
-    <aside className="inspector manual-creative-inspector" aria-label="作品设定检查器">
-      <header>
-        <h2>作品共享设定</h2>
-        <Pill>人工草稿</Pill>
-      </header>
-      <section>
-        <h3>{project?.name ?? "当前作品"}</h3>
-        <p>角色、世界和场景在本作品各集共享。请在主编辑区修改，再保存为新版本。</p>
-        <p>保存状态与回读结果显示在主编辑区；此处没有单独的修改或批准操作。</p>
-        <Button
-          onClick={() => {
-            const editor = document.getElementById("manual-creative-editor");
-            editor?.scrollIntoView({ block: "nearest" });
-            editor?.focus();
-          }}
-        >
-          返回设定编辑区
-        </Button>
-      </section>
-    </aside>
   );
 }

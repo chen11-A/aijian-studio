@@ -4,14 +4,60 @@ The immutable proposal retains every typed intention and block reference. The
 V1 storyboard is an editable projection, never proof of generated media.
 """
 
+import sqlite3
+from typing import Literal
+
 from aijian_api.artifacts import canonical_content_bytes
 from aijian_api.episode_script_contracts import EpisodeScriptContentV1
 from aijian_api.episode_storyboard_contracts import (
     MAX_STORYBOARD_BYTES,
+    EpisodeStoryboardContent,
     EpisodeStoryboardContentV1,
+    EpisodeStoryboardContentV2,
     EpisodeStoryboardShotV1,
 )
-from aijian_api.shot_plan_contracts import ShotPlanContentV1, ShotPlanIssueV1
+from aijian_api.episode_storyboard_store import EpisodeStoryboardStore
+from aijian_api.repository import StudioRepository
+from aijian_api.shot_plan_contracts import (
+    ShotPlanContentV1,
+    ShotPlanIssueV1,
+    ShotPlanStoryboardBase,
+)
+
+
+def projection_schema_for_base(
+    repository: StudioRepository,
+    connection: sqlite3.Connection,
+    project: str,
+    episode: str,
+    base: ShotPlanStoryboardBase | None,
+) -> Literal["1.0.0", "1.1.0"]:
+    if base is None:
+        return "1.0.0"
+    record = repository._get_artifact_version_in_connection(
+        connection,
+        project_id=project,
+        artifact_type="episode_storyboard",
+        version_id=base.version_id,
+        episode_id=episode,
+    )
+    content = (
+        EpisodeStoryboardStore(repository)
+        ._verified_version_data(
+            record,
+            project_id=project,
+            episode_id=episode,
+            connection=connection,
+        )
+        .content
+    )
+    if content.schema_version == "1.2.0":
+        raise ValueError("A visual pin must not be silently discarded by whole-board projection")
+    if content.schema_version in ("1.3.0", "1.4.0", "1.5.0"):
+        raise ValueError("Whole-board projection cannot discard planning intent or visual basis")
+    if content.schema_version == "1.1.0" and any(shot.character_bindings for shot in content.shots):
+        raise ValueError("Whole-storyboard projection cannot silently remove character choices")
+    return "1.1.0" if content.schema_version == "1.1.0" else "1.0.0"
 
 
 def capability_losses(content: ShotPlanContentV1) -> tuple[ShotPlanIssueV1, ...]:
@@ -38,7 +84,13 @@ def capability_losses(content: ShotPlanContentV1) -> tuple[ShotPlanIssueV1, ...]
 def project_storyboard(
     content: ShotPlanContentV1,
     script: EpisodeScriptContentV1,
-) -> EpisodeStoryboardContentV1:
+    *,
+    target_schema: Literal["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"] = "1.0.0",
+) -> EpisodeStoryboardContent:
+    if target_schema == "1.2.0":
+        raise ValueError("Whole-board projection cannot discard an explicit G5 pin")
+    if target_schema in ("1.3.0", "1.4.0", "1.5.0"):
+        raise ValueError("Whole-board projection cannot discard planning intent or visual basis")
     if any(loss.severity == "BLOCKING" for loss in capability_losses(content)):
         raise ValueError("The existing storyboard cannot represent this timebase")
     blocks = {block.block_id: block for scene in script.scenes for block in scene.blocks}
@@ -78,7 +130,7 @@ def project_storyboard(
                 location_id=None,
             )
         )
-    return EpisodeStoryboardContentV1(
+    result = EpisodeStoryboardContentV1(
         schema_version="1.0.0",
         project_id=content.project_id,
         episode_id=content.episode_id,
@@ -87,6 +139,12 @@ def project_storyboard(
         creative_library_version_id=None,
         shots=tuple(shots),
     )
+    if target_schema == "1.0.0":
+        return result
+    value = result.model_dump(mode="json")
+    value["schema_version"] = "1.1.0"
+    value["shots"] = [{**shot, "character_bindings": []} for shot in value["shots"]]
+    return EpisodeStoryboardContentV2.model_validate(value)
 
 
 def review_capability_losses(

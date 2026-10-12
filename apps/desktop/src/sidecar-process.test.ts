@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import type * as childProcess from "node:child_process";
@@ -132,8 +133,10 @@ function mockChildThatIgnoresEof(phases: Phase[]) {
     stdout: PassThrough;
     stderr: PassThrough;
     kill: ReturnType<typeof vi.fn>;
+    pid: number;
   };
   child.stdin = new PassThrough();
+  child.pid = 7654;
   child.stdout = new PassThrough();
   child.stderr = new PassThrough();
   const originalEnd = child.stdin.end.bind(child.stdin);
@@ -184,7 +187,9 @@ function nodeHandshakeScript(options: { line?: string; remainAlive?: boolean } =
       token,
     });
   const remainAlive = options.remainAlive ? "setInterval(() => {}, 1000);" : "";
-  return `process.stdout.write(${JSON.stringify(`${line}\n`)});${remainAlive}`;
+  return options.line !== undefined
+    ? `process.stdout.write(${JSON.stringify(`${line}\n`)});${remainAlive}`
+    : `const handshake = JSON.parse(${JSON.stringify(line)}); handshake.pid = process.pid; process.stdout.write(JSON.stringify(handshake) + "\\n");${remainAlive}`;
 }
 
 afterEach(async () => {
@@ -213,6 +218,7 @@ test(
   async () => {
     const phases: Phase[] = [];
     phaseCapture.current = phases;
+    const testWorkspace = mkdtempSync(join(tmpdir(), "aivora-private-sidecar-"));
     try {
       const python =
         process.platform === "win32"
@@ -225,7 +231,10 @@ test(
         command: python,
         args: ["-m", "aijian_api.sidecar"],
         cwd: repositoryRoot,
-        env: { PYTHONPATH: join(repositoryRoot, "services", "api", "src") },
+        env: {
+          PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
+          AIJIAN_DATA_DIR: join(testWorkspace, "workspace"),
+        },
         startupTimeoutMs: 10_000,
         shutdownTimeoutMs: 5_000,
       });
@@ -243,12 +252,46 @@ test(
       await expect(client.getHealth()).resolves.toMatchObject({ data: { status: "ok" } });
       mark(phases, "health.end");
 
+      // Actual production private-pipe registration is reachable, with no admitted release.
+      await expect(activeSidecar.nativePipe.request("prepare", {})).resolves.toEqual({
+        kind: "REFUSED",
+      });
+      const receipt = JSON.parse(
+        readFileSync(
+          join(repositoryRoot, "packages/contracts/fixtures/native-preview-plan.json"),
+          "utf8",
+        ),
+      );
+      const source = receipt.data.plan.source;
+      await expect(
+        activeSidecar.nativePipe.request("prepare", {
+          profile_hash: "sha256:" + "f".repeat(64),
+          opening: {
+            open_request_id: "pvo_" + "b".repeat(32),
+            session_id: "pvs_" + "a".repeat(32),
+            generation: 1,
+            expires_at: new Date(Date.now() + 120_000).toISOString(),
+            plan: receipt.data,
+            identity: {
+              project_id: source.project_id,
+              episode_id: source.episode_id,
+              assembly_artifact_id: source.assembly_artifact_id,
+              assembly_version_id: source.assembly_version_id,
+              assembly_content_hash: source.assembly_content_hash,
+              assembly_head_revision: source.assembly_head_revision,
+              plan_hash: receipt.data.plan_hash,
+            },
+          },
+        }),
+      ).resolves.toEqual({ kind: "UNAVAILABLE" });
+
       mark(phases, "stop.start");
       await activeSidecar.stop();
       mark(phases, "stop.resolve");
       await expect(activeSidecar.exited).resolves.toMatchObject({ code: 0, signal: null });
       mark(phases, "close.observed", { code: 0, signal: null });
       activeSidecar = null;
+      rmSync(testWorkspace, { recursive: true });
     } finally {
       mark(phases, "test.finally");
     }

@@ -16,6 +16,8 @@ export function bindAssemblyShot(
     visual_segments: content.visual_segments.map((segment) => {
       if (segment.segment_id !== segmentId) return segment;
       const unlinked = { ...segment };
+      if (JSON.stringify(segment.storyboard_ref ?? null) !== JSON.stringify(reference))
+        delete unlinked.manual_candidate_ref;
       delete unlinked.storyboard_ref;
       return reference ? { ...unlinked, storyboard_ref: reference } : unlinked;
     }),

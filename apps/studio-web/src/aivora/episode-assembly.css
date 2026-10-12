@@ -189,6 +189,7 @@
 }
 .demo-root .native-assembly-body > .episode-assembly {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   height: auto;
   max-height: none;
   overflow: visible;
@@ -273,4 +274,419 @@
   justify-self: start;
   max-width: 100%;
   white-space: normal;
+}
+.demo-root .page-assembly .assembly-tracks > .assembly-timeline,
+.assembly-tracks > .assembly-timeline {
+  min-width: 0;
+  display: grid;
+  height: auto;
+  min-height: 0;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 8px;
+}
+.assembly-timeline:focus-visible {
+  outline: 2px solid var(--accent, #3697ff);
+  outline-offset: 2px;
+}
+.assembly-timeline .assembly-position {
+  height: auto;
+  min-height: 54px;
+  align-items: flex-end;
+}
+.assembly-timeline .assembly-position label {
+  display: grid;
+  gap: 6px;
+}
+.assembly-timeline .assembly-position input {
+  width: 148px;
+  max-width: 100%;
+}
+.assembly-timeline-viewport {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 260px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 6px;
+}
+.assembly-timeline-canvas {
+  position: relative;
+  min-width: 100%;
+}
+.assembly-timeline-ruler {
+  position: relative;
+  height: 30px;
+  cursor: crosshair;
+  overflow: hidden;
+}
+.assembly-timeline-ruler span {
+  position: absolute;
+  font-size: 11px;
+  padding-left: 3px;
+  border-left: 1px solid var(--border, #34313f);
+  white-space: nowrap;
+}
+.assembly-timeline-lane {
+  position: relative;
+  height: 36px;
+  border-top: 1px solid var(--border, #34313f);
+}
+.assembly-timeline-lane button,
+.assembly-timeline-subtitle {
+  position: absolute;
+  top: 4px;
+  height: 28px;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 4px;
+  padding: 3px;
+  color: inherit;
+  background: var(--panel, #201d29);
+  text-align: left;
+}
+.assembly-timeline-lane button[aria-pressed="true"] {
+  border-color: var(--accent, #3697ff);
+  background: var(--accent-soft, rgba(54, 151, 255, 0.15));
+}
+.assembly-timeline-lane button:disabled {
+  opacity: 0.6;
+}
+.assembly-timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--accent, #3697ff);
+  pointer-events: none;
+}
+.assembly-timeline > input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+.assembly-timeline-help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* The legacy assembly mockup has fixed-height rows and 44px spans. Keep real
+   sequence controls in normal flow without changing the mockup's layout. */
+.demo-root .page-assembly .assembly-tracks .assembly-timeline span,
+.assembly-tracks .assembly-timeline span {
+  width: auto;
+  display: block;
+  flex-shrink: 1;
+}
+.demo-root .page-assembly .assembly-tracks .assembly-timeline .assembly-timeline-playhead,
+.assembly-tracks .assembly-timeline .assembly-timeline-playhead {
+  width: 1px;
+}
+.assembly-timeline .assembly-position input {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #34313f);
+  border-radius: 6px;
+  background: var(--panel, #201d29);
+  color: inherit;
+  box-sizing: border-box;
+}
+
+/* Inset outlines preserve the declared frame width even for subpixel clips. */
+.demo-root .page-assembly .assembly-tracks .assembly-timeline-lane button,
+.assembly-tracks .assembly-timeline-lane button,
+.assembly-tracks .assembly-timeline-subtitle {
+  padding: 0;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--border, #34313f);
+}
+.demo-root .page-assembly .assembly-tracks .assembly-timeline-lane button[aria-pressed="true"],
+.assembly-tracks .assembly-timeline-lane button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--accent, #3697ff);
+}
+
+.assembly-readiness {
+  margin-block: 12px;
+  padding: 12px;
+  border: 1px solid var(--border, #303744);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.assembly-readiness > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.assembly-readiness pre {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Original monitoring and trim share one stable row above the real timeline.
+   Sizing changes only presentation: the media element and draft forms stay mounted. */
+.demo-root .native-assembly-body > .assembly-edit-workbench {
+  gap: 8px;
+  padding: 8px;
+  --monitor-height: 128px;
+  --track-height: 112px;
+}
+.demo-root .assembly-edit-workbench[data-monitor-size="large"] {
+  --monitor-height: 192px;
+  --track-height: 64px;
+}
+.assembly-edit-workbench .assembly-save-actions {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  padding-block: 2px;
+  background: var(--surface, #081d30);
+  scrollbar-width: thin;
+}
+.assembly-edit-workbench .assembly-save-actions > button {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 10px;
+}
+.assembly-edit-workbench .assembly-tracks-monitor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+.assembly-tracks-monitor > .assembly-monitor-cell {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+/* Override the legacy mockup's 30px direct-div rows for these real containers. */
+.demo-root .native-assembly-body .assembly-tracks-monitor > .assembly-monitor-cell,
+.demo-root .native-assembly-body .assembly-tracks > .assembly-track-lists {
+  height: auto;
+  min-height: 0;
+}
+.assembly-tracks-monitor:not(.has-selected-clip) > .assembly-monitor-cell {
+  grid-column: 1 / -1;
+}
+.assembly-tracks-monitor > .assembly-inspector {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  padding: 8px;
+  gap: 6px;
+}
+.assembly-tracks-monitor > .assembly-timeline {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.assembly-tracks-monitor > .assembly-track-lists,
+.assembly-tracks-monitor > .assembly-track-boundary {
+  grid-column: 1 / -1;
+}
+.assembly-track-lists {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.assembly-monitor-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+.assembly-monitor-controls > span {
+  flex: 1;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.assembly-monitor-controls > .button {
+  min-width: 0;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.assembly-monitor-controls > [aria-pressed="true"] {
+  border-color: var(--accent, #1789ff);
+  background: var(--raised, #102d47);
+}
+.assembly-monitor-cell .assembly-preview {
+  gap: 4px;
+  padding: 6px;
+}
+.assembly-monitor-cell .assembly-preview h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 18px;
+}
+.assembly-monitor-cell .assembly-preview img,
+.assembly-monitor-cell .assembly-preview video {
+  height: var(--monitor-height);
+  max-height: var(--monitor-height);
+  min-height: 0;
+  object-fit: contain;
+}
+.assembly-monitor-cell .assembly-preview .assembly-monitor-boundary,
+.assembly-monitor-cell .assembly-original-status {
+  font-size: 11px;
+  line-height: 16px;
+}
+.assembly-original-status > summary {
+  cursor: pointer;
+}
+.assembly-monitor-empty {
+  min-height: var(--monitor-height);
+  align-content: center;
+}
+.demo-root .native-assembly-body .assembly-tracks-monitor .assembly-inspector form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.assembly-tracks-monitor .assembly-inspector h3 {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 18px;
+}
+.assembly-tracks-monitor .assembly-inspector label {
+  gap: 2px;
+  font-size: 11px;
+}
+.demo-root .native-assembly-body .assembly-tracks-monitor .assembly-inspector form > button {
+  grid-column: auto;
+  min-width: 0;
+  min-height: 30px;
+  height: auto;
+  padding: 4px 8px;
+  white-space: normal;
+  font-size: 12px;
+}
+.demo-root .assembly-tracks-monitor .assembly-inspector input[type="number"] {
+  min-height: 30px;
+  height: 30px;
+  padding: 4px 6px;
+}
+.assembly-tracks-monitor .assembly-inspector .assembly-checkbox {
+  grid-column: 1 / -1;
+  padding-bottom: 0;
+}
+.assembly-tracks-monitor .assembly-inspector > .assembly-actions {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  scrollbar-width: thin;
+}
+.assembly-tracks-monitor .assembly-inspector > .assembly-actions > button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.assembly-tracks-monitor .assembly-inspector > p {
+  font-size: 11px;
+  line-height: 16px;
+}
+.demo-root .page-assembly .assembly-tracks-monitor > .assembly-timeline {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px;
+  padding: 4px;
+}
+.assembly-tracks-monitor .assembly-timeline > .assembly-position {
+  grid-column: 1;
+  min-height: 0;
+  gap: 4px;
+  align-items: end;
+  flex-wrap: nowrap;
+}
+.assembly-tracks-monitor .assembly-timeline .assembly-position label {
+  gap: 2px;
+  min-width: 0;
+  font-size: 11px;
+}
+.assembly-tracks-monitor .assembly-timeline .assembly-position input {
+  width: 96px;
+  min-height: 28px;
+  height: 28px;
+  padding: 2px 4px;
+}
+.assembly-tracks-monitor .assembly-timeline .assembly-position > button,
+.assembly-tracks-monitor .assembly-timeline-tools > button {
+  min-width: 0;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+.assembly-tracks-monitor .assembly-timeline-tools {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.assembly-tracks-monitor .assembly-timeline-tools .assembly-locate {
+  font-size: 0;
+  width: 28px;
+}
+.assembly-tracks-monitor .assembly-locate::after {
+  font-size: 16px;
+}
+.assembly-tracks-monitor .assembly-locate-previous::after {
+  content: "←";
+}
+.assembly-tracks-monitor .assembly-locate-next::after {
+  content: "→";
+}
+.assembly-tracks-monitor .assembly-timeline > .assembly-timeline-viewport,
+.assembly-tracks-monitor .assembly-timeline > input,
+.assembly-tracks-monitor .assembly-timeline > p,
+.assembly-tracks-monitor .assembly-timeline > details {
+  grid-column: 1 / -1;
+}
+.assembly-tracks-monitor .assembly-timeline-viewport {
+  max-height: var(--track-height);
+}
+.assembly-tracks-monitor .assembly-timeline-ruler {
+  height: 22px;
+}
+.assembly-tracks-monitor .assembly-timeline > input[type="range"] {
+  height: 14px;
+  margin: 0;
+}
+.assembly-tracks-monitor .assembly-timeline > details {
+  font-size: 11px;
+  line-height: 16px;
+}
+.assembly-setup-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 8px;
+}
+.assembly-edit-workbench > .assembly-notice {
+  font-size: 11px;
+  line-height: 16px;
+}
+@media (max-height: 760px) {
+  .demo-root .native-assembly-body > .assembly-edit-workbench {
+    --monitor-height: 56px;
+    --track-height: 72px;
+  }
+  .demo-root .assembly-edit-workbench[data-monitor-size="large"] {
+    --monitor-height: 80px;
+    --track-height: 36px;
+  }
 }

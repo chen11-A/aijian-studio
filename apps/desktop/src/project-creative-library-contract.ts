@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
 import type { components } from "@aijian/contracts";
+import {
+  hasCreativeLibraryContentKeys,
+  hasValidCreativeLibraryDetails,
+} from "@aijian/contracts/creative-library-details";
 import { hasRequestId, isRecord } from "./api-contract-guards";
 import { episodeScriptDefiniteError } from "./episode-script-contract";
 
 export type CreateProjectCreativeLibraryVersionRequest =
   components["schemas"]["CreateProjectCreativeLibraryVersionRequest"];
 export type ProjectCreativeLibraryContent =
-  components["schemas"]["ProjectCreativeLibraryContentV1"];
+  components["schemas"]["CreateProjectCreativeLibraryVersionRequest"]["content"];
 export type ProjectCreativeLibraryVersion =
   components["schemas"]["ProjectCreativeLibraryVersionData"];
 export type ProjectCreativeLibraryVersionResponse =
@@ -91,15 +95,7 @@ export function isProjectCreativeLibraryContent(
 ): value is ProjectCreativeLibraryContent {
   if (
     !isRecord(value) ||
-    !exact(value, [
-      "schema_version",
-      "project_id",
-      "episode_id",
-      "characters",
-      "world",
-      "scenes",
-    ]) ||
-    value.schema_version !== "1.0.0" ||
+    !hasCreativeLibraryContentKeys(value) ||
     value.project_id !== projectId ||
     value.episode_id !== null ||
     !Array.isArray(value.characters) ||
@@ -169,7 +165,13 @@ export function isProjectCreativeLibraryContent(
     return true;
   });
   return (
-    charactersValid && scenesValid && Buffer.byteLength(JSON.stringify(value), "utf8") <= 2_000_000
+    charactersValid &&
+    scenesValid &&
+    hasValidCreativeLibraryDetails(
+      value,
+      value.characters.map((item) => item.character_id),
+    ) &&
+    Buffer.byteLength(JSON.stringify(value), "utf8") <= 2_000_000
   );
 }
 export function isCreateProjectCreativeLibraryVersionRequest(

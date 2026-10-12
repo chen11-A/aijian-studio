@@ -275,7 +275,25 @@ export function EditorDialog() {
           </p>
         )}
         {projectCreateState.kind === "REMOTE_UNKNOWN" && (
-          <p role="alert">创建结果未知。请刷新项目列表后确认，未自动重试。</p>
+          <div role="alert">
+            <p>创建结果未知或保存记录尚未核实。原记录保留，未自动重试。</p>
+            <p>
+              刷新列表只读核对，不解除创建锁定，也不证明原请求未执行。当前创建接口没有原操作归因回执。
+            </p>
+            {projectCreateState.intent && (
+              <>
+                <p>
+                  原创建：{projectCreateState.intent.input.name} ·{" "}
+                  {projectCreateState.intent.input.aspect_ratio} ·{" "}
+                  {projectCreateState.intent.input.target_duration_seconds} 秒 ·{" "}
+                  {projectCreateState.intent.input.source_language}
+                </p>
+                <p>
+                  本机创建记录：{projectCreateState.intent.client_intent_id}（不是服务器幂等回执）。
+                </p>
+              </>
+            )}
+          </div>
         )}
         {submitting && projectCreateState.kind !== "SUBMITTING" && (
           <p role="status" aria-live="polite">
@@ -292,7 +310,7 @@ export function EditorDialog() {
           ))}
         <fieldset
           className="form-fields"
-          disabled={submitting}
+          disabled={submitting || projectCreateState.kind !== "idle"}
           style={{ border: 0, padding: 0, margin: 0 }}
         >
           {editor.fields?.map((field) => (

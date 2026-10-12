@@ -1,7 +1,10 @@
+import { assemblyManualCandidateRef } from "@aijian/contracts/assembly-exact";
+import type { AssemblyExactGateway } from "@aijian/contracts/assembly-exact";
 /** Episode edit decisions over immutable project media versions. */
 
 import type { components } from "@aijian/contracts";
 import { isLiteralSubtitle, subtitleTrackProblem } from "./assemblySubtitles";
+import { scriptProvenance, scriptSourceStatus } from "@aijian/contracts/assembly-script-provenance";
 
 export type AssemblyMediaRef = components["schemas"]["AssemblyMediaRefV1"];
 export type AssemblyVisualSegment = components["schemas"]["AssemblyVisualSegmentV1"];
@@ -26,7 +29,7 @@ export type CreateAssemblyCommand = {
   change_summary: string;
 };
 
-export interface EpisodeMediaAssemblyGateway {
+export interface EpisodeMediaAssemblyGateway extends Partial<AssemblyExactGateway> {
   readLatest(projectId: string, episodeId: string): Promise<AssemblyGatewayResult>;
   createVersion(
     projectId: string,
@@ -182,6 +185,8 @@ export function parseAssemblyReceipt(
       (item.storyboard_ref !== undefined &&
         item.storyboard_ref !== null &&
         !validAssemblyStoryboardRef(item.storyboard_ref)) ||
+      (Object.hasOwn(item, "manual_candidate_ref") &&
+        (!assemblyManualCandidateRef(item.manual_candidate_ref) || !item.storyboard_ref)) ||
       item.start_frame !== cursor ||
       !frame(item.end_frame, 1) ||
       Number(item.end_frame) <= cursor ||
@@ -248,6 +253,19 @@ export function parseAssemblyReceipt(
       return null;
   }
   if (subtitleTrackProblem(content as unknown as AssemblyContent)) return null;
+  if (Object.hasOwn(content, "script_provenance") && !scriptProvenance(content.script_provenance))
+    return null;
+  if (
+    !content.script_provenance &&
+    content.subtitle_segments.some((s) => record(s) && s.script_ref)
+  )
+    return null;
+  if (
+    content.script_provenance
+      ? !scriptSourceStatus(data.script_source_status, content as unknown as AssemblyContent)
+      : Object.hasOwn(data, "script_source_status")
+  )
+    return null;
   const mediaChecks: AssemblyVersion["media_checks"] = [];
   const mediaCheckInputs: unknown[] = rawMediaChecks;
   for (const check of mediaCheckInputs) {

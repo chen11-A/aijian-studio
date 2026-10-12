@@ -9,11 +9,14 @@ import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
 import { buildStoryboardSelection, usePublishAssistantSelection } from "./assistantSelection";
 import {
   newStoryboardShot,
+  withStoryboardShots,
   reorderStoryboardShots,
   type StoryboardShot,
 } from "./adapters/episodeStoryboard";
 import { StoryboardReferences } from "./StoryboardReferences";
 import { StoryboardTextPreview } from "./StoryboardTextPreview";
+import { StoryboardAssemblyPreview } from "./StoryboardAssemblyPreview";
+import { StoryboardPlanningFields } from "./StoryboardPlanningFields";
 import "./episode-storyboard.css";
 
 export function EpisodeStoryboardPanel({
@@ -78,7 +81,7 @@ export function EpisodeStoryboardPanel({
       directorView: directorOpen || officialOpen,
     }),
   );
-  const index = shot ? content.shots.indexOf(shot) : -1;
+  const index = shot ? content.shots.findIndex((item) => item.shot_id === shot.shot_id) : -1;
   const totalFrames = content.shots.reduce((sum, item) => sum + item.duration_frames, 0);
   function add() {
     if (locked || content.shots.length >= 1000) return;
@@ -87,7 +90,7 @@ export function EpisodeStoryboardPanel({
       state.setNotice("无法生成可靠的镜头标识，请重新打开软件。");
       return;
     }
-    state.edit((value) => ({ ...value, shots: [...value.shots, next] }));
+    state.edit((value) => withStoryboardShots(value, [...value.shots, next]));
     select(next.shot_id);
     window.setTimeout(() => {
       titleInput.current?.focus();
@@ -96,12 +99,12 @@ export function EpisodeStoryboardPanel({
   }
   function updateShot(patch: Partial<StoryboardShot>) {
     if (!shot) return;
-    state.edit((value) => ({
-      ...value,
-      shots: value.shots.map((item) =>
-        item.shot_id === shot.shot_id ? { ...item, ...patch } : item,
+    state.edit((value) =>
+      withStoryboardShots(
+        value,
+        value.shots.map((item) => (item.shot_id === shot.shot_id ? { ...item, ...patch } : item)),
       ),
-    }));
+    );
   }
   function remove() {
     if (
@@ -112,12 +115,14 @@ export function EpisodeStoryboardPanel({
       )
     )
       return;
-    state.edit((value) => ({
-      ...value,
-      shots: value.shots
-        .filter((item) => item.shot_id !== shot.shot_id)
-        .map((item, i) => ({ ...item, ordinal: i + 1 })),
-    }));
+    state.edit((value) =>
+      withStoryboardShots(
+        value,
+        value.shots
+          .filter((item) => item.shot_id !== shot.shot_id)
+          .map((item, i) => ({ ...item, ordinal: i + 1 })),
+      ),
+    );
     select(content.shots[index + 1]?.shot_id ?? content.shots[index - 1]?.shot_id ?? null);
   }
   const stateLabel = busy
@@ -329,10 +334,12 @@ export function EpisodeStoryboardPanel({
                     <Button
                       disabled={locked || index <= 0}
                       onClick={() =>
-                        state.edit((value) => ({
-                          ...value,
-                          shots: reorderStoryboardShots(value.shots, index, -1),
-                        }))
+                        state.edit((value) =>
+                          withStoryboardShots(
+                            value,
+                            reorderStoryboardShots(value.shots, index, -1),
+                          ),
+                        )
                       }
                     >
                       上移
@@ -340,10 +347,9 @@ export function EpisodeStoryboardPanel({
                     <Button
                       disabled={locked || index >= content.shots.length - 1}
                       onClick={() =>
-                        state.edit((value) => ({
-                          ...value,
-                          shots: reorderStoryboardShots(value.shots, index, 1),
-                        }))
+                        state.edit((value) =>
+                          withStoryboardShots(value, reorderStoryboardShots(value.shots, index, 1)),
+                        )
                       }
                     >
                       下移
@@ -429,10 +435,23 @@ export function EpisodeStoryboardPanel({
                   edit={state.edit}
                   updateShot={updateShot}
                 />
+                <StoryboardPlanningFields
+                  content={content}
+                  shot={shot}
+                  locked={locked}
+                  edit={state.edit}
+                />
                 <small className="storyboard-stable-id">镜头身份 {shot.shot_id}</small>
               </>
             )}
             <StoryboardTextPreview content={content} />
+            <StoryboardAssemblyPreview
+              projectId={projectId}
+              episodeId={episodeId}
+              version={version}
+              dirty={dirty}
+              disabled={locked || state.readState !== "ready"}
+            />
           </div>
         </div>
         <footer className="storyboard-save-footer">

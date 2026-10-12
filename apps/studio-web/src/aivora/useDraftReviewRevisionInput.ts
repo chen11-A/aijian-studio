@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DraftReviewRevisionSource } from "./adapters/draftReviewRevision";
+import { useDraftReviewLeaveGuard } from "./DraftReviewNavigation";
 import {
   emptyRevisionInput,
   parseRevisionInput,
@@ -19,6 +20,10 @@ export function useDraftReviewRevisionInput(job: DraftReviewRevisionSource, part
   const [initial] = useState(() => readRevisionInput(key));
   const [input, setInput] = useState(initial.input);
   const [status, setStatus] = useState(initial.status);
+  useDraftReviewLeaveGuard(
+    JSON.stringify(input) !== JSON.stringify(emptyRevisionInput),
+    status !== "READY",
+  );
   const current = useRef(input);
   const edit = (patch: Partial<DraftReviewRevisionInput>) => {
     if (status === "INVALID") return;

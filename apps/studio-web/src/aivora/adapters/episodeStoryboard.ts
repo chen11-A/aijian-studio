@@ -1,9 +1,24 @@
 import type { components } from "@aijian/contracts";
+import {
+  hasStoryboardShotKeys,
+  hasStoryboardContentKeys,
+  hasValidStoryboardVisualPin,
+  hasValidStoryboardBindings,
+  hasValidStoryboardPlanning,
+  hasValidStoryboardEnvironment,
+  hasValidStoryboardEnvironmentBasis,
+} from "@aijian/contracts/storyboard-character-bindings";
 
 /** Manually authored episode storyboard drafts; no generated or placeholder media. */
-export type StoryboardShot = components["schemas"]["EpisodeStoryboardShotV1"];
-export type StoryboardContent = components["schemas"]["EpisodeStoryboardContentV1"];
+export type StoryboardShot =
+  components["schemas"]["CreateEpisodeStoryboardVersionRequest"]["content"]["shots"][number];
+export type StoryboardContent =
+  components["schemas"]["CreateEpisodeStoryboardVersionRequest"]["content"];
 export type StoryboardVersion = components["schemas"]["EpisodeStoryboardVersionData"];
+export type StoryboardPlanning = Pick<
+  components["schemas"]["EpisodeStoryboardShotV3"],
+  "coverage_notes" | "continuity_notes" | "transition_notes"
+>;
 export type StoryboardWriteCommand = {
   operation_id: string;
   payload: components["schemas"]["CreateEpisodeStoryboardVersionRequest"];
@@ -80,7 +95,10 @@ const text = (value: unknown, max = 20_000): value is string =>
 const exactKeys = (value: Record<string, unknown>, keys: string[]) =>
   Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 
-export function emptyStoryboardContent(projectId: string, episodeId: string): StoryboardContent {
+export function emptyStoryboardContent(
+  projectId: string,
+  episodeId: string,
+): components["schemas"]["EpisodeStoryboardContentV1"] {
   return {
     schema_version: "1.0.0",
     project_id: projectId,
@@ -91,10 +109,188 @@ export function emptyStoryboardContent(projectId: string, episodeId: string): St
     shots: [],
   };
 }
-export const cloneStoryboardContent = (value: StoryboardContent): StoryboardContent => ({
-  ...value,
-  shots: value.shots.map((shot) => ({ ...shot, character_ids: [...shot.character_ids] })),
-});
+export function withStoryboardShots(
+  content: StoryboardContent,
+  shots: StoryboardShot[],
+): StoryboardContent {
+  const cloneBindings = () =>
+    shots.map((shot) => ({
+      ...shot,
+      character_ids: [...shot.character_ids],
+      character_bindings:
+        "character_bindings" in shot
+          ? shot.character_bindings.map((binding) => ({
+              ...binding,
+              reference_ids: [...binding.reference_ids],
+            }))
+          : [],
+    }));
+  if (content.schema_version === "1.4.0" || content.schema_version === "1.5.0")
+    return {
+      ...content,
+      visual_bible_pin: content.visual_bible_pin ? { ...content.visual_bible_pin } : null,
+      shots: environmentShots(shots),
+    };
+  if (content.schema_version === "1.3.0")
+    return {
+      ...content,
+      visual_bible_pin: content.visual_bible_pin ? { ...content.visual_bible_pin } : null,
+      shots: planningShots(cloneBindings()),
+    };
+  if (content.schema_version === "1.2.0")
+    return {
+      ...content,
+      visual_bible_pin: content.visual_bible_pin ? { ...content.visual_bible_pin } : null,
+      shots: cloneBindings(),
+    };
+  if (content.schema_version === "1.1.0" || shots.some((shot) => "character_bindings" in shot))
+    return { ...content, schema_version: "1.1.0", shots: cloneBindings() };
+  return {
+    ...content,
+    shots: shots.map((shot) => ({ ...shot, character_ids: [...shot.character_ids] })),
+  };
+}
+function planningShots(
+  shots: StoryboardShot[],
+): components["schemas"]["EpisodeStoryboardShotV3"][] {
+  return shots.map((shot) => ({
+    ...shot,
+    character_ids: [...shot.character_ids],
+    character_bindings:
+      "character_bindings" in shot
+        ? shot.character_bindings.map((binding) => ({
+            ...binding,
+            reference_ids: [...binding.reference_ids],
+          }))
+        : [],
+    coverage_notes: "coverage_notes" in shot ? shot.coverage_notes : "",
+    continuity_notes: "continuity_notes" in shot ? shot.continuity_notes : "",
+    transition_notes: "transition_notes" in shot ? shot.transition_notes : "",
+  }));
+}
+function environmentShots(
+  shots: StoryboardShot[],
+): components["schemas"]["EpisodeStoryboardShotV4"][] {
+  const planning = planningShots(shots);
+  return shots.map((shot, index) => ({
+    ...planning[index]!,
+    environment_binding:
+      "environment_binding" in shot
+        ? {
+            variant_id: shot.environment_binding.variant_id,
+            reference_ids: [...shot.environment_binding.reference_ids],
+          }
+        : { variant_id: null, reference_ids: [] },
+  }));
+}
+export function hasStoryboardEnvironmentChoices(content: StoryboardContent): boolean {
+  return (
+    (content.schema_version === "1.4.0" || content.schema_version === "1.5.0") &&
+    content.shots.some(
+      (shot) =>
+        shot.environment_binding.variant_id !== null ||
+        shot.environment_binding.reference_ids.length > 0,
+    )
+  );
+}
+export function withStoryboardEnvironment(
+  content: StoryboardContent,
+  shotId: string,
+  binding: components["schemas"]["EpisodeStoryboardEnvironmentBindingV1"],
+): StoryboardContent {
+  if (
+    !content.shots.some((shot) => shot.shot_id === shotId) ||
+    !content.creative_library_version_id ||
+    (content.schema_version !== "1.5.0" &&
+      "visual_bible_pin" in content &&
+      content.visual_bible_pin !== null)
+  )
+    return content;
+  return {
+    ...content,
+    schema_version: content.schema_version === "1.5.0" ? "1.5.0" : "1.4.0",
+    visual_bible_pin: content.schema_version === "1.5.0" ? content.visual_bible_pin : null,
+    shots: environmentShots(content.shots).map((shot) =>
+      shot.shot_id === shotId
+        ? {
+            ...shot,
+            environment_binding: {
+              variant_id: binding.variant_id,
+              reference_ids: [...binding.reference_ids],
+            },
+          }
+        : shot,
+    ),
+  };
+}
+/** Only explicit planning edits upgrade content; historic reads retain their schema/hash. */
+export function withStoryboardPlanning(
+  content: StoryboardContent,
+  shotId: string,
+  patch: Partial<StoryboardPlanning>,
+): StoryboardContent {
+  if (!content.shots.some((shot) => shot.shot_id === shotId)) return content;
+  if (content.schema_version === "1.4.0" || content.schema_version === "1.5.0")
+    return {
+      ...content,
+      shots: environmentShots(content.shots).map((shot) =>
+        shot.shot_id === shotId ? { ...shot, ...patch } : shot,
+      ),
+    };
+  return {
+    ...content,
+    schema_version: "1.3.0",
+    visual_bible_pin: "visual_bible_pin" in content ? content.visual_bible_pin : null,
+    shots: planningShots(content.shots).map((shot) =>
+      shot.shot_id === shotId ? { ...shot, ...patch } : shot,
+    ),
+  };
+}
+/** Adding/changing a G5 basis cannot downgrade a storyboard's planning schema. */
+export function withStoryboardVisualBasis(
+  content: StoryboardContent,
+  libraryVersionId: string,
+  pin: components["schemas"]["StoryboardVisualBiblePinV1"],
+  environmentAware = false,
+): StoryboardContent {
+  if (environmentAware)
+    return {
+      ...content,
+      schema_version: "1.5.0",
+      creative_library_version_id: libraryVersionId,
+      visual_bible_pin: { ...pin },
+      shots: environmentShots(content.shots),
+    };
+  if (content.schema_version === "1.5.0") return content;
+  if (content.schema_version === "1.4.0")
+    return hasStoryboardEnvironmentChoices(content)
+      ? content
+      : {
+          ...content,
+          shots: environmentShots(content.shots),
+          creative_library_version_id: libraryVersionId,
+          visual_bible_pin: { ...pin },
+        };
+  if (content.schema_version === "1.3.0")
+    return {
+      ...content,
+      creative_library_version_id: libraryVersionId,
+      visual_bible_pin: { ...pin },
+    };
+  return {
+    ...content,
+    schema_version: "1.2.0",
+    creative_library_version_id: libraryVersionId,
+    visual_bible_pin: { ...pin },
+    shots: content.shots.map((shot) => ({
+      ...shot,
+      character_ids: [...shot.character_ids],
+      character_bindings: "character_bindings" in shot ? shot.character_bindings : [],
+    })),
+  };
+}
+export const cloneStoryboardContent = (value: StoryboardContent): StoryboardContent =>
+  withStoryboardShots(value, value.shots);
 export function sameStoryboardJson(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (Array.isArray(left) && Array.isArray(right))
@@ -119,16 +315,9 @@ export function validStoryboardContent(
     !STORYBOARD_PROJECT_ID.test(projectId) ||
     !STORYBOARD_EPISODE_ID.test(episodeId) ||
     !record(value) ||
-    !exactKeys(value, [
-      "schema_version",
-      "project_id",
-      "episode_id",
-      "fps",
-      "script_version_id",
-      "creative_library_version_id",
-      "shots",
-    ]) ||
-    value.schema_version !== "1.0.0" ||
+    !hasStoryboardContentKeys(value) ||
+    !hasValidStoryboardVisualPin(value) ||
+    !hasValidStoryboardEnvironmentBasis(value) ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
     !positive(value.fps) ||
@@ -150,19 +339,7 @@ export function validStoryboardContent(
   return value.shots.every((shot, i) => {
     if (
       !record(shot) ||
-      !exactKeys(shot, [
-        "shot_id",
-        "ordinal",
-        "duration_frames",
-        "title",
-        "description",
-        "camera",
-        "action",
-        "dialogue",
-        "script_scene_id",
-        "character_ids",
-        "location_id",
-      ]) ||
+      !hasStoryboardShotKeys(shot, value.schema_version) ||
       typeof shot.shot_id !== "string" ||
       !SHOT.test(shot.shot_id) ||
       ids.has(shot.shot_id) ||
@@ -198,6 +375,12 @@ export function validStoryboardContent(
       )
     )
       return false;
+    if (
+      !hasValidStoryboardBindings(shot, value.schema_version) ||
+      !hasValidStoryboardPlanning(shot, value.schema_version) ||
+      !hasValidStoryboardEnvironment(shot, value.schema_version)
+    )
+      return false;
     ids.add(shot.shot_id);
     return true;
   });
@@ -229,7 +412,7 @@ export function validStoryboardVersion(
   );
 }
 export async function readStoryboard(
-  gateway: StoryboardGateway,
+  gateway: Pick<StoryboardGateway, "getEpisodeStoryboard">,
   projectId: string,
   episodeId: string,
 ): Promise<StoryboardRead> {
@@ -407,7 +590,10 @@ export async function saveStoryboard(
     return { kind: "UNKNOWN" };
   }
 }
-export function newStoryboardShot(ordinal: number, fps: number): StoryboardShot | null {
+export function newStoryboardShot(
+  ordinal: number,
+  fps: number,
+): components["schemas"]["EpisodeStoryboardShotV1"] | null {
   try {
     return {
       shot_id: `shp_${crypto.randomUUID().replaceAll("-", "")}`,

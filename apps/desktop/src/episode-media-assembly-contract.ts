@@ -1,5 +1,13 @@
+import { assemblyManualCandidateRef } from "@aijian/contracts/assembly-exact";
 import { hasRequestId, isRecord } from "./api-contract-guards";
 import type { components } from "@aijian/contracts";
+import {
+  scriptProvenance,
+  scriptSourceStatus,
+  subtitleScriptRef,
+  type ScriptProvenance,
+  type ScriptSourceStatus,
+} from "@aijian/contracts/assembly-script-provenance";
 
 export type AssemblyStoryboardRef = components["schemas"]["AssemblyStoryboardRefV1"];
 
@@ -40,6 +48,7 @@ export type AssemblySubtitleSegment =
       end_frame: number;
     };
 export type EpisodeMediaAssemblyContent = {
+  script_provenance?: ScriptProvenance | null;
   schema_version: "1.0.0";
   project_id: string;
   episode_id: string;
@@ -80,6 +89,7 @@ export type AssemblyMediaCheck = {
   rights_decision_id: string | null;
 };
 export type EpisodeMediaAssemblyVersion = {
+  script_source_status?: ScriptSourceStatus | null;
   artifact_id: string;
   version_id: string;
   content_hash: string;
@@ -225,7 +235,10 @@ function isVisual(value: unknown, totalFrames: number): value is AssemblyVisualS
       "source_in_frame",
       "embedded_audio",
       ...(Object.hasOwn(value, "storyboard_ref") ? ["storyboard_ref"] : []),
+      ...(Object.hasOwn(value, "manual_candidate_ref") ? ["manual_candidate_ref"] : []),
     ]) &&
+    (!Object.hasOwn(value, "manual_candidate_ref") ||
+      (assemblyManualCandidateRef(value.manual_candidate_ref) && !!value.storyboard_ref)) &&
     id(value.segment_id, SEGMENT) &&
     (!Object.hasOwn(value, "storyboard_ref") ||
       value.storyboard_ref === null ||
@@ -281,7 +294,15 @@ function isAudio(value: unknown, totalFrames: number): value is AssemblyAudioSeg
 function isSubtitle(value: unknown, totalFrames: number): value is AssemblySubtitleSegment {
   if (isRecord(value) && Object.hasOwn(value, "text")) {
     if (
-      !exact(value, ["segment_id", "start_frame", "end_frame", "text", "render_profile"]) ||
+      !exact(value, [
+        "segment_id",
+        "start_frame",
+        "end_frame",
+        "text",
+        "render_profile",
+        ...(Object.hasOwn(value, "script_ref") ? ["script_ref"] : []),
+      ]) ||
+      (Object.hasOwn(value, "script_ref") && !subtitleScriptRef(value.script_ref)) ||
       !id(value.segment_id, SEGMENT) ||
       !interval(value, totalFrames) ||
       value.render_profile !== "noto-cjk-sc-bottom-v1" ||
@@ -332,7 +353,9 @@ export function isEpisodeMediaAssemblyContent(
       "visual_segments",
       "audio_segments",
       "subtitle_segments",
+      ...(Object.hasOwn(value, "script_provenance") ? ["script_provenance"] : []),
     ]) ||
+    (Object.hasOwn(value, "script_provenance") && !scriptProvenance(value.script_provenance)) ||
     value.schema_version !== "1.0.0" ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
@@ -355,6 +378,8 @@ export function isEpisodeMediaAssemblyContent(
     !value.audio_segments.every((item: unknown) => isAudio(item, totalFrames)) ||
     !value.subtitle_segments.every((item: unknown) => isSubtitle(item, totalFrames))
   )
+    return false;
+  if (!value.script_provenance && value.subtitle_segments.some((s) => "text" in s && s.script_ref))
     return false;
   let cursor = 0;
   const ids = new Set<string>();
@@ -456,6 +481,7 @@ export function isEpisodeMediaAssemblyResponse(
       "media_checks",
       "playback_status",
       "export_status",
+      ...(Object.hasOwn(value.data, "script_source_status") ? ["script_source_status"] : []),
     ])
   )
     return false;
@@ -473,7 +499,10 @@ export function isEpisodeMediaAssemblyResponse(
     data.media_checks.every(isMediaCheck) &&
     typeof data.playback_status === "string" &&
     PLAYBACK.has(data.playback_status) &&
-    data.export_status === "NO_EXPORT_CLAIM"
+    data.export_status === "NO_EXPORT_CLAIM" &&
+    (data.content.script_provenance
+      ? scriptSourceStatus(data.script_source_status, data.content)
+      : !Object.hasOwn(data, "script_source_status"))
   );
 }
 export function episodeMediaAssemblyDefiniteError(

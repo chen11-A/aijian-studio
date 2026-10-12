@@ -475,6 +475,22 @@ small.v2-card-bottom-link {
   height: auto;
   margin-block: 4px;
 }
+.script-view-controls,
+.script-readthrough > section > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.script-readthrough > section {
+  padding-block: 16px;
+  border-bottom: 1px solid #215173;
+}
+.script-readthrough > section > header h3 {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .production-story-workspace > .v2-source-support {
   margin-top: 0;
 }

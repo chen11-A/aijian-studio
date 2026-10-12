@@ -27,6 +27,20 @@ function references(kind: ReferenceKind, shot: StoryboardShot) {
     : [
         ...shot.character_ids.map((id) => ({ id, label: "角色" })),
         ...(shot.location_id ? [{ id: shot.location_id, label: "地点" }] : []),
+        ...("character_bindings" in shot
+          ? shot.character_bindings.flatMap((item) => [
+              ...(item.costume_id ? [{ id: item.costume_id, label: "服装" }] : []),
+              ...item.reference_ids.map((id) => ({ id, label: "参考" })),
+            ])
+          : []),
+        ...("environment_binding" in shot
+          ? [
+              ...(shot.environment_binding.variant_id
+                ? [{ id: shot.environment_binding.variant_id, label: "环境状态" }]
+                : []),
+              ...shot.environment_binding.reference_ids.map((id) => ({ id, label: "环境参考" })),
+            ]
+          : []),
       ];
 }
 export const hasReferences = (kind: ReferenceKind, content: StoryboardContent) =>
@@ -40,6 +54,24 @@ function records(version: ReferenceVersion): Map<string, unknown> {
       character,
     ]),
     ...version.content.scenes.map((scene): [string, unknown] => [scene.scene_id, scene]),
+    ...(version.content.schema_version !== "1.0.0"
+      ? version.content.costumes.map((item): [string, unknown] => [item.costume_id, item])
+      : []),
+    ...(version.content.schema_version === "1.2.0" || version.content.schema_version === "1.3.0"
+      ? version.content.references.map((item): [string, unknown] => [item.reference_id, item])
+      : []),
+    ...(version.content.schema_version === "1.3.0"
+      ? [
+          ...version.content.scene_variants.map((item): [string, unknown] => [
+            item.variant_id,
+            item,
+          ]),
+          ...version.content.environment_references.map((item): [string, unknown] => [
+            item.reference_id,
+            item,
+          ]),
+        ]
+      : []),
   ]);
 }
 /** Compare identities across every shot; a selected shot alone cannot authorize a whole-episode pin. */
@@ -60,6 +92,53 @@ export function referenceImpact(
     const shotLabel = `镜头 ${shot.ordinal}「${shot.title}」`;
     for (const member of members)
       if (!after.has(member.id)) missing.push(`${shotLabel}：${member.label} ${member.id}`);
+    if (kind === "library" && target.episode_id === null && "character_bindings" in shot) {
+      const library = target.content;
+      for (const binding of shot.character_bindings) {
+        const costume =
+          library.schema_version !== "1.0.0"
+            ? library.costumes.find((item) => item.costume_id === binding.costume_id)
+            : null;
+        if (binding.costume_id && costume?.character_id !== binding.character_id)
+          missing.push(`${shotLabel}：服装归属不一致`);
+        for (const refId of binding.reference_ids) {
+          const ref =
+            library.schema_version === "1.2.0" || library.schema_version === "1.3.0"
+              ? library.references.find((item) => item.reference_id === refId)
+              : null;
+          if (
+            !ref ||
+            ref.character_id !== binding.character_id ||
+            (ref.costume_id !== null && ref.costume_id !== binding.costume_id)
+          )
+            missing.push(`${shotLabel}：参考归属不一致`);
+        }
+      }
+    }
+    if (kind === "library" && target.episode_id === null && "environment_binding" in shot) {
+      const library = target.content,
+        binding = shot.environment_binding;
+      if (
+        binding.variant_id &&
+        (library.schema_version !== "1.3.0" ||
+          !library.scene_variants.some(
+            (item) => item.variant_id === binding.variant_id && item.scene_id === shot.location_id,
+          ))
+      )
+        missing.push(`${shotLabel}：环境状态归属不一致`);
+      for (const id of binding.reference_ids) {
+        const ref =
+          library.schema_version === "1.3.0"
+            ? library.environment_references.find((item) => item.reference_id === id)
+            : null;
+        if (
+          !ref ||
+          (ref.scene_id !== null && ref.scene_id !== shot.location_id) ||
+          (ref.variant_id !== null && ref.variant_id !== binding.variant_id)
+        )
+          missing.push(`${shotLabel}：环境参考归属不一致`);
+      }
+    }
     if (
       members.some(
         (member) =>

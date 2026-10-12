@@ -1,6 +1,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { StoryboardGateway } from "./adapters/episodeStoryboard";
+import {
+  newStoryboardShot,
+  type StoryboardGateway,
+  type StoryboardVersion,
+} from "./adapters/episodeStoryboard";
 import { useEpisodeStoryboard } from "./useEpisodeStoryboard";
 
 const project = `prj_${"a".repeat(32)}`;
@@ -45,6 +49,65 @@ function dirty(result: { current: ReturnType<typeof useEpisodeStoryboard> }) {
   act(() => result.current.edit((value) => ({ ...value, fps: 30 })));
 }
 describe("episode storyboard hook retains drafts at failed boundaries", () => {
+  test("V2 choice input survives UNKNOWN reopening and only explicitly checks the same operation", async () => {
+    const first = await ready();
+    const chr = `chr_${"c".repeat(32)}`;
+    act(() =>
+      first.result.current.edit((current) => ({
+        ...current,
+        schema_version: "1.1.0",
+        creative_library_version_id: `ver_${"d".repeat(32)}`,
+        shots: [
+          {
+            ...newStoryboardShot(1, 24)!,
+            character_ids: [chr],
+            character_bindings: [
+              {
+                character_id: chr,
+                costume_id: `cst_${"e".repeat(32)}`,
+                reference_ids: [`crf_${"f".repeat(32)}`],
+              },
+            ],
+          },
+        ],
+      })),
+    );
+    await act(async () => {
+      expect(await first.result.current.save()).toBe(false);
+    });
+    const original = api.createEpisodeStoryboardVersion.mock.calls[0]!;
+    first.unmount();
+    const reopened = await ready();
+    expect(reopened.result.current.content).toEqual(original[3].content);
+    expect(reopened.result.current.locked).toBe(true);
+    expect(api.createEpisodeStoryboardVersion).toHaveBeenCalledTimes(1);
+    const saved: StoryboardVersion = {
+      version_id: `ver_${"1".repeat(32)}`,
+      project_id: project,
+      episode_id: episode,
+      version_number: 1,
+      head_revision: 1,
+      parent_version_id: null,
+      content: original[3].content,
+      content_hash: `sha256:${"2".repeat(64)}`,
+      author_actor_id: "human",
+      change_summary: original[3].change_summary,
+      created_at: "2026-10-11T00:00:00Z",
+    };
+    api.createEpisodeStoryboardVersion.mockResolvedValueOnce({
+      kind: "CREATED",
+      receipt: { data: { version: saved, replayed: false }, request_id: "check" },
+    });
+    api.getEpisodeStoryboardVersion.mockResolvedValueOnce({
+      kind: "FOUND",
+      receipt: { data: saved, request_id: "check" },
+    });
+    await act(async () => {
+      expect(await reopened.result.current.save(true)).toBe(true);
+    });
+    expect(api.createEpisodeStoryboardVersion.mock.calls[1]).toEqual(original);
+    expect(reopened.result.current.content.schema_version).toBe("1.1.0");
+  });
   test.each([null, "malformed"])("invalid project %s cannot read or save", async (scope) => {
     const { result } = mount(scope);
     expect(result.current.readState).toBe("error");

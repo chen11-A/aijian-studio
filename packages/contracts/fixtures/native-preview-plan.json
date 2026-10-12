@@ -1,0 +1,70 @@
+{
+  "data": {
+    "plan": {
+      "schema_version": 1,
+      "scope": "DRAFT_PREVIEW",
+      "source": {
+        "origin": "EPISODE_ASSEMBLY",
+        "project_id": "prj_11111111111111111111111111111111",
+        "episode_id": "ep_22222222222222222222222222222222",
+        "assembly_artifact_id": "art_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "assembly_version_id": "ver_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "assembly_content_hash": "sha256:616e5e8a1e35969530a823071ab59aac67f6f86482f14533d9ec22f5ddc3b030",
+        "assembly_head_revision": 2,
+        "test_spec_sha256": null,
+        "fixture_manifest_sha256": null
+      },
+      "sequence_timebase": {
+        "frame_rate": {
+          "num": 25,
+          "den": 1
+        },
+        "timecode_mode": "NON_DROP_FRAME"
+      },
+      "canvas_width": 320,
+      "canvas_height": 568,
+      "total_frames": 50,
+      "audio_master_sample_rate_hz": 48000,
+      "audio_mix_policy": "SUM_NO_NORMALIZE_NO_LIMITER",
+      "subtitle_output_mode": "NONE",
+      "dialogue_speech_status": "NOT_APPLICABLE",
+      "video_overlap_mode": "EXPLICIT_TRANSITION_FOR_OVERLAP",
+      "video_tracks": [
+        {
+          "track_id": "visual_0",
+          "layer_index": 0,
+          "clips": [
+            {
+              "clip_id": "seg_video",
+              "media": {
+                "asset_id": "asset_33333333333333333333333333333333",
+                "asset_version_id": "asv_44444444444444444444444444444444",
+                "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+                "byte_size": 100,
+                "rights_status": "PENDING_REVIEW",
+                "rights_decision_id": null,
+                "probe_evidence_id": "mpe_66666666666666666666666666666666",
+                "probe_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+                "inspection_sha256": null
+              },
+              "start_frame": 0,
+              "end_frame": 50,
+              "source_in_frame": 5,
+              "source_frame_count": 75,
+              "embedded_audio": "MUTE",
+              "source_width": 320,
+              "source_height": 568,
+              "scale_mode": "IDENTITY"
+            }
+          ]
+        }
+      ],
+      "audio_tracks": [],
+      "subtitle_cues": [],
+      "video_transitions": [],
+      "absent_test_roles": []
+    },
+    "plan_hash": "sha256:626698de5dbf0dcd77f7dc4969a4079fd285c29e734b36391182405e79a08266"
+  },
+  "request_id": "11111111-1111-4111-8111-111111111111"
+}

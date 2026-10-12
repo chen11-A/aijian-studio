@@ -76,6 +76,32 @@ snapshot/hash checks as DRAFT export. A previously verified output can still be
 inspected independently of its originals, with its old immutable identity; it
 is not evidence that missing originals became available.
 
+## Exact storyboard entry
+
+Both storyboard editors reuse this player through `StoryboardAssemblyPreview`.
+An explicit read selects the current episode's saved assembly once; the resulting
+immutable version remains the preview input until another explicit read. Nothing
+reads another episode, substitutes a newer storyboard, creates a composition,
+rewrites a source reference or starts an encode as a consequence of inspection.
+
+The renderer verifies bounded canonical storyboard and assembly content hashes
+and scoped receipts. It lists each saved shot's exact linked visual segments,
+the actual audio/dialogue identities, frame intervals, timebase and media checks.
+Playback here requires every shot and every visual segment to reference that
+exact storyboard version. Unlinked/foreign-version segments and missing shots
+remain visible and require an explicit edit in assembly. Duration comparisons
+use rational frame rates; repeated clips, actual ordering and duration differences
+are disclosed without modifying the stored assembly or claiming creative coverage.
+
+Project/episode/version/hash changes remount the scoped inspector, including ABA
+switches. Duplicate reads and late replies cannot adopt another input. An unknown
+refresh preserves labelled prior evidence but unmounts playback. Unsaved storyboard
+fields stay in their editor and are explicitly excluded; pending writes/read errors
+disable the inspection/player. Existing output, rights declarations, UNKNOWN
+operation journals, encoding/file rechecks and DRAFT limits use the same controller
+as assembly. This establishes a saved-media playback dependency, not realtime
+unsaved previsualization, full Animatic, lipsync or formal delivery acceptance.
+
 ## Playback and format limits
 
 The existing reader independently validates the fresh SUCCEEDED receipt, local

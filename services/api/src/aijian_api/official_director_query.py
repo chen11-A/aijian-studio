@@ -180,7 +180,12 @@ def read_operation(
                 storyboard, project_id=project, episode_id=episode, connection=connection
             )
             if verified.content_hash != adopted["storyboard_content_hash"] or (
-                verified.content != project_storyboard(proposal.content.projection_input(), script)
+                verified.content
+                != project_storyboard(
+                    proposal.content.projection_input(),
+                    script,
+                    target_schema=verified.content.schema_version,
+                )
                 or verified.author_actor_id != adopted["actor_id"]
                 or verified.parent_version_id
                 != (prepared.storyboard_base.version_id if prepared.storyboard_base else None)

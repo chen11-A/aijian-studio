@@ -1,10 +1,21 @@
 import { createHash } from "node:crypto";
 import type { components } from "@aijian/contracts";
+import {
+  hasStoryboardShotKeys,
+  hasStoryboardContentKeys,
+  hasValidStoryboardVisualPin,
+  hasValidStoryboardBindings,
+  hasValidStoryboardPlanning,
+  hasValidStoryboardEnvironment,
+  hasValidStoryboardEnvironmentBasis,
+} from "@aijian/contracts/storyboard-character-bindings";
 import { hasRequestId, isRecord } from "./api-contract-guards";
 import { episodeScriptDefiniteError } from "./episode-script-contract";
 
-export type EpisodeStoryboardShot = components["schemas"]["EpisodeStoryboardShotV1"];
-export type EpisodeStoryboardContent = components["schemas"]["EpisodeStoryboardContentV1"];
+export type EpisodeStoryboardShot =
+  components["schemas"]["CreateEpisodeStoryboardVersionRequest"]["content"]["shots"][number];
+export type EpisodeStoryboardContent =
+  components["schemas"]["CreateEpisodeStoryboardVersionRequest"]["content"];
 export type CreateEpisodeStoryboardVersionRequest =
   components["schemas"]["CreateEpisodeStoryboardVersionRequest"];
 export type EpisodeStoryboardVersion = components["schemas"]["EpisodeStoryboardVersionData"];
@@ -112,16 +123,9 @@ export function isEpisodeStoryboardContent(
     !isEpisodeStoryboardProjectId(projectId) ||
     !isEpisodeStoryboardEpisodeId(episodeId) ||
     !isRecord(value) ||
-    !exact(value, [
-      "schema_version",
-      "project_id",
-      "episode_id",
-      "fps",
-      "script_version_id",
-      "creative_library_version_id",
-      "shots",
-    ]) ||
-    value.schema_version !== "1.0.0" ||
+    !hasStoryboardContentKeys(value) ||
+    !hasValidStoryboardVisualPin(value) ||
+    !hasValidStoryboardEnvironmentBasis(value) ||
     value.project_id !== projectId ||
     value.episode_id !== episodeId ||
     !positive(value.fps, 120) ||
@@ -135,19 +139,7 @@ export function isEpisodeStoryboardContent(
   for (const [index, shot] of value.shots.entries()) {
     if (
       !isRecord(shot) ||
-      !exact(shot, [
-        "shot_id",
-        "ordinal",
-        "duration_frames",
-        "title",
-        "description",
-        "action",
-        "dialogue",
-        "camera",
-        "script_scene_id",
-        "character_ids",
-        "location_id",
-      ]) ||
+      !hasStoryboardShotKeys(shot, value.schema_version) ||
       !id(shot.shot_id, SHOT) ||
       seen.has(shot.shot_id) ||
       shot.ordinal !== index + 1 ||
@@ -164,6 +156,12 @@ export function isEpisodeStoryboardContent(
       (shot.script_scene_id !== null && value.script_version_id === null) ||
       ((shot.character_ids.length > 0 || shot.location_id !== null) &&
         value.creative_library_version_id === null)
+    )
+      return false;
+    if (
+      !hasValidStoryboardBindings(shot, value.schema_version) ||
+      !hasValidStoryboardPlanning(shot, value.schema_version) ||
+      !hasValidStoryboardEnvironment(shot, value.schema_version)
     )
       return false;
     seen.add(shot.shot_id);

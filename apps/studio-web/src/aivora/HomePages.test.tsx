@@ -112,6 +112,76 @@ function bridge() {
 }
 
 describe("project centre filtering", () => {
+  it.each(["16:9", "9:16"] as const)(
+    "creates through the production form with explicit %s choice",
+    async (aspect) => {
+      window.localStorage.clear();
+      window.history.replaceState({}, "", "#home");
+      const desktop = bridge();
+      const project = {
+        id: `prj_${"f".repeat(32)}`,
+        name: "画幅选择作品",
+        aspect_ratio: aspect,
+        target_duration_seconds: 60,
+        source_language: "zh-CN",
+        status: "active",
+        revision: 1,
+        created_at: "2026-10-11T00:00:00Z",
+        updated_at: "2026-10-11T00:00:00Z",
+      };
+      desktop.listProjects = vi.fn().mockResolvedValue({ request_id: "projects", data: [] });
+      desktop.createProject = vi.fn().mockResolvedValue({ request_id: "created", data: project });
+      window.aijian = desktop;
+      render(
+        <DemoProvider>
+          <ProjectHarness />
+        </DemoProvider>,
+      );
+      await screen.findByRole("button", { name: "本地工作区已连接" });
+      fireEvent.click(screen.getAllByRole("button", { name: "新建项目" })[0]!);
+      expect(screen.getByLabelText("项目画幅")).toHaveValue("16:9");
+      fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: aspect } });
+      fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: project.name } });
+      expect(desktop.createProject).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "创建真实项目" }));
+      await waitFor(() =>
+        expect(desktop.createProject).toHaveBeenCalledExactlyOnceWith({
+          name: project.name,
+          aspect_ratio: aspect,
+          target_duration_seconds: 60,
+          source_language: "zh-CN",
+        }),
+      );
+      await waitFor(() =>
+        expect(JSON.parse(screen.getByLabelText("project-list-state").textContent!)).toMatchObject({
+          page: "source",
+          projects: [expect.objectContaining({ backendId: project.id, name: project.name })],
+        }),
+      );
+    },
+  );
+  it("blocks an unsupported creation selection and cancels without a write", async () => {
+    window.localStorage.clear();
+    window.history.replaceState({}, "", "#home");
+    const desktop = bridge();
+    desktop.createProject = vi.fn();
+    window.aijian = desktop;
+    render(
+      <DemoProvider>
+        <ProjectHarness />
+      </DemoProvider>,
+    );
+    await screen.findByRole("button", { name: "本地工作区已连接" });
+    fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
+    fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: "未提交作品" } });
+    fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: "1:1" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建真实项目" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "创建真实项目" })).toBeEnabled());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(desktop.createProject).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(desktop.createProject).not.toHaveBeenCalled();
+  });
   it("shows an explicit no-result state and restores the project list read from the desktop bridge", async () => {
     window.history.replaceState({}, "", "#projects");
     const desktop = bridge()!;
@@ -918,6 +988,9 @@ it("persists a newly created project and automatically restores its exact defaul
       data: {
         id: projectB,
         name: "新项目 B",
+        aspect_ratio: "16:9",
+        target_duration_seconds: 60,
+        source_language: "zh-CN",
         status: "active",
         revision: 1,
         updated_at: "2026-09-14T00:00:00Z",

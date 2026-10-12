@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
+import { normalizeCreativeContent } from "./adapters/creativeCharacterDetails";
 import {
   cloneCreativeContent,
   CREATIVE_PROJECT_ID,
@@ -181,22 +182,10 @@ export function useCreativeLibrary(projectId: string | null, setNavigationGuard:
       }
       command = pending.command;
     } else {
-      const normalized: CreativeContent = {
-        ...content,
-        characters: content.characters.map((item, index) => ({
-          ...item,
-          name: item.name.trim(),
-          ordinal: index + 1,
-        })),
-        scenes: content.scenes.map((item, index) => ({
-          ...item,
-          name: item.name.trim(),
-          ordinal: index + 1,
-        })),
-      };
+      const normalized = normalizeCreativeContent(content);
       if (!validCreativeContent(normalized, projectId)) {
         setNotice(
-          "请填写每个角色和场景的名称（1 至 120 字）；短字段最多 240 字，长文本最多 20000 字。",
+          "请填写角色和场景名称、关系和服装名称、参考说明（1 至 120 字）；短字段最多 240 字，长文本最多 20000 字。",
         );
         return false;
       }

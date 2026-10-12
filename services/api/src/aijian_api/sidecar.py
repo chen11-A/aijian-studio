@@ -30,6 +30,7 @@ from aijian_api.media_toolchain import (
     discover_media_toolchain,
     load_media_toolchain_lock,
 )
+from aijian_api.native_preview_parent_pipe import NativeParentPipe
 from aijian_api.product_export_runtime import ProductExportRuntime
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.provider_connection_repository import ProviderConnectionRepository
@@ -308,9 +309,18 @@ def create_handshake(*, port: int, token: str, pid: int) -> Mapping[str, object]
     }
 
 
-def _stop_when_parent_pipe_closes(server: uvicorn.Server) -> None:
-    sys.stdin.buffer.read()
-    server.should_exit = True
+def _stop_when_parent_pipe_closes(
+    server: uvicorn.Server, native_pipe: NativeParentPipe | None = None
+) -> None:
+    try:
+        if native_pipe is None:
+            sys.stdin.buffer.read()
+        else:
+            native_pipe.serve(sys.stdin.buffer)
+    except (ValueError, OSError):
+        _LOGGER.warning("Private parent pipe is unavailable")
+    finally:
+        server.should_exit = True
 
 
 def create_local_fake_worker(database_path: Path) -> LocalFakeSourceExtractWorker:
@@ -460,6 +470,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
     timeline_worker: LocalFakeTimelineWorker | None = None
     remote_worker: RemoteSourceExtractRuntime | None = None
     sub2api_worker: Sub2APISourceExtractRuntime | None = None
+    native_pipe: NativeParentPipe | None = None
     worker_started = False
     timeline_worker_started = False
     remote_worker_started = False
@@ -473,6 +484,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
             origin=SIDECAR_ORIGIN,
         )
         repository = StudioRepository(database_path)
+        native_pipe = NativeParentPipe(repository, sys.stdout.buffer)
         product_export_jobs = ProductExportJobManager()
         local_media_toolchain = LocalMediaToolchainService(machine_settings_path())
         draft_export_runtime = DraftExportRuntime(
@@ -520,7 +532,7 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         server = uvicorn.Server(config)
         pipe_monitor = threading.Thread(
             target=_stop_when_parent_pipe_closes,
-            args=(server,),
+            args=(server, native_pipe),
             name="sidecar-parent-pipe",
             daemon=True,
         )
@@ -542,11 +554,17 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
     finally:
         shutdown_error: BaseException | None = None
         try:
+            if native_pipe is not None:
+                try:
+                    native_pipe.shutdown_and_wait()
+                except BaseException as error:
+                    shutdown_error = error
             if draft_export_runtime is not None:
                 try:
                     draft_export_runtime.stop_accepting()
                 except BaseException as error:
-                    shutdown_error = error
+                    if shutdown_error is None:
+                        shutdown_error = error
             if product_export_runtime is not None:
                 try:
                     product_export_runtime.stop_accepting()

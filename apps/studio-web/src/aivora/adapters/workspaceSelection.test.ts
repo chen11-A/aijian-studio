@@ -4,6 +4,7 @@ import {
   readWorkspaceSelection,
   withEpisodeCreateMarker,
   withWorkspaceSelection,
+  persistDraftReviewSelection,
 } from "./workspaceSelection";
 
 const projectA = "prj_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -25,6 +26,53 @@ function memory(initial?: string, throws = false) {
 }
 
 describe("workspace selection persistence", () => {
+  it("restores review cursors for two projects and episodes while preserving creation markers", () => {
+    const storage = memory();
+    const old = { selection: null, createMarkers: { [projectA]: "UNKNOWN" as const } };
+    expect(persistWorkspaceSelection(storage, old)).toBe(true);
+    for (const [p, e, op] of [
+      [projectA, episodeA, `dmp_${"1".repeat(32)}`],
+      [projectA, `ep_${"b".repeat(32)}`, `dmp_${"2".repeat(32)}`],
+      [projectB, episodeA, `dmp_${"3".repeat(32)}`],
+    ] as const)
+      expect(persistDraftReviewSelection(storage, p, e, op)).toBe(true);
+    // The existing model may retain an older snapshot. It must not erase newer cursors.
+    expect(persistWorkspaceSelection(storage, old)).toBe(true);
+    const read = readWorkspaceSelection(storage);
+    expect(read.kind).toBe("READY");
+    if (read.kind !== "READY") throw Error("unreadable");
+    expect(read.snapshot.reviewOperations).toEqual({
+      [`${projectA}/${episodeA}`]: `dmp_${"1".repeat(32)}`,
+      [`${projectA}/ep_${"b".repeat(32)}`]: `dmp_${"2".repeat(32)}`,
+      [`${projectB}/${episodeA}`]: `dmp_${"3".repeat(32)}`,
+    });
+    expect(read.snapshot.createMarkers).toEqual(old.createMarkers);
+    expect(persistDraftReviewSelection(storage, projectA, episodeA, "")).toBe(true);
+    expect(readWorkspaceSelection(storage)).toMatchObject({
+      kind: "READY",
+      snapshot: { reviewOperations: { [`${projectB}/${episodeA}`]: `dmp_${"3".repeat(32)}` } },
+    });
+  });
+  it("preserves corrupt cursor records and rejects noncanonical or unavailable writes", () => {
+    const bad = JSON.stringify({
+      version: 1,
+      selection: null,
+      createMarkers: {},
+      reviewOperations: { bad: "bad" },
+    });
+    const storage = memory(bad);
+    expect(readWorkspaceSelection(storage)).toEqual({ kind: "CORRUPT" });
+    expect(persistDraftReviewSelection(storage, projectA, episodeA, `dmp_${"1".repeat(32)}`)).toBe(
+      false,
+    );
+    expect(storage.value()).toBe(bad);
+    expect(persistWorkspaceSelection(storage, { selection: null, createMarkers: {} })).toBe(false);
+    expect(persistDraftReviewSelection(memory(), projectA, episodeA, "not-operation")).toBe(false);
+    expect(persistDraftReviewSelection(memory(), "bad-project", episodeA, "")).toBe(false);
+    expect(persistDraftReviewSelection(memory(undefined, true), projectA, episodeA, "")).toBe(
+      false,
+    );
+  });
   it("stores only canonical opaque IDs and project-scoped markers", () => {
     const storage = memory();
     const snapshot = withEpisodeCreateMarker(

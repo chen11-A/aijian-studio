@@ -1,0 +1,40 @@
+.character-details {
+  margin-top: 22px;
+}
+.character-detail-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.character-detail-section h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.character-detail-record {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #345873;
+  border-radius: 8px;
+  min-width: 0;
+}
+.character-detail-record strong {
+  overflow-wrap: anywhere;
+}
+.character-detail-section > .button,
+.character-detail-record > .button {
+  justify-self: start;
+}
+.character-details select {
+  width: 100%;
+  padding: 10px;
+  background: #081d30;
+  color: #f0f6fc;
+  border: 1px solid #345873;
+  border-radius: 8px;
+  font: inherit;
+}
+.character-details select:focus-visible {
+  outline: 2px solid #37bfd8;
+  outline-offset: 2px;
+}

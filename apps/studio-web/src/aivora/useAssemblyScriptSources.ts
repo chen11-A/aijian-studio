@@ -7,11 +7,13 @@ import {
   type ScriptGateway,
   type ScriptScene,
   type ScriptVersion,
+  type ConfirmationGateway,
 } from "./adapters/episodeScript";
 import { sameStoryboardJson } from "./adapters/episodeStoryboard";
 
 export type AssemblyScriptGateway = Partial<
-  Pick<ScriptGateway, "getEpisodeScript" | "getEpisodeScriptVersion">
+  Pick<ScriptGateway, "getEpisodeScript" | "getEpisodeScriptVersion"> &
+    Pick<ConfirmationGateway, "getEpisodeScriptConfirmation">
 >;
 export type AssemblyDialogueSource = { block: ScriptBlock; scene: ScriptScene; speakerId: string };
 export type AssemblyScriptSource =
@@ -21,7 +23,7 @@ const loading: AssemblyScriptSource = { state: "loading", version: null, dialogu
 const error: AssemblyScriptSource = { state: "error", version: null, dialogues: [] };
 const empty: AssemblyScriptSource = { state: "empty", version: null, dialogues: [] };
 
-async function savedDialogues(version: ScriptVersion): Promise<AssemblyScriptSource> {
+export async function savedDialogues(version: ScriptVersion): Promise<AssemblyScriptSource> {
   const dialogues: AssemblyDialogueSource[] = [];
   const speakers = new Map<string, Promise<string | null>>();
   for (const scene of version.content.scenes) {

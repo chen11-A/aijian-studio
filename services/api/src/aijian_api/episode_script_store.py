@@ -15,6 +15,7 @@ from aijian_api.episode_script_contracts import (
     CreateEpisodeScriptVersionRequest,
     EpisodeScriptContentV1,
     EpisodeScriptVersionData,
+    EpisodeScriptWriteOperationData,
 )
 from aijian_api.repository import (
     ArtifactConflictError,
@@ -44,6 +45,10 @@ class EpisodeScriptTooLargeError(ValueError):
 
 
 class EpisodeScriptStorageError(RuntimeError):
+    pass
+
+
+class EpisodeScriptWriteOperationUnknownError(LookupError):
     pass
 
 
@@ -282,6 +287,86 @@ class EpisodeScriptStore:
                 raise EpisodeScriptNotFoundError("EpisodeScript version was not found") from error
             raise EpisodeScriptStorageError("EpisodeScript version is invalid") from error
         return self._verified_version_data(record, project_id=project_id, episode_id=episode_id)
+
+    def get_write_operation(
+        self, *, project_id: str, episode_id: str, operation_id: str
+    ) -> EpisodeScriptWriteOperationData:
+        """Read original receipt and immutable version without writing or replaying.
+
+        A missing row does not prove that a request was never executed. The caller
+        must retain its original UNKNOWN intent. Current head revision is never
+        used as the original commit revision.
+        """
+        key_hash = canonical_content_hash({"value": operation_id})
+        connection = self._open()
+        try:
+            connection.execute("BEGIN")
+            self._require_episode(connection, project_id, episode_id)
+            receipt = connection.execute(
+                """
+                SELECT request_hash, artifact_id, version_id
+                FROM episode_script_write_requests
+                WHERE project_id = ? AND episode_id = ? AND idempotency_key_hash = ?
+                """,
+                (project_id, episode_id, key_hash),
+            ).fetchone()
+            if receipt is None:
+                raise EpisodeScriptWriteOperationUnknownError("Original write cannot be attributed")
+            record = self._repository._get_artifact_version_in_connection(
+                connection,
+                project_id=project_id,
+                artifact_type=_ARTIFACT_TYPE,
+                version_id=str(receipt["version_id"]),
+                episode_id=episode_id,
+            )
+            if record.version.artifact_id != str(receipt["artifact_id"]):
+                raise EpisodeScriptStorageError("Original write receipt changed scope")
+            version = self._verified_version_data(
+                record, project_id=project_id, episode_id=episode_id, connection=connection
+            )
+            original = CreateEpisodeScriptVersionRequest.model_validate(
+                {
+                    "content": record.version.content,
+                    "parent_version_id": version.parent_version_id,
+                    "expected_revision": version.version_number - 1
+                    if version.version_number > 1
+                    else None,
+                    "change_summary": version.change_summary,
+                }
+            )
+            request_hash = canonical_content_hash(
+                {
+                    "project_id": project_id,
+                    "episode_id": episode_id,
+                    "actor_id": version.author_actor_id,
+                    "payload": original.model_dump(mode="json"),
+                }
+            )
+            legacy_hash = _legacy_request_hash(
+                original,
+                project_id=project_id,
+                episode_id=episode_id,
+                actor_id=version.author_actor_id,
+            )
+            if version.head_revision < version.version_number or str(
+                receipt["request_hash"]
+            ) not in (request_hash, legacy_hash):
+                raise EpisodeScriptStorageError(
+                    "Original write receipt failed complete attribution"
+                )
+            return EpisodeScriptWriteOperationData(
+                operation_id=operation_id,
+                project_id=project_id,
+                episode_id=episode_id,
+                idempotency_key_hash=key_hash,
+                request_hash=str(receipt["request_hash"]),
+                version=version,
+            )
+        except (sqlite3.DatabaseError, ArtifactConflictError, ValidationError) as error:
+            raise EpisodeScriptStorageError("Original write read failed safely") from error
+        finally:
+            connection.rollback()
+            connection.close()
 
     def write(
         self,

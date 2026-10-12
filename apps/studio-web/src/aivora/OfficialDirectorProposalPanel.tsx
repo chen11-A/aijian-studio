@@ -175,6 +175,9 @@ export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps)
               <Button primary disabled={state.locked || !canAdopt} onClick={adopt}>
                 明确采纳为新分镜版本
               </Button>
+              <p>
+                已有镜头服装或参考选用时，整集替换会被拒绝。请先在分镜中明确处理并保存这些选用；提案和历史版本保留。
+              </p>
               {!sameDirectorInputs(state.preparation, operation) && (
                 <p>当前剧本、制作意图或分镜基准已变化，原提案只读保留，不能覆盖当前内容。</p>
               )}

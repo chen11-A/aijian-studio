@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DemoProvider, useDemo } from "./model";
 import type { DemoFixture } from "./model";
 import { art, pages, projectNav, stages } from "./data";
@@ -91,7 +91,19 @@ function Workspace({ reset }: { reset: () => void }) {
   const visuals: PageId[] = ["characters", "character", "world", "scenes", "assets"];
   const medias: PageId[] = ["storyboard", "generation", "assembly", "review", "changes", "export"];
   const pro = d.professional && !management;
-  const hasRail = pro || (management ? d.value("managementAI") === "true" : d.aiOpen);
+  const hasRail = pro
+    ? !d.professionalDockCollapsed
+    : management
+      ? d.value("managementAI") === "true"
+      : d.aiOpen;
+  const lastDockFocus = useRef<HTMLElement | null>(null);
+  const restoreDockFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!hasRail || !restoreDockFocus.current) return;
+    restoreDockFocus.current = false;
+    const node = lastDockFocus.current;
+    if (node?.isConnected && node.getClientRects().length) node.focus({ preventScroll: true });
+  }, [hasRail]);
   const providerState = d.providerSettings.state;
   const serviceStatus = d.isFixture
     ? "未连接真实服务"
@@ -269,6 +281,19 @@ function Workspace({ reset }: { reset: () => void }) {
             专业模式
           </button>
         </div>
+        {pro && (
+          <button
+            className="professional-dock-toggle"
+            aria-controls="creative-right-dock"
+            aria-expanded={hasRail}
+            onClick={() => {
+              restoreDockFocus.current = d.professionalDockCollapsed;
+              d.setProfessionalDockCollapsed(!d.professionalDockCollapsed);
+            }}
+          >
+            {hasRail ? "收起专业右栏" : "恢复专业右栏"}
+          </button>
+        )}
         <button className="service-indicator" onClick={() => d.go("services")}>
           <span />
           {d.isFixture
@@ -437,7 +462,15 @@ function Workspace({ reset }: { reset: () => void }) {
           )}
         </div>
       </main>
-      <aside className="right-dock" aria-label="创作辅助面板">
+      <aside
+        id="creative-right-dock"
+        className="right-dock"
+        aria-label="创作辅助面板"
+        hidden={!hasRail}
+        onFocusCapture={(event) => {
+          if (event.target instanceof HTMLElement) lastDockFocus.current = event.target;
+        }}
+      >
         {pro && (
           <div className="dock-tabs" role="tablist" aria-label="右侧面板">
             <button
@@ -471,8 +504,10 @@ function Workspace({ reset }: { reset: () => void }) {
         className="ai-toggle button"
         aria-label={hasRail ? "切换 AI 助手" : "展开 AI 助手"}
         onClick={() => {
-          if (pro) d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
-          else if (management) d.put("managementAI", hasRail ? "false" : "true");
+          if (pro) {
+            d.setProfessionalDockCollapsed(false);
+            d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
+          } else if (management) d.put("managementAI", hasRail ? "false" : "true");
           else d.setAiOpen(!d.aiOpen);
         }}
       >

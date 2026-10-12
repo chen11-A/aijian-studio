@@ -215,6 +215,7 @@ function isPreviewStatus(value: unknown): value is MediaPreviewStatus {
     isPreviewClock(value.clock) &&
     typeof value.expires_at === "string" &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value.expires_at) &&
+    Number.isFinite(Date.parse(value.expires_at)) &&
     (value.failure === null ||
       (typeof value.failure === "string" &&
         [

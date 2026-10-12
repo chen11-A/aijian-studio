@@ -214,12 +214,21 @@ describe("reversible desktop editor presentation", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加镜头" }));
     fireEvent.change(screen.getByLabelText("镜头标题"), { target: { value: "桥边相遇" } });
     fireEvent.change(screen.getByLabelText("画面描述"), { target: { value: "两人在桥上相遇。" } });
+    fireEvent.change(screen.getByLabelText("叙事覆盖说明"), { target: { value: "建立两人关系" } });
+    fireEvent.change(screen.getByLabelText("连续性说明"), { target: { value: "两人视线相对" } });
+    fireEvent.change(screen.getByLabelText("转场说明"), { target: { value: "切到近景" } });
     fireEvent.click(screen.getByRole("button", { name: "保存分镜草稿" }));
     await screen.findByText(/已保存，并已回读核对/);
     const payload = vi.mocked(api.createEpisodeStoryboardVersion).mock.calls[0]?.[3];
     const id = payload?.content.shots[0]?.shot_id;
     expect(id).toMatch(/^shp_[0-9a-f]{32}$/);
     expect(payload?.content.shots[0]?.description).toBe("两人在桥上相遇。");
+    expect(payload?.content.schema_version).toBe("1.3.0");
+    expect(payload?.content.shots[0]).toMatchObject({
+      coverage_notes: "建立两人关系",
+      continuity_notes: "两人视线相对",
+      transition_notes: "切到近景",
+    });
     expect(api.getEpisodeStoryboardVersion).toHaveBeenCalledOnce();
     view.unmount();
     render(
@@ -231,6 +240,9 @@ describe("reversible desktop editor presentation", () => {
     );
     await screen.findByDisplayValue("桥边相遇");
     expect(screen.getByLabelText("画面描述")).toHaveValue("两人在桥上相遇。");
+    expect(screen.getByLabelText("叙事覆盖说明")).toHaveValue("建立两人关系");
+    expect(screen.getByLabelText("连续性说明")).toHaveValue("两人视线相对");
+    expect(screen.getByLabelText("转场说明")).toHaveValue("切到近景");
     expect(screen.getByText(`镜头身份：${id}`)).toBeInTheDocument();
   });
 });

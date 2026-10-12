@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "./Common";
 import {
   parsePreviewStatus,
@@ -71,6 +71,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
   const activeScope = useRef(scope);
   activeScope.current = scope;
   const epoch = useRef(0);
+  const inFlight = useRef(false);
   const statusRef = useRef<MediaPreviewStatus | null>(null);
   const [status, setStatus] = useState<MediaPreviewStatus | null>(null);
   const [openRequestId, setOpenRequestId] = useState<string | null>(null);
@@ -87,11 +88,12 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
     status?.state === "FAILED" || status?.state === "EXPIRED" || status?.state === "CLOSED";
   statusRef.current = status;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     epoch.current += 1;
     const saved = readPending(projectId, episodeId);
     setStatus(null);
     setBusy(false);
+    inFlight.current = false;
     setOpenRequestId(saved ?? null);
     setUnknown(saved !== null);
     setNotice(
@@ -106,7 +108,10 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       const prior = statusRef.current;
       if (prior && gateway && prior.state !== "CLOSED" && prior.state !== "EXPIRED") {
         const command = previewCommand(prior);
-        if (command) void gateway.closeMediaPreviewSession(command).catch(() => undefined);
+        if (command)
+          void Promise.resolve()
+            .then(() => gateway.closeMediaPreviewSession(command))
+            .catch(() => undefined);
       }
     };
   }, [scope, gateway]);
@@ -115,11 +120,21 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
     result: MediaPreviewResult,
     requested: string,
     prior: MediaPreviewStatus | null,
+    opening = false,
   ): void {
+    if (!result || typeof result !== "object") {
+      setUnknown(true);
+      setNotice("预览回执结构不符；保留原请求 ID，只可只读查询。");
+      return;
+    }
     if (result.kind === "STATUS") {
       const parsed =
         identity && parsePreviewStatus(result.status, identity, requested, prior ?? undefined);
-      if (!parsed) {
+      if (
+        !parsed ||
+        (parsed.clock.shown_frame_index !== null &&
+          (totalFrames === null || parsed.clock.shown_frame_index >= totalFrames))
+      ) {
         setUnknown(true);
         setNotice("预览回执身份、generation 或时钟结构不符；只可查询原请求。");
         return;
@@ -138,7 +153,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
     }
     if (result.kind === "UNAVAILABLE") {
       setNotice(unavailableCopy[result.reason] ?? "预览宿主不可用。");
-      if (!prior) {
+      if (opening) {
         clearPending(projectId, episodeId);
         setOpenRequestId(null);
         setUnknown(false);
@@ -159,6 +174,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       !validIdentity ||
       !identity ||
       busy ||
+      inFlight.current ||
       status ||
       unknown ||
       readPending(projectId, episodeId) !== null
@@ -171,6 +187,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       return;
     }
     const request = ++epoch.current;
+    inFlight.current = true;
     setOpenRequestId(id);
     setBusy(true);
     const result = await gateway
@@ -178,23 +195,27 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       .catch(() => ({ kind: "UNKNOWN" as const }));
     if (epoch.current !== request || activeScope.current !== scope) return;
     setBusy(false);
-    accept(result, id, null);
+    inFlight.current = false;
+    accept(result, id, null, true);
   }
 
   async function query() {
-    if (!gateway || !validIdentity || !identity || !openRequestId || busy) return;
+    if (!gateway || !validIdentity || !identity || !openRequestId || busy || inFlight.current)
+      return;
     const prior = status;
     const request = ++epoch.current;
+    inFlight.current = true;
     setBusy(true);
     const result = await gateway
       .readMediaPreviewSessionStatus(
-        prior
+        prior && !unknown
           ? { session_id: prior.session_id, generation: prior.generation }
           : { open_request_id: openRequestId },
       )
       .catch(() => ({ kind: "UNKNOWN" as const }));
     if (epoch.current !== request || activeScope.current !== scope) return;
     setBusy(false);
+    inFlight.current = false;
     accept(result, openRequestId, prior);
   }
 
@@ -206,6 +227,8 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       !status ||
       !openRequestId ||
       busy ||
+      inFlight.current ||
+      unknown ||
       (kind !== "close" && terminal) ||
       (kind === "close" && ["CLOSED", "EXPIRED"].includes(status.state)) ||
       (kind === "seek" &&
@@ -221,6 +244,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
       return;
     }
     const request = ++epoch.current;
+    inFlight.current = true;
     setBusy(true);
     const result = await (
       kind === "play"
@@ -233,6 +257,7 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
     ).catch(() => ({ kind: "UNKNOWN" as const }));
     if (epoch.current !== request || activeScope.current !== scope) return;
     setBusy(false);
+    inFlight.current = false;
     accept(result, openRequestId, status);
   }
 
@@ -258,7 +283,11 @@ export function MltPreviewPanel({ projectId, episodeId, identity, totalFrames, g
             会话 <code>{status.session_id}</code> · generation {status.generation} · {status.state}
           </p>
           <p>
-            最后显示帧：{clock?.shown_frame_index ?? "未核实"} · 音频输出采样：
+            最后显示帧：
+            {clock?.authority !== "UNVERIFIED"
+              ? (clock?.shown_frame_index ?? "未核实")
+              : "未核实"}{" "}
+            · 音频输出采样：
             {clock?.authority === "NATIVE_AUDIO_OUTPUT" && clock.audio_output_sample_index !== null
               ? `${clock.audio_output_sample_index} / ${clock.audio_sample_rate_hz} Hz`
               : "未核实"}{" "}

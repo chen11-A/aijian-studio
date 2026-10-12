@@ -2,14 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createStudioTransport } from "../api/studio";
 import { Button } from "./Common";
 import { ScriptSceneBlocks } from "./ScriptSceneBlocks";
+import { ScriptReadthrough } from "./ScriptReadthrough";
 import { ScriptWorkspaceView } from "./ScriptWorkspaceView";
 import { buildScriptSelection, usePublishAssistantSelection } from "./assistantSelection";
 import { AcceptedSourceSummarySeed } from "./AcceptedSourceSummarySeed";
 import { OfficialTextProposalPanel } from "./OfficialTextProposalPanel";
 import { summaryStartingScene } from "./adapters/acceptedSourceSummary";
 import {
-  closeConfirmationJournal,
-  closeScriptJournal,
+  preserveConfirmationJournal,
+  recoverScriptConfirmation,
+  preserveScriptJournal,
+  recoverScriptWrite,
   confirmScriptVersion,
   newScriptId,
   readAcceptedSourceBinding,
@@ -23,6 +26,8 @@ import type {
   AcceptedSourceBinding,
   ConfirmationGateway,
   ConfirmationJournal,
+  PendingConfirmation,
+  PendingScriptWrite,
   ScriptBlock,
   ScriptConfirmationStatus,
   ScriptGateway,
@@ -164,6 +169,7 @@ export function EpisodeScriptEditor({
     () =>
       typeof transport.getEpisodeScriptConfirmation === "function" &&
       typeof transport.getEpisodeScriptConfirmationReceipt === "function" &&
+      typeof transport.getEpisodeScriptConfirmationOperation === "function" &&
       typeof transport.createEpisodeScriptConfirmation === "function"
         ? (transport as ConfirmationGateway)
         : null,
@@ -186,10 +192,38 @@ export function EpisodeScriptEditor({
   }, []);
   const epoch = useRef(0);
   const inFlight = useRef(false);
+  const ownConfirmations = useRef(new Map<string, PendingConfirmation>());
+  const ownScriptWrites = useRef(new Map<string, PendingScriptWrite>());
+  const scope = `${projectId ?? ""}/${episodeId ?? ""}`;
+  const activeScope = useRef(scope);
+  activeScope.current = scope;
+  function confirmationRecord(): ConfirmationJournal {
+    if (!storage || !projectId || !episodeId) return { kind: "BLOCKED" };
+    const owned = ownConfirmations.current.get(scope);
+    if (owned)
+      return preserveConfirmationJournal(storage, owned)
+        ? { kind: "PENDING", pending: owned }
+        : { kind: "BLOCKED" };
+    const value = readConfirmationJournal(storage, projectId, episodeId);
+    if (value.kind === "PENDING") ownConfirmations.current.set(scope, value.pending);
+    return value;
+  }
+  function scriptRecord(): ScriptJournal {
+    if (!storage || !projectId || !episodeId) return { kind: "BLOCKED" };
+    const owned = ownScriptWrites.current.get(scope);
+    if (owned)
+      return preserveScriptJournal(storage, owned)
+        ? { kind: "PENDING", pending: owned }
+        : { kind: "BLOCKED" };
+    const value = readScriptJournal(storage, projectId, episodeId);
+    if (value.kind === "PENDING") ownScriptWrites.current.set(scope, value.pending);
+    return value;
+  }
   const importedSourceBinding = useRef<AcceptedSourceBinding | null>(null);
   const [version, setVersion] = useState<ScriptVersion | null>(null);
   const [scenes, setScenes] = useState<ScriptScene[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [readthrough, setReadthrough] = useState(false);
   const [journal, setJournal] = useState<ScriptJournal>({ kind: "EMPTY" });
   const [confirmationJournal, setConfirmationJournal] = useState<ConfirmationJournal>({
     kind: "EMPTY",
@@ -199,11 +233,9 @@ export function EpisodeScriptEditor({
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [sourceBinding, setSourceBinding] = useState<SourceBindingRead>({ kind: "UNKNOWN" });
-  const [inspectedConfirmation, setInspectedConfirmation] = useState(false);
   const [readState, setReadState] = useState<"loading" | "empty" | "ready" | "error">("loading");
   const [busy, setBusy] = useState(false);
   const [needsReload, setNeedsReload] = useState(false);
-  const [inspectedPending, setInspectedPending] = useState(false);
   const [notice, setNotice] = useState("");
   const [changeSummary, setChangeSummary] = useState("人工编辑分集剧本草稿");
   const [bindCurrentBrief, setBindCurrentBrief] = useState(false);
@@ -252,14 +284,31 @@ export function EpisodeScriptEditor({
     journal.kind !== "EMPTY";
   const sourceReady =
     !!version || sourceBinding.kind === "BOUND" || sourceBinding.kind === "UNBOUND";
-  const leaveState = useRef({ dirty, busy, version });
-  leaveState.current = { dirty, busy, version };
+  const leaveState = useRef({ dirty, busy, version, journal, confirmationJournal, storage, scope });
+  leaveState.current = { dirty, busy, version, journal, confirmationJournal, storage, scope };
 
   useEffect(() => {
     setNavigationGuard?.(() => {
       const current = leaveState.current;
       if (current.busy || inFlight.current) {
         setNotice("正在核对或保存剧本，请等待结果后再切换页面、作品或剧集。");
+        return false;
+      }
+      const scriptPending = ownScriptWrites.current.get(current.scope);
+      if (
+        current.journal.kind === "BLOCKED" ||
+        (scriptPending &&
+          (!current.storage || !preserveScriptJournal(current.storage, scriptPending)))
+      ) {
+        setNotice("原剧本保存记录无法完整持久保留；请留在此页核对，不会再次发送。");
+        return false;
+      }
+      const pending = ownConfirmations.current.get(current.scope);
+      if (
+        current.confirmationJournal.kind === "BLOCKED" ||
+        (pending && (!current.storage || !preserveConfirmationJournal(current.storage, pending)))
+      ) {
+        setNotice("原确认日志无法完整持久保存；请留在此页只读核对，不会重新发送。");
         return false;
       }
       if (!current.dirty) return true;
@@ -270,7 +319,23 @@ export function EpisodeScriptEditor({
       return true;
     });
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!leaveState.current.dirty && !leaveState.current.busy) return;
+      const current = leaveState.current;
+      const pending = ownConfirmations.current.get(current.scope);
+      const durable =
+        !pending || (!!current.storage && preserveConfirmationJournal(current.storage, pending));
+      const scriptPending = ownScriptWrites.current.get(current.scope);
+      const scriptDurable =
+        !scriptPending ||
+        (!!current.storage && preserveScriptJournal(current.storage, scriptPending));
+      if (
+        !current.dirty &&
+        !current.busy &&
+        durable &&
+        scriptDurable &&
+        current.journal.kind !== "BLOCKED" &&
+        current.confirmationJournal.kind !== "BLOCKED"
+      )
+        return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -298,24 +363,27 @@ export function EpisodeScriptEditor({
 
   useEffect(() => {
     const request = ++epoch.current;
+    inFlight.current = false;
+    setBusy(false);
     importedSourceBinding.current = null;
     setVersion(null);
     setScenes([]);
     setSelectedSceneId(null);
+    setReadthrough(false);
     setReadState("loading");
     setConfirmation(null);
     setConfirmationReadState("idle");
     setNotice("");
     setBindCurrentBrief(false);
-    setInspectedPending(false);
+    setNeedsReload(false);
     if (!validScope || !gateway || !storage || !projectId || !episodeId) {
       setReadState("error");
       return () => {
         epoch.current += 1;
       };
     }
-    setJournal(readScriptJournal(storage, projectId, episodeId));
-    setConfirmationJournal(readConfirmationJournal(storage, projectId, episodeId));
+    setJournal(scriptRecord());
+    setConfirmationJournal(confirmationRecord());
     void readLatestScript(gateway, projectId, episodeId).then((result) => {
       if (epoch.current !== request) return;
       if (result.kind === "FOUND") {
@@ -343,7 +411,7 @@ export function EpisodeScriptEditor({
     if (!version || !confirmationGateway || !projectId || !episodeId || !storage) return;
     let active = true;
     setConfirmationReadState("loading");
-    setConfirmationJournal(readConfirmationJournal(storage, projectId, episodeId));
+    setConfirmationJournal(confirmationRecord());
     void readScriptConfirmation(confirmationGateway, projectId, episodeId).then((result) => {
       if (!active) return;
       if (result.kind === "FOUND") {
@@ -387,11 +455,11 @@ export function EpisodeScriptEditor({
     const source = sourceGateway
       ? await readAcceptedSourceBinding(sourceGateway, projectId)
       : { kind: "UNKNOWN" as const };
-    inFlight.current = false;
     if (epoch.current !== request) return;
+    inFlight.current = false;
     setBusy(false);
     setBindCurrentBrief(false);
-    setJournal(readScriptJournal(storage, projectId, episodeId));
+    setJournal(scriptRecord());
     if (result.kind === "FOUND" || result.kind === "EMPTY") {
       importedSourceBinding.current = null;
       setSourceBinding(source);
@@ -412,29 +480,42 @@ export function EpisodeScriptEditor({
       return;
     }
     setNeedsReload(false);
-    setInspectedPending(true);
     setNotice(
       journal.kind === "PENDING"
-        ? "已只读核对当前剧本；此前提交结果仍未知。可显式结束未知记录后重新编辑。"
+        ? "已读取当前剧本；原提交仍未知，需只读核对原保存操作。"
         : "已读取当前分集剧本。",
     );
   }
 
-  function finishPending() {
-    if (
-      !storage ||
-      !projectId ||
-      !episodeId ||
-      !inspectedPending ||
-      journal.kind !== "PENDING" ||
-      readState === "error" ||
-      busy
-    )
-      return;
-    if (closeScriptJournal(storage, projectId, episodeId, journal.pending.command.operation_id)) {
-      setJournal({ kind: "EMPTY" });
-      setNotice("已结束未知提交记录；未归因原提交结果。下一次保存是新操作。");
-    } else setNotice("未知记录无法安全关闭，仍阻止提交。");
+  async function recoverPendingWrite() {
+    if (!storage || !gateway || !projectId || !episodeId || inFlight.current) return;
+    const record = scriptRecord();
+    setJournal(record);
+    if (record.kind !== "PENDING") return;
+    const request = ++epoch.current;
+    const requestedScope = scope;
+    inFlight.current = true;
+    setBusy(true);
+    const result = await recoverScriptWrite(
+      gateway,
+      storage,
+      record.pending,
+      () => epoch.current === request && activeScope.current === requestedScope,
+    );
+    if (epoch.current !== request || activeScope.current !== requestedScope) return;
+    inFlight.current = false;
+    setBusy(false);
+    if (result.kind === "SAVED") {
+      ownScriptWrites.current.delete(requestedScope);
+      setJournal(scriptRecord());
+      setNeedsReload(true);
+      setNotice(
+        `原保存操作已核实为草稿版本 ${result.version.version_number}；请显式读取当前剧本后再编辑。`,
+      );
+    } else {
+      setJournal(scriptRecord());
+      setNotice("原保存仍无法归因；UNKNOWN 与完整原提交记录保留，不会再次发送。");
+    }
   }
 
   async function refreshSourceBinding() {
@@ -471,12 +552,14 @@ export function EpisodeScriptEditor({
       inFlight.current
     )
       return;
+    const request = ++epoch.current;
     inFlight.current = true;
     setBusy(true);
     const result = await readScriptConfirmation(confirmationGateway, projectId, episodeId);
+    if (epoch.current !== request) return;
     inFlight.current = false;
     setBusy(false);
-    setConfirmationJournal(readConfirmationJournal(storage, projectId, episodeId));
+    setConfirmationJournal(confirmationRecord());
     if (result.kind === "FOUND") {
       if (
         result.status.current &&
@@ -488,7 +571,6 @@ export function EpisodeScriptEditor({
       }
       setConfirmation(result.status);
       setConfirmationReadState("ready");
-      setInspectedConfirmation(true);
       if (
         result.status.latest_version_id !== version.version_id ||
         result.status.latest_head_revision !== version.head_revision
@@ -496,7 +578,7 @@ export function EpisodeScriptEditor({
         setNeedsReload(true);
       setNotice(
         confirmationJournal.kind === "PENDING"
-          ? "已只读核对确认状态；原确认提交仍不能归因。可显式结束未知记录。"
+          ? "已读取当前状态；原提交仍待完整身份核对，不能因此解除未知锁定。"
           : "已读取人工确认状态。",
       );
     } else {
@@ -505,28 +587,41 @@ export function EpisodeScriptEditor({
     }
   }
 
-  function finishConfirmationPending() {
-    if (
-      !storage ||
-      !projectId ||
-      !episodeId ||
-      !inspectedConfirmation ||
-      confirmationJournal.kind !== "PENDING" ||
-      confirmationReadState !== "ready" ||
-      busy
-    )
+  async function recoverPendingConfirmation() {
+    if (!storage || !projectId || !episodeId || !confirmationGateway || busy || inFlight.current)
       return;
-    if (
-      closeConfirmationJournal(
-        storage,
-        projectId,
-        episodeId,
-        confirmationJournal.pending.operation_id,
-      )
-    ) {
+    const owned = ownConfirmations.current.get(scope);
+    const original =
+      owned ?? (confirmationJournal.kind === "PENDING" ? confirmationJournal.pending : null);
+    if (!original) return;
+    ownConfirmations.current.set(scope, original);
+    const request = ++epoch.current,
+      requestedScope = scope;
+    inFlight.current = true;
+    setBusy(true);
+    const result = await recoverScriptConfirmation(
+      confirmationGateway,
+      storage,
+      original,
+      undefined,
+      () => epoch.current === request && activeScope.current === requestedScope,
+    );
+    if (epoch.current !== request || activeScope.current !== requestedScope) return;
+    inFlight.current = false;
+    setBusy(false);
+    if (result.kind === "RECOVERED") {
+      ownConfirmations.current.delete(requestedScope);
       setConfirmationJournal({ kind: "EMPTY" });
-      setNotice("已结束未知确认记录；未归因原提交。可重新核对当前版本再操作。");
-    } else setNotice("未知确认记录无法安全关闭，仍阻止再次确认。");
+      setConfirmationReadState("idle");
+      setNotice(
+        result.operation.lookup.coverage === "RECORDED"
+          ? "原确认与持久影响报告已按原 UUID、完整输入和主体读回；请另行读取当前版本状态。"
+          : "原确认已精确归因；迁移前确认缺少当时影响快照，历史边界保留。请另行读取当前状态。",
+      );
+    } else {
+      setConfirmationJournal(confirmationRecord());
+      setNotice("原确认仍无法归因；未知锁定保留，不会重新发送。查无记录不能证明未提交。");
+    }
   }
 
   async function confirmCurrentVersion() {
@@ -569,11 +664,18 @@ export function EpisodeScriptEditor({
       episodeId,
       version,
       operationId,
+      (pending) => {
+        ownConfirmations.current.set(scope, pending);
+        setConfirmationJournal({ kind: "PENDING", pending });
+      },
+      () => epoch.current === request && activeScope.current === scope,
     );
-    inFlight.current = false;
     if (epoch.current !== request) return;
+    inFlight.current = false;
+    if (result.kind === "CONFIRMED" || result.kind === "REJECTED")
+      ownConfirmations.current.delete(scope);
     setBusy(false);
-    setConfirmationJournal(readConfirmationJournal(storage, projectId, episodeId));
+    setConfirmationJournal(confirmationRecord());
     if (result.kind === "CONFIRMED") {
       setConfirmation(result.status);
       setConfirmationReadState("ready");
@@ -687,11 +789,16 @@ export function EpisodeScriptEditor({
     inFlight.current = true;
     setBusy(true);
     setNotice("正在保存草稿并读取精确版本…");
-    const result = await saveScriptVersion(gateway, storage, projectId, episodeId, command);
-    inFlight.current = false;
+    const result = await saveScriptVersion(gateway, storage, projectId, episodeId, command, {
+      canFinalize: () => epoch.current === request && activeScope.current === scope,
+      onPrepared: (pending) => ownScriptWrites.current.set(scope, pending),
+    });
     if (epoch.current !== request) return;
+    if (result.kind === "SAVED" || result.kind === "REJECTED")
+      ownScriptWrites.current.delete(scope);
+    inFlight.current = false;
     setBusy(false);
-    setJournal(readScriptJournal(storage, projectId, episodeId));
+    setJournal(scriptRecord());
     if (result.kind === "SAVED") {
       importedSourceBinding.current = null;
       setVersion(result.version);
@@ -837,7 +944,10 @@ export function EpisodeScriptEditor({
           <Button
             key={scene.scene_id}
             aria-pressed={selected?.scene_id === scene.scene_id}
-            onClick={() => setSelectedSceneId(scene.scene_id)}
+            onClick={() => {
+              setSelectedSceneId(scene.scene_id);
+              setReadthrough(false);
+            }}
           >
             {String(scene.ordinal).padStart(2, "0")} · {scene.heading}
           </Button>
@@ -863,9 +973,9 @@ export function EpisodeScriptEditor({
           舍弃草稿并读取
         </Button>
       )}
-      {journal.kind === "PENDING" && inspectedPending && (
-        <Button disabled={busy} onClick={finishPending}>
-          结束未知记录
+      {journal.kind === "PENDING" && (
+        <Button disabled={busy} onClick={() => void recoverPendingWrite()}>
+          只读核对原保存操作
         </Button>
       )}
     </>
@@ -894,9 +1004,9 @@ export function EpisodeScriptEditor({
           >
             只读核对确认状态
           </Button>
-          {confirmationJournal.kind === "PENDING" && inspectedConfirmation && (
-            <Button disabled={busy} onClick={finishConfirmationPending}>
-              结束未知确认记录
+          {(confirmationJournal.kind === "PENDING" || ownConfirmations.current.has(scope)) && (
+            <Button disabled={busy} onClick={() => void recoverPendingConfirmation()}>
+              只读核对原确认提交
             </Button>
           )}
         </>
@@ -1005,10 +1115,44 @@ export function EpisodeScriptEditor({
       确认此剧本版本
     </Button>
   );
-  const blockEditor = selected && (
-    <ScriptSceneBlocks selected={selected} locked={locked} updateScene={updateScene} />
+  const readingScope = (
+    <div className="script-view-controls" role="group" aria-label="剧本阅读范围">
+      <Button
+        disabled={!selected}
+        aria-pressed={!readthrough}
+        onClick={() => setReadthrough(false)}
+      >
+        场次编辑
+      </Button>
+      <Button disabled={!selected} aria-pressed={readthrough} onClick={() => setReadthrough(true)}>
+        全分集读本
+      </Button>
+    </div>
   );
-  const sceneTitle = selected ? `场次 ${selected.ordinal} · ${selected.heading}` : "分集剧本";
+  const blockEditor = (
+    <>
+      {readingScope}
+      {readthrough ? (
+        <ScriptReadthrough
+          scenes={scenes}
+          locked={locked}
+          updateScene={updateScene}
+          onFocusScene={setSelectedSceneId}
+          onEditScene={(id) => {
+            setSelectedSceneId(id);
+            setReadthrough(false);
+          }}
+        />
+      ) : selected ? (
+        <ScriptSceneBlocks selected={selected} locked={locked} updateScene={updateScene} />
+      ) : null}
+    </>
+  );
+  const sceneTitle = readthrough
+    ? `全分集读本 · ${episodeTitle ?? "本集剧本"}`
+    : selected
+      ? `场次 ${selected.ordinal} · ${selected.heading}`
+      : "分集剧本";
   if (workspace)
     return (
       <ScriptWorkspaceView
@@ -1023,10 +1167,10 @@ export function EpisodeScriptEditor({
         alerts={alerts}
         recovery={recovery}
         confirmation={confirmationControls}
-        heading={sceneHeading}
+        heading={!readthrough && sceneHeading}
         blocks={blockEditor}
-        blockActions={blockActions}
-        sceneActions={sceneActions}
+        blockActions={!readthrough && blockActions}
+        sceneActions={!readthrough && sceneActions}
         changeSummary={summaryControl}
         saveAction={saveControl}
         confirmAction={confirmControl}
@@ -1052,12 +1196,14 @@ export function EpisodeScriptEditor({
         {confirmationControls}
       </section>
       <section className="v2-story-card v2-script-paper">
-        <h2>{selected ? `场次 ${selected.ordinal}` : "尚未选择场次"}</h2>
+        <h2>
+          {readthrough ? "全分集读本" : selected ? `场次 ${selected.ordinal}` : "尚未选择场次"}
+        </h2>
         {importControl}
-        {sceneHeading}
+        {!readthrough && sceneHeading}
         {blockEditor}
-        {blockActions}
-        {sceneActions}
+        {!readthrough && blockActions}
+        {!readthrough && sceneActions}
         {summaryControl}
         {saveControl}
         {confirmControl}

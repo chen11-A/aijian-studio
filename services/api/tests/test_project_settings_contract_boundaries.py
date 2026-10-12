@@ -1,6 +1,7 @@
 """Metadata contract validation is not a persistence or artifact-adoption test."""
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 import pytest
 from aijian_api.project_settings_contracts import (
@@ -121,7 +122,11 @@ def test_receipt_rejects_unbound_historical_result(case):
 
 
 def test_response_keeps_metadata_only_boundaries_and_is_immutable():
-    response = ProjectSettingsResponseV1(data=settings(), boundary=ProjectSettingsBoundaryV1())
+    response = ProjectSettingsResponseV1(
+        data=settings(),
+        boundary=ProjectSettingsBoundaryV1(),
+        request_id=UUID("00000000-0000-4000-8000-000000000000"),
+    )
     assert response.boundary.existing_artifact_versions_modified is False
     assert response.boundary.settings_scope == "PROJECT_METADATA_ONLY"
     assert (

@@ -10,6 +10,7 @@ import {
   sameStoryboardJson,
   saveStoryboard,
   validStoryboardContent,
+  withStoryboardShots,
 } from "./adapters/episodeStoryboard";
 import type {
   StoryboardContent,
@@ -44,7 +45,7 @@ export function useEpisodeStoryboard(
     }
   }, []);
   const [version, setVersion] = useState<StoryboardVersion | null>(null);
-  const [content, setContent] = useState(() =>
+  const [content, setContent] = useState<StoryboardContent>(() =>
     emptyStoryboardContent(projectId ?? "", episodeId ?? ""),
   );
   const [readState, setReadState] = useState<ReadState>("loading");
@@ -202,14 +203,14 @@ export function useEpisodeStoryboard(
       }
       command = pending.command;
     } else {
-      const normalized: StoryboardContent = {
-        ...content,
-        shots: content.shots.map((shot, index) => ({
+      const normalized = withStoryboardShots(
+        content,
+        content.shots.map((shot, index) => ({
           ...shot,
           title: shot.title.trim(),
           ordinal: index + 1,
         })),
-      };
+      );
       if (!validStoryboardContent(normalized, projectId, episodeId)) {
         setNotice(
           "请填写镜头标题（1 至 240 字）和正整数帧数；帧率为 1 至 120，长文本最多 20000 字。",

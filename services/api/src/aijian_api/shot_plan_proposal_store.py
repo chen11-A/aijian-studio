@@ -29,7 +29,11 @@ from aijian_api.shot_plan_contracts import (
     ShotPlanProposalData,
     ShotPlanScriptPin,
 )
-from aijian_api.shot_plan_projection import project_storyboard, review_capability_losses
+from aijian_api.shot_plan_projection import (
+    project_storyboard,
+    projection_schema_for_base,
+    review_capability_losses,
+)
 from aijian_api.shot_plan_validation import (
     ShotPlanError,
     exact_record,
@@ -239,7 +243,8 @@ class ShotPlanProposalStore:
         if (
             storyboard.version.artifact_id != row["storyboard_artifact_id"]
             or stored.content_hash != row["storyboard_content_hash"]
-            or stored.content != project_storyboard(content, script)
+            or stored.content
+            != project_storyboard(content, script, target_schema=stored.content.schema_version)
             or stored.author_actor_id != row["actor_id"]
             or stored.parent_version_id
             != (content.storyboard_base.version_id if content.storyboard_base else None)
@@ -547,7 +552,13 @@ class ShotPlanProposalStore:
                 raise ShotPlanError("SHOT_PLAN_STORYBOARD_STALE")
             validate_coverage(data.content, script)
             try:
-                projected = project_storyboard(data.content, script)
+                projected = project_storyboard(
+                    data.content,
+                    script,
+                    target_schema=projection_schema_for_base(
+                        self.repository, connection, project, episode, data.content.storyboard_base
+                    ),
+                )
             except ValueError as error:
                 raise ShotPlanError("SHOT_PLAN_PROJECTION_UNSUPPORTED", 422) from error
             base = data.content.storyboard_base
@@ -565,7 +576,7 @@ class ShotPlanProposalStore:
                 project_id=project,
                 episode_id=episode,
                 artifact_type="episode_storyboard",
-                schema_version="1.0.0",
+                schema_version=projected.schema_version,
                 content=projected.model_dump(mode="json"),
                 author_actor_type="human",
                 author_actor_id=actor,

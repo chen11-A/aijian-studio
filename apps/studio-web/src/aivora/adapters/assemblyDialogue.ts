@@ -61,6 +61,7 @@ export function bindAssemblyDialogue(
     return content;
   return {
     ...content,
+    script_provenance: content.script_provenance ?? { mode: "DRAFT" },
     audio_segments: content.audio_segments.map((segment) => {
       if (segment.segment_id !== segmentId) return segment;
       const unlinked = { ...segment };

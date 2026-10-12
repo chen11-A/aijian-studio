@@ -83,6 +83,180 @@ function error(code: string): object {
     request_id: requestId,
   };
 }
+
+test("native V2 DRAFT choices require exact keys, unique character membership and scoped pins", () => {
+  const chr = `chr_${"1".repeat(32)}`;
+  const command: CreateEpisodeStoryboardVersionRequest = {
+    ...payload,
+    content: {
+      ...payload.content,
+      schema_version: "1.1.0",
+      creative_library_version_id: otherVersionId,
+      shots: [
+        {
+          ...shot,
+          character_ids: [chr],
+          character_bindings: [
+            {
+              character_id: chr,
+              costume_id: `cst_${"2".repeat(32)}`,
+              reference_ids: [`crf_${"3".repeat(32)}`],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  expect(isCreateEpisodeStoryboardVersionRequest(command, projectId, episodeId)).toBe(true);
+  for (const change of [
+    { character_id: `chr_${"4".repeat(32)}` },
+    { costume_id: "wrong" },
+    { reference_ids: ["wrong"] },
+    { approved: true },
+  ]) {
+    const invalid = structuredClone(command);
+    if (invalid.content.schema_version !== "1.1.0") throw new Error("Fixture schema");
+    Object.assign(invalid.content.shots[0]!.character_bindings[0]!, change);
+    expect(isCreateEpisodeStoryboardVersionRequest(invalid, projectId, episodeId)).toBe(false);
+  }
+  const saved = { ...version(), content: command.content, content_hash: hash(command.content) };
+  expect(
+    isEpisodeStoryboardVersionResponse(
+      { data: saved, request_id: requestId },
+      projectId,
+      episodeId,
+      requestId,
+    ),
+  ).toBe(true);
+  expect(
+    isEpisodeStoryboardVersionResponse(
+      { data: saved, request_id: requestId },
+      projectId,
+      `ep_${"0".repeat(32)}`,
+      requestId,
+    ),
+  ).toBe(false);
+  expect(
+    isCreateEpisodeStoryboardVersionRequest(
+      { ...command, content: { ...command.content, schema_version: "1.0.0" } },
+      projectId,
+      episodeId,
+    ),
+  ).toBe(false);
+});
+
+test("native planning schema binds immutable intent without losing G5 pins or accepting malformed text", () => {
+  const command: CreateEpisodeStoryboardVersionRequest = {
+    ...payload,
+    content: {
+      ...payload.content,
+      schema_version: "1.3.0",
+      creative_library_version_id: otherVersionId,
+      visual_bible_pin: { version_id: otherVersionId, content_hash: "sha256:" + "f".repeat(64) },
+      shots: [
+        {
+          ...shot,
+          character_bindings: [],
+          coverage_notes: "反应镜头 🎬",
+          continuity_notes: "视线衔接",
+          transition_notes: "动作匹配切",
+        },
+      ],
+    },
+  };
+  expect(isCreateEpisodeStoryboardVersionRequest(command, projectId, episodeId)).toBe(true);
+  const saved = { ...version(), content: command.content, content_hash: hash(command.content) };
+  expect(
+    isEpisodeStoryboardVersionResponse(
+      { data: saved, request_id: requestId },
+      projectId,
+      episodeId,
+      requestId,
+    ),
+  ).toBe(true);
+  for (const patch of [
+    { continuity_notes: 0 },
+    { transition_notes: "字".repeat(20001) },
+    { coverage_notes: "\ud800" },
+    { approved: true },
+  ]) {
+    const invalid = structuredClone(command);
+    Object.assign(invalid.content.shots[0]!, patch);
+    expect(isCreateEpisodeStoryboardVersionRequest(invalid, projectId, episodeId)).toBe(false);
+  }
+  const missing = structuredClone(command);
+  Reflect.deleteProperty(missing.content.shots[0]!, "transition_notes");
+  expect(isCreateEpisodeStoryboardVersionRequest(missing, projectId, episodeId)).toBe(false);
+  expect(
+    isCreateEpisodeStoryboardVersionRequest(
+      { ...command, content: { ...command.content, schema_version: "1.2.0" } },
+      projectId,
+      episodeId,
+    ),
+  ).toBe(false);
+  expect(
+    isEpisodeStoryboardVersionResponse(
+      { data: { ...saved, content_hash: "sha256:" + "0".repeat(64) }, request_id: requestId },
+      projectId,
+      episodeId,
+      requestId,
+    ),
+  ).toBe(false);
+});
+
+test("native V2 writes retain the original operation and reject altered valid content without retry", async () => {
+  const chr = `chr_${"1".repeat(32)}`;
+  const command: CreateEpisodeStoryboardVersionRequest = {
+    ...payload,
+    content: {
+      ...payload.content,
+      schema_version: "1.1.0",
+      creative_library_version_id: otherVersionId,
+      shots: [
+        {
+          ...shot,
+          character_ids: [chr],
+          character_bindings: [
+            { character_id: chr, costume_id: null, reference_ids: [`crf_${"3".repeat(32)}`] },
+          ],
+        },
+      ],
+    },
+  };
+  const saved = { ...version(), content: command.content, content_hash: hash(command.content) };
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { version: saved, replayed: false }, request_id: requestId }),
+        { status: 201, headers: { "X-Request-ID": requestId } },
+      ),
+    );
+  const client = createLocalApiClient(fetcher, session);
+  expect(
+    (await client.createEpisodeStoryboardVersion(projectId, episodeId, "v2-choices", command)).kind,
+  ).toBe("CREATED");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const altered = structuredClone(command.content);
+  if (altered.schema_version !== "1.1.0") throw new Error("Fixture schema");
+  altered.shots[0]!.character_bindings[0]!.reference_ids = [];
+  fetcher.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        data: {
+          version: { ...saved, content: altered, content_hash: hash(altered) },
+          replayed: false,
+        },
+        request_id: requestId,
+      }),
+      { status: 201, headers: { "X-Request-ID": requestId } },
+    ),
+  );
+  expect(
+    (await client.createEpisodeStoryboardVersion(projectId, episodeId, "v2-choices", command)).kind,
+  ).toBe("REMOTE_UNKNOWN");
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
 function response(
   body: unknown,
   status = 200,

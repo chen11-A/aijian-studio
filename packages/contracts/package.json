@@ -29,9 +29,69 @@
       "types": "./src/shot-plan.ts",
       "default": "./src/shot-plan.ts"
     },
+    "./creative-library-details": {
+      "types": "./src/creative-library-details.d.ts",
+      "default": "./src/creative-library-details.js"
+    },
     "./official-director": {
       "types": "./src/official-director.ts",
       "default": "./src/official-director.ts"
+    },
+    "./storyboard-character-bindings": {
+      "types": "./src/storyboard-character-bindings.d.ts",
+      "default": "./src/storyboard-character-bindings.js"
+    },
+    "./visual-bible": {
+      "types": "./src/visual-bible.d.ts",
+      "default": "./src/visual-bible.js"
+    },
+    "./invalidation-consumer": {
+      "types": "./src/invalidation-consumer.d.ts",
+      "default": "./src/invalidation-consumer.js"
+    },
+    "./native-preview-plan": {
+      "types": "./src/native-preview-plan.d.ts",
+      "default": "./src/native-preview-plan.js"
+    },
+    "./assembly-script-provenance": {
+      "types": "./src/assembly-script-provenance.ts",
+      "default": "./src/assembly-script-provenance.ts"
+    },
+    "./project-aspect": {
+      "types": "./src/project-aspect.ts",
+      "default": "./src/project-aspect.ts"
+    },
+    "./project-settings": {
+      "types": "./src/project-settings.ts",
+      "default": "./src/project-settings.ts"
+    },
+    "./script-confirmation-impact": {
+      "types": "./src/script-confirmation-impact.ts",
+      "default": "./src/script-confirmation-impact.ts"
+    },
+    "./media-preparation": {
+      "types": "./src/media-preparation.ts",
+      "default": "./src/media-preparation.ts"
+    },
+    "./manual-media-candidate": {
+      "types": "./src/manual-media-candidate.ts",
+      "default": "./src/manual-media-candidate.ts"
+    },
+    "./assembly-exact": {
+      "types": "./src/assembly-exact.ts",
+      "default": "./src/assembly-exact.ts"
+    },
+    "./local-media-review": {
+      "types": "./src/local-media-review.ts",
+      "default": "./src/local-media-review.ts"
+    },
+    "./assembly-readiness": {
+      "types": "./src/assembly-readiness.ts",
+      "default": "./src/assembly-readiness.ts"
+    },
+    "./script-write-recovery": {
+      "types": "./src/script-write-recovery.ts",
+      "default": "./src/script-write-recovery.ts"
     }
   },
   "scripts": {
