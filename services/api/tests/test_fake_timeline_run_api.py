@@ -529,7 +529,9 @@ def test_worker_claims_only_its_exact_task_kind(tmp_path: Path) -> None:
         )
 
 
-def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) -> None:
+def test_committed_timeline_is_recovered_after_completion_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     workspace = tmp_path / "workspace"
     repository = StudioRepository(workspace / "workspace.sqlite3")
     generator = _generator(workspace)
@@ -552,6 +554,10 @@ def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) 
         lease_duration=timedelta(seconds=1),
         fault_hook=crash,
     )
+    # This tests durable-output recovery, not scheduler speed during real media generation.
+    # Keep the real ledger and its expiry checks; advance only its existing clock seam.
+    lease_now = datetime.now(UTC)
+    monkeypatch.setattr(worker._ledger, "_clock", lambda: lease_now)
     try:
         worker.run_once()
     except RuntimeError as error:
@@ -561,11 +567,19 @@ def test_committed_timeline_is_recovered_after_completion_crash(tmp_path: Path) 
     incomplete = client.post(f"/api/v1/projects/{project_id}/workflows/fake-timeline")
     assert incomplete.status_code == 409
     assert incomplete.json()["error"]["code"] == "TIMELINE_ALREADY_EXISTS"
-    time.sleep(1.1)
-    summary = LocalTaskLedger(repository.database_path).recover_expired_local_tasks(
+    not_expired = worker._ledger.recover_expired_local_tasks(
+        task_kind="local.timeline.assemble.fake.media.v1"
+    )
+    assert not_expired.recovered == not_expired.succeeded == 0
+    lease_now += timedelta(seconds=1, microseconds=1)
+    summary = worker._ledger.recover_expired_local_tasks(
         task_kind="local.timeline.assemble.fake.media.v1"
     )
     assert summary.recovered == summary.succeeded == 1
+    repeated = worker._ledger.recover_expired_local_tasks(
+        task_kind="local.timeline.assemble.fake.media.v1"
+    )
+    assert repeated.recovered == repeated.succeeded == 0
     with repository._connection() as connection:
         assert (
             connection.execute(
