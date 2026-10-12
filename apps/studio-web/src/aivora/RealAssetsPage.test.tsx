@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { StudioTransport } from "../api/studio";
 import type { AssetLibraryGateway, AssetVersion, MediaAsset } from "./adapters/assetLibrary";
@@ -531,6 +532,37 @@ function chooseVersion(id: string) {
 }
 
 describe("production asset history selection", () => {
+  test("retains an explicit historical choice made before initial selection effects settle", async () => {
+    const current = historicalAsset();
+    Object.assign(current.versions[0]!, { availability: "CORRUPT" });
+    const api = setup(current);
+    let selectedDuringCommit = false;
+    render(
+      <Profiler
+        id="early-historical-selection"
+        onRender={() => {
+          const choice = screen.queryByLabelText("查看素材版本");
+          if (selectedDuringCommit || !(choice instanceof HTMLSelectElement)) return;
+          // Commit has exposed the real control, before deferred selection
+          // initialization. Keep React state real and reuse the gateway fixture.
+          selectedDuringCommit = true;
+          choice.value = versionId;
+          choice.dispatchEvent(new Event("change", { bubbles: true }));
+        }}
+      >
+        <AssetsPage />
+      </Profiler>,
+    );
+    await waitFor(() => expect(selectedDuringCommit).toBe(true));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByLabelText("查看素材版本")).toHaveValue(versionId);
+    expect(screen.getByText("original-source")).toBeInTheDocument();
+    click("预览所选版本原件");
+    expect(screen.getByText(/素材文件缺失或损坏/)).toBeInTheDocument();
+    expect(api.readProjectMediaAssetPreview).not.toHaveBeenCalled();
+  });
   test("previews exact historical image metadata and original bytes with no writes or automatic latest substitution", async () => {
     const current = historicalAsset();
     const api = setup(current);

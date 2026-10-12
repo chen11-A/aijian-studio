@@ -687,7 +687,11 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
   }
   useEffect(() => {
     if (selected && !versionChoices[selected.id])
-      setVersionChoices((old) => ({ ...old, [selected.id]: selectedVersionId }));
+      // A newer explicit selection may already be queued before this deferred
+      // initializer runs. Never replace it with the captured latest version.
+      setVersionChoices((old) =>
+        old[selected.id] ? old : { ...old, [selected.id]: selectedVersionId },
+      );
     setMediaPreview((prior) => (prior?.generation === selection.current.generation ? prior : null));
   }, [selectionKey]);
   const episodeId = d.selectedEpisodeId;
