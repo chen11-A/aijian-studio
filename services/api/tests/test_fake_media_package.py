@@ -8,7 +8,9 @@ import shutil
 import subprocess
 import time
 import wave
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 import aijian_api.fake_media_package as fake_media_package_module
@@ -48,6 +50,29 @@ def _generator(workspace: Path, **kwargs) -> FakeMediaPackageGenerator:
         _toolchain().ffmpeg_path.parent,
         **kwargs,
     )
+
+
+@contextmanager
+def _directory_link(link: Path, target: Path) -> Iterator[None]:
+    """Keep real Windows junction coverage; use a real directory symlink on POSIX."""
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if completed.returncode != 0:
+            pytest.skip("Windows junction creation is unavailable")
+    else:
+        link.symlink_to(target, target_is_directory=True)
+    try:
+        yield
+    finally:
+        if os.name == "nt":
+            os.rmdir(link)
+        else:
+            link.unlink()
 
 
 def _request_payload() -> dict[str, object]:
@@ -342,24 +367,13 @@ def test_existing_final_junction_outside_workspace_is_rejected(tmp_path: Path) -
     )
     outside = tmp_path / "outside-package"
     shutil.move(generated.root, outside)
-    completed = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(generated.root), str(outside)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    if completed.returncode != 0:
-        pytest.skip("Windows junction creation is unavailable")
-
-    try:
+    with _directory_link(generated.root, outside):
         with pytest.raises(FakeMediaPackageError, match="unsafe path"):
             _generator(workspace).materialize(
                 project_id=PROJECT_ID,
                 source_document_id=SOURCE_ID,
                 source_sha256=SOURCE_HASH,
             )
-    finally:
-        os.rmdir(generated.root)
 
 
 def test_existing_shot_junction_outside_package_is_rejected(tmp_path: Path) -> None:
@@ -373,24 +387,13 @@ def test_existing_shot_junction_outside_package_is_rejected(tmp_path: Path) -> N
     shot_root = generated.root / "shot-01"
     outside = tmp_path / "outside-shot"
     shutil.move(shot_root, outside)
-    completed = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(shot_root), str(outside)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    if completed.returncode != 0:
-        pytest.skip("Windows junction creation is unavailable")
-
-    try:
+    with _directory_link(shot_root, outside):
         with pytest.raises(FakeMediaPackageError, match="unsafe path"):
             _generator(workspace).materialize(
                 project_id=PROJECT_ID,
                 source_document_id=SOURCE_ID,
                 source_sha256=SOURCE_HASH,
             )
-    finally:
-        os.rmdir(shot_root)
 
 
 def test_existing_media_symlink_outside_package_is_rejected(tmp_path: Path) -> None:
@@ -448,20 +451,9 @@ def test_tool_root_junction_is_rejected_before_discovery(tmp_path: Path) -> None
     workspace.mkdir()
     tool_root = _toolchain().ffmpeg_path.parent
     junction = tmp_path / "tool-junction"
-    completed = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(junction), str(tool_root)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    if completed.returncode != 0:
-        pytest.skip("Windows junction creation is unavailable")
-
-    try:
+    with _directory_link(junction, tool_root):
         with pytest.raises(FakeMediaPackageError, match="reparse point"):
             FakeMediaPackageGenerator.from_locked_tool_root(workspace, _lock(), junction)
-    finally:
-        os.rmdir(junction)
 
 
 def test_remote_tool_root_is_rejected_before_discovery(tmp_path: Path) -> None:
