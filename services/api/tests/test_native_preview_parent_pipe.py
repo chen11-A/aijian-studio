@@ -3,6 +3,7 @@
 import base64
 import io
 import json
+import os
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -182,14 +183,23 @@ def test_held_byte_reader_survives_path_loss_and_refuses_after_dispatch(preview,
     held = owner.held.enter_context(path.open("rb"))
     owner.files["host.exe"] = held
     owner.material = {"profile": {"files": [{"relative_path": "host.exe", "byte_size": 19}]}}
-    path.unlink()  # Linux handle identity test; not Windows deny-write/delete acceptance.
     try:
+        if os.name == "nt":
+            # This ordinary Python handle denies deletion on Windows. This is
+            # not proof of the native host's deny-write/delete release gate.
+            with pytest.raises(PermissionError):
+                path.unlink()
+        else:
+            path.unlink()
         assert base64.b64decode(owner.read("host.exe", 0, 19)) == b"original-held-bytes"
         owner.launched = True
         with pytest.raises(ValueError):
             owner.read("host.exe", 0, 19)
     finally:
         owner.held.close()
+    if os.name == "nt":
+        path.unlink()
+    assert not path.exists()
 
 
 def test_production_owner_freezes_exact_open_before_real_sqlite_admission_dispatch(
