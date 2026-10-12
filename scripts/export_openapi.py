@@ -140,6 +140,7 @@ def main() -> None:
         ref_template="#/$defs/{model}",
     )
     target = ROOT / "packages/contracts/src/script-confirmation-impact-schema.ts"
+    target.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(impact_schema["$defs"], ensure_ascii=False, sort_keys=True)
     # JS single-quoted JSON string, matching the existing Prettier convention.
     escaped = serialized.replace("\\", "\\\\").replace("'", "\\'")
