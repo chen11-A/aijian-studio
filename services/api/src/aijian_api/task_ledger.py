@@ -168,6 +168,7 @@ class LocalTaskLedger:
         attempt_snapshot_kind: str,
         attempt_snapshot: Mapping[str, object],
         transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+        billing_account_kind: str | None = None,
     ) -> QueuedTask:
         request = EnqueueRemoteNodeRequest(
             project_id=project_id,
@@ -190,6 +191,7 @@ class LocalTaskLedger:
             attempt_snapshot_kind=attempt_snapshot_kind,
             attempt_snapshot=attempt_snapshot,
             dispatch_snapshot=dispatch_snapshot,
+            billing_account_kind=billing_account_kind,
         )
         return enqueue_remote_node(
             request,

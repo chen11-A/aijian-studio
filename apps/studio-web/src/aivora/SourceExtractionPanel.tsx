@@ -11,23 +11,15 @@ import type {
 import { Button } from "./Common";
 import {
   acceptSourceExtractionProposal,
-  approveSub2APIOneCall,
-  queueSub2APISourceExtract,
   queueRemoteSourceExtract,
-  readOriginalSub2APISourceExtract,
   readOriginalRemoteSourceExtract,
   readRemoteSourceExtractJournal,
-  readSub2APICallApprovalJournal,
-  readSub2APIOneCallApproval,
   readSub2APISourceExtractJournal,
   readSourceExtractionAcceptance,
 } from "./adapters/remoteSourceExtract";
 import type {
   RemoteSourceExtractJournalState,
   RemoteSourceExtractOperation,
-  Sub2APICallApprovalJournalState,
-  Sub2APICallApprovalReadOutcome,
-  Sub2APISourceExtractReadOutcome,
   SourceExtractionAcceptanceState,
 } from "./adapters/remoteSourceExtract";
 
@@ -61,19 +53,6 @@ function sameOriginalSource(
   );
 }
 
-function v2SpanMatches(value: unknown, operation: RemoteSourceExtractOperation): boolean {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const span = value as Record<string, unknown>;
-  return (
-    span.source_document_id === operation.sourceDocumentId &&
-    span.source_block_id === operation.sourceBlockId &&
-    typeof span.start_byte === "number" &&
-    span.start_byte >= operation.startByte &&
-    typeof span.end_byte === "number" &&
-    span.end_byte <= operation.endByte
-  );
-}
-
 export function SourceExtractionPanel({
   projectId,
   sourceManifest,
@@ -83,21 +62,11 @@ export function SourceExtractionPanel({
   const transport = useMemo(createStudioTransport, []);
   const epoch = useRef(0);
   const activeProject = useRef(projectId);
-  const activeApprovalContext = useRef("");
   activeProject.current = projectId;
   const [journal, setJournal] = useState<RemoteSourceExtractJournalState>({ kind: "EMPTY" });
   const [sub2Journal, setSub2Journal] = useState<RemoteSourceExtractJournalState>({
     kind: "EMPTY",
   });
-  const [mode, setMode] = useState<"CPA_LOOPBACK" | "SUB2API">("CPA_LOOPBACK");
-  const [sub2Read, setSub2Read] = useState<Sub2APISourceExtractReadOutcome | null>(null);
-  const [sub2Approval, setSub2Approval] = useState<Sub2APICallApprovalJournalState>({
-    kind: "EMPTY",
-  });
-  const [sub2ApprovalRead, setSub2ApprovalRead] = useState<Sub2APICallApprovalReadOutcome | null>(
-    null,
-  );
-  const [unknownCostConsent, setUnknownCostConsent] = useState(false);
   const [connections, setConnections] = useState<
     { kind: "loading" | "error" } | { kind: "ready"; response: ProviderConnectionListResponse }
   >({ kind: "loading" });
@@ -127,10 +96,6 @@ export function SourceExtractionPanel({
     setModelId("");
     setBlockId("");
     setOriginalRead(null);
-    setSub2Read(null);
-    setSub2Approval({ kind: "EMPTY" });
-    setSub2ApprovalRead(null);
-    setUnknownCostConsent(false);
     setProposalId(null);
     setProposal(null);
     setLatest({ kind: "unread" });
@@ -151,7 +116,6 @@ export function SourceExtractionPanel({
           : { kind: "EMPTY" as const };
     setJournal(cpaState);
     setSub2Journal(sub2State);
-    setMode(sub2State.kind === "VALID" && cpaState.kind === "EMPTY" ? "SUB2API" : "CPA_LOOPBACK");
     setConnections({ kind: "loading" });
     if (projectId) {
       void transport.listProviderConnections().then(
@@ -188,7 +152,7 @@ export function SourceExtractionPanel({
     connections.kind === "ready"
       ? connections.response.data.filter(
           (item) =>
-            item.provider_kind === mode &&
+            (item.provider_kind === "CPA_LOOPBACK" || item.provider_kind === "XAI") &&
             item.enabled &&
             item.credential_status === "CONFIGURED" &&
             item.models.some((model) => model.capabilities.includes("TEXT")),
@@ -198,23 +162,7 @@ export function SourceExtractionPanel({
   const models =
     selectedConnection?.models.filter((item) => item.capabilities.includes("TEXT")) ?? [];
   const selectedModel = models.find((item) => item.model_id === modelId);
-  const activeJournal = mode === "SUB2API" ? sub2Journal : journal;
-  const operation = activeJournal.kind === "VALID" ? activeJournal.operation : null;
-  const approvalContext = JSON.stringify([
-    projectId,
-    sourceDocumentId,
-    sourceApproved,
-    mode,
-    accepted?.id,
-    accepted?.content_hash,
-    manifest?.data.head.accepted_version_id,
-    manifest?.data.head.latest_version_id,
-    manifest?.data.latest_version.id,
-    manifest?.data.latest_version.content_hash,
-    operation?.operationId,
-    sub2Read?.kind === "FOUND" ? sub2Read.runId : null,
-  ]);
-  activeApprovalContext.current = approvalContext;
+  const operation = journal.kind === "VALID" ? journal.operation : null;
   const acceptedDraftVersionId =
     acceptance.kind === "VALID" ? acceptance.acceptance.draftVersionId : null;
   const sourceStillCurrent =
@@ -238,11 +186,10 @@ export function SourceExtractionPanel({
     !!block &&
     !!selectedConnection &&
     !!selectedModel &&
-    activeJournal.kind === "EMPTY" &&
     journal.kind === "EMPTY" &&
     sub2Journal.kind === "EMPTY" &&
     !busy &&
-    !!(mode === "SUB2API" ? transport.sub2apiSourceExtract : transport.remoteSourceExtract);
+    !!transport.remoteSourceExtract;
 
   async function queue() {
     const storage = journalStorage();
@@ -273,18 +220,19 @@ export function SourceExtractionPanel({
       connectionRevision: selectedConnection.revision,
       modelId: selectedModel.model_id,
     };
-    const result =
-      mode === "SUB2API"
-        ? await queueSub2APISourceExtract(transport.sub2apiSourceExtract, storage, identity)
-        : await queueRemoteSourceExtract(transport.remoteSourceExtract, storage, identity);
+    const result = await queueRemoteSourceExtract(
+      transport.remoteSourceExtract,
+      storage,
+      identity,
+      selectedConnection.provider_kind === "XAI" ? "grok_login" : "gpt_login",
+    );
     if (epoch.current !== request || activeProject.current !== requested) return;
     setBusy(false);
-    if (mode === "SUB2API") setSub2Journal(readSub2APISourceExtractJournal(storage, requested));
-    else setJournal(readRemoteSourceExtractJournal(storage, requested));
+    setJournal(readRemoteSourceExtractJournal(storage, requested));
     setNotice(
       result.kind === "QUEUED"
-        ? mode === "SUB2API"
-          ? "Sub2API 任务已排队；尚无单次调用许可。费用未知，未证明供应商调用。"
+        ? selectedConnection.provider_kind === "XAI"
+          ? "已按 grok_login 入队。当前派发端点只接受 CPA 回环，不会调用 xAI，也不会借用 ChatGPT 回环。"
           : "服务端已创建待授权任务；尚未授权派发，也未调用供应商。"
         : result.kind === "REJECTED"
           ? `服务端明确拒绝入队：${result.operation.rejection?.status} / ${result.operation.rejection?.code}。保留原操作记录；不能重复 POST。`
@@ -298,56 +246,10 @@ export function SourceExtractionPanel({
 
   async function readOriginal() {
     const storage = journalStorage();
-    if (
-      !storage ||
-      !operation ||
-      busy ||
-      !(mode === "SUB2API" ? transport.sub2apiSourceExtract : transport.remoteSourceExtract)
-    )
-      return;
+    if (!storage || !operation || busy || !transport.remoteSourceExtract) return;
     const requested = operation.projectId;
     const request = ++epoch.current;
     setBusy(true);
-    if (mode === "SUB2API") {
-      const result = await readOriginalSub2APISourceExtract(
-        transport.sub2apiSourceExtract,
-        storage,
-        operation,
-      );
-      if (epoch.current !== request || activeProject.current !== requested) return;
-      setBusy(false);
-      setSub2Read(result);
-      setSub2ApprovalRead(null);
-      setUnknownCostConsent(false);
-      setProposal(null);
-      setLatest({ kind: "unread" });
-      setAcceptance({ kind: "EMPTY" });
-      setDraft(null);
-      setProposalId(
-        result.kind === "FOUND" && result.response.data.content_status === "PROPOSAL_READY"
-          ? result.response.data.proposal_id
-          : null,
-      );
-      setSub2Approval(
-        result.kind === "FOUND"
-          ? readSub2APICallApprovalJournal(storage, requested, result.runId)
-          : { kind: "EMPTY" },
-      );
-      setNotice(
-        result.kind === "FOUND"
-          ? result.response.data.content_status === "REMOTE_UNKNOWN"
-            ? "原任务状态 REMOTE_UNKNOWN；费用仍未知，不能自动重试或再次派发。"
-            : result.response.data.content_status === "PROPOSAL_READY"
-              ? "已读取原任务和提案引用；请独立核对 V2 提案与人工接纳。"
-              : "已读取原任务冻结范围与未知费用；单次调用须单独明确许可。"
-          : result.kind === "DEFINITE_SERVER_ERROR"
-            ? `原任务查询返回 ${result.status} / ${result.code}，请求 ID ${result.requestId}；未改原操作。`
-            : result.kind === "NOT_FOUND"
-              ? `原任务未找到（请求 ID ${result.requestId}）；排队记录仍锁定，不重新 POST。`
-              : "原任务查询未知或不可用；排队记录仍锁定。",
-      );
-      return;
-    }
     const result = await readOriginalRemoteSourceExtract(
       transport.remoteSourceExtract,
       storage,
@@ -382,62 +284,6 @@ export function SourceExtractionPanel({
 
   async function readProposal() {
     if (!projectId || !proposalId || !operation || busy) return;
-    if (mode === "SUB2API") {
-      if (
-        sub2Read?.kind !== "FOUND" ||
-        sub2Read.response.data.content_status !== "PROPOSAL_READY" ||
-        sub2Read.response.data.proposal_id !== proposalId ||
-        !transport.readVersionedSourceExtractionProposal
-      )
-        return;
-      const requested = projectId;
-      const request = ++epoch.current;
-      setBusy(true);
-      setLatest({ kind: "unread" });
-      setDraft(null);
-      try {
-        const result = await transport.readVersionedSourceExtractionProposal(requested, proposalId);
-        if (epoch.current !== request || activeProject.current !== requested) return;
-        if (result.kind !== "FOUND_V2") {
-          setProposal(null);
-          setNotice(
-            result.kind === "FOUND_V1"
-              ? "Sub2API 原任务读到 V1 提案，版本不符，已阻止接纳。"
-              : "V2 提案未找到或读取未知；原操作与许可状态不变。",
-          );
-          return;
-        }
-        const value = result.receipt.data.proposal;
-        if (
-          result.receipt.data.project_id !== requested ||
-          result.receipt.data.proposal_id !== proposalId ||
-          result.receipt.data.producer_attempt_id !== sub2Read.response.data.scope.attempt_id ||
-          value.producer_agent_run_id !== sub2Read.runId ||
-          value.approval_id !== sub2Read.response.data.approval_id ||
-          !value.source_spans.some((span) => v2SpanMatches(span, operation))
-        ) {
-          setProposal(null);
-          setNotice("V2 提案与原任务、许可或来源证据不匹配，已丢弃回包。");
-          return;
-        }
-        setProposal(result.receipt);
-        const storage = journalStorage();
-        setAcceptance(
-          storage
-            ? readSourceExtractionAcceptance(storage, requested, proposalId)
-            : { kind: "BLOCKED" },
-        );
-        setNotice("已读回 V2 来源提案；费用仍未知，提案不是已接纳草稿。");
-      } catch {
-        if (epoch.current === request && activeProject.current === requested) {
-          setProposal(null);
-          setNotice("V2 提案读取失败；原任务与许可状态不变。");
-        }
-      } finally {
-        if (epoch.current === request && activeProject.current === requested) setBusy(false);
-      }
-      return;
-    }
     if (operation.status !== "QUEUED" || !operation.runId) return;
     const requested = projectId;
     const request = ++epoch.current;
@@ -452,7 +298,7 @@ export function SourceExtractionPanel({
         if (epoch.current === request && activeProject.current === requested) {
           setNotice(
             versioned.kind === "FOUND_V2"
-              ? "原 CPA 操作读到 Sub2API V2 提案，版本与执行来源不匹配；已阻止接纳。"
+              ? "原操作读到另一版本的提案，版本与执行来源不匹配；已阻止接纳。"
               : "原 CPA 提案未找到或读取未知；保留原操作，不重试提交。",
           );
           setProposal(null);
@@ -585,139 +431,6 @@ export function SourceExtractionPanel({
     }
   }
 
-  async function approveOneCall() {
-    const storage = journalStorage();
-    if (
-      !storage ||
-      mode !== "SUB2API" ||
-      !operation ||
-      operation.status === "REJECTED" ||
-      !projectId ||
-      !sourceStillCurrent ||
-      sub2Read?.kind !== "FOUND" ||
-      sub2Approval.kind !== "EMPTY" ||
-      sub2ApprovalRead?.kind === "FOUND" ||
-      !unknownCostConsent ||
-      busy
-    )
-      return;
-    const requested = projectId;
-    const runId = sub2Read.runId;
-    const context = approvalContext;
-    const request = ++epoch.current;
-    setBusy(true);
-    const result = await approveSub2APIOneCall(
-      transport.sub2apiSourceExtract,
-      storage,
-      operation,
-      sub2Read,
-      unknownCostConsent,
-    );
-    if (epoch.current !== request || activeProject.current !== requested) return;
-    if (activeApprovalContext.current !== context) {
-      setBusy(false);
-      return;
-    }
-    setUnknownCostConsent(false);
-    setSub2Approval(readSub2APICallApprovalJournal(storage, requested, runId));
-    if (result.kind === "CONSUMED") {
-      setNotice("单次许可已消耗并锁定；正在只读查询原任务。费用仍未知。");
-      const read = await readOriginalSub2APISourceExtract(
-        transport.sub2apiSourceExtract,
-        storage,
-        operation,
-      );
-      if (epoch.current !== request || activeProject.current !== requested) return;
-      if (activeApprovalContext.current !== context) {
-        setBusy(false);
-        return;
-      }
-      setBusy(false);
-      setSub2ApprovalRead(null);
-      setProposal(null);
-      setLatest({ kind: "unread" });
-      setAcceptance({ kind: "EMPTY" });
-      setDraft(null);
-      if (read.kind === "FOUND" && read.runId === runId) {
-        setSub2Read(read);
-        setProposalId(
-          read.response.data.content_status === "PROPOSAL_READY"
-            ? read.response.data.proposal_id
-            : null,
-        );
-        setNotice(
-          read.response.data.content_status === "PROPOSAL_READY"
-            ? "单次许可已消耗；已只读取得原任务提案引用。请独立核对 V2 提案与人工接纳；费用仍未知。"
-            : `单次许可已消耗；原任务状态 ${read.response.data.content_status}。费用仍未知，不得再次授权或重试。`,
-        );
-      } else {
-        setSub2Read(null);
-        setProposalId(null);
-        const detail =
-          read.kind === "DEFINITE_SERVER_ERROR"
-            ? `原任务查询返回 ${read.status} / ${read.code}，请求 ID ${read.requestId}`
-            : read.kind === "NOT_FOUND"
-              ? `原任务查询未找到，请求 ID ${read.requestId}`
-              : read.kind === "FOUND"
-                ? "原任务 run 身份不符"
-                : "原任务查询结果未知或不可用";
-        setNotice(
-          `单次许可已消耗并锁定；${detail}。请手动查询原任务，不得再次授权或重试。费用仍未知。`,
-        );
-      }
-      return;
-    }
-    setBusy(false);
-    setNotice(
-      result.kind === "APPROVED"
-        ? "已保存一次调用许可的 POST 回执；请查询许可和原任务状态。费用仍未知。"
-        : result.kind === "UNAVAILABLE"
-          ? result.message
-          : result.kind === "UNKNOWN" && result.serverError
-            ? `许可提交返回 ${result.serverError.status} / ${result.serverError.code}，请求 ID ${result.serverError.requestId}；原许可意图已锁定，不重复 POST。`
-            : "一次调用许可结果未知或已有原许可；只查询，不再 POST。",
-    );
-  }
-
-  async function readOneCallApproval() {
-    const storage = journalStorage();
-    if (
-      !storage ||
-      mode !== "SUB2API" ||
-      !operation ||
-      !projectId ||
-      sub2Read?.kind !== "FOUND" ||
-      busy
-    )
-      return;
-    const requested = projectId;
-    const runId = sub2Read.runId;
-    const request = ++epoch.current;
-    setBusy(true);
-    const result = await readSub2APIOneCallApproval(
-      transport.sub2apiSourceExtract,
-      storage,
-      operation,
-      sub2Read,
-    );
-    if (epoch.current !== request || activeProject.current !== requested) return;
-    setBusy(false);
-    setSub2Approval(readSub2APICallApprovalJournal(storage, requested, runId));
-    setSub2ApprovalRead(result);
-    if (result.kind === "FOUND") setUnknownCostConsent(false);
-    setNotice(
-      result.kind === "FOUND"
-        ? result.response.data.status === "CONSUMED"
-          ? "原任务许可已消耗；请只读查询原任务与提案结果，不得再次授权或重试。费用仍未知。"
-          : `已按原任务读回许可，状态 ${result.response.data.status}；费用仍未知。`
-        : result.kind === "DEFINITE_SERVER_ERROR"
-          ? `许可查询返回 ${result.status} / ${result.code}，请求 ID ${result.requestId}；本地锁不变。`
-          : result.kind === "NOT_FOUND"
-            ? `原任务未找到许可（请求 ID ${result.requestId}）；此前许可意图如为 UNKNOWN 仍保持锁定，不重新 POST。`
-            : "许可读回未知或不可用；本地许可意图保持锁定。",
-    );
-  }
-
   async function acceptAsDraft() {
     const storage = journalStorage();
     if (
@@ -726,13 +439,7 @@ export function SourceExtractionPanel({
       !operation ||
       !proposal ||
       !proposalId ||
-      (mode === "CPA_LOOPBACK"
-        ? operation.status !== "QUEUED"
-        : operation.status === "REJECTED" ||
-          proposal.data.proposal.schema_version !== "2.0.0" ||
-          sub2Read?.kind !== "FOUND" ||
-          sub2Read.response.data.content_status !== "PROPOSAL_READY" ||
-          sub2Read.response.data.proposal_id !== proposalId) ||
+      operation.status !== "QUEUED" ||
       acceptance.kind !== "EMPTY" ||
       (latest.kind !== "absent" && latest.kind !== "found") ||
       !sourceStillCurrent ||
@@ -752,7 +459,6 @@ export function SourceExtractionPanel({
       proposalId,
       parentVersionId,
       expectedRevision,
-      mode === "SUB2API" ? (sub2Read ?? undefined) : undefined,
     );
     if (epoch.current !== request || activeProject.current !== requested) return;
     setBusy(false);
@@ -772,59 +478,10 @@ export function SourceExtractionPanel({
   }
 
   const summary = proposal?.data.proposal.payload.summary;
-  const canApproveOneCall =
-    mode === "SUB2API" &&
-    !!operation &&
-    operation.status !== "REJECTED" &&
-    sub2Read?.kind === "FOUND" &&
-    sub2Read.queueBinding === "VERIFIED" &&
-    sub2Read.response.data.content_status === "PENDING" &&
-    sub2Read.response.data.approval_id === null &&
-    sub2Approval.kind === "EMPTY" &&
-    sub2ApprovalRead?.kind !== "FOUND" &&
-    sourceStillCurrent &&
-    unknownCostConsent &&
-    !busy &&
-    !!transport.sub2apiSourceExtract;
-  function selectMode(next: "CPA_LOOPBACK" | "SUB2API") {
-    if (busy || connections.kind === "loading" || next === mode) return;
-    setMode(next);
-    setConnectionId("");
-    setModelId("");
-    setBlockId("");
-    setOriginalRead(null);
-    setSub2Read(null);
-    setSub2Approval({ kind: "EMPTY" });
-    setSub2ApprovalRead(null);
-    setUnknownCostConsent(false);
-    setProposalId(null);
-    setProposal(null);
-    setLatest({ kind: "unread" });
-    setAcceptance({ kind: "EMPTY" });
-    setDraft(null);
-    setNotice("");
-  }
   return (
     <section className="v2-media-card" aria-label="真实远程来源抽取">
       <h2>真实远程来源抽取 · 首批文本</h2>
-      <p>
-        入队仅创建任务；Sub2API 的外部文本调用另需核对冻结范围与未知费用，并明确授予一次调用许可。
-      </p>
-      <div className="v2-export-actions" role="group" aria-label="来源抽取执行方式">
-        <Button
-          disabled={busy || connections.kind === "loading"}
-          onClick={() => selectMode("CPA_LOOPBACK")}
-        >
-          CPA 本地文本
-        </Button>
-        <Button
-          disabled={busy || connections.kind === "loading"}
-          onClick={() => selectMode("SUB2API")}
-        >
-          Sub2API 文本
-        </Button>
-      </div>
-      <p>当前执行方式：{mode === "SUB2API" ? "Sub2API" : "CPA 本地"}</p>
+      <p>入队只创建任务，不会调用模型。Grok 文本连接会带上 grok_login，当前不会发往 xAI。</p>
       {!projectId ? (
         <p role="status">请先选择真实项目。</p>
       ) : !acceptedCurrent || !document ? (
@@ -835,23 +492,14 @@ export function SourceExtractionPanel({
         </p>
       )}
       {connections.kind === "error" && <p role="alert">连接目录读取失败；不能入队。</p>}
-      {mode === "SUB2API" && !transport.sub2apiSourceExtract && (
-        <p role="status">当前桌面桥接尚未提供 Sub2API 队列和许可接口，操作暂不可用。</p>
-      )}
       {connections.kind === "ready" && eligible.length === 0 && (
-        <p role="status">
-          没有可用的 {mode === "SUB2API" ? "Sub2API" : "CPA 本地"} TEXT 连接；请先在 AI
-          服务页配置并核对。
-        </p>
+        <p role="status">没有可用的 TEXT 连接；请先在 AI 服务页配置并核对。</p>
       )}
       {(journal.kind === "BLOCKED" || sub2Journal.kind === "BLOCKED") && (
         <p role="alert">本地原操作记录无法安全读取，已阻止再次提交。</p>
       )}
-      {mode === "SUB2API" && journal.kind === "VALID" && (
-        <p role="status">此项目已有 CPA 来源操作，已阻止并列入队。</p>
-      )}
-      {mode === "CPA_LOOPBACK" && sub2Journal.kind === "VALID" && (
-        <p role="status">此项目已有 Sub2API 来源操作，已阻止并列入队。</p>
+      {sub2Journal.kind === "VALID" && (
+        <p role="status">此项目已有已停用通道的历史来源操作，已阻止并列入队。</p>
       )}
       {operation && (
         <div>
@@ -879,10 +527,10 @@ export function SourceExtractionPanel({
           {originalRead === "FOUND_RUN" && operation.status === "UNKNOWN" && (
             <p>发现原 run，绑定待核；原操作仍为 UNKNOWN。</p>
           )}
-          {(operation.runId || (sub2Read?.kind === "FOUND" ? sub2Read.runId : null)) && (
+          {operation.runId && (
             <p>
               原 run ID：
-              <code>{operation.runId || (sub2Read?.kind === "FOUND" ? sub2Read.runId : "")}</code>
+              <code>{operation.runId}</code>
             </p>
           )}
         </div>
@@ -904,7 +552,7 @@ export function SourceExtractionPanel({
           </select>
         </label>
         <label>
-          {mode === "SUB2API" ? "Sub2API" : "CPA 本地"}文本连接
+          文本连接
           <select
             value={connectionId}
             disabled={!!operation || busy || !document}
@@ -940,110 +588,25 @@ export function SourceExtractionPanel({
           仅入队原来源抽取
         </Button>
         <Button
-          disabled={
-            !operation ||
-            busy ||
-            !(mode === "SUB2API" ? transport.sub2apiSourceExtract : transport.remoteSourceExtract)
-          }
+          disabled={!operation || busy || !transport.remoteSourceExtract}
           onClick={() => void readOriginal()}
         >
           查询原 run
         </Button>
         <Button
-          disabled={
-            !proposalId ||
-            !operation ||
-            busy ||
-            (mode === "CPA_LOOPBACK"
-              ? operation.status !== "QUEUED"
-              : sub2Read?.kind !== "FOUND" || !transport.readVersionedSourceExtractionProposal)
-          }
+          disabled={!proposalId || !operation || busy || operation.status !== "QUEUED"}
           onClick={() => void readProposal()}
         >
           读取来源抽取提案
         </Button>
       </div>
-      {mode === "SUB2API" && sub2Read?.kind === "FOUND" && (
-        <div>
-          <h3>原任务范围与单次调用许可</h3>
-          <p>
-            项目 <code>{sub2Read.response.data.scope.project_id}</code> · 任务{" "}
-            <code>{sub2Read.response.data.scope.task_id}</code> · 尝试{" "}
-            <code>{sub2Read.response.data.scope.attempt_id}</code>
-          </p>
-          <p>
-            来源版本 <code>{sub2Read.response.data.scope.source.source_manifest_version_id}</code> ·
-            文档 <code>{sub2Read.response.data.scope.source.source_document_id}</code> · 块{" "}
-            <code>{sub2Read.response.data.scope.source.source_block_id}</code> · 字节{" "}
-            {sub2Read.response.data.scope.source.start_byte}–
-            {sub2Read.response.data.scope.source.end_byte}
-          </p>
-          <p>
-            连接 <code>{sub2Read.response.data.scope.selection.connection_id}</code> · 修订{" "}
-            {sub2Read.response.data.scope.selection.connection_revision} · 模型{" "}
-            <code>{sub2Read.response.data.scope.selection.model_id}</code>
-          </p>
-          <p>
-            内容状态：{sub2Read.response.data.content_status} · 尝试状态：
-            {sub2Read.response.data.attempt_status} · 自动重试：不允许
-          </p>
-          <p role="alert">
-            费用状态 UNKNOWN；币种、预估及实际金额均未提供。 上游实际费用 UNKNOWN；预算执行{" "}
-            {sub2Read.response.data.cost.budget_enforcement}。
-            本许可最多允许一次外部文本调用，可能产生未知费用。
-          </p>
-          {sub2Read.response.data.content_status === "PENDING" &&
-            sub2Read.response.data.approval_id === null && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={unknownCostConsent}
-                  disabled={busy || !sourceStillCurrent || sub2Approval.kind !== "EMPTY"}
-                  onChange={(event) => setUnknownCostConsent(event.target.checked)}
-                />
-                我已核对上述来源、连接与模型，并明确接受本次最多一次调用的未知费用
-              </label>
-            )}
-          <div className="v2-export-actions">
-            <Button disabled={!canApproveOneCall} onClick={() => void approveOneCall()}>
-              明确授权一次 Sub2API 调用
-            </Button>
-            <Button
-              disabled={busy || !transport.sub2apiSourceExtract}
-              onClick={() => void readOneCallApproval()}
-            >
-              查询原任务许可
-            </Button>
-          </div>
-          {sub2Approval.kind === "BLOCKED" && <p role="alert">本地许可记录不可读，已阻止提交。</p>}
-          {sub2Approval.kind === "VALID" && sub2Approval.approval.status === "UNKNOWN" && (
-            <p role="alert">许可 POST 结果未知；原许可意图已锁定，只能查询，不再 POST。</p>
-          )}
-          {sub2Approval.kind === "VALID" && sub2Approval.approval.status === "CONSUMED" && (
-            <p role="status">本地已锁定已消耗许可；只读查询原任务与提案，不再次授权。</p>
-          )}
-          {sub2ApprovalRead?.kind === "FOUND" && (
-            <p>
-              权威许可：<code>{sub2ApprovalRead.response.data.approval_id}</code> · 状态{" "}
-              {sub2ApprovalRead.response.data.status} · 最多{" "}
-              {sub2ApprovalRead.response.data.allowed_calls} 次调用 · 费用仍未知。
-              {sub2ApprovalRead.response.data.status === "CONSUMED"
-                ? "单次许可已用；实际结果请以原任务和提案读回为准。"
-                : "许可状态以原任务读回为准。"}
-            </p>
-          )}
-        </div>
-      )}
       {proposal && (
         <div>
           <p>
             提案 ID：<code>{proposal.data.proposal_id}</code> · 待人工核对
           </p>
           {proposal.data.proposal.schema_version === "2.0.0" && (
-            <p>
-              执行来源 Sub2API · 许可 <code>{proposal.data.proposal.approval_id}</code> · 费用
-              UNKNOWN，预估与实际金额均未提供。
-            </p>
+            <p>历史提案 · 费用 UNKNOWN，预估与实际金额均未提供。</p>
           )}
           {typeof summary === "string" && summary.length <= 10_000 && (
             <p>来源摘录摘要：{summary}</p>
@@ -1062,12 +625,7 @@ export function SourceExtractionPanel({
                 !sourceStillCurrent ||
                 acceptance.kind !== "EMPTY" ||
                 (latest.kind !== "absent" && latest.kind !== "found") ||
-                !transport.proposalDecisions ||
-                (mode === "SUB2API" &&
-                  (operation?.status === "REJECTED" ||
-                    proposal.data.proposal.schema_version !== "2.0.0" ||
-                    sub2Read?.kind !== "FOUND" ||
-                    sub2Read.response.data.content_status !== "PROPOSAL_READY"))
+                !transport.proposalDecisions
               }
               onClick={() => void acceptAsDraft()}
             >

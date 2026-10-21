@@ -248,6 +248,10 @@ class RemoteSourceExtractWorker:
                 or dispatch.approved_model_id not in {model.model_id for model in connection.models}
             ):
                 raise RemoteWorkerBlocked("approved provider connection changed")
+            if dispatch.scope.get("billing_account_kind") == "grok_login":
+                raise RemoteWorkerBlocked(
+                    "grok_login is recorded for billing and has no live xAI transport"
+                )
             token = self._credentials.get(connection.credential_ref)
             if token is None:
                 raise RemoteWorkerBlocked("provider credential is unavailable")

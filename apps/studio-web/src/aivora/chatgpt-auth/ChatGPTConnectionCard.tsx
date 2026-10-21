@@ -225,7 +225,7 @@ export function ChatGPTConnectionControls({
         )}
       </footer>
       <small>
-        官方通道与 API / Sub2API 分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
+        官方通道与 API 连接分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
       </small>
     </section>
   );

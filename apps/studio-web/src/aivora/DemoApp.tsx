@@ -297,9 +297,7 @@ function Workspace({ reset }: { reset: () => void }) {
         )}
         <button className="service-indicator" onClick={() => d.go("services")}>
           <span />
-          {d.isFixture
-            ? serviceStatus
-            : `API / Sub2API：${serviceStatus} · ChatGPT：${officialStatus}`}
+          {d.isFixture ? serviceStatus : `API：${serviceStatus} · ChatGPT：${officialStatus}`}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">

@@ -137,6 +137,18 @@ def execute(case):
     )
 
 
+def test_grok_login_does_not_call_the_transport(worker_case):
+    case = worker_case
+    case.dispatch.scope = {
+        **case.dispatch.scope,
+        "billing_account_kind": "grok_login",
+    }
+    with pytest.raises(remote.RemoteWorkerBlocked, match="grok_login"):
+        execute(case)
+    case.worker._transport.dispatch.assert_not_called()
+    case.worker._credentials.get.assert_not_called()
+
+
 def test_wrong_task_kind_never_marks_running(worker_case):
     case = worker_case
     case.claim.task_kind = "different"

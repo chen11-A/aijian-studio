@@ -223,6 +223,7 @@ export type RemoteSourceExtractCreateInput = {
     end_byte: number;
   };
   selection: { connection_id: string; connection_revision: number; model_id: string };
+  billing_account_kind?: "gpt_login" | "grok_login";
 };
 export type RemoteSourceExtractCreateCommand = {
   operation_id: string;

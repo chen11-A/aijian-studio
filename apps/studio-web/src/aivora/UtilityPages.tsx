@@ -7,7 +7,6 @@ import { NativeCostsPage } from "./NativeCostsPage";
 import { NativeVoicePage } from "./NativeVoicePage";
 import { MediaToolchainSettings } from "./MediaToolchainSettings";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
-import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
 import { ChatGPTConnectionControls } from "./chatgpt-auth/ChatGPTConnectionCard";
 import {
   OfficialConnectionProvider,
@@ -162,7 +161,7 @@ function ServicesContent() {
             disabled={chatGPT?.busy}
             onClick={() => setServiceTab("api")}
           >
-            API / Sub2API
+            API 连接
           </Button>
           <Button
             aria-pressed={serviceTab === "chatgpt"}
@@ -259,7 +258,9 @@ function ServicesContent() {
                   )}
                 </div>
                 {connection.provider_kind === "SUB2API" && (
-                  <Sub2APIConnectionManagement connection={connection} onReload={settings.load} />
+                  <p>
+                    这是已停用通道的历史连接，不能再修改或派发。历史费用仍可在项目费用里只读查看。
+                  </p>
                 )}
                 {settings.confirmingId === connection.id ? (
                   <div role="alert">

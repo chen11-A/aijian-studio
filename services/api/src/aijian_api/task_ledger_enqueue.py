@@ -49,6 +49,9 @@ class EnqueueLocalNodeRequest:
 class EnqueueRemoteNodeRequest(EnqueueLocalNodeRequest):
     dispatch_snapshot: RemoteDispatchSnapshotDraft | None = None
     sub2api_scope: Sub2APISourceExtractScopeDraft | None = None
+    # Account class for this dispatch. Merge with PR #8 must keep this field
+    # and pass it into authorize_remote_dispatch_billing; do not hardcode gpt_login.
+    billing_account_kind: str | None = None
 
 
 def enqueue_local_node(
