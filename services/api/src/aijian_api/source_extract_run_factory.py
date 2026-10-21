@@ -342,6 +342,7 @@ def _enqueue_from_intent(
                 available_at=intent_record.created_at,
                 attempt_snapshot_kind="agent_skill_v1",
                 attempt_snapshot=intent.attempt_snapshot,
+                billing_account_kind="gpt_login",
                 dispatch_snapshot=RemoteDispatchSnapshotDraft(
                     connection_id=dispatch.connection_id,
                     connection_revision=dispatch.connection_revision,

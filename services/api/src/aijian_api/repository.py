@@ -22,6 +22,7 @@ from aijian_api.artifact_invalidation_ledger import (
     record_accepted_head_replacement,
 )
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.dispatch_billing_schema import DISPATCH_BILLING_MIGRATION
 from aijian_api.domain import (
     ArtifactActorType,
     ArtifactDependency,
@@ -80,6 +81,7 @@ from aijian_api.manual_media_candidate_schema import (
 from aijian_api.media_asset_probe_schema import MEDIA_ASSET_PROBE_MIGRATION
 from aijian_api.media_asset_rights_schema import RIGHTS_DECISION_MIGRATION
 from aijian_api.media_asset_schema import MEDIA_ASSET_MIGRATION
+from aijian_api.media_budget_schema import MEDIA_BUDGET_MIGRATION
 from aijian_api.media_preparation_schema import MEDIA_PREPARATION_MIGRATION
 from aijian_api.official_director_schema import OFFICIAL_DIRECTOR_MIGRATION
 from aijian_api.official_text_schema import OFFICIAL_TEXT_MIGRATION
@@ -120,7 +122,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 47
+SCHEMA_VERSION = 49
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -864,6 +866,8 @@ _MIGRATIONS = {
     45: MEDIA_PREPARATION_MIGRATION,
     46: (*MANUAL_MEDIA_CANDIDATE_MIGRATION, *ASSEMBLY_WRITE_RECEIPT_MIGRATION),
     47: LOCAL_MEDIA_REVIEW_MIGRATION,
+    48: MEDIA_BUDGET_MIGRATION,
+    49: DISPATCH_BILLING_MIGRATION,
 }
 
 
