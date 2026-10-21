@@ -343,6 +343,11 @@ def test_replay_does_not_reserve_or_stub_twice(tmp_path: Path) -> None:
     assert usage is not None
     assert usage.reserved_micro == 15
     assert len(reservation_rows(database)) == 1
+    with sqlite3.connect(database) as connection:
+        billing = connection.execute(
+            "SELECT billing_class, account_kind, attempt_id FROM dispatch_billing_records"
+        ).fetchall()
+    assert billing == [("metered", "paid_media", None)]
 
 
 def test_raising_the_limit_does_not_replay_a_blocked_dispatch(tmp_path: Path) -> None:
@@ -492,6 +497,7 @@ def test_unconfigured_budget_blocks_without_inventing_a_zero_limit(tmp_path: Pat
     assert decision.outcome == "BLOCKED"
     assert decision.assessment is not None
     assert decision.assessment.status == "UNCONFIGURED"
+    assert decision.display_reason == "请先设置作品预算"
     assert store.read_head(project.id) is None
     assert reservation_rows(database) == []
     assert recorder.ids == []
@@ -648,7 +654,7 @@ def test_migration_48_adds_the_budget_ledger_without_rewriting_projects(tmp_path
         assert "media_budget_revisions" not in names
     StudioRepository(database)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 48
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 49
         assert connection.execute("SELECT name FROM projects").fetchone()[0] == project_name
         assert connection.execute("SELECT COUNT(*) FROM media_budget_revisions").fetchone()[0] == 0
         assert (

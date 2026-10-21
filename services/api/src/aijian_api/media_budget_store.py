@@ -76,6 +76,14 @@ class MediaDispatchDecision:
     reservation_id: str | None
     provider_called: Literal[False]
     stub_invoked: bool
+    display_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _MeteredHold:
+    outcome: Literal["RESERVED", "BLOCKED", "REPLAYED"]
+    assessment: BudgetAssessment | None
+    reservation_id: str | None
 
 
 class MediaBudgetStore:
@@ -171,69 +179,55 @@ class MediaBudgetStore:
     def dispatch(self, request: MediaDispatchRequest) -> MediaDispatchDecision:
         """Check and reserve in one transaction, then stub-dispatch. Never calls a provider."""
 
-        key = _require_key(request.idempotency_key)
-        amount = _request_amount(request.currency, request.amount_micro)
         with self._transaction() as connection:
-            self._require_project(connection, request.project_id)
-            if request.episode_id is not None:
-                self._require_episode(connection, request.project_id, request.episode_id)
-            existing = connection.execute(
-                """
-                SELECT * FROM media_budget_reservations
-                WHERE project_id = ? AND idempotency_key = ?
-                """,
-                (request.project_id, key),
-            ).fetchone()
-            if existing is not None:
-                _require_same_request(existing, request)
-                return MediaDispatchDecision(
-                    "REPLAYED", None, _text(existing, "reservation_id"), False, False
-                )
-            project_usage, episode_usage = self._usages(
-                connection, request.project_id, request.episode_id
-            )
-            assessment = evaluate_media_budget(
-                project=project_usage, episode=episode_usage, request=amount
-            )
-            if assessment.status != "WITHIN_LIMIT":
-                return MediaDispatchDecision("BLOCKED", assessment, None, False, False)
-            if amount is None:
-                raise MediaBudgetError("within-limit assessment without a known amount")
-            head = self._head(connection, request.project_id)
-            if head is None:
-                raise MediaBudgetError("within-limit assessment without a budget head")
-            reservation_id = self._reservation_id()
             now = timestamp(self._clock())
-            connection.execute(
-                """
-                INSERT INTO media_budget_reservations (
-                    reservation_id, project_id, episode_id, budget_revision,
-                    idempotency_key, currency, amount_known, amount_micro, status,
-                    provider_called, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'RESERVED', 0, ?, ?)
-                """,
-                (
-                    reservation_id,
-                    request.project_id,
-                    request.episode_id,
-                    head.revision,
-                    key,
-                    amount.currency,
-                    amount.micro_units,
-                    now,
-                    now,
-                ),
+            hold = apply_metered_reservation(
+                connection,
+                request,
+                reservation_id_factory=self._reservation_id,
+                now_text=now,
             )
-            self._paid_call.dispatch(reservation_id)
-            connection.execute(
-                """
-                INSERT INTO media_budget_dispatch_receipts (
-                    reservation_id, transport, provider_called, created_at
-                ) VALUES (?, 'STUB_NO_PAID_CALL', 0, ?)
-                """,
-                (reservation_id, now),
+            if hold.outcome == "BLOCKED":
+                from aijian_api.dispatch_billing import budget_display_reason
+
+                status = hold.assessment.status if hold.assessment is not None else "UNCONFIGURED"
+                return MediaDispatchDecision(
+                    "BLOCKED",
+                    hold.assessment,
+                    None,
+                    False,
+                    False,
+                    budget_display_reason(status),
+                )
+            if hold.reservation_id is None:
+                raise MediaBudgetError("metered reservation is missing")
+            if hold.outcome == "RESERVED":
+                self._paid_call.dispatch(hold.reservation_id)
+                connection.execute(
+                    """
+                    INSERT INTO media_budget_dispatch_receipts (
+                        reservation_id, transport, provider_called, created_at
+                    ) VALUES (?, 'STUB_NO_PAID_CALL', 0, ?)
+                    """,
+                    (hold.reservation_id, now),
+                )
+            from aijian_api.dispatch_billing import (
+                ensure_paid_media_billing_record,
+                require_prefixed_id,
             )
-            return MediaDispatchDecision("DISPATCHED", assessment, reservation_id, False, True)
+
+            ensure_paid_media_billing_record(
+                connection,
+                project_id=request.project_id,
+                reservation_id=hold.reservation_id,
+                record_id_factory=lambda: require_prefixed_id(self._ids("dbr"), "dbr"),
+                created_at=now,
+            )
+            if hold.outcome == "REPLAYED":
+                return MediaDispatchDecision("REPLAYED", None, hold.reservation_id, False, False)
+            return MediaDispatchDecision(
+                "DISPATCHED", hold.assessment, hold.reservation_id, False, True
+            )
 
     def record_unreconciled_usage(
         self,
@@ -351,13 +345,13 @@ class MediaBudgetStore:
             raise ValueError("reservation id is invalid")
         return reservation_id
 
+    @staticmethod
     def _usages(
-        self,
         connection: sqlite3.Connection,
         project_id: str,
         episode_id: str | None,
     ) -> tuple[BudgetUsage | None, BudgetUsage | None]:
-        head = self._head(connection, project_id)
+        head = MediaBudgetStore._head(connection, project_id)
         if head is None:
             return None, None
         rows = connection.execute(
@@ -412,7 +406,8 @@ class MediaBudgetStore:
                 )
         return project_usage, episode_usage
 
-    def _head(self, connection: sqlite3.Connection, project_id: str) -> MediaBudgetHead | None:
+    @staticmethod
+    def _head(connection: sqlite3.Connection, project_id: str) -> MediaBudgetHead | None:
         row = connection.execute(
             """
             SELECT revision.revision, revision.currency, revision.project_limit_micro
@@ -496,6 +491,65 @@ class MediaBudgetStore:
         ).fetchone()
         if found is None:
             raise MediaBudgetNotFound("episode was not found")
+
+
+def apply_metered_reservation(
+    connection: sqlite3.Connection,
+    request: MediaDispatchRequest,
+    *,
+    reservation_id_factory: Callable[[], str],
+    now_text: str,
+) -> _MeteredHold:
+    """Reserve a known metered amount on the caller's open transaction."""
+
+    key = _require_key(request.idempotency_key)
+    amount = _request_amount(request.currency, request.amount_micro)
+    MediaBudgetStore._require_project(connection, request.project_id)
+    if request.episode_id is not None:
+        MediaBudgetStore._require_episode(connection, request.project_id, request.episode_id)
+    existing = connection.execute(
+        """
+        SELECT * FROM media_budget_reservations
+        WHERE project_id = ? AND idempotency_key = ?
+        """,
+        (request.project_id, key),
+    ).fetchone()
+    if existing is not None:
+        _require_same_request(existing, request)
+        return _MeteredHold("REPLAYED", None, _text(existing, "reservation_id"))
+    project_usage, episode_usage = MediaBudgetStore._usages(
+        connection, request.project_id, request.episode_id
+    )
+    assessment = evaluate_media_budget(project=project_usage, episode=episode_usage, request=amount)
+    if assessment.status != "WITHIN_LIMIT":
+        return _MeteredHold("BLOCKED", assessment, None)
+    if amount is None:
+        raise MediaBudgetError("within-limit assessment without a known amount")
+    head = MediaBudgetStore._head(connection, request.project_id)
+    if head is None:
+        raise MediaBudgetError("within-limit assessment without a budget head")
+    reservation_id = reservation_id_factory()
+    connection.execute(
+        """
+        INSERT INTO media_budget_reservations (
+            reservation_id, project_id, episode_id, budget_revision,
+            idempotency_key, currency, amount_known, amount_micro, status,
+            provider_called, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 'RESERVED', 0, ?, ?)
+        """,
+        (
+            reservation_id,
+            request.project_id,
+            request.episode_id,
+            head.revision,
+            key,
+            amount.currency,
+            amount.micro_units,
+            now_text,
+            now_text,
+        ),
+    )
+    return _MeteredHold("RESERVED", assessment, reservation_id)
 
 
 def _usage(currency: str, limit: int, spent: int, reserved: int, unknown: bool) -> BudgetUsage:

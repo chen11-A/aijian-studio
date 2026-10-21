@@ -7,6 +7,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, cast
 
+from aijian_api.dispatch_billing import (
+    BillingAuthorization,
+    NoSourceSubscriptionAccess,
+    RemoteDispatchBilling,
+    SubscriptionAccessProbe,
+    authorize_remote_dispatch_billing,
+    insert_dispatch_billing_record,
+    reconcile_remote_billing_replay,
+)
 from aijian_api.remote_execution_authorization import (
     RemoteDispatchSnapshotDraft,
     validate_remote_dispatch_snapshot_in_connection,
@@ -49,6 +58,11 @@ class EnqueueLocalNodeRequest:
 class EnqueueRemoteNodeRequest(EnqueueLocalNodeRequest):
     dispatch_snapshot: RemoteDispatchSnapshotDraft | None = None
     sub2api_scope: Sub2APISourceExtractScopeDraft | None = None
+    billing_account_kind: str | None = None
+    billing_class: str | None = None
+    metered_currency: str | None = None
+    metered_amount_micro: int | None = None
+    episode_id: str | None = None
 
 
 def enqueue_local_node(
@@ -64,6 +78,7 @@ def enqueue_local_node(
         execution_mode="local",
         dispatch_snapshot=None,
         sub2api_scope=None,
+        billing=None,
         connection_factory=connection_factory,
         clock=clock,
         id_factory=id_factory,
@@ -78,14 +93,27 @@ def enqueue_remote_node(
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
     transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
+    subscription_access: SubscriptionAccessProbe | None = None,
 ) -> QueuedTask:
     if request.dispatch_snapshot is None or request.sub2api_scope is not None:
         raise ValueError("remote dispatch snapshot is required")
+    draft = request.dispatch_snapshot
+    probe = subscription_access if subscription_access is not None else NoSourceSubscriptionAccess()
     return _enqueue_node(
         request,
         execution_mode="remote",
-        dispatch_snapshot=request.dispatch_snapshot,
+        dispatch_snapshot=draft,
         sub2api_scope=None,
+        billing=RemoteDispatchBilling(
+            connection_id=draft.connection_id,
+            endpoint_binding=draft.endpoint_binding,
+            explicit_class=request.billing_class,
+            account_kind=request.billing_account_kind,
+            currency=request.metered_currency,
+            amount_micro=request.metered_amount_micro,
+            episode_id=request.episode_id,
+            probe=probe,
+        ),
         connection_factory=connection_factory,
         clock=clock,
         id_factory=id_factory,
@@ -113,6 +141,7 @@ def enqueue_sub2api_node(
         execution_mode="remote",
         dispatch_snapshot=None,
         sub2api_scope=request.sub2api_scope,
+        billing=None,
         connection_factory=connection_factory,
         clock=clock,
         id_factory=id_factory,
@@ -126,6 +155,7 @@ def _enqueue_node(
     execution_mode: Literal["local", "remote"],
     dispatch_snapshot: RemoteDispatchSnapshotDraft | None,
     sub2api_scope: Sub2APISourceExtractScopeDraft | None,
+    billing: RemoteDispatchBilling | None,
     connection_factory: Callable[[], sqlite3.Connection],
     clock: Callable[[], datetime],
     id_factory: Callable[[str], str],
@@ -180,6 +210,16 @@ def _enqueue_node(
                     attempt_id=str(existing["attempt_id"]),
                     attempt_fingerprint=request.request_fingerprint,
                 )
+            if billing is not None:
+                reconcile_remote_billing_replay(
+                    connection,
+                    billing,
+                    project_id=request.project_id,
+                    attempt_id=str(existing["attempt_id"]),
+                    idempotency_key=request.idempotency_key,
+                    created_at=now_text,
+                    id_factory=id_factory,
+                )
             connection.commit()
             return QueuedTask(
                 str(existing["workflow_run_id"]),
@@ -190,6 +230,16 @@ def _enqueue_node(
             )
         if transaction_validator is not None:
             transaction_validator(connection)
+        billing_authorization: BillingAuthorization | None = None
+        if billing is not None:
+            billing_authorization = authorize_remote_dispatch_billing(
+                connection,
+                billing,
+                project_id=request.project_id,
+                idempotency_key=request.idempotency_key,
+                now_text=now_text,
+                id_factory=id_factory,
+            )
         connection.execute(
             "INSERT OR IGNORE INTO workflow_definitions VALUES (?, ?, ?, ?, ?)",
             (
@@ -283,6 +333,18 @@ def _enqueue_node(
                 created_at=now_text,
             )
             validate_remote_dispatch_snapshot_in_connection(connection, attempt_id)
+        if billing_authorization is not None:
+            insert_dispatch_billing_record(
+                connection,
+                record_id=id_factory("dbr"),
+                project_id=request.project_id,
+                billing_class=billing_authorization.classification.billing_class,
+                account_kind=billing_authorization.classification.account_kind,
+                classification_source=billing_authorization.classification.classification_source,
+                attempt_id=attempt_id,
+                reservation_id=billing_authorization.reservation_id,
+                created_at=now_text,
+            )
         connection.execute(
             """
             INSERT INTO task_ledger (
