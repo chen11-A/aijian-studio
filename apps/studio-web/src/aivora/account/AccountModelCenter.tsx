@@ -188,15 +188,17 @@ export function AccountModelCenter({
     <div className="account-center" id="model-center" tabIndex={-1}>
       <section className="v2-utility-card" aria-label="连接 Grok">
         <h2>连接 Grok</h2>
-        <p>
-          与 ChatGPT 放在同一处连接，但 xAI 没有公开「用 Grok 订阅登录并使用订阅额度」的第三方 OAuth
-          或设备码接口。官方替代是在{" "}
-          <a href={XAI_DOCS.console} target="_blank" rel="noreferrer">
-            console.x.ai
-          </a>{" "}
-          创建 API Key。Grok CLI 的 <code>grok login</code> 只属于该命令行，这里不借用。订阅额度和
-          API 计费分开，这把密钥不能花掉 grok.com、SuperGrok 或 X Premium 的额度。
-        </p>
+        <p>在控制台创建 API Key，粘贴到下面。这不是 Grok 订阅登录，也不能使用订阅额度。</p>
+        <details>
+          <summary>为什么不能用 Grok 账号直接登录</summary>
+          <p>
+            xAI 没有公开与 ChatGPT 相同的第三方 OAuth 或设备码。官方入口是{" "}
+            <a href={XAI_DOCS.console} target="_blank" rel="noreferrer">
+              console.x.ai
+            </a>{" "}
+            的 API Key。命令行里的 grok login 不能借用。订阅和 API 分开计费。
+          </p>
+        </details>
         <label>
           xAI 密钥
           <input
@@ -211,6 +213,7 @@ export function AccountModelCenter({
           <Button primary disabled={saving || key.length === 0} onClick={connectSandbox}>
             连接 API Key（沙箱）
           </Button>
+          <Button onClick={() => openAivoraPage("generation")}>看看媒体沙箱（不产生费用）</Button>
           {onSaveXaiKey && (
             <Button disabled={saving || key.length === 0} onClick={() => void saveCredential()}>
               {saving ? "正在写入凭据库…" : "写入凭据库（不调用模型）"}

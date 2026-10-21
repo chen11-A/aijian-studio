@@ -20,7 +20,7 @@ export function SandboxMediaTaskDesk() {
     <section className="v2-utility-card sandbox-desk" aria-label="媒体任务沙箱">
       <h2>媒体任务</h2>
       <p>
-        提交、查询、取消和候选都在本地沙箱里走完。不访问供应商，不预留预算，不派发，不下载文件，不产生费用。
+        提交、查询和取消都只发生在这台电脑上。不访问供应商，不下载文件，不产生费用，也不预留预算或派发任务。
       </p>
       <CurrentModelLink capability="VIDEO" />
       <p role="status">
