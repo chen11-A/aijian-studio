@@ -41,9 +41,13 @@ export function validGrokStatus(value: unknown): value is GrokLoginStatus {
     exact(value, ["provider", "runtime", "state", "secureStorage", "accountLabel", "lastError"]) &&
     value.provider === "GROK_LOGIN" &&
     (value.runtime === "DESKTOP" || value.runtime === "DESKTOP_REQUIRED") &&
-    ["NOT_CONNECTED", "AWAITING_BROWSER", "CONNECTED", "ENTITLEMENT_DENIED", "REAUTH_REQUIRED"].includes(
-      String(value.state),
-    ) &&
+    [
+      "NOT_CONNECTED",
+      "AWAITING_BROWSER",
+      "CONNECTED",
+      "ENTITLEMENT_DENIED",
+      "REAUTH_REQUIRED",
+    ].includes(String(value.state)) &&
     ["AVAILABLE", "UNAVAILABLE", "NOT_CHECKED"].includes(String(value.secureStorage)) &&
     (value.accountLabel === null || text(value.accountLabel, 254)) &&
     (value.lastError === null || text(value.lastError, 100)) &&
@@ -68,11 +72,13 @@ export const GROK_ENTITLEMENT_MESSAGE =
 export function grokLoginFailureMessage(code: string): string {
   const messages: Record<string, string> = {
     ENTITLEMENT_DENIED: GROK_ENTITLEMENT_MESSAGE,
-    REAUTH_REQUIRED: "Grok 登录已失效，或刷新没有成功。请重新登录。若推理仍返回 403，再改用 API Key。",
+    REAUTH_REQUIRED:
+      "Grok 登录已失效，或刷新没有成功。请重新登录。若推理仍返回 403，再改用 API Key。",
     NOT_CONNECTED: "还没有登录 SuperGrok / X Premium+ 账号。",
     DESKTOP_REQUIRED: "用 SuperGrok / X Premium+ 账号登录需要桌面应用。网页预览不能保存令牌。",
     BILLING_NOT_RECORDED: "这次没有调用模型，因为计费记录没有写入。请确认桌面服务已启动后再试。",
-    BILLING_PROJECT_REQUIRED: "请先打开一个已保存的作品，再使用 SuperGrok 生成。这次没有调用。也可以改用 API Key。",
+    BILLING_PROJECT_REQUIRED:
+      "请先打开一个已保存的作品，再使用 SuperGrok 生成。这次没有调用。也可以改用 API Key。",
     DISPATCH_ALREADY_FINISHED: "同一次派发已经记过结果，没有再次调用模型。",
     DISCONNECTED: "订阅账号未连接。请重新登录，或改用 API Key。",
     QUOTA_UNAVAILABLE: "订阅额度不可用。请改用 API Key，或稍后再试。",
@@ -83,7 +89,8 @@ export function grokLoginFailureMessage(code: string): string {
     AUTH_DENIED: "你没有同意这次授权。可以重新登录，或改用 API Key。",
     AUTH_IN_PROGRESS: "已经有一次 Grok 登录在进行。请等待它结束。",
     AUTH_ATTEMPT_EXPIRED: "等待授权页返回已超时。请重新开始登录。",
-    CALLBACK_LISTENER_UNAVAILABLE: "本机登录回调没有启动。登录已停止。请改用 API Key，或检查 127.0.0.1 后再试。",
+    CALLBACK_LISTENER_UNAVAILABLE:
+      "本机登录回调没有启动。登录已停止。请改用 API Key，或检查 127.0.0.1 后再试。",
     CALLBACK_REJECTED:
       "授权页没有接受本机回调。这次登录已停止，没有读取 Cookie，也不会反复重试。请点「改用 API Key（高级备用）」。",
     INVALID_CALLBACK_URI: "本机回调地址无效，登录已停止。请改用 API Key。",

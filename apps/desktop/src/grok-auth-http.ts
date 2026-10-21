@@ -91,7 +91,10 @@ export async function exchangeAuthorizationCode(
       code_verifier: input.verifier,
     }),
   );
-  if (!response.ok) throw new GrokAuthError(response.status === 403 ? "ENTITLEMENT_DENIED" : "TOKEN_EXCHANGE_FAILED");
+  if (!response.ok)
+    throw new GrokAuthError(
+      response.status === 403 ? "ENTITLEMENT_DENIED" : "TOKEN_EXCHANGE_FAILED",
+    );
   const tokens = parseTokenResponse(await readJson(response), now);
   if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
   return tokens;
@@ -135,7 +138,11 @@ export async function readGrokAccount(
   endpoints: GrokEndpoints = OFFICIAL_GROK_ENDPOINTS,
 ): Promise<GrokAccount> {
   const response = await fetch(endpoints.userinfo, {
-    headers: { authorization: `Bearer ${accessToken}`, accept: "application/json", "user-agent": USER_AGENT },
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      accept: "application/json",
+      "user-agent": USER_AGENT,
+    },
   });
   if (!response.ok) throw new GrokAuthError("USERINFO_FAILED");
   const value = await readJson(response);
@@ -153,7 +160,11 @@ export async function listGrokModels(
   endpoints: GrokEndpoints = OFFICIAL_GROK_ENDPOINTS,
 ): Promise<GrokLoginModel[]> {
   const response = await fetch(`${endpoints.api}/models`, {
-    headers: { authorization: `Bearer ${accessToken}`, accept: "application/json", "user-agent": USER_AGENT },
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      accept: "application/json",
+      "user-agent": USER_AGENT,
+    },
   });
   if (response.status === 403) throw new GrokAuthError("ENTITLEMENT_DENIED");
   if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED");
@@ -188,6 +199,7 @@ export async function completeGrokText(
   if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED");
   if (!response.ok) throw new GrokAuthError("TEXT_FAILED");
   const value = await readJson(response);
-  if (!isRecord(value) || !safeString(value.output_text, 100_000)) throw new GrokAuthError("TEXT_FAILED");
+  if (!isRecord(value) || !safeString(value.output_text, 100_000))
+    throw new GrokAuthError("TEXT_FAILED");
   return value.output_text;
 }

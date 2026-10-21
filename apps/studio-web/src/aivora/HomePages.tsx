@@ -538,9 +538,7 @@ export function HomePages() {
               <Button primary onClick={newProject}>
                 新建项目
               </Button>
-              {!d.isFixture && (
-                <Button onClick={() => d.go("generation")}>试用沙箱创作</Button>
-              )}
+              {!d.isFixture && <Button onClick={() => d.go("generation")}>试用沙箱创作</Button>}
               <Button
                 onClick={() => void d.connectRealWorkspace()}
                 disabled={d.workspaceState === "loading"}

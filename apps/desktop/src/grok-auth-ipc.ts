@@ -1,7 +1,10 @@
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 
 export function registerGrokHandlers<TEvent>(
-  handle: (channel: string, callback: (event: TEvent, ...args: unknown[]) => Promise<unknown>) => void,
+  handle: (
+    channel: string,
+    callback: (event: TEvent, ...args: unknown[]) => Promise<unknown>,
+  ) => void,
   authorized: (event: TEvent) => boolean,
   runtimeFor: () => GrokLoginBridge,
 ): void {
@@ -38,7 +41,9 @@ export function registerGrokHandlers<TEvent>(
           model: body.model,
           text: body.text,
           ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
-          ...(typeof body.idempotencyKey === "string" ? { idempotencyKey: body.idempotencyKey } : {}),
+          ...(typeof body.idempotencyKey === "string"
+            ? { idempotencyKey: body.idempotencyKey }
+            : {}),
         });
       }
       if (args.length !== 0) throw new Error("Unexpected Grok IPC arguments");

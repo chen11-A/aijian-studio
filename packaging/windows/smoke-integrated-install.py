@@ -76,7 +76,12 @@ def main() -> None:
     deadline = time.monotonic() + 30
     while executable.exists() and time.monotonic() < deadline:
         time.sleep(0.2)
-    if executable.exists() or not database.is_file() or digest(database) != before or not retained.is_file():
+    if (
+        executable.exists()
+        or not database.is_file()
+        or digest(database) != before
+        or not retained.is_file()
+    ):
         raise ValueError("Uninstall removed the app incompletely or changed the workspace")
     result = {
         "schema_version": 1,
@@ -105,7 +110,8 @@ def main() -> None:
         if source.is_file() and source.suffix in {".json", ".png"}:
             shutil.copy2(source, args.delivery / source.name)
     (args.delivery / "SHA256SUMS").write_text(
-        "\n".join(f"{digest(path)}  {path.name}" for path in sorted(args.delivery.iterdir())) + "\n",
+        "\n".join(f"{digest(path)}  {path.name}" for path in sorted(args.delivery.iterdir()))
+        + "\n",
         encoding="utf-8",
     )
     if sum(path.stat().st_size for path in args.delivery.iterdir()) > DELIVERY_LIMIT:

@@ -248,14 +248,13 @@ def insert_dispatch_billing_record(
     desktop_dispatch_id: str | None = None,
 ) -> None:
     require_prefixed_id(record_id, "dbr")
-    anchors = (
-        attempt_id is not None,
-        reservation_id is not None,
-        desktop_dispatch_id is not None,
-    )
-    if sum(anchors) != 1:
+    if desktop_dispatch_id is not None and (attempt_id is not None or reservation_id is not None):
         raise ValueError(
-            "dispatch billing record requires one attempt, reservation, or desktop dispatch"
+            "desktop subscription billing cannot also anchor an attempt or reservation"
+        )
+    if desktop_dispatch_id is None and attempt_id is None and reservation_id is None:
+        raise ValueError(
+            "dispatch billing record requires an attempt, a reservation, or a desktop dispatch"
         )
     if account_kind is not None and not 1 <= len(account_kind) <= 64:
         raise ValueError("billing account kind is invalid")

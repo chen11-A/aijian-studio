@@ -75,6 +75,7 @@ from aijian_api.credential_vault import (
     CredentialVaultUnavailableError,
     SystemCredentialVault,
 )
+from aijian_api.desktop_subscription_routes import create_desktop_subscription_router
 from aijian_api.development_timeline_export import (
     DevelopmentTimelineExportConflictError,
     DevelopmentTimelineExportInvalidError,
@@ -161,7 +162,6 @@ from aijian_api.official_director_routes import (
     create_official_director_public_router,
     create_official_director_write_router,
 )
-from aijian_api.desktop_subscription_routes import create_desktop_subscription_router
 from aijian_api.official_text_routes import (
     create_official_text_public_router,
     create_official_text_write_router,

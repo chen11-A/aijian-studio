@@ -339,8 +339,9 @@ async function main() {
       }
 
       await context.close();
-      const count = report.filter((item) => item.viewport === viewport.name && item.issues.length)
-        .length;
+      const count = report.filter(
+        (item) => item.viewport === viewport.name && item.issues.length,
+      ).length;
       console.log(`${viewport.name}: ${count} screens with issues`);
     }
   } finally {
@@ -351,7 +352,7 @@ async function main() {
   const flagged = report.filter((item) => item.issues.length > 0 || item.consoleErrors.length > 0);
   await writeFile(
     path.join(outDir, "report.json"),
-    JSON.stringify({ screens: report.length, flagged: flagged.length, flagged }, null, 2),
+    JSON.stringify({ screens: report.length, flaggedCount: flagged.length, flagged }, null, 2),
   );
   console.log(`screens ${report.length}, flagged ${flagged.length}`);
   if (flagged.length > 0) process.exitCode = 1;

@@ -37,9 +37,7 @@ export async function dispatchGrokLoginText(
   const result: GrokLoginTextResult = await bridge.completeText({
     model: input.model,
     text: input.text,
-    ...(input.projectId
-      ? { projectId: input.projectId, idempotencyKey: crypto.randomUUID() }
-      : {}),
+    ...(input.projectId ? { projectId: input.projectId, idempotencyKey: crypto.randomUUID() } : {}),
   });
   if (result.kind === "OK") {
     return {

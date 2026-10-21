@@ -55,9 +55,15 @@ DESKTOP_SUBSCRIPTION_MIGRATION = (
             REFERENCES desktop_subscription_dispatches(dispatch_id) ON DELETE CASCADE,
         created_at TEXT NOT NULL,
         CHECK (
-            (attempt_id IS NOT NULL)
-            + (reservation_id IS NOT NULL)
-            + (desktop_dispatch_id IS NOT NULL) = 1
+            (
+                desktop_dispatch_id IS NOT NULL
+                AND attempt_id IS NULL
+                AND reservation_id IS NULL
+            )
+            OR (
+                desktop_dispatch_id IS NULL
+                AND (attempt_id IS NOT NULL OR reservation_id IS NOT NULL)
+            )
         )
     )
     """,

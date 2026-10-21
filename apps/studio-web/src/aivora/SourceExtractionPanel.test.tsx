@@ -294,8 +294,18 @@ describe("source extraction panel queue and original read", () => {
     await screen.findByRole("option", { name: /Test connection/ });
     fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
     click("用 Grok 账号生成这段文本");
-    expect(await screen.findByText(/请改用 API Key/)).toBeInTheDocument();
-    expect(completeText).toHaveBeenCalledWith({ model: "grok-4", text: "hello world!" });
+    expect(
+      await screen.findByRole("button", { name: "改用 API Key（高级备用）" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("403");
+    expect(completeText).toHaveBeenCalledWith({
+      model: "grok-4",
+      text: "hello world!",
+      projectId,
+      idempotencyKey: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      ),
+    });
     expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
   });
   test.each(["unknown", "rejected", "storage"])(

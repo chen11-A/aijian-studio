@@ -5,7 +5,7 @@ by the extra-forbid models and is never written.
 """
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Path, Request
@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from aijian_api.desktop_subscription_dispatch import (
+    DesktopSubscriptionDispatch,
     DesktopSubscriptionDispatchError,
     DesktopSubscriptionRequest,
     finish_desktop_subscription_dispatch,
@@ -49,8 +50,10 @@ class FinishDesktopSubscriptionDispatch(BaseModel):
 def create_desktop_subscription_router(provider: Callable[[], StudioRepository]) -> APIRouter:
     router = APIRouter()
 
-    @router.post(_ROOT)
-    def record(project_id: Project, body: RecordDesktopSubscriptionDispatch, request: Request):
+    @router.post(_ROOT, response_model=None)
+    def record(
+        project_id: Project, body: RecordDesktopSubscriptionDispatch, request: Request
+    ) -> JSONResponse:
         try:
             recorded = record_desktop_subscription_dispatch(
                 provider(),
@@ -76,13 +79,13 @@ def create_desktop_subscription_router(provider: Callable[[], StudioRepository])
             content={"data": _payload(recorded), "request_id": str(_request_id(request))},
         )
 
-    @router.post(_ROOT + "/{dispatch_id}/outcome")
+    @router.post(_ROOT + "/{dispatch_id}/outcome", response_model=None)
     def finish(
         project_id: Project,
         dispatch_id: Dispatch,
         body: FinishDesktopSubscriptionDispatch,
         request: Request,
-    ):
+    ) -> JSONResponse:
         try:
             recorded = finish_desktop_subscription_dispatch(
                 provider(),
@@ -94,12 +97,14 @@ def create_desktop_subscription_router(provider: Callable[[], StudioRepository])
         except DesktopSubscriptionDispatchError as error:
             status = 404 if error.code == "NOT_FOUND" else 409
             return _error(request, status, error.code, error.message)
-        return {"data": _payload(recorded), "request_id": str(_request_id(request))}
+        return JSONResponse(
+            content={"data": _payload(recorded), "request_id": str(_request_id(request))}
+        )
 
     return router
 
 
-def _payload(recorded) -> dict[str, object]:
+def _payload(recorded: DesktopSubscriptionDispatch) -> dict[str, object]:
     return {
         "dispatch_id": recorded.dispatch_id,
         "record_id": recorded.record_id,
@@ -115,7 +120,7 @@ def _payload(recorded) -> dict[str, object]:
 
 
 def _request_id(request: Request) -> UUID:
-    return request.state.request_id
+    return cast(UUID, request.state.request_id)
 
 
 def _error(request: Request, status: int, code: str, message: str) -> JSONResponse:

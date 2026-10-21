@@ -78,7 +78,7 @@ try {
   const health = await page.evaluate(() => globalThis.aijian.health());
   assert.equal(health.data.status, "ok");
   assert.equal(sidecars().length, 1);
-  const resources = await application.evaluate(({ app }) => globalThis.process.resourcesPath);
+  const resources = await application.evaluate(() => globalThis.process.resourcesPath);
   assert.equal(hash(join(resources, "media/ffmpeg.exe")), ffmpegSha);
   assert.equal(hash(join(resources, "media/ffprobe.exe")), ffprobeSha);
   const login = page.getByRole("button", { name: "用 SuperGrok / X Premium+ 账号登录" });

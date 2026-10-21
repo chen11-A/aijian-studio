@@ -12,7 +12,11 @@ export async function authorizeGrokInBrowser(
   openBrowser: (url: string) => Promise<void>,
   signal: AbortSignal,
 ): Promise<{ code: string; verifier: string; redirectUri: string }> {
-  const server = createServer({ maxHeaderSize: 8192, requestTimeout: 10_000, headersTimeout: 10_000 });
+  const server = createServer({
+    maxHeaderSize: 8192,
+    requestTimeout: 10_000,
+    headersTimeout: 10_000,
+  });
   let cancel = () => undefined;
   try {
     await new Promise<void>((resolve, reject) => {
@@ -20,7 +24,8 @@ export async function authorizeGrokInBrowser(
       server.listen(input.port ?? GROK_LOOPBACK_PORT, "127.0.0.1", () => resolve());
     });
     const address = server.address();
-    if (!address || typeof address === "string") throw new GrokAuthError("CALLBACK_LISTENER_UNAVAILABLE");
+    if (!address || typeof address === "string")
+      throw new GrokAuthError("CALLBACK_LISTENER_UNAVAILABLE");
     const redirectUri = `http://127.0.0.1:${address.port}${GROK_CALLBACK_PATH}`;
     const attempt = createGrokAuthorizationAttempt({
       redirectUri,
@@ -29,7 +34,11 @@ export async function authorizeGrokInBrowser(
     const result = new Promise<{ code: string }>((resolve, reject) => {
       cancel = () => {
         attempt.cancel();
-        reject(signal.reason instanceof GrokAuthError ? signal.reason : new GrokAuthError("AUTH_CANCELLED"));
+        reject(
+          signal.reason instanceof GrokAuthError
+            ? signal.reason
+            : new GrokAuthError("AUTH_CANCELLED"),
+        );
       };
       signal.addEventListener("abort", cancel, { once: true });
       server.on("request", (request, response) => {

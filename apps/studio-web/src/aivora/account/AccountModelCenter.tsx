@@ -84,7 +84,8 @@ export function AccountModelCenter({
     )
       return;
     for (const [capability] of capabilities) {
-      if (center.choices[capability]?.provider === "GROK_LOGIN") selectCenteredModel(capability, null);
+      if (center.choices[capability]?.provider === "GROK_LOGIN")
+        selectCenteredModel(capability, null);
     }
   }, [center.choices, grok]);
 
@@ -229,7 +230,11 @@ export function AccountModelCenter({
           <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
         )}
         <div className="account-actions">
-          {onOpenGrok && <Button primary onClick={onOpenGrok}>打开 Grok 登录</Button>}
+          {onOpenGrok && (
+            <Button primary onClick={onOpenGrok}>
+              打开 Grok 登录
+            </Button>
+          )}
         </div>
       </section>
 

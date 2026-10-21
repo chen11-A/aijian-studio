@@ -104,13 +104,15 @@ export function createGrokAuthorizationAttempt(
         throw new GrokAuthError("CALLBACK_REJECTED");
       }
       for (const name of ["state", "code", "error"]) {
-        if (callback.searchParams.getAll(name).length > 1) throw new GrokAuthError("CALLBACK_REJECTED");
+        if (callback.searchParams.getAll(name).length > 1)
+          throw new GrokAuthError("CALLBACK_REJECTED");
       }
       if (!equalSecret(callback.searchParams.get("state") ?? "", state)) {
         throw new GrokAuthError("AUTH_STATE_MISMATCH");
       }
       consumed = true;
-      if (callback.searchParams.get("error") === "access_denied") throw new GrokAuthError("AUTH_DENIED");
+      if (callback.searchParams.get("error") === "access_denied")
+        throw new GrokAuthError("AUTH_DENIED");
       if (callback.searchParams.has("error")) throw new GrokAuthError("AUTH_FAILED");
       const code = callback.searchParams.get("code");
       if (!safeString(code, 4096)) throw new GrokAuthError("AUTH_CODE_MISSING");

@@ -323,9 +323,7 @@ def _existing(
             endpoint_binding=None,
         ).account_kind
     ):
-        raise DesktopSubscriptionDispatchError(
-            "IDEMPOTENCY_CONFLICT", "同一个幂等键不能改派发内容"
-        )
+        raise DesktopSubscriptionDispatchError("IDEMPOTENCY_CONFLICT", "同一个幂等键不能改派发内容")
     failure = row["failure_code"]
     return DesktopSubscriptionDispatch(
         str(row["dispatch_id"]),

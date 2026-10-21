@@ -1,10 +1,6 @@
 /** Renderer-safe Grok subscription login. Tokens never appear on this surface. */
 export type GrokLoginState =
-  | "NOT_CONNECTED"
-  | "AWAITING_BROWSER"
-  | "CONNECTED"
-  | "ENTITLEMENT_DENIED"
-  | "REAUTH_REQUIRED";
+  "NOT_CONNECTED" | "AWAITING_BROWSER" | "CONNECTED" | "ENTITLEMENT_DENIED" | "REAUTH_REQUIRED";
 
 export type GrokLoginStatus = {
   provider: "GROK_LOGIN";
@@ -31,9 +27,7 @@ export type GrokLoginBridge = {
   signIn(): Promise<GrokLoginActionResult>;
   cancel(): Promise<GrokLoginActionResult>;
   signOut(): Promise<GrokLoginActionResult>;
-  models(): Promise<
-    { kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }
-  >;
+  models(): Promise<{ kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }>;
   completeText(input: {
     model: string;
     text: string;

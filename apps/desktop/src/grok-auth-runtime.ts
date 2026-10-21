@@ -151,7 +151,11 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         now(),
       );
       if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
-      const account = await readGrokAccount(dependencies.fetch, tokens.accessToken, endpoints).catch(() => ({
+      const account = await readGrokAccount(
+        dependencies.fetch,
+        tokens.accessToken,
+        endpoints,
+      ).catch(() => ({
         subject: "unknown",
         email: null,
         name: null,
@@ -160,7 +164,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       try {
         await listGrokModels(dependencies.fetch, tokens.accessToken, endpoints);
       } catch (error) {
-        if (error instanceof GrokAuthError && error.code === "ENTITLEMENT_DENIED") inferenceDenied = true;
+        if (error instanceof GrokAuthError && error.code === "ENTITLEMENT_DENIED")
+          inferenceDenied = true;
         else throw error;
       }
       await persist({
@@ -197,13 +202,16 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   async function signOut(): Promise<GrokLoginActionResult> {
     await restore();
     const refresh = session?.refreshToken;
-    if (refresh) await revokeGrokToken(dependencies.fetch, refresh, endpoints).catch(() => undefined);
+    if (refresh)
+      await revokeGrokToken(dependencies.fetch, refresh, endpoints).catch(() => undefined);
     await persist(null);
     lastError = null;
     return { kind: "OK", status: status() };
   }
 
-  async function models(): Promise<{ kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }> {
+  async function models(): Promise<
+    { kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }
+  > {
     try {
       await restore();
       await ensureFresh();
@@ -226,7 +234,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     projectId?: string;
     idempotencyKey?: string;
   }): Promise<GrokLoginTextResult> {
-    if (input.text.length === 0 || input.text.length > 8000 || input.model.length === 0 || input.model.length > 200) {
+    if (
+      input.text.length === 0 ||
+      input.text.length > 8000 ||
+      input.model.length === 0 ||
+      input.model.length > 200
+    ) {
       return { kind: "ERROR", code: "TEXT_REJECTED", billingAccountKind: "grok_login" };
     }
     const ledger = dependencies.ledger;
@@ -236,7 +249,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       await ensureFresh();
       if (!session) throw new GrokAuthError("NOT_CONNECTED");
       if (ledger) {
-        if (!input.projectId || !input.idempotencyKey) throw new GrokAuthError("BILLING_PROJECT_REQUIRED");
+        if (!input.projectId || !input.idempotencyKey)
+          throw new GrokAuthError("BILLING_PROJECT_REQUIRED");
         const recorded = await ledger.record({
           projectId: input.projectId,
           accountKind: "grok_login",
@@ -267,7 +281,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       lastError = null;
       return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
     } catch (error) {
-      const code = error instanceof GrokAuthError ? error.code : error instanceof Error ? error.message : "TEXT_FAILED";
+      const code =
+        error instanceof GrokAuthError
+          ? error.code
+          : error instanceof Error
+            ? error.message
+            : "TEXT_FAILED";
       const safe = [
         "ENTITLEMENT_DENIED",
         "REAUTH_REQUIRED",
@@ -302,5 +321,13 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
-  return { restore, status: async () => (await restore(), status()), signIn, cancel, signOut, models, completeText };
+  return {
+    restore,
+    status: async () => (await restore(), status()),
+    signIn,
+    cancel,
+    signOut,
+    models,
+    completeText,
+  };
 }

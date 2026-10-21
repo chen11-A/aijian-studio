@@ -122,7 +122,8 @@ function grokLoginSlot(
     state,
     quota,
     models: listed,
-    difference: "与 ChatGPT 并列的订阅登录。浏览器授权走 auth.x.ai，模型目录来自 api.x.ai。令牌只留在本机。",
+    difference:
+      "与 ChatGPT 并列的订阅登录。浏览器授权走 auth.x.ai，模型目录来自 api.x.ai。令牌只留在本机。",
   };
 }
 

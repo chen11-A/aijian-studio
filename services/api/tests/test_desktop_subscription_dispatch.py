@@ -48,7 +48,9 @@ def _request(project_id: str, **changes) -> DesktopSubscriptionRequest:
 
 def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_path: Path) -> None:
     repository, project_id = _repository(tmp_path)
-    grok = record_desktop_subscription_dispatch(repository, _request(project_id), now=repository._clock())
+    grok = record_desktop_subscription_dispatch(
+        repository, _request(project_id), now=repository._clock()
+    )
     chat = record_desktop_subscription_dispatch(
         repository,
         _request(
@@ -60,7 +62,9 @@ def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_pa
         ),
         now=repository._clock(),
     )
-    assert grok.created and grok.account_kind == "grok_login" and grok.billing_class == "subscription"
+    assert (
+        grok.created and grok.account_kind == "grok_login" and grok.billing_class == "subscription"
+    )
     assert chat.account_kind == "gpt_login"
     with sqlite3.connect(repository.database_path) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 50
@@ -74,7 +78,9 @@ def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_pa
             ("subscription", "gpt_login", None, None, chat.dispatch_id),
             ("subscription", "grok_login", None, None, grok.dispatch_id),
         ]
-        assert connection.execute("SELECT COUNT(*) FROM media_budget_reservations").fetchone()[0] == 0
+        assert (
+            connection.execute("SELECT COUNT(*) FROM media_budget_reservations").fetchone()[0] == 0
+        )
         sql = " ".join(
             str(row[0])
             for row in connection.execute(
@@ -87,15 +93,21 @@ def test_grok_and_chatgpt_logins_record_subscription_without_a_money_hold(tmp_pa
 
 def test_replay_does_not_insert_a_second_record_and_a_changed_key_conflicts(tmp_path: Path) -> None:
     repository, project_id = _repository(tmp_path)
-    first = record_desktop_subscription_dispatch(repository, _request(project_id), now=repository._clock())
-    again = record_desktop_subscription_dispatch(repository, _request(project_id), now=repository._clock())
+    first = record_desktop_subscription_dispatch(
+        repository, _request(project_id), now=repository._clock()
+    )
+    again = record_desktop_subscription_dispatch(
+        repository, _request(project_id), now=repository._clock()
+    )
     assert again.created is False and again.dispatch_id == first.dispatch_id
     with pytest.raises(Exception, match="幂等"):
         record_desktop_subscription_dispatch(
             repository, _request(project_id, model_id="grok-other"), now=repository._clock()
         )
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM dispatch_billing_records").fetchone()[0] == 1
+        assert (
+            connection.execute("SELECT COUNT(*) FROM dispatch_billing_records").fetchone()[0] == 1
+        )
 
 
 def test_disconnected_subscription_and_unknown_kind_do_not_open_a_free_record(
@@ -111,8 +123,12 @@ def test_disconnected_subscription_and_unknown_kind_do_not_open_a_free_record(
             repository, _request(project_id, account_kind="api_key"), now=repository._clock()
         )
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM dispatch_billing_records").fetchone()[0] == 0
-        assert connection.execute("SELECT COUNT(*) FROM media_budget_reservations").fetchone()[0] == 0
+        assert (
+            connection.execute("SELECT COUNT(*) FROM dispatch_billing_records").fetchone()[0] == 0
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM media_budget_reservations").fetchone()[0] == 0
+        )
 
 
 def test_outcome_is_metadata_only_and_http_route_rejects_a_token_field(tmp_path: Path) -> None:

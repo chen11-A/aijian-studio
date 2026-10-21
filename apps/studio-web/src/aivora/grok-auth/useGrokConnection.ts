@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GrokLoginActionResult, GrokLoginModel, GrokLoginStatus } from "@aijian/contracts/grok-auth";
+import type {
+  GrokLoginActionResult,
+  GrokLoginModel,
+  GrokLoginStatus,
+} from "@aijian/contracts/grok-auth";
 import {
   GROK_DESKTOP_REQUIRED,
   grokBridge,
@@ -20,19 +24,22 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
   const generation = useRef(0);
   const signingIn = useRef(false);
 
-  const applyModels = useCallback(async (current: number, next: GrokLoginStatus) => {
-    if (!bridge || next.state !== "CONNECTED") {
-      if (mounted.current && generation.current === current) setModels([]);
-      return;
-    }
-    const listed = await bridge.models();
-    if (!mounted.current || generation.current !== current) return;
-    if (listed.kind === "OK") setModels(listed.models);
-    else {
-      setModels([]);
-      setNotice(grokLoginFailureMessage(listed.code));
-    }
-  }, [bridge]);
+  const applyModels = useCallback(
+    async (current: number, next: GrokLoginStatus) => {
+      if (!bridge || next.state !== "CONNECTED") {
+        if (mounted.current && generation.current === current) setModels([]);
+        return;
+      }
+      const listed = await bridge.models();
+      if (!mounted.current || generation.current !== current) return;
+      if (listed.kind === "OK") setModels(listed.models);
+      else {
+        setModels([]);
+        setNotice(grokLoginFailureMessage(listed.code));
+      }
+    },
+    [bridge],
+  );
 
   const load = useCallback(async () => {
     const current = ++generation.current;
@@ -41,7 +48,8 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
       const value = await readGrokStatus(bridge);
       if (!mounted.current || generation.current !== current) return;
       setStatus(value);
-      if (value.state === "ENTITLEMENT_DENIED") setNotice(grokLoginFailureMessage("ENTITLEMENT_DENIED"));
+      if (value.state === "ENTITLEMENT_DENIED")
+        setNotice(grokLoginFailureMessage("ENTITLEMENT_DENIED"));
       else if (value.lastError) setNotice(grokLoginFailureMessage(value.lastError));
       else setNotice("");
       await applyModels(current, value);
@@ -143,7 +151,18 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
     }
   }
 
-  return { bridge, status, models, notice, loading, busy, reload: load, signIn, signOut, checkInference };
+  return {
+    bridge,
+    status,
+    models,
+    notice,
+    loading,
+    busy,
+    reload: load,
+    signIn,
+    signOut,
+    checkInference,
+  };
 }
 
 export type GrokConnection = ReturnType<typeof useGrokConnection>;

@@ -64,32 +64,32 @@ describe("Sub2API key rotation reads", () => {
   );
 
   test("read preserves unknown and definite errors without retry", async () => {
-      for (const outcome of ["network", "JSON", "receipt", "untrusted", "definite"] as const) {
-        const fetcher = vi.fn(async () => {
-          if (outcome === "network") throw new Error("lost reply");
-          if (outcome === "JSON") return new Response("{");
-          if (outcome === "receipt") return wire({});
-          return Response.json(
-            outcome === "untrusted"
-              ? {}
-              : {
-                  request_id: requestId,
-                  error: {
-                    code: "PROVIDER_NOT_FOUND",
-                    message: "Synthetic missing",
-                    retryable: false,
-                    details: {},
-                  },
+    for (const outcome of ["network", "JSON", "receipt", "untrusted", "definite"] as const) {
+      const fetcher = vi.fn(async () => {
+        if (outcome === "network") throw new Error("lost reply");
+        if (outcome === "JSON") return new Response("{");
+        if (outcome === "receipt") return wire({});
+        return Response.json(
+          outcome === "untrusted"
+            ? {}
+            : {
+                request_id: requestId,
+                error: {
+                  code: "PROVIDER_NOT_FOUND",
+                  message: "Synthetic missing",
+                  retryable: false,
+                  details: {},
                 },
-            { status: 404, headers: { "X-Request-ID": requestId } },
-          );
-        });
-        const client = createLocalApiClient(fetcher, session);
-        expect(await client.readSub2APIKeyRotation(id, operationId)).toMatchObject({
-          kind: outcome === "definite" ? "DEFINITE_SERVER_ERROR" : "REMOTE_UNKNOWN",
-        });
-        expect(fetcher).toHaveBeenCalledOnce();
-      }
+              },
+          { status: 404, headers: { "X-Request-ID": requestId } },
+        );
+      });
+      const client = createLocalApiClient(fetcher, session);
+      expect(await client.readSub2APIKeyRotation(id, operationId)).toMatchObject({
+        kind: outcome === "definite" ? "DEFINITE_SERVER_ERROR" : "REMOTE_UNKNOWN",
+      });
+      expect(fetcher).toHaveBeenCalledOnce();
+    }
   });
 
   test("rejects invalid metadata and rotation identities before contacting Sidecar", async () => {

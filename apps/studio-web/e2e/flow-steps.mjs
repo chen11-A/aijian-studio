@@ -81,7 +81,9 @@ async function run(viewport, persona) {
   clicks += 1;
   await page.getByText("persona@example.test").first().waitFor({ timeout: 8000 });
   const model = page.locator("#model-center select").first();
-  await model.locator("option", { hasText: "Grok 4.3" }).waitFor({ state: "attached", timeout: 8000 });
+  await model
+    .locator("option", { hasText: "Grok 4.3" })
+    .waitFor({ state: "attached", timeout: 8000 });
   const options = await model.locator("option").allTextContents();
   steps.push({ clicks, name: "model-options", persona, text: options.join(" | ") });
   await model.selectOption({ label: "Grok 4.3 · Grok 账号" });

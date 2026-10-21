@@ -423,6 +423,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record */
+        post: operations["record_api_v1_projects__project_id__desktop_subscription_dispatches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches/{dispatch_id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish */
+        post: operations["finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/development-exports": {
         parameters: {
             query?: never;
@@ -3648,6 +3682,12 @@ export interface components {
          * @description Queue only; a separate trusted authorization must precede dispatch.
          */
         CreateRemoteSourceExtractRunRequest: {
+            /**
+             * Billing Account Kind
+             * @default gpt_login
+             * @enum {string}
+             */
+            billing_account_kind: "gpt_login" | "grok_login";
             selection: components["schemas"]["RemoteSourceExtractSelectionData"];
             source: components["schemas"]["CreateProposalRunRequest"];
         };
@@ -5421,6 +5461,13 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** FinishDesktopSubscriptionDispatch */
+        FinishDesktopSubscriptionDispatch: {
+            /** Failure Code */
+            failure_code?: string | null;
+            /** Outcome */
+            outcome: string;
         };
         FixtureRef: string;
         /** HTTPValidationError */
@@ -8017,6 +8064,23 @@ export interface components {
             reason: string;
             /** Recheck Id */
             recheck_id: string;
+        };
+        /** RecordDesktopSubscriptionDispatch */
+        RecordDesktopSubscriptionDispatch: {
+            /** Account Kind */
+            account_kind: string;
+            /** Connected */
+            connected?: boolean | null;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Model Id */
+            model_id: string;
+            /** Quota Available */
+            quota_available?: boolean | null;
+            /** Rate Available */
+            rate_available?: boolean | null;
+            /** Request Sha256 */
+            request_sha256: string;
         };
         /** ReferenceDeclarationV1 */
         ReferenceDeclarationV1: {
@@ -13641,6 +13705,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    record_api_v1_projects__project_id__desktop_subscription_dispatches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordDesktopSubscriptionDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                dispatch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishDesktopSubscriptionDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -19319,6 +19454,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19330,15 +19474,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19405,6 +19540,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19416,15 +19560,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19497,6 +19632,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19508,15 +19652,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19583,6 +19718,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19594,15 +19738,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };

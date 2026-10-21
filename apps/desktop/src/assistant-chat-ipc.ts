@@ -258,62 +258,66 @@ export function registerAssistantChatHandlers<Event>(
       if ((await receipts.pending(preview.request.scope, request.expectedProfileId)).length)
         return { kind: "NOT_SENT", operationId: request.operationId, code: "OUTSTANDING_UNKNOWN" };
       const result = await runtime.generateText(
-        { ...preview.command, billingProjectId: preview.request.scope.projectId },
         {
-        beforeSend: async (metadata) => {
-          if (
-            preview.discarded ||
-            !authorized(event) ||
-            authEpochFor() !== preview.authEpoch ||
-            sessions.get(preview.request.sessionId)?.revision !== preview.sessionRevision
-          )
-            throw new ChatGPTError("PREVIEW_INVALIDATED");
-          if (!(await account(runtime, request.expectedProfileId)))
-            throw new ChatGPTError("ACCOUNT_CHANGED");
-          let current;
-          try {
-            current = await readAssistantContext(
-              clientFor(event),
-              preview.request.scope,
-              preview.request.references,
-            );
-          } catch (error) {
-            throw new ChatGPTError(contextError(error));
-          }
-          if (
-            current.hash !== preview.contextHash ||
-            preview.discarded ||
-            !authorized(event) ||
-            authEpochFor() !== preview.authEpoch
-          )
-            throw new ChatGPTError("CONTEXT_CHANGED");
-          if ((await receipts.pending(preview.request.scope, request.expectedProfileId)).length)
-            throw new ChatGPTError("OUTSTANDING_UNKNOWN");
-          if (
-            metadata.operationId !== preview.operationId ||
-            metadata.profileId !== request.expectedProfileId ||
-            metadata.requestHash !== preview.inputHash
-          )
-            throw new ChatGPTError("OPERATION_MISMATCH");
-          try {
-            await receipts.reserve({
-              operationId: preview.operationId,
-              profileId: request.expectedProfileId,
-              projectId: preview.request.scope.projectId,
-              episodeId: preview.request.scope.episodeId,
-              inputHash: preview.inputHash,
-              contextHash: preview.contextHash,
-              status: "REMOTE_UNKNOWN",
-              responseHash: null,
-            });
-          } catch {
-            throw new ChatGPTError("ASSISTANT_RECEIPT_UNAVAILABLE");
-          }
-          reserved = true;
-          if (preview.discarded || !authorized(event) || authEpochFor() !== preview.authEpoch)
-            throw new ChatGPTError("PREVIEW_INVALIDATED");
+          ...preview.command,
+          billingProjectId: preview.request.scope.projectId ?? undefined,
         },
-      });
+        {
+          beforeSend: async (metadata) => {
+            if (
+              preview.discarded ||
+              !authorized(event) ||
+              authEpochFor() !== preview.authEpoch ||
+              sessions.get(preview.request.sessionId)?.revision !== preview.sessionRevision
+            )
+              throw new ChatGPTError("PREVIEW_INVALIDATED");
+            if (!(await account(runtime, request.expectedProfileId)))
+              throw new ChatGPTError("ACCOUNT_CHANGED");
+            let current;
+            try {
+              current = await readAssistantContext(
+                clientFor(event),
+                preview.request.scope,
+                preview.request.references,
+              );
+            } catch (error) {
+              throw new ChatGPTError(contextError(error));
+            }
+            if (
+              current.hash !== preview.contextHash ||
+              preview.discarded ||
+              !authorized(event) ||
+              authEpochFor() !== preview.authEpoch
+            )
+              throw new ChatGPTError("CONTEXT_CHANGED");
+            if ((await receipts.pending(preview.request.scope, request.expectedProfileId)).length)
+              throw new ChatGPTError("OUTSTANDING_UNKNOWN");
+            if (
+              metadata.operationId !== preview.operationId ||
+              metadata.profileId !== request.expectedProfileId ||
+              metadata.requestHash !== preview.inputHash
+            )
+              throw new ChatGPTError("OPERATION_MISMATCH");
+            try {
+              await receipts.reserve({
+                operationId: preview.operationId,
+                profileId: request.expectedProfileId,
+                projectId: preview.request.scope.projectId,
+                episodeId: preview.request.scope.episodeId,
+                inputHash: preview.inputHash,
+                contextHash: preview.contextHash,
+                status: "REMOTE_UNKNOWN",
+                responseHash: null,
+              });
+            } catch {
+              throw new ChatGPTError("ASSISTANT_RECEIPT_UNAVAILABLE");
+            }
+            reserved = true;
+            if (preview.discarded || !authorized(event) || authEpochFor() !== preview.authEpoch)
+              throw new ChatGPTError("PREVIEW_INVALIDATED");
+          },
+        },
+      );
       if (result.kind === "COMPLETED") {
         try {
           await receipts.finish(preview.operationId, "COMPLETED", sha(result.text));

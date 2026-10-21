@@ -57,7 +57,8 @@ export function createGrokStore(directory: string, encryption: GrokEncryption): 
     if (
       !stat.isDirectory() ||
       stat.isSymbolicLink() ||
-      (process.platform !== "win32" && ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()))
+      (process.platform !== "win32" &&
+        ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()))
     ) {
       throw new GrokAuthError("SECURE_STORAGE_UNAVAILABLE");
     }
@@ -78,7 +79,8 @@ export function createGrokStore(directory: string, encryption: GrokEncryption): 
       const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
       try {
         const stat = await file.stat();
-        if (!stat.isFile() || stat.size > 1024 * 1024) throw new GrokAuthError("SECURE_STORAGE_INVALID");
+        if (!stat.isFile() || stat.size > 1024 * 1024)
+          throw new GrokAuthError("SECURE_STORAGE_INVALID");
         const value: unknown = JSON.parse(encryption.decryptString(await file.readFile()));
         if (!validGrokSession(value)) throw new GrokAuthError("SECURE_STORAGE_INVALID");
         return value;
@@ -87,10 +89,15 @@ export function createGrokStore(directory: string, encryption: GrokEncryption): 
       }
     },
     async write(session) {
-      if (!available() || !validGrokSession(session)) throw new GrokAuthError("SECURE_STORAGE_UNAVAILABLE");
+      if (!available() || !validGrokSession(session))
+        throw new GrokAuthError("SECURE_STORAGE_UNAVAILABLE");
       await directoryOk();
       const temp = join(directory, `.session-${randomUUID()}.tmp`);
-      const file = await open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      const file = await open(
+        temp,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+        0o600,
+      );
       try {
         await file.writeFile(encryption.encryptString(JSON.stringify(session)));
         await file.sync();

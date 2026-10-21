@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createSubscriptionLedger } from "./desktop-subscription-ledger";
 
 describe("desktop subscription ledger", () => {
   it("sends a hash and account kind, never the prompt or a token", async () => {
     let body = "";
-    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetcher: typeof fetch = async (_input, init) => {
       body = String(init?.body ?? "");
       return new Response(
         JSON.stringify({
@@ -18,7 +18,7 @@ describe("desktop subscription ledger", () => {
         }),
         { status: 201, headers: { "content-type": "application/json" } },
       );
-    });
+    };
     const ledger = createSubscriptionLedger(fetcher, {
       origin: "http://127.0.0.1:43123",
       token: "a".repeat(43),

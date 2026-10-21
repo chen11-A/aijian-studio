@@ -99,7 +99,9 @@ async function mockOAuth() {
       textStatus = status;
     },
     close: () =>
-      new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+      new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      ),
   };
 }
 
@@ -158,7 +160,9 @@ describe("Grok subscription login against a mock OAuth server", () => {
       expect(authorizeParams.get("client_id")).toBe(GROK_CLIENT_ID);
       expect(authorizeParams.get("code_challenge_method")).toBe("S256");
       expect(authorizeParams.get("redirect_uri")).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
-      const exchanged = oauth.seen.find((item) => item.body.includes("grant_type=authorization_code"));
+      const exchanged = oauth.seen.find((item) =>
+        item.body.includes("grant_type=authorization_code"),
+      );
       expect(exchanged?.body).toContain("code_verifier=");
       const listed = await runtime.models();
       expect(listed).toEqual({ kind: "OK", models: [{ id: "grok-4", label: "Grok 4" }] });
@@ -182,7 +186,10 @@ describe("Grok subscription login against a mock OAuth server", () => {
       const posted = oauth.seen.find((item) => item.url.startsWith("/v1/responses"));
       expect(posted?.body).toContain('"store":false');
 
-      expect(await runtime.signOut()).toMatchObject({ kind: "OK", status: { state: "NOT_CONNECTED" } });
+      expect(await runtime.signOut()).toMatchObject({
+        kind: "OK",
+        status: { state: "NOT_CONNECTED" },
+      });
       expect(oauth.revoked()).toBe("refresh-2");
       expect(store.current()).toBeNull();
       expect(await runtime.models()).toMatchObject({ kind: "ERROR", code: "NOT_CONNECTED" });
@@ -241,7 +248,10 @@ describe("Grok subscription login against a mock OAuth server", () => {
     });
     try {
       expect(store.available()).toBe(false);
-      expect(await runtime.signIn()).toMatchObject({ kind: "ERROR", code: "SECURE_STORAGE_UNAVAILABLE" });
+      expect(await runtime.signIn()).toMatchObject({
+        kind: "ERROR",
+        code: "SECURE_STORAGE_UNAVAILABLE",
+      });
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

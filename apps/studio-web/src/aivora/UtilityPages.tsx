@@ -127,11 +127,7 @@ function ServicesContent() {
   const apiConfig = useRef<HTMLElement>(null);
   const entry = d.value("serviceEntry");
   const [serviceTab, setServiceTab] = useState<"grok" | "chatgpt" | "api">(() =>
-    apiKeyFallbackPending() || entry === "api"
-      ? "api"
-      : entry === "chatgpt"
-        ? "chatgpt"
-        : "grok",
+    apiKeyFallbackPending() || entry === "api" ? "api" : entry === "chatgpt" ? "chatgpt" : "grok",
   );
   const useApi = useCallback(() => {
     rememberServiceEntryChoice("api");
