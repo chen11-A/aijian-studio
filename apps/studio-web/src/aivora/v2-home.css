@@ -479,119 +479,6 @@
   margin-top: 12px;
   flex: 0 0 52px;
 }
-.v2-launch {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: linear-gradient(135deg, #041421, #09263e);
-  display: grid;
-  grid-template-columns: 56% 44%;
-  color: #f2f7ff;
-  overflow: auto;
-}
-.v2-launch-art {
-  padding: 0;
-  display: flex;
-  align-items: center;
-  background: #061726;
-}
-.v2-launch-art img {
-  display: block;
-  width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.v2-launch-copy {
-  position: relative;
-  min-width: 0;
-  padding: 124px 64px 0;
-  background: linear-gradient(180deg, #0a253c, #071a2c);
-}
-.v2-launch-brand {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  height: 64px;
-}
-.v2-launch-brand svg {
-  width: 64px;
-  height: 64px;
-}
-.v2-launch-brand strong {
-  font-size: 38px;
-  line-height: 56px;
-  align-self: flex-start;
-  margin-top: 2px;
-}
-.v2-launch-copy h1 {
-  font-size: 26px;
-  line-height: 40px;
-  margin: 48px 0 0;
-  white-space: nowrap;
-}
-.demo-root .v2-launch-copy > p {
-  font-size: 16px;
-  line-height: 28px;
-  margin: 68px 0 0;
-  color: #a8c0d5;
-}
-.demo-root .v2-launch-copy > .button {
-  display: flex;
-  width: 360px;
-  max-width: 100%;
-  height: 56px;
-  min-height: 56px;
-  margin-top: 96px;
-}
-.demo-root .v2-launch-copy > .pill {
-  display: inline-flex;
-  margin-top: 24px;
-  font-size: 12px;
-  line-height: 18px;
-  height: 24px;
-  width: 230px;
-  padding: 2px 9px;
-  color: #39d7f2;
-  border-color: #217ba3;
-  background: #123548;
-}
-.v2-launch-copy > small {
-  position: absolute;
-  bottom: 74px;
-  left: 64px;
-  font-size: 12px;
-  line-height: 22px;
-  color: #7695af;
-}
-.v2-launch-status,
-.v2-launch-models {
-  margin: 12px 0 0;
-  max-width: 420px;
-  color: #d7ebf8;
-  font-size: 14px;
-  line-height: 22px;
-}
-.v2-launch-models {
-  padding-left: 18px;
-}
-.v2-launch-quiet {
-  display: inline-flex;
-  margin-top: 12px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #8fb4cc;
-  font: inherit;
-  cursor: pointer;
-}
-.v2-launch-error {
-  font-size: 13px;
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
-  align-items: center;
-  color: #ffb2aa;
-}
 @media (min-height: 1000px) {
   .v2-project-overview {
     height: calc(332px + (100vh - 900px) * 0.5);
@@ -600,51 +487,12 @@
     height: 180px;
   }
 }
-@media (max-width: 1100px) {
-  .v2-launch {
-    grid-template-columns: 1fr;
-  }
-  .v2-launch-art {
-    max-height: 28vh;
-  }
-  .v2-launch-copy h1,
-  .demo-root .v2-launch-copy > p {
-    white-space: normal;
-  }
-}
-@media (max-height: 800px) {
-  .v2-launch-copy {
-    padding-top: 28px;
-  }
-  .v2-launch-copy h1 {
-    margin-top: 16px;
-    white-space: normal;
-  }
-  .demo-root .v2-launch-copy > p {
-    margin-top: 12px;
-  }
-  .demo-root .v2-launch-copy > .button {
-    margin-top: 24px;
-  }
-  .v2-launch-copy > small {
-    position: static;
-    display: block;
-    margin: 16px 0 24px;
-  }
-}
 @media (max-width: 1500px) {
   .v2-project-row img {
     width: 104px;
   }
   .v2-project-more {
     width: 18px;
-  }
-  .v2-launch-copy {
-    padding-left: 48px;
-    padding-right: 32px;
-  }
-  .v2-launch-copy h1 {
-    font-size: 22px;
   }
   .v2-project-stages h2 {
     font-size: 13px;

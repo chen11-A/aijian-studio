@@ -1,0 +1,405 @@
+.v2-launch {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 24px 20px;
+  color: #f5f7fb;
+  color-scheme: dark;
+  background:
+    radial-gradient(980px 560px at 50% -12%, #31407a66, transparent 62%),
+    radial-gradient(720px 480px at 92% 108%, #1a6e8640, transparent 58%), #070b14;
+  font-family:
+    "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "WenQuanYi Micro Hei", sans-serif;
+}
+
+.welcome-sign-in {
+  width: min(400px, 100%);
+  margin: auto;
+  flex: 0 0 auto;
+  padding: 12px 0 20px;
+}
+
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.welcome-brand svg {
+  width: 40px;
+  height: 40px;
+}
+
+.welcome-brand strong {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+
+.welcome-sign-in h1,
+.welcome-sign-in .welcome-title {
+  margin: 22px 0 0;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  text-align: center;
+  white-space: normal;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.welcome-sign-in .button {
+  width: 100%;
+  height: auto;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.welcome-sign-in .button.primary {
+  min-height: 52px;
+  border-color: #f4f6f8;
+  background: #f4f6f8;
+  color: #141518;
+  font-size: 16px;
+  font-weight: 650;
+  box-shadow: 0 12px 32px #00000055;
+}
+
+.welcome-sign-in .button.primary:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+}
+
+.welcome-sign-in .button.primary:disabled {
+  opacity: 0.62;
+}
+
+.welcome-sign-in .button:not(.primary) {
+  border-color: #ffffff2e;
+  background: transparent;
+  color: #f5f7fb;
+}
+
+.welcome-sign-in .button:not(.primary):hover:not(:disabled) {
+  border-color: #ffffff55;
+  background: #ffffff10;
+}
+
+.welcome-grok-mark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-right: 2px;
+  padding: 2px 7px 3px;
+  border-radius: 999px;
+  background: #141518;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.welcome-grok-mark small {
+  color: #c8ccd4;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.welcome-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 16px;
+}
+
+.welcome-links button {
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #c5ceda;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.welcome-links button:hover {
+  color: #fff;
+}
+
+.welcome-fine {
+  margin: 22px 0 0;
+  color: #9aa6b5;
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.welcome-more {
+  margin-top: 8px;
+  color: #b7c0cc;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.welcome-more summary {
+  cursor: pointer;
+  text-align: center;
+  list-style: none;
+}
+
+.welcome-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.welcome-more p {
+  margin: 10px 0 0;
+}
+
+.welcome-status,
+.welcome-models {
+  margin: 16px 0 0;
+  color: #e7edf5;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.welcome-status {
+  padding: 12px 14px;
+  border: 1px solid #ffffff1f;
+  border-radius: 12px;
+  background: #ffffff0f;
+}
+
+.welcome-status.is-waiting {
+  border-color: #9db4ff55;
+  background: #24315633;
+}
+
+.welcome-status.is-ok {
+  border-color: #3dba8a55;
+  background: #12382c33;
+}
+
+.welcome-status.is-error {
+  border-color: #e08a8255;
+  background: #4a222233;
+  color: #ffd7d2;
+}
+
+.welcome-status.is-denied {
+  border-color: #e2b15a66;
+  background: #3d321833;
+}
+
+.welcome-models {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-models li {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ffffff14;
+  font-size: 12px;
+}
+
+.welcome-inline-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-inline-error .button {
+  width: auto;
+  min-height: 36px;
+}
+
+.welcome-sign-in .button:focus-visible,
+.welcome-links button:focus-visible,
+.welcome-more summary:focus-visible {
+  outline: 2px solid #8eb0ff;
+  outline-offset: 3px;
+}
+
+.first-run-service-choice {
+  box-sizing: border-box;
+  width: min(448px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  margin: auto;
+  padding: 22px 28px 24px;
+  border: 1px solid #ffffff1c;
+  border-radius: 20px;
+  color: #f5f7fb;
+  color-scheme: dark;
+  background: radial-gradient(420px 180px at 50% -20%, #31407a55, transparent 70%), #10141d;
+  box-shadow: 0 24px 80px #00000080;
+  font-family:
+    "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "WenQuanYi Micro Hei", sans-serif;
+}
+
+.first-run-service-choice::backdrop {
+  background: #070b14b8;
+}
+
+.welcome-dialog-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px -8px 4px;
+}
+
+.welcome-dialog-tools .button {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: light) {
+  .v2-launch {
+    color: #1c1d21;
+    color-scheme: light;
+    background:
+      radial-gradient(980px 560px at 50% -12%, #d5e2ff, transparent 62%),
+      radial-gradient(720px 480px at 100% 110%, #efe3ff, transparent 56%), #f5f6f8;
+  }
+
+  .welcome-sign-in .button.primary {
+    border-color: #16171a;
+    background: #16171a;
+    color: #fff;
+    box-shadow: 0 12px 28px #16171a24;
+  }
+
+  .welcome-sign-in .button.primary:hover:not(:disabled) {
+    background: #000;
+    border-color: #000;
+  }
+
+  .welcome-sign-in .button.primary .welcome-grok-mark {
+    background: #fff;
+    color: #16171a;
+  }
+
+  .welcome-sign-in .button.primary .welcome-grok-mark small {
+    color: #5e6570;
+  }
+
+  .welcome-sign-in .button:not(.primary) {
+    border-color: #d9dce3;
+    background: #fff;
+    color: #1c1d21;
+  }
+
+  .welcome-sign-in .button:not(.primary):hover:not(:disabled) {
+    border-color: #b7bdc8;
+    background: #fafafa;
+  }
+
+  .welcome-links button,
+  .welcome-fine,
+  .welcome-more {
+    color: #5e6572;
+  }
+
+  .welcome-links button:hover {
+    color: #1c1d21;
+  }
+
+  .welcome-status,
+  .welcome-models {
+    color: #1c1d21;
+  }
+
+  .welcome-status {
+    border-color: #e4e7ee;
+    background: #ffffffcc;
+  }
+
+  .welcome-status.is-waiting {
+    border-color: #c5d2f5;
+    background: #eef2ff;
+  }
+
+  .welcome-status.is-ok {
+    border-color: #b7e4cf;
+    background: #eefaf4;
+  }
+
+  .welcome-status.is-error {
+    border-color: #f0c2bc;
+    background: #fff4f2;
+    color: #6d2c26;
+  }
+
+  .welcome-status.is-denied {
+    border-color: #edd3a0;
+    background: #fff8ec;
+  }
+
+  .welcome-models li {
+    background: #eef0f4;
+  }
+
+  .first-run-service-choice {
+    color: #1c1d21;
+    color-scheme: light;
+    border-color: #e6e8ee;
+    background: radial-gradient(420px 180px at 50% -20%, #e4ebff, transparent 70%), #fff;
+    box-shadow: 0 24px 70px #1c1d2118;
+  }
+
+  .first-run-service-choice::backdrop {
+    background: #1c1d2140;
+  }
+}
+
+@media (max-height: 640px) {
+  .v2-launch {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .welcome-sign-in h1,
+  .welcome-sign-in .welcome-title {
+    margin-top: 14px;
+    font-size: 24px;
+  }
+
+  .welcome-actions {
+    margin-top: 18px;
+  }
+
+  .welcome-fine {
+    margin-top: 14px;
+  }
+}

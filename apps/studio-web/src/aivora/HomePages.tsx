@@ -16,10 +16,17 @@ import {
   rememberServiceEntryChoice,
   type FirstRunServiceChoiceKind,
 } from "./FirstRunServiceChoice";
+import { useApiKeyFallback } from "./account/navigation";
+import {
+  GrokSignInButton,
+  WelcomeBrand,
+  WelcomeFinePrint,
+  welcomeStatusTone,
+} from "./WelcomeSignIn";
 import { stages } from "./data";
 import { useDemo } from "./model";
 import { Button, FlowFooter, Pill } from "./Common";
-import { Icon, Logo } from "./Icon";
+import { Icon } from "./Icon";
 import storyArt from "./assets/v2/story-art.png";
 import streetArt from "./assets/v2/street.png";
 import cityArt from "./assets/v2/city-wide.png";
@@ -31,6 +38,7 @@ import {
 } from "./adapters/projectManagement";
 import type { ProjectJournalState } from "./adapters/projectManagement";
 import "./v2-home.css";
+import "./welcome-sign-in.css";
 
 const projectImages = [storyArt, streetArt, cityArt];
 export function HomePages() {
@@ -571,66 +579,88 @@ export function HomePages() {
   if (d.page === "launch")
     return (
       <div className="v2-launch">
-        <div className="v2-launch-art">
-          <img src={storyArt} alt="星夜之城 · 样例插画" />
-        </div>
-        <div className="v2-launch-copy">
-          <div className="v2-launch-brand">
-            <Logo />
-            <strong>AIVORA</strong>
-          </div>
+        <div className="welcome-sign-in">
+          <WelcomeBrand />
           <h1>把故事，变成看得见的世界。</h1>
-          <p>一个创作入口，走完故事、角色与世界、分镜、制作和审片。</p>
-          {!d.isFixture && launchPhase !== "signed-in" && (
-            <Button
-              primary
-              disabled={launchPhase === "waiting"}
-              onClick={() => void startGrokSignIn()}
-            >
-              用 Grok 账号登录
-            </Button>
-          )}
-          {(d.isFixture || launchPhase === "signed-in") && (
-            <Button
-              primary
-              disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry}
-              onClick={() => void enterWorkbench()}
-            >
-              {checkingServiceEntry || loadingServiceEntry
-                ? "正在读取连接状态"
-                : d.scenario === "loading"
-                  ? "正在初始化"
-                  : d.isFixture
-                    ? "进入 UI 演示"
-                    : "进入创作工作台"}
-            </Button>
-          )}
+          <div className="welcome-actions">
+            {!d.isFixture && launchPhase !== "signed-in" && (
+              <GrokSignInButton
+                disabled={launchPhase === "waiting"}
+                onClick={() => void startGrokSignIn()}
+              />
+            )}
+            {(d.isFixture || launchPhase === "signed-in") && (
+              <Button
+                primary
+                disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry}
+                onClick={() => void enterWorkbench()}
+              >
+                {checkingServiceEntry || loadingServiceEntry
+                  ? "正在读取连接状态"
+                  : d.scenario === "loading"
+                    ? "正在初始化"
+                    : d.isFixture
+                      ? "进入 UI 演示"
+                      : "进入创作工作台"}
+              </Button>
+            )}
+            {!d.isFixture && launchPhase !== "signed-in" && (
+              <Button
+                disabled={launchPhase === "waiting"}
+                onClick={() => selectServiceEntry("chatgpt")}
+              >
+                使用 ChatGPT 账号
+              </Button>
+            )}
+          </div>
           {launchNotice && (
-            <div className="v2-launch-status" role="status">
+            <div
+              className={`welcome-status ${welcomeStatusTone(launchNotice, launchPhase)}`}
+              role="status"
+            >
               {launchNotice}
             </div>
           )}
           {launchModels.length > 0 && (
-            <ul className="v2-launch-models" aria-label="可用模型">
+            <ul className="welcome-models" aria-label="可用模型">
               {launchModels.map((name) => (
                 <li key={name}>{name}</li>
               ))}
             </ul>
           )}
           {!d.isFixture && launchPhase !== "signed-in" && (
-            <button type="button" className="v2-launch-quiet" onClick={() => void enterWorkbench()}>
-              {checkingServiceEntry || loadingServiceEntry ? "正在读取连接状态" : "进入创作工作台"}
-            </button>
-          )}
-          <Pill>
-            {d.isFixture ? "本地样例 · 不调用生成服务" : "本地作品 · 创作内容保存在工作区"}
-          </Pill>
-          {d.scenario === "error" && (
-            <div className="v2-launch-error" role="alert">
-              初始化失败，入口仍保留。<Button onClick={() => d.setScenario("normal")}>重试</Button>
+            <div className="welcome-links">
+              <button type="button" onClick={() => selectServiceEntry("api")}>
+                使用 API Key
+              </button>
+              <button type="button" onClick={() => selectServiceEntry("offline")}>
+                暂时离线创作
+              </button>
+              <button type="button" onClick={() => void enterWorkbench()}>
+                {checkingServiceEntry || loadingServiceEntry
+                  ? "正在读取连接状态"
+                  : "进入创作工作台"}
+              </button>
             </div>
           )}
-          <small>DESKTOP CREATOR / V2.0</small>
+          {!d.isFixture && welcomeStatusTone(launchNotice, launchPhase) === "is-denied" && (
+            <div className="welcome-links">
+              <button type="button" onClick={() => useApiKeyFallback()}>
+                改用 API Key（高级备用）
+              </button>
+            </div>
+          )}
+          {d.isFixture ? (
+            <p className="welcome-fine">本地样例 · 不调用生成服务</p>
+          ) : (
+            <WelcomeFinePrint />
+          )}
+          {d.scenario === "error" && (
+            <div className="welcome-status is-error welcome-inline-error" role="alert">
+              初始化失败，入口仍保留。
+              <Button onClick={() => d.setScenario("normal")}>重试</Button>
+            </div>
+          )}
         </div>
         {serviceChoiceOpen && (
           <FirstRunServiceChoice

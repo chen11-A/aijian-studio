@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Button } from "./Common";
-import "./first-run-service-choice.css";
+import {
+  GrokSignInButton,
+  WelcomeBrand,
+  WelcomeFinePrint,
+  welcomeStatusTone,
+} from "./WelcomeSignIn";
+import "./welcome-sign-in.css";
 
 export type FirstRunServiceChoiceKind = "grok" | "chatgpt" | "api" | "offline";
 const choiceKey = "aivora.service-onboarding.v1";
@@ -41,6 +47,10 @@ export function FirstRunServiceChoice({
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
+  const tone = welcomeStatusTone(
+    notice ?? "",
+    grokBusy ? "waiting" : notice ? "signed-out" : "unknown",
+  );
   return (
     <dialog
       ref={dialog}
@@ -51,46 +61,43 @@ export function FirstRunServiceChoice({
         onClose();
       }}
     >
-      <header>
-        <h2 id="first-service-title">连接 AI</h2>
-        <Button onClick={onClose} aria-label="关闭连接方式选择">
-          关闭
-        </Button>
-      </header>
-      <p>无需注册 AIVORA 账号。连接和模型都在「AI 服务」里完成，之后可以更改。</p>
-      {notice && <p role="status">{notice}</p>}
-      <div className="first-run-service-options">
-        <section className="grok-login-first">
-          <h3>Grok 账号</h3>
-          <p>
-            点一次「用 Grok 账号登录」。系统浏览器打开 xAI
-            授权页，点同意后自动回到这里，并显示已登录和可用模型。不用复制代码，也不用输入密码或密钥。SuperGrok
-            / X Premium+ 都可以登录；若推理返回 403，点一次即可改用 API Key。
+      <div className="welcome-sign-in">
+        <div className="welcome-dialog-tools">
+          <Button onClick={onClose} aria-label="关闭连接方式选择">
+            关闭
+          </Button>
+        </div>
+        <WelcomeBrand />
+        <h2 id="first-service-title" className="welcome-title">
+          把故事，变成看得见的世界。
+        </h2>
+        {notice && (
+          <p className={`welcome-status ${tone}`} role="status">
+            {notice}
           </p>
-          <Button
-            primary
+        )}
+        <div className="welcome-actions">
+          <GrokSignInButton
             disabled={grokBusy}
             onClick={() => {
               if (onGrokLogin) onGrokLogin();
               else onSelect("grok");
             }}
-          >
-            用 Grok 账号登录
-          </Button>
-        </section>
-        <section>
-          <h3>ChatGPT 官方账号</h3>
-          <p>同样在浏览器里授权。文本模型仍只在模型中心选择。</p>
+          />
           <Button disabled={grokBusy} onClick={() => onSelect("chatgpt")}>
-            使用 ChatGPT 官方账号
+            使用 ChatGPT 账号
           </Button>
-        </section>
+        </div>
+        <div className="welcome-links">
+          <button type="button" onClick={() => onSelect("api")}>
+            使用 API Key
+          </button>
+          <button type="button" onClick={() => onSelect("offline")}>
+            暂时离线创作
+          </button>
+        </div>
+        <WelcomeFinePrint />
       </div>
-      <p>本地创建、编辑与保存作品不需要 AI 登录。API Key 只在订阅登录不可用时再使用。</p>
-      <footer>
-        <Button onClick={() => onSelect("api")}>使用 API Key（高级备用）</Button>
-        <Button onClick={() => onSelect("offline")}>暂时离线创作</Button>
-      </footer>
     </dialog>
   );
 }
