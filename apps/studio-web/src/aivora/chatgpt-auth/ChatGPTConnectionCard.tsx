@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CurrentModelLink } from "../account/CurrentModelLink";
 import { Button } from "../Common";
 import { useChatGPTConnection } from "./useChatGPTConnection";
 import type { ChatGPTBridge } from "./transport";
@@ -153,37 +154,8 @@ export function ChatGPTConnectionControls({
           </Button>
           {selection && (
             <>
-              <label>
-                默认官方文本模型
-                <select
-                  value={
-                    !selection.requiresReselection &&
-                    selection.catalogProfileId &&
-                    selection.preference.defaultModel?.profileId === selection.catalogProfileId &&
-                    models.some(
-                      (item) => item.slug === selection.preference.defaultModel?.modelSlug,
-                    )
-                      ? selection.preference.defaultModel.modelSlug
-                      : ""
-                  }
-                  disabled={busy || !selection.catalogProfileId || models.length === 0}
-                  onChange={(event) => selection.setDefaultModel(event.target.value)}
-                >
-                  <option value="">
-                    {selection.requiresReselection
-                      ? "请重新选择模型"
-                      : selection.catalogProfileId
-                        ? "请选择模型"
-                        : "先读取当前账号模型"}
-                  </option>
-                  {selection.catalogProfileId &&
-                    models.map((model) => (
-                      <option key={model.slug} value={model.slug}>
-                        {model.displayName}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <CurrentModelLink capability="TEXT" />
+              <p>文本模型只在模型中心更改。这里不提供选择控件。</p>
               {selection.preference.defaultModel && !selection.catalogProfileId && (
                 <p role="status">已保存的默认模型待当前账号目录重新核验，暂不能用于生成。</p>
               )}
@@ -201,7 +173,7 @@ export function ChatGPTConnectionControls({
                 </p>
               )}
               {selection.requiresReselection && (
-                <p role="status">账号已切换或退出后重连，请重新选择模型确认。</p>
+                <p role="status">账号已切换或退出后重连，请到模型中心重新选择文本模型。</p>
               )}
               {selection.preferenceError && (
                 <Button onClick={selection.reloadPreference}>重新读取模型偏好</Button>
@@ -226,12 +198,12 @@ export function ChatGPTConnectionControls({
           )}
           <p>
             {selection
-              ? "这里选择文本默认模型；项目中可覆盖。生成前还需核对当前账号、模型和作品输入。"
-              : "选择模型：进入项目并选择分集，在分镜页打开 AI 导演提案，读取模型后使用“官方模型”下拉框。生成前需准备并确认剧本和制作意图。"}
+              ? "生成前仍会核对当前账号、模型和作品输入。项目页不再另选模型。"
+              : "读取目录后，到 AI 服务的模型中心选择文本模型，再回来生成。"}
           </p>
           {onOpenProjects && (
             <Button disabled={busy} onClick={onOpenProjects}>
-              {selection ? "前往项目准备生成" : "前往项目选择生成模型"}
+              前往项目准备生成
             </Button>
           )}
           <p>
@@ -253,7 +225,7 @@ export function ChatGPTConnectionControls({
         )}
       </footer>
       <small>
-        官方通道与 API / Sub2API 分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
+        官方通道与 API 连接分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
       </small>
     </section>
   );

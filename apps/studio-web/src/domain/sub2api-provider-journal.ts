@@ -1,3 +1,4 @@
+/** Historical pending-write lock. New connections are not offered; removal still consults this journal. */
 import type { Sub2APIMetadataCommand } from "../api/studio";
 import { isLiteralSub2APILoopbackOrigin } from "./provider-settings-model";
 

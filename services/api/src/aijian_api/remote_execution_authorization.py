@@ -1641,6 +1641,7 @@ class _FormalDispatchScope(_DispatchScope):
     source_document_id: str = Field(min_length=1, max_length=128)
     source_block_ids: list[str] = Field(min_length=1, max_length=10_000)
     span_bounds: list[list[int]] = Field(min_length=1, max_length=10_000)
+    billing_account_kind: Literal["grok_login"] | None = None
 
 
 class _SyntheticProbeScope(_DispatchScope):
@@ -1664,7 +1665,7 @@ def _validated_dispatch_scope(
             raise ValueError("unsupported remote dispatch class")
     except (TypeError, ValidationError, ValueError) as error:
         raise ValueError("remote dispatch scope is malformed") from error
-    return validated.model_dump(mode="json")
+    return validated.model_dump(mode="json", exclude_none=True)
 
 
 def _freeze_dispatch_scope(value: object) -> object:

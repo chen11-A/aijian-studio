@@ -36,7 +36,7 @@ export type Sub2APIConnectionMutationResult =
   | { kind: "UPDATED"; receipt: ProviderConnectionResponse }
   | {
       kind: "DEFINITE_SERVER_ERROR";
-      status: 401 | 403 | 404 | 409 | 422;
+      status: 401 | 403 | 404 | 409 | 410 | 422;
       code: string;
       request_id: string;
     }
@@ -286,7 +286,7 @@ export function sub2APIRotationReadDefiniteError(
 ): Extract<Sub2APIRotationReadResult, { kind: "DEFINITE_SERVER_ERROR" }> | null {
   if (status === 409) return null;
   const error = sub2APIMutationDefiniteError(status, value, requestId);
-  if (error === null || error.status === 409) return null;
+  if (error === null || error.status === 409 || error.status === 410) return null;
   return {
     kind: "DEFINITE_SERVER_ERROR",
     status: error.status,

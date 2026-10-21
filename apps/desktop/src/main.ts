@@ -14,6 +14,9 @@ import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assis
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { createGrokStore } from "./grok-auth-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -319,6 +322,40 @@ function getChatGPTRuntime() {
   });
   return chatgptRuntime;
 }
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), safeStorage),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    confirmSignIn: async (signal) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "Grok 账号登录",
+        defaultId: 1,
+        cancelId: 1,
+        signal,
+        buttons: ["继续并打开系统浏览器", "取消"],
+        message: "允许 AIVORA 用你的 Grok 订阅账号登录，并在本机加密保存登录凭据？",
+        detail:
+          "浏览器会打开 xAI 的授权页（auth.x.ai）。AIVORA 使用公开的 Grok 客户端和本机回调，不读取浏览器 Cookie。登录后只拉取模型目录，不会自动发起推理。令牌只留在本机安全存储，不进入项目文件或服务端数据库。若订阅档位不能用于第三方推理，调用时会得到 403，届时可以改用 API Key。你可以随时退出。",
+      });
+      return result.response === 0;
+    },
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>

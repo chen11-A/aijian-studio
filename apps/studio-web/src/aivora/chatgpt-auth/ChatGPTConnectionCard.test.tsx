@@ -158,7 +158,7 @@ describe("official connection card", () => {
     const transport = bridge(connected);
     const openProjects = vi.fn();
     render(<ChatGPTConnectionCard transport={transport} onOpenProjects={openProjects} />);
-    fireEvent.click(await screen.findByRole("button", { name: "前往项目选择生成模型" }));
+    fireEvent.click(await screen.findByRole("button", { name: "前往项目准备生成" }));
     expect(openProjects).toHaveBeenCalledOnce();
     expect(transport.models).not.toHaveBeenCalled();
     expect(transport.signIn).not.toHaveBeenCalled();

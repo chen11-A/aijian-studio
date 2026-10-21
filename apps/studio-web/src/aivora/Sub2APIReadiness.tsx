@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ProviderConnectionListResponse, Sub2APIReadinessResult } from "../api/studio";
+import { getModelCenterSnapshot, subscribeModelCenter } from "./account/model-center";
 import { Button } from "./Common";
 
 type Connection = ProviderConnectionListResponse["data"][number];
@@ -23,7 +24,20 @@ export function Sub2APIReadiness({
   read?: Reader;
   disabled?: boolean;
 }) {
-  const [modelId, setModelId] = useState(connection.models[0]?.model_id ?? "");
+  const center = useSyncExternalStore(
+    subscribeModelCenter,
+    getModelCenterSnapshot,
+    getModelCenterSnapshot,
+  );
+  const textModels = connection.models.filter(
+    (model) => model.capabilities.length === 1 && model.capabilities[0] === "TEXT",
+  );
+  const centered = center.choices.TEXT;
+  const onlyTextModel = textModels.length === 1 ? textModels[0] : undefined;
+  const modelId =
+    onlyTextModel?.model_id ??
+    textModels.find((model) => model.model_id === centered?.modelId)?.model_id ??
+    "";
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const epoch = useRef(0);
@@ -85,24 +99,10 @@ export function Sub2APIReadiness({
         {connection.origin_mode === "LOCAL_LOOPBACK_HTTP" ? "本机 loopback" : "公网 HTTPS"} · 修订{" "}
         {connection.revision}
       </p>
-      <label>
-        核对 TEXT 模型
-        <select
-          value={modelId}
-          onChange={(event) => {
-            setModelId(event.target.value);
-            setNotice("");
-          }}
-        >
-          {connection.models
-            .filter((model) => model.capabilities.length === 1 && model.capabilities[0] === "TEXT")
-            .map((model) => (
-              <option key={model.model_id} value={model.model_id}>
-                {model.model_id}
-              </option>
-            ))}
-        </select>
-      </label>
+      <p>
+        核对文本模型：
+        {modelId || "请先在模型中心选择此连接已登记的文本模型"}
+      </p>
       <Button
         disabled={!read || disabled || !modelId || busy || !knownMode}
         onClick={() => void readCurrent()}

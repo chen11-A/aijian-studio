@@ -1,3 +1,4 @@
+import { SandboxMediaTaskDesk } from "./account/SandboxSurfaces";
 import { MediaPreparationWorkflow } from "./MediaPreparationWorkflow";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
 import { NativeDraftPages } from "./NativeDraftPages";
@@ -1168,6 +1169,7 @@ export function MediaPages() {
             </Button>
           }
         />
+        <SandboxMediaTaskDesk />
         {d.backendProjectId && d.selectedEpisodeId ? (
           <MediaPreparationWorkflow
             key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
@@ -1179,7 +1181,7 @@ export function MediaPages() {
           />
         ) : (
           <section className="v2-media-body">
-            <p>请先选择真实作品和分集，再准备镜头制作请求。</p>
+            <p>上面的媒体任务是本地演示，不需要作品。真正准备镜头，要先选择作品和分集。</p>
             <Button onClick={() => d.go("project")}>选择作品和分集</Button>
           </section>
         )}

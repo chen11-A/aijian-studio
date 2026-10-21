@@ -125,11 +125,8 @@ import {
 import {
   isEditSub2APIMetadataCommand,
   isRotateSub2APIKeyCommand,
-  isSub2APIMetadataReceipt,
-  isSub2APIKeyRotationReceipt,
   isSub2APIRotationOperationId,
   isSub2APIRotationOperationResponse,
-  sub2APIMutationDefiniteError,
   sub2APIRotationReadDefiniteError,
   type EditSub2APIMetadataCommand,
   type RotateSub2APIKeyCommand,
@@ -212,7 +209,6 @@ import {
   isProviderConnectionId,
   isProviderConnectionListResponse,
   isProviderConnectionResponse,
-  isSub2APIOriginMode,
   type CreateProviderConnectionInput,
   type ProviderConnectionListResponse,
   type ProviderConnectionResponse,
@@ -253,12 +249,9 @@ import {
   isSub2APIOperationResponse,
   isSub2APIProjectId,
   isSub2APIQueueCommand,
-  isSub2APIQueueReceipt,
   isVersionedProposalNotFound,
   isVersionedSourceExtractionProposalId,
-  sub2APIApprovalIdempotencyKey,
   sub2APIDefiniteError,
-  sub2APIQueueIdempotencyKey,
   sub2APIRunId,
   type Sub2APIApprovalCommand,
   type Sub2APIApprovalReadResult,
@@ -2294,6 +2287,20 @@ export class DevelopmentExportGetError extends Error {
   }
 }
 
+function retiredSub2APIDispatch(): {
+  kind: "DEFINITE_SERVER_ERROR";
+  status: 410;
+  code: "SUB2API_DISPATCH_RETIRED";
+  request_id: string;
+} {
+  return {
+    kind: "DEFINITE_SERVER_ERROR",
+    status: 410,
+    code: "SUB2API_DISPATCH_RETIRED",
+    request_id: "00000000-0000-4000-8000-000000000410",
+  };
+}
+
 export function createLocalApiClient(
   fetcher: Fetcher,
   session: SidecarApiSession,
@@ -4148,38 +4155,7 @@ export function createLocalApiClient(
       if (!isSub2APIProjectId(projectId) || !isSub2APIQueueCommand(command)) {
         throw new Error("Local API client requires an exact Sub2API queue command");
       }
-      let response: Response;
-      try {
-        response = await fetcher(
-          `${origin}/api/v1/projects/${projectId}/sub2api-source-extract-runs`,
-          {
-            method: "POST",
-            headers: {
-              ...headers,
-              "Content-Type": "application/json",
-              "Idempotency-Key": sub2APIQueueIdempotencyKey(command),
-            },
-            body: JSON.stringify(command.input),
-            signal: AbortSignal.timeout(15_000),
-          },
-        );
-      } catch {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
-      try {
-        const payload = await readJsonWithLimit(response);
-        const requestId = response.headers.get("X-Request-ID");
-        if (response.status === 200 || response.status === 201) {
-          return isSub2APIQueueReceipt(payload, projectId, command, requestId)
-            ? { kind: "QUEUED", receipt: payload, replayed: response.status === 200 }
-            : { kind: "REMOTE_UNKNOWN" };
-        }
-        return (
-          sub2APIDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
-        );
-      } catch {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
+      return retiredSub2APIDispatch();
     },
     async readOriginalSub2APISourceExtractOperation(
       projectId: string,
@@ -4202,73 +4178,7 @@ export function createLocalApiClient(
       ) {
         throw new Error("Local API client requires an exact one-call approval command");
       }
-      const current = await requestSub2APIOperation(projectId, originalCommand);
-      if (current.kind === "DEFINITE_SERVER_ERROR") return current;
-      if (current.kind === "NOT_FOUND") {
-        return {
-          kind: "DEFINITE_SERVER_ERROR",
-          status: 404,
-          code: "SUB2API_RUN_NOT_FOUND",
-          request_id: current.request_id,
-        };
-      }
-      if (
-        current.kind !== "FOUND" ||
-        current.receipt.data.content_status !== "PENDING" ||
-        current.receipt.data.approval_id !== null ||
-        current.receipt.data.scope.task_id !== approvalCommand.input.task_id ||
-        current.receipt.data.scope.attempt_id !== approvalCommand.input.attempt_id ||
-        current.receipt.data.scope.attempt_fingerprint !==
-          approvalCommand.input.expected_attempt_fingerprint
-      ) {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
-      let response: Response;
-      try {
-        response = await fetcher(
-          `${origin}/api/v1/projects/${projectId}/sub2api-source-extract-runs/${current.runId}/approval`,
-          {
-            method: "POST",
-            headers: {
-              ...headers,
-              "Content-Type": "application/json",
-              "Idempotency-Key": sub2APIApprovalIdempotencyKey(approvalCommand),
-            },
-            body: JSON.stringify(approvalCommand.input),
-            signal: AbortSignal.timeout(15_000),
-          },
-        );
-      } catch {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
-      try {
-        const payload = await readJsonWithLimit(response);
-        const requestId = response.headers.get("X-Request-ID");
-        if (response.status === 200) {
-          if (
-            !isSub2APIApprovalResponse(
-              payload,
-              projectId,
-              originalCommand,
-              requestId,
-              approvalCommand,
-            )
-          )
-            return { kind: "REMOTE_UNKNOWN" };
-          if (payload.data.status === "APPROVED_ONE_CALL") {
-            return { kind: "APPROVED", receipt: payload };
-          }
-          if (payload.data.status === "CONSUMED") {
-            return { kind: "CONSUMED", receipt: payload };
-          }
-          return { kind: "REMOTE_UNKNOWN" };
-        }
-        return (
-          sub2APIDefiniteError(response.status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" }
-        );
-      } catch {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
+      return retiredSub2APIDispatch();
     },
     async getSub2APISourceExtractApproval(
       projectId: string,
@@ -4911,77 +4821,7 @@ export function createLocalApiClient(
       if (!isSub2APIConnectionId(connectionId) || !isEditSub2APIMetadataCommand(command)) {
         throw new Error("Sub2API metadata edit requires canonical arguments");
       }
-      async function readConnectionsWithinDeadline(): Promise<ProviderConnectionListResponse | null> {
-        const controller = new AbortController();
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const deadline = new Promise<null>((resolve) => {
-          timer = setTimeout(() => {
-            controller.abort();
-            resolve(null);
-          }, 15_000);
-        });
-        try {
-          return await Promise.race([
-            requestJson("/api/v1/provider-connections", isProviderConnectionListResponse, {
-              headers,
-              signal: controller.signal,
-            }),
-            deadline,
-          ]);
-        } catch {
-          return null;
-        } finally {
-          if (timer !== undefined) clearTimeout(timer);
-        }
-      }
-      const before = await readConnectionsWithinDeadline();
-      if (before === null) return { kind: "REMOTE_UNKNOWN" };
-      const current = before.data.find((item) => item.id === connectionId);
-      if (
-        !current ||
-        current.provider_kind !== "SUB2API" ||
-        current.revision !== command.expected_revision ||
-        !isRecord(current) ||
-        !isSub2APIOriginMode(current.origin_mode)
-      ) {
-        return { kind: "REMOTE_UNKNOWN" };
-      }
-      if (command.origin_mode === undefined && current.origin_mode === "LOCAL_LOOPBACK_HTTP") {
-        throw new Error("Editing a local Sub2API connection requires explicit origin_mode");
-      }
-      const explicitCommand = {
-        ...command,
-        origin_mode: command.origin_mode ?? "PUBLIC_HTTPS",
-      };
-      const result = await requestSub2APIMutationHttp(
-        `/api/v1/provider-connections/${connectionId}`,
-        {
-          method: "PATCH",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify(explicitCommand),
-        },
-      );
-      if (result === null) return { kind: "REMOTE_UNKNOWN" };
-      const { status, payload, requestId } = result;
-      if (status === 200) {
-        if (!isSub2APIMetadataReceipt(payload, connectionId, explicitCommand, requestId)) {
-          return { kind: "REMOTE_UNKNOWN" };
-        }
-        const after = await readConnectionsWithinDeadline();
-        if (after === null) return { kind: "REMOTE_UNKNOWN" };
-        const persisted = after.data.find((item) => item.id === connectionId);
-        return persisted?.provider_kind === "SUB2API" &&
-          isRecord(persisted) &&
-          persisted.origin_mode === explicitCommand.origin_mode &&
-          persisted.revision === payload.data.revision &&
-          persisted.base_url === payload.data.base_url &&
-          persisted.display_name === payload.data.display_name &&
-          persisted.enabled === payload.data.enabled &&
-          JSON.stringify(persisted.models) === JSON.stringify(payload.data.models)
-          ? { kind: "UPDATED", receipt: payload }
-          : { kind: "REMOTE_UNKNOWN" };
-      }
-      return sub2APIMutationDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" };
+      return retiredSub2APIDispatch();
     },
     async rotateSub2APIKey(
       connectionId: string,
@@ -4990,18 +4830,7 @@ export function createLocalApiClient(
       if (!isSub2APIConnectionId(connectionId) || !isRotateSub2APIKeyCommand(command)) {
         throw new Error("Sub2API rotation requires canonical arguments");
       }
-      const result = await requestSub2APIMutationHttp(
-        `/api/v1/provider-connections/${connectionId}/credential-rotations`,
-        postInit(command),
-      );
-      if (result === null) return { kind: "REMOTE_UNKNOWN" };
-      const { status, payload, requestId } = result;
-      if (status === 200) {
-        return isSub2APIKeyRotationReceipt(payload, connectionId, command, requestId)
-          ? { kind: "UPDATED", receipt: payload }
-          : { kind: "REMOTE_UNKNOWN" };
-      }
-      return sub2APIMutationDefiniteError(status, payload, requestId) ?? { kind: "REMOTE_UNKNOWN" };
+      return retiredSub2APIDispatch();
     },
     async readSub2APIKeyRotation(
       connectionId: string,

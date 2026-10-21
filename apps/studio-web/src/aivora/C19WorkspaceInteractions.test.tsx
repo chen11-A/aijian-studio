@@ -273,4 +273,17 @@ describe("C19 workspace controls", () => {
     );
     expect(document.querySelector(".demo-root")).toHaveClass("management-shell");
   });
+
+  it("shows sandbox desks on generation, voice and export before a project exists", () => {
+    for (const [page, label] of [
+      ["generation", "媒体任务沙箱"],
+      ["voice", "配音方案沙箱"],
+      ["export", "正式交付清单"],
+    ] as const) {
+      window.history.replaceState({}, "", `#${page}`);
+      render(<DemoApp />);
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+      cleanup();
+    }
+  });
 });

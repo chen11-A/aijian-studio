@@ -3,6 +3,7 @@ import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { readChatGPTStatus } from "./chatgpt-auth/transport";
+import { readGrokStatus } from "./grok-auth/transport";
 import {
   FirstRunServiceChoice,
   hasServiceEntryChoice,
@@ -72,13 +73,21 @@ export function HomePages() {
     } catch {
       // Reading status never grants access and failure must not block local work.
     }
+    if (!alreadyConnected) {
+      try {
+        const grok = await readGrokStatus();
+        alreadyConnected = grok.state === "CONNECTED" || grok.state === "ENTITLEMENT_DENIED";
+      } catch {
+        // A failed Grok status read must not block local work.
+      }
+    }
     setCheckingServiceEntry(false);
     if (live.current.page !== "launch") return;
     if (alreadyConnected) d.go("home");
     else {
       setServiceChoiceNotice(
         d.providerSettings.state.kind === "error"
-          ? "已有 API 配置暂时无法读取；可继续本地创作，或到 AI 服务中重新读取。"
+          ? "本地服务暂时读不到已保存的连接。可以先离线创作，或稍后到 AI 服务再试。"
           : "",
       );
       setServiceChoiceOpen(true);
@@ -101,7 +110,7 @@ export function HomePages() {
       ],
       async (data) => {
         if (d.workspaceState !== "connected") {
-          d.notify("请先连接本地工作区，再创建真实项目。");
+          d.notify("请先连接本地工作区，再创建真实项目。桌面服务没连上时，可以先试用沙箱创作。");
           return false;
         }
         const title = data.title!.trim();
@@ -529,6 +538,9 @@ export function HomePages() {
               <Button primary onClick={newProject}>
                 新建项目
               </Button>
+              {!d.isFixture && (
+                <Button onClick={() => d.go("generation")}>试用沙箱创作</Button>
+              )}
               <Button
                 onClick={() => void d.connectRealWorkspace()}
                 disabled={d.workspaceState === "loading"}
