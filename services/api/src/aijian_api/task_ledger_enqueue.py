@@ -129,6 +129,7 @@ def enqueue_sub2api_node(
     id_factory: Callable[[str], str],
     transaction_validator: Callable[[sqlite3.Connection], None] | None = None,
 ) -> QueuedTask:
+    """Keep historical scope replay. Live HTTP dispatch no longer reaches this."""
     if (
         request.sub2api_scope is None
         or request.dispatch_snapshot is not None
