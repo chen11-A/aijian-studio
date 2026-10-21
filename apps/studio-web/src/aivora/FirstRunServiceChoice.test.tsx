@@ -19,7 +19,9 @@ describe("optional first-use service choice", () => {
   it("does not require ChatGPT and routes directly to API or offline work", () => {
     const select = vi.fn();
     render(<FirstRunServiceChoice onSelect={select} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "连接 Grok（API Key）" }));
+    fireEvent.click(screen.getByRole("button", { name: "用 Grok 账号登录" }));
+    expect(select).toHaveBeenLastCalledWith("grok");
+    fireEvent.click(screen.getByRole("button", { name: "使用 API Key（高级备用）" }));
     expect(select).toHaveBeenLastCalledWith("api");
     fireEvent.click(screen.getByRole("button", { name: "暂时离线创作" }));
     expect(select).toHaveBeenLastCalledWith("offline");

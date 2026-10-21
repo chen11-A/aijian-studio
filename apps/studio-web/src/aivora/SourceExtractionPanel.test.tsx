@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SourceManifestResponse, StudioTransport } from "../api/studio";
 import type * as StudioModule from "../api/studio";
 import { SourceExtractionPanel } from "./SourceExtractionPanel";
+import { selectCenteredModel } from "./account/model-center";
 import {
   originalRemoteSourceExtractCommand,
   type RemoteSourceExtractOperation,
@@ -203,6 +204,7 @@ function setup(saved = false, providerKind: "CPA_LOOPBACK" | "XAI" = "CPA_LOOPBA
     getArtifactProposal: vi.fn().mockResolvedValue(proposal),
     getSourceExtraction: vi.fn().mockResolvedValue({ kind: "NOT_FOUND" }),
     getSourceExtractionVersion: vi.fn().mockResolvedValue({ kind: "FOUND", receipt: draft }),
+    getSourceText: vi.fn(),
     proposalDecisions: {
       acceptAsDraft: vi.fn().mockResolvedValue({
         kind: "SUCCEEDED",
@@ -240,6 +242,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  delete window.aijianGrok;
   vi.restoreAllMocks();
 });
 
@@ -270,6 +273,30 @@ describe("source extraction panel queue and original read", () => {
     expect(h.api.remoteSourceExtract.create.mock.calls[0]?.[1].input.billing_account_kind).toBe(
       "grok_login",
     );
+  });
+  test("sends the selected block through the Grok login transport and surfaces a 403", async () => {
+    const h = setup();
+    const completeText = vi.fn().mockResolvedValue({
+      kind: "ERROR",
+      code: "ENTITLEMENT_DENIED",
+      billingAccountKind: "grok_login",
+    });
+    window.aijianGrok = {
+      status: vi.fn(),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(),
+      completeText,
+    };
+    h.api.getSourceText.mockResolvedValue({ data: { normalized_text: "hello world!" } });
+    selectCenteredModel("TEXT", { provider: "GROK_LOGIN", modelId: "grok-4" });
+    await screen.findByRole("option", { name: /Test connection/ });
+    fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+    click("用 Grok 账号生成这段文本");
+    expect(await screen.findByText(/请改用 API Key/)).toBeInTheDocument();
+    expect(completeText).toHaveBeenCalledWith({ model: "grok-4", text: "hello world!" });
+    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
   });
   test.each(["unknown", "rejected", "storage"])(
     "queue %s does not report success",

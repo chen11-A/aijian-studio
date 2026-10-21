@@ -20,6 +20,42 @@ async function run(viewport, persona) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    let state = {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "NOT_CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: null,
+      lastError: null,
+    };
+    const connected = {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: "persona@example.test",
+      lastError: null,
+    };
+    window.aijianGrok = {
+      status: async () => state,
+      signIn: async () => {
+        state = connected;
+        return { kind: "OK", status: state };
+      },
+      cancel: async () => ({ kind: "CANCELLED", status: state }),
+      signOut: async () => {
+        state = { ...connected, state: "NOT_CONNECTED", accountLabel: null };
+        return { kind: "OK", status: state };
+      },
+      models: async () => ({ kind: "OK", models: [{ id: "grok-4.3", label: "Grok 4.3" }] }),
+      completeText: async () => ({
+        kind: "ERROR",
+        code: "ENTITLEMENT_DENIED",
+        billingAccountKind: "grok_login",
+      }),
+    };
+  });
   const steps = [];
   let clicks = 0;
   const shot = async (name) =>
@@ -30,53 +66,37 @@ async function run(viewport, persona) {
   await shot("01-launch");
   await page.getByRole("button", { name: "进入创作工作台" }).click();
   clicks += 1;
-  const choice = persona === "novice" ? "暂时离线创作" : "连接 Grok（API Key）";
   const choiceButton = page.locator("dialog.first-run-service-choice").getByRole("button", {
-    name: choice,
+    name: "用 Grok 账号登录",
   });
   await choiceButton.waitFor({ state: "visible", timeout: 8000 });
   await shot("02-service-choice");
   await choiceButton.click();
   clicks += 1;
-  await page.waitForSelector(
-    persona === "novice" ? ".main-panel.page-home" : ".main-panel.page-services",
-  );
-  await shot("03-after-choice");
-  if (persona === "pro") {
-
-  const key = page.getByLabel("xAI 密钥");
-  if (await key.isVisible().catch(() => false)) {
-    await key.fill("xai-sandbox-demo-key-0001");
-    const connect = page.getByRole("button", { name: "连接 API Key（沙箱）" });
-    if (!(await connect.isVisible())) await connect.scrollIntoViewIfNeeded();
-    await connect.click();
-    clicks += 1;
-    await page.waitForTimeout(200);
-  }
-    await shot("03-after-sandbox-key");
-  }
-
+  await page.waitForSelector(".main-panel.page-services");
+  const signIn = page.getByRole("button", { name: "在浏览器中登录 Grok" });
+  await signIn.scrollIntoViewIfNeeded();
+  await shot("03-grok-card");
+  await signIn.click();
+  clicks += 1;
+  await page.getByText("persona@example.test").first().waitFor({ timeout: 8000 });
   const model = page.locator("#model-center select").first();
-  if (persona === "pro" && (await model.count())) {
-    const options = await model.locator("option").allTextContents();
-    steps.push({ clicks, name: "model-options", text: options.join(" | ") });
-    const value = await model.locator("option").nth(1).getAttribute("value");
-    if (value) {
-      await model.selectOption(value);
-      clicks += 1;
-    }
-  }
+  await model.locator("option", { hasText: "Grok 4.3" }).waitFor({ state: "attached", timeout: 8000 });
+  const options = await model.locator("option").allTextContents();
+  steps.push({ clicks, name: "model-options", persona, text: options.join(" | ") });
+  await model.selectOption({ label: "Grok 4.3 · Grok 账号" });
+  clicks += 1;
+  const probe = page.getByRole("button", { name: "检查这次订阅能否推理" });
+  await probe.scrollIntoViewIfNeeded();
+  await probe.click();
+  clicks += 1;
+  await page.getByText("403").first().waitFor({ timeout: 8000 });
+  await shot("04-entitlement-403");
 
-  if (persona === "pro") {
-    const trySandbox = page.getByRole("button", { name: "看看媒体沙箱（不产生费用）" });
-    await trySandbox.scrollIntoViewIfNeeded();
-    await trySandbox.click();
-    clicks += 1;
-  } else {
-    const sandbox = page.getByRole("button", { name: "试用沙箱创作" });
-    await sandbox.click();
-    clicks += 1;
-  }
+  const trySandbox = page.getByRole("button", { name: "看看媒体沙箱（不产生费用）" });
+  await trySandbox.scrollIntoViewIfNeeded();
+  await trySandbox.click();
+  clicks += 1;
   await page.waitForSelector(".main-panel.page-generation");
   await shot("05-sandbox");
 

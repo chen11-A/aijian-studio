@@ -3,6 +3,7 @@ import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { readChatGPTStatus } from "./chatgpt-auth/transport";
+import { readGrokStatus } from "./grok-auth/transport";
 import {
   FirstRunServiceChoice,
   hasServiceEntryChoice,
@@ -71,6 +72,14 @@ export function HomePages() {
       alreadyConnected = status.state === "CONNECTED" || status.state === "IDENTITY_ONLY";
     } catch {
       // Reading status never grants access and failure must not block local work.
+    }
+    if (!alreadyConnected) {
+      try {
+        const grok = await readGrokStatus();
+        alreadyConnected = grok.state === "CONNECTED" || grok.state === "ENTITLEMENT_DENIED";
+      } catch {
+        // A failed Grok status read must not block local work.
+      }
     }
     setCheckingServiceEntry(false);
     if (live.current.page !== "launch") return;

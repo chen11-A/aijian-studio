@@ -2,14 +2,14 @@ import { useEffect, useRef } from "react";
 import { Button } from "./Common";
 import "./first-run-service-choice.css";
 
-export type FirstRunServiceChoiceKind = "chatgpt" | "api" | "offline";
+export type FirstRunServiceChoiceKind = "grok" | "chatgpt" | "api" | "offline";
 const choiceKey = "aivora.service-onboarding.v1";
 
 /** A UI preference only. It must never be used as proof of authorization. */
 export function hasServiceEntryChoice(): boolean {
   try {
     const choice = window.localStorage.getItem(choiceKey);
-    return choice === "api" || choice === "offline" || choice === "chatgpt";
+    return choice === "grok" || choice === "api" || choice === "offline" || choice === "chatgpt";
   } catch {
     return false;
   }
@@ -57,20 +57,23 @@ export function FirstRunServiceChoice({
       {notice && <p role="status">{notice}</p>}
       <div className="first-run-service-options">
         <section>
-          <h3>连接 Grok</h3>
-          <p>官方没有与 ChatGPT 相同的订阅登录。用控制台 API Key 连接，不能使用 Grok 订阅额度。</p>
-          <Button primary onClick={() => onSelect("api")}>
-            连接 Grok（API Key）
+          <h3>Grok 账号</h3>
+          <p>用浏览器登录 Grok 订阅。各档位都可以登录；若推理返回 403，再改用 API Key。</p>
+          <Button primary onClick={() => onSelect("grok")}>
+            用 Grok 账号登录
           </Button>
         </section>
         <section>
           <h3>ChatGPT 官方账号</h3>
-          <p>可选。浏览器授权后，文本模型仍只在模型中心选择。</p>
-          <Button onClick={() => onSelect("chatgpt")}>使用 ChatGPT 官方账号</Button>
+          <p>同样在浏览器里授权。文本模型仍只在模型中心选择。</p>
+          <Button primary onClick={() => onSelect("chatgpt")}>
+            使用 ChatGPT 官方账号
+          </Button>
         </section>
       </div>
+      <p>本地创建、编辑与保存作品不需要 AI 登录。API Key 只在订阅登录不可用时再使用。</p>
       <footer>
-        <span>本地创建、编辑与保存作品不需要 AI 登录。</span>
+        <Button onClick={() => onSelect("api")}>使用 API Key（高级备用）</Button>
         <Button onClick={() => onSelect("offline")}>暂时离线创作</Button>
       </footer>
     </dialog>

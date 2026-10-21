@@ -72,7 +72,7 @@ describe("capability preparation view", () => {
       />,
     );
     expect(screen.getByText(/已登记候选：Grok API fixture/)).toBeInTheDocument();
-    expect(screen.getByText(/这是 xAI API 配置，不是 SuperGrok/)).toBeInTheDocument();
+    expect(screen.getByText(/这是 API Key 备用配置，不是 Grok 订阅登录/)).toBeInTheDocument();
     expect(screen.getByText(/Other fixture：系统凭据暂不可用/)).toBeInTheDocument();
     expect(screen.getAllByText("自动生成尚未接入")).toHaveLength(3);
   });

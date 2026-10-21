@@ -313,7 +313,7 @@ async function main() {
 
       await page.goto(`${baseUrl}#services`, { waitUntil: "domcontentloaded" });
       await settle(page);
-      const apiTab = page.getByRole("button", { name: "API 连接" });
+      const apiTab = page.getByRole("button", { name: "API 连接（高级备用）" });
       const gptTab = page.getByRole("button", { name: "ChatGPT 官方账号" });
       if (await apiTab.isVisible().catch(() => false)) {
         await apiTab.click();

@@ -1,17 +1,15 @@
 /**
- * One account row for ChatGPT and one for Grok.
- *
- * ChatGPT uses the existing official Sign in with ChatGPT OAuth. A connected
- * profile with plan permission can spend that ChatGPT plan. Grok has no
- * published equivalent: xAI documents API keys only, and says Grok subscription
- * billing is separate from API billing. `grok login --device-auth` belongs to
- * the Grok CLI, not to a third-party client registration AIVORA may implement.
+ * ChatGPT and Grok subscription logins are peer account rows.
+ * Grok uses the public xAI authorization server (auth.x.ai) and api.x.ai.
+ * An API key is a separate, secondary connection and does not spend the
+ * subscription login.
  */
 
 import type { ChatGPTModel, ChatGPTStatus } from "../chatgpt-auth/transport";
+import type { GrokLoginModel, GrokLoginStatus } from "../grok-auth/transport";
 import { DOCUMENTED_XAI_MODELS, type XaiSandboxSession } from "./xai-account";
 
-export type AccountProviderId = "CHATGPT_OFFICIAL" | "XAI_API";
+export type AccountProviderId = "CHATGPT_OFFICIAL" | "GROK_LOGIN" | "XAI_API";
 
 export type ConnectedAccountModel = {
   id: string;
@@ -33,10 +31,14 @@ export function connectedAccountSlots(input: {
   chatgpt?: ChatGPTStatus | null;
   chatgptModels?: readonly ChatGPTModel[];
   chatgptLoading?: boolean;
+  grok?: GrokLoginStatus | null;
+  grokModels?: readonly GrokLoginModel[];
+  grokLoading?: boolean;
   xai?: XaiSandboxSession | null;
-}): readonly [ConnectedAccountSlot, ConnectedAccountSlot] {
+}): readonly [ConnectedAccountSlot, ConnectedAccountSlot, ConnectedAccountSlot] {
   return [
     chatgptSlot(input.chatgpt ?? null, input.chatgptModels ?? [], input.chatgptLoading),
+    grokLoginSlot(input.grok ?? null, input.grokModels ?? [], input.grokLoading),
     xaiSlot(input.xai ?? null),
   ];
 }
@@ -82,20 +84,61 @@ function chatgptSlot(
   };
 }
 
+function grokLoginSlot(
+  status: GrokLoginStatus | null,
+  models: readonly GrokLoginModel[],
+  loading = false,
+): ConnectedAccountSlot {
+  let state = "未连接";
+  let quota = "未登录。登录后额度未知，本页不查询用量，也不写成 0。";
+  let connected = false;
+  let listed: readonly ConnectedAccountModel[] = [];
+  if (loading) {
+    state = "正在读取";
+    quota = "额度未知。读取完成前不显示为 0。";
+  } else if (!status || status.runtime === "DESKTOP_REQUIRED") {
+    state = "需要桌面应用";
+    quota = "网页预览不能开始 Grok 登录。订阅额度未知。";
+  } else if (status.state === "AWAITING_BROWSER") {
+    state = "等待浏览器授权";
+    quota = "授权尚未完成。订阅额度未知。";
+  } else if (status.state === "REAUTH_REQUIRED") {
+    state = "需要重新登录";
+    quota = "订阅额度未知。重新登录前不能当作已授权。";
+  } else if (status.state === "ENTITLEMENT_DENIED") {
+    state = status.accountLabel ? `已登录 · ${status.accountLabel}` : "已登录";
+    quota = "登录成功，但模型目录或推理返回 403。请改用 API Key。剩余额度未知。";
+  } else if (status.state === "CONNECTED") {
+    connected = true;
+    state = status.accountLabel ? `已连接 · ${status.accountLabel}` : "已连接";
+    quota = "订阅登录已建立。剩余额度未知，本页不查询用量，也不写成 0。";
+    listed = models.map((model) => ({ id: model.id, label: model.label }));
+  }
+  return {
+    provider: "GROK_LOGIN",
+    title: "Grok",
+    method: "官方 OAuth",
+    connected,
+    state,
+    quota,
+    models: listed,
+    difference: "与 ChatGPT 并列的订阅登录。浏览器授权走 auth.x.ai，模型目录来自 api.x.ai。令牌只留在本机。",
+  };
+}
+
 function xaiSlot(session: XaiSandboxSession | null): ConnectedAccountSlot {
   return {
     provider: "XAI_API",
-    title: "Grok",
-    method: "官方 API Key",
+    title: "Grok 密钥",
+    method: "高级备用",
     connected: session !== null,
-    state: session ? `API Key 已登记 · 末四位 ${session.keyHint}` : "未连接",
+    state: session ? `API Key 已登记 · 末四位 ${session.keyHint}` : "未使用",
     quota: session
-      ? "不能使用 Grok 订阅额度。API 余额未知，未查询，不写成 0。"
-      : "未连接。没有与 ChatGPT 相同的订阅登录，因此这里没有订阅额度。",
+      ? "这是 API 余额，不是订阅额度。余额未知，未查询，不写成 0。"
+      : "登录成功但推理返回 403 时，再用控制台 API Key。",
     models: session
       ? DOCUMENTED_XAI_MODELS.map((model) => ({ id: model.modelId, label: model.label }))
       : [],
-    difference:
-      "与 ChatGPT 并列，但不是同一种登录。xAI 公开文档只让第三方使用 API Key；同一账号的 Grok 订阅和 API 分开计费。本页不预留、不派发作品预算。",
+    difference: "备用通道。沙箱只检查密钥形状，不访问 api.x.ai，也不预留作品预算。",
   };
 }

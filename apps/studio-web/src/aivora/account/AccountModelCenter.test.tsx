@@ -43,8 +43,8 @@ describe("account and model center", () => {
     const accounts = screen.getByLabelText("已连接账号");
     expect(accounts).toHaveTextContent("未知");
     expect(accounts).toHaveTextContent("不预留");
-    expect(accounts).toHaveTextContent("不能使用 Grok 订阅额度");
-    expect(screen.getByLabelText("Grok 可用模型")).toHaveTextContent("grok-4.7");
+    expect(accounts).toHaveTextContent("不是订阅额度");
+    expect(screen.getByLabelText("Grok 密钥 可用模型")).toHaveTextContent("grok-4.7");
     expect(screen.queryByRole("button", { name: "购买套餐" })).not.toBeInTheDocument();
 
     const text = screen.getByRole("combobox", { name: "文本模型" });

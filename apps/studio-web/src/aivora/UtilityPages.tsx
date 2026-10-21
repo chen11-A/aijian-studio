@@ -13,6 +13,8 @@ import {
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { AccountModelCenter } from "./account/AccountModelCenter";
+import { GrokConnectionCard } from "./grok-auth/GrokConnectionCard";
+import { GrokConnectionProvider } from "./grok-auth/GrokConnectionContext";
 import { ServiceCapabilities } from "./ServiceCapabilities";
 import { rememberServiceEntryChoice } from "./FirstRunServiceChoice";
 import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
@@ -107,7 +109,11 @@ function ConnectedServices() {
         <ConnectedServices />
       </OfficialConnectionProvider>
     );
-  return <ServicesContent />;
+  return (
+    <GrokConnectionProvider>
+      <ServicesContent />
+    </GrokConnectionProvider>
+  );
 }
 function ServicesContent() {
   const d = useDemo();
@@ -118,13 +124,18 @@ function ServicesContent() {
   const official = useRef<HTMLDivElement>(null);
   const apiConfig = useRef<HTMLElement>(null);
   const entry = d.value("serviceEntry");
-  const [serviceTab, setServiceTab] = useState<"api" | "chatgpt">(
-    entry === "chatgpt" ? "chatgpt" : "api",
+  const [serviceTab, setServiceTab] = useState<"grok" | "chatgpt" | "api">(
+    entry === "chatgpt" ? "chatgpt" : entry === "api" ? "api" : "grok",
   );
   const useApi = () => {
     rememberServiceEntryChoice("api");
     d.put("serviceEntry", "api");
     setServiceTab("api");
+  };
+  const useGrok = () => {
+    rememberServiceEntryChoice("grok");
+    d.put("serviceEntry", "grok");
+    setServiceTab("grok");
   };
   useEffect(() => {
     if (serviceTab === "api" && entry === "api") apiConfig.current?.focus();
@@ -137,6 +148,7 @@ function ServicesContent() {
         connections={state.kind === "ready" ? state.response.data : []}
         saving={settings.saving}
         onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
+        onOpenGrok={d.isFixture ? undefined : useGrok}
         onSaveXaiKey={
           d.isFixture
             ? undefined
@@ -156,12 +168,12 @@ function ServicesContent() {
       {!d.isFixture && (
         <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
           <Button
-            aria-pressed={serviceTab === "api"}
-            primary={serviceTab === "api"}
+            aria-pressed={serviceTab === "grok"}
+            primary={serviceTab === "grok"}
             disabled={chatGPT?.busy}
-            onClick={() => setServiceTab("api")}
+            onClick={useGrok}
           >
-            API 连接
+            Grok 账号
           </Button>
           <Button
             aria-pressed={serviceTab === "chatgpt"}
@@ -171,6 +183,19 @@ function ServicesContent() {
           >
             ChatGPT 官方账号
           </Button>
+          <Button
+            aria-pressed={serviceTab === "api"}
+            primary={serviceTab === "api"}
+            disabled={chatGPT?.busy}
+            onClick={() => setServiceTab("api")}
+          >
+            API 连接（高级备用）
+          </Button>
+        </div>
+      )}
+      {!d.isFixture && (
+        <div hidden={serviceTab !== "grok"} className="official-service-panel">
+          {serviceTab === "grok" && <GrokConnectionCard />}
         </div>
       )}
       {!d.isFixture && (

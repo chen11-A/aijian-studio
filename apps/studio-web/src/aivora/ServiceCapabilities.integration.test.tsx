@@ -77,6 +77,7 @@ afterEach(() => {
 describe("service capability overview", () => {
   it("selects a verified official text default on the service page without generation", async () => {
     const bridge = open();
+    fireEvent.click(await screen.findByRole("button", { name: "API 连接（高级备用）" }));
     expect(await screen.findByText("还没有 API 连接")).toBeInTheDocument();
     expect(screen.queryByText("尚未配置 AI 服务")).not.toBeInTheDocument();
     vi.mocked(bridge.models).mockResolvedValue({
@@ -107,7 +108,7 @@ describe("service capability overview", () => {
     const panel = await screen.findByRole("region", { name: "账号与能力检查" });
     await within(panel).findByText("套餐已授权 · 推理待验证");
     expect(within(panel).getByText(/剩余额度：未知/)).toBeInTheDocument();
-    expect(within(panel).getByText(/没有面向第三方应用的 Grok 订阅 OAuth/)).toBeInTheDocument();
+    expect(within(panel).getByText(/可以用 Grok 订阅账号登录/)).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole("button", { name: "检查自动出片准备" }));
     expect(within(panel).getByRole("status")).toHaveTextContent("自动出片尚未就绪");
     expect(bridge.models).not.toHaveBeenCalled();

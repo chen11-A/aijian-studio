@@ -1,23 +1,8 @@
 /**
- * xAI / Grok account connection for AIVORA.
- *
- * Checked against public docs on 2026-10-21:
- * - https://docs.x.ai/docs/quickstart — console API key, Bearer token to
- *   https://api.x.ai/v1. No third-party OAuth client.
- * - https://docs.x.ai/developers/faq/accounts — the Grok account and the xAI API
- *   account can be the same login, but billing is separate. Grok subscription
- *   quota is not API quota.
- * - https://docs.x.ai/docs/key-information — API billing is prepaid credits by
- *   default. This module does not read a balance.
- * - https://docs.x.ai/build/enterprise and https://docs.x.ai/build/cli/reference —
- *   `grok login` and `grok login --device-auth` authenticate the Grok CLI.
- *   They are not a published Sign in with Grok client registration, so this
- *   module does not call them or invent a client id.
- * - https://docs.x.ai/x-subscription/usage-limits — the weekly pool covers
- *   eligible first-party Grok and Cursor usage, not third-party API calls.
- *
- * The sandbox accepts a well-formed key and stores only the last four characters.
- * It does not call api.x.ai, does not create a charge, and does not invent a balance.
+ * Secondary xAI API-key connection. Subscription login lives in the desktop
+ * Grok OAuth runtime and uses the public auth.x.ai endpoints. This module only
+ * checks a console API key for the fallback path. The sandbox stores the last
+ * four characters and does not call api.x.ai.
  */
 
 export const XAI_API_ORIGIN = "https://api.x.ai/v1";

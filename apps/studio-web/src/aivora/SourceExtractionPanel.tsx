@@ -9,6 +9,9 @@ import type {
   SourceManifestResponse,
 } from "../api/studio";
 import { Button } from "./Common";
+import { getModelCenterSnapshot } from "./account/model-center";
+import { dispatchGrokLoginText } from "./grok-auth/dispatch";
+import { grokBridge, grokLoginFailureMessage } from "./grok-auth/transport";
 import {
   acceptSourceExtractionProposal,
   queueRemoteSourceExtract,
@@ -75,6 +78,7 @@ export function SourceExtractionPanel({
   const [blockId, setBlockId] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [grokPreview, setGrokPreview] = useState<string | null>(null);
   const [originalRead, setOriginalRead] = useState<
     "FOUND_RUN" | "NOT_FOUND" | "REMOTE_UNKNOWN" | null
   >(null);
@@ -242,6 +246,56 @@ export function SourceExtractionPanel({
               ? result.message
               : "排队结果未知；原操作已锁定，只可查询，不能重新 POST。",
     );
+  }
+
+  async function generateWithGrokLogin() {
+    if (busy || !projectId || !document || !block) {
+      setNotice("请先选择项目和来源块。用 Grok 账号生成不会进入服务端队列。");
+      return;
+    }
+    const choice = getModelCenterSnapshot().choices.TEXT;
+    if (choice?.provider !== "GROK_LOGIN") {
+      setNotice("请先在模型中心选择 Grok 账号里的文本模型。本次没有调用。");
+      return;
+    }
+    const bridge = grokBridge();
+    if (!bridge) {
+      setNotice(grokLoginFailureMessage("DESKTOP_REQUIRED"));
+      return;
+    }
+    if (!transport.getSourceText) {
+      setNotice("读不到来源正文，未调用 Grok。");
+      return;
+    }
+    const requested = projectId;
+    const request = ++epoch.current;
+    const start = block.start_byte;
+    const end = block.end_byte;
+    const sourceId = document.source_document_id;
+    setBusy(true);
+    try {
+      const loaded = await transport.getSourceText(requested, sourceId);
+      if (epoch.current !== request || activeProject.current !== requested) return;
+      const bytes = new TextEncoder().encode(loaded.data.normalized_text);
+      const excerpt = new TextDecoder().decode(bytes.slice(start, end)).trim();
+      if (!excerpt) {
+        setNotice("这段来源没有可发送的正文，未调用 Grok。");
+        return;
+      }
+      const result = await dispatchGrokLoginText(bridge, {
+        model: choice.modelId,
+        text: excerpt.slice(0, 8000),
+      });
+      if (epoch.current !== request || activeProject.current !== requested) return;
+      setNotice(result.message);
+      setGrokPreview(result.kind === "OK" ? result.text : null);
+    } catch {
+      if (epoch.current === request && activeProject.current === requested) {
+        setNotice("来源正文没有读成，未调用 Grok。");
+      }
+    } finally {
+      if (epoch.current === request) setBusy(false);
+    }
   }
 
   async function readOriginal() {
@@ -481,7 +535,11 @@ export function SourceExtractionPanel({
   return (
     <section className="v2-media-card" aria-label="真实远程来源抽取">
       <h2>真实远程来源抽取 · 首批文本</h2>
-      <p>入队只创建任务，不会调用模型。Grok 文本连接会带上 grok_login，当前不会发往 xAI。</p>
+      <p>
+        服务端入队只创建任务，不会调用模型。API Key 连接仍按 grok_login
+        记账，但服务端不持有登录令牌。桌面应用里可以用已登录的 Grok 账号直接生成，成功时计费类别同样是
+        grok_login。
+      </p>
       {!projectId ? (
         <p role="status">请先选择真实项目。</p>
       ) : !acceptedCurrent || !document ? (
@@ -587,6 +645,9 @@ export function SourceExtractionPanel({
         <Button disabled={!canQueue} onClick={() => void queue()}>
           仅入队原来源抽取
         </Button>
+        <Button disabled={busy || !block} onClick={() => void generateWithGrokLogin()}>
+          用 Grok 账号生成这段文本
+        </Button>
         <Button
           disabled={!operation || busy || !transport.remoteSourceExtract}
           onClick={() => void readOriginal()}
@@ -600,6 +661,11 @@ export function SourceExtractionPanel({
           读取来源抽取提案
         </Button>
       </div>
+      {grokPreview && (
+        <p>
+          Grok 登录生成结果（未写入提案）：<span>{grokPreview}</span>
+        </p>
+      )}
       {proposal && (
         <div>
           <p>

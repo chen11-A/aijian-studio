@@ -1,0 +1,61 @@
+import { Button } from "../Common";
+import { useGrokAccount } from "./GrokConnectionContext";
+
+export function GrokConnectionCard() {
+  const connection = useGrokAccount();
+  const status = connection?.status;
+  const desktop = status?.runtime === "DESKTOP";
+  const signedIn = status?.state === "CONNECTED" || status?.state === "ENTITLEMENT_DENIED";
+  const model = connection?.models[0];
+  return (
+    <section className="v2-utility-card" aria-label="Grok 账号登录">
+      <h2>用 Grok 账号登录</h2>
+      <p>
+        和 ChatGPT 一样，在系统浏览器里授权。登录后从 api.x.ai 读取你这个账号能用的模型。不需要 API
+        Key，登录本身也不会发起推理。
+      </p>
+      <p>
+        {connection?.loading
+          ? "正在读取登录状态。"
+          : !desktop
+            ? "需要桌面应用。网页预览不能打开授权页，也不能保存令牌。"
+            : status?.state === "CONNECTED"
+              ? `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。`
+              : status?.state === "ENTITLEMENT_DENIED"
+                ? `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}，但订阅档位返回了 403。`
+                : status?.state === "AWAITING_BROWSER"
+                  ? "正在等待浏览器授权。"
+                  : status?.state === "REAUTH_REQUIRED"
+                    ? "需要重新登录。"
+                    : "尚未登录。"}
+      </p>
+      {connection?.notice && (
+        <p className="chatgpt-notice" role="status">
+          {connection.notice}
+        </p>
+      )}
+      <div className="account-actions">
+        <Button
+          primary
+          disabled={!connection || !desktop || connection.busy || connection.loading || signedIn}
+          onClick={() => void connection?.signIn()}
+        >
+          在浏览器中登录 Grok
+        </Button>
+        <Button
+          disabled={!connection || !desktop || connection.busy || !model}
+          onClick={() => void connection?.checkInference(model!.id)}
+        >
+          检查这次订阅能否推理
+        </Button>
+        <Button
+          disabled={!connection || !desktop || connection.busy || !signedIn}
+          onClick={() => void connection?.signOut()}
+        >
+          退出 Grok 登录
+        </Button>
+      </div>
+      <p>部分订阅档位可以登录，但推理会返回 403。出现这个结果时，请改用 API Key，不要反复登录。</p>
+    </section>
+  );
+}

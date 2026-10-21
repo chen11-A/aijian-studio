@@ -87,7 +87,7 @@ describe("connected accounts", () => {
     const opened = openXaiSandboxSession(key, "2026-10-21T00:00:00.000Z");
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
-    const [chatgpt, grok] = connectedAccountSlots({
+    const [chatgpt, grokLogin, grok] = connectedAccountSlots({
       chatgpt: {
         provider: "CHATGPT_OFFICIAL",
         runtime: "DESKTOP",
@@ -114,8 +114,10 @@ describe("connected accounts", () => {
     expect(chatgpt.connected).toBe(true);
     expect(chatgpt.models.map((model) => model.id)).toEqual(["gpt-test"]);
     expect(chatgpt.quota).toContain("未知");
-    expect(grok.method).toBe("官方 API Key");
-    expect(grok.quota).toContain("不能使用 Grok 订阅额度");
+    expect(grokLogin.method).toBe("官方 OAuth");
+    expect(grokLogin.state).toContain("桌面");
+    expect(grok.method).toBe("高级备用");
+    expect(grok.quota).toContain("不是订阅额度");
     expect(grok.models.map((model) => model.id)).toEqual(["grok-4.7", "grok-imagine-image-2.0"]);
     expect(grok.difference).toContain("不预留");
 
@@ -181,7 +183,8 @@ describe("connected accounts", () => {
     expect(loading.state).toBe("正在读取");
     expect(preview.state).toContain("桌面");
     expect(nameless.state).toBe("已连接");
-    expect(connectedAccountSlots({ xai: null })[1].connected).toBe(false);
+    expect(connectedAccountSlots({ xai: null })[2].connected).toBe(false);
+    expect(parseChoiceValue("grok:grok-4")).toEqual({ provider: "GROK_LOGIN", modelId: "grok-4" });
   });
 });
 

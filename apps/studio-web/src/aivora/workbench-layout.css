@@ -263,8 +263,14 @@
 .production-workbench .service-connection-switch {
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 12px;
+}
+.production-workbench .service-connection-switch .button {
+  height: auto;
+  min-height: 34px;
+  white-space: normal;
 }
 .production-workbench .official-service-panel {
   flex: 1;
@@ -581,8 +587,7 @@
   overflow-y: auto;
 }
 .demo-root.production-workbench .local-note {
-  position: static;
-  margin-top: 8px;
+  display: none;
 }
 .demo-root.production-workbench .page-scroll {
   overflow-x: hidden;

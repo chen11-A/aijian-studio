@@ -85,15 +85,16 @@ export function ServiceCapabilities({
               <li key={connection.id}>
                 {connection.display_name}：{readinessLabels[assessConfiguredConnection(connection)]}
                 {connection.provider_kind === "XAI"
-                  ? "。这是 xAI API 配置，不是 SuperGrok 订阅登录。"
+                  ? "。这是 API Key 备用配置，不是 Grok 订阅登录。"
                   : ""}
               </li>
             ))}
           </ul>
         )}
         <p>
-          xAI 没有面向第三方应用的 Grok 订阅 OAuth。官方接入是 console.x.ai 的 API Key，与 ChatGPT
-          订阅登录不同，不能使用 Grok 订阅额度。上方沙箱连接也不会访问 api.x.ai。
+          可以用 Grok 订阅账号登录，和 ChatGPT 官方账号并列。授权在 auth.x.ai，模型来自 api.x.ai
+          的目录。登录成功不等于每个档位都能推理：若返回 403，请改用 API Key。API Key
+          走控制台额度。上方沙箱连接也不会访问 api.x.ai。
         </p>
         <ul>
           <li>

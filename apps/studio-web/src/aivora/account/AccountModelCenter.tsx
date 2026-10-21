@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CreateProviderConnectionInput, ProviderConnectionData } from "../../api/studio";
 import { Button } from "../Common";
 import { useOfficialConnection } from "../chatgpt-auth/ChatGPTConnectionContext";
+import { useGrokAccount } from "../grok-auth/GrokConnectionContext";
 import { connectedAccountSlots } from "./account-connections";
 import { useModelCenter } from "./CurrentModelLink";
 import { openAivoraPage } from "./navigation";
@@ -45,13 +46,16 @@ export function AccountModelCenter({
   saving = false,
   onSaveXaiKey,
   onOpenChatGpt,
+  onOpenGrok,
 }: {
   connections?: readonly ProviderConnectionData[];
   saving?: boolean;
   onSaveXaiKey?: (input: CreateProviderConnectionInput) => Promise<void>;
   onOpenChatGpt?: () => void;
+  onOpenGrok?: () => void;
 }) {
   const official = useOfficialConnection();
+  const grok = useGrokAccount();
   const center = useModelCenter();
   const [session, setSession] = useState<XaiSandboxSession | null>(() => {
     const storage = browserStorage();
@@ -66,11 +70,34 @@ export function AccountModelCenter({
     chatgpt: official?.connection.status,
     chatgptModels: chatModels,
     chatgptLoading: official?.connection.loading,
+    grok: grok?.status,
+    grokModels: grok?.models,
+    grokLoading: grok?.loading,
     xai: session,
   });
+  useEffect(() => {
+    if (!grok || grok.loading || grok.busy || grok.status.runtime !== "DESKTOP") return;
+    if (
+      grok.status.state === "CONNECTED" ||
+      grok.status.state === "ENTITLEMENT_DENIED" ||
+      grok.status.state === "AWAITING_BROWSER"
+    )
+      return;
+    for (const [capability] of capabilities) {
+      if (center.choices[capability]?.provider === "GROK_LOGIN") selectCenteredModel(capability, null);
+    }
+  }, [center.choices, grok]);
 
   function optionsFor(capability: Capability): { value: string; label: string }[] {
     const options: { value: string; label: string }[] = [];
+    if (capability === "TEXT") {
+      for (const model of grok?.models ?? []) {
+        options.push({
+          value: choiceValue({ provider: "GROK_LOGIN", modelId: model.id }),
+          label: `${model.label} · Grok 账号`,
+        });
+      }
+    }
     if (session) {
       for (const model of DOCUMENTED_XAI_MODELS) {
         if (model.capability === capability)
@@ -186,19 +213,26 @@ export function AccountModelCenter({
 
   return (
     <div className="account-center" id="model-center" tabIndex={-1}>
-      <section className="v2-utility-card" aria-label="连接 Grok">
-        <h2>连接 Grok</h2>
-        <p>在控制台创建 API Key，粘贴到下面。这不是 Grok 订阅登录，也不能使用订阅额度。</p>
-        <details>
-          <summary>为什么不能用 Grok 账号直接登录</summary>
-          <p>
-            xAI 没有公开与 ChatGPT 相同的第三方 OAuth 或设备码。官方入口是{" "}
-            <a href={XAI_DOCS.console} target="_blank" rel="noreferrer">
-              console.x.ai
-            </a>{" "}
-            的 API Key。命令行里的 grok login 不能借用。订阅和 API 分开计费。
-          </p>
-        </details>
+      <section className="v2-utility-card" aria-label="用 Grok 账号登录">
+        <h2>用 Grok 账号登录</h2>
+        <p>
+          主路径和 ChatGPT 一样：在系统浏览器里授权 Grok 订阅账号。登录后，模型中心列出 api.x.ai
+          返回的模型。网页预览不能代替桌面应用完成登录。
+        </p>
+        {grok?.status.state === "ENTITLEMENT_DENIED" && (
+          <p role="alert">已经登录，但订阅返回 403。请改用下面的 API Key，或重新登录一个允许推理的档位。</p>
+        )}
+        <div className="account-actions">
+          {onOpenGrok && <Button primary onClick={onOpenGrok}>打开 Grok 登录</Button>}
+        </div>
+      </section>
+
+      <section className="v2-utility-card" aria-label="Grok 密钥备用">
+        <h2>控制台密钥（高级备用）</h2>
+        <p>
+          订阅登录成功但推理返回 403 时，再用控制台 API Key。密钥不是 grok.com
+          的网页密码。沙箱不会访问 api.x.ai。
+        </p>
         <label>
           xAI 密钥
           <input
@@ -265,8 +299,8 @@ export function AccountModelCenter({
       <section className="v2-utility-card" aria-label="模型中心">
         <h2>模型</h2>
         <p>
-          全软件只在这里选择模型。列表只来自上面已连接的账号：ChatGPT 用该账号目录，Grok 在 API Key
-          登记后使用文档快照。创作页只显示当前模型，并回到这里修改。
+          全软件只在这里选择模型。ChatGPT 和 Grok 登录都使用各自账号的模型目录。API Key
+          只在备用连接登记后使用文档快照。创作页只显示当前模型，并回到这里修改。
         </p>
         <div className="account-model-grid">
           {capabilities.map(([capability, label]) => {

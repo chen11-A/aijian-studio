@@ -3,7 +3,7 @@ import type { Capability } from "../../domain/provider-settings-model";
 /** The only persisted model choice. Other screens read it and do not offer a picker. */
 export const MODEL_CENTER_KEY = "aivora.model-center.v1";
 
-export type CenterProvider = "XAI_API" | "CHATGPT_OFFICIAL" | "CONNECTION";
+export type CenterProvider = "XAI_API" | "CHATGPT_OFFICIAL" | "GROK_LOGIN" | "CONNECTION";
 
 export type CenterChoice = {
   provider: CenterProvider;
@@ -45,7 +45,11 @@ function isChoice(value: unknown): value is CenterChoice {
   const choice = value as Partial<CenterChoice>;
   if (!validId(choice.modelId)) return false;
   if (choice.provider === "CONNECTION") return validId(choice.connectionId);
-  if (choice.provider === "XAI_API" || choice.provider === "CHATGPT_OFFICIAL")
+  if (
+    choice.provider === "XAI_API" ||
+    choice.provider === "CHATGPT_OFFICIAL" ||
+    choice.provider === "GROK_LOGIN"
+  )
     return choice.connectionId === undefined;
   return false;
 }
@@ -122,6 +126,7 @@ export function selectCenteredModel(
 
 export function choiceValue(choice: CenterChoice): string {
   if (choice.provider === "CHATGPT_OFFICIAL") return `chatgpt:${choice.modelId}`;
+  if (choice.provider === "GROK_LOGIN") return `grok:${choice.modelId}`;
   if (choice.provider === "XAI_API") return `xai:${choice.modelId}`;
   return `connection:${choice.connectionId}:${choice.modelId}`;
 }
@@ -131,6 +136,12 @@ export function parseChoiceValue(value: string): CenterChoice | null {
     const modelId = value.slice("chatgpt:".length);
     return isChoice({ provider: "CHATGPT_OFFICIAL", modelId })
       ? { provider: "CHATGPT_OFFICIAL", modelId }
+      : null;
+  }
+  if (value.startsWith("grok:")) {
+    const modelId = value.slice("grok:".length);
+    return isChoice({ provider: "GROK_LOGIN", modelId })
+      ? { provider: "GROK_LOGIN", modelId }
       : null;
   }
   if (value.startsWith("xai:")) {
