@@ -325,6 +325,13 @@ def test_current_worker_submits_one_bound_fake_gateway_request(settlement_availa
             self.proposals = []
             self.quarantined = []
 
+        def desktop_subscription_account_kind(self, attempt_id):
+            assert attempt_id == claim.attempt_id
+            return None
+
+        def fail_remote_before_dispatch(self, **kwargs):
+            raise AssertionError("offline gateway path must not close before dispatch")
+
         def begin_remote_dispatch(self, **kwargs):
             assert kwargs["claim"] is claim
             return permit
