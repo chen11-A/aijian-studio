@@ -27,10 +27,14 @@ export function rememberServiceEntryChoice(choice: FirstRunServiceChoiceKind): b
 export function FirstRunServiceChoice({
   onSelect,
   onClose,
+  onGrokLogin,
+  grokBusy = false,
   notice,
 }: {
   onSelect(choice: FirstRunServiceChoiceKind): void;
   onClose(): void;
+  onGrokLogin?(): void;
+  grokBusy?: boolean;
   notice?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -56,20 +60,28 @@ export function FirstRunServiceChoice({
       <p>无需注册 AIVORA 账号。连接和模型都在「AI 服务」里完成，之后可以更改。</p>
       {notice && <p role="status">{notice}</p>}
       <div className="first-run-service-options">
-        <section>
-          <h3>SuperGrok / X Premium+</h3>
+        <section className="grok-login-first">
+          <h3>Grok 账号</h3>
           <p>
-            用 SuperGrok / X Premium+ 账号登录。各档位都可以登录；若推理返回 403，点一次即可改用 API
-            Key，不用反复登录。
+            点一次「用 Grok 账号登录」。系统浏览器打开 xAI
+            授权页，点同意后自动回到这里，并显示已登录和可用模型。不用复制代码，也不用输入密码或密钥。SuperGrok
+            / X Premium+ 都可以登录；若推理返回 403，点一次即可改用 API Key。
           </p>
-          <Button primary onClick={() => onSelect("grok")}>
-            用 SuperGrok / X Premium+ 账号登录
+          <Button
+            primary
+            disabled={grokBusy}
+            onClick={() => {
+              if (onGrokLogin) onGrokLogin();
+              else onSelect("grok");
+            }}
+          >
+            用 Grok 账号登录
           </Button>
         </section>
         <section>
           <h3>ChatGPT 官方账号</h3>
           <p>同样在浏览器里授权。文本模型仍只在模型中心选择。</p>
-          <Button primary onClick={() => onSelect("chatgpt")}>
+          <Button disabled={grokBusy} onClick={() => onSelect("chatgpt")}>
             使用 ChatGPT 官方账号
           </Button>
         </section>

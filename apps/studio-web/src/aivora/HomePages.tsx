@@ -1,9 +1,15 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { readChatGPTStatus } from "./chatgpt-auth/transport";
-import { readGrokStatus } from "./grok-auth/transport";
+import {
+  GROK_WAITING_MESSAGE,
+  grokBridge,
+  grokLoginFailureMessage,
+  readGrokStatus,
+  validGrokStatus,
+} from "./grok-auth/transport";
 import {
   FirstRunServiceChoice,
   hasServiceEntryChoice,
@@ -53,6 +59,13 @@ export function HomePages() {
   const [serviceChoiceOpen, setServiceChoiceOpen] = useState(false);
   const [serviceChoiceNotice, setServiceChoiceNotice] = useState("");
   const [checkingServiceEntry, setCheckingServiceEntry] = useState(false);
+  const [launchPhase, setLaunchPhase] = useState<
+    "unknown" | "signed-out" | "waiting" | "signed-in"
+  >("unknown");
+  const [launchModels, setLaunchModels] = useState<string[]>([]);
+  const [launchNotice, setLaunchNotice] = useState("");
+  const launchPhaseRef = useRef(launchPhase);
+  launchPhaseRef.current = launchPhase;
   const loadingServiceEntry = !d.isFixture && d.providerSettings.state.kind === "loading";
   const enterWorkbench = async () => {
     if (checkingServiceEntry) return;
@@ -91,6 +104,88 @@ export function HomePages() {
           : "",
       );
       setServiceChoiceOpen(true);
+    }
+  };
+  useEffect(() => {
+    if (d.isFixture) return;
+    let live = true;
+    void (async () => {
+      try {
+        const status = await readGrokStatus();
+        if (!live || launchPhaseRef.current === "waiting" || launchPhaseRef.current === "signed-in")
+          return;
+        if (status.state === "CONNECTED" || status.state === "ENTITLEMENT_DENIED") {
+          const bridge = grokBridge();
+          let names: string[] = [];
+          if (status.state === "CONNECTED" && bridge) {
+            const listed = await bridge.models();
+            if (listed.kind === "OK") names = listed.models.map((model) => model.label);
+          }
+          if (!live) return;
+          setLaunchPhase("signed-in");
+          setLaunchModels(names);
+          setLaunchNotice(
+            status.state === "ENTITLEMENT_DENIED"
+              ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
+              : `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。关闭再打开不用重新登录。${names.length ? `可用模型：${names.join("、")}。` : ""}`,
+          );
+        } else if (live) setLaunchPhase("signed-out");
+      } catch {
+        if (live) setLaunchPhase("signed-out");
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [d.isFixture]);
+  const startGrokSignIn = async (): Promise<boolean> => {
+    const bridge = grokBridge();
+    if (!bridge) {
+      const message = grokLoginFailureMessage("DESKTOP_REQUIRED");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      setLaunchPhase("signed-out");
+      return false;
+    }
+    setLaunchPhase("waiting");
+    setLaunchNotice(GROK_WAITING_MESSAGE);
+    setServiceChoiceNotice(GROK_WAITING_MESSAGE);
+    try {
+      const result = await bridge.signIn();
+      if (!validGrokStatus(result.status)) throw new Error("invalid status");
+      const signedIn =
+        result.kind === "OK" &&
+        (result.status.state === "CONNECTED" || result.status.state === "ENTITLEMENT_DENIED");
+      if (signedIn) {
+        rememberServiceEntryChoice("grok");
+        let names: string[] = [];
+        if (result.status.state === "CONNECTED") {
+          const listed = await bridge.models();
+          if (listed.kind === "OK") names = listed.models.map((model) => model.label);
+        }
+        setLaunchPhase("signed-in");
+        setLaunchModels(names);
+        const message =
+          result.status.state === "ENTITLEMENT_DENIED"
+            ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
+            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。${names.length ? `可用模型：${names.join("、")}。` : ""}`;
+        setLaunchNotice(message);
+        setServiceChoiceNotice(message);
+        return true;
+      }
+      const code = result.kind === "ERROR" ? result.code : "AUTH_CANCELLED";
+      const message =
+        result.kind === "CANCELLED" ? "已取消 Grok 登录。" : grokLoginFailureMessage(code);
+      setLaunchPhase("signed-out");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      return false;
+    } catch {
+      const message = "登录结果尚未确认。请重新读取状态，避免重复授权。";
+      setLaunchPhase("signed-out");
+      setLaunchNotice(message);
+      setServiceChoiceNotice(message);
+      return false;
     }
   };
   const selectServiceEntry = (choice: FirstRunServiceChoiceKind) => {
@@ -486,19 +581,47 @@ export function HomePages() {
           </div>
           <h1>把故事，变成看得见的世界。</h1>
           <p>一个创作入口，走完故事、角色与世界、分镜、制作和审片。</p>
-          <Button
-            primary
-            disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry}
-            onClick={() => void enterWorkbench()}
-          >
-            {checkingServiceEntry || loadingServiceEntry
-              ? "正在读取连接状态"
-              : d.scenario === "loading"
-                ? "正在初始化"
-                : d.isFixture
-                  ? "进入 UI 演示"
-                  : "进入创作工作台"}
-          </Button>
+          {!d.isFixture && launchPhase !== "signed-in" && (
+            <Button
+              primary
+              disabled={launchPhase === "waiting"}
+              onClick={() => void startGrokSignIn()}
+            >
+              用 Grok 账号登录
+            </Button>
+          )}
+          {(d.isFixture || launchPhase === "signed-in") && (
+            <Button
+              primary
+              disabled={d.scenario === "loading" || checkingServiceEntry || loadingServiceEntry}
+              onClick={() => void enterWorkbench()}
+            >
+              {checkingServiceEntry || loadingServiceEntry
+                ? "正在读取连接状态"
+                : d.scenario === "loading"
+                  ? "正在初始化"
+                  : d.isFixture
+                    ? "进入 UI 演示"
+                    : "进入创作工作台"}
+            </Button>
+          )}
+          {launchNotice && (
+            <div className="v2-launch-status" role="status">
+              {launchNotice}
+            </div>
+          )}
+          {launchModels.length > 0 && (
+            <ul className="v2-launch-models" aria-label="可用模型">
+              {launchModels.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          )}
+          {!d.isFixture && launchPhase !== "signed-in" && (
+            <button type="button" className="v2-launch-quiet" onClick={() => void enterWorkbench()}>
+              {checkingServiceEntry || loadingServiceEntry ? "正在读取连接状态" : "进入创作工作台"}
+            </button>
+          )}
           <Pill>
             {d.isFixture ? "本地样例 · 不调用生成服务" : "本地作品 · 创作内容保存在工作区"}
           </Pill>
@@ -512,6 +635,12 @@ export function HomePages() {
         {serviceChoiceOpen && (
           <FirstRunServiceChoice
             onSelect={selectServiceEntry}
+            onGrokLogin={() =>
+              void startGrokSignIn().then((ok) => {
+                if (ok) selectServiceEntry("grok");
+              })
+            }
+            grokBusy={launchPhase === "waiting"}
             onClose={() => setServiceChoiceOpen(false)}
             notice={serviceChoiceNotice}
           />

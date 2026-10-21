@@ -215,15 +215,15 @@ export function AccountModelCenter({
   return (
     <div className="account-center" id="model-center" tabIndex={-1}>
       <section className="v2-utility-card" aria-label="用 Grok 账号登录">
-        <h2>用 SuperGrok / X Premium+ 账号登录</h2>
+        <h2>用 Grok 账号登录</h2>
         <p>
-          主路径和 ChatGPT 一样：在系统浏览器里授权 SuperGrok / X Premium+。登录后，模型中心列出
-          api.x.ai 返回的模型。网页预览不能代替桌面应用完成登录。
+          主路径是一键登录：系统浏览器打开 xAI
+          授权页，点同意后自动回到这里，并列出可用模型。网页预览不能代替桌面应用完成登录。
         </p>
         {grok?.status.state === "ENTITLEMENT_DENIED" && (
           <p role="alert">
-            已经用 SuperGrok / X Premium+ 登录，但推理返回 403。部分普通 SuperGrok
-            会这样。点下面的按钮填写 API Key，不要反复登录。
+            已经用 Grok 账号登录，但推理返回 403。部分普通 SuperGrok 会这样。点下面的按钮填写 API
+            Key，不要反复登录。
           </p>
         )}
         {grok?.status.state === "ENTITLEMENT_DENIED" && (

@@ -67,19 +67,15 @@ async function run(viewport, persona) {
   await page.getByRole("button", { name: "进入创作工作台" }).click();
   clicks += 1;
   const choiceButton = page.locator("dialog.first-run-service-choice").getByRole("button", {
-    name: "用 SuperGrok / X Premium+ 账号登录",
+    name: "用 Grok 账号登录",
   });
   await choiceButton.waitFor({ state: "visible", timeout: 8000 });
   await shot("02-service-choice");
   await choiceButton.click();
   clicks += 1;
   await page.waitForSelector(".main-panel.page-services");
-  const signIn = page.getByRole("button", { name: "在浏览器中登录 SuperGrok" });
-  await signIn.scrollIntoViewIfNeeded();
-  await shot("03-grok-card");
-  await signIn.click();
-  clicks += 1;
   await page.getByText("persona@example.test").first().waitFor({ timeout: 8000 });
+  await shot("03-grok-card");
   const model = page.locator("#model-center select").first();
   await model
     .locator("option", { hasText: "Grok 4.3" })

@@ -53,6 +53,11 @@
   background: #102c41;
   min-width: 0;
 }
+.first-run-service-options > section.grok-login-first {
+  grid-column: 1 / -1;
+  border-color: #39d7f2;
+  background: #12384f;
+}
 .first-run-service-options p {
   flex: 1;
 }

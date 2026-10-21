@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { authorizeGrokInBrowser } from "./grok-auth-callback";
 import { createGrokRuntime } from "./grok-auth-runtime";
-import { GROK_CLIENT_ID } from "./grok-auth-oauth";
+import { GROK_CLIENT_ID, GrokAuthError } from "./grok-auth-oauth";
 import { createGrokStore, type GrokEncryption, type GrokSession } from "./grok-auth-storage";
 
 type Seen = { method: string; url: string; body: string };
@@ -26,6 +26,8 @@ async function mockOAuth() {
   let modelsStatus = 200;
   let textStatus = 200;
   let revoked = "";
+  let devicePolls = 0;
+  let deviceLink = "https://auth.x.ai/device?user_code=WDJB-MJHT";
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const body = request.method === "POST" ? await readBody(request) : "";
@@ -36,8 +38,40 @@ async function mockOAuth() {
       response.writeHead(302, { location: `${redirect}?code=auth-code&state=${state}` }).end();
       return;
     }
+    if (url.pathname === "/oauth2/device/code") {
+      json(response, {
+        device_code: "device-secret",
+        user_code: "WDJB-MJHT",
+        verification_uri: "https://auth.x.ai/device",
+        verification_uri_complete: deviceLink,
+        expires_in: 30,
+        interval: 1,
+      });
+      return;
+    }
     if (url.pathname === "/oauth2/token") {
       const form = new URLSearchParams(body);
+      if (form.get("grant_type") === "urn:ietf:params:oauth:grant-type:device_code") {
+        if (
+          form.get("device_code") !== "device-secret" ||
+          form.get("client_id") !== GROK_CLIENT_ID
+        ) {
+          response.writeHead(400).end(JSON.stringify({ error: "access_denied" }));
+          return;
+        }
+        devicePolls += 1;
+        if (devicePolls === 1) {
+          response.writeHead(400).end(JSON.stringify({ error: "authorization_pending" }));
+          return;
+        }
+        json(response, {
+          access_token: access,
+          refresh_token: refresh,
+          expires_in: 7200,
+          scope: "openid offline_access",
+        });
+        return;
+      }
       if (form.get("grant_type") === "refresh_token") {
         if (form.get("refresh_token") !== refresh) {
           response.writeHead(400).end("{}");
@@ -97,6 +131,9 @@ async function mockOAuth() {
     },
     setTextStatus(status: number) {
       textStatus = status;
+    },
+    setDeviceLink(link: string) {
+      deviceLink = link;
     },
     close: () =>
       new Promise<void>((resolve, reject) =>
@@ -193,6 +230,132 @@ describe("Grok subscription login against a mock OAuth server", () => {
       expect(oauth.revoked()).toBe("refresh-2");
       expect(store.current()).toBeNull();
       expect(await runtime.models()).toMatchObject({ kind: "ERROR", code: "NOT_CONNECTED" });
+    } finally {
+      await oauth.close();
+    }
+  });
+
+  it("opens the verification link that already contains the code and polls until login", async () => {
+    const oauth = await mockOAuth();
+    const store = memoryStore();
+    const opened: string[] = [];
+    let clock = 1_700_000_000_000;
+    const runtime = createGrokRuntime({
+      store,
+      fetch: globalThis.fetch,
+      openBrowser: async (url) => {
+        opened.push(url);
+      },
+      confirmSignIn: async () => true,
+      signInMethod: "device",
+      deviceCodeEndpoint: `${oauth.base}/oauth2/device/code`,
+      endpoints: {
+        token: `${oauth.base}/oauth2/token`,
+        revoke: `${oauth.base}/oauth2/revoke`,
+        userinfo: `${oauth.base}/oauth2/userinfo`,
+        api: `${oauth.base}/v1`,
+      },
+      now: () => clock,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    });
+    try {
+      const signedIn = await runtime.signIn();
+      expect(signedIn).toMatchObject({
+        kind: "OK",
+        status: { state: "CONNECTED", accountLabel: "person@example.test" },
+      });
+      expect(opened).toEqual(["https://auth.x.ai/device?user_code=WDJB-MJHT"]);
+      expect(JSON.stringify(signedIn)).not.toMatch(/device-secret|WDJB-MJHT|access-1/);
+      const listed = await runtime.models();
+      expect(listed).toEqual({ kind: "OK", models: [{ id: "grok-4", label: "Grok 4" }] });
+      const again = createGrokRuntime({
+        store,
+        fetch: globalThis.fetch,
+        openBrowser: async () => {
+          throw new Error("browser opened");
+        },
+        confirmSignIn: async () => true,
+        signInMethod: "device",
+        endpoints: {
+          token: `${oauth.base}/oauth2/token`,
+          revoke: `${oauth.base}/oauth2/revoke`,
+          userinfo: `${oauth.base}/oauth2/userinfo`,
+          api: `${oauth.base}/v1`,
+        },
+        now: () => clock,
+      });
+      expect(await again.status()).toMatchObject({
+        state: "CONNECTED",
+        accountLabel: "person@example.test",
+      });
+    } finally {
+      await oauth.close();
+    }
+  });
+
+  it("falls back to device code when the loopback callback is rejected", async () => {
+    const oauth = await mockOAuth();
+    const opened: string[] = [];
+    let clock = 1_700_000_000_000;
+    const runtime = createGrokRuntime({
+      store: memoryStore(),
+      fetch: globalThis.fetch,
+      openBrowser: async (url) => {
+        opened.push(url);
+      },
+      confirmSignIn: async () => true,
+      signInMethod: "loopback-then-device",
+      deviceCodeEndpoint: `${oauth.base}/oauth2/device/code`,
+      authorize: async () => {
+        throw new GrokAuthError("CALLBACK_REJECTED");
+      },
+      endpoints: {
+        token: `${oauth.base}/oauth2/token`,
+        revoke: `${oauth.base}/oauth2/revoke`,
+        userinfo: `${oauth.base}/oauth2/userinfo`,
+        api: `${oauth.base}/v1`,
+      },
+      now: () => clock,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    });
+    try {
+      expect(await runtime.signIn()).toMatchObject({ kind: "OK", status: { state: "CONNECTED" } });
+      expect(opened).toEqual(["https://auth.x.ai/device?user_code=WDJB-MJHT"]);
+    } finally {
+      await oauth.close();
+    }
+  });
+
+  it("does not open a verification link that omits the code or leaves auth.x.ai", async () => {
+    const oauth = await mockOAuth();
+    oauth.setDeviceLink("https://evil.example/device?user_code=WDJB-MJHT");
+    const opened: string[] = [];
+    const runtime = createGrokRuntime({
+      store: memoryStore(),
+      fetch: globalThis.fetch,
+      openBrowser: async (url) => {
+        opened.push(url);
+      },
+      confirmSignIn: async () => true,
+      signInMethod: "device",
+      deviceCodeEndpoint: `${oauth.base}/oauth2/device/code`,
+      endpoints: {
+        token: `${oauth.base}/oauth2/token`,
+        revoke: `${oauth.base}/oauth2/revoke`,
+        userinfo: `${oauth.base}/oauth2/userinfo`,
+        api: `${oauth.base}/v1`,
+      },
+    });
+    try {
+      expect(await runtime.signIn()).toMatchObject({
+        kind: "ERROR",
+        code: "DEVICE_CODE_LINK_MISSING",
+      });
+      expect(opened).toEqual([]);
     } finally {
       await oauth.close();
     }

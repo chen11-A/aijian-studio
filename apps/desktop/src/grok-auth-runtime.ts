@@ -11,19 +11,31 @@ import {
   exchangeAuthorizationCode,
   listGrokModels,
   OFFICIAL_GROK_ENDPOINTS,
+  pollGrokDeviceToken,
   readGrokAccount,
   refreshGrokTokens,
+  requestGrokDeviceCode,
   revokeGrokToken,
   type Fetch,
   type GrokEndpoints,
+  type GrokTokens,
 } from "./grok-auth-http";
 import { GrokAuthError } from "./grok-auth-oauth";
+import type { GrokLoginLog } from "./grok-login-log";
 import type { GrokSession, GrokStore } from "./grok-auth-storage";
 import type { createSubscriptionLedger } from "./desktop-subscription-ledger";
 
 type SubscriptionLedger = ReturnType<typeof createSubscriptionLedger>;
 
 const REFRESH_SKEW_MS = 120_000;
+
+const DEVICE_FALLBACK = new Set([
+  "CALLBACK_REJECTED",
+  "CALLBACK_LISTENER_UNAVAILABLE",
+  "INVALID_CALLBACK_URI",
+  "TOKEN_EXCHANGE_FAILED",
+  "AUTH_FAILED",
+]);
 
 type Dependencies = {
   store: GrokStore;
@@ -32,9 +44,15 @@ type Dependencies = {
   confirmSignIn(signal: AbortSignal): Promise<boolean>;
   endpoints?: GrokEndpoints;
   authorizeEndpoint?: string;
+  deviceCodeEndpoint?: string;
+  /** Tests pin this. Production tries the browser callback, then device code. */
+  signInMethod?: "loopback" | "device" | "loopback-then-device";
   loopbackPort?: number;
   authorize?: typeof authorizeGrokInBrowser;
   now?: () => number;
+  sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  /** Status codes only. Never pass a token, code, or URL. */
+  log?: GrokLoginLog;
   /** When set, provider HTTP waits until this ledger has a billing row. No token is passed. */
   ledger?: SubscriptionLedger;
 };
@@ -57,8 +75,9 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   function restore() {
     restored ??= dependencies.store
       .read()
-      .then((saved) => {
+      .then(async (saved) => {
         session = saved;
+        if (saved) await dependencies.log?.event("session_restored");
       })
       .catch((error: unknown) => {
         restored = null;
@@ -128,65 +147,123 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     await refreshing;
   }
 
+  async function acceptTokens(tokens: GrokTokens): Promise<GrokLoginActionResult> {
+    if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
+    const account = await readGrokAccount(dependencies.fetch, tokens.accessToken, endpoints).catch(
+      () => ({
+        subject: "unknown",
+        email: null,
+        name: null,
+      }),
+    );
+    let inferenceDenied = false;
+    try {
+      await listGrokModels(dependencies.fetch, tokens.accessToken, endpoints);
+    } catch (error) {
+      if (error instanceof GrokAuthError && error.code === "ENTITLEMENT_DENIED")
+        inferenceDenied = true;
+      else throw error;
+    }
+    await persist({
+      version: 1,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      scopes: tokens.scopes,
+      subject: account.subject,
+      email: account.email,
+      name: account.name,
+      inferenceDenied,
+    });
+    attempt = null;
+    lastError = inferenceDenied ? "ENTITLEMENT_DENIED" : null;
+    await dependencies.log?.event("sign_in_ok", {
+      code: inferenceDenied ? "ENTITLEMENT_DENIED" : "CONNECTED",
+    });
+    return { kind: "OK", status: status() };
+  }
+
+  async function loginWithDevice(signal: AbortSignal): Promise<GrokTokens> {
+    const pending = await requestGrokDeviceCode(
+      dependencies.fetch,
+      dependencies.deviceCodeEndpoint,
+    );
+    try {
+      await dependencies.openBrowser(pending.verificationUrl);
+    } catch {
+      throw new GrokAuthError("BROWSER_OPEN_FAILED");
+    }
+    await dependencies.log?.event("browser_opened", { code: "DEVICE" });
+    return pollGrokDeviceToken(dependencies.fetch, {
+      deviceCode: pending.deviceCode,
+      expiresIn: pending.expiresIn,
+      intervalSeconds: pending.intervalSeconds,
+      endpoints,
+      signal,
+      now,
+      sleep: dependencies.sleep,
+    });
+  }
+
+  async function loginWithLoopback(signal: AbortSignal): Promise<GrokTokens> {
+    await dependencies.log?.event("browser_opened", { code: "LOOPBACK" });
+    const callback = await authorize(
+      { authorizeEndpoint: dependencies.authorizeEndpoint, port: dependencies.loopbackPort },
+      dependencies.openBrowser,
+      signal,
+    );
+    return exchangeAuthorizationCode(dependencies.fetch, { ...callback, endpoints }, now());
+  }
+
   async function signIn(): Promise<GrokLoginActionResult> {
     if (busy) return { kind: "ERROR", code: "AUTH_IN_PROGRESS", status: status() };
     busy = true;
     const controller = new AbortController();
     attempt = controller;
+    const method =
+      dependencies.signInMethod ??
+      (dependencies.authorizeEndpoint ? "loopback" : "loopback-then-device");
     try {
       await restore();
       if (!dependencies.store.available()) throw new GrokAuthError("SECURE_STORAGE_UNAVAILABLE");
       if (!(await dependencies.confirmSignIn(controller.signal))) {
         attempt = null;
+        await dependencies.log?.event("sign_in_cancelled");
         return { kind: "CANCELLED", status: status() };
       }
-      const callback = await authorize(
-        { authorizeEndpoint: dependencies.authorizeEndpoint, port: dependencies.loopbackPort },
-        dependencies.openBrowser,
-        controller.signal,
-      );
-      const tokens = await exchangeAuthorizationCode(
-        dependencies.fetch,
-        { ...callback, endpoints },
-        now(),
-      );
-      if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
-      const account = await readGrokAccount(
-        dependencies.fetch,
-        tokens.accessToken,
-        endpoints,
-      ).catch(() => ({
-        subject: "unknown",
-        email: null,
-        name: null,
-      }));
-      let inferenceDenied = false;
-      try {
-        await listGrokModels(dependencies.fetch, tokens.accessToken, endpoints);
-      } catch (error) {
-        if (error instanceof GrokAuthError && error.code === "ENTITLEMENT_DENIED")
-          inferenceDenied = true;
-        else throw error;
-      }
-      await persist({
-        version: 1,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: tokens.expiresAt,
-        scopes: tokens.scopes,
-        subject: account.subject,
-        email: account.email,
-        name: account.name,
-        inferenceDenied,
+      await dependencies.log?.event("sign_in_started", {
+        code: method === "device" ? "DEVICE" : "LOOPBACK",
       });
-      attempt = null;
-      lastError = inferenceDenied ? "ENTITLEMENT_DENIED" : null;
-      return { kind: "OK", status: status() };
+      if (method === "device") return await acceptTokens(await loginWithDevice(controller.signal));
+      try {
+        return await acceptTokens(await loginWithLoopback(controller.signal));
+      } catch (error) {
+        const code = error instanceof GrokAuthError ? error.code : "CONNECTION_UNAVAILABLE";
+        if (
+          method === "loopback-then-device" &&
+          DEVICE_FALLBACK.has(code) &&
+          !controller.signal.aborted
+        ) {
+          await dependencies.log?.event("loopback_failed", {
+            code,
+            httpStatus: error instanceof GrokAuthError ? error.httpStatus : undefined,
+          });
+          return await acceptTokens(await loginWithDevice(controller.signal));
+        }
+        throw error;
+      }
     } catch (error) {
       attempt = null;
       const code = error instanceof GrokAuthError ? error.code : "CONNECTION_UNAVAILABLE";
-      if (code === "AUTH_CANCELLED") return { kind: "CANCELLED", status: status() };
+      if (code === "AUTH_CANCELLED") {
+        await dependencies.log?.event("sign_in_cancelled");
+        return { kind: "CANCELLED", status: status() };
+      }
       lastError = code;
+      await dependencies.log?.event("sign_in_error", {
+        code,
+        httpStatus: error instanceof GrokAuthError ? error.httpStatus : undefined,
+      });
       return { kind: "ERROR", code, status: status() };
     } finally {
       attempt = null;
@@ -206,6 +283,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       await revokeGrokToken(dependencies.fetch, refresh, endpoints).catch(() => undefined);
     await persist(null);
     lastError = null;
+    await dependencies.log?.event("session_cleared");
     return { kind: "OK", status: status() };
   }
 

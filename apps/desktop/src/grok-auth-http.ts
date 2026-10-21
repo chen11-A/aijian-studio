@@ -2,10 +2,14 @@ import type { GrokLoginModel } from "@aijian/contracts/grok-auth";
 import {
   GROK_API,
   GROK_CLIENT_ID,
+  GROK_DEVICE_CODE,
+  GROK_DEVICE_GRANT,
   GROK_REVOKE,
+  GROK_SCOPE,
   GROK_TOKEN,
   GROK_USERINFO,
   GrokAuthError,
+  acceptedGrokVerificationLink,
   isRecord,
   safeString,
 } from "./grok-auth-oauth";
@@ -94,6 +98,7 @@ export async function exchangeAuthorizationCode(
   if (!response.ok)
     throw new GrokAuthError(
       response.status === 403 ? "ENTITLEMENT_DENIED" : "TOKEN_EXCHANGE_FAILED",
+      { httpStatus: response.status },
     );
   const tokens = parseTokenResponse(await readJson(response), now);
   if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
@@ -202,4 +207,125 @@ export async function completeGrokText(
   if (!isRecord(value) || !safeString(value.output_text, 100_000))
     throw new GrokAuthError("TEXT_FAILED");
   return value.output_text;
+}
+
+export type GrokDeviceLogin = {
+  deviceCode: string;
+  verificationUrl: string;
+  expiresIn: number;
+  intervalSeconds: number;
+};
+
+function finite(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const whole = Math.floor(value);
+  if (whole < min || whole > max) return null;
+  return whole;
+}
+
+async function oauthErrorName(response: Response): Promise<string> {
+  try {
+    const value = await readJson(response);
+    if (isRecord(value) && typeof value.error === "string" && /^[a-z_]{1,40}$/.test(value.error)) {
+      return value.error;
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+export async function requestGrokDeviceCode(
+  fetch: Fetch,
+  endpoint = GROK_DEVICE_CODE,
+): Promise<GrokDeviceLogin> {
+  const response = await fetch(endpoint, form({ client_id: GROK_CLIENT_ID, scope: GROK_SCOPE }));
+  if (!response.ok) throw new GrokAuthError("DEVICE_CODE_FAILED", { httpStatus: response.status });
+  const value = await readJson(response);
+  if (
+    !isRecord(value) ||
+    !safeString(value.device_code, 2048) ||
+    !safeString(value.user_code, 128)
+  ) {
+    throw new GrokAuthError("DEVICE_CODE_FAILED");
+  }
+  const expiresIn = finite(value.expires_in, 1, 1800);
+  const intervalSeconds = finite(value.interval, 1, 60);
+  if (expiresIn === null || intervalSeconds === null) throw new GrokAuthError("DEVICE_CODE_FAILED");
+  return {
+    deviceCode: value.device_code,
+    verificationUrl: acceptedGrokVerificationLink(value.verification_uri_complete, value.user_code),
+    expiresIn,
+    intervalSeconds,
+  };
+}
+
+function defaultSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new GrokAuthError("AUTH_CANCELLED"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new GrokAuthError("AUTH_CANCELLED"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+export async function pollGrokDeviceToken(
+  fetch: Fetch,
+  input: {
+    deviceCode: string;
+    expiresIn: number;
+    intervalSeconds: number;
+    endpoints?: GrokEndpoints;
+    signal: AbortSignal;
+    now?: () => number;
+    sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  },
+): Promise<GrokTokens> {
+  const endpoints = input.endpoints ?? OFFICIAL_GROK_ENDPOINTS;
+  const now = input.now ?? Date.now;
+  const sleep = input.sleep ?? defaultSleep;
+  let interval = Math.min(60, Math.max(1, Math.floor(input.intervalSeconds)));
+  const expires = Math.min(1800, Math.max(1, Math.floor(input.expiresIn)));
+  const deadline = now() + expires * 1000;
+  for (let attempt = 0; attempt < expires; attempt += 1) {
+    if (input.signal.aborted) throw new GrokAuthError("AUTH_CANCELLED");
+    if (now() >= deadline) break;
+    await sleep(interval * 1000, input.signal);
+    const response = await fetch(
+      endpoints.token,
+      form({
+        grant_type: GROK_DEVICE_GRANT,
+        client_id: GROK_CLIENT_ID,
+        device_code: input.deviceCode,
+      }),
+    );
+    if (response.ok) {
+      const tokens = parseTokenResponse(await readJson(response), now());
+      if (!tokens.refreshToken) throw new GrokAuthError("TOKEN_RESPONSE_INVALID");
+      return tokens;
+    }
+    const detail = await oauthErrorName(response);
+    if (detail === "authorization_pending") continue;
+    if (detail === "slow_down") {
+      interval = Math.min(60, interval + 5);
+      continue;
+    }
+    if (detail === "access_denied") {
+      throw new GrokAuthError("AUTH_DENIED", { httpStatus: response.status, detail });
+    }
+    if (detail === "expired_token") {
+      throw new GrokAuthError("AUTH_ATTEMPT_EXPIRED", { httpStatus: response.status, detail });
+    }
+    throw new GrokAuthError("DEVICE_CODE_FAILED", { httpStatus: response.status, detail });
+  }
+  throw new GrokAuthError("AUTH_ATTEMPT_EXPIRED");
 }

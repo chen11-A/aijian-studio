@@ -563,6 +563,27 @@
   line-height: 22px;
   color: #7695af;
 }
+.v2-launch-status,
+.v2-launch-models {
+  margin: 12px 0 0;
+  max-width: 420px;
+  color: #d7ebf8;
+  font-size: 14px;
+  line-height: 22px;
+}
+.v2-launch-models {
+  padding-left: 18px;
+}
+.v2-launch-quiet {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8fb4cc;
+  font: inherit;
+  cursor: pointer;
+}
 .v2-launch-error {
   font-size: 13px;
   display: flex;

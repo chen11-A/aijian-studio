@@ -7,6 +7,7 @@ import type {
 import {
   GROK_DESKTOP_REQUIRED,
   grokBridge,
+  GROK_WAITING_MESSAGE,
   grokLoginFailureMessage,
   readGrokStatus,
   validGrokStatus,
@@ -78,7 +79,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
     const current = ++generation.current;
     signingIn.current = true;
     setBusy(true);
-    setNotice("");
+    setNotice(GROK_WAITING_MESSAGE);
     try {
       const result = await bridge.signIn();
       if (!mounted.current || generation.current !== current) return;

@@ -4,13 +4,18 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  * Public OAuth endpoints from https://auth.x.ai/.well-known/openid-configuration
  * (authorization code + PKCE S256, device code, refresh, public clients).
  * The client id matches the public Hermes constant XAI_OAUTH_CLIENT_ID.
- * Hermes signs that client in with the device-code grant. This build uses the
- * authorization-code grant and listens on http://127.0.0.1:56121/callback.
- * The OIDC document does not publish redirect URIs, so a rejected redirect
- * fails closed and does not read browser cookies.
+ * Sign-in opens the system browser on the authorization endpoint and waits for
+ * http://127.0.0.1:56121/callback. The OIDC document does not list redirect
+ * URIs. A live authorize request accepts http://127.0.0.1:<port>/callback and
+ * rejects non-loopback hosts; consent can still reject the callback. That
+ * rejection fails closed, does not read browser cookies, and falls back to the
+ * device-code grant: open verification_uri_complete (the code is already in
+ * the link) and poll. The user never copies a code.
  */
 export const GROK_ISSUER = "https://auth.x.ai";
 export const GROK_AUTHORIZE = `${GROK_ISSUER}/oauth2/authorize`;
+export const GROK_DEVICE_CODE = `${GROK_ISSUER}/oauth2/device/code`;
+export const GROK_DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 export const GROK_TOKEN = `${GROK_ISSUER}/oauth2/token`;
 export const GROK_REVOKE = `${GROK_ISSUER}/oauth2/revoke`;
 export const GROK_USERINFO = `${GROK_ISSUER}/oauth2/userinfo`;
@@ -22,8 +27,20 @@ export const GROK_CALLBACK_PATH = "/callback";
 export const GROK_AUTH_TTL = 10 * 60 * 1000;
 
 export class GrokAuthError extends Error {
-  constructor(readonly code: string) {
+  readonly httpStatus?: number;
+  readonly detail?: string;
+  constructor(
+    readonly code: string,
+    options?: { httpStatus?: number; detail?: string },
+  ) {
     super(code);
+    const status = options?.httpStatus;
+    this.httpStatus =
+      typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599
+        ? status
+        : undefined;
+    this.detail =
+      options?.detail && /^[a-z_]{1,40}$/.test(options.detail) ? options.detail : undefined;
   }
 }
 
@@ -119,4 +136,31 @@ export function createGrokAuthorizationAttempt(
       return { code };
     },
   };
+}
+
+/** Only an https://auth.x.ai link that already contains the one-time code may be opened. */
+export function acceptedGrokVerificationLink(value: unknown, userCode: string): string {
+  if (!safeString(value, 2000) || !safeString(userCode, 128)) {
+    throw new GrokAuthError("DEVICE_CODE_LINK_MISSING");
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new GrokAuthError("DEVICE_CODE_LINK_MISSING");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "auth.x.ai" ||
+    url.username ||
+    url.password ||
+    url.hash
+  ) {
+    throw new GrokAuthError("DEVICE_CODE_LINK_MISSING");
+  }
+  const embedded = [...url.searchParams.values()];
+  if (!embedded.includes(userCode) && !url.pathname.includes(userCode)) {
+    throw new GrokAuthError("DEVICE_CODE_LINK_MISSING");
+  }
+  return url.href;
 }

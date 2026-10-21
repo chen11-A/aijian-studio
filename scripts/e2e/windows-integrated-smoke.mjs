@@ -81,7 +81,7 @@ try {
   const resources = await application.evaluate(() => globalThis.process.resourcesPath);
   assert.equal(hash(join(resources, "media/ffmpeg.exe")), ffmpegSha);
   assert.equal(hash(join(resources, "media/ffprobe.exe")), ffprobeSha);
-  const login = page.getByRole("button", { name: "用 SuperGrok / X Premium+ 账号登录" });
+  const login = page.getByRole("button", { name: "用 Grok 账号登录" });
   const loginVisible = await login.isVisible().catch(() => false);
   if (loginVisible) {
     await page.screenshot({ path: values.report.replace(/\.json$/, "-login.png") });
