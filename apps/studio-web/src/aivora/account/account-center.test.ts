@@ -184,6 +184,36 @@ describe("connected accounts", () => {
     expect(preview.state).toContain("桌面");
     expect(nameless.state).toBe("已连接");
     expect(connectedAccountSlots({ xai: null })[2].connected).toBe(false);
+    const grokBase = {
+      provider: "GROK_LOGIN" as const,
+      runtime: "DESKTOP" as const,
+      secureStorage: "AVAILABLE" as const,
+      state: "NOT_CONNECTED" as const,
+      accountLabel: "person@example.test",
+      lastError: null,
+    };
+    expect(
+      connectedAccountSlots({ grok: { ...grokBase, state: "AWAITING_BROWSER" } })[1].state,
+    ).toContain("等待浏览器");
+    expect(
+      connectedAccountSlots({ grok: { ...grokBase, state: "REAUTH_REQUIRED" } })[1].state,
+    ).toContain("重新登录");
+    expect(
+      connectedAccountSlots({ grok: { ...grokBase, state: "ENTITLEMENT_DENIED" } })[1].quota,
+    ).toContain("403");
+    const loggedIn = connectedAccountSlots({
+      grok: { ...grokBase, state: "CONNECTED" },
+      grokModels: [{ id: "grok-4", label: "Grok 4" }],
+    })[1];
+    expect(loggedIn.connected).toBe(true);
+    expect(loggedIn.models.map((model) => model.id)).toEqual(["grok-4"]);
+    expect(connectedAccountSlots({ grok: grokBase, grokLoading: true })[1].state).toBe("正在读取");
+    expect(
+      connectedAccountSlots({
+        grok: { ...grokBase, state: "CONNECTED", accountLabel: null },
+        grokModels: [],
+      })[1].state,
+    ).toBe("已连接");
     expect(parseChoiceValue("grok:grok-4")).toEqual({ provider: "GROK_LOGIN", modelId: "grok-4" });
   });
 });
