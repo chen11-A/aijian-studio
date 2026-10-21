@@ -99,6 +99,7 @@ class RemoteSourceExtractSelection:
     connection_id: str
     connection_revision: int
     model_id: str
+    billing_account_kind: Literal["gpt_login", "grok_login"] = "gpt_login"
 
 
 @dataclass(frozen=True, slots=True)
@@ -342,7 +343,11 @@ def _enqueue_from_intent(
                 available_at=intent_record.created_at,
                 attempt_snapshot_kind="agent_skill_v1",
                 attempt_snapshot=intent.attempt_snapshot,
-                billing_account_kind="gpt_login",
+                billing_account_kind=(
+                    "grok_login"
+                    if dispatch.scope.get("billing_account_kind") == "grok_login"
+                    else "gpt_login"
+                ),
                 dispatch_snapshot=RemoteDispatchSnapshotDraft(
                     connection_id=dispatch.connection_id,
                     connection_revision=dispatch.connection_revision,
@@ -475,6 +480,8 @@ class SourceExtractRunFactory:
                 "connection_revision": remote_selection.connection_revision,
                 "model_id": remote_selection.model_id,
             }
+            if remote_selection.billing_account_kind == "grok_login":
+                request_identity["billing_account_kind"] = "grok_login"
         request_hash = canonical_sha256(request_identity)
         execution_idempotency_key = "proposal-run:" + canonical_sha256(identity_seed)
         agent_run_id = _stable_id("agr", {**identity_seed, "kind": "agent"})
@@ -708,6 +715,11 @@ class SourceExtractRunFactory:
                     "source_document_id": payload.source_document_id,
                     "source_block_ids": [payload.source_block_id],
                     "span_bounds": [[payload.start_byte, payload.end_byte]],
+                    **(
+                        {"billing_account_kind": "grok_login"}
+                        if remote_selection.billing_account_kind == "grok_login"
+                        else {}
+                    ),
                 },
             )
             intent_data.update(

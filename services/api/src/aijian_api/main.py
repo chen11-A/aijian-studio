@@ -161,6 +161,7 @@ from aijian_api.official_director_routes import (
     create_official_director_public_router,
     create_official_director_write_router,
 )
+from aijian_api.desktop_subscription_routes import create_desktop_subscription_router
 from aijian_api.official_text_routes import (
     create_official_text_public_router,
     create_official_text_write_router,
@@ -1260,6 +1261,7 @@ def create_app(
         assert resolved_local_media_toolchain is not None
         app.include_router(create_local_media_toolchain_router(resolved_local_media_toolchain))
         app.include_router(create_official_text_write_router(get_repository, trusted_review_actor))
+        app.include_router(create_desktop_subscription_router(get_repository))
         app.include_router(
             create_official_director_write_router(get_repository, trusted_review_actor)
         )

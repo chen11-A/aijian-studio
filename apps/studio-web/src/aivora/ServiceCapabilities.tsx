@@ -85,15 +85,16 @@ export function ServiceCapabilities({
               <li key={connection.id}>
                 {connection.display_name}：{readinessLabels[assessConfiguredConnection(connection)]}
                 {connection.provider_kind === "XAI"
-                  ? "。这是 xAI API 配置，不是 SuperGrok 订阅登录。"
+                  ? "。这是 API Key 备用配置，不是 Grok 订阅登录。"
                   : ""}
               </li>
             ))}
           </ul>
         )}
         <p>
-          Grok 订阅登录尚未接入：需先确认 AIVORA 的 OAuth
-          接入资格及账号权限。不会借用其他应用身份，也不会把 xAI API Key 当作会员登录。
+          可以用 Grok 订阅账号登录，和 ChatGPT 官方账号并列。授权在 auth.x.ai，模型来自 api.x.ai
+          的目录。登录成功不等于每个档位都能推理：若返回 403，请改用 API Key。API Key
+          走控制台额度。上方沙箱连接也不会访问 api.x.ai。
         </p>
         <ul>
           <li>

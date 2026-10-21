@@ -38,7 +38,8 @@ export function ProjectCosts({
         <h2>项目任务账本</h2>
         <p>项目：{projectId ?? "尚未选择"}</p>
         <p>
-          仅展示现有项目任务记录，不是完整账单。官方账号操作及部分服务结算可能未进入此队列；Sub2API结算与上游扣费需分别核对。
+          仅展示现有项目任务记录，不是完整账单。官方账号操作及部分历史服务结算可能未进入此队列，需分别核对；未知金额不是
+          0。
         </p>
         <Button
           disabled={!projectId || state.kind === "loading"}

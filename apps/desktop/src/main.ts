@@ -14,6 +14,10 @@ import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assis
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { createSubscriptionLedger } from "./desktop-subscription-ledger";
+import { createGrokStore } from "./grok-auth-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -277,8 +281,16 @@ function getAssistantReceiptStore(): AssistantReceiptStore {
   );
   return assistantReceiptStore;
 }
+function subscriptionLedger() {
+  if (!sidecar) throw new Error("BILLING_UNAVAILABLE");
+  return createSubscriptionLedger(globalThis.fetch, sidecar.session);
+}
 function getChatGPTRuntime() {
   chatgptRuntime ??= createChatGPTRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
     store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
@@ -319,6 +331,44 @@ function getChatGPTRuntime() {
   });
   return chatgptRuntime;
 }
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), safeStorage),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    confirmSignIn: async (signal) => {
+      const window = mainWindow;
+      if (!window) return false;
+      const result = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "用 SuperGrok / X Premium+ 账号登录",
+        defaultId: 1,
+        cancelId: 1,
+        signal,
+        buttons: ["继续并打开系统浏览器", "取消"],
+        message: "允许 AIVORA 用你的 SuperGrok / X Premium+ 账号登录，并在本机加密保存登录凭据？",
+        detail:
+          "浏览器会打开 xAI 的授权页（auth.x.ai）。AIVORA 使用公开的 Grok 客户端和本机回调 http://127.0.0.1:56121/callback，不读取浏览器 Cookie。登录后只拉取模型目录，不会自动发起推理。令牌只留在本机安全存储，不进入项目文件、服务端数据库或页面。部分普通 SuperGrok 可以登录成功，但推理仍会返回 403。出现 403 时请改用 API Key，不要反复登录。你可以随时退出。",
+      });
+      return result.response === 0;
+    },
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>

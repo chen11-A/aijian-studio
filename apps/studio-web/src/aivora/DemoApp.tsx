@@ -65,6 +65,7 @@ function Workspace({ reset }: { reset: () => void }) {
     activeProject.backendId === d.backendProjectId &&
     ["story", "script"].includes(d.page) &&
     !d.value("source").trim();
+  const surfacesBeforeProject: PageId[] = ["generation", "voice", "export"];
   const missingPageData =
     !activeProject ||
     (d.isFixture && ["story", "script"].includes(d.page) && !d.value("source").trim()) ||
@@ -296,9 +297,7 @@ function Workspace({ reset }: { reset: () => void }) {
         )}
         <button className="service-indicator" onClick={() => d.go("services")}>
           <span />
-          {d.isFixture
-            ? serviceStatus
-            : `API / Sub2API：${serviceStatus} · ChatGPT：${officialStatus}`}
+          {d.isFixture ? serviceStatus : `API：${serviceStatus} · ChatGPT：${officialStatus}`}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">
@@ -447,7 +446,10 @@ function Workspace({ reset }: { reset: () => void }) {
         <div id="demo-scroll" tabIndex={-1} className="page-scroll">
           {sourceUnavailable ? (
             <SourceContentEmpty page={d.page} onOpenSource={() => d.go("source")} />
-          ) : missingPageData && !global && d.page !== "project" ? (
+          ) : missingPageData &&
+            !global &&
+            d.page !== "project" &&
+            (d.isFixture || !surfacesBeforeProject.includes(d.page)) ? (
             <ProjectContentEmpty page={d.page} />
           ) : homes.includes(d.page) ? (
             <HomePages />

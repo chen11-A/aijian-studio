@@ -245,18 +245,26 @@ def insert_dispatch_billing_record(
     attempt_id: str | None,
     reservation_id: str | None,
     created_at: str,
+    desktop_dispatch_id: str | None = None,
 ) -> None:
     require_prefixed_id(record_id, "dbr")
-    if attempt_id is None and reservation_id is None:
-        raise ValueError("dispatch billing record requires an attempt or a reservation")
+    anchors = (
+        attempt_id is not None,
+        reservation_id is not None,
+        desktop_dispatch_id is not None,
+    )
+    if sum(anchors) != 1:
+        raise ValueError(
+            "dispatch billing record requires one attempt, reservation, or desktop dispatch"
+        )
     if account_kind is not None and not 1 <= len(account_kind) <= 64:
         raise ValueError("billing account kind is invalid")
     connection.execute(
         """
         INSERT INTO dispatch_billing_records (
             record_id, project_id, billing_class, account_kind, classification_source,
-            attempt_id, reservation_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            attempt_id, reservation_id, desktop_dispatch_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record_id,
@@ -266,6 +274,7 @@ def insert_dispatch_billing_record(
             classification_source,
             attempt_id,
             reservation_id,
+            desktop_dispatch_id,
             created_at,
         ),
     )

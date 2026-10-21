@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDemo } from "./model";
 import { Button, FlowFooter } from "./Common";
 import { Icon } from "./Icon";
@@ -7,14 +7,17 @@ import { NativeCostsPage } from "./NativeCostsPage";
 import { NativeVoicePage } from "./NativeVoicePage";
 import { MediaToolchainSettings } from "./MediaToolchainSettings";
 import { ProviderConnectionForm } from "./ProviderConnectionForm";
-import { Sub2APIConnectionManagement } from "./Sub2APIConnectionManagement";
 import { ChatGPTConnectionControls } from "./chatgpt-auth/ChatGPTConnectionCard";
 import {
   OfficialConnectionProvider,
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
+import { AccountModelCenter } from "./account/AccountModelCenter";
+import { GrokConnectionCard } from "./grok-auth/GrokConnectionCard";
+import { GrokConnectionProvider } from "./grok-auth/GrokConnectionContext";
 import { ServiceCapabilities } from "./ServiceCapabilities";
 import { rememberServiceEntryChoice } from "./FirstRunServiceChoice";
+import { apiKeyFallbackPending, takeApiKeyFallbackRequest } from "./account/navigation";
 import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
 import "./provider-connection-form.css";
 import avatar from "./assets/v2/avatar.png";
@@ -101,13 +104,18 @@ function Services() {
 }
 function ConnectedServices() {
   const account = useOfficialConnection();
+  const d = useDemo();
   if (!account)
     return (
       <OfficialConnectionProvider>
         <ConnectedServices />
       </OfficialConnectionProvider>
     );
-  return <ServicesContent />;
+  return (
+    <GrokConnectionProvider projectId={d.backendProjectId}>
+      <ServicesContent />
+    </GrokConnectionProvider>
+  );
 }
 function ServicesContent() {
   const d = useDemo();
@@ -118,21 +126,60 @@ function ServicesContent() {
   const official = useRef<HTMLDivElement>(null);
   const apiConfig = useRef<HTMLElement>(null);
   const entry = d.value("serviceEntry");
-  const [serviceTab, setServiceTab] = useState<"api" | "chatgpt">(
-    entry === "chatgpt" ? "chatgpt" : "api",
+  const [serviceTab, setServiceTab] = useState<"grok" | "chatgpt" | "api">(() =>
+    apiKeyFallbackPending() || entry === "api"
+      ? "api"
+      : entry === "chatgpt"
+        ? "chatgpt"
+        : "grok",
   );
-  const useApi = () => {
+  const useApi = useCallback(() => {
     rememberServiceEntryChoice("api");
     d.put("serviceEntry", "api");
     setServiceTab("api");
+  }, [d]);
+  const useGrok = () => {
+    rememberServiceEntryChoice("grok");
+    d.put("serviceEntry", "grok");
+    setServiceTab("grok");
   };
   useEffect(() => {
     if (serviceTab === "api" && entry === "api") apiConfig.current?.focus();
     if (serviceTab === "chatgpt") official.current?.focus();
   }, [entry, serviceTab]);
+  useEffect(() => {
+    const openKey = () => {
+      useApi();
+      requestAnimationFrame(() => {
+        const field = document.getElementById("xai-api-key");
+        field?.scrollIntoView({ block: "center" });
+        field?.focus();
+      });
+    };
+    if (takeApiKeyFallbackRequest()) openKey();
+    const onUseApiKey = () => {
+      takeApiKeyFallbackRequest();
+      openKey();
+    };
+    window.addEventListener("aivora-use-api-key", onUseApiKey);
+    return () => window.removeEventListener("aivora-use-api-key", onUseApiKey);
+  }, [useApi]);
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
+      <AccountModelCenter
+        connections={state.kind === "ready" ? state.response.data : []}
+        saving={settings.saving}
+        onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
+        onOpenGrok={d.isFixture ? undefined : useGrok}
+        onSaveXaiKey={
+          d.isFixture
+            ? undefined
+            : async (input) => {
+                await settings.create(input);
+              }
+        }
+      />
       {chatGPT && (
         <ServiceCapabilities
           chatGPT={chatGPT}
@@ -144,12 +191,12 @@ function ServicesContent() {
       {!d.isFixture && (
         <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
           <Button
-            aria-pressed={serviceTab === "api"}
-            primary={serviceTab === "api"}
+            aria-pressed={serviceTab === "grok"}
+            primary={serviceTab === "grok"}
             disabled={chatGPT?.busy}
-            onClick={() => setServiceTab("api")}
+            onClick={useGrok}
           >
-            API / Sub2API
+            Grok 账号
           </Button>
           <Button
             aria-pressed={serviceTab === "chatgpt"}
@@ -159,6 +206,19 @@ function ServicesContent() {
           >
             ChatGPT 官方账号
           </Button>
+          <Button
+            aria-pressed={serviceTab === "api"}
+            primary={serviceTab === "api"}
+            disabled={chatGPT?.busy}
+            onClick={() => setServiceTab("api")}
+          >
+            API 连接（高级备用）
+          </Button>
+        </div>
+      )}
+      {!d.isFixture && (
+        <div hidden={serviceTab !== "grok"} className="official-service-panel">
+          {serviceTab === "grok" && <GrokConnectionCard />}
         </div>
       )}
       {!d.isFixture && (
@@ -246,7 +306,9 @@ function ServicesContent() {
                   )}
                 </div>
                 {connection.provider_kind === "SUB2API" && (
-                  <Sub2APIConnectionManagement connection={connection} onReload={settings.load} />
+                  <p>
+                    这是已停用通道的历史连接，不能再修改或派发。历史费用仍可在项目费用里只读查看。
+                  </p>
                 )}
                 {settings.confirmingId === connection.id ? (
                   <div role="alert">
@@ -270,7 +332,10 @@ function ServicesContent() {
             <Icon name="settings" size={16} />
             添加模型供应商
           </h2>
-          <p>此处配置 API Key。ChatGPT 官方账号使用上方独立入口。</p>
+          <p>
+            这里登记供应商和它提供的模型
+            ID，不是选择本次创作用的模型。创作模型只在上方模型中心选择。
+          </p>
           <ProviderConnectionForm
             busy={settings.saving}
             error={settings.saveError}

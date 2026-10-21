@@ -34,6 +34,16 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+@media (max-width: 860px) {
+  .first-run-service-options {
+    grid-template-columns: 1fr;
+  }
+  .first-run-service-choice > header,
+  .first-run-service-choice > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
 .first-run-service-options > section {
   display: flex;
   flex-direction: column;

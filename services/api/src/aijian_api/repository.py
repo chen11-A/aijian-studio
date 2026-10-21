@@ -22,6 +22,7 @@ from aijian_api.artifact_invalidation_ledger import (
     record_accepted_head_replacement,
 )
 from aijian_api.artifacts import canonical_content_bytes, canonical_content_hash
+from aijian_api.desktop_subscription_schema import DESKTOP_SUBSCRIPTION_MIGRATION
 from aijian_api.dispatch_billing_schema import DISPATCH_BILLING_MIGRATION
 from aijian_api.domain import (
     ArtifactActorType,
@@ -122,7 +123,7 @@ from aijian_api.workflow_schema import (
     migration_19_statements,
 )
 
-SCHEMA_VERSION = 49
+SCHEMA_VERSION = 50
 SQLITE_INTEGER_MAX = 2**63 - 1
 
 type MigrationHook = Callable[[int, int], None]
@@ -868,6 +869,7 @@ _MIGRATIONS = {
     47: LOCAL_MEDIA_REVIEW_MIGRATION,
     48: MEDIA_BUDGET_MIGRATION,
     49: DISPATCH_BILLING_MIGRATION,
+    50: DESKTOP_SUBSCRIPTION_MIGRATION,
 }
 
 
@@ -1191,7 +1193,7 @@ class StudioRepository:
             while version < SCHEMA_VERSION:
                 next_version = version + 1
                 statements = _MIGRATIONS[next_version]
-                rebuild_with_foreign_keys_disabled = next_version in {19, 20, 22, 24, 31, 33}
+                rebuild_with_foreign_keys_disabled = next_version in {19, 20, 22, 24, 31, 33, 50}
                 if next_version == 3:
                     challenge_columns = {
                         str(row["name"])

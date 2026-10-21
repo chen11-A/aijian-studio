@@ -257,7 +257,9 @@ export function registerAssistantChatHandlers<Event>(
         return { kind: "NOT_SENT", operationId: request.operationId, code: "ACCOUNT_CHANGED" };
       if ((await receipts.pending(preview.request.scope, request.expectedProfileId)).length)
         return { kind: "NOT_SENT", operationId: request.operationId, code: "OUTSTANDING_UNKNOWN" };
-      const result = await runtime.generateText(preview.command, {
+      const result = await runtime.generateText(
+        { ...preview.command, billingProjectId: preview.request.scope.projectId },
+        {
         beforeSend: async (metadata) => {
           if (
             preview.discarded ||

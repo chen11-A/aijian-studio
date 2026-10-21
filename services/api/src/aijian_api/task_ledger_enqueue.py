@@ -58,6 +58,8 @@ class EnqueueLocalNodeRequest:
 class EnqueueRemoteNodeRequest(EnqueueLocalNodeRequest):
     dispatch_snapshot: RemoteDispatchSnapshotDraft | None = None
     sub2api_scope: Sub2APISourceExtractScopeDraft | None = None
+    # Account class for this dispatch. Do not hardcode gpt_login; grok_login
+    # must reach authorize_remote_dispatch_billing with the v48 amount fields.
     billing_account_kind: str | None = None
     billing_class: str | None = None
     metered_currency: str | None = None

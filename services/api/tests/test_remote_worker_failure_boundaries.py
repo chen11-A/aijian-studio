@@ -137,6 +137,30 @@ def execute(case):
     )
 
 
+def test_grok_login_does_not_call_the_transport(worker_case):
+    case = worker_case
+    case.dispatch.scope = {
+        **case.dispatch.scope,
+        "billing_account_kind": "grok_login",
+    }
+    with pytest.raises(remote.RemoteWorkerBlocked, match="grok_login"):
+        execute(case)
+    case.worker._transport.dispatch.assert_not_called()
+    case.worker._credentials.get.assert_not_called()
+
+
+def test_queued_grok_login_closes_before_consume(worker_case):
+    case = worker_case
+    case.worker._authorizations.desktop_subscription_account_kind.return_value = "grok_login"
+    result = execute(case)
+    assert result.outcome == "FAILED"
+    assert result.code == "DESKTOP_TRANSPORT_REQUIRED"
+    case.worker._authorizations.begin_remote_dispatch.assert_not_called()
+    case.worker._authorizations.fail_remote_before_dispatch.assert_called_once()
+    case.worker._transport.dispatch.assert_not_called()
+    case.worker._credentials.get.assert_not_called()
+
+
 def test_wrong_task_kind_never_marks_running(worker_case):
     case = worker_case
     case.claim.task_kind = "different"

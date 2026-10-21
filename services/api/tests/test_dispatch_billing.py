@@ -605,7 +605,7 @@ def test_billing_records_are_immutable_and_migration_49_is_additive(tmp_path: Pa
         assert "media_budget_reservations" in names
     StudioRepository(legacy)
     with sqlite3.connect(legacy) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 49
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 50
         after = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'remote_dispatch_snapshots'"
         ).fetchone()[0]
@@ -734,7 +734,7 @@ def test_paid_media_billing_cannot_be_relabeled_and_record_ids_are_checked(
     with pytest.raises(ValueError, match="different billing"):
         store.dispatch(MediaDispatchRequest(project_id, "held", "USD", 1))
     with sqlite3.connect(database) as connection:
-        with pytest.raises(ValueError, match="attempt or a reservation"):
+        with pytest.raises(ValueError, match="desktop dispatch"):
             insert_dispatch_billing_record(
                 connection,
                 record_id="dbr_" + "cd" * 16,

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { createStudioTransport } from "../api/studio";
 import { Button, PageTitle } from "./Common";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
+import { SandboxVoicePlan } from "./account/SandboxSurfaces";
 import { useDemo } from "./model";
 
 export function NativeVoicePage() {
@@ -24,6 +25,7 @@ export function NativeVoicePage() {
       <p>
         声线授权、语音生成、对白内容核验和口型同步尚未接通。DRAFT 绑定不证明录音说出了该句对白。
       </p>
+      <SandboxVoicePlan />
       <div className="v2-media-body native-assembly-body">
         {d.backendProjectId && d.selectedEpisodeId ? (
           <EpisodeMediaAssemblyPanel
