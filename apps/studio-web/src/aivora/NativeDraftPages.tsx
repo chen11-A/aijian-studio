@@ -1,3 +1,4 @@
+import { ChangeCostNotice, FormalDeliveryChecklist } from "./account/SandboxSurfaces";
 import { AssemblyReadinessPanel } from "./AssemblyReadinessPanel";
 import { ScriptConfirmationImpactHistory } from "./ScriptConfirmationImpactHistory";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
@@ -34,6 +35,8 @@ export function NativeDraftPages({
         {view === "changes" && (
           <ScriptConfirmationImpactHistory projectId={projectId} gateway={transport} />
         )}
+        {view === "changes" && <ChangeCostNotice onOpenCosts={() => d.go("costs")} />}
+        {view === "export" && <FormalDeliveryChecklist />}
         {projectId && episodeId ? (
           <>
             {view === "export" && (

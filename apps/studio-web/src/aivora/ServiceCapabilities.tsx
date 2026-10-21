@@ -92,8 +92,8 @@ export function ServiceCapabilities({
           </ul>
         )}
         <p>
-          Grok 订阅登录尚未接入：需先确认 AIVORA 的 OAuth
-          接入资格及账号权限。不会借用其他应用身份，也不会把 xAI API Key 当作会员登录。
+          xAI 没有面向第三方应用的 Grok 订阅 OAuth。官方接入是 console.x.ai 的 API Key，与 ChatGPT
+          订阅登录不同，不能使用 Grok 订阅额度。上方沙箱连接也不会访问 api.x.ai。
         </p>
         <ul>
           <li>

@@ -48,25 +48,25 @@ export function FirstRunServiceChoice({
       }}
     >
       <header>
-        <h2 id="first-service-title">选择 AI 连接方式</h2>
+        <h2 id="first-service-title">连接 AI</h2>
         <Button onClick={onClose} aria-label="关闭连接方式选择">
           关闭
         </Button>
       </header>
-      <p>无需注册 AIVORA 账号。选择适合你的方式，之后可随时在“AI 服务”中更改。</p>
+      <p>无需注册 AIVORA 账号。连接和模型都在「AI 服务」里完成，之后可以更改。</p>
       {notice && <p role="status">{notice}</p>}
       <div className="first-run-service-options">
         <section>
-          <h3>ChatGPT 官方账号</h3>
-          <p>查看适用条件后，通过 OpenAI 官方浏览器授权。套餐权限以实际授权结果为准。</p>
-          <Button primary onClick={() => onSelect("chatgpt")}>
-            继续到官方授权
+          <h3>连接 Grok</h3>
+          <p>官方没有与 ChatGPT 相同的订阅登录。用控制台 API Key 连接，不能使用 Grok 订阅额度。</p>
+          <Button primary onClick={() => onSelect("api")}>
+            连接 Grok（API Key）
           </Button>
         </section>
         <section>
-          <h3>已有 API / Sub2API</h3>
-          <p>直接使用自己的模型 API 或 Sub2API 服务，无需登录 ChatGPT。</p>
-          <Button onClick={() => onSelect("api")}>跳过 ChatGPT，配置 API</Button>
+          <h3>ChatGPT 官方账号</h3>
+          <p>可选。浏览器授权后，文本模型仍只在模型中心选择。</p>
+          <Button onClick={() => onSelect("chatgpt")}>使用 ChatGPT 官方账号</Button>
         </section>
       </div>
       <footer>

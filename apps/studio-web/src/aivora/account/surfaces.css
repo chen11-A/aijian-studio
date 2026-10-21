@@ -1,0 +1,78 @@
+.account-center {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.account-center .v2-utility-card {
+  padding: 4px 4px 12px;
+}
+.account-center p,
+.sandbox-desk p,
+.delivery-checklist p {
+  margin: 8px 13px;
+  color: #a8c0d5;
+  font-size: 13px;
+  line-height: 20px;
+}
+.account-model-grid,
+.sandbox-actions,
+.delivery-checklist ul,
+.account-benefits {
+  margin: 8px 13px 0;
+}
+.account-model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.account-benefits,
+.account-pair ul,
+.delivery-checklist ul {
+  padding-left: 18px;
+}
+.account-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 13px 0;
+}
+.account-pair article {
+  margin: 0;
+  padding: 8px 0 4px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+}
+.account-pair h3 {
+  margin: 0 13px;
+}
+.account-actions,
+.sandbox-actions,
+.current-model-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 13px 0;
+}
+.current-model-link {
+  margin: 8px 0;
+}
+.sandbox-desk,
+.delivery-checklist {
+  margin: 12px 0;
+}
+.account-status {
+  display: inline-block;
+  margin: 8px 13px 0;
+  padding: 2px 8px;
+  border: 1px solid #215173;
+  border-radius: 999px;
+  color: #f2f7ff;
+  font-size: 12px;
+}
+@media (max-width: 800px) {
+  .account-model-grid,
+  .account-pair {
+    grid-template-columns: 1fr;
+  }
+}

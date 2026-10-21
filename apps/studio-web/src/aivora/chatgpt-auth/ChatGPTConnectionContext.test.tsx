@@ -14,6 +14,7 @@ import { DESKTOP_REQUIRED } from "./transport";
 import { OfficialConnectionProvider, useOfficialConnection } from "./ChatGPTConnectionContext";
 import { MODEL_PREFERENCE_KEY } from "./modelPreference";
 import { ChatGPTConnectionControls } from "./ChatGPTConnectionCard";
+import { AccountModelCenter } from "../account/AccountModelCenter";
 import { useOfficialTextProposals } from "../useOfficialTextProposals";
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 
@@ -76,6 +77,7 @@ function CardHarness() {
   return (
     <>
       <ChatGPTConnectionControls connection={account.connection} selection={account} />
+      <AccountModelCenter />
       <output data-testid="choice-verified">{String(account.resolve(projectId).verified)}</output>
     </>
   );
@@ -298,9 +300,9 @@ describe("shared official model selection", () => {
       </OfficialConnectionProvider>,
     );
     fireEvent.click(await screen.findByRole("button", { name: "读取此账号的可用模型" }));
-    const picker = await screen.findByRole("combobox", { name: "默认官方文本模型" });
+    const picker = await screen.findByRole("combobox", { name: "文本模型" });
     await waitFor(() => expect(picker).toBeEnabled());
-    fireEvent.change(picker, { target: { value: "text-one" } });
+    fireEvent.change(picker, { target: { value: "chatgpt:text-one" } });
     expect(screen.getByTestId("choice-verified")).toHaveTextContent("true");
     const selectOther = () =>
       screen
@@ -315,7 +317,7 @@ describe("shared official model selection", () => {
     expect(picker).toHaveValue("");
     expect(screen.getByRole("option", { name: "请重新选择模型" })).toBeInTheDocument();
     expect(screen.getByTestId("choice-verified")).toHaveTextContent("false");
-    fireEvent.change(picker, { target: { value: "text-one" } });
+    fireEvent.change(picker, { target: { value: "chatgpt:text-one" } });
     expect(screen.getByTestId("choice-verified")).toHaveTextContent("true");
   });
 

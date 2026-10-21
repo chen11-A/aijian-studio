@@ -32,6 +32,7 @@ import {
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { DESKTOP_REQUIRED } from "./chatgpt-auth/transport";
+import { selectCenteredModel } from "./account/model-center";
 
 const profileId = "11111111-1111-4111-8111-111111111111";
 function AccountProbe() {
@@ -90,12 +91,15 @@ async function models() {
   await ready();
   await waitFor(() => expect(screen.getByTestId("account-state")).toHaveTextContent("ready"));
   fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-  await screen.findByRole("option", { name: "Fixture official model" });
-  expect(screen.getByLabelText("官方模型")).toHaveValue("");
-  fireEvent.change(screen.getByLabelText("官方模型"), { target: { value: "" } });
-  fireEvent.change(screen.getByLabelText("官方模型"), {
-    target: { value: "fixture-official-model" },
+  await screen.findByText(/Fixture official model/);
+  expect(screen.getByText("尚未选择官方文本模型")).toBeInTheDocument();
+  act(() => {
+    selectCenteredModel("TEXT", {
+      provider: "CHATGPT_OFFICIAL",
+      modelId: "fixture-official-model",
+    });
   });
+  await screen.findByText("本项目已覆盖默认模型");
 }
 beforeEach(() => {
   vi.stubGlobal("crypto", webcrypto);
@@ -132,10 +136,14 @@ describe("compact native-only AI director review", () => {
     rtlRender(<OfficialDirectorProposalPanel {...fixture.input} />);
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByRole("option", { name: "Fixture official model" });
-    fireEvent.change(screen.getByLabelText("官方模型"), {
-      target: { value: "fixture-official-model" },
+    await screen.findByText(/Fixture official model/);
+    act(() => {
+      selectCenteredModel("TEXT", {
+        provider: "CHATGPT_OFFICIAL",
+        modelId: "fixture-official-model",
+      });
     });
+    await screen.findByText(/fixture-official-model/);
     expect(screen.getByRole("button", { name: "审阅输入并生成一次" })).toBeDisabled();
     expect(fixture.bridge.generate).not.toHaveBeenCalled();
   });

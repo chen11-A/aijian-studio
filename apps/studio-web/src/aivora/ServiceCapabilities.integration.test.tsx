@@ -89,9 +89,10 @@ describe("service capability overview", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "ChatGPT 官方账号" }));
     fireEvent.click(await screen.findByRole("button", { name: "读取此账号的可用模型" }));
-    const picker = await screen.findByRole("combobox", { name: "默认官方文本模型" });
+    const picker = await screen.findByRole("combobox", { name: "文本模型" });
+    await screen.findByRole("option", { name: "Text Two · ChatGPT 官方" });
     expect(picker).toHaveValue("");
-    fireEvent.change(picker, { target: { value: "text-two" } });
+    fireEvent.change(picker, { target: { value: "chatgpt:text-two" } });
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem(MODEL_PREFERENCE_KEY) ?? "null")).toMatchObject({
         version: 1,
@@ -106,7 +107,7 @@ describe("service capability overview", () => {
     const panel = await screen.findByRole("region", { name: "账号与能力检查" });
     await within(panel).findByText("套餐已授权 · 推理待验证");
     expect(within(panel).getByText(/剩余额度：未知/)).toBeInTheDocument();
-    expect(within(panel).getByText(/Grok 订阅登录尚未接入/)).toBeInTheDocument();
+    expect(within(panel).getByText(/没有面向第三方应用的 Grok 订阅 OAuth/)).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole("button", { name: "检查自动出片准备" }));
     expect(within(panel).getByRole("status")).toHaveTextContent("自动出片尚未就绪");
     expect(bridge.models).not.toHaveBeenCalled();

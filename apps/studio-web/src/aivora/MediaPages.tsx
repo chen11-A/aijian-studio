@@ -1,3 +1,4 @@
+import { SandboxMediaTaskDesk } from "./account/SandboxSurfaces";
 import { MediaPreparationWorkflow } from "./MediaPreparationWorkflow";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
 import { NativeDraftPages } from "./NativeDraftPages";
@@ -1168,6 +1169,7 @@ export function MediaPages() {
             </Button>
           }
         />
+        <SandboxMediaTaskDesk />
         {d.backendProjectId && d.selectedEpisodeId ? (
           <MediaPreparationWorkflow
             key={`${d.backendProjectId}/${d.selectedEpisodeId}`}

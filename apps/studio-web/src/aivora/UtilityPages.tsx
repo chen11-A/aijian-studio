@@ -13,6 +13,7 @@ import {
   OfficialConnectionProvider,
   useOfficialConnection,
 } from "./chatgpt-auth/ChatGPTConnectionContext";
+import { AccountModelCenter } from "./account/AccountModelCenter";
 import { ServiceCapabilities } from "./ServiceCapabilities";
 import { rememberServiceEntryChoice } from "./FirstRunServiceChoice";
 import { capabilityLabels, providerPresets } from "../domain/provider-settings-model";
@@ -133,6 +134,18 @@ function ServicesContent() {
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
+      <AccountModelCenter
+        connections={state.kind === "ready" ? state.response.data : []}
+        saving={settings.saving}
+        onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
+        onSaveXaiKey={
+          d.isFixture
+            ? undefined
+            : async (input) => {
+                await settings.create(input);
+              }
+        }
+      />
       {chatGPT && (
         <ServiceCapabilities
           chatGPT={chatGPT}
@@ -270,7 +283,10 @@ function ServicesContent() {
             <Icon name="settings" size={16} />
             添加模型供应商
           </h2>
-          <p>此处配置 API Key。ChatGPT 官方账号使用上方独立入口。</p>
+          <p>
+            这里登记供应商和它提供的模型
+            ID，不是选择本次创作用的模型。创作模型只在上方模型中心选择。
+          </p>
           <ProviderConnectionForm
             busy={settings.saving}
             error={settings.saveError}
