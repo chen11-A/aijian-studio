@@ -217,7 +217,14 @@ def build(output: Path, cache: Path) -> None:
     if output == ROOT or ROOT in output.parents:
         raise RuntimeError("Choose a destination outside the source checkout")
     helper = checkpoint_module()
-    electron = (ROOT / "apps/desktop/node_modules/electron/dist").resolve()
+    electron_package = ROOT / "apps/desktop/node_modules/electron"
+    electron = (electron_package / "dist").resolve()
+    if not (electron / "electron").is_file():
+        # The electron package downloads its runtime from install.js. pnpm does not
+        # run that script during a frozen install, so a fresh CI machine has no binary.
+        subprocess.run(
+            ["node", str(electron_package / "install.js")], cwd=electron_package, check=True
+        )
     if not (electron / "electron").is_file():
         raise RuntimeError("Installed official Electron Linux runtime not found")
     electron_version = (electron / "version").read_text().strip()
