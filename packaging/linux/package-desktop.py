@@ -67,16 +67,34 @@ def download(url: str, expected: str, target: Path) -> None:
     temporary.rename(target)
 
 
+def _link_stays_inside(member: tarfile.TarInfo) -> bool:
+    if member.linkname.startswith("/"):
+        return False
+    parts: list[str] = []
+    for part in (Path(member.name).parent / member.linkname).parts:
+        if part == "..":
+            if not parts:
+                return False
+            parts.pop()
+        elif part not in {"", "."}:
+            parts.append(part)
+    return True
+
+
 def extract(archive: Path, destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     with tarfile.open(archive) as tar:
+        members = []
         for member in tar.getmembers():
             if member.name.startswith("/") or ".." in Path(member.name).parts:
                 raise RuntimeError(f"Unsafe archive path: {member.name}")
-        if hasattr(tarfile, "data_filter"):
-            tar.extractall(destination, filter="data")
-        else:
-            tar.extractall(destination)
+            if member.issym() or member.islnk():
+                # CPython's terminfo database links outside the prefix. The runtime
+                # does not need it, and Ubuntu 22.04 refuses those links.
+                if not _link_stays_inside(member):
+                    continue
+            members.append(member)
+        tar.extractall(destination, members=members)
 
 
 def checkpoint_module():
