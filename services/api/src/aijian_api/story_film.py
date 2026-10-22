@@ -910,7 +910,7 @@ def mark_film_progress(
     with _PROGRESS_LOCK:
         current = _PROGRESS.get(project_id)
         continuing = current is not None and current.get("stage") not in {"done", "failed", "idle"}
-        started = current.get("started") if continuing else time.monotonic()
+        started = current.get("started") if current is not None and continuing else time.monotonic()
         saved = image_saved or bool(current and current.get("image_saved"))
         _PROGRESS[project_id] = {
             "stage": stage,
