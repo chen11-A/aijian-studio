@@ -30,7 +30,7 @@ function Harness() {
   );
 }
 
-function connectedBridge(createStoryFilm: NonNullable<Window["aijian"]>["createStoryFilm"]) {
+function connectedBridge(createStoryFilm: unknown) {
   window.aijian = {
     health: vi.fn().mockResolvedValue({
       request_id: "health",
