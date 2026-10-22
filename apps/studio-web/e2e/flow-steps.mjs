@@ -108,7 +108,11 @@ async function run(viewport, persona) {
   await page.getByText("403").first().waitFor({ timeout: 8000 });
   await shot("04-entitlement-403");
 
+  const advanced = page.locator("details.account-advanced");
+  if (!(await advanced.evaluate((element) => element.open)))
+    await advanced.locator("summary").click();
   const trySandbox = page.getByRole("button", { name: "看看媒体沙箱（不产生费用）" });
+  await trySandbox.waitFor({ state: "visible", timeout: 8000 });
   await trySandbox.scrollIntoViewIfNeeded();
   await trySandbox.click();
   clicks += 1;

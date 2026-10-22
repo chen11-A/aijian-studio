@@ -158,7 +158,17 @@ function layoutProbe() {
         rect.bottom <= window.innerHeight + 1;
       if (centerInside) {
         const top = document.elementFromPoint(pointX, pointY);
-        if (top && top !== element && !element.contains(top) && !top.contains(element)) {
+        // An open menu is supposed to sit above the page. Coverage only counts
+        // when the control on top is not that menu.
+        const openMenu = top instanceof Element ? top.closest("details[open]") : null;
+        const menuOverlay = openMenu instanceof HTMLElement && !openMenu.contains(element);
+        if (
+          top &&
+          top !== element &&
+          !element.contains(top) &&
+          !top.contains(element) &&
+          !menuOverlay
+        ) {
           issues.push({
             kind: "covered",
             text: labelOf(element),
