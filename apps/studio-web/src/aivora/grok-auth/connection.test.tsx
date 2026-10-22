@@ -158,8 +158,9 @@ describe("Grok login copy and connection", () => {
         <GrokConnectionCard />
       </GrokConnectionProvider>,
     );
-    expect(await screen.findByRole("button", { name: "用 Grok 账号登录" })).toBeDisabled();
-    expect(await screen.findByRole("list", { name: "可用模型" })).toHaveTextContent("Grok 4");
+    expect(await screen.findByRole("status", { name: "已登录" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "用 Grok 账号登录" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "可用模型" })).not.toBeInTheDocument();
     expect(screen.getByText(/已登录 · person@example.test/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "改用 API Key（高级备用）" }));
   });

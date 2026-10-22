@@ -21,6 +21,8 @@ import {
 } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { assessChatGPTConnection, readinessLabels } from "../domain/ai-capability-readiness";
 import { AssistantSelectionProvider } from "./assistantSelection";
+import { Select } from "./Select";
+import { openWuchengSample } from "./sample-project";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
   const [revision, setRevision] = useState(0);
@@ -161,7 +163,7 @@ function Workspace({ reset }: { reset: () => void }) {
             <small>AI Story & Motion Studio</small>
           </span>
         </button>
-        <select
+        <Select
           aria-label="作品选择"
           value={d.value("projectId", "1")}
           onChange={async (event) => {
@@ -175,13 +177,13 @@ function Workspace({ reset }: { reset: () => void }) {
               {project.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button icon="back" onClick={d.back}>
           返回
         </Button>
         {!management && (
           <>
-            <select
+            <Select
               className="episode-select"
               aria-label="剧集选择"
               value={d.isFixture ? d.value("episode") : (d.selectedEpisodeId ?? "")}
@@ -209,7 +211,7 @@ function Workspace({ reset }: { reset: () => void }) {
                   </option>
                 ))
               )}
-            </select>
+            </Select>
             <Button
               disabled={
                 d.episodeState === "loading" ||
@@ -297,16 +299,22 @@ function Workspace({ reset }: { reset: () => void }) {
             {hasRail ? "收起专业右栏" : "恢复专业右栏"}
           </button>
         )}
-        <button className="service-indicator" onClick={() => d.go("services")}>
+        <button
+          className="service-indicator"
+          title={
+            d.isFixture ? serviceStatus : `API：${serviceStatus}。ChatGPT：${officialStatus}。`
+          }
+          onClick={() => d.go("services")}
+        >
           <span />
-          {d.isFixture ? serviceStatus : `API：${serviceStatus} · ChatGPT：${officialStatus}`}
+          {d.isFixture ? serviceStatus : headerConnection(serviceStatus, officialStatus)}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">
             <div>
               <label>
                 演示页面
-                <select
+                <Select
                   aria-label="演示页面"
                   value={d.page}
                   onChange={(event) => d.go(event.target.value as PageId)}
@@ -316,11 +324,11 @@ function Workspace({ reset }: { reset: () => void }) {
                       {value[0]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 页面状态
-                <select
+                <Select
                   aria-label="页面状态"
                   value={d.scenario}
                   onChange={(event) => d.setScenario(event.target.value as Scenario)}
@@ -330,7 +338,7 @@ function Workspace({ reset }: { reset: () => void }) {
                   <option value="loading">加载中</option>
                   <option value="error">失败</option>
                   <option value="unavailable">能力未接入</option>
-                </select>
+                </Select>
               </label>
               <p>全部编辑只在内存中保存，刷新后恢复样例。</p>
               <Button onClick={reset}>重置演示</Button>
@@ -407,13 +415,15 @@ function Workspace({ reset }: { reset: () => void }) {
             projectNav.map((item) => (
               <div key={item.page}>
                 {item.group && (
-                  <small
+                  <button
+                    type="button"
                     className="nav-label"
                     data-group={item.group === "资源与交付" ? "resources" : "characters"}
+                    onClick={() => d.go(item.page)}
                   >
                     <Icon name="globe" size={19} />
                     {item.group}
-                  </small>
+                  </button>
                 )}
                 <NavItem {...item} />
               </div>
@@ -568,12 +578,47 @@ function Workspace({ reset }: { reset: () => void }) {
   );
 }
 function ProjectContentEmpty({ page }: { page: PageId }) {
+  const d = useDemo();
   return (
     <section className="v2-visual-page" role="status">
       <h1>{pages[page][0]}</h1>
-      <p>尚未选择真实项目。创建或选择项目后，才会读取此页面的内容。</p>
+      <p>尚未选择真实项目。可以打开示例「雾城来信」，或回到首页新建。</p>
+      <div className="actions">
+        <Button primary onClick={() => void openWuchengSample(d)}>
+          打开雾城来信
+        </Button>
+        <Button onClick={() => d.go("home")}>回到首页</Button>
+      </div>
     </section>
   );
+}
+
+function headerConnection(serviceStatus: string, official: string): string {
+  const api = serviceStatus.includes("失败")
+    ? "读取失败"
+    : serviceStatus.startsWith("正在")
+      ? "读取中"
+      : serviceStatus.startsWith("已配置")
+        ? "已配置"
+        : serviceStatus === "没有 API 连接"
+          ? "未连接"
+          : "见服务页";
+  const chat = official.includes("失败")
+    ? "读取失败"
+    : official.includes("正在读取")
+      ? "读取中"
+      : official.includes("重新授权")
+        ? "需重新登录"
+        : official.includes("凭据")
+          ? "凭据不可用"
+          : official.includes("桌面")
+            ? "需桌面应用"
+            : official.includes("已授权") || official.includes("已登录")
+              ? "已登录"
+              : official.includes("尚未")
+                ? "未连接"
+                : "见服务页";
+  return `API ${api} · ChatGPT ${chat}`;
 }
 function SourceContentEmpty({ page, onOpenSource }: { page: PageId; onOpenSource: () => void }) {
   return (

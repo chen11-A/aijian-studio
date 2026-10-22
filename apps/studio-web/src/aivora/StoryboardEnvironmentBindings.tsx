@@ -13,6 +13,7 @@ import {
 import { useCharacterReferenceAssets } from "./useCharacterReferenceAssets";
 import { CharacterReferencePreview } from "./CharacterReferencePreview";
 import { useStoryboardEnvironmentApproval } from "./useStoryboardEnvironmentApproval";
+import { Select } from "./Select";
 
 export function StoryboardEnvironmentBindings({
   content,
@@ -126,7 +127,7 @@ export function StoryboardEnvironmentBindings({
         )}
         <label>
           本镜地点状态
-          <select
+          <Select
             aria-label="本镜地点状态"
             disabled={disabled || !shot.location_id}
             value={binding.variant_id ?? ""}
@@ -144,7 +145,7 @@ export function StoryboardEnvironmentBindings({
                 {item.name} · {item.view} · {item.time_of_day} · {item.weather}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {binding.variant_id &&
           !allowedStates.some(

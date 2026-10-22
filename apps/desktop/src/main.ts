@@ -373,6 +373,13 @@ function getGrokRuntime() {
     store: createGrokStore(join(app.getPath("userData"), "grok-official"), useGrokEncryption()),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
+    onBrowserReturned: () => {
+      const window = mainWindow;
+      if (!window || window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    },
     log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
     // The labeled button is the confirmation. One click opens the system browser.
     confirmSignIn: async () => true,

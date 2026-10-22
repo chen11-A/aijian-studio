@@ -32,6 +32,7 @@ import type {
 } from "./adapters/episodeMediaAssembly";
 import "./episode-assembly.css";
 import { ASSEMBLY_CANVASES, canvasKey } from "./adapters/assemblyCanvas";
+import { Select } from "./Select";
 
 const playbackLabels = {
   DRAFT_STATIC_ANIMATIC: "图片剪辑草稿",
@@ -273,7 +274,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         <div className="assembly-canvas">
           <label>
             保存画幅与分辨率
-            <select
+            <Select
               value={canvasKey(content.canvas_width, content.canvas_height)}
               disabled={locked}
               onChange={(event) => {
@@ -300,7 +301,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                   {item.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <p>
             原素材等比适应画布，空余部分留黑边。保存后导出使用此画幅；修改不会覆盖已保存版本或已导出文件。
@@ -335,7 +336,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         {!audioOnly && (
           <label>
             序列帧率
-            <select
+            <Select
               value={timebaseChoice}
               disabled={locked || !!content.visual_segments.length}
               onChange={(event) => {
@@ -348,12 +349,12 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                   {item.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <label>
           选择已导入素材版本
-          <select
+          <Select
             value={assetChoice}
             disabled={locked}
             onChange={(event) => setAssetChoice(event.target.value)}
@@ -365,19 +366,19 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                 {item.version.availability === "PRESENT_UNVERIFIED" ? " · 保存时核验原件" : ""}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {choice?.version.kind === "audio" && (
           <label>
             声音轨道
-            <select
+            <Select
               value={trackKind}
               disabled={locked}
               onChange={(event) => setTrackKind(event.target.value === "SFX" ? "SFX" : "BGM")}
             >
               <option value="BGM">BGM 背景音乐</option>
               <option value="SFX">SFX 音效</option>
-            </select>
+            </Select>
           </label>
         )}
         <Button

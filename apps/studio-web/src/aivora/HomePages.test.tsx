@@ -137,7 +137,7 @@ describe("project centre filtering", () => {
           <ProjectHarness />
         </DemoProvider>,
       );
-      await screen.findByRole("button", { name: "本地工作区已连接" });
+      await screen.findByRole("status", { name: "本地工作区已连接" });
       fireEvent.click(screen.getAllByRole("button", { name: "新建项目" })[0]!);
       expect(screen.getByLabelText("项目画幅")).toHaveValue("16:9");
       fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: aspect } });
@@ -171,7 +171,7 @@ describe("project centre filtering", () => {
         <ProjectHarness />
       </DemoProvider>,
     );
-    await screen.findByRole("button", { name: "本地工作区已连接" });
+    await screen.findByRole("status", { name: "本地工作区已连接" });
     fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
     fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: "未提交作品" } });
     fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: "1:1" } });
@@ -905,7 +905,7 @@ it("clears a failed refreshed project view but retains and restores the exact sa
   expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
 
   failProjects = true;
-  fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
+  fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
   expect(
     await screen.findByRole("heading", { name: "本地工作区暂时无法读取" }),
   ).toBeInTheDocument();
@@ -1157,7 +1157,7 @@ it("starts a film from the empty workspace sample or one sentence", async () => 
       <EditorDialog />
     </DemoProvider>,
   );
-  await screen.findByRole("button", { name: "本地工作区已连接" });
+  await screen.findByRole("status", { name: "本地工作区已连接" });
   fireEvent.click(screen.getByRole("button", { name: "写一句话开始" }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.change(within(dialog).getByLabelText("这一句"), { target: { value: "   \n  " } });
@@ -1188,8 +1188,8 @@ it("starts a film from the empty workspace sample or one sentence", async () => 
       <EditorDialog />
     </DemoProvider>,
   );
-  await screen.findByRole("button", { name: "本地工作区已连接" });
-  fireEvent.click(screen.getByRole("button", { name: "打开雾城来信" }));
+  await screen.findByRole("status", { name: "本地工作区已连接" });
+  fireEvent.click(screen.getAllByRole("button", { name: "打开雾城来信" })[0]!);
   await waitFor(() =>
     expect(desktop.createProject).toHaveBeenCalledWith({
       name: "雾城来信",

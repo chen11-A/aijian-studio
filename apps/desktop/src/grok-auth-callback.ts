@@ -6,11 +6,23 @@ import {
   createGrokAuthorizationAttempt,
 } from "./grok-auth-oauth";
 
+const CALLBACK_PAGE = `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>登录成功</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#f4f7fb;font-family:sans-serif">
+<main style="max-width:28rem;padding:32px;text-align:center">
+<h1>登录成功、可以关闭浏览器</h1>
+<p>AIVORA 已经收到登录。不用把页面上的代码复制到任何地方。</p>
+</main>
+</body>
+</html>`;
+
 /** The system browser is the only recipient of the authorization URL. */
 export async function authorizeGrokInBrowser(
   input: { authorizeEndpoint?: string; port?: number },
   openBrowser: (url: string) => Promise<void>,
   signal: AbortSignal,
+  onReturned?: () => void,
 ): Promise<{ code: string; verifier: string; redirectUri: string }> {
   const server = createServer({
     maxHeaderSize: 8192,
@@ -50,7 +62,8 @@ export async function authorizeGrokInBrowser(
         try {
           const code = attempt.consume(`http://${host}${request.url}`);
           response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          response.end("<p>Grok 登录已回到 AIVORA。可以关闭这个页面。</p>");
+          response.end(CALLBACK_PAGE);
+          onReturned?.();
           resolve(code);
         } catch (error) {
           response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });

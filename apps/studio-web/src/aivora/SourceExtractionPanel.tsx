@@ -26,6 +26,7 @@ import type {
   RemoteSourceExtractOperation,
   SourceExtractionAcceptanceState,
 } from "./adapters/remoteSourceExtract";
+import { Select } from "./Select";
 
 export type SourceExtractionPanelProps = {
   projectId: string | null;
@@ -598,7 +599,7 @@ export function SourceExtractionPanel({
       <div className="v2-export-actions">
         <label>
           来源块
-          <select
+          <Select
             value={blockId}
             disabled={!document || !!operation || busy}
             onChange={(event) => setBlockId(event.target.value)}
@@ -609,11 +610,11 @@ export function SourceExtractionPanel({
                 第 {item.ordinal + 1} 块 · {item.kind} · {item.end_byte - item.start_byte} 字节
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
           文本连接
-          <select
+          <Select
             value={connectionId}
             disabled={!!operation || busy || !document}
             onChange={(event) => {
@@ -627,11 +628,11 @@ export function SourceExtractionPanel({
                 {item.display_name} · 修订 {item.revision}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
           TEXT 模型
-          <select
+          <Select
             value={modelId}
             disabled={!!operation || busy || !selectedConnection}
             onChange={(event) => setModelId(event.target.value)}
@@ -642,7 +643,7 @@ export function SourceExtractionPanel({
                 {item.model_id}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <Button disabled={!canQueue} onClick={() => void queue()}>
           仅入队原来源抽取

@@ -56,7 +56,7 @@ describe("header user chip", () => {
     fireEvent.click(summary);
     fireEvent.click(screen.getByRole("button", { name: "项目设置" }));
     fireEvent.click(summary);
-    fireEvent.click(screen.getByRole("button", { name: "返回启动页" }));
+    fireEvent.click(screen.getByRole("button", { name: "回到欢迎页" }));
   });
 
   it("shows the Grok account label after the desktop session is read", async () => {
@@ -71,5 +71,24 @@ describe("header user chip", () => {
     );
     expect(screen.getByText("P")).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
+    fireEvent.click(screen.getByText("person", { selector: ".user-chip-name" }));
+    fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
+    await waitFor(() => expect(window.aijianGrok?.signOut).toHaveBeenCalled());
+  });
+
+  it("keeps the local name when the desktop status cannot be read", async () => {
+    window.aijianGrok = bridge(signedOut);
+    window.aijianGrok.status = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    render(
+      <DemoProvider>
+        <UserChip />
+      </DemoProvider>,
+    );
+    expect(await screen.findByText("本")).toBeInTheDocument();
+    await waitFor(() => expect(window.aijianGrok?.status).toHaveBeenCalled());
+    fireEvent.click(screen.getByText("本地用户", { selector: ".user-chip-name" }));
+    expect(screen.getByRole("button", { name: "退出登录" })).toBeDisabled();
   });
 });

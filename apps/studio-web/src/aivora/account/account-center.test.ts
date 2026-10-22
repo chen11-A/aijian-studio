@@ -110,11 +110,11 @@ describe("connected accounts", () => {
       chatgptModels: [{ slug: "gpt-test", displayName: "GPT Test" }],
       xai: opened.session,
     });
-    expect(chatgpt.method).toBe("官方 OAuth");
+    expect(chatgpt.method).toBe("浏览器登录");
     expect(chatgpt.connected).toBe(true);
     expect(chatgpt.models.map((model) => model.id)).toEqual(["gpt-test"]);
     expect(chatgpt.quota).toContain("未知");
-    expect(grokLogin.method).toBe("官方 OAuth");
+    expect(grokLogin.method).toBe("浏览器登录");
     expect(grokLogin.state).toContain("桌面");
     expect(grok.method).toBe("高级备用");
     expect(grok.quota).toContain("不是订阅额度");
@@ -124,7 +124,7 @@ describe("connected accounts", () => {
       "grok-imagine-video-1.5",
       "grok-tts",
     ]);
-    expect(grok.difference).toContain("不预留");
+    expect(grok.difference).toContain("不会提前占用预算");
 
     const [signedOut] = connectedAccountSlots({
       chatgpt: {

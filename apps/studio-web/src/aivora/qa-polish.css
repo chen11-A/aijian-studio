@@ -1,0 +1,122 @@
+/* Hands-on QA: contrast, header fit, margins, and controls that only look clickable. */
+
+.demo-root .v2-launch .welcome-sign-in .button.primary {
+  background: #f4f6f8;
+  color: #141518;
+  border-color: #d7dde6;
+}
+
+.demo-root .button.primary:disabled {
+  opacity: 1;
+  background: #16324a;
+  color: #d7e6f2;
+  border-color: #3d6484;
+}
+
+.demo-root .flow-footer > span {
+  color: #d5e4f0;
+}
+
+.welcome-more,
+.welcome-more summary {
+  font-size: 14px;
+  line-height: 22px;
+  color: #d5e0ea;
+}
+
+.v2-recent-heading > button {
+  font-size: 14px;
+  color: #d5e6f5;
+}
+
+.demo-root.production-workbench .service-indicator,
+.demo-root.production-workbench.no-stage.no-rail .service-indicator {
+  right: 360px;
+  width: auto;
+  max-width: 280px;
+  height: auto;
+  white-space: normal;
+  overflow: visible;
+  line-height: 18px;
+}
+
+.demo-root.production-workbench.no-rail,
+.demo-root.production-workbench.is-pro.no-rail {
+  --main-right: 20px;
+}
+
+.demo-root .user-menu > summary {
+  max-width: 240px;
+  height: auto;
+  min-height: 36px;
+  white-space: normal;
+}
+
+.demo-root .user-chip-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+button.nav-label {
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  color: #d5e6f5;
+  background: transparent;
+  pointer-events: none;
+}
+
+.model-notice-slot {
+  min-height: 24px;
+}
+
+.production-workbench .service-secondary {
+  overflow: auto;
+}
+
+.production-workbench .service-secondary section[aria-label="已连接账号"] {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.demo-root.production-workbench .v2-cost-summary {
+  height: auto;
+}
+
+.demo-root.production-workbench .v2-cost-summary strong {
+  margin: 8px 12px 0;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.demo-root.production-workbench .v2-cost-summary p {
+  margin: 8px 12px 12px;
+}
+
+.demo-root .v2-utility-management .v2-utility-heading > .button {
+  position: static;
+  right: auto;
+  top: auto;
+}
+
+.account-model-grid .mouse-select-face > span,
+.mouse-select-face > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

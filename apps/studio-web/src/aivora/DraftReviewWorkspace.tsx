@@ -8,6 +8,7 @@ import { useDraftReviewWorkspace } from "./useDraftReviewWorkspace";
 import "./draft-export.css";
 import "./episode-assembly.css";
 
+import { Select } from "./Select";
 type Props = {
   projectId: string;
   episodeId: string;
@@ -53,7 +54,7 @@ function SelectedWorkspace(props: Props) {
       </p>
       <label>
         审片原版 DRAFT
-        <select
+        <Select
           aria-label="审片原版 DRAFT"
           value={state.operation}
           disabled={state.busy || !exports}
@@ -69,7 +70,7 @@ function SelectedWorkspace(props: Props) {
           {state.operation && !state.jobs.some((item) => item.operation_id === state.operation) && (
             <option value={state.operation}>已保留的原版：{state.operation}</option>
           )}
-        </select>
+        </Select>
       </label>
       <p>
         列表仅显示最近 20

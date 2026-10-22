@@ -35,23 +35,23 @@ describe("account and model center", () => {
     fireEvent.change(screen.getByLabelText("xAI 密钥"), {
       target: { value: "not-a-grok-login" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "连接 API Key（沙箱）" }));
+    fireEvent.click(screen.getByRole("button", { name: "登记备用密钥" }));
     expect(screen.getByRole("status")).toHaveTextContent("xai-");
     expect(save).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("xAI 密钥"), {
       target: { value: "xai-sandbox-test-key-value" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "连接 API Key（沙箱）" }));
+    fireEvent.click(screen.getByRole("button", { name: "登记备用密钥" }));
     expect(screen.getByRole("status")).toHaveTextContent("未访问 api.x.ai");
     expect(window.localStorage.getItem(XAI_SESSION_KEY)).not.toContain(
       "xai-sandbox-test-key-value",
     );
     const accounts = screen.getByLabelText("已连接账号");
     expect(accounts).toHaveTextContent("未知");
-    expect(accounts).toHaveTextContent("不预留");
+    expect(accounts).toHaveTextContent("不会提前占用预算");
     expect(accounts).toHaveTextContent("不是订阅额度");
-    expect(screen.getByLabelText("Grok 密钥 可用模型")).toHaveTextContent("grok-4.7");
+    expect(accounts).toHaveTextContent("已准备");
     expect(screen.queryByRole("button", { name: "购买套餐" })).not.toBeInTheDocument();
 
     const text = screen.getByRole("combobox", { name: "文本模型" });
@@ -62,7 +62,7 @@ describe("account and model center", () => {
     expect(screen.getByRole("combobox", { name: "配音模型" })).toHaveTextContent("Grok TTS");
     fireEvent.change(text, { target: { value: "" } });
     expect(screen.getByRole("status")).toHaveTextContent("已清空");
-    fireEvent.click(screen.getByRole("button", { name: "断开沙箱" }));
+    fireEvent.click(screen.getByRole("button", { name: "取消登记" }));
     expect(screen.getByRole("status")).toHaveTextContent("已断开");
     expect(window.localStorage.getItem(XAI_SESSION_KEY)).toBeNull();
   });
@@ -211,7 +211,7 @@ describe("account and model center", () => {
     expect(screen.queryByRole("combobox", { name: "图像模型" })).not.toBeInTheDocument();
     expect(screen.getByText("当前 Grok 登录权限暂不支持图像生成")).toBeInTheDocument();
     expect(screen.getByText("当前 Grok 登录权限暂不支持视频生成")).toBeInTheDocument();
-    expect(screen.getByText("当前 Grok 登录没有可选择的配音模型")).toBeInTheDocument();
+    expect(screen.getByText("这个账号没有返回可用的配音声音。")).toBeInTheDocument();
     expect(screen.queryByText(/暂不提供/)).not.toBeInTheDocument();
   });
 });

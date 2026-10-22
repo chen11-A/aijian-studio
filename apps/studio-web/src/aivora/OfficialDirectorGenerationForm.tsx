@@ -4,6 +4,7 @@ import { useFollowCenteredChatModel } from "./account/follow-centered-model";
 import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { OfficialDirectorInputProof } from "./OfficialDirectorInputProof";
 import type { useOfficialDirectorProposals } from "./useOfficialDirectorProposals";
+import { Select } from "./Select";
 
 export function OfficialDirectorGenerationForm({
   state,
@@ -91,7 +92,7 @@ export function OfficialDirectorGenerationForm({
           </label>
           <label>
             节奏
-            <select
+            <Select
               value={state.pacing}
               disabled={state.busy}
               onChange={(event) => {
@@ -103,7 +104,7 @@ export function OfficialDirectorGenerationForm({
               <option value="BALANCED">均衡</option>
               <option value="FAST">紧凑</option>
               <option value="SLOW">舒缓</option>
-            </select>
+            </Select>
           </label>
           <label className="official-director-intent">
             导演意图

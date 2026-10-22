@@ -8,6 +8,7 @@ import {
   DEVELOPMENT_FAKE_TIMELINE_LABEL,
 } from "./adapters/developmentFakeTimeline";
 import type { DevelopmentFakeTimelineRecoveryState } from "./adapters/developmentFakeTimeline";
+import { Select } from "./Select";
 
 function journalStorage(): Storage | null {
   try {
@@ -288,7 +289,7 @@ export function DevelopmentMediaPanel() {
       {journalCorrupt && <p role="alert">本地操作或恢复记录损坏，已阻止提交；请保留原始记录。</p>}
       <label>
         已批准来源
-        <select
+        <Select
           aria-label="选择本地 Fake 制作来源"
           value={sourceId}
           disabled={!adapter || !projectId || busy}
@@ -300,7 +301,7 @@ export function DevelopmentMediaPanel() {
               {document.filename} · {document.source_document_id}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <div className="v2-export-actions">
         <Button disabled={!adapter || !scope || !sourceId || busy} onClick={() => void prepare()}>
@@ -326,7 +327,7 @@ export function DevelopmentMediaPanel() {
       </div>
       <label>
         真实任务
-        <select
+        <Select
           aria-label="选择要查询的 Fake 任务"
           value={selectedTaskId}
           disabled={!adapter || !projectId || busy}
@@ -341,7 +342,7 @@ export function DevelopmentMediaPanel() {
               {item.task.task_id} · {item.task.status}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <div className="v2-export-actions">
         <Button disabled={!projectId || busy} onClick={() => void d.taskQueue.reload()}>

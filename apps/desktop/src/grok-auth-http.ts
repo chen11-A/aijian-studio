@@ -187,9 +187,8 @@ const MEDIA_LISTS = [
 
 /**
  * Language models come from GET /v1/models and GET /v1/language-models.
- * Image and video models come from their own listing routes. TTS has no model
- * list; GET /v1/tts/voices only tells us whether the login may use voices.
- * This never calls a generation endpoint.
+ * Image and video models come from their own listing routes. TTS voices from
+ * GET /v1/tts/voices become the 配音 choices. This never calls a generation endpoint.
  */
 export async function listGrokCatalog(
   fetch: Fetch,
@@ -216,7 +215,14 @@ export async function listGrokCatalog(
     if (notice) notices.push(notice);
   }
   const voices = await readCatalog(fetch, `${endpoints.api}/tts/voices`, accessToken);
-  const voiceOutcome = voices.status === 200 ? "voices" : catalogOutcome(voices.status, 0);
+  const parsedVoices = voices.status === 200 ? parseListedVoices(voices.body) : null;
+  const voiceOutcome =
+    voices.status === 200
+      ? parsedVoices
+        ? catalogOutcome(voices.status, parsedVoices.length)
+        : "unavailable"
+      : catalogOutcome(voices.status, 0);
+  if (parsedVoices && parsedVoices.length > 0) mergeModels(models, parsedVoices, true);
   reports.push({ capability: "SPEECH", outcome: voiceOutcome, httpStatus: voices.status });
   const speech = noticeFor("SPEECH", voiceOutcome, voices.status);
   if (speech) notices.push(speech);
@@ -295,6 +301,33 @@ function parseListedModels(body: unknown, force?: "image" | "video"): GrokLoginM
       id: item.id,
       label: safeString(item.name, 200) ? item.name : item.id,
       ...(outputModalities ? { outputModalities } : {}),
+    });
+    if (models.length >= 100) break;
+  }
+  return models;
+}
+
+function parseListedVoices(body: unknown): GrokLoginModel[] | null {
+  if (!isRecord(body)) return null;
+  const raw = Array.isArray(body.voices)
+    ? body.voices
+    : Array.isArray(body.data)
+      ? body.data
+      : null;
+  if (!raw) return null;
+  const models: GrokLoginModel[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const id = safeString(item.voice_id, 200)
+      ? item.voice_id
+      : safeString(item.id, 200)
+        ? item.id
+        : "";
+    if (!id) continue;
+    models.push({
+      id,
+      label: safeString(item.name, 200) ? item.name : id,
+      outputModalities: ["audio"],
     });
     if (models.length >= 100) break;
   }

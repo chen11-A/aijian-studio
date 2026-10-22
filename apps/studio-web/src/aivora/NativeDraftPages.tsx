@@ -1,4 +1,5 @@
 import { ChangeCostNotice, FormalDeliveryChecklist } from "./account/SandboxSurfaces";
+import { openWuchengSample } from "./sample-project";
 import { AssemblyReadinessPanel } from "./AssemblyReadinessPanel";
 import { ScriptConfirmationImpactHistory } from "./ScriptConfirmationImpactHistory";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
@@ -70,26 +71,27 @@ export function NativeDraftPages({
           </>
         ) : (
           <section role="status">
-            <p>请先选择真实项目和剧集，再读取此分集的草稿、批注和修改计划。</p>
-            <Button onClick={() => d.go("project")}>选择项目和剧集</Button>
+            <p>还没有打开作品。打开示例「雾城来信」后，才能查看这一集的草稿和修改。</p>
+            <Button primary onClick={() => void openWuchengSample(d)}>
+              打开雾城来信
+            </Button>
+            <Button onClick={() => d.go("home")}>回到首页</Button>
           </section>
         )}
       </div>
-      <FlowFooter
-        label={
-          view === "review"
-            ? "查看本集修改计划"
-            : view === "changes"
-              ? "另行导出本集新装配 DRAFT"
-              : "返回成片组装"
-        }
-        action={() =>
-          d.go(view === "review" ? "changes" : view === "changes" ? "export" : "assembly")
-        }
-        secondaryLabel={view === "changes" ? "返回本集审片" : "返回本集剪辑"}
-        secondaryAction={() => d.go(view === "changes" ? "review" : "assembly")}
-        reason="DRAFT 手工闭环 · 修改和导出须分别操作 · 正式签发待完成"
-      />
+      {projectId && episodeId && (
+        <FlowFooter
+          label={
+            view === "review" ? "查看本集修改" : view === "changes" ? "去导出草稿" : "回到成片"
+          }
+          action={() =>
+            d.go(view === "review" ? "changes" : view === "changes" ? "export" : "assembly")
+          }
+          secondaryLabel={view === "changes" ? "回到审片" : "回到剪辑"}
+          secondaryAction={() => d.go(view === "changes" ? "review" : "assembly")}
+          reason="当前导出的是草稿。正式发行还要另外完成检查。"
+        />
+      )}
     </>
   );
 }

@@ -25,6 +25,7 @@ import male from "./assets/v2/male.png";
 import rival from "./assets/v2/rival.png";
 import "./v2-utility.css";
 
+import { Select } from "./Select";
 export function UtilityPages() {
   const d = useDemo();
   if (d.page === "services") return <Services />;
@@ -42,10 +43,7 @@ function MediaEnabledSettings() {
   }, [open]);
   return (
     <>
-      <div className="assembly-actions">
-        <Button onClick={() => setOpen(true)}>本地媒体工具</Button>
-      </div>
-      <SettingsPage />
+      <SettingsPage tools={<Button onClick={() => setOpen(true)}>本机视频工具</Button>} />
       <dialog
         ref={dialog}
         className="demo-dialog"
@@ -500,13 +498,13 @@ function Voice() {
             </button>
             <label>
               目标语言
-              <select
+              <Select
                 value={d.value(key("voiceLanguage"), "跟随项目 · 中文")}
                 onChange={(e) => d.put(key("voiceLanguage"), e.target.value)}
               >
                 <option>跟随项目 · 中文</option>
                 <option>简体中文</option>
-              </select>
+              </Select>
             </label>
             <div className="v2-voice-actions">
               <Button disabled title="没有可播放的音频文件">

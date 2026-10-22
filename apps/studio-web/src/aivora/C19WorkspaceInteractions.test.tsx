@@ -269,20 +269,18 @@ describe("C19 workspace controls", () => {
     window.history.replaceState({}, "", "#storyboard");
     render(<DemoApp fixture={fixture} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "尚未选择真实项目。创建或选择项目后，才会读取此页面的内容。",
+      "尚未选择真实项目。可以打开示例「雾城来信」，或回到首页新建。",
     );
     expect(document.querySelector(".demo-root")).toHaveClass("management-shell");
   });
 
-  it("shows sandbox desks on generation, voice and export before a project exists", () => {
-    for (const [page, label] of [
-      ["generation", "媒体任务沙箱"],
-      ["voice", "配音方案沙箱"],
-      ["export", "正式交付清单"],
-    ] as const) {
+  it("offers the sample project before a project exists", () => {
+    for (const page of ["generation", "voice", "export"] as const) {
       window.history.replaceState({}, "", `#${page}`);
       render(<DemoApp />);
-      expect(screen.getByLabelText(label)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "打开雾城来信" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("媒体任务沙箱")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("配音方案沙箱")).not.toBeInTheDocument();
       cleanup();
     }
   });

@@ -1,4 +1,3 @@
-import { SandboxMediaTaskDesk } from "./account/SandboxSurfaces";
 import { MediaPreparationWorkflow } from "./MediaPreparationWorkflow";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
 import { NativeDraftPages } from "./NativeDraftPages";
@@ -18,6 +17,8 @@ import { getDevelopmentTimelineSnapshot } from "./adapters/developmentTimeline";
 import { createStudioTransport } from "../api/studio";
 import { EpisodeStoryboardPanel } from "./EpisodeStoryboardPanel";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
+import { Select } from "./Select";
+import { openWuchengSample } from "./sample-project";
 
 const FPS = 24;
 export function mediaTimecode(time: number) {
@@ -542,7 +543,7 @@ function GenerationBody({ actions }: { actions: MediaActions }) {
             <dl>
               <dt>镜头</dt>
               <dd>
-                <select
+                <Select
                   aria-label="当前制作镜头"
                   value={shot.id}
                   onChange={(event) => select(Number(event.target.value))}
@@ -553,7 +554,7 @@ function GenerationBody({ actions }: { actions: MediaActions }) {
                       · {item.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </dd>
               <dt>来源</dt>
               <dd>已选择分镜参考</dd>
@@ -828,7 +829,7 @@ function AssemblyBody({ actions }: { actions: MediaActions }) {
               </Button>
               <label>
                 替换素材
-                <select
+                <Select
                   aria-label="替换素材"
                   disabled={workspace.saving || !selected}
                   value={replacementAssetId}
@@ -839,7 +840,7 @@ function AssemblyBody({ actions }: { actions: MediaActions }) {
                       {asset.asset_id}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <Button
                 disabled={
@@ -941,7 +942,7 @@ function V2ChangesPage() {
       />
       <div className="v2-media-body v2-changes-body">
         <Card title="修改方案 · 待确认的建议" icon="review" className="v2-change-list">
-          <select
+          <Select
             aria-label="批注分组"
             value={filter}
             onChange={(event) => {
@@ -953,7 +954,7 @@ function V2ChangesPage() {
             {["剪辑节奏", "字幕", "音量", "画面表现"].map((category) => (
               <option key={category}>{category}</option>
             ))}
-          </select>
+          </Select>
           <div
             className="v2-change-rows"
             data-scroll-region="change-items-scroll"
@@ -1161,15 +1162,11 @@ export function MediaPages() {
       <>
         <PageTitle
           actions={
-            <Button
-              disabled={!d.backendProjectId || !d.selectedEpisodeId}
-              onClick={() => d.go("voice")}
-            >
-              声音与字幕
-            </Button>
+            d.backendProjectId && d.selectedEpisodeId ? (
+              <Button onClick={() => d.go("voice")}>声音与字幕</Button>
+            ) : undefined
           }
         />
-        <SandboxMediaTaskDesk />
         {d.backendProjectId && d.selectedEpisodeId ? (
           <MediaPreparationWorkflow
             key={`${d.backendProjectId}/${d.selectedEpisodeId}`}
@@ -1180,9 +1177,12 @@ export function MediaPages() {
             go={d.go}
           />
         ) : (
-          <section className="v2-media-body">
-            <p>上面的媒体任务是本地演示，不需要作品。真正准备镜头，要先选择作品和分集。</p>
-            <Button onClick={() => d.go("project")}>选择作品和分集</Button>
+          <section className="v2-media-body" role="status">
+            <p>还没有打开作品。打开示例「雾城来信」，或回到首页写一句话开始。</p>
+            <Button primary onClick={() => void openWuchengSample(d)}>
+              打开雾城来信
+            </Button>
+            <Button onClick={() => d.go("home")}>回到首页</Button>
           </section>
         )}
       </>
@@ -1320,7 +1320,7 @@ export function MediaPages() {
             <Button onClick={() => d.go("scenes")}>
               场景 · {d.value("sceneName", "雨夜街道")}
             </Button>
-            <select
+            <Select
               aria-label="当前分镜"
               value={shot.id}
               onChange={(event) => select(Number(event.target.value))}
@@ -1330,7 +1330,7 @@ export function MediaPages() {
                   镜头 {String(item.id).padStart(3, "0")}
                 </option>
               ))}
-            </select>
+            </Select>
             <span>Animatic：分镜静帧预演</span>
           </div>
           <ReferenceImage actions={actions} />

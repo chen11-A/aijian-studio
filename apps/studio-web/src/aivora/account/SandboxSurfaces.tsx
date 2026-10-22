@@ -24,7 +24,7 @@ export function SandboxMediaTaskDesk() {
       </p>
       <CurrentModelLink capability="VIDEO" />
       <p role="status">
-        状态：{task?.status ?? "idle"}
+        状态：{task?.status ?? "还没有提交"}
         {task?.id ? ` · ${task.id}` : ""}
       </p>
       {task?.note && <p>{task.note}</p>}
@@ -108,11 +108,11 @@ export function SandboxVoicePlan() {
 
 export function FormalDeliveryChecklist() {
   const items = [
-    ["DRAFT 草稿导出", "下方草稿面板可以导出本地草稿，草稿不是正式母版。"],
-    ["画幅、帧率、编码和声音预检", "正式规格仍待与已保存装配逐项核对。"],
-    ["权利与肖像、声线授权", "未清权不能签发。沙箱不代替权利审核。"],
-    ["取消、失败重试和打开成片", "正式导出链还没有可取消的上游任务。"],
-    ["Picture Lock 与正式 MP4", "未完成。不能把 DRAFT 文件当成正式成片。"],
+    ["草稿成片", "可以先导出一版草稿，这还不是正式发行的成片。"],
+    ["画面和声音检查", "画幅、帧率和声音还要和已保存的成片逐项核对。"],
+    ["肖像和声音授权", "没有确认授权，不能当作正式发行。"],
+    ["失败后的处理", "取消、重试和打开成片还没有接到真实任务。"],
+    ["正式成片", "未完成。草稿文件不能当作正式成片。"],
   ];
   return (
     <section className="v2-utility-card delivery-checklist" aria-label="正式交付清单">
@@ -134,7 +134,7 @@ export function ChangeCostNotice({ onOpenCosts }: { onOpenCosts: () => void }) {
   return (
     <section className="v2-utility-card delivery-checklist" aria-label="修改费用提示">
       <h2>修改费用</h2>
-      <p>这次修改的费用是未知。未知不是 0，沙箱也不会估算一个金额，更不会写入预算或预留额度。</p>
+      <p>这次修改要花多少还不知道。没有记下来的金额不能当成 0，这里也不会估一个价。</p>
       <div className="sandbox-actions">
         <Button onClick={onOpenCosts}>查看作品用量</Button>
       </div>

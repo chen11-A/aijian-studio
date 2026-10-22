@@ -7,6 +7,7 @@ import {
 import { bindAssemblyShot, storyboardImpact } from "./adapters/assemblyStoryboard";
 import type { AssemblyContent } from "./adapters/episodeMediaAssembly";
 import { useVisualAuthority, visualAuthorityLabel } from "./useVisualAuthority";
+import { Select } from "./Select";
 
 /** A provenance edit over real imported media, with no fulfillment or review claim. */
 export function AssemblyStoryboardReferences({
@@ -164,7 +165,7 @@ export function AssemblyStoryboardReferences({
               <>
                 <label>
                   本集已保存分镜镜头
-                  <select
+                  <Select
                     value={shotId}
                     disabled={locked || sourceUnavailable}
                     onChange={(event) => setChoice({ key: choiceKey, shotId: event.target.value })}
@@ -175,7 +176,7 @@ export function AssemblyStoryboardReferences({
                         {shot.ordinal}. {shot.title} · {shot.duration_frames} 帧
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 {!latestVersion.content.shots.length && <p>这个已保存分镜还没有镜头。</p>}
                 <Button

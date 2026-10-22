@@ -40,7 +40,28 @@ import type { ProjectJournalState } from "./adapters/projectManagement";
 import "./v2-home.css";
 import "./welcome-sign-in.css";
 
+import { Select } from "./Select";
+import { openWuchengSample } from "./sample-project";
 const projectImages = [storyArt, streetArt, cityArt];
+function WorkspaceLink() {
+  const d = useDemo();
+  if (d.workspaceState === "connected") {
+    return (
+      <>
+        <span className="workspace-status" role="status" aria-label="本地工作区已连接">
+          本地工作区已连接
+        </span>
+        <Button onClick={() => void d.connectRealWorkspace()}>重新读取本地项目</Button>
+      </>
+    );
+  }
+  return (
+    <Button onClick={() => void d.connectRealWorkspace()} disabled={d.workspaceState === "loading"}>
+      {d.workspaceState === "loading" ? "正在连接" : "连接本地工作区"}
+    </Button>
+  );
+}
+
 export function HomePages() {
   const d = useDemo();
   const live = useRef(d);
@@ -135,7 +156,7 @@ export function HomePages() {
           setLaunchNotice(
             status.state === "ENTITLEMENT_DENIED"
               ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
-              : `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。关闭再打开不用重新登录。${names.length ? `可用模型：${names.join("、")}。` : ""}`,
+              : `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。关闭再打开不用重新登录。`,
           );
         } else if (live) setLaunchPhase("signed-out");
       } catch {
@@ -177,7 +198,7 @@ export function HomePages() {
         const message =
           result.status.state === "ENTITLEMENT_DENIED"
             ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
-            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。${names.length ? `可用模型：${names.join("、")}。` : ""}`;
+            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。可用选项在下面。`;
         setLaunchNotice(message);
         setServiceChoiceNotice(message);
         return true;
@@ -205,23 +226,7 @@ export function HomePages() {
     d.go(choice === "offline" ? "home" : "services");
   };
   const openSampleProject = () => {
-    if (d.workspaceState !== "connected") {
-      d.notify("请先点「连接本地工作区」。连上之后，可以打开示例「雾城来信」，或写一句话开始。");
-      return;
-    }
-    void d
-      .createRealProject({
-        name: "雾城来信",
-        aspect_ratio: "16:9",
-        target_duration_seconds: 60,
-        source_language: "zh-CN",
-      })
-      .then((outcome) => {
-        if (outcome.kind !== "SUCCEEDED") return;
-        d.put("input", "雾散之前，不要回头。");
-        d.setFilmStep(0);
-        d.go("project");
-      });
+    void openWuchengSample(d);
   };
   const startFromSentence = () => {
     if (d.workspaceState !== "connected") {
@@ -265,7 +270,7 @@ export function HomePages() {
       ],
       async (data) => {
         if (d.workspaceState !== "connected") {
-          d.notify("请先连接本地工作区，再创建真实项目。桌面服务没连上时，可以先试用沙箱创作。");
+          d.notify("请先连接本地工作区，再创建真实项目。");
           return false;
         }
         const title = data.title!.trim();
@@ -574,7 +579,7 @@ export function HomePages() {
             ? d.workspaceState === "connected"
               ? `已连接本地工作区 · ${d.projects.length} 个项目。`
               : "正在读取本地工作区项目。"
-            : "管理已读取的本地项目。"}
+            : "在这里打开或新建作品。"}
         </p>
       </div>
       <div className="actions">
@@ -583,9 +588,7 @@ export function HomePages() {
             项目中心
           </Button>
         )}
-        <Button onClick={() => d.go(d.page === "project" ? "projectSettings" : "project")}>
-          {d.page === "project" ? "项目设置" : "返回项目"}
-        </Button>
+        {d.page === "project" && <Button onClick={() => d.go("projectSettings")}>项目设置</Button>}
       </div>
     </header>
   );
@@ -617,7 +620,7 @@ export function HomePages() {
               ? "可以打开示例「雾城来信」，或写一句话开始。"
               : "正在等待桌面服务返回项目列表。"}
         </p>
-        {mode === "empty" && (
+        {(mode === "empty" || mode === "error") && (
           <>
             <Button onClick={openSampleProject}>打开雾城来信</Button>
             <Button onClick={startFromSentence}>写一句话开始</Button>
@@ -755,17 +758,8 @@ export function HomePages() {
               <Button primary onClick={newProject}>
                 新建项目
               </Button>
-              {!d.isFixture && <Button onClick={() => d.go("generation")}>试用沙箱创作</Button>}
-              <Button
-                onClick={() => void d.connectRealWorkspace()}
-                disabled={d.workspaceState === "loading"}
-              >
-                {d.workspaceState === "connected"
-                  ? "本地工作区已连接"
-                  : d.workspaceState === "loading"
-                    ? "正在连接"
-                    : "连接本地工作区"}
-              </Button>
+              {!d.isFixture && <Button onClick={openSampleProject}>打开雾城来信</Button>}
+              <WorkspaceLink />
             </div>
           </section>
           <div className="v2-recent-heading">
@@ -801,7 +795,7 @@ export function HomePages() {
               ))}
           </div>
           <p className="v2-home-foot">
-            项目列表来自本地工作区；封面为占位插画，制作状态以已保存产物为准。
+            作品保存在这台电脑上。封面只是占位图，打开作品后才能看到进度。
           </p>
         </div>
       </div>
@@ -821,7 +815,7 @@ export function HomePages() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </label>
-            <select
+            <Select
               aria-label="筛选项目"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -829,20 +823,11 @@ export function HomePages() {
               {["全部", "进行中", "草稿", "已完成", "已归档", "收藏"].map((label) => (
                 <option key={label}>{label}</option>
               ))}
-            </select>
+            </Select>
             <Button primary onClick={newProject}>
               新建项目
             </Button>
-            <Button
-              onClick={() => void d.connectRealWorkspace()}
-              disabled={d.workspaceState === "loading"}
-            >
-              {d.workspaceState === "connected"
-                ? "本地工作区已连接"
-                : d.workspaceState === "loading"
-                  ? "正在连接"
-                  : "连接本地工作区"}
-            </Button>
+            <WorkspaceLink />
           </div>
           {filter === "收藏" && <p role="status">收藏尚无项目持久字段，此筛选无法给出真实结果。</p>}
           {(filter === "草稿" || filter === "已完成") && (
@@ -874,16 +859,16 @@ export function HomePages() {
             </div>
           )}
           {managementNotice && <p role="status">{managementNotice}</p>}
-          <div className="v2-project-table">
-            <div className="v2-project-table-head">
-              <span>项目</span>
-              <span>当前页面</span>
-              <span>状态</span>
-              <span>操作</span>
-            </div>
-            <div className="v2-project-rows" data-scroll-region="projects-rows">
-              {state("还没有项目") ??
-                (projects.length ? (
+          {state("还没有项目") ?? (
+            <div className="v2-project-table">
+              <div className="v2-project-table-head">
+                <span>项目</span>
+                <span>当前页面</span>
+                <span>状态</span>
+                <span>操作</span>
+              </div>
+              <div className="v2-project-rows" data-scroll-region="projects-rows">
+                {projects.length ? (
                   projects.map((project) => (
                     <div className="v2-project-row" key={project.id}>
                       <div>
@@ -920,11 +905,14 @@ export function HomePages() {
                       清除筛选
                     </Button>
                   </div>
-                ))}
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <p className="v2-home-foot">
-            {projects.length} 个本地项目 · 列表可内部滚动，整个工作台不滚动
+            {projects.length === 0
+              ? "还没有作品。可以打开示例「雾城来信」。"
+              : `${projects.length} 个作品保存在这台电脑上。`}
           </p>
         </div>
       </div>
@@ -936,7 +924,7 @@ export function HomePages() {
         <header className="page-title v2-home-heading">
           <div>
             <h1>项目创作首页</h1>
-            <p>尚未选择真实项目。</p>
+            <p>还没有打开作品。可以打开示例「雾城来信」，或回到首页写一句话开始。</p>
           </div>
           <div className="actions">
             {!d.isFixture && d.professional && (

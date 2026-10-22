@@ -60,6 +60,8 @@ type Dependencies = {
   signInMethod?: "loopback" | "device" | "loopback-then-device";
   loopbackPort?: number;
   authorize?: typeof authorizeGrokInBrowser;
+  /** Called after the browser returns the login to this app. */
+  onBrowserReturned?: () => void;
   now?: () => number;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   /** Status codes only. Never pass a token, code, or URL. */
@@ -224,6 +226,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       { authorizeEndpoint: dependencies.authorizeEndpoint, port: dependencies.loopbackPort },
       dependencies.openBrowser,
       signal,
+      dependencies.onBrowserReturned,
     );
     return exchangeAuthorizationCode(dependencies.fetch, { ...callback, endpoints }, now());
   }

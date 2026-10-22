@@ -29,11 +29,7 @@ export function GrokConnectionCard() {
                       : "尚未登录。"}
       </p>
       {signedIn && connection && connection.models.length > 0 && (
-        <ul aria-label="可用模型">
-          {connection.models.map((model) => (
-            <li key={model.id}>{model.label}</li>
-          ))}
-        </ul>
+        <p>已准备 {connection.models.length} 个可选项，请在右侧模型里选择。</p>
       )}
       {connection?.notice && (
         <p className="chatgpt-notice" role="status">
@@ -41,13 +37,19 @@ export function GrokConnectionCard() {
         </p>
       )}
       <div className="account-actions">
-        <Button
-          primary
-          disabled={!connection || !desktop || connection.busy || connection.loading || signedIn}
-          onClick={() => void connection?.signIn()}
-        >
-          用 Grok 账号登录
-        </Button>
+        {signedIn ? (
+          <span className="account-status" role="status" aria-label="已登录">
+            已登录
+          </span>
+        ) : (
+          <Button
+            primary
+            disabled={!connection || !desktop || connection.busy || connection.loading}
+            onClick={() => void connection?.signIn()}
+          >
+            用 Grok 账号登录
+          </Button>
+        )}
         <Button
           disabled={!connection || !desktop || connection.busy || !model}
           onClick={() => void connection?.checkInference(model!.id)}

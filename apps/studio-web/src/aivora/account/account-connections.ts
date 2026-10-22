@@ -75,12 +75,12 @@ function chatgptSlot(
   return {
     provider: "CHATGPT_OFFICIAL",
     title: "ChatGPT",
-    method: "官方 OAuth",
+    method: "浏览器登录",
     connected: planAuthorized,
     state,
     quota,
     models: listed.map((model) => ({ id: model.slug, label: model.displayName })),
-    difference: "沿用仓库里的 Sign in with ChatGPT。授权套餐后，文本模型来自该账号目录。",
+    difference: "用浏览器登录 ChatGPT。登录后，文本模型来自这个账号。",
   };
 }
 
@@ -117,13 +117,12 @@ function grokLoginSlot(
   return {
     provider: "GROK_LOGIN",
     title: "Grok",
-    method: "官方 OAuth",
+    method: "浏览器登录",
     connected,
     state,
     quota,
     models: listed,
-    difference:
-      "与 ChatGPT 并列的订阅登录。浏览器授权走 auth.x.ai，模型目录来自 api.x.ai。令牌只留在本机。",
+    difference: "用浏览器登录 Grok。登录后，模型来自这个账号，登录信息只留在这台电脑上。",
   };
 }
 
@@ -140,6 +139,6 @@ function xaiSlot(session: XaiSandboxSession | null): ConnectedAccountSlot {
     models: session
       ? DOCUMENTED_XAI_MODELS.map((model) => ({ id: model.modelId, label: model.label }))
       : [],
-    difference: "备用通道。沙箱只检查密钥形状，不访问 api.x.ai，也不预留作品预算。",
+    difference: "备用通道。只检查密钥格式，不会访问网络，也不会提前占用预算。",
   };
 }

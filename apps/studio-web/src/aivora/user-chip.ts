@@ -7,6 +7,15 @@ export function accountMonogram(name: string): string {
   return /[a-z]/i.test(char) ? char.toUpperCase() : char;
 }
 
+export function shortAccountLabel(name: string): string {
+  const trimmed = name.trim();
+  const at = trimmed.indexOf("@");
+  const local = at > 0 ? trimmed.slice(0, at) : trimmed;
+  const chars = [...local];
+  if (chars.length <= 18) return local || "本地用户";
+  return `${chars.slice(0, 18).join("")}…`;
+}
+
 export function signedInLabel(input: {
   grokSignedIn: boolean;
   grokLabel: string | null;

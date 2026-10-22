@@ -10,6 +10,7 @@ import {
 } from "./useOfficialDirectorProposals";
 import "./official-director-proposals.css";
 
+import { Select } from "./Select";
 export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps) {
   const state = useOfficialDirectorProposals(props);
   const [selection, setSelection] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps)
       {state.operations.length > 0 && (
         <label className="official-director-history">
           本集操作记录（最近记录）
-          <select
+          <Select
             value={operation?.request.operation_id ?? ""}
             disabled={state.busy}
             onChange={(event) => select(event.target.value)}
@@ -126,7 +127,7 @@ export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps)
                 {item.request.operation_id.slice(-8)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {state.hasMore && (

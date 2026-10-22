@@ -39,16 +39,16 @@ jobs:
         run: |
           python3 packaging/linux/package-desktop.py \
             --cache "$RUNNER_TEMP/aivora-linux-cache" \
-            --out-dir "$RUNNER_TEMP/AIVORA-Desktop-0.2.0-linux-x64"
+            --out-dir "$RUNNER_TEMP/AIVORA-Desktop-0.2.1-linux-x64"
       - name: Launch under xvfb and check health
         run: |
           xvfb-run -a node scripts/e2e/linux-desktop-health.mjs \
-            --root "$RUNNER_TEMP/AIVORA-Desktop-0.2.0-linux-x64"
+            --root "$RUNNER_TEMP/AIVORA-Desktop-0.2.1-linux-x64"
       - name: Upload the Linux desktop package
         uses: actions/upload-artifact@v7
         with:
           name: AIVORA-Desktop-linux-x64
-          path: ${{ runner.temp }}/AIVORA-Desktop-0.2.0-linux-x64.tar.gz
+          path: ${{ runner.temp }}/AIVORA-Desktop-0.2.1-linux-x64.tar.gz
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

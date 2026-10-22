@@ -53,6 +53,7 @@ async function run(viewport, persona) {
         models: [
           { id: "grok-4.3", label: "Grok 4.3" },
           { id: "grok-imagine-image-2.0", label: "Grok Imagine Image 2.0" },
+          { id: "eve", label: "eve", outputModalities: ["audio"] },
         ],
       }),
       completeText: async () => ({
@@ -80,10 +81,10 @@ async function run(viewport, persona) {
   await choiceButton.click();
   clicks += 1;
   await page.waitForSelector(".main-panel.page-services");
-  await page.getByText("persona@example.test").first().waitFor({ timeout: 8000 });
+  await page.getByText("已登录 · persona@example.test").waitFor({ timeout: 8000 });
   await page
     .locator("#model-center")
-    .getByText("Grok 账号暂不提供配音模型")
+    .getByRole("combobox", { name: "配音模型" })
     .waitFor({ timeout: 8000 });
   await page
     .locator("#model-center")
@@ -91,16 +92,24 @@ async function run(viewport, persona) {
     .waitFor({ timeout: 8000 });
   await page.getByRole("combobox", { name: "图像模型" }).waitFor({ timeout: 8000 });
   const chip = page.getByRole("group", { name: "用户菜单" }).locator("summary");
-  await chip.getByText("persona@example.test").waitFor({ timeout: 8000 });
+  await chip.getByText("persona").waitFor({ timeout: 8000 });
   await shot("03-grok-card");
-  const model = page.locator("#model-center select").first();
-  await model
-    .locator("option", { hasText: "Grok 4.3" })
-    .waitFor({ state: "attached", timeout: 8000 });
-  const options = await model.locator("option").allTextContents();
-  steps.push({ clicks, name: "model-options", persona, text: options.join(" | ") });
-  await model.selectOption({ label: "Grok 4.3 · Grok 账号" });
+  const model = page.getByRole("combobox", { name: "文本模型" });
+  await model.click();
   clicks += 1;
+  const option = page.getByRole("option", { name: "Grok 4.3 · Grok 账号" });
+  await option.waitFor({ state: "visible", timeout: 8000 });
+  const options = await page.getByRole("option").allTextContents();
+  steps.push({ clicks, name: "model-options", persona, text: options.join(" | ") });
+  await option.click();
+  clicks += 1;
+  await model.getByText("Grok 4.3").waitFor({ timeout: 8000 });
+  const voice = page.getByRole("combobox", { name: "配音模型" });
+  await voice.click();
+  clicks += 1;
+  await page.getByRole("option", { name: "eve · Grok 账号" }).click();
+  clicks += 1;
+  await voice.getByText("eve").waitFor({ timeout: 8000 });
   const probe = page.getByRole("button", { name: "测试一下能不能用" });
   await probe.scrollIntoViewIfNeeded();
   await probe.click();
@@ -108,24 +117,14 @@ async function run(viewport, persona) {
   await page.getByText("403").first().waitFor({ timeout: 8000 });
   await shot("04-entitlement-403");
 
-  const advanced = page.locator("details.account-advanced");
-  if (!(await advanced.evaluate((element) => element.open)))
-    await advanced.locator("summary").click();
-  const trySandbox = page.getByRole("button", { name: "看看媒体沙箱（不产生费用）" });
-  await trySandbox.waitFor({ state: "visible", timeout: 8000 });
-  await trySandbox.scrollIntoViewIfNeeded();
-  await trySandbox.click();
+  await page.getByRole("button", { name: "项目中心" }).click();
   clicks += 1;
-  await page.waitForSelector(".main-panel.page-generation");
-  await shot("05-sandbox");
-
-  const submit = page.getByRole("button", { name: "沙箱提交" });
-  if (await submit.isVisible().catch(() => false)) {
-    await submit.click();
-    clicks += 1;
-    await page.waitForTimeout(150);
-  }
-  await shot("06-sandbox-submitted");
+  await page.getByRole("button", { name: "打开雾城来信" }).waitFor({ timeout: 8000 });
+  await shot("05-sample-offered");
+  await chip.click();
+  clicks += 1;
+  await page.getByRole("button", { name: "退出登录" }).waitFor({ timeout: 8000 });
+  await shot("06-sign-out");
 
   await browser.close();
   return { viewport, persona, clicks, steps };

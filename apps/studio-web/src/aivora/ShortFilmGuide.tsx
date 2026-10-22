@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "./Common";
 import { useDemo } from "./model";
+import { Select } from "./Select";
 
 export const SAMPLE_TITLE = "雾城来信";
 export const SAMPLE_SCENE = "灯塔夜班";
@@ -120,7 +121,7 @@ export function ShortFilmGuide() {
         {step === 1 && (
           <label>
             用什么生成
-            <select
+            <Select
               aria-label="用什么生成"
               value={provider}
               onChange={(event) => setProvider(event.target.value as ProviderId)}
@@ -130,7 +131,7 @@ export function ShortFilmGuide() {
                   {item.label} · {item.billing}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {step === 2 && (

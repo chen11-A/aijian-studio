@@ -27,6 +27,7 @@ import {
 import type { Capability } from "../../domain/provider-settings-model";
 import "./surfaces.css";
 
+import { Select } from "../Select";
 const capabilities = [
   ["TEXT", "文本"],
   ["IMAGE", "图像"],
@@ -51,7 +52,7 @@ function grokListingReason(
   if (notice.reason === "none" || notice.reason === "voices") {
     if (capability === "IMAGE") return "当前 Grok 登录没有返回图像模型";
     if (capability === "VIDEO") return "当前 Grok 登录没有返回视频模型";
-    return "当前 Grok 登录没有可选择的配音模型";
+    return "这个账号没有返回可用的配音声音。";
   }
   if (capability === "IMAGE") return "图像模型目录暂时读不到";
   if (capability === "VIDEO") return "视频模型目录暂时读不到";
@@ -233,7 +234,7 @@ export function AccountModelCenter({
     }
     setSession(opened.session);
     setKey("");
-    setNotice("沙箱已连接。未访问 api.x.ai，未校验这把密钥是否真实有效。");
+    setNotice("备用密钥已记下末四位。未访问 api.x.ai，也还没有确认这把密钥是否有效。");
   }
 
   function disconnect() {
@@ -243,7 +244,7 @@ export function AccountModelCenter({
     for (const [capability] of capabilities) {
       if (center.choices[capability]?.provider === "XAI_API") selectCenteredModel(capability, null);
     }
-    setNotice("已断开沙箱会话。凭据库中的 xAI 连接不会被删除。");
+    setNotice("已断开备用密钥。本机保存的连接不会被删除。");
   }
 
   async function saveCredential() {
@@ -294,7 +295,7 @@ export function AccountModelCenter({
             return (
               <label key={capability}>
                 {label}模型
-                <select
+                <Select
                   aria-label={`${label}模型`}
                   value={
                     options.some((option) => option.value === shown(capability))
@@ -313,7 +314,7 @@ export function AccountModelCenter({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             );
           })}
@@ -327,8 +328,8 @@ export function AccountModelCenter({
         <summary>控制台密钥（高级备用）</summary>
         <section className="v2-utility-card" aria-label="Grok 密钥备用">
           <p>
-            订阅登录成功但推理返回 403 时，再用控制台 API Key。密钥不是 grok.com
-            的网页密码。沙箱不会访问 api.x.ai。
+            登录成功但还不能生成时，可以改用控制台密钥。这不是 grok.com
+            的网页密码。登记密钥不会访问网络，也不会扣费。
           </p>
           <label>
             xAI 密钥
@@ -343,26 +344,26 @@ export function AccountModelCenter({
           </label>
           <div className="account-actions">
             <Button primary disabled={saving || key.length === 0} onClick={connectSandbox}>
-              连接 API Key（沙箱）
+              登记备用密钥
             </Button>
-            <Button onClick={() => openAivoraPage("generation")}>看看媒体沙箱（不产生费用）</Button>
             {onSaveXaiKey && (
               <Button disabled={saving || key.length === 0} onClick={() => void saveCredential()}>
-                {saving ? "正在写入凭据库…" : "写入凭据库（不调用模型）"}
+                {saving ? "正在保存…" : "写入凭据库（不调用模型）"}
               </Button>
             )}
-            {session && <Button onClick={disconnect}>断开沙箱</Button>}
+            {session && <Button onClick={disconnect}>取消登记</Button>}
           </div>
+          {key.length === 0 && <p>先填写密钥，再保存到本机。这一步不会调用模型。</p>}
           <p>
-            沙箱只检查密钥形状并记住末四位。它不访问 api.x.ai，不扣费，也不证明密钥有效。
-            {xaiSaved ? " 凭据库里已有一条 xAI 连接。" : ""}
+            这里只检查密钥格式并记住末四位。不会访问网络，不会扣费，也不能证明密钥有效。
+            {xaiSaved ? " 本机已经保存过一条密钥连接。" : ""}
           </p>
         </section>
       </details>
 
       <section className="v2-utility-card" aria-label="已连接账号">
         <h2>已连接账号</h2>
-        <p>只显示 ChatGPT 和 Grok 的连接、模型和额度。没有可购买的套餐。</p>
+        <p>这里只显示已经登录的账号。模型在上面选择。</p>
         <div className="account-pair">
           {accounts.map((account) => (
             <article key={account.provider} aria-label={`${account.title} 账号`}>
@@ -372,17 +373,11 @@ export function AccountModelCenter({
               </span>
               <p>{account.quota}</p>
               <p>{account.difference}</p>
-              {account.models.length > 0 ? (
-                <ul aria-label={`${account.title} 可用模型`}>
-                  {account.models.map((model) => (
-                    <li key={model.id}>
-                      {model.label} <span>{model.id}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>当前没有可列入模型中心的模型。</p>
-              )}
+              <p>
+                {account.models.length > 0
+                  ? `已准备 ${account.models.length} 个可选项，请在上方选择。`
+                  : "当前没有可选项。"}
+              </p>
             </article>
           ))}
         </div>
@@ -394,7 +389,9 @@ export function AccountModelCenter({
           </a>
         </div>
       </section>
-      {notice && <p role="status">{notice}</p>}
+      <div className="model-notice-slot">
+        {notice ? <p role="status">{notice}</p> : <p aria-hidden="true"> </p>}
+      </div>
     </div>
   );
 }

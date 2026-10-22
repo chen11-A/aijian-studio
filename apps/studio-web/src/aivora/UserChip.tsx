@@ -4,7 +4,8 @@ import { Icon } from "./Icon";
 import { useDemo } from "./model";
 import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { readGrokStatus } from "./grok-auth/transport";
-import { accountMonogram, signedInLabel } from "./user-chip";
+import { grokBridge } from "./grok-auth/transport";
+import { accountMonogram, shortAccountLabel, signedInLabel } from "./user-chip";
 
 /** Round monogram. A photo is never required, so a missing file cannot leave a blank square. */
 export function UserChip() {
@@ -44,6 +45,7 @@ export function UserChip() {
     chatgptLabel: profile?.email || profile?.label || null,
     localName: d.value("userName", "本地用户"),
   });
+  const signedIn = grok.signedIn || Boolean(chatgptSignedIn);
   return (
     <Dropdown
       className="user-menu"
@@ -53,7 +55,7 @@ export function UserChip() {
           <span className="user-avatar" aria-hidden="true">
             {accountMonogram(name)}
           </span>
-          <span className="user-chip-name">{name}</span>
+          <span className="user-chip-name">{shortAccountLabel(name)}</span>
           <Icon name="chevron" size={14} />
         </>
       }
@@ -62,7 +64,21 @@ export function UserChip() {
         <p className="user-menu-identity">{name}</p>
         <button onClick={() => d.go("settings")}>用户中心</button>
         <button onClick={() => d.go("projectSettings")}>项目设置</button>
-        <button onClick={() => d.go("launch")}>返回启动页</button>
+        <button
+          disabled={!signedIn}
+          title={signedIn ? undefined : "当前没有登录"}
+          onClick={() => {
+            void (async () => {
+              if (grok.signedIn) await grokBridge()?.signOut();
+              if (chatgptSignedIn) await official?.connection.signOut();
+              window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
+              d.go("launch");
+            })();
+          }}
+        >
+          退出登录
+        </button>
+        <button onClick={() => d.go("launch")}>回到欢迎页</button>
       </div>
     </Dropdown>
   );

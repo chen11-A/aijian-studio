@@ -38,7 +38,7 @@ describe("Grok model catalog", () => {
     ]);
   });
 
-  it("fills image and video from their own lists and does not treat voices as models", async () => {
+  it("fills image and video from their own lists and offers voices as 配音 choices", async () => {
     const calls: string[] = [];
     const fetch: typeof globalThis.fetch = async (input, init) => {
       const url = String(input);
@@ -83,9 +83,13 @@ describe("Grok model catalog", () => {
         label: "Grok Imagine Video 1.5",
         outputModalities: ["video"],
       },
+      { id: "eve", label: "eve", outputModalities: ["audio"] },
     ]);
-    expect(listed.notices).toEqual([{ capability: "SPEECH", reason: "voices", httpStatus: 200 }]);
-    expect(JSON.stringify(listed.models)).not.toContain("eve");
+    expect(listed.notices).toEqual([]);
+    expect(listed.reports.find((report) => report.capability === "SPEECH")).toMatchObject({
+      outcome: "ok",
+      httpStatus: 200,
+    });
     expect(calls.every((call) => call.startsWith("GET "))).toBe(true);
   });
 
@@ -160,18 +164,20 @@ describe("Grok model catalog", () => {
     });
     await expect(runtime.models()).resolves.toEqual({
       kind: "OK",
-      models: [{ id: "grok-4.7", label: "Grok 4.7" }],
+      models: [
+        { id: "grok-4.7", label: "Grok 4.7" },
+        { id: "ara", label: "ara", outputModalities: ["audio"] },
+      ],
       notices: [
         { capability: "IMAGE", reason: "denied", httpStatus: 403 },
         { capability: "VIDEO", reason: "denied", httpStatus: 401 },
-        { capability: "SPEECH", reason: "voices", httpStatus: 200 },
       ],
     });
     expect(events).toEqual(
       expect.arrayContaining([
         { event: "catalog_image", fields: { code: "DENIED", httpStatus: 403 } },
         { event: "catalog_video", fields: { code: "DENIED", httpStatus: 401 } },
-        { event: "catalog_speech", fields: { code: "VOICES", httpStatus: 200 } },
+        { event: "catalog_speech", fields: { code: "OK", httpStatus: 200 } },
       ]),
     );
     expect(JSON.stringify(events)).not.toContain(token);

@@ -252,7 +252,8 @@
   height: 42px;
   min-height: 42px;
 }
-.v2-project-search > select {
+.v2-project-search > select,
+.v2-project-search > .mouse-select {
   margin-top: 26px;
   width: 140px;
   height: 42px;

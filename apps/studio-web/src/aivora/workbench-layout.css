@@ -578,7 +578,8 @@
   .demo-root.production-workbench .stage-bar {
     left: 108px;
   }
-  .demo-root.production-workbench .topbar > select {
+  .demo-root.production-workbench .topbar > select,
+  .demo-root.production-workbench .topbar > .mouse-select {
     left: 108px;
     width: 148px;
   }
@@ -726,7 +727,8 @@
   .demo-root.production-workbench .stage-bar {
     left: 180px;
   }
-  .demo-root.production-workbench .topbar > select {
+  .demo-root.production-workbench .topbar > select,
+  .demo-root.production-workbench .topbar > .mouse-select {
     left: 180px;
   }
   .demo-root.production-workbench .topbar .episode-select {

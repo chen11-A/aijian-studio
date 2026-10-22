@@ -44,9 +44,9 @@ describe("production empty project state", () => {
   });
 
   it.each([
-    ["generation", "镜头生成", "媒体任务沙箱"],
-    ["voice", "声音", "配音方案沙箱"],
-    ["export", "导出", "正式交付清单"],
+    ["generation", "镜头生成", "打开雾城来信"],
+    ["voice", "声音", "打开雾城来信"],
+    ["export", "导出", "打开雾城来信"],
   ])(
     "renders the %s sandbox before a project exists and without sample domain facts",
     (page, heading, desk) => {
@@ -55,7 +55,7 @@ describe("production empty project state", () => {
       render(<DemoApp />);
 
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByLabelText(desk)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: desk })).toBeInTheDocument();
       expect(screen.queryByText("苏晚", { exact: true })).not.toBeInTheDocument();
       expect(screen.queryByText("雨夜街道", { exact: true })).not.toBeInTheDocument();
       expect(screen.queryByText("城市入夜", { exact: true })).not.toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("production empty project state", () => {
       );
 
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByText(/才会读取此页面的内容/)).toBeInTheDocument();
+      expect(screen.getByText(/可以打开示例「雾城来信」/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
     },
   );

@@ -33,7 +33,7 @@ export function GrokSignInButton({ disabled, onClick }: { disabled?: boolean; on
 export function WelcomeFinePrint({ children }: { children?: ReactNode }) {
   return (
     <>
-      <p className="welcome-fine">在系统浏览器里授权。令牌只留在本机，不会写进日志。</p>
+      <p className="welcome-fine">在系统浏览器里点同意即可。登录信息只保存在这台电脑上。</p>
       <details className="welcome-more">
         <summary>了解更多</summary>
         <p>

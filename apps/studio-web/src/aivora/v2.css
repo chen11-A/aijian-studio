@@ -76,7 +76,8 @@ body,
   line-height: 14px;
   letter-spacing: 0;
 }
-.demo-root .topbar > select {
+.demo-root .topbar > select,
+.demo-root .topbar > .mouse-select {
   position: absolute;
   left: 236px;
   top: 16px;
@@ -999,7 +1000,8 @@ body,
 /* Global pages already list works in the page body. Opening the assistant
    rail must not reveal an empty header select when the workspace has no works. */
 .demo-root.no-stage .topbar > select,
-.demo-root.no-stage.no-rail .mode-switch {
+.demo-root.no-stage .topbar > .mouse-select,
+.demo-root.no-stage .mode-switch {
   display: none;
 }
 .demo-root.no-stage.no-rail .demo-controls {
@@ -1058,7 +1060,8 @@ body,
   }
 }
 @media (max-width: 1180px) {
-  .demo-root .topbar > select {
+  .demo-root .topbar > select,
+  .demo-root .topbar > .mouse-select {
     left: 210px;
     width: 150px;
   }
