@@ -1,6 +1,10 @@
 import { Button } from "./Common";
+import { CurrentModelLink } from "./account/CurrentModelLink";
+import { useFollowCenteredChatModel } from "./account/follow-centered-model";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { OfficialDirectorInputProof } from "./OfficialDirectorInputProof";
 import type { useOfficialDirectorProposals } from "./useOfficialDirectorProposals";
+import { Select } from "./Select";
 
 export function OfficialDirectorGenerationForm({
   state,
@@ -9,6 +13,17 @@ export function OfficialDirectorGenerationForm({
   state: ReturnType<typeof useOfficialDirectorProposals>;
   connected: boolean;
 }) {
+  const official = useOfficialConnection();
+  useFollowCenteredChatModel({
+    models: state.models,
+    setModel: state.setModel,
+    onClear: () => {
+      if (official) {
+        official.clearDefaultModel();
+        state.restoreDefaultModel();
+      } else state.setModel("");
+    },
+  });
   const validOptions =
     !!state.intent.trim() &&
     [...state.intent].length <= 4000 &&
@@ -29,21 +44,13 @@ export function OfficialDirectorGenerationForm({
             重新读取官方账号状态
           </Button>
         )}
-        <label>
-          官方模型
-          <select
-            value={state.model}
-            disabled={state.busy || !state.models.length}
-            onChange={(event) => state.setModel(event.target.value)}
-          >
-            <option value="">先读取当前账号模型</option>
-            {state.models.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
+        {state.models.length > 0 && (
+          <p>
+            账号目录：{state.models.map((item) => item.displayName).join("、")}
+            。请在模型中心选择，这里不能改模型。
+          </p>
+        )}
+        <CurrentModelLink capability="TEXT" />
         {state.modelSource === "project" && (
           <Button disabled={state.busy} onClick={() => state.restoreDefaultModel()}>
             恢复服务默认模型
@@ -85,7 +92,7 @@ export function OfficialDirectorGenerationForm({
           </label>
           <label>
             节奏
-            <select
+            <Select
               value={state.pacing}
               disabled={state.busy}
               onChange={(event) => {
@@ -97,7 +104,7 @@ export function OfficialDirectorGenerationForm({
               <option value="BALANCED">均衡</option>
               <option value="FAST">紧凑</option>
               <option value="SLOW">舒缓</option>
-            </select>
+            </Select>
           </label>
           <label className="official-director-intent">
             导演意图

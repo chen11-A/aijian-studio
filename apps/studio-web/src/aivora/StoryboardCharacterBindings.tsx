@@ -8,6 +8,7 @@ import {
   type StoryboardShot,
 } from "./adapters/episodeStoryboard";
 import type { components } from "@aijian/contracts";
+import { Select } from "./Select";
 
 type Binding = components["schemas"]["EpisodeStoryboardCharacterBindingV1"];
 export function StoryboardCharacterBindings({
@@ -128,7 +129,7 @@ export function StoryboardCharacterBindings({
           <div key={id}>
             <label>
               {name} · 本镜服装
-              <select
+              <Select
                 value={binding.costume_id ?? ""}
                 aria-label={`${name}本镜服装`}
                 onChange={(event) => {
@@ -159,7 +160,7 @@ export function StoryboardCharacterBindings({
                       {item.name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             {eligible.map((reference) => (
               <label key={reference.reference_id}>

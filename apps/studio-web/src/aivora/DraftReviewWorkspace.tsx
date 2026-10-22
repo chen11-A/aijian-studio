@@ -8,6 +8,7 @@ import { useDraftReviewWorkspace } from "./useDraftReviewWorkspace";
 import "./draft-export.css";
 import "./episode-assembly.css";
 
+import { Select } from "./Select";
 type Props = {
   projectId: string;
   episodeId: string;
@@ -42,7 +43,7 @@ function SelectedWorkspace(props: Props) {
       aria-label="DRAFT 审片与人工修改工作区"
     >
       <header>
-        <span className="draft-export-badge">DRAFT · 手工审片与修改</span>
+        <span className="draft-export-badge">手工审片与修改</span>
         <h2>{view === "changes" ? "人工修改计划与候选复核" : "选择原版草稿并审片"}</h2>
         <p>
           批注、计划与批准固定到精确分集、装配和文件。批准不会调用模型、修改装配、编码、发布或产生费用。
@@ -53,7 +54,7 @@ function SelectedWorkspace(props: Props) {
       </p>
       <label>
         审片原版 DRAFT
-        <select
+        <Select
           aria-label="审片原版 DRAFT"
           value={state.operation}
           disabled={state.busy || !exports}
@@ -69,7 +70,7 @@ function SelectedWorkspace(props: Props) {
           {state.operation && !state.jobs.some((item) => item.operation_id === state.operation) && (
             <option value={state.operation}>已保留的原版：{state.operation}</option>
           )}
-        </select>
+        </Select>
       </label>
       <p>
         列表仅显示最近 20

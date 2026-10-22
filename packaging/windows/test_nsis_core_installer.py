@@ -19,7 +19,7 @@ class NsisCoreTests(unittest.TestCase):
     def make_app(self, root: Path) -> Path:
         app = root / "app"
         app.mkdir()
-        (app / "AIVORA Dev Core.exe").write_bytes(b"MZsynthetic packaging input; never execute")
+        (app / "AIVORA.exe").write_bytes(b"MZsynthetic packaging input; never execute")
         (app / "resources").mkdir()
         (app / "resources/owned-file.txt").write_text("fixture")
         return app
@@ -32,17 +32,34 @@ class NsisCoreTests(unittest.TestCase):
                 app, root / "syntax-only.exe", HERE / "installer.dev-core.nsh"
             )
             self.assertEqual(len(files), 2)
-            self.assertIn("RequestExecutionLevel user", script)
+            self.assertIn("RequestExecutionLevel highest", script)
             self.assertIn("SetCompressor /FINAL zlib", script)
+            self.assertIn('!insertmacro MUI_LANGUAGE "SimpChinese"', script)
+            self.assertIn("!insertmacro MUI_PAGE_DIRECTORY", script)
+            self.assertIn("!insertmacro MUI_PAGE_COMPONENTS", script)
+            self.assertIn('!define MUI_FINISHPAGE_RUN_TEXT "启动 AIVORA"', script)
+            self.assertIn('Section "为当前用户安装" SEC_USER', script)
+            self.assertIn('Section /o "为所有用户安装" SEC_ALL', script)
+            self.assertIn('Section "开始菜单快捷方式" SEC_START', script)
+            self.assertIn('Section "桌面快捷方式" SEC_DESKTOP', script)
+            self.assertIn('InstallDir "$LOCALAPPDATA\\Programs\\AIVORA"', script)
+            self.assertIn('Name "AIVORA"', script)
+            self.assertIn('VIProductVersion "0.2.1.0"', script)
+            self.assertNotIn("0.1.0-dev", script)
+            self.assertNotIn('Name "AIVORA Dev Core"', script)
             hook = (HERE / "installer.dev-core.nsh").read_text()
             self.assertIn('"CurrentMajorVersionNumber"', hook)
             self.assertIn("SetRegView lastused", hook)
             self.assertIn("IfErrors aivoraDevUnsupportedWindows", hook)
+            self.assertIn("AIVORA 需要 Windows 10 或更高版本。", hook)
+            self.assertNotIn("$APPDATA", hook)
+            self.assertNotIn("AIVORA Dev Core", hook)
             self.assertNotIn("::", script)
             self.assertNotIn("RMDir /r", script)
             self.assertNotIn('Delete "$APPDATA', script)
             self.assertNotIn('Delete "$INSTDIR\\*', script)
             self.assertIn('Delete "$INSTDIR\\resources\\owned-file.txt"', script)
+            self.assertIn('Delete "$INSTDIR\\AIVORA Dev Core.exe"', script)
 
     def test_unsafe_literal_and_colliding_uninstaller_are_rejected(self):
         with self.assertRaises(ValueError):

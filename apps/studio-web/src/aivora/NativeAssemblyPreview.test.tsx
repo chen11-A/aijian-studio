@@ -73,7 +73,7 @@ async function readySession() {
   });
   const view = render(<NativeAssemblyPreview {...fixture.props} />);
   fireEvent.click(check());
-  await waitFor(() => expect(open()).toBeEnabled());
+  await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
   fireEvent.click(open());
   await waitFor(() => expect(screen.getByRole("button", { name: "播放" })).toBeEnabled());
   return { ...fixture, view, status };
@@ -107,7 +107,7 @@ describe("saved assembly native preview entry", () => {
     vi.mocked(api.openMediaPreviewSession).mockRejectedValue(new Error("host lost"));
     render(<NativeAssemblyPreview {...props} />);
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     fireEvent.click(open());
     await screen.findByText(/预览命令结果未知/);
     expect(open()).toBeDisabled();
@@ -230,7 +230,7 @@ describe("saved assembly native preview entry", () => {
     const { props, sessionGateway } = setup();
     render(<NativeAssemblyPreview {...props} />);
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("quota");
     });
@@ -255,7 +255,7 @@ describe("saved assembly native preview entry", () => {
     expect(open()).toBeDisabled();
     expect(planGateway.getNativeMediaPreviewPlan).not.toHaveBeenCalled();
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     expect(planGateway.getNativeMediaPreviewPlan).toHaveBeenCalledExactlyOnceWith(
       props.projectId,
       props.episodeId,
@@ -271,7 +271,7 @@ describe("saved assembly native preview entry", () => {
     const { props, planGateway } = setup();
     const view = render(<NativeAssemblyPreview {...props} />);
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     view.rerender(<NativeAssemblyPreview {...props} eligible={false} />);
     expect(open()).toBeDisabled();
     expect(check()).toBeDisabled();
@@ -302,7 +302,7 @@ describe("saved assembly native preview entry", () => {
     const { props, planGateway } = setup();
     render(<NativeAssemblyPreview {...props} />);
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     planGateway.getNativeMediaPreviewPlan.mockResolvedValueOnce({ kind: "UNKNOWN" });
     fireEvent.click(check());
     await screen.findByText(/先前记录，当前未确认/);
@@ -420,7 +420,7 @@ describe("saved assembly native preview entry", () => {
     await waitFor(() => expect(check()).toBeEnabled());
     expect(planGateway.getNativeMediaPreviewPlan).not.toHaveBeenCalled();
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     expect(screen.getByRole("region", { name: "MLT 原生预览会话" })).toBeInTheDocument();
     expect(assembly.createVersion).not.toHaveBeenCalled();
     delete window.aijian;
@@ -450,7 +450,7 @@ describe("saved assembly native preview entry", () => {
     vi.mocked(sessionGateway.playMediaPreviewSession).mockResolvedValueOnce({ kind: "UNKNOWN" });
     render(<NativeAssemblyPreview {...props} />);
     fireEvent.click(check());
-    await waitFor(() => expect(open()).toBeEnabled());
+    await waitFor(() => expect(open()).toBeEnabled(), { timeout: 5_000 });
     fireEvent.click(open());
     await waitFor(() => expect(screen.getByRole("button", { name: "播放" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "播放" }));

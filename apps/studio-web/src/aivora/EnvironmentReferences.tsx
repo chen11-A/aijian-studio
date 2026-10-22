@@ -5,6 +5,7 @@ import { useCharacterReferenceAssets } from "./useCharacterReferenceAssets";
 import { newCreativeId } from "./adapters/creativeLibrary";
 import { withCreativeEnvironment } from "./adapters/creativeEnvironment";
 import type { EnvironmentEditorProps } from "./SceneVariants";
+import { Select } from "./Select";
 
 export function EnvironmentReferences({
   content,
@@ -91,7 +92,7 @@ export function EnvironmentReferences({
       <fieldset disabled={locked || !assets} className="manual-creative-fields">
         <label>
           环境参考素材
-          <select
+          <Select
             value={assetId}
             onChange={(event) => {
               setAssetId(event.currentTarget.value);
@@ -106,11 +107,11 @@ export function EnvironmentReferences({
                   {item.latest_version.filename}
                 </option>
               ))}
-          </select>
+          </Select>
         </label>
         <label>
           环境参考版本
-          <select value={versionId} onChange={(event) => setVersionId(event.currentTarget.value)}>
+          <Select value={versionId} onChange={(event) => setVersionId(event.currentTarget.value)}>
             <option value="">明确选择素材版本</option>
             {asset?.versions
               .filter((item) => ["image", "video"].includes(item.kind))
@@ -119,7 +120,7 @@ export function EnvironmentReferences({
                   v{item.ordinal} · {item.filename} · {item.sha256.slice(0, 12)}
                 </option>
               ))}
-          </select>
+          </Select>
         </label>
         <Button disabled={!ready} onClick={add}>
           关联环境参考

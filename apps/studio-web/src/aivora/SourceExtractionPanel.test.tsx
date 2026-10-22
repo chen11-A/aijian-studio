@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SourceManifestResponse, StudioTransport } from "../api/studio";
 import type * as StudioModule from "../api/studio";
 import { SourceExtractionPanel } from "./SourceExtractionPanel";
+import { selectCenteredModel } from "./account/model-center";
 import {
   originalRemoteSourceExtractCommand,
-  originalSub2APISourceExtractCommand,
   type RemoteSourceExtractOperation,
 } from "./adapters/remoteSourceExtract";
 
@@ -111,7 +111,7 @@ function props() {
     sourceManifest: manifest(),
   };
 }
-function setup(saved = false) {
+function setup(saved = false, providerKind: "CPA_LOOPBACK" | "XAI" = "CPA_LOOPBACK") {
   if (saved) localStorage.setItem(queueKey, JSON.stringify(operation));
   const command = originalRemoteSourceExtractCommand(operation);
   const receipt = {
@@ -183,12 +183,17 @@ function setup(saved = false) {
       data: [
         {
           id: connectionId,
-          provider_kind: "CPA_LOOPBACK",
+          provider_kind: providerKind,
           enabled: true,
           credential_status: "CONFIGURED",
-          models: [{ model_id: "fixture-model", capabilities: ["TEXT"] }],
+          models: [
+            {
+              model_id: providerKind === "XAI" ? "grok-4.7" : "fixture-model",
+              capabilities: ["TEXT"],
+            },
+          ],
           revision: 1,
-          display_name: "Test connection",
+          display_name: providerKind === "XAI" ? "Grok" : "Test connection",
         },
       ],
     }),
@@ -199,6 +204,7 @@ function setup(saved = false) {
     getArtifactProposal: vi.fn().mockResolvedValue(proposal),
     getSourceExtraction: vi.fn().mockResolvedValue({ kind: "NOT_FOUND" }),
     getSourceExtractionVersion: vi.fn().mockResolvedValue({ kind: "FOUND", receipt: draft }),
+    getSourceText: vi.fn(),
     proposalDecisions: {
       acceptAsDraft: vi.fn().mockResolvedValue({
         kind: "SUCCEEDED",
@@ -219,7 +225,7 @@ function click(name: string) {
 async function choose() {
   await screen.findByRole("option", { name: /Test connection/ });
   fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
-  fireEvent.change(screen.getByLabelText("CPA 本地文本连接"), { target: { value: connectionId } });
+  fireEvent.change(screen.getByLabelText("文本连接"), { target: { value: connectionId } });
   fireEvent.change(screen.getByLabelText("TEXT 模型"), { target: { value: "fixture-model" } });
 }
 async function readProposal() {
@@ -233,305 +239,10 @@ beforeEach(() => {
   vi.spyOn(crypto, "randomUUID").mockReturnValue(operationId);
 });
 
-function setupSub2() {
-  localStorage.setItem(`aivora.sub2api-source-extract.v1.${projectId}`, JSON.stringify(operation));
-  const h = setup();
-  const command = originalSub2APISourceExtractCommand(operation);
-  const approvalId = `apv_${"c".repeat(32)}`;
-  const receipt = {
-    request_id: operationId,
-    data: {
-      scope: {
-        project_id: projectId,
-        task_id: `task_${"d".repeat(32)}`,
-        attempt_id: attemptId,
-        source: command.input.source,
-        selection: command.input.selection,
-        origin_mode: "LOCAL_LOOPBACK_HTTP",
-        origin_hash: hash,
-        input_hash: hash,
-        context_manifest_hash: hash,
-        attempt_fingerprint: hash,
-      },
-      attempt_status: "QUEUED",
-      approval_id: null as string | null,
-      proposal_id: null as string | null,
-      content_status: "PENDING",
-      automatic_retry_allowed: false,
-      cost: {
-        status: "UNKNOWN",
-        currency: null,
-        estimated_micros: null,
-        actual_micros: null,
-        upstream_status: "UNKNOWN",
-        upstream_actual_micros: null,
-        budget_enforcement: "UNENFORCED",
-      },
-    },
-  };
-  const approved = {
-    request_id: operationId,
-    data: {
-      scope: structuredClone(receipt.data.scope),
-      cost: structuredClone(receipt.data.cost),
-      approval_id: approvalId,
-      status: "APPROVED_ONE_CALL",
-      allowed_calls: 1,
-      cost_decision: "UNKNOWN_COST_ACCEPTED",
-      approved_at: date,
-      expires_at: date,
-    },
-  };
-  const sub = {
-    create: vi.fn(),
-    readOriginal: vi.fn().mockResolvedValue({ kind: "FOUND", runId, receipt }),
-    approve: vi.fn().mockResolvedValue({ kind: "APPROVED", receipt: approved }),
-    readApproval: vi.fn().mockResolvedValue({ kind: "FOUND", receipt: approved }),
-  };
-  transport.sub2apiSourceExtract = sub;
-  h.rerender(<SourceExtractionPanel {...h.input} />);
-  return { ...h, sub, receipt, approved, approvalId };
-}
-async function readSub2() {
-  click("查询原 run");
-  await screen.findByText(/已读取原任务冻结范围与未知费用/);
-}
-
-describe("source panel explicit single-call approval", () => {
-  test("switching execution modes clears the visible selection without losing the original operation", async () => {
-    const h = setup(true);
-    await choose();
-    await readProposal();
-    const original = localStorage.getItem(queueKey);
-    click("Sub2API 文本");
-    expect(screen.getByText("当前执行方式：Sub2API")).toBeInTheDocument();
-    expect(screen.queryByText(/来源摘录摘要/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("来源块")).toHaveValue("");
-    expect(screen.getByLabelText("TEXT 模型")).toHaveValue("");
-    expect(localStorage.getItem(queueKey)).toBe(original);
-    click("CPA 本地文本");
-    expect(screen.getByText("当前执行方式：CPA 本地")).toBeInTheDocument();
-    await readProposal();
-    expect(screen.getByText(/来源摘录摘要：Fixture summary/)).toBeInTheDocument();
-    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
-    expect(h.api.proposalDecisions.acceptAsDraft).not.toHaveBeenCalled();
-    expect(localStorage.getItem(queueKey)).toBe(original);
-  });
-  test.each([
-    "valid",
-    "project",
-    "proposal",
-    "attempt",
-    "run",
-    "approval",
-    "span",
-    "V1",
-    "missing",
-    "throw",
-  ])("V2 proposal %s is checked independently of the task", async (fault) => {
-    const h = setupSub2();
-    h.receipt.data.content_status = "PROPOSAL_READY";
-    h.receipt.data.proposal_id = proposalId;
-    h.receipt.data.approval_id = h.approvalId;
-    const v2 = {
-      ...h.proposal,
-      data: {
-        ...h.proposal.data,
-        proposal: {
-          ...h.proposal.data.proposal,
-          schema_version: "2.0.0",
-          approval_id: h.approvalId,
-        },
-      },
-    };
-    if (fault === "project") v2.data.project_id = "wrong";
-    if (fault === "proposal") v2.data.proposal_id = "wrong";
-    if (fault === "attempt") v2.data.producer_attempt_id = "wrong";
-    if (fault === "run") v2.data.proposal.producer_agent_run_id = "wrong";
-    if (fault === "approval") v2.data.proposal.approval_id = "wrong";
-    if (fault === "span") v2.data.proposal.source_spans = [];
-    const getProposal = vi.fn().mockResolvedValue({
-      kind: fault === "V1" ? "FOUND_V1" : fault === "missing" ? "NOT_FOUND" : "FOUND_V2",
-      receipt: v2,
-    });
-    if (fault === "throw") getProposal.mockRejectedValue(new Error("offline"));
-    transport.readVersionedSourceExtractionProposal = getProposal;
-    click("查询原 run");
-    await screen.findByText(/已读取原任务和提案引用/);
-    click("读取来源抽取提案");
-    await screen.findByText(
-      fault === "valid"
-        ? /已读回 V2 来源提案/
-        : fault === "V1"
-          ? /Sub2API 原任务读到 V1/
-          : fault === "missing"
-            ? /V2 提案未找到或读取未知/
-            : fault === "throw"
-              ? /V2 提案读取失败/
-              : /V2 提案与原任务、许可或来源证据不匹配/,
-    );
-    if (fault === "valid") {
-      click("读取 SourceExtraction 最新状态");
-      await screen.findByText(/权威读回确认尚无/);
-      click("人工接纳为草稿");
-      await screen.findByText(/已精确读回与原提案/);
-      expect(h.api.proposalDecisions.acceptAsDraft).toHaveBeenCalledTimes(1);
-    } else expect(h.api.proposalDecisions.acceptAsDraft).not.toHaveBeenCalled();
-    expect(h.sub.approve).not.toHaveBeenCalled();
-  });
-  test("requires unchecked consent and locks after one approval", async () => {
-    const h = setupSub2();
-    await readSub2();
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "明确授权一次 Sub2API 调用" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox"));
-    click("明确授权一次 Sub2API 调用");
-    await screen.findByText(/已保存一次调用许可的 POST 回执/);
-    expect(h.sub.approve).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "明确授权一次 Sub2API 调用" })).toBeDisabled();
-    click("查询原任务许可");
-    await screen.findByText(/已按原任务读回许可，状态 APPROVED_ONE_CALL/);
-    expect(h.sub.approve).toHaveBeenCalledTimes(1);
-    expect(h.sub.create).not.toHaveBeenCalled();
-  });
-  test.each(["REMOTE_UNKNOWN", "DEFINITE_SERVER_ERROR"])(
-    "approval %s locks despite absence of success",
-    async (kind) => {
-      const h = setupSub2();
-      await readSub2();
-      h.sub.approve.mockResolvedValue({
-        kind,
-        status: 409,
-        code: "CONFLICT",
-        request_id: operationId,
-      });
-      fireEvent.click(screen.getByRole("checkbox"));
-      click("明确授权一次 Sub2API 调用");
-      await screen.findByText(
-        kind === "REMOTE_UNKNOWN" ? /一次调用许可结果未知或已有原许可/ : /许可提交返回 409/,
-      );
-      expect(screen.getByRole("button", { name: "明确授权一次 Sub2API 调用" })).toBeDisabled();
-      expect(h.sub.approve).toHaveBeenCalledTimes(1);
-    },
-  );
-  test.each(["NOT_FOUND", "DEFINITE_SERVER_ERROR", "REMOTE_UNKNOWN", "PROPOSAL_READY"])(
-    "original Sub2API %s renders without authorizing",
-    async (kind) => {
-      const h = setupSub2();
-      if (kind === "PROPOSAL_READY" || kind === "REMOTE_UNKNOWN") {
-        h.receipt.data.content_status = kind;
-        h.receipt.data.proposal_id = kind === "PROPOSAL_READY" ? proposalId : null;
-      } else
-        h.sub.readOriginal.mockResolvedValue({
-          kind,
-          status: 409,
-          code: "CONFLICT",
-          request_id: operationId,
-        });
-      click("查询原 run");
-      await screen.findByText(
-        kind === "NOT_FOUND"
-          ? /原任务未找到（请求 ID/
-          : kind === "DEFINITE_SERVER_ERROR"
-            ? /原任务查询返回 409/
-            : kind === "PROPOSAL_READY"
-              ? /已读取原任务和提案引用/
-              : /原任务状态 REMOTE_UNKNOWN/,
-      );
-      expect(h.sub.approve).not.toHaveBeenCalled();
-    },
-  );
-  test.each(["NOT_FOUND", "DEFINITE_SERVER_ERROR", "REMOTE_UNKNOWN", "CONSUMED"])(
-    "approval GET %s never resubmits",
-    async (kind) => {
-      const h = setupSub2();
-      await readSub2();
-      if (kind === "CONSUMED") h.approved.data.status = "CONSUMED";
-      else
-        h.sub.readApproval.mockResolvedValue({
-          kind,
-          status: 409,
-          code: "CONFLICT",
-          request_id: operationId,
-        });
-      click("查询原任务许可");
-      await screen.findByText(
-        kind === "NOT_FOUND"
-          ? /原任务未找到许可/
-          : kind === "DEFINITE_SERVER_ERROR"
-            ? /许可查询返回 409/
-            : kind === "CONSUMED"
-              ? /原任务许可已消耗；请只读查询/
-              : /许可读回未知或不可用/,
-      );
-      expect(h.sub.approve).not.toHaveBeenCalled();
-    },
-  );
-  test.each(["PROPOSAL_READY", "PENDING", "NOT_FOUND", "DEFINITE_SERVER_ERROR", "REMOTE_UNKNOWN"])(
-    "consumed approval reads %s without another permit",
-    async (kind) => {
-      const h = setupSub2();
-      await readSub2();
-      h.approved.data.status = "CONSUMED";
-      h.sub.approve.mockResolvedValue({ kind: "CONSUMED", receipt: h.approved });
-      if (kind === "PROPOSAL_READY" || kind === "PENDING") {
-        h.receipt.data.content_status = kind;
-        h.receipt.data.approval_id = h.approvalId;
-        h.receipt.data.proposal_id = kind === "PROPOSAL_READY" ? proposalId : null;
-        // Preserve the initial read object until approval; return a fresh task read afterward.
-        const next = structuredClone(h.receipt);
-        h.receipt.data.content_status = "PENDING";
-        h.receipt.data.approval_id = null;
-        h.receipt.data.proposal_id = null;
-        h.sub.readOriginal.mockResolvedValue({ kind: "FOUND", runId, receipt: next });
-      } else
-        h.sub.readOriginal.mockResolvedValue({
-          kind,
-          status: 409,
-          code: "CONFLICT",
-          request_id: operationId,
-        });
-      fireEvent.click(screen.getByRole("checkbox"));
-      click("明确授权一次 Sub2API 调用");
-      await screen.findByText(
-        kind === "PROPOSAL_READY"
-          ? /单次许可已消耗；已只读取得原任务提案引用/
-          : kind === "PENDING"
-            ? /单次许可已消耗；原任务状态 PENDING/
-            : /单次许可已消耗并锁定；/,
-      );
-      expect(h.sub.approve).toHaveBeenCalledTimes(1);
-      expect(h.sub.readOriginal).toHaveBeenCalledTimes(2);
-      expect(h.sub.create).not.toHaveBeenCalled();
-    },
-  );
-  test("source revision changes discard a late approval notice but retain durable identity", async () => {
-    const h = setupSub2();
-    await readSub2();
-    let finish!: () => void;
-    h.sub.approve.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          finish = () => resolve({ kind: "APPROVED", receipt: h.approved });
-        }),
-    );
-    fireEvent.click(screen.getByRole("checkbox"));
-    click("明确授权一次 Sub2API 调用");
-    h.rerender(<SourceExtractionPanel {...h.input} sourceApproved={false} />);
-    await act(async () => {
-      finish();
-    });
-    expect(screen.queryByText(/已保存一次调用许可的 POST 回执/)).not.toBeInTheDocument();
-    expect(
-      localStorage.getItem(`aivora.sub2api-one-call-approval.v1.${projectId}.${runId}`),
-    ).toContain(operationId);
-    expect(h.sub.approve).toHaveBeenCalledTimes(1);
-  });
-});
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  delete window.aijianGrok;
   vi.restoreAllMocks();
 });
 
@@ -545,6 +256,57 @@ describe("source extraction panel queue and original read", () => {
     expect(screen.getByRole("button", { name: "仅入队原来源抽取" })).toBeDisabled();
     expect(h.api.remoteSourceExtract.create).toHaveBeenCalledTimes(1);
     expect(h.api.proposalDecisions.acceptAsDraft).not.toHaveBeenCalled();
+    expect(h.api.remoteSourceExtract.create.mock.calls[0]?.[1].input.billing_account_kind).toBe(
+      "gpt_login",
+    );
+    expect(screen.queryByRole("button", { name: /Sub2API/ })).not.toBeInTheDocument();
+  });
+  test("queues a Grok text connection with grok_login and does not claim a live call", async () => {
+    const h = setup(false, "XAI");
+    await screen.findByRole("option", { name: /Grok/ });
+    fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+    fireEvent.change(screen.getByLabelText("文本连接"), { target: { value: connectionId } });
+    fireEvent.change(screen.getByLabelText("TEXT 模型"), { target: { value: "grok-4.7" } });
+    click("仅入队原来源抽取");
+    expect(await screen.findByText(/grok_login/)).toBeInTheDocument();
+    expect(screen.getByText(/不会调用 xAI/)).toBeInTheDocument();
+    expect(h.api.remoteSourceExtract.create.mock.calls[0]?.[1].input.billing_account_kind).toBe(
+      "grok_login",
+    );
+  });
+  test("sends the selected block through the Grok login transport and surfaces a 403", async () => {
+    const h = setup();
+    const completeText = vi.fn().mockResolvedValue({
+      kind: "ERROR",
+      code: "ENTITLEMENT_DENIED",
+      billingAccountKind: "grok_login",
+    });
+    window.aijianGrok = {
+      status: vi.fn(),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(),
+      completeText,
+    };
+    h.api.getSourceText.mockResolvedValue({ data: { normalized_text: "hello world!" } });
+    selectCenteredModel("TEXT", { provider: "GROK_LOGIN", modelId: "grok-4" });
+    await screen.findByRole("option", { name: /Test connection/ });
+    fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
+    click("用 Grok 账号生成这段文本");
+    expect(
+      await screen.findByRole("button", { name: "改用 API Key（高级备用）" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("403");
+    expect(completeText).toHaveBeenCalledWith({
+      model: "grok-4",
+      text: "hello world!",
+      projectId,
+      idempotencyKey: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      ),
+    });
+    expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
   });
   test.each(["unknown", "rejected", "storage"])(
     "queue %s does not report success",
@@ -687,7 +449,7 @@ describe("source proposal and draft are independent receipts", () => {
           fault === "throw"
             ? /提案读取失败/
             : fault === "V2"
-              ? /原 CPA 操作读到 Sub2API V2/
+              ? /原操作读到另一版本的提案/
               : fault === "missing"
                 ? /原 CPA 提案未找到/
                 : /提案身份或来源证据不匹配/,

@@ -160,9 +160,7 @@ class HostChecks(unittest.TestCase):
                 patch.object(installed.subprocess, "run", side_effect=fail),
             ):
                 with self.assertRaises(RuntimeError):
-                    installed.external_media_phase(
-                        args, temp / "AivoraDevCoreInstall/AIVORA Dev Core.exe"
-                    )
+                    installed.external_media_phase(args, temp / "AivoraDevCoreInstall/AIVORA.exe")
             receipt = json.loads((evidence / "INSTALLED-EXTERNAL-MEDIA-SMOKE.json").read_text())
             self.assertEqual(receipt["result"], "FAIL")
             self.assertEqual(receipt["helper_failure"]["stage"], "actual_windows_process_boundary")

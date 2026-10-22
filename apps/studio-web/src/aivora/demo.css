@@ -191,7 +191,8 @@ th {
   white-space: nowrap;
   color: #c0ccda;
 }
-.topbar > select {
+.topbar > select,
+.topbar > .mouse-select {
   width: 134px;
   height: 36px;
   padding: 4px 10px;
@@ -1366,7 +1367,8 @@ th {
   .brand > svg {
     width: 32px;
   }
-  .topbar > select {
+  .topbar > select,
+  .topbar > .mouse-select {
     width: 100px;
   }
   .topbar > .button,
@@ -1451,7 +1453,8 @@ th {
     padding: 16px;
     min-height: 350px;
   }
-  .topbar > select {
+  .topbar > select,
+  .topbar > .mouse-select {
     flex-shrink: 0;
   }
   .inspector {

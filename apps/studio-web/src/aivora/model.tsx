@@ -263,6 +263,7 @@ function useDemoModel(fixture?: DemoFixture) {
   const canNavigate = () => navigationGuard.current?.() ?? true;
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [professional, setProfessional] = useState(false);
+  const [filmStep, setFilmStep] = useState(0);
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -456,6 +457,7 @@ function useDemoModel(fixture?: DemoFixture) {
     setAiDraft(request);
   }
   const history = useRef<PageId[]>([]);
+  const goRef = useRef<(next: PageId) => void>(() => undefined);
   const scroll = useRef<Partial<Record<PageId, number>>>({});
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1459,6 +1461,7 @@ function useDemoModel(fixture?: DemoFixture) {
     setPlaying(false);
     window.history.pushState({}, "", `#${next}`);
   }
+  goRef.current = go;
   function back() {
     if (!canNavigate()) return;
     const next = history.current.pop() ?? "projects";
@@ -1474,6 +1477,17 @@ function useDemoModel(fixture?: DemoFixture) {
     const el = document.getElementById("demo-scroll");
     if (el) el.scrollTop = scroll.current[page] ?? 0;
   }, [page]);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (typeof next !== "string" || !(next in pages)) return;
+      goRef.current(next as PageId);
+      if (next === "services")
+        requestAnimationFrame(() => document.getElementById("model-center")?.focus());
+    };
+    window.addEventListener("aivora-open-page", open);
+    return () => window.removeEventListener("aivora-open-page", open);
+  }, []);
   useEffect(() => {
     void connectRealWorkspace();
   }, []);
@@ -1607,6 +1621,8 @@ function useDemoModel(fixture?: DemoFixture) {
     setScenario,
     professional,
     setProfessional,
+    filmStep,
+    setFilmStep,
     inspector,
     setInspector,
     aiOpen,

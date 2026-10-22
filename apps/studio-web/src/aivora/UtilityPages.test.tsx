@@ -117,6 +117,8 @@ function openUtilityPage(
 }
 async function ready() {
   await screen.findByRole("heading", { name: "AI 服务" });
+  const backup = screen.queryByRole("button", { name: "API 连接（高级备用）" });
+  if (backup) fireEvent.click(backup);
 }
 async function submitConnection() {
   fireEvent.change(screen.getByLabelText("连接名称"), { target: { value: "正式 OpenAI" } });

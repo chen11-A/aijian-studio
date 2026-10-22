@@ -18,7 +18,7 @@ export function DraftExportPanel(props: DraftExportProps & { showReview?: boolea
   return (
     <section className="v2-media-card episode-assembly draft-export" aria-label="草稿 MP4 导出">
       <header>
-        <span className="draft-export-badge">DRAFT · 本地草稿</span>
+        <span className="draft-export-badge">本地草稿</span>
         <h2>导出草稿 MP4</h2>
         <p>
           把本集已保存的真实媒体剪辑编码为本地

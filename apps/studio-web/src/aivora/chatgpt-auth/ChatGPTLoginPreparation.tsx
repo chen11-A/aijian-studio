@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "../Common";
 import type { ChatGPTStatus, ChatGPTUseScope } from "./transport";
+import { Select } from "../Select";
 
 /** Local eligibility declaration only. Actual account and permissions are verified by OpenAI. */
 export function ChatGPTLoginPreparation({
@@ -22,7 +23,7 @@ export function ChatGPTLoginPreparation({
     <div className="chatgpt-consent" aria-label="官方登录授权说明">
       <label>
         软件使用方式（接入资格）
-        <select
+        <Select
           aria-label="软件使用方式（接入资格）"
           aria-describedby="chatgpt-eligibility-help"
           value={scope}
@@ -33,7 +34,7 @@ export function ChatGPTLoginPreparation({
           <option value="LOCAL_PERSONAL">我自己使用的个人本地项目</option>
           <option value="OPEN_SOURCE">符合官方开源接入条件的项目</option>
           <option value="APPROVED_PRIVATE">已获 OpenAI 接入批准的私有应用</option>
-        </select>
+        </Select>
       </label>
       <p id="chatgpt-eligibility-help">
         这里说明你如何使用 AIVORA，用于核对官方接入资格。ChatGPT

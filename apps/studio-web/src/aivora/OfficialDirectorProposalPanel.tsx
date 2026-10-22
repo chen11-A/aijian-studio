@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./Common";
 import { OfficialDirectorGenerationForm } from "./OfficialDirectorGenerationForm";
 import { OfficialDirectorOperationEvidence } from "./OfficialDirectorOperationEvidence";
@@ -10,15 +10,23 @@ import {
 } from "./useOfficialDirectorProposals";
 import "./official-director-proposals.css";
 
+import { Select } from "./Select";
 export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps) {
   const state = useOfficialDirectorProposals(props);
   const [selection, setSelection] = useState<string | null>(null);
   const newestId = state.operations[0]?.request.operation_id ?? null;
+  const previousNewest = useRef(newestId);
   useEffect(() => {
-    setSelection(newestId);
+    if (previousNewest.current === newestId) return;
+    const previous = previousNewest.current;
+    previousNewest.current = newestId;
+    // Records load after the first paint. A choice made on that paint must survive
+    // the initial sync; a later newest record still becomes the selection.
+    setSelection((current) => (previous === null && current !== null ? current : newestId));
   }, [newestId]);
   const operation =
-    state.operations.find((item) => item.request.operation_id === selection) ?? state.operations[0];
+    state.operations.find((item) => item.request.operation_id === (selection ?? newestId)) ??
+    state.operations[0];
   const issues = operation?.proposal
     ? [...operation.proposal.content.issues, ...operation.proposal.capability_losses]
     : [];
@@ -108,7 +116,7 @@ export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps)
       {state.operations.length > 0 && (
         <label className="official-director-history">
           本集操作记录（最近记录）
-          <select
+          <Select
             value={operation?.request.operation_id ?? ""}
             disabled={state.busy}
             onChange={(event) => select(event.target.value)}
@@ -119,7 +127,7 @@ export function OfficialDirectorProposalPanel(props: OfficialDirectorPanelProps)
                 {item.request.operation_id.slice(-8)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {state.hasMore && (

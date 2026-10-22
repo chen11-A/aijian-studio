@@ -7,6 +7,7 @@ import { CharacterReferencePreview } from "./CharacterReferencePreview";
 import { VisualBibleHistory } from "./VisualBibleHistory";
 import { VisualEnvironmentScopeEditor } from "./VisualEnvironmentScopeEditor";
 import type { AssetLibraryGateway, MediaAsset } from "./adapters/assetLibrary";
+import { Select } from "./Select";
 
 type AssetRef = VisualContent["scenes"][number]["assets"][number];
 function AssetChoices({
@@ -29,7 +30,7 @@ function AssetChoices({
   );
   return (
     <div>
-      <select
+      <Select
         aria-label={label}
         value=""
         disabled={locked}
@@ -57,7 +58,7 @@ function AssetChoices({
             {x.version.filename} · v{x.version.ordinal} · {x.version.id}
           </option>
         ))}
-      </select>
+      </Select>
       {!assets.length && <p>尚无已核对的素材列表；请在素材页登记或核对读取状态。</p>}
       <ul>
         {value.map((x) => (

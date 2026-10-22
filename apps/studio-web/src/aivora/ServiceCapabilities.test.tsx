@@ -72,8 +72,8 @@ describe("capability preparation view", () => {
       />,
     );
     expect(screen.getByText(/已登记候选：Grok API fixture/)).toBeInTheDocument();
-    expect(screen.getByText(/这是 xAI API 配置，不是 SuperGrok/)).toBeInTheDocument();
-    expect(screen.getByText(/Other fixture：系统凭据暂不可用/)).toBeInTheDocument();
+    expect(screen.getByText(/这是 API Key 备用配置，不是 Grok 订阅登录/)).toBeInTheDocument();
+    expect(screen.getByText(/Other fixture：本机凭据暂时不可用/)).toBeInTheDocument();
     expect(screen.getAllByText("自动生成尚未接入")).toHaveLength(3);
   });
   it.each(["loading", "error"] as const)(
@@ -81,7 +81,7 @@ describe("capability preparation view", () => {
     (kind) => {
       render(<ServiceCapabilities {...props({ kind })} />);
       expect(
-        screen.getByText(kind === "loading" ? /API 连接目录读取中/ : /API 连接目录读取失败/),
+        screen.getByText(kind === "loading" ? /目录读取中/ : /目录读取失败/),
       ).toBeInTheDocument();
       if (kind === "loading")
         expect(screen.getByRole("button", { name: "检查自动出片准备" })).toBeDisabled();
