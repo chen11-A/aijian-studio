@@ -305,10 +305,13 @@ describe("compact native-only AI director review", () => {
     await ready();
     expect(screen.getByText("COVERAGE_INVALID：对白覆盖缺失")).toBeInTheDocument();
     expect(screen.queryByLabelText("AI 导演镜头计划只读预览")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("本集操作记录（最近记录）"), {
+    const history = screen.getByLabelText("本集操作记录（最近记录）");
+    await waitFor(() => expect(history).toHaveValue(invalid.request.operation_id));
+    fireEvent.change(history, {
       target: { value: blocked.request.operation_id },
     });
-    expect(screen.getByText(/阻断 · FRACTIONAL_RATE/)).toBeInTheDocument();
+    expect(await screen.findByText(/阻断 · FRACTIONAL_RATE/)).toBeInTheDocument();
+    expect(history).toHaveValue(blocked.request.operation_id);
     expect(screen.getByRole("button", { name: "明确采纳为新分镜版本" })).toBeDisabled();
   });
   it("shows missing native gateway and unavailable storage as disabled states", async () => {
