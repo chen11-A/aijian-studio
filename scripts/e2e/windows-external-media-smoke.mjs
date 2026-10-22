@@ -478,7 +478,7 @@ export async function runWindowsSmoke(values) {
   }
   async function settings() {
     await route("settings");
-    await page.getByRole("button", { name: "本地媒体工具 · DRAFT", exact: true }).click();
+    await page.getByRole("button", { name: "本地媒体工具", exact: true }).click();
   }
   async function selectTools() {
     await settings();

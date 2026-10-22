@@ -60,7 +60,7 @@ function state() {
 }
 
 function showTasks() {
-  fireEvent.click(screen.getByLabelText("助手工具"));
+  fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
   fireEvent.click(
     within(screen.getByRole("navigation", { name: "助手内容" })).getByRole("button", {
       name: "切换到任务",
@@ -100,7 +100,7 @@ describe("assistant panel local-only interaction", () => {
     fireEvent.click(screen.getByRole("button", { name: "引用当前对象" }));
     expect(state().references).toHaveLength(1);
 
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "助手内容" })).getByRole("button", {
         name: "切换到任务",
@@ -284,7 +284,7 @@ describe("production assistant boundaries without demo mode", () => {
     openNative();
     expect(screen.getByRole("textbox", { name: "给 AI 助手的消息" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "预览发送内容" })).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     fireEvent.click(screen.getByRole("button", { name: "打开项目中心" }));
     expect(state().page).toBe("projects");
@@ -296,11 +296,11 @@ describe("production assistant boundaries without demo mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "上下文" }));
     expect(screen.getByRole("heading", { name: "当前创作上下文" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "上下文" }));
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     expect(screen.getByRole("heading", { name: "当前作品的下一步" })).toBeInTheDocument();
     for (const tab of ["建议", "任务", "上下文", "对话"]) {
-      fireEvent.click(screen.getByLabelText("助手工具"));
+      fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
       fireEvent.click(screen.getByRole("button", { name: `切换到${tab}` }));
       if (tab === "任务")
         expect(
@@ -320,7 +320,7 @@ describe("production assistant boundaries without demo mode", () => {
     openNative();
     fireEvent.click(screen.getByRole("button", { name: "Enter professional layout" }));
     expect(screen.queryByRole("button", { name: "收起助手面板" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "查看对象属性" }));
     expect(state().rightTab).toBe("inspector");
   });
@@ -366,7 +366,7 @@ describe("production assistant boundaries without demo mode", () => {
     openNative();
     fireEvent.click(screen.getByRole("button", { name: "Connect synthetic workspace" }));
     await waitFor(() => expect(state().backendProjectId).toBe(remoteProjectId));
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "切换到建议" }));
     await screen.findByRole("button", { name: "整理来源与原创灵感" });
     for (const [name, page] of [
@@ -378,7 +378,7 @@ describe("production assistant boundaries without demo mode", () => {
       await waitFor(() => expect(state().page).toBe(page));
     }
     expect(state().messages).toEqual([]);
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(screen.getByRole("button", { name: "切换到对话" }));
     expect(screen.getByRole("button", { name: "预览发送内容" })).toBeDisabled();
   });

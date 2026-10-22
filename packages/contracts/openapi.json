@@ -4129,6 +4129,15 @@
         "additionalProperties": false,
         "description": "Queue only; a separate trusted authorization must precede dispatch.",
         "properties": {
+          "billing_account_kind": {
+            "default": "gpt_login",
+            "enum": [
+              "gpt_login",
+              "grok_login"
+            ],
+            "title": "Billing Account Kind",
+            "type": "string"
+          },
           "selection": {
             "$ref": "#/components/schemas/RemoteSourceExtractSelectionData"
           },
@@ -9679,6 +9688,33 @@
           "request_id"
         ],
         "title": "FakeTimelineRunResponse",
+        "type": "object"
+      },
+      "FinishDesktopSubscriptionDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "failure_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z0-9_]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "outcome": {
+            "pattern": "^(COMPLETED|FAILED)$",
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "FinishDesktopSubscriptionDispatch",
         "type": "object"
       },
       "FixtureRef": {
@@ -17153,6 +17189,75 @@
           "reason"
         ],
         "title": "RecheckDraftReviewRevisionCandidateRequest",
+        "type": "object"
+      },
+      "RecordDesktopSubscriptionDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "account_kind": {
+            "pattern": "^(gpt_login|grok_login|chatgpt_login)$",
+            "title": "Account Kind",
+            "type": "string"
+          },
+          "connected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected"
+          },
+          "idempotency_key": {
+            "maxLength": 80,
+            "minLength": 16,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "model_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "quota_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quota Available"
+          },
+          "rate_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Available"
+          },
+          "request_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_kind",
+          "model_id",
+          "request_sha256",
+          "idempotency_key"
+        ],
+        "title": "RecordDesktopSubscriptionDispatch",
         "type": "object"
       },
       "ReferenceDeclarationV1": {
@@ -29885,6 +29990,112 @@
         "summary": "Get Version"
       }
     },
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches": {
+      "post": {
+        "operationId": "record_api_v1_projects__project_id__desktop_subscription_dispatches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDesktopSubscriptionDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record"
+      }
+    },
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches/{dispatch_id}/outcome": {
+      "post": {
+        "operationId": "finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dispatch_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dsd_[0-9a-f]{32}$",
+              "title": "Dispatch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinishDesktopSubscriptionDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish"
+      }
+    },
     "/api/v1/projects/{project_id}/development-exports": {
       "post": {
         "operationId": "createDevelopmentTimelineExport",
@@ -38213,6 +38424,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38232,16 +38453,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Create Run"
@@ -38323,6 +38534,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38342,16 +38563,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Get Approval"
@@ -38457,6 +38668,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38476,16 +38697,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Approve Call"
@@ -38567,6 +38778,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38586,16 +38807,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Get Operation"

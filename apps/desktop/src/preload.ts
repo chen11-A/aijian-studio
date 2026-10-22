@@ -67,6 +67,7 @@ import type {
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
+import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
 import type {
   DraftExportPreviewResult,
   DraftExportRevealResult,
@@ -264,6 +265,15 @@ contextBridge.exposeInMainWorld("aijianChatGPT", {
   models: () => ipcRenderer.invoke("chatgpt-auth:models"),
   openHelp: (topic) => ipcRenderer.invoke("chatgpt-auth:help", topic),
 } satisfies ChatGPTBridge);
+
+contextBridge.exposeInMainWorld("aijianGrok", {
+  status: () => ipcRenderer.invoke("grok-auth:status"),
+  signIn: () => ipcRenderer.invoke("grok-auth:sign-in"),
+  cancel: () => ipcRenderer.invoke("grok-auth:cancel"),
+  signOut: () => ipcRenderer.invoke("grok-auth:sign-out"),
+  models: () => ipcRenderer.invoke("grok-auth:models"),
+  completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
+} satisfies GrokLoginBridge);
 
 contextBridge.exposeInMainWorld("aijianAssistantChat", {
   preview: (request) => ipcRenderer.invoke("assistant-chat:preview", request),

@@ -21,7 +21,7 @@ export function MediaToolchainSettings({ gateway }: { gateway?: MediaToolchainGa
   }, [cancelSelection]);
   return (
     <section className="v2-utility-card" aria-label="本地媒体工具设置" style={{ padding: 16 }}>
-      <h2>本地媒体工具 · DRAFT</h2>
+      <h2>本地媒体工具</h2>
       <p role="status">{media.message}</p>
       <p>
         手动选择已下载工具的 bin

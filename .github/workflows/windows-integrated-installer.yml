@@ -1,0 +1,80 @@
+name: Windows integrated installer
+
+on:
+  pull_request:
+    branches: [codex/aivora-handoff-20261012]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-integrated-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrated-desktop:
+    if: github.repository == 'chen11-A/aijian-studio'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24.19.0"
+          package-manager-cache: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: false
+      - name: Verify and prepare fixed Windows tool inputs
+        shell: pwsh
+        run: |
+          python packaging/windows/prepare-dev-core.py --cache "$env:RUNNER_TEMP\aivora-tool-cache" --tools "$env:RUNNER_TEMP\aivora-tools"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Restore locked JavaScript dependencies without lifecycle scripts
+        shell: pwsh
+        run: |
+          npm ci --prefix packaging/windows/build-toolchain --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs install --frozen-lockfile --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Freeze the Windows sidecar
+        shell: pwsh
+        run: |
+          $python = "$env:RUNNER_TEMP\aivora-tools\cpython\python\python.exe"
+          & $python packaging/windows/freeze-sidecar.py --development-core --cache "$env:RUNNER_TEMP\aivora-tool-cache" --output "$env:RUNNER_TEMP\aivora-frozen"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $python packaging/windows/smoke-frozen-sidecar.py --resources "$env:RUNNER_TEMP\aivora-frozen\resources"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the media-free core, then add the locked FFmpeg pair
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\aivora-evidence" | Out-Null
+          python packaging/windows/package-dev-core.py --tools "$env:RUNNER_TEMP\aivora-tools" --frozen "$env:RUNNER_TEMP\aivora-frozen" --out "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $media = uv run --frozen python scripts/ci_media_tools.py --root "$env:RUNNER_TEMP\aivora-ffmpeg" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python packaging/windows/bundle-locked-media.py --stage "$env:RUNNER_TEMP\aivora-stage" --tools "$env:RUNNER_TEMP\aivora-tools" --media $media.root --evidence "$env:RUNNER_TEMP\aivora-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Silent install, health check, screenshot, and uninstall
+        shell: pwsh
+        run: |
+          python packaging/windows/smoke-integrated-install.py --stage "$env:RUNNER_TEMP\aivora-stage" --evidence "$env:RUNNER_TEMP\aivora-evidence" --delivery "$env:RUNNER_TEMP\aivora-delivery"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload unsigned integrated installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: AIVORA-Setup-win-x64
+          path: ${{ runner.temp }}/aivora-delivery/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

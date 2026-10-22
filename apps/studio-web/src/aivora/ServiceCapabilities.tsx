@@ -31,7 +31,14 @@ export function ServiceCapabilities({
       <header>
         <div>
           <h2>账号与能力检查</h2>
-          <p>本地准备检查 · 不发送作品，不试生成，不消耗生成额度。</p>
+          <p>
+            <strong>ChatGPT：</strong>
+            <span>{readinessLabels[official]}</span>
+            <span> · 剩余额度：未知</span>
+            {providers.kind !== "ready" && (
+              <span>{providers.kind === "loading" ? " · 目录读取中" : " · 目录读取失败"}</span>
+            )}
+          </p>
         </div>
         <Button
           disabled={reading}
@@ -44,21 +51,15 @@ export function ServiceCapabilities({
           重新读取连接状态
         </Button>
       </header>
-      <p>
-        <strong>ChatGPT：</strong>
-        <span>{readinessLabels[official]}</span>
-      </p>
-      <p>剩余额度：未知。登录和模型目录尚未验证真实推理。</p>
-      {providers.kind !== "ready" && (
-        <p>
-          {providers.kind === "loading"
-            ? "API 连接目录读取中，尚不能确认全部配置。"
-            : "API 连接目录读取失败，不能按没有账号处理。请重新读取。"}
-        </p>
-      )}
-      <p>文本：{rows[0].label}。图片、视频和配音自动生成尚未接入。</p>
+      <div className="service-capability-actions">
+        <Button disabled={reading} onClick={() => setChecked(true)}>
+          检查自动出片准备
+        </Button>
+        <Button onClick={onOpenProjects}>进入项目准备剧本或导入素材</Button>
+      </div>
       <details>
-        <summary>查看能力详情与接入边界</summary>
+        <summary>更多说明</summary>
+        <p>文本：{rows[0].label}。图片、视频和配音自动生成尚未接入。</p>
         <dl className="service-capability-grid">
           {rows.map((row) => (
             <div key={row.capability}>
@@ -76,24 +77,23 @@ export function ServiceCapabilities({
             </div>
           ))}
         </dl>
-      </details>
-      <details>
-        <summary>查看账号、费用与兼容说明</summary>
         {providers.kind === "ready" && providers.response.data.length > 0 && (
           <ul aria-label="各连接本地状态">
             {providers.response.data.map((connection) => (
               <li key={connection.id}>
                 {connection.display_name}：{readinessLabels[assessConfiguredConnection(connection)]}
                 {connection.provider_kind === "XAI"
-                  ? "。这是 xAI API 配置，不是 SuperGrok 订阅登录。"
+                  ? "。这是 API Key 备用配置，不是 Grok 订阅登录。"
                   : ""}
               </li>
             ))}
           </ul>
         )}
+        <p>本地准备检查 · 不发送作品，不试生成，不消耗生成额度。登录和模型目录尚未验证真实推理。</p>
         <p>
-          Grok 订阅登录尚未接入：需先确认 AIVORA 的 OAuth
-          接入资格及账号权限。不会借用其他应用身份，也不会把 xAI API Key 当作会员登录。
+          可以用 Grok 订阅账号登录，和 ChatGPT 官方账号并列。授权在 auth.x.ai，模型来自 api.x.ai
+          的目录。登录成功不等于每个档位都能推理：若返回 403，请改用 API Key。API Key
+          走控制台额度。上方沙箱连接也不会访问 api.x.ai。
         </p>
         <ul>
           <li>
@@ -114,12 +114,6 @@ export function ServiceCapabilities({
           这里只读取本地授权和配置，不验证服务端权限、余额或作品素材；实际调用仍需在对应入口确认。本页没有生成或费用设置写入操作。
         </p>
       </details>
-      <div className="service-capability-actions">
-        <Button disabled={reading} onClick={() => setChecked(true)}>
-          检查自动出片准备
-        </Button>
-        <Button onClick={onOpenProjects}>进入项目准备剧本或导入素材</Button>
-      </div>
       {checked && (
         <div className="service-capability-result" role="status">
           <strong>自动出片尚未就绪</strong>

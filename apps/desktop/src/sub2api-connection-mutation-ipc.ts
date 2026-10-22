@@ -10,6 +10,7 @@ import {
   type Sub2APIRotationReadResult,
 } from "./sub2api-connection-mutation-contract";
 
+/** Metadata edits and key rotation return 410 from the client. Rotation reads stay. */
 type Sub2APIMutationClient = {
   editSub2APIMetadata(
     connectionId: string,

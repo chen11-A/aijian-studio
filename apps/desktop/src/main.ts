@@ -14,6 +14,11 @@ import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assis
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { createGrokLoginLog } from "./grok-login-log";
+import { createSubscriptionLedger } from "./desktop-subscription-ledger";
+import { createGrokStore } from "./grok-auth-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -277,8 +282,16 @@ function getAssistantReceiptStore(): AssistantReceiptStore {
   );
   return assistantReceiptStore;
 }
+function subscriptionLedger() {
+  if (!sidecar) throw new Error("BILLING_UNAVAILABLE");
+  return createSubscriptionLedger(globalThis.fetch, sidecar.session);
+}
 function getChatGPTRuntime() {
   chatgptRuntime ??= createChatGPTRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
     store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
@@ -319,6 +332,31 @@ function getChatGPTRuntime() {
   });
   return chatgptRuntime;
 }
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), safeStorage),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
+    // The labeled button is the confirmation. One click opens the system browser.
+    confirmSignIn: async () => true,
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
