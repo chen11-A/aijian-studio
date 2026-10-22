@@ -48,7 +48,13 @@ async function run(viewport, persona) {
         state = { ...connected, state: "NOT_CONNECTED", accountLabel: null };
         return { kind: "OK", status: state };
       },
-      models: async () => ({ kind: "OK", models: [{ id: "grok-4.3", label: "Grok 4.3" }] }),
+      models: async () => ({
+        kind: "OK",
+        models: [
+          { id: "grok-4.3", label: "Grok 4.3" },
+          { id: "grok-imagine-image-2.0", label: "Grok Imagine Image 2.0" },
+        ],
+      }),
       completeText: async () => ({
         kind: "ERROR",
         code: "ENTITLEMENT_DENIED",
@@ -75,6 +81,17 @@ async function run(viewport, persona) {
   clicks += 1;
   await page.waitForSelector(".main-panel.page-services");
   await page.getByText("persona@example.test").first().waitFor({ timeout: 8000 });
+  await page
+    .locator("#model-center")
+    .getByText("Grok 账号暂不提供配音模型")
+    .waitFor({ timeout: 8000 });
+  await page
+    .locator("#model-center")
+    .getByText("Grok 账号暂不提供视频模型")
+    .waitFor({ timeout: 8000 });
+  await page.getByRole("combobox", { name: "图像模型" }).waitFor({ timeout: 8000 });
+  const chip = page.getByRole("group", { name: "用户菜单" }).locator("summary");
+  await chip.getByText("persona@example.test").waitFor({ timeout: 8000 });
   await shot("03-grok-card");
   const model = page.locator("#model-center select").first();
   await model

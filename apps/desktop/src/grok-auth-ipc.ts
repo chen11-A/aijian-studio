@@ -1,4 +1,24 @@
-import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
+import type { GrokLoginBridge, GrokLoginStatus } from "@aijian/contracts/grok-auth";
+
+/**
+ * Unpackaged screenshot stand-in for a SuperGrok catalog that only lists a text model.
+ * `process.defaultApp` is set only when Electron is launched as `electron .`.
+ * A packaged installer leaves it unset, so this never answers a real login.
+ */
+function screenshotGrokCatalog(): { status: GrokLoginStatus } | undefined {
+  if (process.env.AIVORA_SCREENSHOT_GROK !== "text-only") return undefined;
+  if ((process as NodeJS.Process & { defaultApp?: boolean }).defaultApp !== true) return undefined;
+  return {
+    status: {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: "grok-user@example.com",
+      lastError: null,
+    },
+  };
+}
 
 export function registerGrokHandlers<TEvent>(
   handle: (
@@ -37,6 +57,9 @@ export function registerGrokHandlers<TEvent>(
         ) {
           throw new Error("Invalid Grok text request");
         }
+        if (screenshotGrokCatalog()) {
+          return { kind: "ERROR", code: "SCREENSHOT_ONLY", billingAccountKind: "grok_login" };
+        }
         return runtime.completeText({
           model: body.model,
           text: body.text,
@@ -47,6 +70,12 @@ export function registerGrokHandlers<TEvent>(
         });
       }
       if (args.length !== 0) throw new Error("Unexpected Grok IPC arguments");
+      const preview = screenshotGrokCatalog();
+      if (preview) {
+        if (action === "models")
+          return { kind: "OK", models: [{ id: "grok-4.7", label: "grok-4.7" }] };
+        return action === "status" ? preview.status : { kind: "OK", status: preview.status };
+      }
       if (action === "status") return runtime.status();
       if (action === "sign-in") return runtime.signIn();
       if (action === "cancel") return runtime.cancel();

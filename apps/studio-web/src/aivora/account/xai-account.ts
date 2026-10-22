@@ -16,6 +16,8 @@ export const XAI_DOCS = {
 export const DOCUMENTED_XAI_MODELS = [
   { modelId: "grok-4.7", capability: "TEXT", label: "Grok 4.7" },
   { modelId: "grok-imagine-image-2.0", capability: "IMAGE", label: "Grok Imagine Image 2.0" },
+  { modelId: "grok-imagine-video-1.5", capability: "VIDEO", label: "Grok Imagine Video 1.5" },
+  { modelId: "grok-tts", capability: "SPEECH", label: "Grok TTS" },
 ] as const;
 
 export type DocumentedXaiModel = (typeof DOCUMENTED_XAI_MODELS)[number];
@@ -46,7 +48,7 @@ const MEMBERSHIP: XaiMembershipView = {
   balance: "unknown",
   consumerPlan: "not_an_api_entitlement",
   benefits: [
-    "登记后可在模型中心看到文档快照里的文本与图像模型。这不是该账号的实时目录。",
+    "登记后可在模型中心看到文档快照里的文本、图像、视频和配音模型。这不是该密钥的实时目录。",
     "不包含 SuperGrok、X Premium 或 grok.com 订阅额度。",
     "不自动充值，不收款，不调用付费模型。",
   ],
@@ -61,7 +63,7 @@ export function xaiMembershipView(): XaiMembershipView {
 export function xaiConnectionModels() {
   return DOCUMENTED_XAI_MODELS.map((model) => ({
     model_id: model.modelId,
-    capabilities: [model.capability] as ["TEXT"] | ["IMAGE"],
+    capabilities: [model.capability] as ["TEXT"] | ["IMAGE"] | ["VIDEO"] | ["SPEECH"],
   }));
 }
 

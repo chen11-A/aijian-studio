@@ -49,6 +49,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
       const value = await readGrokStatus(bridge);
       if (!mounted.current || generation.current !== current) return;
       setStatus(value);
+      window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
       if (value.state === "ENTITLEMENT_DENIED")
         setNotice(grokLoginFailureMessage("ENTITLEMENT_DENIED"));
       else if (value.lastError) setNotice(grokLoginFailureMessage(value.lastError));
@@ -99,6 +100,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
   async function applyAction(current: number, result: GrokLoginActionResult) {
     if (!validGrokStatus(result.status)) throw new Error("invalid status");
     setStatus(result.status);
+    window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
     if (result.kind === "ERROR") setNotice(grokLoginFailureMessage(result.code));
     else if (result.kind === "CANCELLED") setNotice("已取消 Grok 登录。");
     else if (result.status.state === "ENTITLEMENT_DENIED")

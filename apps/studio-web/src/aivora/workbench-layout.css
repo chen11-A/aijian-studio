@@ -123,19 +123,34 @@
   outline-offset: 2px;
 }
 /* Place the reopening control in reserved header space, never over Save. */
-.demo-root.production-workbench.no-rail .ai-toggle {
+.demo-root.production-workbench .topbar-tools {
   position: absolute;
   top: 18px;
-  bottom: auto;
-  left: 612px;
-  right: auto;
-  width: 88px;
-  height: 36px;
-  z-index: 4;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.demo-root.production-workbench.no-stage.no-rail .ai-toggle {
+.demo-root.production-workbench .topbar-tools .user-menu,
+.demo-root.production-workbench .topbar-tools .ai-toggle {
+  position: static;
+  top: auto;
+  right: auto;
   left: auto;
-  right: 144px;
+  width: auto;
+  height: 36px;
+  opacity: 1;
+  pointer-events: auto;
+}
+.demo-root.production-workbench .topbar-tools .ai-toggle {
+  width: 88px;
+}
+.demo-root.production-workbench.no-rail:not(.no-stage) .topbar-tools .ai-toggle {
+  position: fixed;
+  top: 18px;
+  left: 612px;
+  width: 88px;
 }
 .production-workbench .demo-dialog .dialog-description,
 .production-workbench .demo-dialog h2 {
@@ -575,7 +590,7 @@
   .demo-root.production-workbench .nav-item.nav-child {
     height: auto;
   }
-  .demo-root.production-workbench.no-rail:not(.no-stage) .ai-toggle {
+  .demo-root.production-workbench.no-rail:not(.no-stage) .topbar-tools .ai-toggle {
     left: 444px;
   }
 }
@@ -885,7 +900,7 @@
   min-height: 0;
   max-height: none;
 }
-@media (max-height: 740px) {
+@media (max-height: 800px) {
   .production-workbench .service-secondary {
     overflow: auto;
   }

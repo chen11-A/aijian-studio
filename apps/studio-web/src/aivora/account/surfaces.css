@@ -52,6 +52,28 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+.model-gap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+.model-gap > span {
+  font-size: 13px;
+}
+.account-center .model-gap > p {
+  margin: 0;
+  color: #d5e6f5;
+  font-size: 12px;
+  line-height: 18px;
+}
+.model-gap .button {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
 .account-benefits,
 .account-pair ul,
 .delivery-checklist ul {

@@ -173,6 +173,7 @@ export function HomePages() {
         }
         setLaunchPhase("signed-in");
         setLaunchModels(names);
+        window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
         const message =
           result.status.state === "ENTITLEMENT_DENIED"
             ? grokLoginFailureMessage("ENTITLEMENT_DENIED")

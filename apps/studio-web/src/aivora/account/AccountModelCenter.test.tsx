@@ -1,7 +1,9 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
+import type { GrokLoginBridge, GrokLoginStatus } from "@aijian/contracts/grok-auth";
+import { cleanup, fireEvent, render, screen, act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountModelCenter } from "./AccountModelCenter";
+import { GrokConnectionProvider } from "../grok-auth/GrokConnectionContext";
 import { XAI_SESSION_KEY } from "./xai-account";
 import {
   ChangeCostNotice,
@@ -17,14 +19,18 @@ import type { ProviderConnectionData } from "../../api/studio";
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  delete window.aijianGrok;
 });
 
 describe("account and model center", () => {
   it("connects a sandbox key without keeping it or offering a second model picker", () => {
     const save = vi.fn();
     render(<AccountModelCenter onSaveXaiKey={save} />);
-    expect(screen.getAllByRole("combobox")).toHaveLength(4);
-    expect(screen.getByRole("combobox", { name: "文本模型" })).toBeDisabled();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.getByText("还没有连接能提供文本模型的账号。")).toBeInTheDocument();
+    expect(screen.getByText("还没有连接能提供配音模型的账号。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "用 Grok 账号登录" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "连接 API Key" })).toHaveLength(3);
     fireEvent.click(screen.getByText("控制台密钥（高级备用）"));
     fireEvent.change(screen.getByLabelText("xAI 密钥"), {
       target: { value: "not-a-grok-login" },
@@ -52,8 +58,8 @@ describe("account and model center", () => {
     expect(text).toBeEnabled();
     fireEvent.change(text, { target: { value: "xai:grok-4.7" } });
     expect(text).toHaveValue("xai:grok-4.7");
-    expect(screen.getByRole("combobox", { name: "视频模型" })).toBeDisabled();
-    expect(screen.getByRole("combobox", { name: "配音模型" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "视频模型" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "配音模型" })).toHaveTextContent("Grok TTS");
     fireEvent.change(text, { target: { value: "" } });
     expect(screen.getByRole("status")).toHaveTextContent("已清空");
     fireEvent.click(screen.getByRole("button", { name: "断开沙箱" }));
@@ -100,6 +106,70 @@ describe("account and model center", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "写入凭据库（不调用模型）" }));
     expect(screen.getByRole("status")).toHaveTextContent("已经有 xAI 连接");
+  });
+
+  it("offers only the capabilities a single Grok login listed, and keeps the choice", async () => {
+    const signedIn: GrokLoginStatus = {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: "person@example.test",
+      lastError: null,
+    };
+    const bridge: GrokLoginBridge = {
+      status: vi.fn(async () => signedIn),
+      signIn: vi.fn(async () => ({ kind: "OK" as const, status: signedIn })),
+      cancel: vi.fn(async () => ({ kind: "CANCELLED" as const, status: signedIn })),
+      signOut: vi.fn(async () => ({ kind: "OK" as const, status: signedIn })),
+      models: vi.fn(async () => ({
+        kind: "OK" as const,
+        models: [
+          { id: "grok-4.7", label: "Grok 4.7" },
+          {
+            id: "grok-imagine-image-2.0",
+            label: "Grok Imagine Image 2.0",
+            outputModalities: ["image"],
+          },
+          { id: "grok-imagine-video-1.5", label: "Grok Imagine Video 1.5" },
+        ],
+      })),
+      completeText: vi.fn(async () => ({
+        kind: "ERROR" as const,
+        code: "TEXT_FAILED",
+        billingAccountKind: "grok_login" as const,
+      })),
+    };
+    window.aijianGrok = bridge;
+    const view = render(
+      <GrokConnectionProvider>
+        <AccountModelCenter />
+      </GrokConnectionProvider>,
+    );
+    const text = await screen.findByRole("combobox", { name: "文本模型" });
+    expect(text).toBeEnabled();
+    expect(screen.getByRole("option", { name: "Grok 4.7 · Grok 账号" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "图像模型" })).toHaveTextContent(
+      "Grok Imagine Image 2.0 · Grok 账号",
+    );
+    expect(screen.getByRole("combobox", { name: "视频模型" })).toHaveTextContent(
+      "Grok Imagine Video 1.5 · Grok 账号",
+    );
+    expect(screen.queryByRole("combobox", { name: "配音模型" })).not.toBeInTheDocument();
+    expect(screen.getByText("Grok 账号暂不提供配音模型")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "连接 API Key" })).toBeInTheDocument();
+
+    fireEvent.change(text, { target: { value: "grok:grok-4.7" } });
+    expect(text).toHaveValue("grok:grok-4.7");
+    view.unmount();
+    render(
+      <GrokConnectionProvider>
+        <AccountModelCenter />
+      </GrokConnectionProvider>,
+    );
+    expect(await screen.findByRole("combobox", { name: "文本模型" })).toHaveValue("grok:grok-4.7");
+    await waitFor(() => expect(bridge.models).toHaveBeenCalled());
+    delete window.aijianGrok;
   });
 });
 

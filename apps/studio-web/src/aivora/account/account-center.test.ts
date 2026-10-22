@@ -118,7 +118,12 @@ describe("connected accounts", () => {
     expect(grokLogin.state).toContain("桌面");
     expect(grok.method).toBe("高级备用");
     expect(grok.quota).toContain("不是订阅额度");
-    expect(grok.models.map((model) => model.id)).toEqual(["grok-4.7", "grok-imagine-image-2.0"]);
+    expect(grok.models.map((model) => model.id)).toEqual([
+      "grok-4.7",
+      "grok-imagine-image-2.0",
+      "grok-imagine-video-1.5",
+      "grok-tts",
+    ]);
     expect(grok.difference).toContain("不预留");
 
     const [signedOut] = connectedAccountSlots({

@@ -11,7 +11,12 @@ export type GrokLoginStatus = {
   lastError: string | null;
 };
 
-export type GrokLoginModel = { id: string; label: string };
+export type GrokLoginModel = {
+  id: string;
+  label: string;
+  /** Present only when GET /v1/models included output modalities. */
+  outputModalities?: string[];
+};
 
 export type GrokLoginActionResult =
   | { kind: "OK"; status: GrokLoginStatus }

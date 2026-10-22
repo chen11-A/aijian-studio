@@ -313,11 +313,12 @@ describe("shared official model selection", () => {
     fireEvent.click(selectOther());
     await waitFor(() => expect(auth.bridge.selectProfile).toHaveBeenCalledWith(profileId));
     fireEvent.click(await screen.findByRole("button", { name: "读取此账号的可用模型" }));
-    await waitFor(() => expect(picker).toBeEnabled());
-    expect(picker).toHaveValue("");
+    const next = await screen.findByRole("combobox", { name: "文本模型" });
+    await waitFor(() => expect(next).toBeEnabled());
+    expect(next).toHaveValue("");
     expect(screen.getByRole("option", { name: "请重新选择模型" })).toBeInTheDocument();
     expect(screen.getByTestId("choice-verified")).toHaveTextContent("false");
-    fireEvent.change(picker, { target: { value: "chatgpt:text-one" } });
+    fireEvent.change(next, { target: { value: "chatgpt:text-one" } });
     expect(screen.getByTestId("choice-verified")).toHaveTextContent("true");
   });
 

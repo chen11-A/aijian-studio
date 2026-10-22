@@ -378,6 +378,23 @@ function layoutProbe() {
     }
   }
 
+  for (const select of document.querySelectorAll("select")) {
+    if (select.tagName !== "SELECT" || !visible(select)) continue;
+    const choices = [...select.options].filter((option) => option.value.trim().length > 0);
+    if (choices.length > 0) continue;
+    const describedBy = select.getAttribute("aria-describedby");
+    const described = describedBy ? document.getElementById(describedBy) : null;
+    const nearby = select.closest(".model-gap, label")?.querySelector("[data-model-reason]");
+    const reasonNode = described instanceof HTMLElement ? described : nearby;
+    const reason =
+      reasonNode instanceof HTMLElement && visible(reasonNode)
+        ? (reasonNode.textContent || "").replace(/\s+/g, " ").trim()
+        : "";
+    if (!reason) {
+      issues.push({ kind: "select-empty", text: labelOf(select) });
+    }
+  }
+
   for (const el of document.querySelectorAll("button, .provider-save")) {
     if (!(el instanceof HTMLElement) || !visible(el)) continue;
     const text = (el.getAttribute("aria-label") || el.innerText || "").replace(/\s+/g, " ").trim();

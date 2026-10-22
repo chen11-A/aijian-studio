@@ -161,23 +161,40 @@ body,
 .demo-root .user-menu {
   position: absolute;
   right: 16px;
-  top: 16px;
+  top: 18px;
 }
 .demo-root .user-menu > summary {
-  gap: 12px;
-  height: 40px;
-  padding: 0;
-  font-size: 14px;
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  gap: 8px;
+  padding: 0 10px 0 4px;
+  border: 1px solid #315472;
+  border-radius: 5px;
+  background: #10273b;
+  color: #e7eef7;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.demo-root .user-menu > summary:hover {
+  background: #173a56;
+  border-color: #4c94ce;
 }
 .demo-root .user-avatar {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid #215173;
-  background: #102d47;
+  flex: 0 0 auto;
+  border: 0;
   border-radius: 50%;
-  margin-right: 4px;
+  margin: 0;
+  background: linear-gradient(135deg, #7ec8ff, #39d7f2);
+  color: #041421;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
 }
 .demo-root .left-nav {
   position: absolute;
@@ -907,37 +924,33 @@ body,
 }
 .demo-root .user-menu > summary {
   width: auto;
-  max-width: 140px;
-  gap: 8px;
+  max-width: 220px;
   position: relative;
   white-space: nowrap;
 }
-.demo-root .user-avatar {
-  border: 0;
-  border-radius: 0;
-  width: 40px;
-  height: 40px;
-  margin: 0;
-  object-fit: contain;
-}
-.demo-root .user-menu > summary:after {
-  content: "";
-  position: absolute;
-  left: 48px;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  border: 1px solid #215173;
-  border-radius: 8px;
-  background: #091e31;
-  z-index: 0;
-  pointer-events: none;
-}
-.demo-root .user-menu > summary > span {
-  position: relative;
-  z-index: 1;
+.demo-root .user-menu > summary > svg {
   flex: 0 0 auto;
+  transform: rotate(90deg);
+  opacity: 0.85;
+}
+.demo-root .user-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+.demo-root .user-menu > div {
+  top: 40px;
+  width: 220px;
+  z-index: 40;
+}
+.demo-root .user-menu-identity {
+  margin: 0;
+  padding: 6px 10px 8px;
+  color: #a8c0d5;
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
 }
 .demo-root .demo-controls > summary {
   width: 126px;
@@ -983,7 +996,9 @@ body,
 .demo-root .right-dock .assistant-panel.v2-assistant .v2-composer-tools > :not(.send-button) {
   left: -2px;
 }
-.demo-root.no-stage.no-rail .topbar > select,
+/* Global pages already list works in the page body. Opening the assistant
+   rail must not reveal an empty header select when the workspace has no works. */
+.demo-root.no-stage .topbar > select,
 .demo-root.no-stage.no-rail .mode-switch {
   display: none;
 }

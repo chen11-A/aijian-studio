@@ -331,6 +331,7 @@ function ServicesContent() {
             connections={state.kind === "ready" ? state.response.data : []}
             saving={settings.saving}
             onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
+            onOpenGrok={d.isFixture ? undefined : useGrok}
             onSaveXaiKey={
               d.isFixture
                 ? undefined

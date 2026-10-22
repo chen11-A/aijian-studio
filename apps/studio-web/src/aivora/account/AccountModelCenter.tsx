@@ -5,7 +5,8 @@ import { useOfficialConnection } from "../chatgpt-auth/ChatGPTConnectionContext"
 import { useGrokAccount } from "../grok-auth/GrokConnectionContext";
 import { connectedAccountSlots } from "./account-connections";
 import { useModelCenter } from "./CurrentModelLink";
-import { openAivoraPage } from "./navigation";
+import { openAivoraPage, useApiKeyFallback } from "./navigation";
+import { capabilitiesForListedModel } from "./model-capabilities";
 import {
   choiceValue,
   parseChoiceValue,
@@ -46,11 +47,13 @@ export function AccountModelCenter({
   saving = false,
   onSaveXaiKey,
   onOpenChatGpt,
+  onOpenGrok,
 }: {
   connections?: readonly ProviderConnectionData[];
   saving?: boolean;
   onSaveXaiKey?: (input: CreateProviderConnectionInput) => Promise<void>;
   onOpenChatGpt?: () => void;
+  onOpenGrok?: () => void;
 }) {
   const official = useOfficialConnection();
   const grok = useGrokAccount();
@@ -89,30 +92,31 @@ export function AccountModelCenter({
 
   function optionsFor(capability: Capability): { value: string; label: string }[] {
     const options: { value: string; label: string }[] = [];
-    if (capability === "TEXT") {
-      for (const model of grok?.models ?? []) {
-        options.push({
-          value: choiceValue({ provider: "GROK_LOGIN", modelId: model.id }),
-          label: `${model.label} · Grok 账号`,
-        });
-      }
+    const push = (value: string, label: string) => {
+      if (!options.some((option) => option.value === value)) options.push({ value, label });
+    };
+    for (const model of grok?.models ?? []) {
+      if (!capabilitiesForListedModel(model).includes(capability)) continue;
+      push(
+        choiceValue({ provider: "GROK_LOGIN", modelId: model.id }),
+        `${model.label} · Grok 账号`,
+      );
     }
     if (session) {
       for (const model of DOCUMENTED_XAI_MODELS) {
         if (model.capability === capability)
-          options.push({
-            value: choiceValue({ provider: "XAI_API", modelId: model.modelId }),
-            label: `${model.label} · xAI 文档目录`,
-          });
+          push(
+            choiceValue({ provider: "XAI_API", modelId: model.modelId }),
+            `${model.label} · xAI 文档目录`,
+          );
       }
     }
-    if (capability === "TEXT") {
-      for (const model of chatModels) {
-        options.push({
-          value: choiceValue({ provider: "CHATGPT_OFFICIAL", modelId: model.slug }),
-          label: `${model.displayName} · ChatGPT 官方`,
-        });
-      }
+    for (const model of chatModels) {
+      if (!capabilitiesForListedModel({ id: model.slug }).includes(capability)) continue;
+      push(
+        choiceValue({ provider: "CHATGPT_OFFICIAL", modelId: model.slug }),
+        `${model.displayName} · ChatGPT 官方`,
+      );
     }
     for (const connection of connections) {
       for (const model of connection.models) {
@@ -129,6 +133,40 @@ export function AccountModelCenter({
       }
     }
     return options;
+  }
+
+  function gapFor(capability: Capability): { reason: string; action?: string; run?: () => void } {
+    const label = capabilities.find(([key]) => key === capability)?.[1] ?? "这类";
+    if (grok?.loading || official?.connection.loading)
+      return { reason: "正在读取已连接账号的模型。" };
+    const names: string[] = [];
+    const grokState = grok?.status.state;
+    if (grokState === "CONNECTED" || grokState === "ENTITLEMENT_DENIED") names.push("Grok 账号");
+    if (official?.catalogProfileId && official.connection.status.state === "CONNECTED")
+      names.push("ChatGPT 账号");
+    if (session) names.push("xAI 密钥");
+    if (connections.some((connection) => connection.models.length > 0)) names.push("已保存的连接");
+    if (names.length === 0) {
+      return capability === "TEXT"
+        ? {
+            reason: "还没有连接能提供文本模型的账号。",
+            action: "用 Grok 账号登录",
+            run: () => {
+              onOpenGrok?.();
+              openAivoraPage("services");
+            },
+          }
+        : {
+            reason: `还没有连接能提供${label}模型的账号。`,
+            action: "连接 API Key",
+            run: () => useApiKeyFallback(),
+          };
+    }
+    return {
+      reason: `${names.join("、")}暂不提供${label}模型`,
+      action: "连接 API Key",
+      run: () => useApiKeyFallback(),
+    };
   }
 
   function shown(capability: Capability) {
@@ -218,6 +256,16 @@ export function AccountModelCenter({
         <div className="account-model-grid">
           {capabilities.map(([capability, label]) => {
             const options = optionsFor(capability);
+            if (options.length === 0) {
+              const gap = gapFor(capability);
+              return (
+                <div key={capability} className="model-gap" data-model-gap={capability}>
+                  <span>{label}模型</span>
+                  <p data-model-reason>{gap.reason}</p>
+                  {gap.action && gap.run && <Button onClick={gap.run}>{gap.action}</Button>}
+                </div>
+              );
+            }
             return (
               <label key={capability}>
                 {label}模型
@@ -228,7 +276,6 @@ export function AccountModelCenter({
                       ? shown(capability)
                       : ""
                   }
-                  disabled={options.length === 0}
                   onChange={(event) => pick(capability, event.target.value)}
                 >
                   <option value="">

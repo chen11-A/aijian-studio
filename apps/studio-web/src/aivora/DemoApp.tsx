@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DemoProvider, useDemo } from "./model";
 import type { DemoFixture } from "./model";
-import { art, pages, projectNav, stages } from "./data";
+import { pages, projectNav, stages } from "./data";
 import type { PageId, Scenario } from "./data";
 import { Button, EditorDialog } from "./Common";
 import { Icon, Logo } from "./Icon";
@@ -13,6 +13,7 @@ import { MediaPages } from "./MediaPages";
 import { UtilityPages } from "./UtilityPages";
 import { Inspector } from "./Inspector";
 import { Dropdown } from "./Dropdown";
+import { UserChip } from "./UserChip";
 import {
   OfficialConnectionProvider,
   useOfficialConnection,
@@ -345,23 +346,23 @@ function Workspace({ reset }: { reset: () => void }) {
             })
           }
         />
-        <Dropdown
-          className="user-menu"
-          label="用户菜单"
-          summary={
-            <>
-              <img className="user-avatar" src={d.value("avatar", art.portrait)} alt="" />
-              <span>{d.value("userName", "陈")}</span>
-              <span>⌄</span>
-            </>
-          }
-        >
-          <div>
-            <button onClick={() => d.go("settings")}>用户中心</button>
-            <button onClick={() => d.go("projectSettings")}>项目设置</button>
-            <button onClick={() => d.go("launch")}>返回启动页</button>
-          </div>
-        </Dropdown>
+        <div className="topbar-tools">
+          <button
+            className="ai-toggle button"
+            aria-label={hasRail ? "切换 AI 助手" : "展开 AI 助手"}
+            onClick={() => {
+              if (pro) {
+                d.setProfessionalDockCollapsed(false);
+                d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
+              } else if (management) d.put("managementAI", hasRail ? "false" : "true");
+              else d.setAiOpen(!d.aiOpen);
+            }}
+          >
+            <Icon name="spark" />
+            AI
+          </button>
+          <UserChip />
+        </div>
       </header>
       <aside className="left-nav" aria-label="主导航">
         <nav>
@@ -502,20 +503,6 @@ function Workspace({ reset }: { reset: () => void }) {
           <AssistantPanel />
         </div>
       </aside>
-      <button
-        className="ai-toggle button"
-        aria-label={hasRail ? "切换 AI 助手" : "展开 AI 助手"}
-        onClick={() => {
-          if (pro) {
-            d.setProfessionalDockCollapsed(false);
-            d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
-          } else if (management) d.put("managementAI", hasRail ? "false" : "true");
-          else d.setAiOpen(!d.aiOpen);
-        }}
-      >
-        <Icon name="spark" />
-        AI
-      </button>
       {d.toast && (
         <div className="toast" role="status">
           <Icon name="check" />

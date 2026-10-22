@@ -179,10 +179,25 @@ export async function listGrokModels(
   const models: GrokLoginModel[] = [];
   for (const item of value.data) {
     if (!isRecord(item) || !safeString(item.id, 200)) continue;
-    models.push({ id: item.id, label: safeString(item.name, 200) ? item.name : item.id });
+    const outputModalities = readOutputModalities(item);
+    models.push({
+      id: item.id,
+      label: safeString(item.name, 200) ? item.name : item.id,
+      ...(outputModalities ? { outputModalities } : {}),
+    });
     if (models.length >= 100) break;
   }
   return models;
+}
+
+function readOutputModalities(item: Record<string, unknown>): string[] | undefined {
+  const raw = item.output_modalities;
+  if (!Array.isArray(raw)) return undefined;
+  const values = raw.filter(
+    (entry): entry is string =>
+      typeof entry === "string" && entry.trim() === entry && entry.length > 0 && entry.length <= 40,
+  );
+  return values.length > 0 ? values.slice(0, 8) : undefined;
 }
 
 export async function completeGrokText(
