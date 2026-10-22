@@ -185,11 +185,20 @@ test("production application has complete isolated exports, hashes and no test a
       assert.doesNotMatch(file.path, /\.(test|spec)\.js$|test-fixture\.js$/);
     }
     const contracts = join(output, "node_modules/@aijian/contracts");
-    assert.deepEqual(
-      readdirSync(contracts).sort(),
-      ["package.json", ...modules.flatMap((name) => [`${name}.js`, `${name}.d.ts`])].sort(),
-    );
     const source = JSON.parse(readFileSync(join(root, "packages/contracts/package.json"), "utf8"));
+    const exportedModules = Object.keys(source.exports).map((key) =>
+      key === "." ? "generated" : key.slice(2),
+    );
+    const builtFiles = readdirSync(contracts).sort();
+    for (const name of exportedModules) {
+      assert.equal(builtFiles.includes(`${name}.js`), true, name);
+      assert.equal(builtFiles.includes(`${name}.d.ts`), true, name);
+    }
+    assert.equal(builtFiles.includes("closed-json-schema.js"), true);
+    assert.equal(builtFiles.includes("assistant-chat.js"), true);
+    for (const name of builtFiles) {
+      if (name !== "package.json") assert.match(name, /^[a-z0-9][a-z0-9-]*\.(?:js|d\.ts)$/);
+    }
     const built = JSON.parse(readFileSync(join(contracts, "package.json"), "utf8"));
     assert.deepEqual(Object.keys(built.exports).sort(), Object.keys(source.exports).sort());
     // Real CJS require and ESM import using only the new application package.
@@ -222,6 +231,13 @@ test("contracts builder rejects undeclared output and unsafe source exports", ()
     }
     const script = join(temporary, "scripts/build-contracts-runtime.mjs");
     copyFileSync(join(root, "scripts/build-contracts-runtime.mjs"), script);
+    const contractSource = join(temporary, "packages/contracts/src");
+    mkdirSync(contractSource, { recursive: true });
+    for (const name of readdirSync(join(root, "packages/contracts/src"))) {
+      if (name.endsWith(".js") || name.endsWith(".d.ts")) {
+        copyFileSync(join(root, "packages/contracts/src", name), join(contractSource, name));
+      }
+    }
     const sourcePath = join(temporary, "packages/contracts/package.json");
     const source = JSON.parse(readFileSync(join(root, "packages/contracts/package.json"), "utf8"));
     writeFileSync(sourcePath, JSON.stringify(source));
@@ -232,7 +248,11 @@ test("contracts builder rejects undeclared output and unsafe source exports", ()
       const {writeFileSync} = require("node:fs");
       const {join} = require("node:path");
       const output = process.argv[process.argv.indexOf("--outDir") + 1];
-      for (const name of ${JSON.stringify(modules)}) {
+      const source = require(${JSON.stringify(join(root, "packages/contracts/package.json"))});
+      const names = Object.entries(source.exports)
+        .filter(([, value]) => String(value.default).endsWith(".ts"))
+        .map(([, value]) => String(value.default).match(/\\/([A-Za-z0-9-]+)\\.ts$/)[1]);
+      for (const name of names) {
         for (const ext of ["js", "d.ts"]) writeFileSync(join(output, name+"."+ext), "");
       }
       writeFileSync(join(output, "unexpected.js"), "");

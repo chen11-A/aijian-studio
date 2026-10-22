@@ -127,6 +127,7 @@ async function launch() {
   const identity = await application.evaluate(({ app, BrowserWindow }) => ({
     packaged: app.isPackaged,
     name: app.getName(),
+    version: app.getVersion(),
     appPath: app.getAppPath(),
     userData: app.getPath("userData"),
     resources: globalThis.process.resourcesPath,
@@ -134,7 +135,8 @@ async function launch() {
     preferences: BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences(),
   }));
   assert.equal(identity.packaged, true);
-  assert.equal(identity.name, "AIVORA Dev Core");
+  assert.equal(identity.name, "AIVORA");
+  assert.equal(identity.version, "0.2.2");
   assert.equal(identity.electron, "43.2.0");
   assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(identity.preferences.sandbox, true);

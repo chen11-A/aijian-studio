@@ -406,7 +406,7 @@ describe("selected renderer workspace callers", () => {
     expect(original).not.toBeNull();
     await submit();
     expect(fake.createProject).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
     await waitFor(() => expect(fake.listProjects).toHaveBeenCalledTimes(2));
     await submit();
     expect(fake.createProject).toHaveBeenCalledTimes(1);

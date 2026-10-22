@@ -197,7 +197,7 @@ export function createMediaToolchainStore(gateway?: MediaToolchainGateway) {
               ? "工具未通过校验；请查看原因。原配置以重新读取结果为准。"
               : action === "clear"
                 ? "已读取移除配置后的状态。工具文件不会被删除。"
-                : "已取得本机校验结果。仅可用于本地 DRAFT。",
+                : "视频工具已核对，可以用来做草稿。",
         });
         return;
       }
@@ -277,10 +277,7 @@ export function mediaToolchainMessage(snapshot: MediaToolchainSnapshot): string 
   if (snapshot.phase === "UNKNOWN" || !snapshot.status)
     return "媒体工具状态未核实，请在用户设置中重新读取。";
   const labels = {
-    AVAILABLE:
-      snapshot.status.source === "EXTERNAL"
-        ? "已验证外部媒体工具 · 仅供本地 DRAFT"
-        : `${MEDIA_TOOLCHAIN_SOURCE_LABELS[snapshot.status.source]}已核验 · 仅供 DRAFT`,
+    AVAILABLE: "视频工具已就绪",
     NOT_CONFIGURED: "尚未配置媒体工具。可在用户设置中选择已下载的受支持工具。",
     INVALID: "媒体工具未通过校验，请在用户设置中核对或重新选择。",
     UNSUPPORTED: "此环境不支持选择外部媒体工具，新的探测与编码不可用。",

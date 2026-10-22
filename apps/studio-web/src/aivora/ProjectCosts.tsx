@@ -17,29 +17,32 @@ export function ProjectCosts({
   return (
     <div className="v2-cost-body project-costs" aria-label="当前作品任务与费用记录">
       <div className="v2-cost-summary">
-        {["预留费用", "累计费用", "实付费用"].map((label) => (
+        {(
+          [
+            ["预留费用", "还没有记录会先占用的金额。"],
+            ["累计费用", "还没有记录已经累计的金额。"],
+            ["实付费用", "还没有记录已经支付的金额。"],
+          ] as const
+        ).map(([label, detail]) => (
           <section className="v2-utility-card" key={label}>
             <h2>{label}</h2>
             <strong>未知</strong>
-            <p>当前任务账本尚未记录可靠金额，无法计算总计。</p>
+            <p>{detail}</p>
           </section>
         ))}
       </div>
       <section className="v2-utility-card">
         <h2>作品预算</h2>
-        <p>
-          预算保存与执行时强制检查尚未接入；当前没有可依赖的费用上限。每次真实调用仍需单独确认。
-        </p>
-        <Button disabled title="需要统一预算、预留、消费和核对合同及执行检查">
+        <p>还不能在这里设置花费上限。每次真正调用前都会再确认一次。</p>
+        <p>预算设置还不能用，所以下面的按钮是停用的。</p>
+        <Button disabled title="预算设置还不能用">
           预算设置待接入
         </Button>
       </section>
       <section className="v2-utility-card project-cost-ledger">
         <h2>项目任务账本</h2>
-        <p>项目：{projectId ?? "尚未选择"}</p>
-        <p>
-          仅展示现有项目任务记录，不是完整账单。官方账号操作及部分服务结算可能未进入此队列；Sub2API结算与上游扣费需分别核对。
-        </p>
+        <p>{projectId ? "当前作品" : "尚未选择作品"}</p>
+        <p>这里只列出已经记下的任务，不是完整账单。没有记下来的金额不能当成 0。</p>
         <Button
           disabled={!projectId || state.kind === "loading"}
           onClick={() => void queue.reload()}

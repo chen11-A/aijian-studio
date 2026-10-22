@@ -317,6 +317,7 @@ function sameOperation(left: RemoteSourceExtractOperation, right: RemoteSourceEx
 
 export function originalRemoteSourceExtractCommand(
   operation: RemoteSourceExtractOperation,
+  billingAccountKind?: "gpt_login" | "grok_login",
 ): RemoteSourceExtractCreateCommand {
   return {
     operation_id: operation.operationId,
@@ -335,6 +336,7 @@ export function originalRemoteSourceExtractCommand(
         connection_revision: operation.connectionRevision,
         model_id: operation.modelId,
       },
+      ...(billingAccountKind ? { billing_account_kind: billingAccountKind } : {}),
     },
   };
 }
@@ -828,6 +830,7 @@ export async function queueRemoteSourceExtract(
   capability: RemoteSourceExtractCapability | undefined,
   storage: JournalStorage,
   identity: RemoteSourceExtractIdentity,
+  billingAccountKind?: "gpt_login" | "grok_login",
 ): Promise<RemoteSourceExtractQueueOutcome> {
   if (
     !capability ||
@@ -841,7 +844,7 @@ export async function queueRemoteSourceExtract(
   if (sub2api.kind !== "EMPTY")
     return {
       kind: "UNAVAILABLE",
-      message: "此项目已有 Sub2API 原操作或记录不可读，已阻止并列入队。",
+      message: "此项目已有已停用通道的历史来源操作，已阻止并列入队。",
     };
   if (journal.kind === "BLOCKED")
     return { kind: "UNAVAILABLE", message: "本地原操作记录无法读取，已阻止提交。" };
@@ -858,7 +861,7 @@ export async function queueRemoteSourceExtract(
   try {
     const result = await capability.create(
       identity.projectId,
-      originalRemoteSourceExtractCommand(operation),
+      originalRemoteSourceExtractCommand(operation, billingAccountKind),
     );
     const current = readRemoteSourceExtractJournal(storage, identity.projectId);
     if (

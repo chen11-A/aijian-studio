@@ -147,6 +147,10 @@ describe("privileged contract boundaries", () => {
     expect(mainSource).toContain(
       "const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();",
     );
+    expect(mainSource.indexOf("pinPackagedWindowsUserData();")).toBeLessThan(
+      mainSource.indexOf("const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();"),
+    );
+    expect(mainSource).toContain('join(app.getPath("appData"), "AIVORA Dev Core")');
     expect(mainSource).toMatch(
       /shouldEnableE2EProposalRunResponseFault\(\{[\s\S]*isPackaged: app\.isPackaged,[\s\S]*hasIsolatedUserDataProfile: hasIsolatedE2EUserDataProfile,[\s\S]*mode: process\.env\.AIJIAN_E2E_PROPOSAL_RUN_RESPONSE_FAULT,[\s\S]*\}\)/,
     );

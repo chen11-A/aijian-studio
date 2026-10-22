@@ -12,6 +12,7 @@ import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { useOptionalAssistantSelection } from "./assistantSelection";
 import { AssistantChatConversation } from "./AssistantChatConversation";
 import { assistantChatBridge } from "./assistantChatTransport";
+import { useGrokConnected } from "./grok-auth/useGrokConnected";
 import "./v2-assistant.css";
 import "./assistant-workbench.css";
 
@@ -27,6 +28,7 @@ export function AssistantPanel() {
 function ProductionAssistantPanel() {
   const d = useDemo();
   const account = useOfficialConnection();
+  const grokConnected = useGrokConnected();
   const selection = useOptionalAssistantSelection();
   const [tab, setTab] = useState("对话");
   const pageLabel = pages[d.page][0];
@@ -49,6 +51,7 @@ function ProductionAssistantPanel() {
             {assistantServiceLabel(
               d.providerSettings.state,
               account ? assessChatGPTConnection(account.connection) : undefined,
+              grokConnected,
             )}
           </p>
         </div>

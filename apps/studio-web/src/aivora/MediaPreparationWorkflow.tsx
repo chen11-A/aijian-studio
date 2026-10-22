@@ -50,7 +50,7 @@ export function MediaPreparationWorkflow({
         go={go}
       />
       <details className="manual-candidate-section">
-        <summary>关联本地素材为手工候选 · DRAFT</summary>
+        <summary>关联本地素材为手工候选 · 草稿</summary>
         <ManualMediaCandidatePanel
           projectId={projectId}
           episodeId={episodeId}

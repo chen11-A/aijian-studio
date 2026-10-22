@@ -71,7 +71,7 @@ function jobFor(input = command, patch: Partial<DraftExportJob> = {}): DraftExpo
     status: "QUEUED",
     total_frames: 50,
     progress_frames: 0,
-    output_filename: `Aivora-PREVIEW-DRAFT-${input.operation_id}.mp4`,
+    output_filename: `Aivora-PREVIEW-草稿-${input.operation_id}.mp4`,
     output_path: null,
     output_sha256: null,
     output_bytes: null,
@@ -202,7 +202,7 @@ describe("saved composition playback", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "展开连续预览" }));
-    await screen.findByText("已保存版本的连续预览可播放 · DRAFT");
+    await screen.findByText("已保存版本的连续预览可播放 · 草稿");
     expect(screen.getByText(/尚未配置媒体工具/)).toBeInTheDocument();
     const generate = screen.getByRole("button", { name: "重新生成已保存版本预览" });
     expect(generate).toBeDisabled();
@@ -223,7 +223,7 @@ describe("saved composition playback", () => {
     declare();
     expect(generate()).toBeEnabled();
     fireEvent.click(generate());
-    await screen.findByText("预览排队中 · DRAFT");
+    await screen.findByText("预览排队中 · 草稿");
     expect(env.exports.createPreview).toHaveBeenCalledExactlyOnceWith(projectId, episodeId, {
       ...command,
       operation_id: expect.stringMatching(/^dmp_[0-9a-f]{32}$/),
@@ -236,17 +236,17 @@ describe("saved composition playback", () => {
     const env = setup([succeeded()]);
     render(<SavedCompositionPreview {...props} {...env} />);
     expand();
-    await screen.findByText("已保存版本的连续预览可播放 · DRAFT");
+    await screen.findByText("已保存版本的连续预览可播放 · 草稿");
     fireEvent.click(screen.getByRole("button", { name: "播放已验证草稿" }));
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     expect(env.exports.createPreview).not.toHaveBeenCalled();
     expect(env.exports.preview).toHaveBeenCalledWith(projectId, episodeId, command.operation_id);
     fireEvent.click(screen.getByRole("button", { name: "收起连续预览" }));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:composition");
-    expect(screen.queryByLabelText("已验证 DRAFT 草稿视频")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("已验证草稿视频")).not.toBeInTheDocument();
     expect(env.exports.cancel).not.toHaveBeenCalled();
     expand();
-    expect(screen.queryByLabelText("已验证 DRAFT 草稿视频")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("已验证草稿视频")).not.toBeInTheDocument();
   });
   it("does not reopen a collapsed player after a late verified read", async () => {
     const env = setup([succeeded()]);
@@ -258,7 +258,7 @@ describe("saved composition playback", () => {
     );
     render(<SavedCompositionPreview {...props} {...env} />);
     expand();
-    await screen.findByText("已保存版本的连续预览可播放 · DRAFT");
+    await screen.findByText("已保存版本的连续预览可播放 · 草稿");
     fireEvent.click(screen.getByRole("button", { name: "播放已验证草稿" }));
     fireEvent.click(screen.getByRole("button", { name: "收起连续预览" }));
     await act(async () => finish(ready()));
@@ -281,11 +281,11 @@ describe("saved composition playback", () => {
     view.unmount();
     render(<SavedCompositionPreview {...props} {...env} />);
     expand();
-    await screen.findByText("预览排队中 · DRAFT");
+    await screen.findByText("预览排队中 · 草稿");
     expect(localStorage.getItem(pendingKey)).toBeNull();
     expect(env.exports.createPreview).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "取消连续预览生成" }));
-    await screen.findByText("预览任务已取消 · DRAFT");
+    await screen.findByText("预览任务已取消 · 草稿");
   });
   it("keeps ambiguous or mismatched pending identities blocked instead of starting another render", async () => {
     localStorage.setItem(pendingKey, JSON.stringify(command));
@@ -302,10 +302,10 @@ describe("saved composition playback", () => {
     const env = setup([succeeded()]);
     const view = render(<SavedCompositionPreview {...props} {...env} />);
     expand();
-    await screen.findByText("已保存版本的连续预览可播放 · DRAFT");
+    await screen.findByText("已保存版本的连续预览可播放 · 草稿");
     declare();
     fireEvent.click(screen.getByRole("button", { name: "播放已验证草稿" }));
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     view.rerender(
       <SavedCompositionPreview
         {...props}
@@ -335,7 +335,7 @@ describe("saved composition playback", () => {
     vi.mocked(env.exports.createPreview!).mockResolvedValue({ kind: "CACHE_UNAVAILABLE" });
     render(<SavedCompositionPreview {...props} {...env} />);
     expand();
-    await screen.findByText("预览任务已中断，不会自动重试 · DRAFT");
+    await screen.findByText("预览任务已中断，不会自动重试 · 草稿");
     expect(env.exports.createPreview).not.toHaveBeenCalled();
     declare();
     fireEvent.click(generate());
@@ -352,7 +352,7 @@ describe("saved composition playback", () => {
     await loaded();
     env.setJobs([jobFor(command, { status: "VERIFYING", progress_frames: 50 })]);
     refresh();
-    await screen.findByText("正在校验预览 MP4 · DRAFT");
+    await screen.findByText("正在校验预览 MP4 · 草稿");
     expect(screen.queryByRole("button", { name: "播放已验证草稿" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "收起连续预览" }));
     expect(screen.getByText("正在校验预览 MP4")).toBeInTheDocument();

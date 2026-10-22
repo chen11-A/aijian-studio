@@ -143,7 +143,7 @@ function VerifiedDraftOutput({
     }
   };
   return (
-    <section className="draft-export-output" aria-label={`${job.output_filename} 已验证草稿操作`}>
+    <section className="draft-export-output" aria-label="已验证草稿操作">
       <div className="assembly-actions">
         <Button
           disabled={!gateway?.preview || preview.kind === "loading"}
@@ -170,7 +170,7 @@ function VerifiedDraftOutput({
             controls
             preload="metadata"
             src={preview.url}
-            aria-label="已验证 DRAFT 草稿视频"
+            aria-label="已验证草稿视频"
             onLoadedMetadata={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
             onTimeUpdate={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
             onSeeked={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
@@ -183,7 +183,7 @@ function VerifiedDraftOutput({
               });
             }}
           />
-          <p>已读取与任务记录一致的本地 DRAFT 文件。不代表帧精确审片或正式发布批准。</p>
+          <p>已读取与任务记录一致的本地草稿。不代表帧精确审片或正式发布批准。</p>
         </>
       )}
       {showReview && (

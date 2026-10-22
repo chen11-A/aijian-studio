@@ -247,7 +247,7 @@ def test_serialized_backend_status_matches_native_and_ui_fixture():
         Path(__file__).resolve().parents[3]
         / "packages/contracts/fixtures/local-media-toolchain-status.json"
     )
-    payload = json.loads(fixture.read_text())
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
     for item in payload:
         assert LocalMediaToolchainStatus.model_validate(item).model_dump(mode="json") == item
     expected = {**payload[0], "directory": str(Path(payload[0]["directory"]))}

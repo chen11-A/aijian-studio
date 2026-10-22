@@ -1,15 +1,21 @@
 import { useEffect, useRef } from "react";
 import { Button } from "./Common";
-import "./first-run-service-choice.css";
+import {
+  GrokSignInButton,
+  WelcomeBrand,
+  WelcomeFinePrint,
+  welcomeStatusTone,
+} from "./WelcomeSignIn";
+import "./welcome-sign-in.css";
 
-export type FirstRunServiceChoiceKind = "chatgpt" | "api" | "offline";
+export type FirstRunServiceChoiceKind = "grok" | "chatgpt" | "api" | "offline";
 const choiceKey = "aivora.service-onboarding.v1";
 
 /** A UI preference only. It must never be used as proof of authorization. */
 export function hasServiceEntryChoice(): boolean {
   try {
     const choice = window.localStorage.getItem(choiceKey);
-    return choice === "api" || choice === "offline" || choice === "chatgpt";
+    return choice === "grok" || choice === "api" || choice === "offline" || choice === "chatgpt";
   } catch {
     return false;
   }
@@ -27,16 +33,24 @@ export function rememberServiceEntryChoice(choice: FirstRunServiceChoiceKind): b
 export function FirstRunServiceChoice({
   onSelect,
   onClose,
+  onGrokLogin,
+  grokBusy = false,
   notice,
 }: {
   onSelect(choice: FirstRunServiceChoiceKind): void;
   onClose(): void;
+  onGrokLogin?(): void;
+  grokBusy?: boolean;
   notice?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
+  const tone = welcomeStatusTone(
+    notice ?? "",
+    grokBusy ? "waiting" : notice ? "signed-out" : "unknown",
+  );
   return (
     <dialog
       ref={dialog}
@@ -47,32 +61,43 @@ export function FirstRunServiceChoice({
         onClose();
       }}
     >
-      <header>
-        <h2 id="first-service-title">选择 AI 连接方式</h2>
-        <Button onClick={onClose} aria-label="关闭连接方式选择">
-          关闭
-        </Button>
-      </header>
-      <p>无需注册 AIVORA 账号。选择适合你的方式，之后可随时在“AI 服务”中更改。</p>
-      {notice && <p role="status">{notice}</p>}
-      <div className="first-run-service-options">
-        <section>
-          <h3>ChatGPT 官方账号</h3>
-          <p>查看适用条件后，通过 OpenAI 官方浏览器授权。套餐权限以实际授权结果为准。</p>
-          <Button primary onClick={() => onSelect("chatgpt")}>
-            继续到官方授权
+      <div className="welcome-sign-in">
+        <div className="welcome-dialog-tools">
+          <Button onClick={onClose} aria-label="关闭连接方式选择">
+            关闭
           </Button>
-        </section>
-        <section>
-          <h3>已有 API / Sub2API</h3>
-          <p>直接使用自己的模型 API 或 Sub2API 服务，无需登录 ChatGPT。</p>
-          <Button onClick={() => onSelect("api")}>跳过 ChatGPT，配置 API</Button>
-        </section>
+        </div>
+        <WelcomeBrand />
+        <h2 id="first-service-title" className="welcome-title">
+          把故事，变成看得见的世界。
+        </h2>
+        {notice && (
+          <p className={`welcome-status ${tone}`} role="status">
+            {notice}
+          </p>
+        )}
+        <div className="welcome-actions">
+          <GrokSignInButton
+            disabled={grokBusy}
+            onClick={() => {
+              if (onGrokLogin) onGrokLogin();
+              else onSelect("grok");
+            }}
+          />
+          <Button disabled={grokBusy} onClick={() => onSelect("chatgpt")}>
+            使用 ChatGPT 账号
+          </Button>
+        </div>
+        <div className="welcome-links">
+          <button type="button" onClick={() => onSelect("api")}>
+            使用密钥
+          </button>
+          <button type="button" onClick={() => onSelect("offline")}>
+            暂时离线创作
+          </button>
+        </div>
+        <WelcomeFinePrint />
       </div>
-      <footer>
-        <span>本地创建、编辑与保存作品不需要 AI 登录。</span>
-        <Button onClick={() => onSelect("offline")}>暂时离线创作</Button>
-      </footer>
     </dialog>
   );
 }

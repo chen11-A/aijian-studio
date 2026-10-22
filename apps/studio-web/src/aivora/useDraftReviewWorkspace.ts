@@ -39,7 +39,7 @@ export function useDraftReviewWorkspace(
     setNotice("");
     if (!exports) {
       setJobs([]);
-      setNotice("当前桌面版本未提供 DRAFT 读取能力，请更新桌面版本。");
+      setNotice("当前桌面版本未提供 草稿 读取能力，请更新桌面版本。");
       setBusy(false);
       return;
     }
