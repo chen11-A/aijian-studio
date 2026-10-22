@@ -27,6 +27,7 @@ export default tseslint.config(
         console: "readonly",
         window: "readonly",
         document: "readonly",
+        Element: "readonly",
         HTMLElement: "readonly",
         Node: "readonly",
         getComputedStyle: "readonly",
