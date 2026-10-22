@@ -12,7 +12,7 @@ describe("production empty project state", () => {
   it.each([
     ["launch", "把故事，变成看得见的世界。"],
     ["home", "创作首页"],
-    ["project", "项目创作首页"],
+    ["project", "故事"],
     ["projects", "项目中心"],
     ["source", "故事输入与来源"],
     ["story", "故事理解"],
