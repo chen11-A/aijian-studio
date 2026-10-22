@@ -1,4 +1,4 @@
-"""Silent-install the integrated Windows build, smoke the shell, then uninstall.
+"""Silent-install the integrated Windows build to a custom /D directory, smoke, uninstall.
 
 This is separate from test-installed-dev-core.py. That test is locked to the
 media-free development branch and must keep refusing bundled ffmpeg.
@@ -41,14 +41,16 @@ def main() -> None:
     user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
     if install.exists() or user_data.exists() or args.delivery.exists():
         raise ValueError("Refusing existing install, profile, or delivery data")
-    installers = list((args.stage / "installer-output").glob("AIVORA-Dev-Core-*-win-x64.exe"))
-    if len(installers) != 1:
-        raise ValueError("Expected exactly one integrated NSIS installer")
+    installers = list((args.stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))
+    if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.1.4-win-x64.exe":
+        raise ValueError("Expected AIVORA-Setup-0.1.4-win-x64.exe")
     installer = installers[0]
+    if "Dev Core" in installer.name or "0.1.0-dev" in installer.name:
+        raise ValueError("Shipped installer name still uses a development label")
     subprocess.run([str(installer), "/S", "/D=" + str(install)], check=True, timeout=180)
-    executable = install / "AIVORA Dev Core.exe"
-    if not executable.is_file():
-        raise ValueError("Silent install did not produce AIVORA Dev Core.exe")
+    executable = install / "AIVORA.exe"
+    if not executable.is_file() or executable.parent != install:
+        raise ValueError("Silent /D install did not produce AIVORA.exe in the requested directory")
     report = args.evidence / "INTEGRATED-SMOKE.json"
     subprocess.run(
         [
@@ -92,6 +94,11 @@ def main() -> None:
         "installer_sha256": digest(installer),
         "installer_bytes": installer.stat().st_size,
         "silent_install": "PASS",
+        "silent_directory_switch": "/D",
+        "executable_name": "AIVORA.exe",
+        "display_name": "AIVORA",
+        "display_version": "0.1.4",
+        "user_data_directory": "AIVORA Dev Core",
         "health_and_window": "PASS",
         "uninstall_app_removed": "PASS",
         "uninstall_workspace_preserved": "PASS",
@@ -102,7 +109,7 @@ def main() -> None:
         json.dumps(result, indent=2) + "\n", encoding="utf-8"
     )
     args.delivery.mkdir(parents=True)
-    shutil.copy2(installer, args.delivery / "AIVORA-Setup-win-x64.exe")
+    shutil.copy2(installer, args.delivery / installer.name)
     guide = ROOT / "docs" / "首次使用.md"
     if guide.is_file():
         shutil.copy2(guide, args.delivery / "首次使用.md")

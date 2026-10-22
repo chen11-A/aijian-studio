@@ -108,16 +108,26 @@ class DevCoreTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as directory, self.assertRaises(ValueError):
                 distribution.verify(Path(directory), review)
 
-    def test_dev_installer_keeps_per_user_and_data_abort(self):
+    def test_dev_installer_is_assisted_and_preserves_user_data(self):
         config = json.loads((HERE / "electron-builder.dev-core.json").read_text())
         self.assertEqual(config["appId"], "com.aivora.studio.devcore")
+        self.assertEqual(config["productName"], "AIVORA")
+        self.assertEqual(config["win"]["executableName"], "AIVORA")
         self.assertFalse(config["win"]["signExecutable"])
-        for key in ("perMachine", "allowElevation", "deleteAppDataOnUninstall", "runAfterFinish"):
-            self.assertFalse(config["nsis"][key])
+        self.assertFalse(config["nsis"]["oneClick"])
+        self.assertFalse(config["nsis"]["perMachine"])
+        self.assertTrue(config["nsis"]["allowElevation"])
+        self.assertTrue(config["nsis"]["allowToChangeInstallationDirectory"])
+        self.assertFalse(config["nsis"]["deleteAppDataOnUninstall"])
+        self.assertTrue(config["nsis"]["runAfterFinish"])
+        self.assertEqual(config["nsis"]["artifactName"], "AIVORA-Setup-${version}-win-${arch}.${ext}")
+        self.assertNotIn("Dev-Core", config["nsis"]["artifactName"])
+        self.assertNotIn("0.1.0-dev", config["nsis"]["artifactName"])
         hook = (HERE / "installer.dev-core.nsh").read_text()
-        self.assertIn('"$APPDATA\\AIVORA Dev Core"', hook)
-        self.assertIn('"$APPDATA\\AIVORA"', hook)
+        self.assertNotIn("$APPDATA", hook)
+        self.assertNotIn("AIVORA Dev Core", hook)
         self.assertIn("  Abort", hook)
+        self.assertIn("AIVORA 需要 Windows 10 或更高版本。", hook)
         # The formal staging path is still Release-only.
         stage = (HERE.parents[1] / "scripts/stage-windows-runtime.ps1").read_text()
         self.assertIn("-Purpose Release", stage)

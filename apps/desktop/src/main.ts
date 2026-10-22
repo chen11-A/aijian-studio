@@ -117,6 +117,13 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 let nativePreviewDocumentEpoch = 0;
 
+function pinPackagedWindowsUserData(): void {
+  // v0.1.x saved login, projects, and logs here because productName was
+  // "AIVORA Dev Core". Keep that folder when the displayed name is AIVORA.
+  if (!app.isPackaged || process.platform !== "win32") return;
+  app.setPath("userData", join(app.getPath("appData"), "AIVORA Dev Core"));
+}
+
 function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
   if (requested === undefined) return false;
@@ -812,6 +819,7 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
+  pinPackagedWindowsUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
   await app.whenReady();
   if (app.isPackaged) packagedRendererIndex();

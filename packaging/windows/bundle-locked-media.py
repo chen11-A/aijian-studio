@@ -62,14 +62,14 @@ def main() -> None:
         if digest(target) != expected:
             parser.error(f"{name} changed while copying")
     (media / "FFMPEG-NOTICE.txt").write_text(NOTICE, encoding="utf-8")
-    installer = args.stage / "installer-output" / "AIVORA-Dev-Core-0.1.0-dev.core-win-x64.exe"
-    if installer.is_file():
-        installer.unlink()
     spec = importlib.util.spec_from_file_location("core_nsis", HERE / "nsis-dev-core.py")
     if spec is None or spec.loader is None:
         parser.error("NSIS builder is missing")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    installer = args.stage / "installer-output" / module.INSTALLER_FILENAME
+    if installer.is_file():
+        installer.unlink()
     tools = json.loads((args.tools / "DEV-TOOLS.json").read_text(encoding="utf-8"))
     built = module.build(args.stage, tools, args.evidence)
     limit = 800 * 1024 * 1024

@@ -34,7 +34,7 @@ class OneShotUploadTest(unittest.TestCase):
             "RUNNER_TEMP": str(root),
             "GITHUB_SHA": "a" * 40,
         }
-        self.installer = self.directory / "AIVORA-Dev-Core-test.exe"
+        self.installer = self.directory / "AIVORA-Setup-test.exe"
         self.installer.write_bytes(b"MZ non-executable synthetic fixture")
         self.receipt = {
             "result": "PASS",
@@ -46,7 +46,7 @@ class OneShotUploadTest(unittest.TestCase):
             "uninstall_app_removed": "PASS",
             "uninstall_workspace_preserved": "PASS",
             "uninstall_unknown_user_file_preserved": "PASS",
-            "reinstall_existing_data": "SAFELY_ABORTED",
+            "reinstall_existing_data": "PRESERVED",
             "installer_bytes": self.installer.stat().st_size,
             "installer_sha256": hashlib.sha256(self.installer.read_bytes()).hexdigest(),
         }

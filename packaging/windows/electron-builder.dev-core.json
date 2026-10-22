@@ -1,6 +1,6 @@
 {
   "appId": "com.aivora.studio.devcore",
-  "productName": "AIVORA Dev Core",
+  "productName": "AIVORA",
   "electronVersion": "43.2.0",
   "directories": { "app": "app", "output": "installer-output" },
   "npmRebuild": false,
@@ -12,17 +12,22 @@
   "asar": true,
   "win": {
     "target": [{ "target": "dir", "arch": ["x64"] }],
-    "executableName": "AIVORA Dev Core",
+    "executableName": "AIVORA",
     "signAndEditExecutable": true,
     "signExecutable": false
   },
   "nsis": {
     "include": "build/installer.nsh",
-    "oneClick": true,
+    "oneClick": false,
     "perMachine": false,
-    "allowElevation": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false,
-    "runAfterFinish": false,
-    "artifactName": "AIVORA-Dev-Core-${version}-win-${arch}.${ext}"
+    "runAfterFinish": true,
+    "shortcutName": "AIVORA",
+    "installerLanguages": ["zh_CN"],
+    "language": "2052",
+    "displayLanguageSelector": false,
+    "artifactName": "AIVORA-Setup-${version}-win-${arch}.${ext}"
   }
 }

@@ -77,6 +77,14 @@ try {
   await page.waitForFunction(() => !!globalThis.aijian?.health, null, { timeout: 45_000 });
   const health = await page.evaluate(() => globalThis.aijian.health());
   assert.equal(health.data.status, "ok");
+  const identity = await application.evaluate(({ app }) => ({
+    name: app.getName(),
+    version: app.getVersion(),
+    userData: app.getPath("userData"),
+  }));
+  assert.equal(identity.name, "AIVORA");
+  assert.equal(identity.version, "0.1.4");
+  assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(sidecars().length, 1);
   const resources = await application.evaluate(() => globalThis.process.resourcesPath);
   assert.equal(hash(join(resources, "media/ffmpeg.exe")), ffmpegSha);
