@@ -65,6 +65,31 @@ export function ChatGPTConnectionControls({
           {loading || busy ? "核对中" : statusReadFailed ? "状态未确认" : labels[status.state]}
         </span>
       </header>
+      {!preparing && (
+        <div className="chatgpt-actions">
+          <Button
+            primary
+            disabled={
+              loading ||
+              busy ||
+              status.runtime !== "DESKTOP" ||
+              status.secureStorage !== "AVAILABLE"
+            }
+            onClick={() => prepare()}
+          >
+            Continue with ChatGPT
+          </Button>
+          {status.profiles.length > 0 && (
+            <Button disabled={busy} onClick={() => prepare(null)}>
+              添加账号
+            </Button>
+          )}
+          {onUseApi && <Button onClick={onUseApi}>跳过，使用 API</Button>}
+          <Button disabled={busy || loading} onClick={() => void connection.load()}>
+            重新读取状态
+          </Button>
+        </div>
+      )}
       <p className="chatgpt-scope-note">
         适用于个人本机、开源项目和获准私有应用。商业或托管分发需先确认资格。
       </p>
@@ -102,31 +127,6 @@ export function ChatGPTConnectionControls({
               )}
             </div>
           ))}
-        </div>
-      )}
-      {!preparing && (
-        <div className="chatgpt-actions">
-          <Button
-            primary
-            disabled={
-              loading ||
-              busy ||
-              status.runtime !== "DESKTOP" ||
-              status.secureStorage !== "AVAILABLE"
-            }
-            onClick={() => prepare()}
-          >
-            Continue with ChatGPT
-          </Button>
-          {status.profiles.length > 0 && (
-            <Button disabled={busy} onClick={() => prepare(null)}>
-              添加账号
-            </Button>
-          )}
-          {onUseApi && <Button onClick={onUseApi}>跳过，使用 API</Button>}
-          <Button disabled={busy || loading} onClick={() => void connection.load()}>
-            重新读取状态
-          </Button>
         </div>
       )}
       {preparing && (

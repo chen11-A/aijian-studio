@@ -593,18 +593,466 @@
   overflow-x: hidden;
   overflow-y: auto;
 }
-.demo-root.production-workbench .page-scroll > .v2-utility-page,
+.demo-root.production-workbench .page-scroll > .v2-utility-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 .demo-root.production-workbench .page-scroll > .assembly-actions {
   flex: 0 0 auto;
   min-height: auto;
 }
-.demo-root.production-workbench .v2-service-body.provider-settings {
-  overflow: visible;
+.production-workbench .service-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 12px;
+  overflow: hidden;
+}
+.production-workbench .service-primary,
+.production-workbench .service-secondary {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.production-workbench .service-primary {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.production-workbench .service-primary .official-service-panel,
+.production-workbench .service-primary .v2-service-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.production-workbench .provider-save {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}
+.production-workbench .v2-voice-work,
+.production-workbench .v2-cost-ledger {
+  min-height: 0;
+}
+.production-workbench .v2-cost-ledger {
+  flex: 1 1 auto;
   height: auto;
+  max-height: none;
+}
+.demo-root.production-workbench .service-primary .v2-service-body.provider-settings {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: auto;
   grid-template-rows: auto;
 }
-.demo-root.production-workbench .main-panel.page-services .v2-service-body .connections-panel,
-.demo-root.production-workbench .main-panel.page-services .v2-service-body .v2-service-config {
+@media (max-height: 820px) {
+  .demo-root.production-workbench .left-nav {
+    top: 76px;
+    bottom: 8px;
+    padding: 6px 7px;
+  }
+  .demo-root.production-workbench .nav-item,
+  .demo-root.production-workbench .nav-label {
+    height: 32px;
+    min-height: 32px;
+    margin-bottom: 0;
+  }
+  .demo-root.production-workbench .nav-label {
+    height: 24px;
+    min-height: 24px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .demo-root.production-workbench .nav-bottom {
+    padding-top: 4px;
+  }
+  .demo-root.production-workbench .v2-cost-summary {
+    height: auto;
+  }
+  .demo-root.production-workbench .v2-cost-summary strong {
+    margin-top: 8px;
+    font-size: 24px;
+    line-height: 32px;
+  }
+}
+@media (max-width: 1279px) and (max-height: 820px) {
+  .demo-root.production-workbench .left-nav {
+    width: 156px;
+  }
+  .demo-root.production-workbench .nav-item,
+  .demo-root.production-workbench .nav-item.nav-child {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 6px;
+    gap: 6px;
+  }
+  .demo-root.production-workbench .nav-item > span {
+    display: block;
+    overflow: visible;
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .demo-root.production-workbench .nav-label {
+    display: none;
+  }
+  .demo-root.production-workbench .main-panel,
+  .demo-root.production-workbench .stage-bar {
+    left: 180px;
+  }
+  .demo-root.production-workbench .topbar > select {
+    left: 180px;
+  }
+  .demo-root.production-workbench .topbar .episode-select {
+    left: 340px;
+  }
+}
+@media (max-height: 820px) {
+  .demo-root.production-workbench .left-nav .nav-item,
+  .demo-root.production-workbench.no-stage.no-rail .left-nav .nav-item,
+  .demo-root.production-workbench .left-nav .nav-item.nav-child {
+    height: 28px;
+    min-height: 0;
+    margin: 0;
+    width: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .demo-root.production-workbench .left-nav .nav-item > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .demo-root.production-workbench .left-nav .nav-label {
+    height: 20px;
+    min-height: 0;
+    margin: 2px 0;
+  }
+  .demo-root.production-workbench .left-nav nav > div:nth-last-child(2) {
+    margin-top: 2px;
+  }
+}
+.production-workbench .service-secondary {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.production-workbench .service-secondary .account-center {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.production-workbench .service-secondary section[aria-label="模型中心"] {
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: auto;
+}
+.production-workbench .service-secondary section[aria-label="用 Grok 账号登录"],
+.production-workbench .service-secondary .account-advanced {
+  flex: 0 0 auto;
+}
+.production-workbench .service-secondary .account-model-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.production-workbench .service-secondary .account-pair {
+  grid-template-columns: minmax(0, 1fr);
+}
+.production-workbench .service-secondary .account-pair article,
+.production-workbench .service-secondary .account-actions .button {
+  min-width: 0;
+  max-width: 100%;
+}
+.production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 12px 10px;
+}
+.production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] h2,
+.production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] p,
+.production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] .account-actions {
+  margin: 0;
+}
+.production-workbench .service-secondary section[aria-label="已连接账号"] {
+  flex: 1 1 96px;
+  min-height: 96px;
+  overflow: auto;
+}
+.production-workbench .service-secondary .service-capabilities {
+  flex: 0 1 180px;
+  max-height: 200px;
+  min-height: 0;
+  overflow: auto;
+}
+.production-workbench .service-capabilities .service-capability-actions,
+.production-workbench .service-capabilities header {
+  min-width: 0;
+}
+.production-workbench .service-capabilities .button {
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+}
+.production-workbench .native-voice-page > p {
+  margin: 0 0 8px;
+}
+.production-workbench .native-voice-fit {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) minmax(0, 1fr);
+  gap: 12px;
+  overflow: hidden;
+}
+.production-workbench .native-voice-fit .sandbox-desk {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.production-workbench .native-voice-fit .sandbox-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.production-workbench .native-voice-fit .sandbox-actions {
+  flex: 0 0 auto;
+  margin: 8px 12px 12px;
+}
+.production-workbench .native-voice-fit .v2-media-body {
+  min-height: 0;
+  overflow: auto;
+}
+.production-workbench .project-costs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.production-workbench .project-costs > section,
+.production-workbench .project-costs > .v2-cost-summary {
+  position: relative;
+  flex: 0 0 auto;
+}
+.demo-root.production-workbench .v2-home-page {
+  overflow: hidden;
+}
+.demo-root.production-workbench .v2-recent-list {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+@media (max-height: 820px) {
+  .production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] > p {
+    display: none;
+  }
+}
+@media (max-height: 700px) {
+  .production-workbench .service-secondary .service-capabilities {
+    flex-basis: 96px;
+    max-height: 96px;
+  }
+  .production-workbench .service-secondary section[aria-label="模型中心"] {
+    min-height: 120px;
+    max-height: 58%;
+    overflow: auto;
+  }
+}
+@media (max-height: 640px) {
+  .production-workbench .service-secondary section[aria-label="模型中心"] {
+    min-height: 88px;
+    max-height: 42%;
+    overflow: auto;
+  }
+  .production-workbench .service-secondary section[aria-label="用 Grok 账号登录"] {
+    max-height: 40px;
+    overflow: hidden;
+  }
+  .production-workbench .service-secondary .account-advanced > summary {
+    padding: 8px 12px;
+  }
+  .production-workbench .service-secondary .service-capabilities {
+    flex-basis: 64px;
+    max-height: 64px;
+  }
+  .production-workbench .service-secondary section[aria-label="已连接账号"] {
+    flex-basis: 48px;
+    min-height: 48px;
+  }
+}
+.production-workbench .project-cost-ledger {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+@media (max-height: 700px) {
+  .production-workbench .project-costs .v2-cost-summary p,
+  .production-workbench .project-costs > section:not(.project-cost-ledger) p {
+    display: none;
+  }
+  .production-workbench .project-costs .v2-cost-summary strong {
+    margin-top: 4px;
+    font-size: 18px;
+    line-height: 24px;
+  }
+}
+.demo-root.production-workbench .right-dock .assistant-panel.v2-assistant {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.demo-root.production-workbench .right-dock .assistant-panel.v2-assistant .assistant-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.demo-root.production-workbench .right-dock .assistant-panel.v2-assistant .assistant-body > div {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.production-workbench .assistant-chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+.production-workbench .assistant-chat-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.production-workbench .assistant-chat-scroll .assistant-chat-messages {
+  max-height: none;
   overflow: visible;
-  min-height: auto;
+}
+.production-workbench .assistant-chat-composer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.production-workbench .assistant-chat-composer textarea {
+  min-height: 48px;
+}
+@media (max-width: 1180px) {
+  .production-workbench .native-voice-fit {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(120px, 0.7fr);
+  }
+}
+.demo-root.production-workbench
+  .main-panel.page-services
+  .service-primary
+  .v2-service-body.provider-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.demo-root.production-workbench .main-panel.page-services .service-primary .connections-panel {
+  flex: 0 1 auto;
+  max-height: 34%;
+  min-height: 0;
+  overflow: auto;
+}
+.demo-root.production-workbench .main-panel.page-services .service-primary .v2-service-config {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.demo-root.production-workbench .service-primary .provider-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  padding: 12px;
+}
+.demo-root.production-workbench .service-primary .provider-form-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+.demo-root.production-workbench .service-primary .provider-form-body > header {
+  display: none;
+}
+.demo-root.production-workbench .service-primary .provider-picker button {
+  min-height: 36px;
+  padding: 8px 10px;
+}
+.demo-root.production-workbench .service-primary .provider-picker button span {
+  display: none;
+}
+.demo-root.production-workbench .service-primary .provider-save {
+  position: static;
+  flex: 0 0 auto;
+}
+.production-workbench .v2-settings-body {
+  overflow: hidden;
+}
+.production-workbench .v2-settings-categories,
+.production-workbench .v2-profile,
+.production-workbench .v2-voice-work {
+  min-height: 0;
+  overflow: auto;
+}
+@media (max-height: 720px) {
+  .v2-launch {
+    padding: 12px 16px;
+  }
+  .welcome-sign-in {
+    padding: 0;
+  }
+  .welcome-sign-in h1,
+  .welcome-sign-in .welcome-title {
+    margin-top: 10px;
+    font-size: 22px;
+  }
+  .welcome-actions {
+    margin-top: 14px;
+    gap: 8px;
+  }
+  .welcome-sign-in .button {
+    min-height: 38px;
+  }
+  .welcome-sign-in .button.primary {
+    min-height: 44px;
+    box-shadow: none;
+  }
 }

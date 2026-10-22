@@ -6,7 +6,11 @@
  * CSS pixels). deviceScaleFactor matches that scaling; layout uses CSS pixels.
  *
  * The script fails when a control is covered, clipped with no scroll, or its
- * own text is cut off. Run against `pnpm --filter @aijian/studio-web dev`.
+ * own text is cut off. It also fails when the window, the app shell, or a
+ * page panel scrolls, when scrollbars nest, or when a primary action sits
+ * below the fold. A list, ledger, or transcript may scroll inside its own
+ * panel; that scroll is recorded and is not a failure by itself.
+ * Run against `pnpm --filter @aijian/studio-web dev`.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -17,6 +21,7 @@ const outDir = process.env.AIVORA_AUDIT_OUT ?? "/tmp/ui-audit/round1";
 
 const viewports = [
   { name: "1920x1080", width: 1920, height: 1080, deviceScaleFactor: 1 },
+  { name: "1440x900", width: 1440, height: 900, deviceScaleFactor: 1 },
   { name: "1536x864-win125", width: 1536, height: 864, deviceScaleFactor: 1.25 },
   { name: "1366x768", width: 1366, height: 768, deviceScaleFactor: 1 },
   { name: "1280x720-win150", width: 1280, height: 720, deviceScaleFactor: 1.5 },
@@ -198,16 +203,109 @@ function layoutProbe() {
     }
   }
 
+  const scrollers = [];
+  const threshold = 8;
+  const candidates = [
+    document.documentElement,
+    document.body,
+    ...document.querySelectorAll("body *"),
+  ];
+  for (const el of candidates) {
+    if (!(el instanceof HTMLElement)) continue;
+    const style = getComputedStyle(el);
+    const canY =
+      (style.overflowY === "auto" ||
+        style.overflowY === "scroll" ||
+        style.overflowY === "overlay") &&
+      el.scrollHeight > el.clientHeight + threshold;
+    const canX =
+      (style.overflowX === "auto" || style.overflowX === "scroll") &&
+      el.scrollWidth > el.clientWidth + threshold;
+    if (!canY && !canX) continue;
+    if (el !== document.documentElement && el !== document.body && !visible(el)) continue;
+    let nested = false;
+    let parent = el.parentElement;
+    while (parent) {
+      const parentStyle = getComputedStyle(parent);
+      if (
+        (parentStyle.overflowY === "auto" || parentStyle.overflowY === "scroll") &&
+        parent.scrollHeight > parent.clientHeight + threshold
+      ) {
+        nested = true;
+        break;
+      }
+      parent = parent.parentElement;
+    }
+    const className = typeof el.className === "string" ? el.className : "";
+    const element = `${el.id ? `#${el.id}` : el.tagName.toLowerCase()}${
+      className ? `.${className.split(/\s+/).filter(Boolean).slice(0, 2).join(".")}` : ""
+    }`.slice(0, 90);
+    const entry = {
+      element,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      deltaY: el.scrollHeight - el.clientHeight,
+      deltaX: el.scrollWidth - el.clientWidth,
+      nested,
+      horizontal: canX,
+      vertical: canY,
+    };
+    scrollers.push(entry);
+    const shell = el.tagName === "NAV" && el.closest(".left-nav");
+    const pageScroll =
+      el.id === "demo-scroll" ||
+      className.includes("page-scroll") ||
+      className.includes("v2-launch");
+    const doc = el === document.documentElement || el === document.body;
+    if (canX) {
+      issues.push({
+        kind: "horizontal-overflow",
+        text: `${element} 横向超出 ${entry.deltaX}px`,
+      });
+    }
+    if (canY && (shell || pageScroll || doc || nested)) {
+      issues.push({
+        kind: shell
+          ? "shell-scroll"
+          : pageScroll
+            ? "page-scroll"
+            : nested
+              ? "nested-scroll"
+              : "document-scroll",
+        text: `${element} 高 ${entry.scrollHeight} / 可视 ${entry.clientHeight}，差 ${entry.deltaY}px`,
+      });
+    }
+  }
+  for (const el of document.querySelectorAll("button, .provider-save")) {
+    if (!(el instanceof HTMLElement) || !visible(el)) continue;
+    const text = (el.getAttribute("aria-label") || el.innerText || "").replace(/\s+/g, " ").trim();
+    const named = /用 Grok 账号登录$/.test(text) || /^(保存|确认|下一步|新建|创建)/.test(text);
+    if (!el.classList.contains("primary") && !el.classList.contains("provider-save") && !named)
+      continue;
+    if (/^(取消|关闭|上一步)/.test(text)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.top > window.innerHeight - 12 || rect.bottom > window.innerHeight + 8) {
+      issues.push({
+        kind: "below-fold",
+        text: `${text.slice(0, 40)} 在首屏之外（top ${Math.round(rect.top)}）`,
+      });
+    }
+  }
+
   const seen = new Set();
-  return issues.filter((issue) => {
-    const key = `${issue.kind}|${issue.text}|${issue.by ?? ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return {
+    issues: issues.filter((issue) => {
+      const key = `${issue.kind}|${issue.text}|${issue.by ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+    scrolls: scrollers,
+  };
 }
 
 async function shot(page, file) {
+  if (process.env.AIVORA_AUDIT_SHOTS === "0") return;
   await mkdir(path.dirname(file), { recursive: true });
   await page.screenshot({ path: file, type: "jpeg", quality: 55, animations: "disabled" });
 }
@@ -218,7 +316,11 @@ async function settle(page) {
 }
 
 async function audit(page) {
-  return page.evaluate(layoutProbe);
+  const result = await page.evaluate(layoutProbe);
+  return {
+    issues: Array.isArray(result) ? result : (result?.issues ?? []),
+    scrolls: Array.isArray(result?.scrolls) ? result.scrolls : [],
+  };
 }
 
 async function main() {
@@ -248,7 +350,7 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: name,
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [...consoleErrors],
         });
         await page.getByRole("button", { name: "暂时离线创作" }).click();
@@ -262,7 +364,7 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: id,
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: consoleErrors.splice(0),
         });
       }
@@ -277,7 +379,7 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: "dialog-notify",
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [],
         });
         const close = page.getByRole("button", { name: "关闭对话框" });
@@ -292,7 +394,7 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: "menu-user",
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [],
         });
         await page.keyboard.press("Escape");
@@ -306,9 +408,13 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: "drawer-assistant",
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [],
         });
+        const collapse = page.locator(".assistant-collapse");
+        if (await collapse.isVisible().catch(() => false)) await collapse.click();
+        else await page.keyboard.press("Escape");
+        await page.waitForTimeout(150);
       }
 
       await page.goto(`${baseUrl}#services`, { waitUntil: "domcontentloaded" });
@@ -322,7 +428,7 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: "services-api",
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [],
         });
       }
@@ -333,16 +439,25 @@ async function main() {
         report.push({
           viewport: viewport.name,
           screen: "services-chatgpt",
-          issues: await audit(page),
+          ...(await audit(page)),
           consoleErrors: [],
         });
       }
 
       await context.close();
-      const count = report.filter(
-        (item) => item.viewport === viewport.name && item.issues.length,
-      ).length;
-      console.log(`${viewport.name}: ${count} screens with issues`);
+      const here = report.filter((item) => item.viewport === viewport.name);
+      const count = here.filter((item) => item.issues.length).length;
+      const scrolling = here.filter((item) => item.scrolls.length);
+      console.log(
+        `${viewport.name}: ${count} screens with issues, ${scrolling.length} screens that scroll`,
+      );
+      for (const item of scrolling) {
+        const parts = item.scrolls.map(
+          (entry) =>
+            `${entry.element} ${entry.scrollHeight}/${entry.clientHeight} Δ${entry.deltaY}${entry.horizontal ? ` xΔ${entry.deltaX}` : ""}`,
+        );
+        console.log(`  ${item.screen}: ${parts.join(" | ")}`);
+      }
     }
   } finally {
     await browser.close();
@@ -350,11 +465,23 @@ async function main() {
 
   await mkdir(outDir, { recursive: true });
   const flagged = report.filter((item) => item.issues.length > 0 || item.consoleErrors.length > 0);
+  const scrolling = report
+    .filter((item) => item.scrolls.length > 0)
+    .map((item) => ({
+      viewport: item.viewport,
+      screen: item.screen,
+      scrolls: item.scrolls,
+      belowFold: item.issues.filter((issue) => issue.kind === "below-fold"),
+    }));
   await writeFile(
     path.join(outDir, "report.json"),
-    JSON.stringify({ screens: report.length, flaggedCount: flagged.length, flagged }, null, 2),
+    JSON.stringify(
+      { screens: report.length, flaggedCount: flagged.length, flagged, scrolling },
+      null,
+      2,
+    ),
   );
-  console.log(`screens ${report.length}, flagged ${flagged.length}`);
+  console.log(`screens ${report.length}, flagged ${flagged.length}, scrolling ${scrolling.length}`);
   if (flagged.length > 0) process.exitCode = 1;
 }
 

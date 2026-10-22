@@ -60,25 +60,34 @@ export function SandboxVoicePlan() {
   return (
     <section className="v2-utility-card sandbox-desk" aria-label="配音方案沙箱">
       <h2>配音方案</h2>
-      <p>声线、试听和生成先在沙箱里走通。没有音频文件，不做口型，也不计费。</p>
-      <CurrentModelLink capability="SPEECH" />
-      <label>
-        对白
-        <textarea
-          aria-label="配音对白"
-          value={line}
-          maxLength={2000}
-          onChange={(event) => setLine(event.target.value)}
-        />
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(event) => setConsent(event.target.checked)}
-        />
-        我确认这段声线只用于当前作品的沙箱预览，不代表已获得克隆或商用授权
-      </label>
+      <div className="sandbox-body">
+        <p>声线、试听和生成先在沙箱里走通。没有音频文件，不做口型，也不计费。</p>
+        <details>
+          <summary>声音和成片怎么配合</summary>
+          <p>
+            声音页与成片组装使用同一本集剪辑版本。选择真实本地录音，可绑定保存剧本的对白、裁剪与另存版本。声线授权、语音生成、对白内容核验和口型同步尚未接通。DRAFT
+            绑定不证明录音说出了该句对白。
+          </p>
+        </details>
+        <CurrentModelLink capability="SPEECH" />
+        <label>
+          对白
+          <textarea
+            aria-label="配音对白"
+            value={line}
+            maxLength={2000}
+            onChange={(event) => setLine(event.target.value)}
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(event) => setConsent(event.target.checked)}
+          />
+          我确认这段声线只用于当前作品的沙箱预览，不代表已获得克隆或商用授权
+        </label>
+      </div>
       <div className="sandbox-actions">
         <Button
           onClick={() => setNotice(sandboxVoiceResult({ line, consent, action: "audition" }))}

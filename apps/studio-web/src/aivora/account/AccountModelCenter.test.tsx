@@ -25,6 +25,7 @@ describe("account and model center", () => {
     render(<AccountModelCenter onSaveXaiKey={save} />);
     expect(screen.getAllByRole("combobox")).toHaveLength(4);
     expect(screen.getByRole("combobox", { name: "文本模型" })).toBeDisabled();
+    fireEvent.click(screen.getByText("控制台密钥（高级备用）"));
     fireEvent.change(screen.getByLabelText("xAI 密钥"), {
       target: { value: "not-a-grok-login" },
     });
@@ -63,6 +64,7 @@ describe("account and model center", () => {
   it("saves a key into the credential store and reports a refused save", async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const view = render(<AccountModelCenter onSaveXaiKey={save} onOpenChatGpt={() => undefined} />);
+    fireEvent.click(screen.getByText("控制台密钥（高级备用）"));
     fireEvent.click(screen.getByRole("button", { name: "打开 ChatGPT 登录" }));
     fireEvent.change(screen.getByLabelText("xAI 密钥"), {
       target: { value: "xai-sandbox-test-key-value" },

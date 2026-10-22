@@ -44,6 +44,12 @@ export function ServiceCapabilities({
           重新读取连接状态
         </Button>
       </header>
+      <div className="service-capability-actions">
+        <Button disabled={reading} onClick={() => setChecked(true)}>
+          检查自动出片准备
+        </Button>
+        <Button onClick={onOpenProjects}>进入项目准备剧本或导入素材</Button>
+      </div>
       <p>
         <strong>ChatGPT：</strong>
         <span>{readinessLabels[official]}</span>
@@ -115,12 +121,6 @@ export function ServiceCapabilities({
           这里只读取本地授权和配置，不验证服务端权限、余额或作品素材；实际调用仍需在对应入口确认。本页没有生成或费用设置写入操作。
         </p>
       </details>
-      <div className="service-capability-actions">
-        <Button disabled={reading} onClick={() => setChecked(true)}>
-          检查自动出片准备
-        </Button>
-        <Button onClick={onOpenProjects}>进入项目准备剧本或导入素材</Button>
-      </div>
       {checked && (
         <div className="service-capability-result" role="status">
           <strong>自动出片尚未就绪</strong>

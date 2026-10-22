@@ -12,10 +12,6 @@ export function GrokConnectionCard() {
     <section className="v2-utility-card" aria-label="Grok 账号登录">
       <h2>用 Grok 账号登录</h2>
       <p>
-        点一次下面的按钮。系统浏览器打开 xAI
-        授权页，点同意后自动回到这里，并列出这个账号能用的模型。不用复制代码，也不用输入密码或密钥。登录本身不会发起推理。
-      </p>
-      <p>
         {connection?.loading
           ? "正在读取登录状态。"
           : connection?.busy
@@ -66,6 +62,10 @@ export function GrokConnectionCard() {
         </Button>
         <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
       </div>
+      <p>
+        点一次上面的按钮。系统浏览器打开 xAI
+        授权页，点同意后自动回到这里，并列出这个账号能用的模型。不用复制代码，也不用输入密码或密钥。登录本身不会发起推理。
+      </p>
       <p>
         部分普通 SuperGrok 可以登录成功，但推理会返回 403。出现这个结果时，点「改用 API
         Key（高级备用）」，不要反复登录。

@@ -3,6 +3,20 @@
   gap: 12px;
   margin: 0 0 16px;
 }
+.account-advanced {
+  border: 1px solid #215173;
+  border-radius: 10px;
+  background: #0c263b;
+}
+.account-advanced > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 650;
+}
+.account-advanced > .v2-utility-card {
+  border: 0;
+  background: transparent;
+}
 .account-center .v2-utility-card {
   padding: 4px 4px 12px;
 }

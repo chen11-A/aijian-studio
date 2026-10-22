@@ -214,106 +214,9 @@ export function AccountModelCenter({
 
   return (
     <div className="account-center" id="model-center" tabIndex={-1}>
-      <section className="v2-utility-card" aria-label="用 Grok 账号登录">
-        <h2>用 Grok 账号登录</h2>
-        <p>
-          主路径是一键登录：系统浏览器打开 xAI
-          授权页，点同意后自动回到这里，并列出可用模型。网页预览不能代替桌面应用完成登录。
-        </p>
-        {grok?.status.state === "ENTITLEMENT_DENIED" && (
-          <p role="alert">
-            已经用 Grok 账号登录，但推理返回 403。部分普通 SuperGrok 会这样。点下面的按钮填写 API
-            Key，不要反复登录。
-          </p>
-        )}
-        {grok?.status.state === "ENTITLEMENT_DENIED" && (
-          <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
-        )}
-        <div className="account-actions">
-          {onOpenGrok && (
-            <Button primary onClick={onOpenGrok}>
-              打开 Grok 登录
-            </Button>
-          )}
-        </div>
-      </section>
-
-      <section className="v2-utility-card" aria-label="Grok 密钥备用">
-        <h2>控制台密钥（高级备用）</h2>
-        <p>
-          订阅登录成功但推理返回 403 时，再用控制台 API Key。密钥不是 grok.com
-          的网页密码。沙箱不会访问 api.x.ai。
-        </p>
-        <label>
-          xAI 密钥
-          <input
-            id="xai-api-key"
-            type="password"
-            autoComplete="off"
-            value={key}
-            disabled={saving}
-            onChange={(event) => setKey(event.target.value)}
-          />
-        </label>
-        <div className="account-actions">
-          <Button primary disabled={saving || key.length === 0} onClick={connectSandbox}>
-            连接 API Key（沙箱）
-          </Button>
-          <Button onClick={() => openAivoraPage("generation")}>看看媒体沙箱（不产生费用）</Button>
-          {onSaveXaiKey && (
-            <Button disabled={saving || key.length === 0} onClick={() => void saveCredential()}>
-              {saving ? "正在写入凭据库…" : "写入凭据库（不调用模型）"}
-            </Button>
-          )}
-          {session && <Button onClick={disconnect}>断开沙箱</Button>}
-        </div>
-        <p>
-          沙箱只检查密钥形状并记住末四位。它不访问 api.x.ai，不扣费，也不证明密钥有效。
-          {xaiSaved ? " 凭据库里已有一条 xAI 连接。" : ""}
-        </p>
-      </section>
-
-      <section className="v2-utility-card" aria-label="已连接账号">
-        <h2>已连接账号</h2>
-        <p>这里只显示 ChatGPT 与 Grok 的连接、可用模型和额度状态。没有 AIVORA 自己的套餐可购买。</p>
-        <div className="account-pair">
-          {accounts.map((account) => (
-            <article key={account.provider} aria-label={`${account.title} 账号`}>
-              <h3>{account.title}</h3>
-              <span className="account-status">
-                {account.method} · {account.state}
-              </span>
-              <p>{account.quota}</p>
-              <p>{account.difference}</p>
-              {account.models.length > 0 ? (
-                <ul aria-label={`${account.title} 可用模型`}>
-                  {account.models.map((model) => (
-                    <li key={model.id}>
-                      {model.label} <span>{model.id}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>当前没有可列入模型中心的模型。</p>
-              )}
-            </article>
-          ))}
-        </div>
-        <div className="account-actions">
-          {onOpenChatGpt && <Button onClick={onOpenChatGpt}>打开 ChatGPT 登录</Button>}
-          <Button onClick={() => openAivoraPage("costs")}>查看作品用量</Button>
-          <a href={XAI_DOCS.billing} target="_blank" rel="noreferrer">
-            xAI 计费说明
-          </a>
-        </div>
-      </section>
-
       <section className="v2-utility-card" aria-label="模型中心">
         <h2>模型</h2>
-        <p>
-          全软件只在这里选择模型。ChatGPT 和 Grok 登录都使用各自账号的模型目录。API Key
-          只在备用连接登记后使用文档快照。创作页只显示当前模型，并回到这里修改。
-        </p>
+        <p>全软件只在这里选择模型。创作页只显示当前选择。</p>
         <div className="account-model-grid">
           {capabilities.map(([capability, label]) => {
             const options = optionsFor(capability);
@@ -348,6 +251,94 @@ export function AccountModelCenter({
         {official?.preferenceError && (
           <p role="alert">官方模型偏好没有可靠读出。请重新读取 ChatGPT 账号后再选文本模型。</p>
         )}
+      </section>
+      <section className="v2-utility-card" aria-label="用 Grok 账号登录">
+        <h2>用 Grok 账号登录</h2>
+        <p>登录在左侧完成。网页预览不能代替桌面应用打开授权页。</p>
+        {grok?.status.state === "ENTITLEMENT_DENIED" && (
+          <p role="alert">
+            已经用 Grok 账号登录，但推理返回 403。部分普通 SuperGrok 会这样。点下面的按钮填写 API
+            Key，不要反复登录。
+          </p>
+        )}
+        {grok?.status.state === "ENTITLEMENT_DENIED" && (
+          <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
+        )}
+        <div className="account-actions">
+          {onOpenGrok && <Button onClick={onOpenGrok}>打开 Grok 登录</Button>}
+        </div>
+      </section>
+
+      <details className="account-advanced">
+        <summary>控制台密钥（高级备用）</summary>
+        <section className="v2-utility-card" aria-label="Grok 密钥备用">
+          <p>
+            订阅登录成功但推理返回 403 时，再用控制台 API Key。密钥不是 grok.com
+            的网页密码。沙箱不会访问 api.x.ai。
+          </p>
+          <label>
+            xAI 密钥
+            <input
+              id="xai-api-key"
+              type="password"
+              autoComplete="off"
+              value={key}
+              disabled={saving}
+              onChange={(event) => setKey(event.target.value)}
+            />
+          </label>
+          <div className="account-actions">
+            <Button primary disabled={saving || key.length === 0} onClick={connectSandbox}>
+              连接 API Key（沙箱）
+            </Button>
+            <Button onClick={() => openAivoraPage("generation")}>看看媒体沙箱（不产生费用）</Button>
+            {onSaveXaiKey && (
+              <Button disabled={saving || key.length === 0} onClick={() => void saveCredential()}>
+                {saving ? "正在写入凭据库…" : "写入凭据库（不调用模型）"}
+              </Button>
+            )}
+            {session && <Button onClick={disconnect}>断开沙箱</Button>}
+          </div>
+          <p>
+            沙箱只检查密钥形状并记住末四位。它不访问 api.x.ai，不扣费，也不证明密钥有效。
+            {xaiSaved ? " 凭据库里已有一条 xAI 连接。" : ""}
+          </p>
+        </section>
+      </details>
+
+      <section className="v2-utility-card" aria-label="已连接账号">
+        <h2>已连接账号</h2>
+        <p>这里只显示 ChatGPT 与 Grok 的连接、可用模型和额度状态。没有 AIVORA 自己的套餐可购买。</p>
+        <div className="account-pair">
+          {accounts.map((account) => (
+            <article key={account.provider} aria-label={`${account.title} 账号`}>
+              <h3>{account.title}</h3>
+              <span className="account-status">
+                {account.method} · {account.state}
+              </span>
+              <p>{account.quota}</p>
+              <p>{account.difference}</p>
+              {account.models.length > 0 ? (
+                <ul aria-label={`${account.title} 可用模型`}>
+                  {account.models.map((model) => (
+                    <li key={model.id}>
+                      {model.label} <span>{model.id}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>当前没有可列入模型中心的模型。</p>
+              )}
+            </article>
+          ))}
+        </div>
+        <div className="account-actions">
+          {onOpenChatGpt && <Button onClick={onOpenChatGpt}>打开 ChatGPT 登录</Button>}
+          <Button onClick={() => openAivoraPage("costs")}>查看作品用量</Button>
+          <a href={XAI_DOCS.billing} target="_blank" rel="noreferrer">
+            xAI 计费说明
+          </a>
+        </div>
       </section>
       {notice && <p role="status">{notice}</p>}
     </div>

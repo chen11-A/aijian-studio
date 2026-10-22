@@ -163,27 +163,6 @@ function ServicesContent() {
   return (
     <div className="v2-utility-page v2-utility-management">
       <Heading title="AI 服务" management />
-      <AccountModelCenter
-        connections={state.kind === "ready" ? state.response.data : []}
-        saving={settings.saving}
-        onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
-        onOpenGrok={d.isFixture ? undefined : useGrok}
-        onSaveXaiKey={
-          d.isFixture
-            ? undefined
-            : async (input) => {
-                await settings.create(input);
-              }
-        }
-      />
-      {chatGPT && (
-        <ServiceCapabilities
-          chatGPT={chatGPT}
-          providers={state}
-          onReloadProviders={settings.load}
-          onOpenProjects={() => d.go("project")}
-        />
-      )}
       {!d.isFixture && (
         <div className="service-connection-switch" role="group" aria-label="AI 连接类型">
           <Button
@@ -212,132 +191,162 @@ function ServicesContent() {
           </Button>
         </div>
       )}
-      {!d.isFixture && (
-        <div hidden={serviceTab !== "grok"} className="official-service-panel">
-          {serviceTab === "grok" && <GrokConnectionCard />}
+      <div className="service-workspace">
+        <div className="service-primary">
+          {!d.isFixture && (
+            <div hidden={serviceTab !== "grok"} className="official-service-panel">
+              {serviceTab === "grok" && <GrokConnectionCard />}
+            </div>
+          )}
+          {!d.isFixture && (
+            <div
+              ref={official}
+              tabIndex={-1}
+              hidden={serviceTab !== "chatgpt"}
+              className="official-service-panel"
+            >
+              {serviceTab === "chatgpt" && chatGPT && (
+                <ChatGPTConnectionControls
+                  connection={chatGPT}
+                  selection={account ?? undefined}
+                  onUseApi={useApi}
+                  onOpenProjects={() => d.go("project")}
+                />
+              )}
+            </div>
+          )}
+          <div
+            className="v2-service-body provider-settings"
+            hidden={!d.isFixture && serviceTab !== "api"}
+          >
+            <section
+              className="v2-utility-card v2-service-list connections-panel"
+              aria-labelledby="service-connections-title"
+            >
+              <header>
+                <div>
+                  <h2 id="service-connections-title">
+                    <Icon name="spark" size={16} />
+                    已配置连接
+                  </h2>
+                  <p>密钥仅由本地系统凭据库保存，项目只引用连接标识。</p>
+                </div>
+                {state.kind === "ready" && <b>{state.response.data.length}</b>}
+              </header>
+              {settings.saveError && <p role="alert">{settings.saveError}</p>}
+              {state.kind === "loading" && <div role="status">正在读取安全配置…</div>}
+              {state.kind === "error" && (
+                <div role="alert">
+                  <strong>配置读取失败</strong>
+                  <Button onClick={() => void settings.load()}>重新读取</Button>
+                </div>
+              )}
+              {state.kind === "ready" && state.response.data.length === 0 && (
+                <div className="settings-empty">
+                  <strong>还没有 API 连接</strong>
+                  <p>可添加 API Key 连接；ChatGPT 官方账号状态请看独立入口。</p>
+                </div>
+              )}
+              {state.kind === "ready" &&
+                state.response.data.map((connection) => (
+                  <article className="connection-card" key={connection.id}>
+                    <header>
+                      <div>
+                        <strong>{connection.display_name}</strong>
+                        <span>
+                          {connection.provider_kind === "CPA_LOOPBACK"
+                            ? "CPA 本地连接"
+                            : providerPresets[connection.provider_kind].label}
+                        </span>
+                      </div>
+                      <i>
+                        {connection.credential_status === "CONFIGURED"
+                          ? "密钥已配置"
+                          : connection.credential_status === "UNAVAILABLE"
+                            ? "凭据库不可用"
+                            : "无需密钥 / 未配置"}
+                      </i>
+                    </header>
+                    <code>{connection.base_url}</code>
+                    <div className="connection-models">
+                      {connection.models.length === 0 ? (
+                        <span>尚未登记模型 ID</span>
+                      ) : (
+                        connection.models.map((model) => (
+                          <span key={model.model_id}>
+                            <strong>{model.model_id}</strong>
+                            <small>
+                              {model.capabilities.map((item) => capabilityLabels[item]).join(" · ")}
+                            </small>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    {connection.provider_kind === "SUB2API" && (
+                      <p>
+                        这是已停用通道的历史连接，不能再修改或派发。历史费用仍可在项目费用里只读查看。
+                      </p>
+                    )}
+                    {settings.confirmingId === connection.id ? (
+                      <div role="alert">
+                        <span>同时移除系统凭据？</span>
+                        <Button onClick={() => void settings.remove(connection.id)}>
+                          确认移除
+                        </Button>
+                        <Button onClick={() => settings.setConfirmingId(null)}>取消</Button>
+                      </div>
+                    ) : (
+                      <Button onClick={() => settings.setConfirmingId(connection.id)}>
+                        移除连接
+                      </Button>
+                    )}
+                  </article>
+                ))}
+            </section>
+            <section
+              ref={apiConfig}
+              tabIndex={-1}
+              className="v2-utility-card v2-service-config"
+              aria-labelledby="service-new-title"
+            >
+              <h2 id="service-new-title">
+                <Icon name="settings" size={16} />
+                添加模型供应商
+              </h2>
+              <p>
+                这里登记供应商和它提供的模型 ID，不是选择本次创作用的模型。创作模型在模型中心选择。
+              </p>
+              <ProviderConnectionForm
+                busy={settings.saving}
+                error={settings.saveError}
+                onSubmit={settings.create}
+              />
+            </section>
+          </div>
         </div>
-      )}
-      {!d.isFixture && (
-        <div
-          ref={official}
-          tabIndex={-1}
-          hidden={serviceTab !== "chatgpt"}
-          className="official-service-panel"
-        >
-          {serviceTab === "chatgpt" && chatGPT && (
-            <ChatGPTConnectionControls
-              connection={chatGPT}
-              selection={account ?? undefined}
-              onUseApi={useApi}
+        <div className="service-secondary">
+          <AccountModelCenter
+            connections={state.kind === "ready" ? state.response.data : []}
+            saving={settings.saving}
+            onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
+            onOpenGrok={d.isFixture ? undefined : useGrok}
+            onSaveXaiKey={
+              d.isFixture
+                ? undefined
+                : async (input) => {
+                    await settings.create(input);
+                  }
+            }
+          />
+          {chatGPT && (
+            <ServiceCapabilities
+              chatGPT={chatGPT}
+              providers={state}
+              onReloadProviders={settings.load}
               onOpenProjects={() => d.go("project")}
             />
           )}
         </div>
-      )}
-      <div
-        className="v2-service-body provider-settings"
-        hidden={!d.isFixture && serviceTab !== "api"}
-      >
-        <section
-          className="v2-utility-card v2-service-list connections-panel"
-          aria-labelledby="service-connections-title"
-        >
-          <header>
-            <div>
-              <h2 id="service-connections-title">
-                <Icon name="spark" size={16} />
-                已配置连接
-              </h2>
-              <p>密钥仅由本地系统凭据库保存，项目只引用连接标识。</p>
-            </div>
-            {state.kind === "ready" && <b>{state.response.data.length}</b>}
-          </header>
-          {settings.saveError && <p role="alert">{settings.saveError}</p>}
-          {state.kind === "loading" && <div role="status">正在读取安全配置…</div>}
-          {state.kind === "error" && (
-            <div role="alert">
-              <strong>配置读取失败</strong>
-              <Button onClick={() => void settings.load()}>重新读取</Button>
-            </div>
-          )}
-          {state.kind === "ready" && state.response.data.length === 0 && (
-            <div className="settings-empty">
-              <strong>还没有 API 连接</strong>
-              <p>可添加 API Key 连接；ChatGPT 官方账号状态请看独立入口。</p>
-            </div>
-          )}
-          {state.kind === "ready" &&
-            state.response.data.map((connection) => (
-              <article className="connection-card" key={connection.id}>
-                <header>
-                  <div>
-                    <strong>{connection.display_name}</strong>
-                    <span>
-                      {connection.provider_kind === "CPA_LOOPBACK"
-                        ? "CPA 本地连接"
-                        : providerPresets[connection.provider_kind].label}
-                    </span>
-                  </div>
-                  <i>
-                    {connection.credential_status === "CONFIGURED"
-                      ? "密钥已配置"
-                      : connection.credential_status === "UNAVAILABLE"
-                        ? "凭据库不可用"
-                        : "无需密钥 / 未配置"}
-                  </i>
-                </header>
-                <code>{connection.base_url}</code>
-                <div className="connection-models">
-                  {connection.models.length === 0 ? (
-                    <span>尚未登记模型 ID</span>
-                  ) : (
-                    connection.models.map((model) => (
-                      <span key={model.model_id}>
-                        <strong>{model.model_id}</strong>
-                        <small>
-                          {model.capabilities.map((item) => capabilityLabels[item]).join(" · ")}
-                        </small>
-                      </span>
-                    ))
-                  )}
-                </div>
-                {connection.provider_kind === "SUB2API" && (
-                  <p>
-                    这是已停用通道的历史连接，不能再修改或派发。历史费用仍可在项目费用里只读查看。
-                  </p>
-                )}
-                {settings.confirmingId === connection.id ? (
-                  <div role="alert">
-                    <span>同时移除系统凭据？</span>
-                    <Button onClick={() => void settings.remove(connection.id)}>确认移除</Button>
-                    <Button onClick={() => settings.setConfirmingId(null)}>取消</Button>
-                  </div>
-                ) : (
-                  <Button onClick={() => settings.setConfirmingId(connection.id)}>移除连接</Button>
-                )}
-              </article>
-            ))}
-        </section>
-        <section
-          ref={apiConfig}
-          tabIndex={-1}
-          className="v2-utility-card v2-service-config"
-          aria-labelledby="service-new-title"
-        >
-          <h2 id="service-new-title">
-            <Icon name="settings" size={16} />
-            添加模型供应商
-          </h2>
-          <p>
-            这里登记供应商和它提供的模型
-            ID，不是选择本次创作用的模型。创作模型只在上方模型中心选择。
-          </p>
-          <ProviderConnectionForm
-            busy={settings.saving}
-            error={settings.saveError}
-            onSubmit={settings.create}
-          />
-        </section>
       </div>
     </div>
   );
