@@ -36,8 +36,12 @@ MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 
 
 def digest(path: Path) -> str:
+    # Ubuntu 22.04's system Python is 3.10 and has no hashlib.file_digest.
+    hasher = hashlib.sha256()
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        while chunk := stream.read(1024 * 1024):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def download(url: str, expected: str, target: Path) -> None:
@@ -66,7 +70,13 @@ def download(url: str, expected: str, target: Path) -> None:
 def extract(archive: Path, destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
     with tarfile.open(archive) as tar:
-        tar.extractall(destination, filter="data")
+        for member in tar.getmembers():
+            if member.name.startswith("/") or ".." in Path(member.name).parts:
+                raise RuntimeError(f"Unsafe archive path: {member.name}")
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(destination, filter="data")
+        else:
+            tar.extractall(destination)
 
 
 def checkpoint_module():
