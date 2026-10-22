@@ -48,12 +48,20 @@ def _request(provider="stub", **overrides) -> StoryFilmRequest:
 
 
 def test_live_media_stays_disabled_without_an_explicit_allow(monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("AIJIAN_ALLOW_LIVE_MEDIA", raising=False)
+    monkeypatch.delenv("AIJIAN_FORBID_LIVE_MEDIA", raising=False)
+    assert live_media_enabled() is False
+    monkeypatch.setenv("AIJIAN_ALLOW_LIVE_MEDIA", "1")
+    assert live_media_enabled() is True
     monkeypatch.setenv("AIJIAN_FORBID_LIVE_MEDIA", "1")
     assert live_media_enabled() is False
-    monkeypatch.setenv("CI", "true")
-    monkeypatch.setenv("AIJIAN_ALLOW_LIVE_MEDIA", "1")
     monkeypatch.delenv("AIJIAN_FORBID_LIVE_MEDIA", raising=False)
+    monkeypatch.setenv("CI", "true")
+    assert live_media_enabled() is False
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert live_media_enabled() is False
 
 
@@ -70,6 +78,9 @@ def test_metered_and_chatgpt_stop_before_a_task_or_a_call(tmp_path):
     )
     assert confirmed.status == "BLOCKED"
     assert confirmed.suggested_provider in {"stub", "grok_subscription"}
+    unknown = service.produce(project_id, _request("xai_api_key", confirmed=True))
+    assert unknown.status == "BLOCKED"
+    assert unknown.suggested_provider == "stub"
     chatgpt = service.produce(project_id, _request("chatgpt"))
     assert chatgpt.status == "BLOCKED"
     assert "ChatGPT" in chatgpt.message
@@ -87,6 +98,9 @@ def test_subscription_without_live_permission_does_not_call_or_store_a_token(tmp
     repository, project_id = _project(tmp_path)
     secret = "grok-token-should-not-be-stored"
     service = StoryFilmService(repository, toolchain)
+    missing = service.produce(project_id, _request("grok_subscription"))
+    assert missing.status == "BLOCKED"
+    assert "登录" in missing.message
     result = service.produce(project_id, _request("grok_subscription"), media_token=secret)
     assert result.status == "BLOCKED"
     assert result.live_call is False
