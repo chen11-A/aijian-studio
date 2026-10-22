@@ -28,13 +28,14 @@ from aijian_api.desktop_subscription_dispatch import (
     record_desktop_subscription_dispatch,
 )
 from aijian_api.dispatch_billing import budget_display_reason
-from aijian_api.draft_export_contracts import CreateDraftExportRequest
+from aijian_api.draft_export_contracts import CreateDraftExportRequest, DraftExportJob
 from aijian_api.draft_export_runtime import DraftExportError, DraftExportRuntime
 from aijian_api.episode_media_assembly_contracts import (
     CreateEpisodeMediaAssemblyVersionRequest,
     EpisodeMediaAssemblyContentV1,
 )
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
+from aijian_api.media_asset_contracts import MediaAssetData
 from aijian_api.media_asset_store import MediaAssetError, MediaAssetStore
 from aijian_api.media_budget_policy import BudgetAmount, evaluate_media_budget
 from aijian_api.media_budget_store import MediaBudgetStore
@@ -42,6 +43,7 @@ from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
 from aijian_api.task_ledger import LocalTaskLedger
+from aijian_api.task_ledger_models import QueuedTask
 from aijian_api.xai_media import (
     IMAGE_MODEL,
     TTS_MODEL,
@@ -201,13 +203,12 @@ class StoryFilmService:
             )
         except (StoryFilmError, DraftExportError, MediaAssetError, OSError, XaiMediaError) as error:
             self._ledger.fail_local_task(running, error_code="STORY_FILM_FAILED")
-            message = (
-                error.message
-                if isinstance(
-                    error, (StoryFilmError, DraftExportError, MediaAssetError, XaiMediaError)
-                )
-                else "成片没有做完。"
-            )
+            if isinstance(error, (StoryFilmError, XaiMediaError)):
+                message = error.message
+            elif isinstance(error, (DraftExportError, MediaAssetError)):
+                message = str(error)
+            else:
+                message = "成片没有做完。"
             return _failed(
                 message, provider_label, billing_label, running.task_id, running.attempt_id
             )
@@ -359,7 +360,7 @@ class StoryFilmService:
                 )
         return None
 
-    def _enqueue(self, project_id: str, request: StoryFilmRequest):
+    def _enqueue(self, project_id: str, request: StoryFilmRequest) -> QueuedTask:
         bindings = {
             "scene_label": request.scene_label,
             "narration_sha256": hashlib.sha256(request.narration.encode()).hexdigest(),
@@ -669,7 +670,7 @@ class StoryFilmService:
             ) from error
 
 
-def _media_ref(asset) -> dict[str, str]:
+def _media_ref(asset: MediaAssetData) -> dict[str, str]:
     return {
         "asset_id": asset.id,
         "asset_version_id": asset.latest_version.id,
@@ -709,9 +710,11 @@ def _video_frames(ffprobe: Path, path: Path) -> int:
     if isinstance(raw, str) and raw.isdigit() and int(raw) > 0:
         return int(raw)
     duration = streams[0].get("duration")
+    if not isinstance(duration, str | int | float):
+        raise StoryFilmError("PROBE_FAILED", "没有读到镜头的画面长度。")
     try:
         frames = int(round(float(duration) * _FRAME_RATE))
-    except (TypeError, ValueError) as error:
+    except ValueError as error:
         raise StoryFilmError("PROBE_FAILED", "没有读到镜头的画面长度。") from error
     if frames < 1:
         raise StoryFilmError("PROBE_FAILED", "镜头太短，没法做成片。")
@@ -735,9 +738,11 @@ def _probe_movie(ffprobe: Path, path: Path) -> tuple[bool, bool, float]:
     )
     fmt = payload.get("format")
     duration_raw = fmt.get("duration") if isinstance(fmt, dict) else None
+    if not isinstance(duration_raw, str | int | float):
+        raise StoryFilmError("PROBE_FAILED", "成片已写出，但没有读到时长。")
     try:
         duration = float(duration_raw)
-    except (TypeError, ValueError) as error:
+    except ValueError as error:
         raise StoryFilmError("PROBE_FAILED", "成片已写出，但没有读到时长。") from error
     return "video" in kinds, "audio" in kinds, duration
 
@@ -759,7 +764,9 @@ def _ffprobe(ffprobe: Path, args: list[str]) -> dict[str, object]:
     return payload
 
 
-def _wait_export(runtime: DraftExportRuntime, project: str, episode: str, operation: str):
+def _wait_export(
+    runtime: DraftExportRuntime, project: str, episode: str, operation: str
+) -> DraftExportJob:
     import time
 
     deadline = time.monotonic() + 60

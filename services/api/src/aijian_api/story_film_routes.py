@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Request
@@ -144,7 +144,7 @@ def create_story_film_router(
     toolchain_provider: ToolchainProvider,
 ) -> APIRouter:
     router = APIRouter()
-    errors = {
+    errors: dict[int | str, dict[str, Any]] = {
         401: {"description": "Sidecar authentication required", "model": ErrorResponse},
         403: {"description": "Sidecar request boundary rejected", "model": ErrorResponse},
         422: {"description": "Request validation failed", "model": ErrorResponse},

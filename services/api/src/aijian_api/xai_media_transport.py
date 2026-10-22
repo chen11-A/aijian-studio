@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 
-from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse, XaiMediaError
+from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse, XaiMediaError, XaiTransport
 
 
-def urllib_xai_transport():
+def urllib_xai_transport() -> XaiTransport:
     def send(request: XaiHttpRequest) -> XaiHttpResponse:
         outgoing = urllib.request.Request(
             request.url,
@@ -38,7 +39,7 @@ def urllib_xai_transport():
 
 
 class _CallableTransport:
-    def __init__(self, send) -> None:
+    def __init__(self, send: Callable[[XaiHttpRequest], XaiHttpResponse]) -> None:
         self._send = send
 
     def send(self, request: XaiHttpRequest) -> XaiHttpResponse:
