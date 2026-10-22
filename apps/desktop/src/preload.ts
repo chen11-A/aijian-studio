@@ -68,6 +68,7 @@ import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
+import type { StoryFilmCreateInput } from "./story-film-client";
 import type {
   DraftExportPreviewResult,
   DraftExportRevealResult,
@@ -538,6 +539,9 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:list") as Promise<ProjectListResponse>,
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
+  getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
+  createStoryFilm: (projectId: string, input: StoryFilmCreateInput) =>
+    ipcRenderer.invoke("story-film:create", projectId, input),
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
   getProjectSettings: ((projectId) =>

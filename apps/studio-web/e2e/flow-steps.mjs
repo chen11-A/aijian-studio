@@ -101,7 +101,7 @@ async function run(viewport, persona) {
   steps.push({ clicks, name: "model-options", persona, text: options.join(" | ") });
   await model.selectOption({ label: "Grok 4.3 · Grok 账号" });
   clicks += 1;
-  const probe = page.getByRole("button", { name: "检查这次订阅能否推理" });
+  const probe = page.getByRole("button", { name: "测试一下能不能用" });
   await probe.scrollIntoViewIfNeeded();
   await probe.click();
   clicks += 1;

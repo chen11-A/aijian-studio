@@ -21,6 +21,7 @@ delete env.NODE_OPTIONS;
 delete env.AIJIAN_E2E_USER_DATA_DIR;
 env.HOME = home;
 env.XDG_CONFIG_HOME = configHome;
+env.AIJIAN_FORBID_LIVE_MEDIA = "1";
 env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT = join(root, "runtime/ffmpeg/bin");
 env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK = join(root, "config/linux-desktop-media-lock.json");
 const check = spawnSync(join(root, "launch-aivora.sh"), ["--check"], {
@@ -48,7 +49,7 @@ try {
     userData: app.getPath("userData"),
   }));
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.1.4");
+  assert.equal(identity.version, "0.2.0");
   assert.equal(identity.userData, join(configHome, "AIVORA"));
   const backend = readFileSync(
     join(identity.userData, "grok-official/storage-backend.txt"),

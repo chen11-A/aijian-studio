@@ -263,6 +263,7 @@ function useDemoModel(fixture?: DemoFixture) {
   const canNavigate = () => navigationGuard.current?.() ?? true;
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [professional, setProfessional] = useState(false);
+  const [filmStep, setFilmStep] = useState(0);
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -1620,6 +1621,8 @@ function useDemoModel(fixture?: DemoFixture) {
     setScenario,
     professional,
     setProfessional,
+    filmStep,
+    setFilmStep,
     inspector,
     setInspector,
     aiOpen,

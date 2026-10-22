@@ -233,6 +233,7 @@ from aijian_api.source_proposal_acceptance_query import (
 from aijian_api.source_text_contracts import SourceDocumentTextData, SourceDocumentTextResponse
 from aijian_api.story_bible_drafts import StoryBibleDraftInvalidError
 from aijian_api.story_bible_routes import create_story_bible_public_router
+from aijian_api.story_film_routes import create_story_film_router
 from aijian_api.sub2api_connection_readiness import Sub2APIConfiguredReadiness
 from aijian_api.sub2api_connection_readiness_routes import (
     create_sub2api_connection_readiness_router,
@@ -1268,6 +1269,7 @@ def create_app(
         app.include_router(
             create_draft_export_router(lambda: cast(DraftExportRuntime, draft_export_runtime))
         )
+        app.include_router(create_story_film_router(get_repository, get_media_probe_toolchain))
         app.include_router(
             create_draft_review_router(
                 get_repository,

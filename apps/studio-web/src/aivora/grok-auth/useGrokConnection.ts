@@ -148,7 +148,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
       });
       if (!mounted.current || generation.current !== current) return;
       if (result.kind === "OK") {
-        setNotice(`这次推理已返回。计费类别 ${result.billingAccountKind}。结果不会写入作品。`);
+        setNotice("测试完成，可以用。这次没有写入作品，也没有另收费。");
       } else {
         setNotice(grokLoginFailureMessage(result.code));
       }
@@ -156,7 +156,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
       if (mounted.current && generation.current === current) setStatus(value);
     } catch {
       if (mounted.current && generation.current === current) {
-        setNotice("没有确认这次推理。请看账号状态，不要重复点击。");
+        setNotice("没有确认这次测试。请看上面的状态，不要重复点击。");
       }
     } finally {
       if (mounted.current && generation.current === current) setBusy(false);

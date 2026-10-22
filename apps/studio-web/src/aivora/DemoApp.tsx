@@ -7,6 +7,7 @@ import { Button, EditorDialog } from "./Common";
 import { Icon, Logo } from "./Icon";
 import { AssistantPanel } from "./AssistantPanel";
 import { HomePages } from "./HomePages";
+import { ShortFilmGuide } from "./ShortFilmGuide";
 import { StoryPages } from "./StoryPages";
 import { VisualPages } from "./VisualPages";
 import { MediaPages } from "./MediaPages";
@@ -378,6 +379,30 @@ function Workspace({ reset }: { reset: () => void }) {
                 <NavItem key={item.page} {...item} page={item.page as PageId} />
               ))}
             </>
+          ) : !d.professional && !d.isFixture ? (
+            (
+              [
+                ["故事", 0],
+                ["画面", 1],
+                ["声音", 2],
+                ["成片", 3],
+              ] as const
+            ).map(([label, step]) => (
+              <button
+                key={label}
+                className={`nav-item ${d.page === "project" && d.filmStep === step ? "selected" : ""}`}
+                aria-label={label}
+                title={label}
+                aria-current={d.page === "project" && d.filmStep === step ? "page" : undefined}
+                onClick={() => {
+                  d.setFilmStep(step);
+                  d.go("project");
+                }}
+              >
+                <Icon name="film" />
+                <span>{label}</span>
+              </button>
+            ))
           ) : (
             projectNav.map((item) => (
               <div key={item.page}>
@@ -413,35 +438,62 @@ function Workspace({ reset }: { reset: () => void }) {
           )}
         </div>
       </aside>
-      {hasStage && (
+      {hasStage && !d.professional && !d.isFixture ? (
         <nav className="stage-bar" aria-label="创作阶段">
-          {stages.map((stage, index) => (
+          {(
+            [
+              ["故事", 0],
+              ["画面", 1],
+              ["声音", 2],
+              ["成片", 3],
+            ] as const
+          ).map(([label, step]) => (
             <button
-              key={stage.page}
-              aria-current={index === activeStage ? "step" : undefined}
-              className={index === activeStage ? "current" : ""}
-              onClick={() => d.go(stage.page)}
+              key={label}
+              aria-current={d.filmStep === step ? "step" : undefined}
+              className={d.filmStep === step ? "current" : ""}
+              onClick={() => {
+                d.setFilmStep(step);
+                d.go("project");
+              }}
             >
-              <span>
-                {d.value(
-                  [
-                    "storyConfirmed",
-                    "assetsConfirmed",
-                    "animaticConfirmed",
-                    "assemblyConfirmed",
-                    "reviewDone",
-                  ][index]!,
-                ) === "true" ? (
-                  <Icon name="check" size={16} />
-                ) : (
-                  index + 1
-                )}
-              </span>
-              <b>{stage.label}</b>
-              {index < 4 && <i>›</i>}
+              <span>{step + 1}</span>
+              <b>{label}</b>
+              {step < 3 && <i>›</i>}
             </button>
           ))}
         </nav>
+      ) : (
+        hasStage && (
+          <nav className="stage-bar" aria-label="创作阶段">
+            {stages.map((stage, index) => (
+              <button
+                key={stage.page}
+                aria-current={index === activeStage ? "step" : undefined}
+                className={index === activeStage ? "current" : ""}
+                onClick={() => d.go(stage.page)}
+              >
+                <span>
+                  {d.value(
+                    [
+                      "storyConfirmed",
+                      "assetsConfirmed",
+                      "animaticConfirmed",
+                      "assemblyConfirmed",
+                      "reviewDone",
+                    ][index]!,
+                  ) === "true" ? (
+                    <Icon name="check" size={16} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <b>{stage.label}</b>
+                {index < 4 && <i>›</i>}
+              </button>
+            ))}
+          </nav>
+        )
       )}
       <main className={`main-panel page-${d.page}`}>
         <div id="demo-scroll" tabIndex={-1} className="page-scroll">
@@ -452,6 +504,8 @@ function Workspace({ reset }: { reset: () => void }) {
             d.page !== "project" &&
             (d.isFixture || !surfacesBeforeProject.includes(d.page)) ? (
             <ProjectContentEmpty page={d.page} />
+          ) : !d.isFixture && !d.professional && d.page === "project" ? (
+            <ShortFilmGuide />
           ) : homes.includes(d.page) ? (
             <HomePages />
           ) : stories.includes(d.page) ? (

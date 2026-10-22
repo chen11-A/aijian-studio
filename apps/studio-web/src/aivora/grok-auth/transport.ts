@@ -67,7 +67,7 @@ export async function readGrokStatus(bridge = grokBridge()): Promise<GrokLoginSt
 }
 
 export const GROK_ENTITLEMENT_MESSAGE =
-  "已经用 Grok 账号登录，但 xAI 返回 403。部分普通 SuperGrok 订阅可以登录成功，推理仍会被拒绝。这次没有生成结果，也不会反复重试。请点「改用 API Key（高级备用）」填写控制台密钥，或换一个允许第三方推理的档位后重新登录。";
+  "已经用 Grok 账号登录，但这个订阅档位还不能用来生成。这次没有产生结果。可以点「改用 API Key（高级备用）」填写密钥，或换一个允许生成的档位后重新登录。";
 
 export const GROK_WAITING_MESSAGE =
   "已打开系统浏览器。在 xAI 页面点同意后会自动回到这里，并显示已登录和可用模型。不用复制代码，也不用输入密码或密钥。若回调被拒绝，会自动打开已带验证码的链接并完成登录。";

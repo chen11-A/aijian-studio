@@ -204,6 +204,57 @@ export function HomePages() {
     if (!remembered) d.notify("本机无法保存入口偏好，下次启动可能再次显示选择；作品数据不受影响。");
     d.go(choice === "offline" ? "home" : "services");
   };
+  const openSampleProject = () => {
+    if (d.workspaceState !== "connected") {
+      d.notify("请先点「连接本地工作区」。连上之后，可以打开示例「雾城来信」，或写一句话开始。");
+      return;
+    }
+    void d
+      .createRealProject({
+        name: "雾城来信",
+        aspect_ratio: "16:9",
+        target_duration_seconds: 60,
+        source_language: "zh-CN",
+      })
+      .then((outcome) => {
+        if (outcome.kind !== "SUCCEEDED") return;
+        d.put("input", "雾散之前，不要回头。");
+        d.setFilmStep(0);
+        d.go("project");
+      });
+  };
+  const startFromSentence = () => {
+    if (d.workspaceState !== "connected") {
+      d.notify("请先点「连接本地工作区」。连上之后，可以打开示例「雾城来信」，或写一句话开始。");
+      return;
+    }
+    d.edit(
+      "写一句话开始",
+      [{ key: "line", label: "这一句", value: "", required: true }],
+      async (data) => {
+        const line = Array.from(data.line ?? "")
+          .filter((character) => {
+            const code = character.charCodeAt(0);
+            return code >= 32 && code !== 127;
+          })
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!line) return false;
+        const name = [...line].slice(0, 40).join("") || "一句话短片";
+        const outcome = await d.createRealProject({
+          name,
+          aspect_ratio: "16:9",
+          target_duration_seconds: 60,
+          source_language: "zh-CN",
+        });
+        if (outcome.kind !== "SUCCEEDED") return false;
+        d.put("input", [...line].slice(0, 200).join(""));
+        d.setFilmStep(0);
+        d.go("project");
+      },
+    );
+  };
   const newProject = () =>
     d.edit(
       "新建项目",
@@ -561,11 +612,17 @@ export function HomePages() {
         </h2>
         <p>
           {mode === "error"
-            ? "请检查桌面服务后重试。"
+            ? "请检查桌面服务后重试。连上之后，可以打开示例「雾城来信」，或写一句话开始。"
             : mode === "empty"
-              ? "创建项目后会显示在这里。"
+              ? "可以打开示例「雾城来信」，或写一句话开始。"
               : "正在等待桌面服务返回项目列表。"}
         </p>
+        {mode === "empty" && (
+          <>
+            <Button onClick={openSampleProject}>打开雾城来信</Button>
+            <Button onClick={startFromSentence}>写一句话开始</Button>
+          </>
+        )}
         <Button onClick={() => void d.connectRealWorkspace()} disabled={mode === "loading"}>
           {mode === "error" ? "重试读取" : mode === "empty" ? "刷新项目列表" : "正在读取"}
         </Button>
@@ -736,6 +793,9 @@ export function HomePages() {
               ) : (
                 <div className="v2-home-state">
                   <h2>还没有项目</h2>
+                  <p>可以打开示例，或写一句话开始。</p>
+                  <Button onClick={openSampleProject}>打开雾城来信</Button>
+                  <Button onClick={startFromSentence}>写一句话开始</Button>
                   <Button onClick={newProject}>新建项目</Button>
                 </div>
               ))}
@@ -879,6 +939,16 @@ export function HomePages() {
             <p>尚未选择真实项目。</p>
           </div>
           <div className="actions">
+            {!d.isFixture && d.professional && (
+              <Button
+                onClick={() => {
+                  d.setProfessional(false);
+                  d.setInspector(false);
+                }}
+              >
+                普通模式
+              </Button>
+            )}
             <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
               项目中心
             </Button>

@@ -52,7 +52,7 @@ export function GrokConnectionCard() {
           disabled={!connection || !desktop || connection.busy || !model}
           onClick={() => void connection?.checkInference(model!.id)}
         >
-          检查这次订阅能否推理
+          测试一下能不能用
         </Button>
         <Button
           disabled={!connection || !desktop || connection.busy || !signedIn}

@@ -70,6 +70,8 @@ type Dependencies = {
 
 export type GrokRuntime = GrokLoginBridge & {
   restore(): Promise<void>;
+  /** Main-process only. Never send this value across IPC. */
+  mediaAccessToken(): Promise<string | null>;
 };
 
 export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
@@ -419,6 +421,26 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
+  async function mediaAccessToken(): Promise<string | null> {
+    await restore();
+    if (!session) return null;
+    try {
+      await ensureFresh();
+    } catch {
+      return null;
+    }
+    const token = session?.accessToken;
+    const unsafe =
+      !token ||
+      token.length > 8192 ||
+      Array.from(token).some((character) => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127;
+      });
+    if (unsafe || !token) return null;
+    return token;
+  }
+
   return {
     restore,
     status: async () => (await restore(), status()),
@@ -427,5 +449,6 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     signOut,
     models,
     completeText,
+    mediaAccessToken,
   };
 }

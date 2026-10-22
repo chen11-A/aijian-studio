@@ -15,11 +15,13 @@ import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
 import { createGrokRuntime } from "./grok-auth-runtime";
+import { liveMediaSidecarEnv } from "./live-media-env";
 import { createGrokLoginLog } from "./grok-login-log";
 import { createSubscriptionLedger } from "./desktop-subscription-ledger";
 import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
 import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
 import { registerGrokHandlers } from "./grok-auth-ipc";
+import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -152,6 +154,7 @@ function developmentSidecarOptions(): StartSidecarOptions {
       ...python.env,
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
+      ...liveMediaSidecarEnv(),
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
         ? {
             AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
@@ -218,6 +221,7 @@ function packagedSidecarOptions(): StartSidecarOptions {
     env: {
       AIJIAN_DATA_DIR: workspaceDirectory,
       AIJIAN_RESOURCE_ROOT: resourceRoot,
+      ...liveMediaSidecarEnv(),
       TEMP: extraction.directory,
       TMP: extraction.directory,
     },
@@ -695,6 +699,25 @@ ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
 ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
   clientFor(event).createProject(input),
+);
+registerStoryFilmHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => {
+    if (!sidecar) throw new Error("Local API is not available");
+    return sidecar.session;
+  },
+  async () => {
+    try {
+      return await getGrokRuntime().mediaAccessToken();
+    } catch {
+      return null;
+    }
+  },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>
   clientFor(event).getProject(projectId),

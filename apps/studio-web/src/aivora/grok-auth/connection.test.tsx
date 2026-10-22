@@ -148,7 +148,7 @@ describe("Grok login copy and connection", () => {
     await act(async () => {
       await result.current.checkInference("grok-4");
     });
-    expect(result.current.notice).toContain("这次推理已返回");
+    expect(result.current.notice).toContain("测试完成，可以用");
   });
 
   it("renders the signed-in model list and the one login button", async () => {
@@ -192,7 +192,7 @@ describe("Grok login copy and connection", () => {
     await act(async () => {
       await result.current.checkInference("grok-4");
     });
-    expect(result.current.notice).toContain("没有确认这次推理");
+    expect(result.current.notice).toContain("没有确认这次测试");
 
     const invalid = bridge({
       signIn: vi.fn(async () => ({
