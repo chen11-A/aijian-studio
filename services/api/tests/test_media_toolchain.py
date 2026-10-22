@@ -34,11 +34,12 @@ def _lock_for(
     *,
     license_class: str = "GPL",
     distribution_status: str = "DEVELOPMENT_ONLY",
+    expected_version: str = "8.1.2",
 ) -> MediaToolchainLockData:
     return MediaToolchainLockData.model_validate(
         {
             "schema_version": 1,
-            "expected_version": "8.1.2",
+            "expected_version": expected_version,
             "profiles": [
                 {
                     "profile_id": "test-fixture",
@@ -102,6 +103,24 @@ def test_discovery_accepts_only_the_exact_locked_tool_pair(tmp_path: Path) -> No
     assert toolchain.license_class == "GPL"
     assert toolchain.distribution_status == "DEVELOPMENT_ONLY"
     assert "--enable-gpl" in toolchain.configuration_flags
+
+
+def test_discovery_accepts_btbn_n_prefixed_version(tmp_path: Path) -> None:
+    ffmpeg, ffprobe = _write_fake_tools(tmp_path / "bin")
+    lock = _lock_for(ffmpeg, ffprobe, expected_version="8.1.3")
+
+    toolchain = discover_media_toolchain(
+        lock,
+        explicit_root=ffmpeg.parent,
+        version_reader=_version_reader(
+            ffmpeg_version="n8.1.3-20-gc8de997cb1-20261021",
+            ffprobe_version="n8.1.3-20-gc8de997cb1-20261021",
+            configuration="--enable-gpl --enable-libx264 --enable-shared",
+        ),
+    )
+
+    assert toolchain.version == "8.1.3"
+    assert toolchain.license_class == "GPL"
 
 
 def test_discovery_can_resolve_the_locked_pair_from_path(tmp_path: Path) -> None:

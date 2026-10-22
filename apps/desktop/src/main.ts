@@ -17,7 +17,8 @@ import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
 import { createGrokRuntime } from "./grok-auth-runtime";
 import { createGrokLoginLog } from "./grok-login-log";
 import { createSubscriptionLedger } from "./desktop-subscription-ledger";
-import { createGrokStore } from "./grok-auth-storage";
+import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
+import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
 import { registerGrokHandlers } from "./grok-auth-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
@@ -29,7 +30,7 @@ import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
 import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
-import { lstatSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { developmentPythonLaunch } from "./development-python";
 
@@ -340,13 +341,32 @@ function getChatGPTRuntime() {
   return chatgptRuntime;
 }
 let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+let grokEncryption: GrokEncryption | null = null;
+function useGrokEncryption(): GrokEncryption {
+  if (grokEncryption) return grokEncryption;
+  const directory = join(app.getPath("userData"), "grok-official");
+  const choice = selectGrokEncryption(
+    process.platform,
+    safeStorage,
+    createFileKeyEncryption(directory),
+  );
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const record = join(directory, "storage-backend.txt");
+  writeFileSync(record, `${choice.backend}\n`, { mode: 0o600 });
+  chmodSync(record, 0o600);
+  grokEncryption = choice.encryption;
+  const log = createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log"));
+  void log.event("storage", { code: choice.backend }).catch(() => undefined);
+  return grokEncryption;
+}
 function getGrokRuntime() {
   grokRuntime ??= createGrokRuntime({
     ledger: {
       record: (input) => subscriptionLedger().record(input),
       finish: (input) => subscriptionLedger().finish(input),
     },
-    store: createGrokStore(join(app.getPath("userData"), "grok-official"), safeStorage),
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), useGrokEncryption()),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
     log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
@@ -822,6 +842,7 @@ async function startApplication(): Promise<void> {
   pinPackagedWindowsUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
   await app.whenReady();
+  useGrokEncryption();
   if (app.isPackaged) packagedRendererIndex();
   sidecar = await startSidecar(
     app.isPackaged ? packagedSidecarOptions() : developmentSidecarOptions(),
