@@ -181,6 +181,7 @@ describe("simple story-to-film navigation", () => {
       subtitle: "雾城来信",
       provider: "stub",
       confirmed: false,
+      voice_id: "eve",
     });
   });
 

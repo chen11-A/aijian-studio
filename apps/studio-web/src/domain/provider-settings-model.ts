@@ -51,7 +51,7 @@ export const providerPresets: Record<
     keyRequired: true,
   },
   SUB2API: {
-    label: "Sub2API",
+    label: "文本网关",
     description: "已停用。历史连接仍可解析，设置页不再提供新建或派发。",
     baseUrl: "",
     keyRequired: true,

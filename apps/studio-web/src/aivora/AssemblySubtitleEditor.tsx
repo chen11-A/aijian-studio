@@ -103,7 +103,7 @@ export function AssemblySubtitleEditor({
     const text = scriptSubtitleText(candidate.block.text);
     if (text === null) {
       setNotice(
-        "此对白超出当前 DRAFT 字幕长度或字形范围；没有截断或替换。请在剧本中明确调整后另行确认。",
+        "此对白超出当前 草稿 字幕长度或字形范围；没有截断或替换。请在剧本中明确调整后另行确认。",
       );
       return;
     }

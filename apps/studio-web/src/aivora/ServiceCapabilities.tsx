@@ -83,7 +83,7 @@ export function ServiceCapabilities({
               <li key={connection.id}>
                 {connection.display_name}：{readinessLabels[assessConfiguredConnection(connection)]}
                 {connection.provider_kind === "XAI"
-                  ? "。这是 API Key 备用配置，不是 Grok 订阅登录。"
+                  ? "。这是密钥备用配置，不是 Grok 订阅登录。"
                   : ""}
               </li>
             ))}
@@ -92,8 +92,8 @@ export function ServiceCapabilities({
         <p>本地准备检查 · 不发送作品，不试生成，不消耗生成额度。登录和模型目录尚未验证真实推理。</p>
         <p>
           可以用 Grok 订阅账号登录，和 ChatGPT 官方账号并列。授权在 auth.x.ai，模型来自 api.x.ai
-          的目录。登录成功不等于每个档位都能推理：若返回 403，请改用 API Key。API Key
-          走控制台额度。上方沙箱连接也不会访问 api.x.ai。
+          的目录。登录成功不等于每个档位都能推理：若还不能生成，请改用密钥。密钥
+          走控制台额度。上方试用连接也不会访问模型目录。
         </p>
         <ul>
           <li>
@@ -102,12 +102,11 @@ export function ServiceCapabilities({
           <li>只有 Grok：接入并验证后可由它承担文本与媒体；现阶段不能据此承诺本机已支持。</li>
           <li>两个都有：目标分工为 GPT 策划、Grok 生成媒体；当前不自动分配或切换账号。</li>
           <li>
-            其他会员：按官方授权通道分别适配。API
-            兼容不等于订阅兼容；不支持的服务可先在外部生成并导入。
+            其他会员：按官方授权通道分别适配。接口兼容不等于订阅兼容；不支持的服务可先在外部生成并导入。
           </li>
         </ul>
         <p>
-          费用边界：不自动购买额度或切换付费 API。OAuth
+          费用边界：不自动购买额度或切换付费通道。账号授权
           仍可能使用服务端额外余额或自动充值；无法确认只用套餐额度时，不应开始生成。
         </p>
         <p>

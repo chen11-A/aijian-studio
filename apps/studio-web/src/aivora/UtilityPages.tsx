@@ -187,7 +187,7 @@ function ServicesContent() {
             disabled={chatGPT?.busy}
             onClick={() => setServiceTab("api")}
           >
-            API 连接（高级备用）
+            密钥连接（高级备用）
           </Button>
         </div>
       )}
@@ -243,8 +243,8 @@ function ServicesContent() {
               )}
               {state.kind === "ready" && state.response.data.length === 0 && (
                 <div className="settings-empty">
-                  <strong>还没有 API 连接</strong>
-                  <p>可添加 API Key 连接；ChatGPT 官方账号状态请看独立入口。</p>
+                  <strong>还没有密钥连接</strong>
+                  <p>可添加 密钥 连接；ChatGPT 官方账号状态请看独立入口。</p>
                 </div>
               )}
               {state.kind === "ready" &&

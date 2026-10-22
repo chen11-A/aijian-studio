@@ -17,7 +17,9 @@ from aijian_api.story_film import (
     StoryFilmRequest,
     StoryFilmResult,
     StoryFilmService,
+    film_progress,
     live_media_enabled,
+    request_film_cancel,
 )
 from aijian_api.xai_media import IMAGE_MODEL, TTS_MODEL, VIDEO_MODEL
 
@@ -88,6 +90,36 @@ class StoryFilmData(BaseModel):
     has_audio: bool = False
     draft: bool = True
     live_call: bool = False
+
+
+class StoryFilmProgressData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage: Literal["idle", "image", "video", "speech", "assemble", "done", "failed"]
+    label: str
+    elapsed_seconds: int
+    image_saved: bool
+    message: str
+
+
+class StoryFilmProgressResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryFilmProgressData
+    request_id: UUID
+
+
+class StoryFilmCancelData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cancel_requested: bool = True
+
+
+class StoryFilmCancelResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data: StoryFilmCancelData
+    request_id: UUID
 
 
 class StoryFilmResponse(BaseModel):
@@ -161,6 +193,35 @@ def create_story_film_router(
     ) -> StoryFilmPlanResponse:
         _ = project_id
         return StoryFilmPlanResponse(data=story_film_plan(), request_id=request.state.request_id)
+
+    @router.get(
+        "/api/v1/projects/{project_id}/story-film/progress",
+        operation_id="getStoryFilmProgress",
+        response_model=StoryFilmProgressResponse,
+        responses=errors,
+    )
+    def get_progress(
+        request: Request, project_id: Annotated[str, Field(pattern=PROJECT_ID_PATTERN)]
+    ) -> StoryFilmProgressResponse:
+        current = film_progress(project_id)
+        return StoryFilmProgressResponse(
+            data=StoryFilmProgressData.model_validate(current),
+            request_id=request.state.request_id,
+        )
+
+    @router.post(
+        "/api/v1/projects/{project_id}/story-film/cancel",
+        operation_id="cancelStoryFilm",
+        response_model=StoryFilmCancelResponse,
+        responses=errors,
+    )
+    def cancel_film(
+        request: Request, project_id: Annotated[str, Field(pattern=PROJECT_ID_PATTERN)]
+    ) -> StoryFilmCancelResponse:
+        request_film_cancel(project_id)
+        return StoryFilmCancelResponse(
+            data=StoryFilmCancelData(), request_id=request.state.request_id
+        )
 
     @router.post(
         "/api/v1/projects/{project_id}/story-film",

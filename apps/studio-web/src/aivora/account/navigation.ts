@@ -27,7 +27,7 @@ export function takeApiKeyFallbackRequest(): boolean {
   }
 }
 
-/** One step from a SuperGrok 403 to the API Key form. Does not call a provider. */
+/** One step from a SuperGrok 403 to the 密钥 form. Does not call a provider. */
 export function useApiKeyFallback() {
   try {
     window.sessionStorage.setItem(fallbackKey, "1");

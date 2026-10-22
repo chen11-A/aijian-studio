@@ -90,7 +90,7 @@ export function FirstRunServiceChoice({
         </div>
         <div className="welcome-links">
           <button type="button" onClick={() => onSelect("api")}>
-            使用 API Key
+            使用密钥
           </button>
           <button type="button" onClick={() => onSelect("offline")}>
             暂时离线创作

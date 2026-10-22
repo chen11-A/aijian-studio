@@ -37,7 +37,7 @@ describe("Grok login text dispatch", () => {
       billingAccountKind: "grok_login",
     });
     expect(denied.message).toBe(GROK_ENTITLEMENT_MESSAGE);
-    expect(denied.message).toContain("API Key");
+    expect(denied.message).toContain("密钥");
     expect(
       await dispatchGrokLoginText(undefined, { model: "grok-4", text: "hello" }),
     ).toMatchObject({

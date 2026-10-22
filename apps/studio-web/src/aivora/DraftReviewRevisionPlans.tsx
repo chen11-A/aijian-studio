@@ -586,7 +586,7 @@ function RevisionPlan({
           </details>
           <div className="assembly-actions">
             {onAssembly && <Button onClick={onAssembly}>按已批准计划编辑本集装配</Button>}
-            {onExport && <Button onClick={onExport}>另行导出本集新装配 DRAFT</Button>}
+            {onExport && <Button onClick={onExport}>另行导出本集新装配草稿</Button>}
           </div>
           <h5>3. 关联批准后另行导出的候选草稿</h5>
           <p>

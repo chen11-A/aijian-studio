@@ -1,5 +1,6 @@
 """Scene-to-MP4 coverage. The provider is the local placeholder, never a paid call."""
 
+import base64
 import json
 import subprocess
 from uuid import uuid4
@@ -9,6 +10,7 @@ from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.story_film import StoryFilmRequest, StoryFilmService, live_media_enabled
+from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
 from test_draft_export_runtime import toolchain
 
@@ -184,3 +186,141 @@ def test_story_film_route_explains_the_provider_before_any_call(tmp_path):
         assert body["has_video"] is True and body["has_audio"] is True
         assert body["live_call"] is False
         assert "草稿" in body["message"]
+
+
+_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ"
+    "DwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+_IMAGE = {"data": [{"b64_json": base64.b64encode(_PNG).decode()}]}
+
+
+class _ScriptedTransport:
+    def __init__(self, responses: list[XaiHttpResponse]) -> None:
+        self.responses = responses
+        self.requests: list[XaiHttpRequest] = []
+
+    def send(self, request: XaiHttpRequest) -> XaiHttpResponse:
+        self.requests.append(request)
+        return self.responses.pop(0)
+
+
+def _allow_live(monkeypatch, log_path):
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("AIJIAN_FORBID_LIVE_MEDIA", raising=False)
+    monkeypatch.setenv("AIJIAN_ALLOW_LIVE_MEDIA", "1")
+    monkeypatch.setenv("AIVORA_GROK_LOGIN_LOG", str(log_path))
+
+
+def _media_bytes(tmp_path):
+    tools = toolchain()
+    clip = tmp_path / "upstream.mp4"
+    voice = tmp_path / "voice.wav"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:rate=24",
+            "-frames:v",
+            "48",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=2",
+            "-c:a",
+            "pcm_s16le",
+            str(voice),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return clip.read_bytes(), voice.read_bytes()
+
+
+def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, monkeypatch):
+    repository, project_id = _project(tmp_path)
+    log_path = tmp_path / "grok-login.log"
+    _allow_live(monkeypatch, log_path)
+    clip, voice = _media_bytes(tmp_path)
+    token = "grok-subscription-token"
+    transport = _ScriptedTransport(
+        [
+            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, json.dumps({"request_id": "req-live"}).encode()),
+            XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
+            XaiHttpResponse(
+                200,
+                json.dumps(
+                    {"status": "done", "video": {"url": "https://vidgen.x.ai/live.mp4"}}
+                ).encode(),
+            ),
+            XaiHttpResponse(200, clip, "video/mp4"),
+            XaiHttpResponse(200, voice, "audio/wav"),
+        ]
+    )
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    service._sleep = lambda _seconds: None
+    result = service.produce(project_id, _request("grok_subscription"), media_token=token)
+    assert result.status == "SUCCEEDED", result.message
+    assert result.live_call is True
+    assert result.has_video and result.has_audio
+    assert result.suggested_provider is None
+    assert result.output_path
+    body = json.loads(transport.requests[1].body or b"{}")
+    assert body["image"]["url"].startswith("data:image/png;base64,")
+    assert body["model"] == "grok-imagine-video-1.5"
+    assert body["duration"] == 2
+    image_body = json.loads(transport.requests[0].body or b"{}")
+    assert image_body["response_format"] == "url"
+    saved = list((tmp_path / "story-films").glob("*-key.png"))
+    assert saved and saved[0].read_bytes() == _PNG
+    text = log_path.read_text()
+    assert token not in text
+    assert "灯塔夜班" not in text
+    events = [json.loads(line)["event"] for line in text.splitlines()]
+    assert events[:4] == ["image", "video_submit", "video_poll", "video_poll"]
+    assert "tts" in events
+
+
+def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monkeypatch):
+    repository, project_id = _project(tmp_path)
+    _allow_live(monkeypatch, tmp_path / "grok-login.log")
+    _clip, voice = _media_bytes(tmp_path)
+    transport = _ScriptedTransport(
+        [
+            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, json.dumps({"request_id": "req-fail"}).encode()),
+            XaiHttpResponse(200, json.dumps({"status": "failed"}).encode()),
+            XaiHttpResponse(200, voice, "audio/wav"),
+        ]
+    )
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    service._sleep = lambda _seconds: None
+    result = service.produce(project_id, _request("grok_subscription"), media_token="token-value")
+    assert result.status == "SUCCEEDED", result.message
+    assert "画面" in result.message or "视频没有生成成功" in result.message
+    assert result.suggested_provider is None
+    assert result.fix is None
+    assert "本地占位" not in result.message

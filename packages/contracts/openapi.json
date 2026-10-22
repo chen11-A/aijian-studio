@@ -23014,6 +23014,37 @@
         "title": "StoryEntityDraftV1",
         "type": "object"
       },
+      "StoryFilmCancelData": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel_requested": {
+            "default": true,
+            "title": "Cancel Requested",
+            "type": "boolean"
+          }
+        },
+        "title": "StoryFilmCancelData",
+        "type": "object"
+      },
+      "StoryFilmCancelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmCancelData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmCancelResponse",
+        "type": "object"
+      },
       "StoryFilmData": {
         "additionalProperties": false,
         "properties": {
@@ -23205,6 +23236,68 @@
           "request_id"
         ],
         "title": "StoryFilmPlanResponse",
+        "type": "object"
+      },
+      "StoryFilmProgressData": {
+        "additionalProperties": false,
+        "properties": {
+          "elapsed_seconds": {
+            "title": "Elapsed Seconds",
+            "type": "integer"
+          },
+          "image_saved": {
+            "title": "Image Saved",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "idle",
+              "image",
+              "video",
+              "speech",
+              "assemble",
+              "done",
+              "failed"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "label",
+          "elapsed_seconds",
+          "image_saved",
+          "message"
+        ],
+        "title": "StoryFilmProgressData",
+        "type": "object"
+      },
+      "StoryFilmProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmProgressData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmProgressResponse",
         "type": "object"
       },
       "StoryFilmProviderChoice": {
@@ -38781,6 +38874,66 @@
         "summary": "Create Film"
       }
     },
+    "/api/v1/projects/{project_id}/story-film/cancel": {
+      "post": {
+        "operationId": "cancelStoryFilm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmCancelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Cancel Film"
+      }
+    },
     "/api/v1/projects/{project_id}/story-film/plan": {
       "get": {
         "operationId": "getStoryFilmPlan",
@@ -38839,6 +38992,66 @@
           }
         },
         "summary": "Get Plan"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-film/progress": {
+      "get": {
+        "operationId": "getStoryFilmProgress",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmProgressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Progress"
       }
     },
     "/api/v1/projects/{project_id}/sub2api-source-extract-runs": {

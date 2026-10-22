@@ -13,6 +13,11 @@
  * ledger, or transcript may scroll inside its own panel; that scroll is
  * recorded and is not a failure by itself.
  * Run against `pnpm --filter @aijian/studio-web dev`.
+ *
+ * User-facing copy is checked against a jargon denylist, and clickable controls
+ * are hit-tested at their corners so a neighbor cannot steal the click.
+ * The mocked xAI image-to-video path is exercised in
+ * services/api/tests/test_xai_media.py and services/api/tests/test_story_film.py.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -418,6 +423,56 @@ function layoutProbe() {
         kind: "below-fold",
         text: `${text.slice(0, 40)} 在首屏之外（top ${Math.round(rect.top)}）`,
       });
+    }
+  }
+
+  const jargon = [
+    ["DRAFT", /\bDRAFT\b/],
+    ["run", /\brun\b/i],
+    ["TEXT", /\bTEXT\b/],
+    ["API", /\bAPI\b/],
+    ["403", /\b403\b/],
+    ["sandbox", /sandbox|沙箱/i],
+    ["prj_", /prj_/],
+    ["ep_", /ep_/],
+    ["OAuth", /OAuth/],
+    ["idle", /\bidle\b/i],
+  ];
+  const pageText = (document.body?.innerText || "").replace(/\s+/g, " ");
+  for (const [name, pattern] of jargon) {
+    if (pattern.test(pageText)) issues.push({ kind: "jargon", text: name });
+  }
+
+  for (const element of nodes) {
+    if (!visible(element)) continue;
+    const interactive = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA", "SUMMARY"].includes(
+      element.tagName,
+    );
+    if (!interactive) continue;
+    const rect = element.getBoundingClientRect();
+    const samples = [
+      [rect.left + 6, rect.top + 6],
+      [rect.right - 6, rect.top + 6],
+      [rect.left + 6, rect.bottom - 6],
+      [rect.right - 6, rect.bottom - 6],
+    ];
+    for (const [rawX, rawY] of samples) {
+      if (rawX < rect.left || rawX > rect.right || rawY < rect.top || rawY > rect.bottom) continue;
+      if (rawX < 1 || rawY < 1 || rawX > window.innerWidth - 2 || rawY > window.innerHeight - 2)
+        continue;
+      const top = document.elementFromPoint(rawX, rawY);
+      const openMenu = top instanceof Element ? top.closest("details[open]") : null;
+      const menuOverlay = openMenu instanceof HTMLElement && !openMenu.contains(element);
+      if (
+        top &&
+        top !== element &&
+        !element.contains(top) &&
+        !top.contains(element) &&
+        !menuOverlay
+      ) {
+        issues.push({ kind: "hit-test", text: labelOf(element), by: labelOf(top) });
+        break;
+      }
     }
   }
 

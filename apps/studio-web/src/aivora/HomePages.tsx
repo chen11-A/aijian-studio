@@ -91,7 +91,7 @@ export function HomePages() {
   const [launchPhase, setLaunchPhase] = useState<
     "unknown" | "signed-out" | "waiting" | "signed-in"
   >("unknown");
-  const [launchModels, setLaunchModels] = useState<string[]>([]);
+  const [accountName, setAccountName] = useState("");
   const [launchNotice, setLaunchNotice] = useState("");
   const launchPhaseRef = useRef(launchPhase);
   launchPhaseRef.current = launchPhase;
@@ -144,15 +144,9 @@ export function HomePages() {
         if (!live || launchPhaseRef.current === "waiting" || launchPhaseRef.current === "signed-in")
           return;
         if (status.state === "CONNECTED" || status.state === "ENTITLEMENT_DENIED") {
-          const bridge = grokBridge();
-          let names: string[] = [];
-          if (status.state === "CONNECTED" && bridge) {
-            const listed = await bridge.models();
-            if (listed.kind === "OK") names = listed.models.map((model) => model.label);
-          }
           if (!live) return;
           setLaunchPhase("signed-in");
-          setLaunchModels(names);
+          if (status.accountLabel) setAccountName(status.accountLabel);
           setLaunchNotice(
             status.state === "ENTITLEMENT_DENIED"
               ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
@@ -187,18 +181,13 @@ export function HomePages() {
         (result.status.state === "CONNECTED" || result.status.state === "ENTITLEMENT_DENIED");
       if (signedIn) {
         rememberServiceEntryChoice("grok");
-        let names: string[] = [];
-        if (result.status.state === "CONNECTED") {
-          const listed = await bridge.models();
-          if (listed.kind === "OK") names = listed.models.map((model) => model.label);
-        }
         setLaunchPhase("signed-in");
-        setLaunchModels(names);
+        if (result.status.accountLabel) setAccountName(result.status.accountLabel);
         window.dispatchEvent(new CustomEvent("aivora-grok-changed"));
         const message =
           result.status.state === "ENTITLEMENT_DENIED"
             ? grokLoginFailureMessage("ENTITLEMENT_DENIED")
-            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。可用选项在下面。`;
+            : `已登录${result.status.accountLabel ? ` · ${result.status.accountLabel}` : ""}。关闭再打开不用重新登录。`;
         setLaunchNotice(message);
         setServiceChoiceNotice(message);
         return true;
@@ -682,17 +671,10 @@ export function HomePages() {
               {launchNotice}
             </div>
           )}
-          {launchModels.length > 0 && (
-            <ul className="welcome-models" aria-label="可用模型">
-              {launchModels.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          )}
           {!d.isFixture && launchPhase !== "signed-in" && (
             <div className="welcome-links">
               <button type="button" onClick={() => selectServiceEntry("api")}>
-                使用 API Key
+                使用密钥
               </button>
               <button type="button" onClick={() => selectServiceEntry("offline")}>
                 暂时离线创作
@@ -707,7 +689,7 @@ export function HomePages() {
           {!d.isFixture && welcomeStatusTone(launchNotice, launchPhase) === "is-denied" && (
             <div className="welcome-links">
               <button type="button" onClick={() => useApiKeyFallback()}>
-                改用 API Key（高级备用）
+                改用密钥（高级备用）
               </button>
             </div>
           )}
@@ -747,7 +729,7 @@ export function HomePages() {
           <section className="v2-welcome">
             <h2>
               <Icon name="home" size={16} />
-              欢迎回来，{d.value("userName", "陈")}
+              欢迎回来，{d.isFixture ? d.value("userName", "陈") : accountName || "本地用户"}
             </h2>
             <button className="v2-welcome-copy" onClick={importOptions}>
               {d.isFixture
@@ -758,7 +740,6 @@ export function HomePages() {
               <Button primary onClick={newProject}>
                 新建项目
               </Button>
-              {!d.isFixture && <Button onClick={openSampleProject}>打开雾城来信</Button>}
               <WorkspaceLink />
             </div>
           </section>

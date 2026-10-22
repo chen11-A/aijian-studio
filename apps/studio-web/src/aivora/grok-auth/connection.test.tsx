@@ -76,9 +76,9 @@ describe("Grok login copy and connection", () => {
       expect(message).toContain("grok-login.log");
       expect(message).not.toMatch(/access_token|refresh_token|Bearer /);
     }
-    expect(grokLoginFailureMessage("ENTITLEMENT_DENIED")).toContain("403");
+    expect(grokLoginFailureMessage("ENTITLEMENT_DENIED")).toContain("还不能用来生成");
     expect(grokLoginFailureMessage("ENTITLEMENT_DENIED")).not.toContain("grok-login.log");
-    expect(grokLoginFailureMessage("TEXT_FAILED")).toContain("改用 API Key");
+    expect(grokLoginFailureMessage("TEXT_FAILED")).toContain("改用密钥");
     expect(grokLoginFailureMessage("SOMETHING_NEW")).toContain("SOMETHING_NEW");
     expect(validGrokStatus(connected)).toBe(true);
     expect(validGrokStatus({ ...connected, accessToken: "nope" })).toBe(false);
@@ -96,7 +96,7 @@ describe("Grok login copy and connection", () => {
     await act(async () => {
       await result.current.checkInference("grok-4");
     });
-    expect(result.current.notice).toContain("403");
+    expect(result.current.notice).toContain("还不能用来生成");
     expect(client.completeText).toHaveBeenCalledWith(
       expect.objectContaining({ model: "grok-4", projectId: "prj_1" }),
     );
@@ -143,7 +143,7 @@ describe("Grok login copy and connection", () => {
       })),
     });
     const { result } = renderHook(() => useGrokConnection(client));
-    await waitFor(() => expect(result.current.notice).toContain("403"));
+    await waitFor(() => expect(result.current.notice).toContain("还不能用来生成"));
     expect(result.current.models).toEqual([]);
     await act(async () => {
       await result.current.checkInference("grok-4");
@@ -162,7 +162,7 @@ describe("Grok login copy and connection", () => {
     expect(screen.queryByRole("button", { name: "用 Grok 账号登录" })).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "可用模型" })).not.toBeInTheDocument();
     expect(screen.getByText(/已登录 · person@example.test/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "改用 API Key（高级备用）" }));
+    fireEvent.click(screen.getByRole("button", { name: "改用密钥（高级备用）" }));
   });
 
   it("covers directory failure, invalid results, and a missing desktop bridge", async () => {

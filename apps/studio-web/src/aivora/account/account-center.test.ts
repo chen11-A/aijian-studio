@@ -205,7 +205,7 @@ describe("connected accounts", () => {
     ).toContain("重新登录");
     expect(
       connectedAccountSlots({ grok: { ...grokBase, state: "ENTITLEMENT_DENIED" } })[1].quota,
-    ).toContain("403");
+    ).toContain("还不能生成");
     const loggedIn = connectedAccountSlots({
       grok: { ...grokBase, state: "CONNECTED" },
       grokModels: [{ id: "grok-4", label: "Grok 4" }],

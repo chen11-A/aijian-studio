@@ -61,7 +61,7 @@ describe("revision exact output comparison playback", () => {
       <DraftReviewRevisionPlayback target={target} exports={exports} label="候选版" verified />,
     );
     fireEvent.click(screen.getByRole("button", { name: "播放候选版草稿" }));
-    const video = await screen.findByLabelText("候选版精确 DRAFT 草稿");
+    const video = await screen.findByLabelText("候选版精确草稿");
     expect(exports.get).toHaveBeenCalledWith(
       target.project_id,
       target.episode_id,
@@ -135,7 +135,7 @@ describe("revision exact output comparison playback", () => {
       flight.resolve(ready());
     });
     expect(URL.createObjectURL).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("候选版精确 DRAFT 草稿")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("候选版精确草稿")).not.toBeInTheDocument();
   });
   it("reveal uses exact verified identity and never passes a filesystem path", async () => {
     const exports = setup();

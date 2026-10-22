@@ -59,7 +59,7 @@ describe("official connection card", () => {
     render(<ChatGPTConnectionCard onUseApi={skip} />);
     await screen.findByText(/请在 AIVORA 桌面应用中授权/);
     expect(screen.getByRole("button", { name: "Continue with ChatGPT" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "跳过，使用 API" }));
+    fireEvent.click(screen.getByRole("button", { name: "跳过，使用密钥" }));
     expect(skip).toHaveBeenCalledOnce();
   });
   it("requires explicit scope and persistence consent before any sign-in call", async () => {

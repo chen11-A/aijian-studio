@@ -350,9 +350,7 @@ export function MediaPreparationPanel({
       <div className="v2-visual-card" style={{ padding: 24 }}>
         <h2>镜头制作请求</h2>
         <p>完整保存画面输入。真实生成仍需验证服务、逐次内容授权和费用批准。</p>
-        <p>
-          作品 {p} · 分集 {e}
-        </p>
+        <p>当前作品的这一集</p>
         {input && (
           <fieldset disabled={blocked}>
             <legend>新请求输入</legend>

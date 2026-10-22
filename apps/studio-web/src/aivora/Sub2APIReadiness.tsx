@@ -9,7 +9,7 @@ const reasonLabels: Record<string, string> = {
   NOT_SUB2API: "此连接不是 Sub2API",
   CONNECTION_DISABLED: "连接已停用，请启用并保存",
   ORIGIN_INVALID: "已保存地址或本机路由不符合安全要求",
-  TEXT_MODEL_NOT_CONFIGURED: "请登记本次使用的 TEXT 模型",
+  TEXT_MODEL_NOT_CONFIGURED: "请登记本次使用的文本模型",
   CREDENTIAL_MISSING: "尚未保存业务密钥",
   CREDENTIAL_UNAVAILABLE: "系统凭据库不可用",
   RUNTIME_UNAVAILABLE: "本地 AI 任务执行器尚未就绪，请重启桌面并重新核对",

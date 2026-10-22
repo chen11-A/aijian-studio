@@ -84,7 +84,7 @@ export function ChatGPTConnectionControls({
               添加账号
             </Button>
           )}
-          {onUseApi && <Button onClick={onUseApi}>跳过，使用 API</Button>}
+          {onUseApi && <Button onClick={onUseApi}>跳过，使用密钥</Button>}
           <Button disabled={busy || loading} onClick={() => void connection.load()}>
             重新读取状态
           </Button>
@@ -95,7 +95,7 @@ export function ChatGPTConnectionControls({
       </p>
       {loading && <p role="status">正在读取本机账号状态…</p>}
       {!loading && status.runtime === "DESKTOP_REQUIRED" && (
-        <p role="status">请在 AIVORA 桌面应用中授权。网页预览保留 API 配置入口。</p>
+        <p role="status">请在 AIVORA 桌面应用中授权。网页预览保留密钥配置入口。</p>
       )}
       {!loading && status.secureStorage === "UNAVAILABLE" && (
         <p role="status">系统安全凭据库不可用，官方登录暂不可开始。</p>
@@ -225,7 +225,7 @@ export function ChatGPTConnectionControls({
         )}
       </footer>
       <small>
-        官方通道与 API 连接分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
+        官方通道与密钥连接分开。图片、视频与配音仍需相应服务；此连接不读取 ChatGPT 历史对话。
       </small>
     </section>
   );

@@ -7,7 +7,7 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-describe("SuperGrok API Key fallback", () => {
+describe("SuperGrok 密钥 fallback", () => {
   it("keeps one step to the key form until the services page opens", () => {
     rememberServiceEntryChoice("grok");
     const pages: string[] = [];

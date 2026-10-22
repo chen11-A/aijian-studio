@@ -307,7 +307,7 @@ export function ManualMediaCandidatePanel({
   }
   return (
     <section className="manual-media-candidate-panel" aria-label="手工本地媒体候选">
-      <h2>手工本地媒体候选 · DRAFT</h2>
+      <h2>手工本地媒体候选 · 草稿</h2>
       <p>
         关联已导入的精确素材；LOCAL_IMPORT／手工关联／费用UNKNOWN。此操作不代表模型生成、镜头完成或正式批准。
       </p>

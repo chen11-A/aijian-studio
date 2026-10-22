@@ -41,7 +41,7 @@ export function ProjectCosts({
       </section>
       <section className="v2-utility-card project-cost-ledger">
         <h2>项目任务账本</h2>
-        <p>项目：{projectId ?? "尚未选择"}</p>
+        <p>{projectId ? "当前作品" : "尚未选择作品"}</p>
         <p>这里只列出已经记下的任务，不是完整账单。没有记下来的金额不能当成 0。</p>
         <Button
           disabled={!projectId || state.kind === "loading"}

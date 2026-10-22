@@ -41,7 +41,7 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
     >
       <div className="provider-form-body">
         <header>
-          <span className="settings-kicker">NEW CONNECTION</span>
+          <span className="settings-kicker">新连接</span>
           <h3>添加模型供应商</h3>
           <p>先连接供应商，再把不同制作步骤分配给具体模型。</p>
         </header>
@@ -92,10 +92,11 @@ export function ProviderConnectionForm({ busy, error, onSubmit }: ProviderConnec
 
         <label className="secret-field">
           <span>
-            API Key
+            密钥
             <small>{preset.keyRequired ? "必填" : "本地服务可留空"}</small>
           </span>
           <input
+            aria-label="供应商密钥"
             type="password"
             value={apiKey}
             minLength={preset.keyRequired ? 8 : undefined}

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useGrokConnected } from "./grok-auth/useGrokConnected";
 import { DemoProvider, useDemo } from "./model";
 import type { DemoFixture } from "./model";
 import { pages, projectNav, stages } from "./data";
@@ -15,11 +16,7 @@ import { UtilityPages } from "./UtilityPages";
 import { Inspector } from "./Inspector";
 import { Dropdown } from "./Dropdown";
 import { UserChip } from "./UserChip";
-import {
-  OfficialConnectionProvider,
-  useOfficialConnection,
-} from "./chatgpt-auth/ChatGPTConnectionContext";
-import { assessChatGPTConnection, readinessLabels } from "../domain/ai-capability-readiness";
+import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { AssistantSelectionProvider } from "./assistantSelection";
 import { Select } from "./Select";
 import { openWuchengSample } from "./sample-project";
@@ -58,7 +55,6 @@ function AssistantSelectionBoundary({ children }: { children: ReactNode }) {
 }
 function Workspace({ reset }: { reset: () => void }) {
   const d = useDemo();
-  const account = useOfficialConnection();
   const global = pages[d.page][2] < 0;
   const activeStage = pages[d.page][2];
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));
@@ -109,6 +105,7 @@ function Workspace({ reset }: { reset: () => void }) {
     const node = lastDockFocus.current;
     if (node?.isConnected && node.getClientRects().length) node.focus({ preventScroll: true });
   }, [hasRail]);
+  const grokConnected = useGrokConnected();
   const providerState = d.providerSettings.state;
   const serviceStatus = d.isFixture
     ? "未连接真实服务"
@@ -117,11 +114,8 @@ function Workspace({ reset }: { reset: () => void }) {
       : providerState.kind === "error"
         ? "服务配置读取失败"
         : providerState.response.data.length === 0
-          ? "没有 API 连接"
+          ? "没有密钥连接"
           : `已配置 ${providerState.response.data.length} 个模型连接 · 可用性待核验`;
-  const officialStatus = account
-    ? readinessLabels[assessChatGPTConnection(account.connection)]
-    : "账号状态未读取";
   const taskState = d.taskQueue.state;
   const notificationDescription = d.isFixture
     ? d.tasks.length
@@ -301,13 +295,11 @@ function Workspace({ reset }: { reset: () => void }) {
         )}
         <button
           className="service-indicator"
-          title={
-            d.isFixture ? serviceStatus : `API：${serviceStatus}。ChatGPT：${officialStatus}。`
-          }
+          title={d.isFixture ? serviceStatus : grokConnected ? "Grok 已连接" : "Grok 未连接"}
           onClick={() => d.go("services")}
         >
           <span />
-          {d.isFixture ? serviceStatus : headerConnection(serviceStatus, officialStatus)}
+          {d.isFixture ? serviceStatus : grokConnected ? "Grok 已连接" : "Grok 未连接"}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">
@@ -593,33 +585,6 @@ function ProjectContentEmpty({ page }: { page: PageId }) {
   );
 }
 
-function headerConnection(serviceStatus: string, official: string): string {
-  const api = serviceStatus.includes("失败")
-    ? "读取失败"
-    : serviceStatus.startsWith("正在")
-      ? "读取中"
-      : serviceStatus.startsWith("已配置")
-        ? "已配置"
-        : serviceStatus === "没有 API 连接"
-          ? "未连接"
-          : "见服务页";
-  const chat = official.includes("失败")
-    ? "读取失败"
-    : official.includes("正在读取")
-      ? "读取中"
-      : official.includes("重新授权")
-        ? "需重新登录"
-        : official.includes("凭据")
-          ? "凭据不可用"
-          : official.includes("桌面")
-            ? "需桌面应用"
-            : official.includes("已授权") || official.includes("已登录")
-              ? "已登录"
-              : official.includes("尚未")
-                ? "未连接"
-                : "见服务页";
-  return `API ${api} · ChatGPT ${chat}`;
-}
 function SourceContentEmpty({ page, onOpenSource }: { page: PageId; onOpenSource: () => void }) {
   return (
     <section className="v2-visual-page" role="status">

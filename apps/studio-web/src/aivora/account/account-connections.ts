@@ -107,7 +107,7 @@ function grokLoginSlot(
     quota = "订阅额度未知。重新登录前不能当作已授权。";
   } else if (status.state === "ENTITLEMENT_DENIED") {
     state = status.accountLabel ? `已登录 · ${status.accountLabel}` : "已登录";
-    quota = "登录成功，但模型目录或推理返回 403。请改用 API Key。剩余额度未知。";
+    quota = "登录成功，但这个档位还不能生成。请改用密钥。剩余额度未知。";
   } else if (status.state === "CONNECTED") {
     connected = true;
     state = status.accountLabel ? `已连接 · ${status.accountLabel}` : "已连接";
@@ -132,10 +132,10 @@ function xaiSlot(session: XaiSandboxSession | null): ConnectedAccountSlot {
     title: "Grok 密钥",
     method: "高级备用",
     connected: session !== null,
-    state: session ? `API Key 已登记 · 末四位 ${session.keyHint}` : "未使用",
+    state: session ? `密钥已登记 · 末四位 ${session.keyHint}` : "未使用",
     quota: session
-      ? "这是 API 余额，不是订阅额度。余额未知，未查询，不写成 0。"
-      : "登录成功但推理返回 403 时，再用控制台 API Key。",
+      ? "这是密钥余额，不是订阅额度。余额未知，未查询，不写成 0。"
+      : "登录成功但还不能生成时，再用控制台密钥。",
     models: session
       ? DOCUMENTED_XAI_MODELS.map((model) => ({ id: model.modelId, label: model.label }))
       : [],

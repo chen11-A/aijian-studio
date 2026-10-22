@@ -71,11 +71,11 @@ export function checkXaiApiKey(
   value: string,
 ): { ok: true; hint: string } | { ok: false; message: string } {
   if (value !== value.trim() || /\s/.test(value))
-    return { ok: false, message: "密钥不能包含空格。请粘贴控制台里的 API Key，而不是登录密码。" };
+    return { ok: false, message: "密钥不能包含空格。请粘贴控制台里的 密钥，而不是登录密码。" };
   if (!value.startsWith("xai-"))
     return {
       ok: false,
-      message: "这不是 xAI 控制台 API Key。官方密钥以 xai- 开头。Grok 网页账号不能在这里登录。",
+      message: "这不是 xAI 控制台密钥。官方密钥以 xai- 开头。Grok 网页账号不能在这里登录。",
     };
   if (value.length < 12 || value.length > 512)
     return { ok: false, message: "密钥长度不在控制台密钥的常见范围内。" };

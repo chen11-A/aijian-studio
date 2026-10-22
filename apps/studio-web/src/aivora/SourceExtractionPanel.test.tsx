@@ -226,11 +226,11 @@ async function choose() {
   await screen.findByRole("option", { name: /Test connection/ });
   fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
   fireEvent.change(screen.getByLabelText("文本连接"), { target: { value: connectionId } });
-  fireEvent.change(screen.getByLabelText("TEXT 模型"), { target: { value: "fixture-model" } });
+  fireEvent.change(screen.getByLabelText("文本模型"), { target: { value: "fixture-model" } });
 }
 async function readProposal() {
-  click("查询原 run");
-  await screen.findByText(/已按原操作读到 run 与提案 ID/);
+  click("查看上次结果");
+  await screen.findByText(/已按原操作读到上次任务/);
   click("读取来源抽取提案");
   await screen.findByText(/已读回来源抽取提案/);
 }
@@ -266,7 +266,7 @@ describe("source extraction panel queue and original read", () => {
     await screen.findByRole("option", { name: /Grok/ });
     fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
     fireEvent.change(screen.getByLabelText("文本连接"), { target: { value: connectionId } });
-    fireEvent.change(screen.getByLabelText("TEXT 模型"), { target: { value: "grok-4.7" } });
+    fireEvent.change(screen.getByLabelText("文本模型"), { target: { value: "grok-4.7" } });
     click("仅入队原来源抽取");
     expect(await screen.findByText(/grok_login/)).toBeInTheDocument();
     expect(screen.getByText(/不会调用 xAI/)).toBeInTheDocument();
@@ -294,10 +294,8 @@ describe("source extraction panel queue and original read", () => {
     await screen.findByRole("option", { name: /Test connection/ });
     fireEvent.change(screen.getByLabelText("来源块"), { target: { value: blockId } });
     click("用 Grok 账号生成这段文本");
-    expect(
-      await screen.findByRole("button", { name: "改用 API Key（高级备用）" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("403");
+    expect(await screen.findByRole("button", { name: "改用密钥（高级备用）" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("还不能用来生成");
     expect(completeText).toHaveBeenCalledWith({
       model: "grok-4",
       text: "hello world!",
@@ -332,7 +330,7 @@ describe("source extraction panel queue and original read", () => {
           fault === "unknown"
             ? /排队结果未知；原操作已锁定/
             : fault === "rejected"
-              ? /服务端明确拒绝入队/
+              ? /服务端拒绝了这次提交/
               : /原操作身份未能保存并回读/,
         ),
       ).toBeInTheDocument();
@@ -364,14 +362,14 @@ describe("source extraction panel queue and original read", () => {
         h.api.remoteSourceExtract.readOriginal.mockRejectedValue(new Error("offline"));
       else if (kind === "no-proposal") h.receipt.data.skill_run.proposal_id = "";
       else h.api.remoteSourceExtract.readOriginal.mockResolvedValue({ kind });
-      click("查询原 run");
+      click("查看上次结果");
       expect(
         await screen.findByText(
           kind === "NOT_FOUND"
-            ? /未找到原 run/
+            ? /未找到上次任务/
             : kind === "no-proposal"
               ? /尚无可核对的提案/
-              : /原 run 查询未知/,
+              : /上次任务查询未知/,
         ),
       ).toBeInTheDocument();
       expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
@@ -384,8 +382,8 @@ describe("source extraction panel queue and original read", () => {
       JSON.stringify({ ...operation, status: "UNKNOWN", runId: null }),
     );
     const h = setup();
-    click("查询原 run");
-    expect(await screen.findByText(/发现原 run，但排队绑定尚未核实/)).toBeInTheDocument();
+    click("查看上次结果");
+    expect(await screen.findByText(/发现上次任务，但排队绑定尚未核实/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "读取来源抽取提案" })).toBeDisabled();
     expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
   });
@@ -414,10 +412,10 @@ describe("source proposal and draft are independent receipts", () => {
     const h = setup(true);
     await readProposal();
     expect(screen.getByRole("button", { name: "人工接纳为草稿" })).toBeDisabled();
-    click("读取 SourceExtraction 最新状态");
-    await screen.findByText(/权威读回确认尚无/);
+    click("读取来源提取的最新状态");
+    await screen.findByText(/还没有来源提取草稿/);
     click("人工接纳为草稿");
-    await screen.findByText(/已精确读回与原提案/);
+    await screen.findByText(/已读回和原提案/);
     expect(h.api.proposalDecisions.acceptAsDraft).toHaveBeenCalledExactlyOnceWith(
       projectId,
       proposalId,
@@ -441,8 +439,8 @@ describe("source proposal and draft are independent receipts", () => {
           kind: fault === "V2" ? "FOUND_V2" : "NOT_FOUND",
           receipt: h.proposal,
         });
-      click("查询原 run");
-      await screen.findByText(/已按原操作读到 run 与提案 ID/);
+      click("查看上次结果");
+      await screen.findByText(/已按原操作读到上次任务/);
       click("读取来源抽取提案");
       expect(
         await screen.findByText(
@@ -470,13 +468,11 @@ describe("source proposal and draft are independent receipts", () => {
       if (fault === "revision") h.draft.data.head.revision = 0;
       h.api.getSourceExtraction.mockResolvedValue({ kind: "FOUND", receipt: h.draft });
       if (fault === "throw") h.api.getSourceExtraction.mockRejectedValue(new Error("offline"));
-      click("读取 SourceExtraction 最新状态");
-      await screen.findByText(
-        fault === "current" ? /已读取现有 SourceExtraction head/ : /SourceExtraction head 读取未知/,
-      );
+      click("读取来源提取的最新状态");
+      await screen.findByText(fault === "current" ? /已读到现有来源提取/ : /来源提取没有读全/);
       if (fault === "current") {
         click("人工接纳为草稿");
-        await screen.findByText(/已精确读回与原提案/);
+        await screen.findByText(/已读回和原提案/);
         expect(h.api.proposalDecisions.acceptAsDraft).toHaveBeenCalledWith(projectId, proposalId, {
           parent_version_id: draftId,
           expected_head_revision: 2,
@@ -497,8 +493,8 @@ describe("source proposal and draft are independent receipts", () => {
   ])("exact draft %s does not claim acceptance proof", async (fault) => {
     const h = setup(true);
     await readProposal();
-    click("读取 SourceExtraction 最新状态");
-    await screen.findByText(/权威读回确认尚无/);
+    click("读取来源提取的最新状态");
+    await screen.findByText(/还没有来源提取草稿/);
     if (fault === "project") h.draft.data.project_id = "wrong";
     if (fault === "version") h.draft.data.version.id = "wrong";
     if (fault === "proposal") h.draft.data.provenance.proposal_id = "wrong";
@@ -518,8 +514,8 @@ describe("source proposal and draft are independent receipts", () => {
     async (fault) => {
       const h = setup(true);
       await readProposal();
-      click("读取 SourceExtraction 最新状态");
-      await screen.findByText(/权威读回确认尚无/);
+      click("读取来源提取的最新状态");
+      await screen.findByText(/还没有来源提取草稿/);
       h.api.proposalDecisions.acceptAsDraft.mockResolvedValue(
         fault === "unknown"
           ? { kind: "REMOTE_UNKNOWN" }
@@ -527,7 +523,7 @@ describe("source proposal and draft are independent receipts", () => {
       );
       click("人工接纳为草稿");
       await screen.findByText(
-        fault === "unknown" ? /人工接纳结果未知或已有接纳记录/ : /人工接纳收到 409/,
+        fault === "unknown" ? /人工接纳结果未知或已有接纳记录/ : /人工接纳没有确认/,
       );
       expect(screen.getByRole("button", { name: "人工接纳为草稿" })).toBeDisabled();
       expect(h.api.getSourceExtractionVersion).not.toHaveBeenCalled();

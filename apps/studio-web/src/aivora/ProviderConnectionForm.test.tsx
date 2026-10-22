@@ -13,7 +13,7 @@ describe("provider connection form rendered boundary", () => {
     expect(screen.queryByRole("button", { name: /Sub2API/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^xAI/ }));
     fill("连接名称", "Grok API");
-    fill(/API Key/, "xai-sandbox-demo-key");
+    fill(/密钥/, "xai-sandbox-demo-key");
     fill("剧本 / 提示词", "grok-4.7");
     fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
     await waitFor(() =>
@@ -37,7 +37,7 @@ describe("provider connection form rendered boundary", () => {
         onSubmit={onSubmit}
       />,
     );
-    fill(/API Key/, "synthetic-test-key");
+    fill(/密钥/, "synthetic-test-key");
     fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
     expect(screen.getByText(/至少填写一个用于/)).toHaveAttribute("role", "alert");
     expect(screen.getByText("Synthetic server rejection")).toHaveAttribute("role", "alert");
@@ -48,7 +48,7 @@ describe("provider connection form rendered boundary", () => {
     const onSubmit = vi.fn(async () => {});
     render(<ProviderConnectionForm busy={false} error={null} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("button", { name: /^Ollama/ }));
-    expect(screen.getByLabelText(/API Key/)).not.toBeRequired();
+    expect(screen.getByLabelText("供应商密钥")).not.toBeRequired();
     fill("剧本 / 提示词", "local-model");
     fill("角色 / 场景图片", "local-model");
     fill("镜头视频", "video-model");

@@ -77,8 +77,8 @@ afterEach(() => {
 describe("service capability overview", () => {
   it("selects a verified official text default on the service page without generation", async () => {
     const bridge = open();
-    fireEvent.click(await screen.findByRole("button", { name: "API 连接（高级备用）" }));
-    expect(await screen.findByText("还没有 API 连接")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "密钥连接（高级备用）" }));
+    expect(await screen.findByText("还没有密钥连接")).toBeInTheDocument();
     expect(screen.queryByText("尚未配置 AI 服务")).not.toBeInTheDocument();
     vi.mocked(bridge.models).mockResolvedValue({
       kind: "OK",

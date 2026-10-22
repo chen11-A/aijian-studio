@@ -103,7 +103,7 @@ it("saves a frame note, plan, explicit approval and later candidate recheck thro
   expect(exports.cancel).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "按已批准计划编辑本集装配" }));
   expect(onAssembly).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "另行导出本集新装配 DRAFT" }));
+  fireEvent.click(screen.getByRole("button", { name: "另行导出本集新装配草稿" }));
   expect(onExport).toHaveBeenCalledOnce();
   const entry = lifecycle.getSaved().plans[0]!;
   fireEvent.change(screen.getByLabelText(`计划 ${entry.plan.plan_id} 候选草稿`), {
@@ -128,7 +128,7 @@ it("saves a frame note, plan, explicit approval and later candidate recheck thro
   await screen.findByText("人工复核记录：已人工核对");
   expect(lifecycle.getSaved().plans).toHaveLength(1);
   await waitFor(() =>
-    expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id),
+    expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id),
   );
   expect(exports.createFromPicker).not.toHaveBeenCalled();
   expect(notes.map((note) => note.text)).toContain("精确整数帧的新批注");

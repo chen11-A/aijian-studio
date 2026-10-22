@@ -252,7 +252,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
     <>
       {" "}
       <header>
-        <h2>{audioOnly ? "本集声音 · 本地录音 DRAFT" : "本集剪辑 · 本地媒体"}</h2>
+        <h2>{audioOnly ? "本集声音 · 本地录音 草稿" : "本集剪辑 · 本地媒体"}</h2>
         <p>真实导入素材的剪辑草稿，可保存、重新打开和继续修改。</p>
       </header>
       <div className="assembly-summary">
@@ -639,7 +639,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         onPreservationGuard={setReviewPreservation}
       />
       <p className="assembly-limit">
-        当前支持所选原素材独立预览。保存并核对版本后，可导出本地 DRAFT MP4
+        当前支持所选原素材独立预览。保存并核对版本后，可导出本地 草稿 MP4
         草稿；导出时会核验原件并检查支持的轨道。连续预览需基于已保存版本单独生成；正式审片尚未接通，草稿不代表正式发布批准。
       </p>
       {version && (

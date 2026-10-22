@@ -21,16 +21,13 @@ export function GrokConnectionCard() {
               : status?.state === "CONNECTED"
                 ? `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}。关闭软件再打开不用重新登录。`
                 : status?.state === "ENTITLEMENT_DENIED"
-                  ? `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}，但订阅档位返回了 403。`
+                  ? `已登录${status.accountLabel ? ` · ${status.accountLabel}` : ""}，但当前订阅还不能生成。`
                   : status?.state === "AWAITING_BROWSER"
                     ? "正在等待浏览器授权。同意后会自动回到这里。"
                     : status?.state === "REAUTH_REQUIRED"
                       ? "需要重新登录。"
                       : "尚未登录。"}
       </p>
-      {signedIn && connection && connection.models.length > 0 && (
-        <p>已准备 {connection.models.length} 个可选项，请在右侧模型里选择。</p>
-      )}
       {connection?.notice && (
         <p className="chatgpt-notice" role="status">
           {connection.notice}
@@ -62,7 +59,7 @@ export function GrokConnectionCard() {
         >
           退出 Grok 登录
         </Button>
-        <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
+        <Button onClick={() => useApiKeyFallback()}>改用密钥（高级备用）</Button>
       </div>
       <details className="connection-more">
         <summary>登录说明</summary>
@@ -71,8 +68,7 @@ export function GrokConnectionCard() {
           授权页，点同意后自动回到这里，并列出这个账号能用的模型。不用复制代码，也不用输入密码或密钥。登录本身不会发起推理。
         </p>
         <p>
-          部分普通 SuperGrok 可以登录成功，但推理会返回 403。出现这个结果时，点「改用 API
-          Key（高级备用）」，不要反复登录。
+          有的订阅可以登录，但还不能生成。出现这个结果时，点「改用密钥（高级备用）」，不要反复登录。
         </p>
       </details>
     </section>

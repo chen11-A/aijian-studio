@@ -37,6 +37,26 @@ export function registerStoryFilmHandlers<TEvent>(
     return createStoryFilmClient(fetcher, sessionFor()).plan(projectId);
   });
 
+  handle("story-film:progress", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 1) throw new Error("Unexpected story film arguments");
+    const projectId = args[0];
+    if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
+      throw new Error("Invalid story film project");
+    }
+    return createStoryFilmClient(fetcher, sessionFor()).progress(projectId);
+  });
+
+  handle("story-film:cancel", async (event, ...args) => {
+    if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
+    if (args.length !== 1) throw new Error("Unexpected story film arguments");
+    const projectId = args[0];
+    if (typeof projectId !== "string" || !projectIdPattern.test(projectId)) {
+      throw new Error("Invalid story film project");
+    }
+    return createStoryFilmClient(fetcher, sessionFor()).cancel(projectId);
+  });
+
   handle("story-film:create", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Story film IPC sender is not authorized");
     if (args.length !== 2) throw new Error("Unexpected story film arguments");

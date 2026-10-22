@@ -29,15 +29,47 @@
   color: #d5e6f5;
 }
 
+.demo-root .mode-switch {
+  z-index: 4;
+}
+
+.demo-root.production-workbench .v2-welcome {
+  height: auto;
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.demo-root.production-workbench .v2-welcome h2,
+.demo-root.production-workbench .v2-welcome-copy,
+.demo-root.production-workbench .v2-welcome-actions {
+  position: static;
+  width: auto;
+  margin: 0;
+  padding-right: 0;
+}
+
+.demo-root.production-workbench .v2-welcome-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.demo-root.production-workbench .v2-recent-heading {
+  margin-top: 20px;
+}
+
 .demo-root.production-workbench .service-indicator,
 .demo-root.production-workbench.no-stage.no-rail .service-indicator {
-  right: 360px;
+  right: 540px;
   width: auto;
-  max-width: 280px;
-  height: auto;
-  white-space: normal;
-  overflow: visible;
-  line-height: 18px;
+  max-width: 148px;
+  height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 32px;
+  z-index: 1;
 }
 
 .demo-root.production-workbench.no-rail,
@@ -119,4 +151,18 @@ button.nav-label {
 .mouse-select-face > span {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.demo-root .page-title {
+  height: auto;
+  min-height: 64px;
+}
+
+.demo-root .page-title h1,
+.demo-root .page-title p {
+  margin: 0;
+}
+
+.demo-root.production-workbench .page-scroll > :not(.page-title):not(.flow-footer) {
+  flex: 0 1 auto;
 }

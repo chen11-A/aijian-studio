@@ -126,7 +126,7 @@ def main() -> None:
         {
             "name": "aivora",
             "productName": "AIVORA",
-            "version": "0.2.1",
+            "version": "0.2.2",
             "description": "AIVORA",
             "author": "Aijian Studio contributors",
         }

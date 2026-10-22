@@ -170,7 +170,9 @@ export function StoryboardReferences({
         edit={edit}
       />
       {"visual_bible_pin" in content && content.visual_bible_pin && (
-        <p>G5固定了对应设定版本；改换设定请先显式解除G5引用，或核对并固定新的批准视觉版本。</p>
+        <p>
+          视觉版本固定了对应设定版本；改换设定请先显式解除视觉版本引用，或核对并固定新的批准视觉版本。
+        </p>
       )}
       {libraryPin && (
         <>

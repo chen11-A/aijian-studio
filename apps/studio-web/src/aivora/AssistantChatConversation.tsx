@@ -146,7 +146,7 @@ export function AssistantChatConversation({
         </div>
         {!chat.selectedModelReady && (
           <p role="status">
-            请选择已核验的官方文字模型并确认桌面连接。{" "}
+            请先确认文字模型已登录，再开始对话。{" "}
             <Button onClick={onOpenServices}>打开 AI 服务</Button>
           </p>
         )}

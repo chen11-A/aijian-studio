@@ -55,7 +55,7 @@ describe("first-launch Grok login", () => {
     const button = await screen.findByRole("button", { name: "用 Grok 账号登录" });
     fireEvent.click(button);
     expect(await screen.findByText(/已登录 · person@example.test/)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "可用模型" })).toHaveTextContent("Grok 4");
+    expect(screen.queryByRole("list", { name: "可用模型" })).not.toBeInTheDocument();
     expect(signIn).toHaveBeenCalledTimes(1);
   });
 
@@ -100,7 +100,7 @@ describe("first-launch Grok login", () => {
       </DemoProvider>,
     );
     expect(await screen.findByText(/关闭再打开不用重新登录/)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "可用模型" })).toHaveTextContent("Grok 4");
+    expect(screen.queryByRole("list", { name: "可用模型" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "用 Grok 账号登录" })).not.toBeInTheDocument();
   });
 
@@ -150,7 +150,7 @@ describe("first-launch Grok login", () => {
         <HomePages />
       </DemoProvider>,
     );
-    expect(await screen.findByText(/403/)).toBeInTheDocument();
+    expect(await screen.findByText(/还不能生成/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "用 Grok 账号登录" })).not.toBeInTheDocument();
   });
 

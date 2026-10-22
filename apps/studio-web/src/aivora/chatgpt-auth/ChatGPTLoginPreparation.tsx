@@ -73,7 +73,7 @@ export function ChatGPTLoginPreparation({
           {busy ? "等待官方网页返回…" : "在系统浏览器中授权"}
         </Button>
         <Button onClick={onCancel}>{busy ? "取消登录" : "返回"}</Button>
-        {onUseApi && !busy && <Button onClick={onUseApi}>跳过，使用 API</Button>}
+        {onUseApi && !busy && <Button onClick={onUseApi}>跳过，使用密钥</Button>}
       </div>
     </div>
   );

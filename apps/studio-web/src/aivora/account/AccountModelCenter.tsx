@@ -122,10 +122,7 @@ export function AccountModelCenter({
     };
     for (const model of grok?.models ?? []) {
       if (!capabilitiesForListedModel(model).includes(capability)) continue;
-      push(
-        choiceValue({ provider: "GROK_LOGIN", modelId: model.id }),
-        `${model.label} · Grok 账号`,
-      );
+      push(choiceValue({ provider: "GROK_LOGIN", modelId: model.id }), model.label);
     }
     if (session) {
       for (const model of DOCUMENTED_XAI_MODELS) {
@@ -183,14 +180,14 @@ export function AccountModelCenter({
           }
         : {
             reason: `还没有连接能提供${label}模型的账号。`,
-            action: "连接 API Key",
+            action: "连接密钥",
             run: () => useApiKeyFallback(),
           };
     }
     const grokReason = grokListingReason(capability, grok);
     return {
       reason: grokReason ?? `${names.join("、")}暂不提供${label}模型`,
-      action: "连接 API Key",
+      action: "连接密钥",
       run: () => useApiKeyFallback(),
     };
   }
@@ -229,7 +226,7 @@ export function AccountModelCenter({
       return;
     }
     if (!storage || !writeXaiSession(storage, opened.session)) {
-      setNotice("本机无法保存沙箱会话。完整密钥没有被写入。");
+      setNotice("本机无法保存试用会话。完整密钥没有被写入。");
       return;
     }
     setSession(opened.session);

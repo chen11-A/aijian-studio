@@ -155,6 +155,7 @@ function developmentSidecarOptions(): StartSidecarOptions {
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
       ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
         ? {
             AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
@@ -222,6 +223,7 @@ function packagedSidecarOptions(): StartSidecarOptions {
       AIJIAN_DATA_DIR: workspaceDirectory,
       AIJIAN_RESOURCE_ROOT: resourceRoot,
       ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       TEMP: extraction.directory,
       TMP: extraction.directory,
     },

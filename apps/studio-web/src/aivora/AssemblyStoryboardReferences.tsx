@@ -126,8 +126,9 @@ export function AssemblyStoryboardReferences({
                 )}
                 {visualPin && (
                   <p role="status">
-                    此来源固定G5视觉 {visualPin.version_id}：{visualAuthorityLabel(visualAuthority)}
-                    。历史剪辑保留；新保存和另行DRAFT导出会重新核对，失效时拒绝，不自动改绑。
+                    此来源固定视觉版本 {visualPin.version_id}：
+                    {visualAuthorityLabel(visualAuthority)}
+                    。历史剪辑保留；新保存和另行草稿导出会重新核对，失效时拒绝，不自动改绑。
                   </p>
                 )}
                 {sourceUnavailable && (

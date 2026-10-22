@@ -9,6 +9,7 @@ export type StoryFilmCreateInput = {
   subtitle?: string;
   provider: StoryFilmProvider;
   confirmed: boolean;
+  voice_id?: string;
 };
 
 const projectIdPattern = /^prj_[0-9a-f]{32}$/;
@@ -66,6 +67,19 @@ export function createStoryFilmClient(
         headers,
       }).then(read);
     },
+    progress(projectId: string) {
+      if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
+      return fetcher(`${origin}/api/v1/projects/${projectId}/story-film/progress`, {
+        headers,
+      }).then(read);
+    },
+    cancel(projectId: string) {
+      if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
+      return fetcher(`${origin}/api/v1/projects/${projectId}/story-film/cancel`, {
+        method: "POST",
+        headers,
+      }).then(read);
+    },
     create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
       const idempotencyKey = `story-film:v1:${newId()}`;
@@ -84,6 +98,7 @@ export function createStoryFilmClient(
           subtitle: input.subtitle ?? null,
           provider: input.provider,
           confirmed: input.confirmed,
+          ...(input.voice_id ? { voice_id: input.voice_id } : {}),
         }),
       }).then(read);
     },
@@ -93,7 +108,7 @@ export function createStoryFilmClient(
 export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   if (typeof value !== "object" || value === null) throw new Error("Invalid story film request");
   const body = value as Record<string, unknown>;
-  const allowed = ["scene_label", "narration", "subtitle", "provider", "confirmed"];
+  const allowed = ["scene_label", "narration", "subtitle", "provider", "confirmed", "voice_id"];
   if (Object.keys(body).some((key) => !allowed.includes(key))) {
     throw new Error("Invalid story film request");
   }
@@ -116,6 +131,10 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     throw new Error("Invalid story film request");
   }
   if (typeof body.confirmed !== "boolean") throw new Error("Invalid story film request");
+  const voice = body.voice_id;
+  if (voice !== undefined && (typeof voice !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(voice))) {
+    throw new Error("Invalid story film request");
+  }
   return {
     scene_label: scene.trim(),
     narration: narration.trim(),
@@ -124,5 +143,6 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
       : {}),
     provider: provider as StoryFilmProvider,
     confirmed: body.confirmed,
+    ...(typeof voice === "string" ? { voice_id: voice } : {}),
   };
 }

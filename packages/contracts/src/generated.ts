@@ -1930,6 +1930,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/story-film/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Film */
+        post: operations["cancelStoryFilm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/story-film/plan": {
         parameters: {
             query?: never;
@@ -1939,6 +1956,23 @@ export interface paths {
         };
         /** Get Plan */
         get: operations["getStoryFilmPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-film/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Progress */
+        get: operations["getStoryFilmProgress"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9981,6 +10015,23 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** StoryFilmCancelData */
+        StoryFilmCancelData: {
+            /**
+             * Cancel Requested
+             * @default true
+             */
+            cancel_requested: boolean;
+        };
+        /** StoryFilmCancelResponse */
+        StoryFilmCancelResponse: {
+            data: components["schemas"]["StoryFilmCancelData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** StoryFilmData */
         StoryFilmData: {
             /** Artifact Version Id */
@@ -10047,6 +10098,31 @@ export interface components {
         /** StoryFilmPlanResponse */
         StoryFilmPlanResponse: {
             data: components["schemas"]["StoryFilmPlanData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryFilmProgressData */
+        StoryFilmProgressData: {
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Image Saved */
+            image_saved: boolean;
+            /** Label */
+            label: string;
+            /** Message */
+            message: string;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "idle" | "image" | "video" | "speech" | "assemble" | "done" | "failed";
+        };
+        /** StoryFilmProgressResponse */
+        StoryFilmProgressResponse: {
+            data: components["schemas"]["StoryFilmProgressData"];
             /**
              * Request Id
              * Format: uuid
@@ -19620,6 +19696,55 @@ export interface operations {
             };
         };
     };
+    cancelStoryFilm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmCancelResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getStoryFilmPlan: {
         parameters: {
             query?: never;
@@ -19638,6 +19763,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StoryFilmPlanResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryFilmProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmProgressResponse"];
                 };
             };
             /** @description Sidecar authentication required */

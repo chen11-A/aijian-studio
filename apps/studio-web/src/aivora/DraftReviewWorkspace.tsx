@@ -40,7 +40,7 @@ function SelectedWorkspace(props: Props) {
   return (
     <section
       className="v2-media-card episode-assembly draft-export"
-      aria-label="DRAFT 审片与人工修改工作区"
+      aria-label="审片与人工修改工作区"
     >
       <header>
         <span className="draft-export-badge">手工审片与修改</span>
@@ -49,26 +49,24 @@ function SelectedWorkspace(props: Props) {
           批注、计划与批准固定到精确分集、装配和文件。批准不会调用模型、修改装配、编码、发布或产生费用。
         </p>
       </header>
-      <p>
-        当前作品：{projectId} · 当前分集：{episodeId}
-      </p>
+      <p>当前作品的这一集</p>
       <label>
-        审片原版 DRAFT
+        审片原版草稿
         <Select
-          aria-label="审片原版 DRAFT"
+          aria-label="审片原版草稿"
           value={state.operation}
           disabled={state.busy || !exports}
           onChange={(event) => choose(event.currentTarget.value)}
         >
           <option value="">明确选择此分集原版</option>
-          {state.jobs.map((item) => (
+          {state.jobs.map((item, index) => (
             <option key={item.operation_id} value={item.operation_id}>
-              {item.output_filename} · {item.operation_id}
-              {item.error_code === "OUTPUT_CHANGED" ? " · 文件失效，仅历史记录" : ""}
+              第 {index + 1} 个草稿视频
+              {item.error_code === "OUTPUT_CHANGED" ? " · 文件已失效，仅历史记录" : ""}
             </option>
           ))}
           {state.operation && !state.jobs.some((item) => item.operation_id === state.operation) && (
-            <option value={state.operation}>已保留的原版：{state.operation}</option>
+            <option value={state.operation}>已保留的原版</option>
           )}
         </Select>
       </label>
@@ -106,18 +104,15 @@ function SelectedWorkspace(props: Props) {
       {state.storageNotice && <p role="alert">{state.storageNotice}</p>}
       {!state.busy && !state.operation && (
         <p>
-          先选择已校验
-          DRAFT，再记录整数帧批注；在修改页保存计划并显式批准，之后手工修改、另存和另行导出候选。
+          先选择已校验的草稿，再记录整数帧批注；在修改页保存计划并显式批准，之后手工修改、另存和另行导出候选。
         </p>
       )}
       {job && (
         <article
           key={`${job.operation_id}:${job.assembly_version_id}:${job.assembly_content_hash}:${job.output_sha256}:${job.output_bytes}`}
         >
-          <h3>{job.output_filename}</h3>
-          <p>
-            原版导出：{job.operation_id} · 装配：{job.assembly_version_id}
-          </p>
+          <h3>当前草稿</h3>
+          <p>这一版已经固定到当前作品和当前分集。</p>
           {job.status === "SUCCEEDED" ? (
             <DraftExportOutput
               projectId={projectId}
@@ -141,7 +136,7 @@ function SelectedWorkspace(props: Props) {
               onExport={props.onExport}
             />
           ) : (
-            <p role="alert">此任务尚无可用的已校验 DRAFT。状态：{job.status}，请在导出页核对。</p>
+            <p role="alert">这一版还不能审片。请到导出页核对后再试。</p>
           )}
         </article>
       )}

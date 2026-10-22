@@ -921,7 +921,20 @@ export interface AijianDesktopBridge
       subtitle?: string;
       provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
       confirmed: boolean;
+      voice_id?: string;
     },
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  getStoryFilmProgress?(projectId: string): Promise<{
+    data: {
+      stage?: string;
+      label?: string;
+      elapsed_seconds?: number;
+      message?: string;
+    };
+    request_id: string;
+  }>;
+  cancelStoryFilm?(
+    projectId: string,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getProject(projectId: string): Promise<ProjectResponse>;
   getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];

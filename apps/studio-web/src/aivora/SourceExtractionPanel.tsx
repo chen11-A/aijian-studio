@@ -241,12 +241,12 @@ export function SourceExtractionPanel({
           ? "已按 grok_login 入队。当前派发端点只接受 CPA 回环，不会调用 xAI，也不会借用 ChatGPT 回环。"
           : "服务端已创建待授权任务；尚未授权派发，也未调用供应商。"
         : result.kind === "REJECTED"
-          ? `服务端明确拒绝入队：${result.operation.rejection?.status} / ${result.operation.rejection?.code}。保留原操作记录；不能重复 POST。`
+          ? "服务端拒绝了这次提交。原操作仍保留，不能重复提交。"
           : result.kind === "TRACKED"
-            ? "已有原操作，未重复 POST；请读取原操作。"
+            ? "已有原操作，没有重复提交。请读取原操作。"
             : result.kind === "UNAVAILABLE"
               ? result.message
-              : "排队结果未知；原操作已锁定，只可查询，不能重新 POST。",
+              : "排队结果未知；原操作已锁定，只可查询，不能重新提交。",
     );
   }
 
@@ -329,13 +329,13 @@ export function SourceExtractionPanel({
     setNotice(
       result.kind === "FOUND_RUN"
         ? operation.status === "UNKNOWN"
-          ? "发现原 run，但排队绑定尚未核实；结果仍未知，不能重新 POST。"
+          ? "发现上次任务，但排队绑定尚未核实；结果仍未知，不能重新提交。"
           : result.proposalId
-            ? "已按原操作读到 run 与提案 ID；请单独读取提案核对内容。"
-            : "已按原操作读到 run；尚无可核对的提案。"
+            ? "已按原操作读到上次任务；请单独读取提案核对内容。"
+            : "已按原操作读到上次任务；尚无可核对的提案。"
         : result.kind === "NOT_FOUND"
-          ? "未找到原 run；原操作状态不变，不能重新 POST。"
-          : "原 run 查询未知；保留原操作状态，不能重新 POST。",
+          ? "未找到上次任务；原操作状态不变，不能重新提交。"
+          : "上次任务查询未知；保留原操作状态，不能重新提交。",
     );
   }
 
@@ -449,7 +449,7 @@ export function SourceExtractionPanel({
     setBusy(false);
     if (result.kind === "NOT_FOUND") {
       setLatest({ kind: "absent" });
-      setNotice("权威读回确认尚无 SourceExtraction 草稿；人工接纳将使用空 head 前置条件。");
+      setNotice("还没有来源提取草稿。人工接纳会从空白开始。");
     } else if (
       result.kind === "FOUND" &&
       result.receipt.data.project_id === requested &&
@@ -459,10 +459,10 @@ export function SourceExtractionPanel({
       result.receipt.data.head.revision > 0
     ) {
       setLatest({ kind: "found", response: result.receipt });
-      setNotice("已读取现有 SourceExtraction head；人工接纳将带准确版本与修订前置条件。");
+      setNotice("已读到现有来源提取。人工接纳会带上当前版本。");
     } else {
       setLatest({ kind: "error" });
-      setNotice("SourceExtraction head 读取未知或不一致；已阻止人工接纳。");
+      setNotice("来源提取没有读全，已阻止人工接纳。");
     }
   }
 
@@ -481,7 +481,7 @@ export function SourceExtractionPanel({
     setBusy(false);
     if (result.kind === "FOUND" && matchingDraft(result.receipt, requested, versionId)) {
       setDraft(result.receipt);
-      setNotice("已精确读回与原提案、来源证据一致的 SourceExtraction 草稿版本。");
+      setNotice("已读回和原提案、来源一致的草稿。");
     } else {
       setDraft(null);
       setNotice("草稿精确读回失败或身份不符；接纳回执与草稿展示保持分离。");
@@ -528,7 +528,7 @@ export function SourceExtractionPanel({
         result.kind === "UNAVAILABLE"
           ? result.message
           : result.kind === "UNKNOWN" && result.serverError
-            ? `人工接纳收到 ${result.serverError.status} / ${result.serverError.code}；保留锁，请刷新最新草稿核对，不能重复 POST。`
+            ? "人工接纳没有确认。请刷新最新草稿核对，不能重复提交。"
             : "人工接纳结果未知或已有接纳记录；保留锁，不能重复提交。请只读核对。",
       );
     }
@@ -538,23 +538,17 @@ export function SourceExtractionPanel({
   return (
     <section className="v2-media-card" aria-label="真实远程来源抽取">
       <h2>真实远程来源抽取 · 首批文本</h2>
-      <p>
-        服务端入队只创建任务，不会调用模型。队列里的 grok_login 会在 HTTP
-        前关闭，因为服务端没有登录令牌，也不会向 xAI 发请求。桌面应用先把每次 Grok 或 ChatGPT
-        登录派发写入计费记录（订阅类不进货币预算门），再用本机令牌生成。令牌不会进入页面或数据库。
-      </p>
+      <p>用已登录的 Grok 账号写这一段。登录信息只留在这台电脑上，不会出现在页面里。</p>
       {!projectId ? (
         <p role="status">请先选择真实项目。</p>
       ) : !acceptedCurrent || !document ? (
         <p role="status">当前来源没有可用的已接受清单与选中文档，已阻止入队。</p>
       ) : (
-        <p>
-          已接受来源版本：<code>{accepted?.id}</code> · 可选 {document.blocks.length} 个块
-        </p>
+        <p>已接受来源，可选 {document.blocks.length} 个块。</p>
       )}
       {connections.kind === "error" && <p role="alert">连接目录读取失败；不能入队。</p>}
       {connections.kind === "ready" && eligible.length === 0 && (
-        <p role="status">没有可用的 TEXT 连接；请先在 AI 服务页配置并核对。</p>
+        <p role="status">没有可用的文本连接；请先在 AI 服务页配置并核对。</p>
       )}
       {(journal.kind === "BLOCKED" || sub2Journal.kind === "BLOCKED") && (
         <p role="alert">本地原操作记录无法安全读取，已阻止再次提交。</p>
@@ -564,36 +558,20 @@ export function SourceExtractionPanel({
       )}
       {operation && (
         <div>
-          <p>
-            原操作 ID：<code>{operation.operationId}</code>
-          </p>
-          <p>
-            原来源：<code>{operation.manifestVersionId}</code> /{" "}
-            <code>{operation.sourceBlockId}</code>
-          </p>
+          <p>已记下一次来源操作，保留在这台电脑上。</p>
           <p role="status">
             {operation.status === "UNKNOWN"
-              ? "排队结果未知：保留本地锁，只允许读取原 run，不允许重新 POST。"
+              ? "排队结果未知：保留本地锁，只允许读取上次任务，不允许重新提交。"
               : operation.status === "REJECTED"
-                ? "服务端明确拒绝了入队；保留原操作，不能自动或手动重复 POST。"
+                ? "服务端明确拒绝了入队；保留原操作，不能自动或手动重复提交。"
                 : "仅有入队回执：尚未授权派发或证明供应商调用。"}
           </p>
-          {operation.rejection && (
-            <p>
-              拒绝记录：{operation.rejection.status} / {operation.rejection.code} · 请求 ID{" "}
-              <code>{operation.rejection.requestId}</code>
-            </p>
-          )}
+          {operation.rejection && <p>这次提交被拒绝，原操作仍保留。</p>}
           {!sourceStillCurrent && <p role="status">原来源已不是当前已接受版本；保留原操作记录。</p>}
           {originalRead === "FOUND_RUN" && operation.status === "UNKNOWN" && (
-            <p>发现原 run，绑定待核；原操作仍为 UNKNOWN。</p>
+            <p>发现上次任务，绑定待核；原操作仍未确认。</p>
           )}
-          {operation.runId && (
-            <p>
-              原 run ID：
-              <code>{operation.runId}</code>
-            </p>
-          )}
+          {operation.runId && <p>上次任务已经记下。</p>}
         </div>
       )}
       <div className="v2-export-actions">
@@ -631,7 +609,7 @@ export function SourceExtractionPanel({
           </Select>
         </label>
         <label>
-          TEXT 模型
+          文本模型
           <Select
             value={modelId}
             disabled={!!operation || busy || !selectedConnection}
@@ -655,7 +633,7 @@ export function SourceExtractionPanel({
           disabled={!operation || busy || !transport.remoteSourceExtract}
           onClick={() => void readOriginal()}
         >
-          查询原 run
+          查看上次结果
         </Button>
         <Button
           disabled={!proposalId || !operation || busy || operation.status !== "QUEUED"}
@@ -671,22 +649,20 @@ export function SourceExtractionPanel({
       )}
       {proposal && (
         <div>
-          <p>
-            提案 ID：<code>{proposal.data.proposal_id}</code> · 待人工核对
-          </p>
+          <p>提案已读回，待人工核对。</p>
           {proposal.data.proposal.schema_version === "2.0.0" && (
             <p>历史提案 · 费用 UNKNOWN，预估与实际金额均未提供。</p>
           )}
           {typeof summary === "string" && summary.length <= 10_000 && (
             <p>来源摘录摘要：{summary}</p>
           )}
-          <p>提案不等于已接纳的 SourceExtraction 草稿；须完成独立人工接纳及草稿读回。</p>
+          <p>提案还不是已接纳的草稿。需要单独确认，再读回草稿。</p>
           <div className="v2-export-actions">
             <Button
               disabled={busy || !transport.getSourceExtraction}
               onClick={() => void readLatest()}
             >
-              读取 SourceExtraction 最新状态
+              读取来源提取的最新状态
             </Button>
             <Button
               disabled={
@@ -724,17 +700,13 @@ export function SourceExtractionPanel({
             <p role="alert">本地接纳记录不可读取，已阻止再次接纳。</p>
           )}
           {acceptance.kind === "VALID" && acceptance.acceptance.status === "UNKNOWN" && (
-            <p role="alert">
-              人工接纳结果未知，原提案已锁定；查询最新草稿可核对，不能再发接纳 POST。
-            </p>
+            <p role="alert">人工接纳结果未知，原提案已锁定；可以核对最新草稿，不能再次提交。</p>
           )}
         </div>
       )}
       {draft && (
         <div>
-          <p>
-            已读回 SourceExtraction 草稿版本：<code>{draft.data.version.id}</code>
-          </p>
+          <p>已读回来源提取草稿。</p>
           <p>草稿摘要：{draft.data.version.content.summary}</p>
           <p>
             Head 状态：
@@ -745,8 +717,8 @@ export function SourceExtractionPanel({
         </div>
       )}
       {notice && <p role="status">{notice}</p>}
-      {notice.includes("403") && (
-        <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
+      {notice.includes("改用密钥") && (
+        <Button onClick={() => useApiKeyFallback()}>改用密钥（高级备用）</Button>
       )}
     </section>
   );

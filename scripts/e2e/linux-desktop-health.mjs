@@ -49,7 +49,7 @@ try {
     userData: app.getPath("userData"),
   }));
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.2.1");
+  assert.equal(identity.version, "0.2.2");
   assert.equal(identity.userData, join(configHome, "AIVORA"));
   const backend = readFileSync(
     join(identity.userData, "grok-official/storage-backend.txt"),
