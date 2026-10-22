@@ -81,7 +81,7 @@ describe("capability preparation view", () => {
     (kind) => {
       render(<ServiceCapabilities {...props({ kind })} />);
       expect(
-        screen.getByText(kind === "loading" ? /API 连接目录读取中/ : /API 连接目录读取失败/),
+        screen.getByText(kind === "loading" ? /目录读取中/ : /目录读取失败/),
       ).toBeInTheDocument();
       if (kind === "loading")
         expect(screen.getByRole("button", { name: "检查自动出片准备" })).toBeDisabled();

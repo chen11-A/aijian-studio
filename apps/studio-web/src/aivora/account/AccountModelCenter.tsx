@@ -5,7 +5,7 @@ import { useOfficialConnection } from "../chatgpt-auth/ChatGPTConnectionContext"
 import { useGrokAccount } from "../grok-auth/GrokConnectionContext";
 import { connectedAccountSlots } from "./account-connections";
 import { useModelCenter } from "./CurrentModelLink";
-import { openAivoraPage, useApiKeyFallback } from "./navigation";
+import { openAivoraPage } from "./navigation";
 import {
   choiceValue,
   parseChoiceValue,
@@ -46,13 +46,11 @@ export function AccountModelCenter({
   saving = false,
   onSaveXaiKey,
   onOpenChatGpt,
-  onOpenGrok,
 }: {
   connections?: readonly ProviderConnectionData[];
   saving?: boolean;
   onSaveXaiKey?: (input: CreateProviderConnectionInput) => Promise<void>;
   onOpenChatGpt?: () => void;
-  onOpenGrok?: () => void;
 }) {
   const official = useOfficialConnection();
   const grok = useGrokAccount();
@@ -252,22 +250,6 @@ export function AccountModelCenter({
           <p role="alert">官方模型偏好没有可靠读出。请重新读取 ChatGPT 账号后再选文本模型。</p>
         )}
       </section>
-      <section className="v2-utility-card" aria-label="用 Grok 账号登录">
-        <h2>用 Grok 账号登录</h2>
-        <p>登录在左侧完成。网页预览不能代替桌面应用打开授权页。</p>
-        {grok?.status.state === "ENTITLEMENT_DENIED" && (
-          <p role="alert">
-            已经用 Grok 账号登录，但推理返回 403。部分普通 SuperGrok 会这样。点下面的按钮填写 API
-            Key，不要反复登录。
-          </p>
-        )}
-        {grok?.status.state === "ENTITLEMENT_DENIED" && (
-          <Button onClick={() => useApiKeyFallback()}>改用 API Key（高级备用）</Button>
-        )}
-        <div className="account-actions">
-          {onOpenGrok && <Button onClick={onOpenGrok}>打开 Grok 登录</Button>}
-        </div>
-      </section>
 
       <details className="account-advanced">
         <summary>控制台密钥（高级备用）</summary>
@@ -308,7 +290,7 @@ export function AccountModelCenter({
 
       <section className="v2-utility-card" aria-label="已连接账号">
         <h2>已连接账号</h2>
-        <p>这里只显示 ChatGPT 与 Grok 的连接、可用模型和额度状态。没有 AIVORA 自己的套餐可购买。</p>
+        <p>只显示 ChatGPT 和 Grok 的连接、模型和额度。没有可购买的套餐。</p>
         <div className="account-pair">
           {accounts.map((account) => (
             <article key={account.provider} aria-label={`${account.title} 账号`}>

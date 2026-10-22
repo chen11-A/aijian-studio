@@ -13,6 +13,19 @@
   padding: 12px 14px;
   font-weight: 650;
 }
+.connection-more {
+  margin: 8px 13px 0;
+  color: #a8c0d5;
+  font-size: 13px;
+  line-height: 20px;
+}
+.connection-more summary {
+  cursor: pointer;
+  color: #d5e6f5;
+}
+.connection-more p {
+  margin: 8px 0 0;
+}
 .account-advanced > .v2-utility-card {
   border: 0;
   background: transparent;

@@ -906,9 +906,11 @@ body,
   background: #102c47;
 }
 .demo-root .user-menu > summary {
-  width: 112px;
-  gap: 12px;
+  width: auto;
+  max-width: 140px;
+  gap: 8px;
   position: relative;
+  white-space: nowrap;
 }
 .demo-root .user-avatar {
   border: 0;
@@ -934,7 +936,8 @@ body,
 .demo-root .user-menu > summary > span {
   position: relative;
   z-index: 1;
-  left: 2px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .demo-root .demo-controls > summary {
   width: 126px;

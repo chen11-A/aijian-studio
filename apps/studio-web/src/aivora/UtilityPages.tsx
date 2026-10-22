@@ -43,7 +43,7 @@ function MediaEnabledSettings() {
   return (
     <>
       <div className="assembly-actions">
-        <Button onClick={() => setOpen(true)}>本地媒体工具 · DRAFT</Button>
+        <Button onClick={() => setOpen(true)}>本地媒体工具</Button>
       </div>
       <SettingsPage />
       <dialog
@@ -147,6 +147,8 @@ function ServicesContent() {
     const openKey = () => {
       useApi();
       requestAnimationFrame(() => {
+        const advanced = document.querySelector("details.account-advanced");
+        if (advanced instanceof HTMLDetailsElement) advanced.open = true;
         const field = document.getElementById("xai-api-key");
         field?.scrollIntoView({ block: "center" });
         field?.focus();
@@ -329,7 +331,6 @@ function ServicesContent() {
             connections={state.kind === "ready" ? state.response.data : []}
             saving={settings.saving}
             onOpenChatGpt={d.isFixture ? undefined : () => setServiceTab("chatgpt")}
-            onOpenGrok={d.isFixture ? undefined : useGrok}
             onSaveXaiKey={
               d.isFixture
                 ? undefined

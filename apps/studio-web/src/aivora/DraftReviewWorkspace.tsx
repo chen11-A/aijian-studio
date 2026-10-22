@@ -42,7 +42,7 @@ function SelectedWorkspace(props: Props) {
       aria-label="DRAFT 审片与人工修改工作区"
     >
       <header>
-        <span className="draft-export-badge">DRAFT · 手工审片与修改</span>
+        <span className="draft-export-badge">手工审片与修改</span>
         <h2>{view === "changes" ? "人工修改计划与候选复核" : "选择原版草稿并审片"}</h2>
         <p>
           批注、计划与批准固定到精确分集、装配和文件。批准不会调用模型、修改装配、编码、发布或产生费用。

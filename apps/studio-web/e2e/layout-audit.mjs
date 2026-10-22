@@ -8,8 +8,10 @@
  * The script fails when a control is covered, clipped with no scroll, or its
  * own text is cut off. It also fails when the window, the app shell, or a
  * page panel scrolls, when scrollbars nest, or when a primary action sits
- * below the fold. A list, ledger, or transcript may scroll inside its own
- * panel; that scroll is recorded and is not a failure by itself.
+ * below the fold. Sibling cards that overlap, and form controls clipped
+ * inside a fixed-height card, fail even when that card can scroll. A list,
+ * ledger, or transcript may scroll inside its own panel; that scroll is
+ * recorded and is not a failure by itself.
  * Run against `pnpm --filter @aijian/studio-web dev`.
  */
 import { mkdir, writeFile } from "node:fs/promises";
@@ -27,7 +29,10 @@ const viewports = [
   { name: "1280x720-win150", width: 1280, height: 720, deviceScaleFactor: 1.5 },
   { name: "1093x614-1366-win125", width: 1093, height: 614, deviceScaleFactor: 1.25 },
   { name: "911x512-1366-win150", width: 911, height: 512, deviceScaleFactor: 1.5 },
-];
+].filter((viewport) => {
+  const wanted = process.env.AIVORA_AUDIT_VIEWPORTS;
+  return !wanted || wanted.split(",").includes(viewport.name);
+});
 
 const pages = [
   "launch",
@@ -276,6 +281,103 @@ function layoutProbe() {
       });
     }
   }
+  const allowedClip = [
+    ".v2-recent-list",
+    ".v2-project-rows",
+    ".assistant-chat-scroll",
+    ".assistant-chat-messages",
+    ".v2-cost-rows",
+    ".project-cost-ledger",
+    ".provider-form-body",
+    ".sandbox-body",
+    ".v2-profile-content",
+    ".v2-settings-categories",
+    ".left-nav",
+    "[data-scroll-region]",
+    "section[aria-label='已连接账号']",
+  ].join(",");
+
+  function cardClip(element) {
+    if (element.closest(allowedClip)) return null;
+    const rect = element.getBoundingClientRect();
+    let parent = element.parentElement;
+    while (parent && parent !== document.documentElement) {
+      const style = getComputedStyle(parent);
+      const oy = style.overflowY;
+      const clips = oy === "hidden" || oy === "clip" || oy === "auto" || oy === "scroll";
+      if (clips) {
+        const frame = parent.getBoundingClientRect();
+        const outside =
+          rect.top < frame.top - 1 ||
+          rect.bottom > frame.bottom + 1 ||
+          rect.left < frame.left - 1 ||
+          rect.right > frame.right + 1;
+        if (outside && frame.width > 2 && frame.height > 2) {
+          return (
+            parent.getAttribute("aria-label") ||
+            (typeof parent.className === "string" ? parent.className : parent.tagName)
+          ).slice(0, 80);
+        }
+      }
+      parent = parent.parentElement;
+    }
+    return null;
+  }
+
+  for (const element of nodes) {
+    if (!(element instanceof HTMLElement) || !visible(element)) continue;
+    const formControl = ["SELECT", "INPUT", "TEXTAREA"].includes(element.tagName);
+    const primary =
+      element.tagName === "BUTTON" &&
+      (element.classList.contains("primary") || element.classList.contains("provider-save"));
+    if (!formControl && !primary) continue;
+    const clip = cardClip(element);
+    if (clip) issues.push({ kind: "card-clip", text: labelOf(element), by: clip });
+  }
+
+  const cards = [...document.querySelectorAll(".v2-utility-card, details.account-advanced")].filter(
+    (element) => element instanceof HTMLElement && visible(element),
+  );
+  for (const card of cards) {
+    if (!(card instanceof HTMLElement)) continue;
+    const rect = card.getBoundingClientRect();
+    let parent = card.parentElement;
+    while (parent && parent !== document.documentElement) {
+      const style = getComputedStyle(parent);
+      const frame = parent.getBoundingClientRect();
+      const outside = rect.top < frame.top - 8 || rect.bottom > frame.bottom + 8;
+      if (outside && frame.height > 2) {
+        const oy = style.overflowY;
+        const canScroll =
+          (oy === "auto" || oy === "scroll") && parent.scrollHeight > parent.clientHeight + 2;
+        if (canScroll) break;
+        if (oy === "hidden" || oy === "clip") {
+          const name =
+            parent.getAttribute("aria-label") ||
+            (typeof parent.className === "string" ? parent.className : parent.tagName);
+          issues.push({ kind: "card-clip", text: labelOf(card), by: name.slice(0, 80) });
+          break;
+        }
+      }
+      parent = parent.parentElement;
+    }
+  }
+  for (let i = 0; i < cards.length; i += 1) {
+    for (let j = i + 1; j < cards.length; j += 1) {
+      const a = cards[i];
+      const b = cards[j];
+      if (!(a instanceof HTMLElement) || !(b instanceof HTMLElement)) continue;
+      if (a.contains(b) || b.contains(a)) continue;
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      const width = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+      const height = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      if (width > 8 && height > 8) {
+        issues.push({ kind: "card-overlap", text: labelOf(a), by: labelOf(b) });
+      }
+    }
+  }
+
   for (const el of document.querySelectorAll("button, .provider-save")) {
     if (!(el instanceof HTMLElement) || !visible(el)) continue;
     const text = (el.getAttribute("aria-label") || el.innerText || "").replace(/\s+/g, " ").trim();
@@ -357,7 +459,9 @@ async function main() {
         await page.waitForTimeout(200);
       }
 
-      for (const id of pages) {
+      const pageFilter = process.env.AIVORA_AUDIT_PAGES?.split(",").filter(Boolean);
+      const pageIds = pageFilter ? pages.filter((id) => pageFilter.includes(id)) : pages;
+      for (const id of pageIds) {
         await page.goto(`${baseUrl}#${id}`, { waitUntil: "domcontentloaded" });
         await settle(page);
         await shot(page, path.join(dir, `${id}.jpg`));
@@ -369,79 +473,81 @@ async function main() {
         });
       }
 
-      await page.goto(`${baseUrl}#home`, { waitUntil: "domcontentloaded" });
-      await settle(page);
-      const notify = page.getByRole("button", { name: "通知" });
-      if (await notify.isVisible().catch(() => false)) {
-        await notify.click();
-        await page.waitForTimeout(200);
-        await shot(page, path.join(dir, "dialog-notify.jpg"));
-        report.push({
-          viewport: viewport.name,
-          screen: "dialog-notify",
-          ...(await audit(page)),
-          consoleErrors: [],
-        });
-        const close = page.getByRole("button", { name: "关闭对话框" });
-        if (await close.isVisible().catch(() => false)) await close.click();
-      }
+      if (!pageFilter) {
+        await page.goto(`${baseUrl}#home`, { waitUntil: "domcontentloaded" });
+        await settle(page);
+        const notify = page.getByRole("button", { name: "通知" });
+        if (await notify.isVisible().catch(() => false)) {
+          await notify.click();
+          await page.waitForTimeout(200);
+          await shot(page, path.join(dir, "dialog-notify.jpg"));
+          report.push({
+            viewport: viewport.name,
+            screen: "dialog-notify",
+            ...(await audit(page)),
+            consoleErrors: [],
+          });
+          const close = page.getByRole("button", { name: "关闭对话框" });
+          if (await close.isVisible().catch(() => false)) await close.click();
+        }
 
-      const menu = page.getByRole("group", { name: "用户菜单" }).locator("summary");
-      if (await menu.isVisible().catch(() => false)) {
-        await menu.click();
-        await page.waitForTimeout(150);
-        await shot(page, path.join(dir, "menu-user.jpg"));
-        report.push({
-          viewport: viewport.name,
-          screen: "menu-user",
-          ...(await audit(page)),
-          consoleErrors: [],
-        });
-        await page.keyboard.press("Escape");
-      }
+        const menu = page.getByRole("group", { name: "用户菜单" }).locator("summary");
+        if (await menu.isVisible().catch(() => false)) {
+          await menu.click();
+          await page.waitForTimeout(150);
+          await shot(page, path.join(dir, "menu-user.jpg"));
+          report.push({
+            viewport: viewport.name,
+            screen: "menu-user",
+            ...(await audit(page)),
+            consoleErrors: [],
+          });
+          await page.keyboard.press("Escape");
+        }
 
-      const assistant = page.getByRole("button", { name: "展开 AI 助手" });
-      if (await assistant.isVisible().catch(() => false)) {
-        await assistant.click();
-        await page.waitForTimeout(200);
-        await shot(page, path.join(dir, "drawer-assistant.jpg"));
-        report.push({
-          viewport: viewport.name,
-          screen: "drawer-assistant",
-          ...(await audit(page)),
-          consoleErrors: [],
-        });
-        const collapse = page.locator(".assistant-collapse");
-        if (await collapse.isVisible().catch(() => false)) await collapse.click();
-        else await page.keyboard.press("Escape");
-        await page.waitForTimeout(150);
-      }
+        const assistant = page.getByRole("button", { name: "展开 AI 助手" });
+        if (await assistant.isVisible().catch(() => false)) {
+          await assistant.click();
+          await page.waitForTimeout(200);
+          await shot(page, path.join(dir, "drawer-assistant.jpg"));
+          report.push({
+            viewport: viewport.name,
+            screen: "drawer-assistant",
+            ...(await audit(page)),
+            consoleErrors: [],
+          });
+          const collapse = page.locator(".assistant-collapse");
+          if (await collapse.isVisible().catch(() => false)) await collapse.click();
+          else await page.keyboard.press("Escape");
+          await page.waitForTimeout(150);
+        }
 
-      await page.goto(`${baseUrl}#services`, { waitUntil: "domcontentloaded" });
-      await settle(page);
-      const apiTab = page.getByRole("button", { name: "API 连接（高级备用）" });
-      const gptTab = page.getByRole("button", { name: "ChatGPT 官方账号" });
-      if (await apiTab.isVisible().catch(() => false)) {
-        await apiTab.click();
-        await page.waitForTimeout(150);
-        await shot(page, path.join(dir, "services-api.jpg"));
-        report.push({
-          viewport: viewport.name,
-          screen: "services-api",
-          ...(await audit(page)),
-          consoleErrors: [],
-        });
-      }
-      if (await gptTab.isVisible().catch(() => false)) {
-        await gptTab.click();
-        await page.waitForTimeout(150);
-        await shot(page, path.join(dir, "services-chatgpt.jpg"));
-        report.push({
-          viewport: viewport.name,
-          screen: "services-chatgpt",
-          ...(await audit(page)),
-          consoleErrors: [],
-        });
+        await page.goto(`${baseUrl}#services`, { waitUntil: "domcontentloaded" });
+        await settle(page);
+        const apiTab = page.getByRole("button", { name: "API 连接（高级备用）" });
+        const gptTab = page.getByRole("button", { name: "ChatGPT 官方账号" });
+        if (await apiTab.isVisible().catch(() => false)) {
+          await apiTab.click();
+          await page.waitForTimeout(150);
+          await shot(page, path.join(dir, "services-api.jpg"));
+          report.push({
+            viewport: viewport.name,
+            screen: "services-api",
+            ...(await audit(page)),
+            consoleErrors: [],
+          });
+        }
+        if (await gptTab.isVisible().catch(() => false)) {
+          await gptTab.click();
+          await page.waitForTimeout(150);
+          await shot(page, path.join(dir, "services-chatgpt.jpg"));
+          report.push({
+            viewport: viewport.name,
+            screen: "services-chatgpt",
+            ...(await audit(page)),
+            consoleErrors: [],
+          });
+        }
       }
 
       await context.close();

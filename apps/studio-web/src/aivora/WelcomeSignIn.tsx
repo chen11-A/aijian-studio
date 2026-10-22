@@ -25,10 +25,6 @@ export function WelcomeBrand() {
 export function GrokSignInButton({ disabled, onClick }: { disabled?: boolean; onClick(): void }) {
   return (
     <Button primary disabled={disabled} onClick={onClick}>
-      <span className="welcome-grok-mark" aria-hidden="true">
-        Grok
-        <small>xAI</small>
-      </span>
       用 Grok 账号登录
     </Button>
   );

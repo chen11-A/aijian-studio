@@ -102,28 +102,6 @@
   background: #ffffff10;
 }
 
-.welcome-grok-mark {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-right: 2px;
-  padding: 2px 7px 3px;
-  border-radius: 999px;
-  background: #141518;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
-}
-
-.welcome-grok-mark small {
-  color: #c8ccd4;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-}
-
 .welcome-links {
   display: flex;
   flex-wrap: wrap;
@@ -282,105 +260,6 @@
   min-height: 32px;
   padding: 4px 10px;
   font-size: 12px;
-}
-
-@media (prefers-color-scheme: light) {
-  .v2-launch {
-    color: #1c1d21;
-    color-scheme: light;
-    background:
-      radial-gradient(980px 560px at 50% -12%, #d5e2ff, transparent 62%),
-      radial-gradient(720px 480px at 100% 110%, #efe3ff, transparent 56%), #f5f6f8;
-  }
-
-  .welcome-sign-in .button.primary {
-    border-color: #16171a;
-    background: #16171a;
-    color: #fff;
-    box-shadow: 0 12px 28px #16171a24;
-  }
-
-  .welcome-sign-in .button.primary:hover:not(:disabled) {
-    background: #000;
-    border-color: #000;
-  }
-
-  .welcome-sign-in .button.primary .welcome-grok-mark {
-    background: #fff;
-    color: #16171a;
-  }
-
-  .welcome-sign-in .button.primary .welcome-grok-mark small {
-    color: #5e6570;
-  }
-
-  .welcome-sign-in .button:not(.primary) {
-    border-color: #d9dce3;
-    background: #fff;
-    color: #1c1d21;
-  }
-
-  .welcome-sign-in .button:not(.primary):hover:not(:disabled) {
-    border-color: #b7bdc8;
-    background: #fafafa;
-  }
-
-  .welcome-links button,
-  .welcome-fine,
-  .welcome-more {
-    color: #5e6572;
-  }
-
-  .welcome-links button:hover {
-    color: #1c1d21;
-  }
-
-  .welcome-status,
-  .welcome-models {
-    color: #1c1d21;
-  }
-
-  .welcome-status {
-    border-color: #e4e7ee;
-    background: #ffffffcc;
-  }
-
-  .welcome-status.is-waiting {
-    border-color: #c5d2f5;
-    background: #eef2ff;
-  }
-
-  .welcome-status.is-ok {
-    border-color: #b7e4cf;
-    background: #eefaf4;
-  }
-
-  .welcome-status.is-error {
-    border-color: #f0c2bc;
-    background: #fff4f2;
-    color: #6d2c26;
-  }
-
-  .welcome-status.is-denied {
-    border-color: #edd3a0;
-    background: #fff8ec;
-  }
-
-  .welcome-models li {
-    background: #eef0f4;
-  }
-
-  .first-run-service-choice {
-    color: #1c1d21;
-    color-scheme: light;
-    border-color: #e6e8ee;
-    background: radial-gradient(420px 180px at 50% -20%, #e4ebff, transparent 70%), #fff;
-    box-shadow: 0 24px 70px #1c1d2118;
-  }
-
-  .first-run-service-choice::backdrop {
-    background: #1c1d2140;
-  }
 }
 
 @media (max-height: 640px) {

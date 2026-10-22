@@ -31,7 +31,14 @@ export function ServiceCapabilities({
       <header>
         <div>
           <h2>账号与能力检查</h2>
-          <p>本地准备检查 · 不发送作品，不试生成，不消耗生成额度。</p>
+          <p>
+            <strong>ChatGPT：</strong>
+            <span>{readinessLabels[official]}</span>
+            <span> · 剩余额度：未知</span>
+            {providers.kind !== "ready" && (
+              <span>{providers.kind === "loading" ? " · 目录读取中" : " · 目录读取失败"}</span>
+            )}
+          </p>
         </div>
         <Button
           disabled={reading}
@@ -50,21 +57,9 @@ export function ServiceCapabilities({
         </Button>
         <Button onClick={onOpenProjects}>进入项目准备剧本或导入素材</Button>
       </div>
-      <p>
-        <strong>ChatGPT：</strong>
-        <span>{readinessLabels[official]}</span>
-      </p>
-      <p>剩余额度：未知。登录和模型目录尚未验证真实推理。</p>
-      {providers.kind !== "ready" && (
-        <p>
-          {providers.kind === "loading"
-            ? "API 连接目录读取中，尚不能确认全部配置。"
-            : "API 连接目录读取失败，不能按没有账号处理。请重新读取。"}
-        </p>
-      )}
-      <p>文本：{rows[0].label}。图片、视频和配音自动生成尚未接入。</p>
       <details>
-        <summary>查看能力详情与接入边界</summary>
+        <summary>更多说明</summary>
+        <p>文本：{rows[0].label}。图片、视频和配音自动生成尚未接入。</p>
         <dl className="service-capability-grid">
           {rows.map((row) => (
             <div key={row.capability}>
@@ -82,9 +77,6 @@ export function ServiceCapabilities({
             </div>
           ))}
         </dl>
-      </details>
-      <details>
-        <summary>查看账号、费用与兼容说明</summary>
         {providers.kind === "ready" && providers.response.data.length > 0 && (
           <ul aria-label="各连接本地状态">
             {providers.response.data.map((connection) => (
@@ -97,6 +89,7 @@ export function ServiceCapabilities({
             ))}
           </ul>
         )}
+        <p>本地准备检查 · 不发送作品，不试生成，不消耗生成额度。登录和模型目录尚未验证真实推理。</p>
         <p>
           可以用 Grok 订阅账号登录，和 ChatGPT 官方账号并列。授权在 auth.x.ai，模型来自 api.x.ai
           的目录。登录成功不等于每个档位都能推理：若返回 403，请改用 API Key。API Key
