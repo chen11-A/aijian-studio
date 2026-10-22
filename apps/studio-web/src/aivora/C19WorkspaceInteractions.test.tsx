@@ -133,7 +133,7 @@ describe("C19 assistant real interaction boundaries", () => {
       target: { value: "核对这个镜头" },
     });
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "助手内容" })).getByRole("button", {
         name: "会话历史",
@@ -153,11 +153,11 @@ describe("C19 assistant real interaction boundaries", () => {
   });
   it("keeps tool navigation local and exposes the assistant collapse action", () => {
     openAssistant();
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     const nav = within(screen.getByRole("navigation", { name: "助手内容" }));
     fireEvent.click(nav.getByRole("button", { name: "切换到建议" }));
     expect(screen.getByRole("heading", { name: "围绕当前创作的建议" })).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "助手内容" })).getByRole("button", {
         name: "收起助手面板",
@@ -189,13 +189,13 @@ describe("C19 assistant real interaction boundaries", () => {
       task: { id: 7, name: "核对故事方向", status: "本地意图", page: "story" },
       professional: true,
     });
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     const nav = within(screen.getByRole("navigation", { name: "助手内容" }));
     fireEvent.click(nav.getByRole("button", { name: "切换到任务" }));
     await screen.findByText("核对故事方向");
     fireEvent.click(screen.getByRole("button", { name: /核对故事方向/ }));
     await waitFor(() => expect(assistantState().page).toBe("story"));
-    fireEvent.click(screen.getByLabelText("助手工具"));
+    fireEvent.click(screen.getByRole("group", { name: "助手工具" }).querySelector("summary")!);
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "助手内容" })).getByRole("button", {
         name: "收起助手面板",
