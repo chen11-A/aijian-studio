@@ -11,6 +11,7 @@ const PROJECT_ID = `prj_${"b".repeat(32)}`;
 afterEach(() => {
   cleanup();
   delete window.aijian;
+  delete window.aijianGrok;
   window.localStorage.clear();
 });
 
@@ -30,7 +31,7 @@ function Harness() {
   );
 }
 
-function connectedBridge(createStoryFilm: unknown) {
+function connectedBridge(createStoryFilm: unknown, extra: Record<string, unknown> = {}) {
   window.aijian = {
     health: vi.fn().mockResolvedValue({
       request_id: "health",
@@ -50,6 +51,7 @@ function connectedBridge(createStoryFilm: unknown) {
     }),
     listSources: vi.fn().mockResolvedValue({ request_id: "sources", data: [] }),
     createStoryFilm,
+    ...extra,
   } as unknown as Window["aijian"];
 }
 
@@ -210,5 +212,65 @@ describe("simple story-to-film navigation", () => {
     fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
     expect(await within(guide).findByRole("status")).toHaveTextContent("做好了");
     expect(screen.queryByText(/文件在本机/)).not.toBeInTheDocument();
+  });
+
+  it("lists subscription voices, shows progress, and stops waiting without switching provider", async () => {
+    const createStoryFilm = vi.fn(() => new Promise(() => undefined));
+    const cancelStoryFilm = vi.fn().mockResolvedValue({ data: { stopped: true } });
+    const getStoryFilmProgress = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("not ready"))
+      .mockResolvedValue({
+        data: {
+          stage: "speech",
+          label: "配音",
+          elapsed_seconds: 2,
+          image_saved: true,
+          message: "",
+        },
+      });
+    connectedBridge(createStoryFilm, { cancelStoryFilm, getStoryFilmProgress });
+    window.aijianGrok = {
+      models: vi.fn().mockResolvedValue({
+        kind: "OK",
+        models: [
+          { id: "grok-4.7", label: "Grok 4.7", outputModalities: ["text"] },
+          { id: "eve", label: "Eve", outputModalities: ["audio"] },
+          { id: "ara", label: "Ara", outputModalities: ["audio"] },
+        ],
+      }),
+    } as unknown as Window["aijianGrok"];
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.change(screen.getByLabelText("用什么生成"), {
+      target: { value: "grok_subscription" },
+    });
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: "Rex" })).not.toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText("配音"), { target: { value: "ara" } });
+    expect(screen.getByText("当前配音：Ara")).toBeInTheDocument();
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
+    expect(
+      await screen.findByRole("list", { name: "生成进度" }, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("配音 · 进行中", {}, { timeout: 3000 })).toBeInTheDocument();
+    fireEvent.click(within(guide).getByRole("button", { name: "取消" }));
+    expect(cancelStoryFilm).toHaveBeenCalledWith(PROJECT_ID);
+    expect(within(guide).getByRole("status")).toHaveTextContent("已停止等待。可以重试。");
+    expect(createStoryFilm).toHaveBeenCalledWith(
+      PROJECT_ID,
+      expect.objectContaining({ provider: "grok_subscription", voice_id: "ara" }),
+    );
   });
 });
