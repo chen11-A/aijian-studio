@@ -171,6 +171,49 @@ describe("account and model center", () => {
     await waitFor(() => expect(bridge.models).toHaveBeenCalled());
     delete window.aijianGrok;
   });
+
+  it("says the Grok login is not allowed to list image or video models", async () => {
+    const signedIn: GrokLoginStatus = {
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: "person@example.test",
+      lastError: null,
+    };
+    window.aijianGrok = {
+      status: vi.fn(async () => signedIn),
+      signIn: vi.fn(async () => ({ kind: "OK" as const, status: signedIn })),
+      cancel: vi.fn(async () => ({ kind: "CANCELLED" as const, status: signedIn })),
+      signOut: vi.fn(async () => ({ kind: "OK" as const, status: signedIn })),
+      models: vi.fn(async () => ({
+        kind: "OK" as const,
+        models: [{ id: "grok-4.7", label: "Grok 4.7" }],
+        notices: [
+          { capability: "IMAGE" as const, reason: "denied" as const, httpStatus: 403 },
+          { capability: "VIDEO" as const, reason: "denied" as const, httpStatus: 403 },
+          { capability: "SPEECH" as const, reason: "voices" as const, httpStatus: 200 },
+        ],
+      })),
+      completeText: vi.fn(async () => ({
+        kind: "ERROR" as const,
+        code: "TEXT_FAILED",
+        billingAccountKind: "grok_login" as const,
+      })),
+    } satisfies GrokLoginBridge;
+    render(
+      <GrokConnectionProvider>
+        <AccountModelCenter />
+      </GrokConnectionProvider>,
+    );
+    expect(await screen.findByRole("combobox", { name: "文本模型" })).toBeEnabled();
+    expect(screen.getByRole("option", { name: "Grok 4.7 · Grok 账号" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "图像模型" })).not.toBeInTheDocument();
+    expect(screen.getByText("当前 Grok 登录权限暂不支持图像生成")).toBeInTheDocument();
+    expect(screen.getByText("当前 Grok 登录权限暂不支持视频生成")).toBeInTheDocument();
+    expect(screen.getByText("当前 Grok 登录没有可选择的配音模型")).toBeInTheDocument();
+    expect(screen.queryByText(/暂不提供/)).not.toBeInTheDocument();
+  });
 });
 
 describe("completed sandbox surfaces", () => {

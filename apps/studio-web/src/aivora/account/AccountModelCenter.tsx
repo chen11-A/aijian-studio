@@ -34,6 +34,30 @@ const capabilities = [
   ["SPEECH", "配音"],
 ] as const;
 
+function grokListingReason(
+  capability: Capability,
+  grok: ReturnType<typeof useGrokAccount>,
+): string | null {
+  if (capability === "TEXT" || !grok) return null;
+  const state = grok.status.state;
+  if (state !== "CONNECTED" && state !== "ENTITLEMENT_DENIED") return null;
+  const notice = grok.notices.find((item) => item.capability === capability);
+  if (!notice) return null;
+  if (notice.reason === "denied") {
+    if (capability === "IMAGE") return "当前 Grok 登录权限暂不支持图像生成";
+    if (capability === "VIDEO") return "当前 Grok 登录权限暂不支持视频生成";
+    return "当前 Grok 登录权限暂不支持配音";
+  }
+  if (notice.reason === "none" || notice.reason === "voices") {
+    if (capability === "IMAGE") return "当前 Grok 登录没有返回图像模型";
+    if (capability === "VIDEO") return "当前 Grok 登录没有返回视频模型";
+    return "当前 Grok 登录没有可选择的配音模型";
+  }
+  if (capability === "IMAGE") return "图像模型目录暂时读不到";
+  if (capability === "VIDEO") return "视频模型目录暂时读不到";
+  return "配音目录暂时读不到";
+}
+
 function browserStorage(): Storage | null {
   try {
     return window.localStorage;
@@ -162,8 +186,9 @@ export function AccountModelCenter({
             run: () => useApiKeyFallback(),
           };
     }
+    const grokReason = grokListingReason(capability, grok);
     return {
-      reason: `${names.join("、")}暂不提供${label}模型`,
+      reason: grokReason ?? `${names.join("、")}暂不提供${label}模型`,
       action: "连接 API Key",
       run: () => useApiKeyFallback(),
     };

@@ -14,8 +14,15 @@ export type GrokLoginStatus = {
 export type GrokLoginModel = {
   id: string;
   label: string;
-  /** Present only when GET /v1/models included output modalities. */
+  /** Present when a listing response included output modalities, or when the model came from a media listing. */
   outputModalities?: string[];
+};
+
+/** Why a media listing did not add models. HTTP status is for the login log, not the screen. */
+export type GrokCatalogNotice = {
+  capability: "IMAGE" | "VIDEO" | "SPEECH";
+  reason: "denied" | "unavailable" | "none" | "voices";
+  httpStatus: number;
 };
 
 export type GrokLoginActionResult =
@@ -32,7 +39,10 @@ export type GrokLoginBridge = {
   signIn(): Promise<GrokLoginActionResult>;
   cancel(): Promise<GrokLoginActionResult>;
   signOut(): Promise<GrokLoginActionResult>;
-  models(): Promise<{ kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }>;
+  models(): Promise<
+    | { kind: "OK"; models: GrokLoginModel[]; notices?: GrokCatalogNotice[] }
+    | { kind: "ERROR"; code: string }
+  >;
   completeText(input: {
     model: string;
     text: string;

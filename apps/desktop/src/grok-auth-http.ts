@@ -1,4 +1,4 @@
-import type { GrokLoginModel } from "@aijian/contracts/grok-auth";
+import type { GrokCatalogNotice, GrokLoginModel } from "@aijian/contracts/grok-auth";
 import {
   GROK_API,
   GROK_CLIENT_ID,
@@ -164,22 +164,133 @@ export async function listGrokModels(
   accessToken: string,
   endpoints: GrokEndpoints = OFFICIAL_GROK_ENDPOINTS,
 ): Promise<GrokLoginModel[]> {
-  const response = await fetch(`${endpoints.api}/models`, {
+  const response = await fetch(`${endpoints.api}/models`, catalogHeaders(accessToken));
+  if (response.status === 403) throw new GrokAuthError("ENTITLEMENT_DENIED", { httpStatus: 403 });
+  if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED", { httpStatus: 401 });
+  if (!response.ok) throw new GrokAuthError("MODELS_FAILED", { httpStatus: response.status });
+  const value = await readJson(response);
+  const models = parseListedModels(value);
+  if (!models) throw new GrokAuthError("MODELS_FAILED");
+  return models;
+}
+
+export type GrokCatalogReport = {
+  capability: "IMAGE" | "VIDEO" | "SPEECH";
+  outcome: "ok" | "denied" | "missing" | "unavailable" | "empty" | "voices";
+  httpStatus: number;
+};
+
+const MEDIA_LISTS = [
+  { path: "image-generation-models", capability: "IMAGE", force: "image" },
+  { path: "video-generation-models", capability: "VIDEO", force: "video" },
+] as const;
+
+/**
+ * Language models come from GET /v1/models and GET /v1/language-models.
+ * Image and video models come from their own listing routes. TTS has no model
+ * list; GET /v1/tts/voices only tells us whether the login may use voices.
+ * This never calls a generation endpoint.
+ */
+export async function listGrokCatalog(
+  fetch: Fetch,
+  accessToken: string,
+  endpoints: GrokEndpoints = OFFICIAL_GROK_ENDPOINTS,
+): Promise<{
+  models: GrokLoginModel[];
+  notices: GrokCatalogNotice[];
+  reports: GrokCatalogReport[];
+}> {
+  const models = await listGrokModels(fetch, accessToken, endpoints);
+  const language = await readCatalog(fetch, `${endpoints.api}/language-models`, accessToken);
+  if (language.status === 200) mergeModels(models, parseListedModels(language.body) ?? []);
+  const notices: GrokCatalogNotice[] = [];
+  const reports: GrokCatalogReport[] = [];
+  for (const list of MEDIA_LISTS) {
+    const read = await readCatalog(fetch, `${endpoints.api}/${list.path}`, accessToken);
+    const parsed = read.status === 200 ? parseListedModels(read.body, list.force) : [];
+    const found = parsed ?? [];
+    if (parsed) mergeModels(models, found, true);
+    const outcome = parsed ? catalogOutcome(read.status, found.length) : "unavailable";
+    reports.push({ capability: list.capability, outcome, httpStatus: read.status });
+    const notice = noticeFor(list.capability, outcome, read.status);
+    if (notice) notices.push(notice);
+  }
+  const voices = await readCatalog(fetch, `${endpoints.api}/tts/voices`, accessToken);
+  const voiceOutcome = voices.status === 200 ? "voices" : catalogOutcome(voices.status, 0);
+  reports.push({ capability: "SPEECH", outcome: voiceOutcome, httpStatus: voices.status });
+  const speech = noticeFor("SPEECH", voiceOutcome, voices.status);
+  if (speech) notices.push(speech);
+  return { models, notices, reports };
+}
+
+function catalogHeaders(accessToken: string): RequestInit {
+  return {
     headers: {
       authorization: `Bearer ${accessToken}`,
       accept: "application/json",
       "user-agent": USER_AGENT,
     },
-  });
-  if (response.status === 403) throw new GrokAuthError("ENTITLEMENT_DENIED");
-  if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED");
-  if (!response.ok) throw new GrokAuthError("MODELS_FAILED");
-  const value = await readJson(response);
-  if (!isRecord(value) || !Array.isArray(value.data)) throw new GrokAuthError("MODELS_FAILED");
+  };
+}
+
+async function readCatalog(
+  fetch: Fetch,
+  url: string,
+  accessToken: string,
+): Promise<{ status: number; body: unknown }> {
+  try {
+    const response = await fetch(url, catalogHeaders(accessToken));
+    if (!response.ok) return { status: response.status, body: null };
+    try {
+      return { status: response.status, body: await readJson(response) };
+    } catch {
+      return { status: response.status, body: null };
+    }
+  } catch {
+    return { status: 0, body: null };
+  }
+}
+
+function catalogOutcome(
+  status: number,
+  count: number,
+): "ok" | "denied" | "missing" | "unavailable" | "empty" {
+  if (status === 200) return count > 0 ? "ok" : "empty";
+  if (status === 401 || status === 403) return "denied";
+  if (status === 404) return "missing";
+  return "unavailable";
+}
+
+function noticeFor(
+  capability: GrokCatalogNotice["capability"],
+  outcome: GrokCatalogReport["outcome"],
+  httpStatus: number,
+): GrokCatalogNotice | null {
+  if (outcome === "ok" || outcome === "missing") return null;
+  const reason =
+    outcome === "denied"
+      ? "denied"
+      : outcome === "voices"
+        ? "voices"
+        : outcome === "empty"
+          ? "none"
+          : "unavailable";
+  return { capability, reason, httpStatus };
+}
+
+function parseListedModels(body: unknown, force?: "image" | "video"): GrokLoginModel[] | null {
+  if (!isRecord(body)) return null;
+  const raw = Array.isArray(body.data)
+    ? body.data
+    : Array.isArray(body.models)
+      ? body.models
+      : null;
+  if (!raw) return null;
   const models: GrokLoginModel[] = [];
-  for (const item of value.data) {
+  for (const item of raw) {
     if (!isRecord(item) || !safeString(item.id, 200)) continue;
-    const outputModalities = readOutputModalities(item);
+    const parsed = readOutputModalities(item);
+    const outputModalities = parsed ?? (force ? [force] : undefined);
     models.push({
       id: item.id,
       label: safeString(item.name, 200) ? item.name : item.id,
@@ -188,6 +299,23 @@ export async function listGrokModels(
     if (models.length >= 100) break;
   }
   return models;
+}
+
+function mergeModels(into: GrokLoginModel[], extra: readonly GrokLoginModel[], forced = false) {
+  for (const model of extra) {
+    const index = into.findIndex((item) => item.id === model.id);
+    if (index < 0) {
+      if (into.length < 100) into.push(model);
+      continue;
+    }
+    if ((forced || !into[index]?.outputModalities) && model.outputModalities) {
+      into[index] = {
+        id: model.id,
+        label: model.label,
+        outputModalities: model.outputModalities,
+      };
+    }
+  }
 }
 
 function readOutputModalities(item: Record<string, unknown>): string[] | undefined {

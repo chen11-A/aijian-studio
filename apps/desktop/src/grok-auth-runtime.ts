@@ -1,4 +1,5 @@
 import type {
+  GrokCatalogNotice,
   GrokLoginActionResult,
   GrokLoginBridge,
   GrokLoginModel,
@@ -9,6 +10,7 @@ import { authorizeGrokInBrowser } from "./grok-auth-callback";
 import {
   completeGrokText,
   exchangeAuthorizationCode,
+  listGrokCatalog,
   listGrokModels,
   OFFICIAL_GROK_ENDPOINTS,
   pollGrokDeviceToken,
@@ -36,6 +38,15 @@ const DEVICE_FALLBACK = new Set([
   "TOKEN_EXCHANGE_FAILED",
   "AUTH_FAILED",
 ]);
+
+const CATALOG_LOG_CODE = {
+  ok: "OK",
+  denied: "DENIED",
+  missing: "MISSING",
+  unavailable: "UNAVAILABLE",
+  empty: "EMPTY",
+  voices: "VOICES",
+} as const;
 
 type Dependencies = {
   store: GrokStore;
@@ -288,14 +299,23 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   }
 
   async function models(): Promise<
-    { kind: "OK"; models: GrokLoginModel[] } | { kind: "ERROR"; code: string }
+    | { kind: "OK"; models: GrokLoginModel[]; notices?: GrokCatalogNotice[] }
+    | { kind: "ERROR"; code: string }
   > {
     try {
       await restore();
       await ensureFresh();
       if (!session) throw new GrokAuthError("NOT_CONNECTED");
-      const listed = await listGrokModels(dependencies.fetch, session.accessToken, endpoints);
-      return { kind: "OK", models: listed };
+      const listed = await listGrokCatalog(dependencies.fetch, session.accessToken, endpoints);
+      for (const report of listed.reports) {
+        await dependencies.log?.event(`catalog_${report.capability.toLowerCase()}`, {
+          code: CATALOG_LOG_CODE[report.outcome],
+          httpStatus: report.httpStatus,
+        });
+      }
+      return listed.notices.length > 0
+        ? { kind: "OK", models: listed.models, notices: listed.notices }
+        : { kind: "OK", models: listed.models };
     } catch (error) {
       const code = error instanceof GrokAuthError ? error.code : "MODELS_FAILED";
       if (code === "ENTITLEMENT_DENIED" && session) {

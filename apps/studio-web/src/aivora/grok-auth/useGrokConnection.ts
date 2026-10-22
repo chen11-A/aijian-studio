@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  GrokCatalogNotice,
   GrokLoginActionResult,
   GrokLoginModel,
   GrokLoginStatus,
@@ -18,6 +19,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
   const bridge = provided ?? grokBridge();
   const [status, setStatus] = useState<GrokLoginStatus>(GROK_DESKTOP_REQUIRED);
   const [models, setModels] = useState<GrokLoginModel[]>([]);
+  const [notices, setNotices] = useState<GrokCatalogNotice[]>([]);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -28,14 +30,20 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
   const applyModels = useCallback(
     async (current: number, next: GrokLoginStatus) => {
       if (!bridge || next.state !== "CONNECTED") {
-        if (mounted.current && generation.current === current) setModels([]);
+        if (mounted.current && generation.current === current) {
+          setModels([]);
+          setNotices([]);
+        }
         return;
       }
       const listed = await bridge.models();
       if (!mounted.current || generation.current !== current) return;
-      if (listed.kind === "OK") setModels(listed.models);
-      else {
+      if (listed.kind === "OK") {
+        setModels(listed.models);
+        setNotices(listed.notices ?? []);
+      } else {
         setModels([]);
+        setNotices([]);
         setNotice(grokLoginFailureMessage(listed.code));
       }
     },
@@ -119,6 +127,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
       if (!mounted.current || generation.current !== current) return;
       await applyAction(current, result);
       setModels([]);
+      setNotices([]);
     } catch {
       if (mounted.current && generation.current === current) setNotice("退出结果尚未确认。");
     } finally {
@@ -158,6 +167,7 @@ export function useGrokConnection(provided?: GrokLoginBridge, projectId?: string
     bridge,
     status,
     models,
+    notices,
     notice,
     loading,
     busy,
