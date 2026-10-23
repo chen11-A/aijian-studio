@@ -10,6 +10,7 @@ import { sameStoryboardJson } from "./adapters/episodeStoryboard";
 import { validScriptVersion, type ScriptVersion } from "./adapters/episodeScript";
 import { validCreativeVersion, type CreativeVersion } from "./adapters/creativeLibrary";
 import type { StoryboardContent, StoryboardShot } from "./adapters/episodeStoryboard";
+import { Select } from "./Select";
 
 type Source<T> = { state: "loading" | "empty" | "error" | "ready"; version: T | null };
 /** Exact pins remain stable when the author later edits their script or project library. */
@@ -138,7 +139,7 @@ export function StoryboardReferences({
       {scriptPin && (
         <label>
           对应剧本场次
-          <select
+          <Select
             disabled={locked || !activeScript}
             value={shot.script_scene_id ?? ""}
             onChange={(event) => updateShot({ script_scene_id: event.target.value || null })}
@@ -149,7 +150,7 @@ export function StoryboardReferences({
                 {scene.ordinal}. {scene.heading}
               </option>
             ))}
-          </select>
+          </Select>
           {script.state !== "ready" && <small>{sourceLabel(script.state)}；现有引用已保留。</small>}
         </label>
       )}
@@ -169,13 +170,15 @@ export function StoryboardReferences({
         edit={edit}
       />
       {"visual_bible_pin" in content && content.visual_bible_pin && (
-        <p>G5固定了对应设定版本；改换设定请先显式解除G5引用，或核对并固定新的批准视觉版本。</p>
+        <p>
+          视觉版本固定了对应设定版本；改换设定请先显式解除视觉版本引用，或核对并固定新的批准视觉版本。
+        </p>
       )}
       {libraryPin && (
         <>
           <label>
             镜头地点
-            <select
+            <Select
               disabled={locked || !activeLibrary}
               value={shot.location_id ?? ""}
               onChange={(event) => {
@@ -201,7 +204,7 @@ export function StoryboardReferences({
                   {scene.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <StoryboardCharacters
             content={content}

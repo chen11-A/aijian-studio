@@ -12,6 +12,7 @@ export type ProviderConnectionListResponse =
 export type ProviderConnectionResponse = components["schemas"]["ProviderConnectionResponse"];
 
 const PROVIDER_CONNECTION_ID_PATTERN = /^pcn_[0-9a-f]{32}$/;
+// SUB2API stays in the historical response parser. The settings UI no longer submits it.
 const CREATE_PROVIDER_KINDS = ["OPENAI", "XAI", "OPENAI_COMPATIBLE", "OLLAMA", "SUB2API"] as const;
 const RESPONSE_PROVIDER_KINDS = [...CREATE_PROVIDER_KINDS, "CPA_LOOPBACK"] as const;
 const PROVIDER_CAPABILITIES = ["TEXT", "IMAGE", "VIDEO", "SPEECH"] as const;

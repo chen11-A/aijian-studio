@@ -273,6 +273,30 @@ class RemoteExecutionAuthorizationStore:
         finally:
             connection.close()
 
+    def desktop_subscription_account_kind(self, attempt_id: str) -> str | None:
+        """Read the billing label. This does not load a credential or open a socket."""
+
+        connection = self._open()
+        try:
+            row = connection.execute(
+                "SELECT scope_json FROM remote_dispatch_snapshots WHERE attempt_id = ?",
+                (attempt_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            return None
+        try:
+            scope = json.loads(str(row["scope_json"]))
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(scope, dict):
+            return None
+        kind = scope.get("billing_account_kind")
+        if kind == "grok_login":
+            return "grok_login"
+        return None
+
     def begin_remote_dispatch(
         self, *, claim: ClaimedTask, authorization_id: str, expected_authorization_revision: int
     ) -> RemoteDispatchPermit:
@@ -1641,6 +1665,7 @@ class _FormalDispatchScope(_DispatchScope):
     source_document_id: str = Field(min_length=1, max_length=128)
     source_block_ids: list[str] = Field(min_length=1, max_length=10_000)
     span_bounds: list[list[int]] = Field(min_length=1, max_length=10_000)
+    billing_account_kind: Literal["grok_login"] | None = None
 
 
 class _SyntheticProbeScope(_DispatchScope):
@@ -1664,7 +1689,7 @@ def _validated_dispatch_scope(
             raise ValueError("unsupported remote dispatch class")
     except (TypeError, ValidationError, ValueError) as error:
         raise ValueError("remote dispatch scope is malformed") from error
-    return validated.model_dump(mode="json")
+    return validated.model_dump(mode="json", exclude_none=True)
 
 
 def _freeze_dispatch_scope(value: object) -> object:

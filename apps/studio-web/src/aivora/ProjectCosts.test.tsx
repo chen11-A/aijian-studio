@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { TaskQueueResponse } from "../api/studio";
 import { useTaskQueue } from "../domain/use-task-queue";
@@ -98,7 +98,10 @@ it.each(["REMOTE_UNKNOWN", "SUCCEEDED", "CANCELLED"] as const)(
   async (status) => {
     const loadTasks = vi.fn(async () => response(projectA, status));
     render(<Harness projectId={projectA} loadTasks={loadTasks} />);
-    await screen.findByText(`task_${projectA.slice(4)}`);
+    await screen.findByText("故事提取");
+    expect(screen.queryByText(`task_${projectA.slice(4)}`)).not.toBeInTheDocument();
+    expect(screen.queryByText(status)).not.toBeInTheDocument();
+    expect(screen.getByText(/2026/)).toBeInTheDocument();
     expect(screen.getByText("configured-model")).toBeInTheDocument();
     expect(screen.getAllByText("未知").length).toBeGreaterThanOrEqual(6);
     expect(screen.queryByText(/0\.00|￥|¥/)).not.toBeInTheDocument();
@@ -144,9 +147,12 @@ it("ignores late A readback after A→B→A", async () => {
     .mockResolvedValueOnce(response(projectA));
   const result = render(<Harness projectId={projectA} loadTasks={loadTasks} />);
   result.rerender(<Harness projectId={projectB} loadTasks={loadTasks} />);
-  await screen.findByText(`task_${projectB.slice(4)}`);
+  await screen.findByText("故事提取");
+  expect(document.querySelector(`[data-task="task_${projectB.slice(4)}"]`)).toBeTruthy();
   result.rerender(<Harness projectId={projectA} loadTasks={loadTasks} />);
-  await screen.findByText(`task_${projectA.slice(4)}`);
+  await waitFor(() =>
+    expect(document.querySelector(`[data-task="task_${projectA.slice(4)}"]`)).toBeTruthy(),
+  );
   const obsolete = response(projectA);
   obsolete.data.tasks[0]!.attempt.provider_model = "obsolete-model";
   await act(async () => complete(obsolete));

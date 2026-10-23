@@ -40,13 +40,13 @@ export function DraftExportHistory({
       {state.reliable && !state.jobs.length && <p>尚无草稿导出记录。</p>}
       {state.jobs.map((job) => (
         <article key={job.operation_id} className="draft-export-job">
-          <h4>{job.output_filename}</h4>
-          {job.output_filename === `Aivora-PREVIEW-DRAFT-${job.operation_id}.mp4` && (
+          <h4>草稿视频</h4>
+          {job.output_filename.includes("PREVIEW") && (
             <p>编辑器连续预览缓存 · 在本机保留，不会自动删除</p>
           )}
-          <p role="status">{statusLabels[job.status]} · DRAFT</p>
+          <p role="status">{statusLabels[job.status]}</p>
           <progress
-            aria-label={`${job.output_filename} 编码进度`}
+            aria-label="草稿视频编码进度"
             value={job.progress_frames}
             max={job.total_frames}
           />
@@ -54,7 +54,7 @@ export function DraftExportHistory({
             {job.progress_frames} / {job.total_frames} 帧
             {job.status === "VERIFYING" ? " · 编码完成，仍需校验" : ""}
           </p>
-          <p>装配版本：{job.assembly_version_id}</p>
+          <p>已绑定当时保存的剪辑。</p>
           {state.version && job.assembly_version_id !== state.version.version_id && (
             <p>此任务使用较早保存的装配版本。</p>
           )}

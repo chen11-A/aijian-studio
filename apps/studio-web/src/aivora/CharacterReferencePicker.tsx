@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "./Common";
 import type { MediaAsset, AssetVersion } from "./adapters/assetLibrary";
 import type { components } from "@aijian/contracts";
+import { Select } from "./Select";
 
 export function CharacterReferencePicker({
   assets,
@@ -23,7 +24,7 @@ export function CharacterReferencePicker({
     <fieldset className="manual-creative-fields" disabled={locked}>
       <label>
         参考素材
-        <select
+        <Select
           value={assetId}
           onChange={(event) => {
             setAssetId(event.currentTarget.value);
@@ -36,11 +37,11 @@ export function CharacterReferencePicker({
               {item.latest_version.filename}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label>
         参考素材版本
-        <select value={versionId} onChange={(event) => setVersionId(event.currentTarget.value)}>
+        <Select value={versionId} onChange={(event) => setVersionId(event.currentTarget.value)}>
           <option value="">明确选择素材版本</option>
           {asset?.versions
             .filter((item) => ["image", "video"].includes(item.kind))
@@ -49,18 +50,18 @@ export function CharacterReferencePicker({
                 v{item.ordinal} · {item.filename} · {item.sha256.slice(0, 12)}
               </option>
             ))}
-        </select>
+        </Select>
       </label>
       <label>
         参考归属
-        <select value={costumeId} onChange={(event) => setCostumeId(event.currentTarget.value)}>
+        <Select value={costumeId} onChange={(event) => setCostumeId(event.currentTarget.value)}>
           <option value="">角色身份参考</option>
           {costumes.map((item) => (
             <option key={item.costume_id} value={item.costume_id}>
               {item.name || "未命名服装"}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <Button
         disabled={

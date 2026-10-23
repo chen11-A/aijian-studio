@@ -85,7 +85,7 @@ export function useProviderConnectionForm(
         }
       }
       if (apiKey.trim().length < 8) {
-        setModelError("Sub2API 须填写至少 8 字符的业务 API Key。");
+        setModelError("文本网关须填写至少 8 字符的业务密钥。");
         return;
       }
       if (
@@ -94,7 +94,7 @@ export function useProviderConnectionForm(
         models.VIDEO.trim() ||
         models.SPEECH.trim()
       ) {
-        setModelError("Sub2API 首批只接受显式 TEXT 模型 ID，不接受图片、视频或配音模型。");
+        setModelError("文本网关首批只接受显式文本模型标识，不接受图片、视频或配音模型。");
         return;
       }
     }

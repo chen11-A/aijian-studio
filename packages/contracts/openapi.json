@@ -4129,6 +4129,15 @@
         "additionalProperties": false,
         "description": "Queue only; a separate trusted authorization must precede dispatch.",
         "properties": {
+          "billing_account_kind": {
+            "default": "gpt_login",
+            "enum": [
+              "gpt_login",
+              "grok_login"
+            ],
+            "title": "Billing Account Kind",
+            "type": "string"
+          },
           "selection": {
             "$ref": "#/components/schemas/RemoteSourceExtractSelectionData"
           },
@@ -4182,6 +4191,116 @@
           "change_summary"
         ],
         "title": "CreateStoryBibleVersionRequest",
+        "type": "object"
+      },
+      "CreateStoryFilmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_micro": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Micro"
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "connection_revision": {
+            "default": "unspecified",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Connection Revision",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{3}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "image_model": {
+            "default": "grok-imagine-image-2.0",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Image Model",
+            "type": "string"
+          },
+          "narration": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Narration",
+            "type": "string"
+          },
+          "provider": {
+            "default": "stub",
+            "enum": [
+              "stub",
+              "grok_subscription",
+              "xai_api_key",
+              "chatgpt"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "scene_label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Scene Label",
+            "type": "string"
+          },
+          "speech_model": {
+            "default": "grok-tts",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Speech Model",
+            "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "maxLength": 57,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "video_model": {
+            "default": "grok-imagine-video-1.5",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Video Model",
+            "type": "string"
+          },
+          "voice_id": {
+            "default": "eve",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Voice Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scene_label",
+          "narration"
+        ],
+        "title": "CreateStoryFilmBody",
         "type": "object"
       },
       "CreateSub2APICallApprovalRequest": {
@@ -9679,6 +9798,33 @@
           "request_id"
         ],
         "title": "FakeTimelineRunResponse",
+        "type": "object"
+      },
+      "FinishDesktopSubscriptionDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "failure_code": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z0-9_]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "outcome": {
+            "pattern": "^(COMPLETED|FAILED)$",
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "FinishDesktopSubscriptionDispatch",
         "type": "object"
       },
       "FixtureRef": {
@@ -17155,6 +17301,75 @@
         "title": "RecheckDraftReviewRevisionCandidateRequest",
         "type": "object"
       },
+      "RecordDesktopSubscriptionDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "account_kind": {
+            "pattern": "^(gpt_login|grok_login|chatgpt_login)$",
+            "title": "Account Kind",
+            "type": "string"
+          },
+          "connected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected"
+          },
+          "idempotency_key": {
+            "maxLength": 80,
+            "minLength": 16,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "model_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "quota_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quota Available"
+          },
+          "rate_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Available"
+          },
+          "request_sha256": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Request Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_kind",
+          "model_id",
+          "request_sha256",
+          "idempotency_key"
+        ],
+        "title": "RecordDesktopSubscriptionDispatch",
+        "type": "object"
+      },
       "ReferenceDeclarationV1": {
         "additionalProperties": false,
         "properties": {
@@ -22797,6 +23012,390 @@
           "name"
         ],
         "title": "StoryEntityDraftV1",
+        "type": "object"
+      },
+      "StoryFilmCancelData": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel_requested": {
+            "default": true,
+            "title": "Cancel Requested",
+            "type": "boolean"
+          }
+        },
+        "title": "StoryFilmCancelData",
+        "type": "object"
+      },
+      "StoryFilmCancelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmCancelData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmCancelResponse",
+        "type": "object"
+      },
+      "StoryFilmData": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Version Id"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
+          "billing_label": {
+            "title": "Billing Label",
+            "type": "string"
+          },
+          "draft": {
+            "default": true,
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "has_audio": {
+            "default": false,
+            "title": "Has Audio",
+            "type": "boolean"
+          },
+          "has_video": {
+            "default": false,
+            "title": "Has Video",
+            "type": "boolean"
+          },
+          "live_call": {
+            "default": false,
+            "title": "Live Call",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "output_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Path"
+          },
+          "output_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Sha256"
+          },
+          "preview_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Image"
+          },
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "SUCCEEDED",
+              "BLOCKED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suggested_provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "stub",
+                  "grok_subscription"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Provider"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "provider_label",
+          "billing_label"
+        ],
+        "title": "StoryFilmData",
+        "type": "object"
+      },
+      "StoryFilmPlanData": {
+        "additionalProperties": false,
+        "properties": {
+          "default_provider": {
+            "const": "stub",
+            "default": "stub",
+            "title": "Default Provider",
+            "type": "string"
+          },
+          "live_media_enabled": {
+            "title": "Live Media Enabled",
+            "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/StoryFilmProviderChoice"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "live_media_enabled",
+          "providers"
+        ],
+        "title": "StoryFilmPlanData",
+        "type": "object"
+      },
+      "StoryFilmPlanResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmPlanData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmPlanResponse",
+        "type": "object"
+      },
+      "StoryFilmProgressData": {
+        "additionalProperties": false,
+        "properties": {
+          "elapsed_seconds": {
+            "title": "Elapsed Seconds",
+            "type": "integer"
+          },
+          "image_saved": {
+            "title": "Image Saved",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "preview_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Image"
+          },
+          "stage": {
+            "enum": [
+              "idle",
+              "image",
+              "video",
+              "speech",
+              "assemble",
+              "done",
+              "failed"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "label",
+          "elapsed_seconds",
+          "image_saved",
+          "message"
+        ],
+        "title": "StoryFilmProgressData",
+        "type": "object"
+      },
+      "StoryFilmProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmProgressData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmProgressResponse",
+        "type": "object"
+      },
+      "StoryFilmProviderChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "billing_label": {
+            "title": "Billing Label",
+            "type": "string"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "id": {
+            "enum": [
+              "stub",
+              "grok_subscription",
+              "xai_api_key",
+              "chatgpt"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "billing_label",
+          "available"
+        ],
+        "title": "StoryFilmProviderChoice",
+        "type": "object"
+      },
+      "StoryFilmResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StoryFilmData"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ],
+        "title": "StoryFilmResponse",
         "type": "object"
       },
       "StoryQuestionDraftV1": {
@@ -29883,6 +30482,112 @@
           }
         },
         "summary": "Get Version"
+      }
+    },
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches": {
+      "post": {
+        "operationId": "record_api_v1_projects__project_id__desktop_subscription_dispatches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDesktopSubscriptionDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record"
+      }
+    },
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches/{dispatch_id}/outcome": {
+      "post": {
+        "operationId": "finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dispatch_id",
+            "required": true,
+            "schema": {
+              "pattern": "^dsd_[0-9a-f]{32}$",
+              "title": "Dispatch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinishDesktopSubscriptionDispatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish"
       }
     },
     "/api/v1/projects/{project_id}/development-exports": {
@@ -38111,6 +38816,266 @@
         "summary": "Get Story Bible Version"
       }
     },
+    "/api/v1/projects/{project_id}/story-film": {
+      "post": {
+        "operationId": "createStoryFilm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^story-film:v1:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStoryFilmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Create Film"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-film/cancel": {
+      "post": {
+        "operationId": "cancelStoryFilm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmCancelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Cancel Film"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-film/plan": {
+      "get": {
+        "operationId": "getStoryFilmPlan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Plan"
+      }
+    },
+    "/api/v1/projects/{project_id}/story-film/progress": {
+      "get": {
+        "operationId": "getStoryFilmProgress",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "pattern": "^prj_[0-9a-f]{32}$",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFilmProgressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sidecar request boundary rejected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "summary": "Get Progress"
+      }
+    },
     "/api/v1/projects/{project_id}/sub2api-source-extract-runs": {
       "post": {
         "operationId": "createSub2APISourceExtractRun",
@@ -38213,6 +39178,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38232,16 +39207,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Create Run"
@@ -38323,6 +39288,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38342,16 +39317,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Get Approval"
@@ -38457,6 +39422,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38476,16 +39451,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Approve Call"
@@ -38567,6 +39532,16 @@
             },
             "description": "Frozen scope or approval conflict"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sub2API dispatch retired"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -38586,16 +39561,6 @@
               }
             },
             "description": "Idempotency-Key required"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Sub2API execution unavailable"
           }
         },
         "summary": "Get Operation"

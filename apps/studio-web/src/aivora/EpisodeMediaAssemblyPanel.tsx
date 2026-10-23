@@ -32,6 +32,7 @@ import type {
 } from "./adapters/episodeMediaAssembly";
 import "./episode-assembly.css";
 import { ASSEMBLY_CANVASES, canvasKey } from "./adapters/assemblyCanvas";
+import { Select } from "./Select";
 
 const playbackLabels = {
   DRAFT_STATIC_ANIMATIC: "图片剪辑草稿",
@@ -251,7 +252,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
     <>
       {" "}
       <header>
-        <h2>{audioOnly ? "本集声音 · 本地录音 DRAFT" : "本集剪辑 · 本地媒体"}</h2>
+        <h2>{audioOnly ? "本集声音 · 本地录音 草稿" : "本集剪辑 · 本地媒体"}</h2>
         <p>真实导入素材的剪辑草稿，可保存、重新打开和继续修改。</p>
       </header>
       <div className="assembly-summary">
@@ -273,7 +274,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         <div className="assembly-canvas">
           <label>
             保存画幅与分辨率
-            <select
+            <Select
               value={canvasKey(content.canvas_width, content.canvas_height)}
               disabled={locked}
               onChange={(event) => {
@@ -300,7 +301,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                   {item.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <p>
             原素材等比适应画布，空余部分留黑边。保存后导出使用此画幅；修改不会覆盖已保存版本或已导出文件。
@@ -335,7 +336,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         {!audioOnly && (
           <label>
             序列帧率
-            <select
+            <Select
               value={timebaseChoice}
               disabled={locked || !!content.visual_segments.length}
               onChange={(event) => {
@@ -348,12 +349,12 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                   {item.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <label>
           选择已导入素材版本
-          <select
+          <Select
             value={assetChoice}
             disabled={locked}
             onChange={(event) => setAssetChoice(event.target.value)}
@@ -365,19 +366,19 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
                 {item.version.availability === "PRESENT_UNVERIFIED" ? " · 保存时核验原件" : ""}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {choice?.version.kind === "audio" && (
           <label>
             声音轨道
-            <select
+            <Select
               value={trackKind}
               disabled={locked}
               onChange={(event) => setTrackKind(event.target.value === "SFX" ? "SFX" : "BGM")}
             >
               <option value="BGM">BGM 背景音乐</option>
               <option value="SFX">SFX 音效</option>
-            </select>
+            </Select>
           </label>
         )}
         <Button
@@ -638,7 +639,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         onPreservationGuard={setReviewPreservation}
       />
       <p className="assembly-limit">
-        当前支持所选原素材独立预览。保存并核对版本后，可导出本地 DRAFT MP4
+        当前支持所选原素材独立预览。保存并核对版本后，可导出本地 草稿 MP4
         草稿；导出时会核验原件并检查支持的轨道。连续预览需基于已保存版本单独生成；正式审片尚未接通，草稿不代表正式发布批准。
       </p>
       {version && (

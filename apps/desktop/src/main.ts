@@ -14,6 +14,14 @@ import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assis
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { liveMediaSidecarEnv } from "./live-media-env";
+import { createGrokLoginLog } from "./grok-login-log";
+import { createSubscriptionLedger } from "./desktop-subscription-ledger";
+import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
+import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
+import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -24,7 +32,7 @@ import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
 import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
-import { lstatSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { developmentPythonLaunch } from "./development-python";
 
@@ -112,6 +120,13 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 let nativePreviewDocumentEpoch = 0;
 
+function pinPackagedWindowsUserData(): void {
+  // v0.1.x saved login, projects, and logs here because productName was
+  // "AIVORA Dev Core". Keep that folder when the displayed name is AIVORA.
+  if (!app.isPackaged || process.platform !== "win32") return;
+  app.setPath("userData", join(app.getPath("appData"), "AIVORA Dev Core"));
+}
+
 function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
   if (requested === undefined) return false;
@@ -139,6 +154,8 @@ function developmentSidecarOptions(): StartSidecarOptions {
       ...python.env,
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
         ? {
             AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
@@ -205,6 +222,8 @@ function packagedSidecarOptions(): StartSidecarOptions {
     env: {
       AIJIAN_DATA_DIR: workspaceDirectory,
       AIJIAN_RESOURCE_ROOT: resourceRoot,
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       TEMP: extraction.directory,
       TMP: extraction.directory,
     },
@@ -277,8 +296,16 @@ function getAssistantReceiptStore(): AssistantReceiptStore {
   );
   return assistantReceiptStore;
 }
+function subscriptionLedger() {
+  if (!sidecar) throw new Error("BILLING_UNAVAILABLE");
+  return createSubscriptionLedger(globalThis.fetch, sidecar.session);
+}
 function getChatGPTRuntime() {
   chatgptRuntime ??= createChatGPTRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
     store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
@@ -319,6 +346,57 @@ function getChatGPTRuntime() {
   });
   return chatgptRuntime;
 }
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+let grokEncryption: GrokEncryption | null = null;
+function useGrokEncryption(): GrokEncryption {
+  if (grokEncryption) return grokEncryption;
+  const directory = join(app.getPath("userData"), "grok-official");
+  const choice = selectGrokEncryption(
+    process.platform,
+    safeStorage,
+    createFileKeyEncryption(directory),
+  );
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const record = join(directory, "storage-backend.txt");
+  writeFileSync(record, `${choice.backend}\n`, { mode: 0o600 });
+  chmodSync(record, 0o600);
+  grokEncryption = choice.encryption;
+  const log = createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log"));
+  void log.event("storage", { code: choice.backend }).catch(() => undefined);
+  return grokEncryption;
+}
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), useGrokEncryption()),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    onBrowserReturned: () => {
+      const window = mainWindow;
+      if (!window || window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    },
+    log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
+    // The labeled button is the confirmation. One click opens the system browser.
+    confirmSignIn: async () => true,
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -631,6 +709,25 @@ ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
 ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
   clientFor(event).createProject(input),
 );
+registerStoryFilmHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => {
+    if (!sidecar) throw new Error("Local API is not available");
+    return sidecar.session;
+  },
+  async () => {
+    try {
+      return await getGrokRuntime().mediaAccessToken();
+    } catch {
+      return null;
+    }
+  },
+);
 ipcMain.handle("projects:get", (event, projectId: string) =>
   clientFor(event).getProject(projectId),
 );
@@ -774,8 +871,10 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
+  pinPackagedWindowsUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
   await app.whenReady();
+  useGrokEncryption();
   if (app.isPackaged) packagedRendererIndex();
   sidecar = await startSidecar(
     app.isPackaged ? packagedSidecarOptions() : developmentSidecarOptions(),

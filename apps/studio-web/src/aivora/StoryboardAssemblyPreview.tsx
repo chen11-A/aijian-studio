@@ -82,7 +82,7 @@ function ScopedStoryboardAssemblyPreview(props: Props) {
     <section className="storyboard-text-preview" aria-label="分镜关联装配预览">
       <h3>分镜关联画面与声音</h3>
       <p>
-        从本集已保存装配读取实际素材和镜头关联。逐项检查后可播放对应版本的 DRAFT
+        从本集已保存装配读取实际素材和镜头关联。逐项检查后可播放对应版本的 草稿
         MP4；文字预演、当前未保存分镜和装配编辑不包含在该视频中。
       </p>
       {version && scoped && <p>分镜输入版本：{version.version_id}</p>}

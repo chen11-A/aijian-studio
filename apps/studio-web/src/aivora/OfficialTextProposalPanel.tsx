@@ -1,4 +1,7 @@
 import { Button } from "./Common";
+import { CurrentModelLink } from "./account/CurrentModelLink";
+import { useFollowCenteredChatModel } from "./account/follow-centered-model";
+import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import {
   useOfficialTextProposals,
   sameBase,
@@ -13,7 +16,6 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
     operations,
     readState,
     models,
-    model,
     setModel,
     modelSource,
     modelVerified,
@@ -34,6 +36,17 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
     generate,
     adopt,
   } = useOfficialTextProposals(props);
+  const official = useOfficialConnection();
+  useFollowCenteredChatModel({
+    models,
+    setModel,
+    onClear: () => {
+      if (official) {
+        official.clearDefaultModel();
+        restoreDefaultModel();
+      } else setModel("");
+    },
+  });
   return (
     <details className="official-text-panel">
       <summary>官方 ChatGPT 文本建议</summary>
@@ -51,21 +64,13 @@ export function OfficialTextProposalPanel(props: OfficialTextPanelProps) {
       <Button disabled={!bridge || disabled || busy} onClick={() => void loadModels()}>
         读取官方可用模型
       </Button>
-      <label>
-        官方模型
-        <select
-          value={model}
-          disabled={disabled || busy || !models.length}
-          onChange={(event) => setModel(event.target.value)}
-        >
-          <option value="">先读取当前账号模型</option>
-          {models.map((item) => (
-            <option key={item.slug} value={item.slug}>
-              {item.displayName}
-            </option>
-          ))}
-        </select>
-      </label>
+      {models.length > 0 && (
+        <p>
+          账号目录：{models.map((item) => item.displayName).join("、")}
+          。请在模型中心选择，这里不能改模型。
+        </p>
+      )}
+      <CurrentModelLink capability="TEXT" />
       {modelSource === "project" && (
         <Button disabled={busy} onClick={() => restoreDefaultModel()}>
           恢复服务默认模型

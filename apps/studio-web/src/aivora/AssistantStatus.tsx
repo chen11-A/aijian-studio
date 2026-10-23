@@ -13,15 +13,17 @@ import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 export function assistantServiceLabel(
   state: ProviderSettingsState,
   official?: ConnectionReadiness,
+  grokConnected = false,
 ): string {
+  if (grokConnected) return "Grok 已连接";
   const api =
     state.kind === "loading"
-      ? "正在读取 API 连接"
+      ? "正在读取密钥连接"
       : state.kind === "error"
-        ? "API 连接读取失败"
+        ? "密钥连接读取失败"
         : state.response.data.length
           ? `已配置 ${state.response.data.length} 个 · 能力未验证`
-          : "没有 API 连接";
+          : "没有密钥连接";
   if (!official) return api;
   const account =
     official === "AUTHORIZED_UNVERIFIED"
@@ -74,7 +76,7 @@ export function AssistantServiceStatus() {
                     : connection.credential_status === "UNAVAILABLE"
                       ? "凭据库不可用"
                       : "无已配置凭据"}
-                  {` · ${connection.models.filter((model) => model.capabilities.includes("TEXT")).length} 个 TEXT 模型`}
+                  {` · ${connection.models.filter((model) => model.capabilities.includes("TEXT")).length} 个文本模型`}
                 </p>
               ))}
             </details>
@@ -106,28 +108,24 @@ export function AssistantContext() {
       <dl>
         <dt>作品</dt>
         <dd>{project?.name ?? "尚未选择真实作品"}</dd>
-        <dt>作品标识</dt>
-        <dd>{d.backendProjectId ?? "未选择"}</dd>
         <dt>剧集</dt>
         <dd>{episode?.title ?? "尚未选择真实剧集"}</dd>
-        {episode && (
-          <>
-            <dt>剧集标识</dt>
-            <dd>{episode.id}</dd>
-          </>
-        )}
         <dt>页面</dt>
-        <dd>{pages[d.page][0]}</dd>
+        <dd>
+          {!d.professional && d.page === "project"
+            ? (["故事", "画面", "声音", "成片"] as const)[Math.min(3, Math.max(0, d.filmStep))]
+            : pages[d.page][0]}
+        </dd>
         <dt>来源文档</dt>
         <dd>{source?.filename ?? "尚未读取来源"}</dd>
         <dt>来源状态</dt>
         <dd>{d.backendProjectId ? sourceStatus.status : "未选择作品"}</dd>
         {manifest && (
           <>
-            <dt>最新来源版本</dt>
-            <dd>{manifest.latest_version.id}</dd>
-            <dt>已接受来源版本</dt>
-            <dd>{manifest.accepted_version?.id ?? "尚未接受"}</dd>
+            <dt>最新来源</dt>
+            <dd>已读取</dd>
+            <dt>已接受来源</dt>
+            <dd>{manifest.accepted_version ? "已接受" : "尚未接受"}</dd>
           </>
         )}
       </dl>
