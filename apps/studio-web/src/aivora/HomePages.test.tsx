@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { HomePages } from "./HomePages";
 import { StoryPages } from "./StoryPages";
@@ -137,7 +137,7 @@ describe("project centre filtering", () => {
           <ProjectHarness />
         </DemoProvider>,
       );
-      await screen.findByRole("button", { name: "本地工作区已连接" });
+      await screen.findByRole("status", { name: "本地工作区已连接" });
       fireEvent.click(screen.getAllByRole("button", { name: "新建项目" })[0]!);
       expect(screen.getByLabelText("项目画幅")).toHaveValue("16:9");
       fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: aspect } });
@@ -171,7 +171,7 @@ describe("project centre filtering", () => {
         <ProjectHarness />
       </DemoProvider>,
     );
-    await screen.findByRole("button", { name: "本地工作区已连接" });
+    await screen.findByRole("status", { name: "本地工作区已连接" });
     fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
     fireEvent.change(screen.getByLabelText("作品名称"), { target: { value: "未提交作品" } });
     fireEvent.change(screen.getByLabelText("项目画幅"), { target: { value: "1:1" } });
@@ -905,7 +905,7 @@ it("clears a failed refreshed project view but retains and restores the exact sa
   expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
 
   failProjects = true;
-  fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
+  fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
   expect(
     await screen.findByRole("heading", { name: "本地工作区暂时无法读取" }),
   ).toBeInTheDocument();
@@ -1130,4 +1130,72 @@ it("preserves the exact selected episode when the same real project is reopened 
       selectedEpisodeId: second.id,
     });
   });
+});
+
+it("starts a film from the empty workspace sample or one sentence", async () => {
+  window.localStorage.clear();
+  window.history.replaceState({}, "", "#home");
+  const desktop = bridge();
+  const created = {
+    aspect_ratio: "16:9" as const,
+    target_duration_seconds: 60,
+    source_language: "zh-CN" as const,
+    status: "active" as const,
+    revision: 1,
+    created_at: "2026-10-22T00:00:00Z",
+    updated_at: "2026-10-22T00:00:00Z",
+  };
+  desktop.listProjects = vi.fn().mockResolvedValue({ request_id: "projects", data: [] });
+  desktop.createProject = vi.fn().mockImplementation(async (input: { name: string }) => ({
+    request_id: "created",
+    data: { ...created, id: `prj_${"c".repeat(32)}`, name: input.name },
+  }));
+  window.aijian = desktop;
+  render(
+    <DemoProvider>
+      <HomePages />
+      <EditorDialog />
+    </DemoProvider>,
+  );
+  await screen.findByRole("status", { name: "本地工作区已连接" });
+  fireEvent.click(screen.getByRole("button", { name: "写一句话开始" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("这一句"), { target: { value: "   \n  " } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+  await waitFor(() => expect(desktop.createProject).not.toHaveBeenCalled());
+  const sentence = `${"雾".repeat(45)}\u007f城`;
+  fireEvent.change(within(dialog).getByLabelText("这一句"), { target: { value: sentence } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "保存演示修改" }));
+  await waitFor(() =>
+    expect(desktop.createProject).toHaveBeenCalledWith({
+      name: "雾".repeat(40),
+      aspect_ratio: "16:9",
+      target_duration_seconds: 60,
+      source_language: "zh-CN",
+    }),
+  );
+  cleanup();
+  window.localStorage.clear();
+  window.history.replaceState({}, "", "#home");
+  desktop.createProject = vi.fn().mockResolvedValue({
+    request_id: "sample",
+    data: { ...created, id: `prj_${"d".repeat(32)}`, name: "雾城来信" },
+  });
+  window.aijian = desktop;
+  render(
+    <DemoProvider>
+      <HomePages />
+      <EditorDialog />
+    </DemoProvider>,
+  );
+  await screen.findByRole("status", { name: "本地工作区已连接" });
+  fireEvent.click(screen.getAllByRole("button", { name: "打开雾城来信" })[0]!);
+  await waitFor(() =>
+    expect(desktop.createProject).toHaveBeenCalledWith({
+      name: "雾城来信",
+      aspect_ratio: "16:9",
+      target_duration_seconds: 60,
+      source_language: "zh-CN",
+    }),
+  );
 });

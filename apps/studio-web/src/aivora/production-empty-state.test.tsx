@@ -12,7 +12,7 @@ describe("production empty project state", () => {
   it.each([
     ["launch", "把故事，变成看得见的世界。"],
     ["home", "创作首页"],
-    ["project", "项目创作首页"],
+    ["project", "故事"],
     ["projects", "项目中心"],
     ["source", "故事输入与来源"],
     ["story", "故事理解"],
@@ -22,13 +22,10 @@ describe("production empty project state", () => {
     ["world", "世界观"],
     ["scenes", "场景"],
     ["storyboard", "分镜"],
-    ["generation", "制作"],
     ["assembly", "成片组装"],
     ["review", "审片"],
     ["changes", "修改方案"],
     ["assets", "素材库"],
-    ["voice", "声音制作"],
-    ["export", "成片预览与导出"],
     ["services", "AI 服务"],
     ["costs", "用量"],
     ["settings", "用户设置"],
@@ -45,6 +42,27 @@ describe("production empty project state", () => {
     expect(screen.queryByText(/记忆可以被读取、交易和修改/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["generation", "镜头生成", "打开雾城来信"],
+    ["voice", "声音", "打开雾城来信"],
+    ["export", "导出", "打开雾城来信"],
+  ])(
+    "renders the %s sandbox before a project exists and without sample domain facts",
+    (page, heading, desk) => {
+      window.history.replaceState({}, "", `#${page}`);
+
+      render(<DemoApp />);
+
+      expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: desk })).toBeInTheDocument();
+      expect(screen.queryByText("苏晚", { exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByText("雨夜街道", { exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByText("城市入夜", { exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByText(/记忆可以被读取、交易和修改/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
+    },
+  );
 
   it("updates an already-mounted character page to its empty state", () => {
     function CharacterStateHarness() {
@@ -87,7 +105,7 @@ describe("production empty project state", () => {
       );
 
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByText(/才会读取此页面的内容/)).toBeInTheDocument();
+      expect(screen.getByText(/可以打开示例「雾城来信」/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
     },
   );

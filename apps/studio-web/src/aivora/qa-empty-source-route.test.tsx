@@ -88,7 +88,7 @@ it.each(["story", "script"])(
       render(<DemoApp fixture={fixture} />);
       const main = within(screen.getByRole("main"));
       expect(
-        main.getByText("尚未选择真实项目。创建或选择项目后，才会读取此页面的内容。"),
+        main.getByText("尚未选择真实项目。可以打开示例「雾城来信」，或回到首页新建。"),
       ).toBeVisible();
       expect(main.queryByRole("button", { name: "前往来源输入" })).not.toBeInTheDocument();
       expect(main.queryByRole("button", { name: "粘贴故事" })).not.toBeInTheDocument();

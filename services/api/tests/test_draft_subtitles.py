@@ -2,12 +2,15 @@
 
 import hashlib
 import json
+import os
+import subprocess
+from pathlib import Path
 
 import pytest
 from aijian_api.assembly_subtitles import SUBTITLE_FONT_SHA256, SUBTITLE_PROFILE
 from aijian_api.draft_export_encoder import encode_draft
 from aijian_api.draft_export_runtime import DraftExportRuntime
-from aijian_api.draft_subtitles import DraftSubtitleError, prepare_subtitles
+from aijian_api.draft_subtitles import DraftSubtitleError, escape_drawtext_path, prepare_subtitles
 from aijian_api.episode_media_assembly_contracts import (
     AssemblyTextSubtitleSegmentV1,
     CreateEpisodeMediaAssemblyVersionRequest,
@@ -155,6 +158,119 @@ def test_actual_pixels_on_exact_half_open_frames(tmp_path, toolchain, rate):
     assert lit == [3 <= n < 6 or 10 <= n < 14 for n in range(18)]
     assert not (tmp_path / "x").exists()
     assert not list(tmp_path.glob("aivora-subtitles-*"))
+
+
+def test_windows_drawtext_path_escapes_drive_colon_and_backslashes():
+    raw = "C:\\Program Files\\AIVORA\\fonts\\NotoSansCJKsc-Regular.otf"
+    escaped = escape_drawtext_path(raw)
+    expected = (
+        "C\\\\:\\\\\\\\Program Files\\\\\\\\AIVORA\\\\\\\\fonts\\\\\\\\NotoSansCJKsc-Regular.otf"
+    )
+    assert escaped == expected
+    assert "fontfile=font.otf" not in f"fontfile={escaped}"
+
+
+def test_drawtext_keeps_a_colon_inside_the_font_path(tmp_path, toolchain):
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "apps/studio-web/src/aivora/assets/v2/NotoSansCJKsc-Regular.otf"
+    )
+    nested = tmp_path / "drive:C"
+    nested.mkdir()
+    font = nested / "NotoSansCJKsc-Regular.otf"
+    font.symlink_to(source)
+    cue_path = tmp_path / "cue.txt"
+    cue_path.write_text("雾城来信", encoding="utf-8")
+    output = tmp_path / "caption.mp4"
+    drawtext = (
+        f"drawtext=fontfile={escape_drawtext_path(str(font))}:"
+        f"textfile={escape_drawtext_path(str(cue_path))}:expansion=none:text_shaping=0:"
+        "fontsize=32:fontcolor=white:x=10:y=10"
+    )
+    completed = subprocess.run(
+        [
+            str(toolchain.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=320x180:r=24:d=0.2",
+            "-vf",
+            drawtext,
+            "-frames:v",
+            "4",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+    )
+    assert completed.returncode == 0
+    assert output.stat().st_size > 0
+
+
+def test_bundled_font_draws_chinese_without_system_fonts(tmp_path, toolchain, monkeypatch):
+    empty = tmp_path / "empty-fontconfig"
+    empty.mkdir()
+    fonts_conf = tmp_path / "fonts.conf"
+    fonts_conf.write_text(
+        '<?xml version="1.0"?>\n<fontconfig><dir>' + empty.as_posix() + "</dir></fontconfig>\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FONTCONFIG_FILE", str(fonts_conf))
+    monkeypatch.setenv("FONTCONFIG_PATH", str(empty))
+
+    def _no_system_font() -> None:
+        raise AssertionError("system fonts must not be consulted")
+
+    monkeypatch.setattr("aijian_api.draft_subtitles._system_cjk_font", _no_system_font)
+    image = _png(tmp_path / "black.png", (0, 0, 0))
+    assembly = _assembly(
+        [_visual(image, 0, 8)],
+        canvas_width=320,
+        canvas_height=180,
+        subtitle_segments=[cue("雾城来信", start=0, end=8)],
+    )
+    directory = tmp_path / "private"
+    directory.mkdir()
+    prepared = prepare_subtitles(assembly.content, directory)
+    font_option = escape_drawtext_path(str((directory / "font.otf").resolve()))
+    assert f"fontfile={font_option}" in prepared.filters
+    assert "fontfile=font.otf" not in prepared.filters
+    output = tmp_path / "caption.mp4"
+    environment = os.environ.copy()
+    environment["FONTCONFIG_FILE"] = str(fonts_conf)
+    environment["FONTCONFIG_PATH"] = str(empty)
+    completed = subprocess.run(
+        [
+            str(toolchain.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=320x180:r=24:d=0.4",
+            "-vf",
+            prepared.filters,
+            "-frames:v",
+            "8",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        cwd=directory,
+        env=environment,
+    )
+    assert completed.returncode == 0
+    raw = _run(
+        toolchain, "-i", str(output), "-map", "0:v:0", "-pix_fmt", "rgb24", "-f", "rawvideo", "-"
+    )
+    frame_bytes = 320 * 180 * 3
+    assert len(raw) == frame_bytes * 8
+    lit = sum(value > 180 for value in raw[:frame_bytes])
+    assert lit > 20
 
 
 def test_font_change_and_literal_files_fail_closed(tmp_path, monkeypatch):

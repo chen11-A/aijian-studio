@@ -1,4 +1,5 @@
-; Separate, explicitly limited development product. No upgrade bypass.
+; Windows 10+ gate only. Existing login and projects are not a reason to abort,
+; and this macro must not read or delete %APPDATA%.
 !macro customInit
   ClearErrors
   SetRegView 64
@@ -7,21 +8,8 @@
   IfErrors aivoraDevUnsupportedWindows
   IntCmp $R0 10 aivoraDevSupportedWindows aivoraDevUnsupportedWindows aivoraDevSupportedWindows
 aivoraDevUnsupportedWindows:
-  MessageBox MB_ICONSTOP|MB_OK "AIVORA Dev Core requires Windows 10 or later with the operating-system Universal CRT." /SD IDOK
+  MessageBox MB_ICONSTOP|MB_OK "AIVORA 需要 Windows 10 或更高版本。" /SD IDOK
   SetErrorLevel 3
   Abort
 aivoraDevSupportedWindows:
-  ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
-  StrCmp $0 "" aivoraDevNoRegistry aivoraDevExistingInstall
-aivoraDevNoRegistry:
-  IfFileExists "$INSTDIR\AIVORA Dev Core.exe" aivoraDevExistingInstall aivoraDevNoExecutable
-aivoraDevNoExecutable:
-  IfFileExists "$APPDATA\AIVORA Dev Core" aivoraDevExistingInstall aivoraDevNoData
-aivoraDevNoData:
-  IfFileExists "$APPDATA\AIVORA" aivoraDevExistingInstall aivoraDevFreshInstall
-aivoraDevExistingInstall:
-  MessageBox MB_ICONSTOP|MB_OK "AIVORA Dev Core installation stopped: existing installation or user data requires a verified backup. This development installer does not upgrade or remove user data." /SD IDOK
-  SetErrorLevel 2
-  Abort
-aivoraDevFreshInstall:
 !macroend

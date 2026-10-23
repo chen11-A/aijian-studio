@@ -15,6 +15,7 @@ import type {
 } from "@aijian/contracts/project-settings";
 import { ASSEMBLY_TIMEBASES } from "./adapters/assemblyEditing";
 import { Button } from "./Common";
+import { Select } from "./Select";
 
 type Draft = { name: string; description: string; timebase: string };
 type Pending = { projectId: string; command: SettingsCommand; hash: string };
@@ -378,7 +379,7 @@ export function ProjectSettingsEditor({
             </label>
             <label>
               项目默认时基
-              <select
+              <Select
                 value={draft.timebase}
                 disabled={locked}
                 onChange={(e) => setDraft({ ...draft, timebase: e.target.value })}
@@ -389,7 +390,7 @@ export function ProjectSettingsEditor({
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               画幅（创建时确定）

@@ -74,7 +74,7 @@ function jobFor(command: DraftExportCommand, patch: Partial<DraftExportJob> = {}
     status: "QUEUED",
     total_frames: 50,
     progress_frames: 0,
-    output_filename: "test-DRAFT.mp4",
+    output_filename: "test-草稿.mp4",
     output_path: null,
     output_sha256: null,
     output_bytes: null,
@@ -144,7 +144,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("real saved-assembly DRAFT export", () => {
+describe("real saved-assembly 草稿 export", () => {
   it("disables encoding without verified runtime capability while preserving saved input and history reads", async () => {
     setMediaStatus({
       ...mediaStatus,
@@ -177,7 +177,7 @@ describe("real saved-assembly DRAFT export", () => {
     declareRights();
     expect(submit()).toBeEnabled();
     fireEvent.click(submit());
-    await screen.findByText("排队中 · DRAFT");
+    await screen.findByText("排队中");
     expect(env.exports.createFromPicker).toHaveBeenCalledTimes(1);
     expect(vi.mocked(env.exports.createFromPicker).mock.calls[0]![2]).toEqual({
       operation_id: expect.stringMatching(/^dmp_[0-9a-f]{32}$/),
@@ -195,17 +195,17 @@ describe("real saved-assembly DRAFT export", () => {
     await ready();
     declareRights();
     fireEvent.click(submit());
-    await screen.findByText("排队中 · DRAFT");
+    await screen.findByText("排队中");
     const original = env.jobs()[0]!;
     fireEvent.click(screen.getByRole("button", { name: "取消此草稿任务" }));
-    await screen.findByText("已取消 · DRAFT");
+    await screen.findByText("已取消");
     expect(env.exports.cancel).toHaveBeenCalledWith(projectId, episodeId, original.operation_id);
     view.unmount();
     env.setJobs([{ ...original, status: "VERIFYING", progress_frames: 50 }]);
     const second = render(
       <DraftExportPanel projectId={projectId} episodeId={episodeId} {...env} />,
     );
-    await screen.findByText("正在校验 MP4 文件 · DRAFT");
+    await screen.findByText("正在校验 MP4 文件");
     expect(screen.queryByText(/保存位置：/)).not.toBeInTheDocument();
     second.unmount();
     env.setJobs([
@@ -213,14 +213,14 @@ describe("real saved-assembly DRAFT export", () => {
         ...original,
         status: "SUCCEEDED",
         progress_frames: 50,
-        output_path: "/tmp/test-DRAFT.mp4",
+        output_path: "/tmp/test-草稿.mp4",
         output_sha256: "a".repeat(64),
         output_bytes: 1024,
       },
     ]);
     render(<DraftExportPanel projectId={projectId} episodeId={episodeId} {...env} />);
-    await screen.findByText("草稿文件已验证并保存 · DRAFT");
-    expect(screen.getByText("保存位置：/tmp/test-DRAFT.mp4")).toBeInTheDocument();
+    await screen.findByText("草稿文件已验证并保存");
+    expect(screen.getByText("保存位置：/tmp/test-草稿.mp4")).toBeInTheDocument();
     expect(screen.getByText("已验证大小：1024 字节")).toBeInTheDocument();
   });
   it("keeps a lost submit reply recoverable across remount without resubmitting", async () => {
@@ -237,7 +237,7 @@ describe("real saved-assembly DRAFT export", () => {
     expect(submit()).toBeDisabled();
     first.unmount();
     render(<DraftExportPanel projectId={projectId} episodeId={episodeId} {...env} />);
-    await screen.findByText("排队中 · DRAFT");
+    await screen.findByText("排队中");
     expect(env.exports.createFromPicker).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(`aivora:draft-mp4:pending:${projectId}:${episodeId}`)).toBeNull();
   });
@@ -302,18 +302,18 @@ describe("real saved-assembly DRAFT export", () => {
     await act(async () => {
       render(<DraftExportPanel projectId={projectId} episodeId={episodeId} {...env} />);
     });
-    expect(screen.getByText("排队中 · DRAFT")).toBeInTheDocument();
+    expect(screen.getByText("排队中")).toBeInTheDocument();
     env.setJobs([jobFor(command, { status: "RUNNING", progress_frames: 17 })]);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);
     });
-    expect(screen.getByText("正在编码 · DRAFT")).toBeInTheDocument();
+    expect(screen.getByText("正在编码")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("value", "17");
     env.setJobs([
       jobFor(command, {
         status: "SUCCEEDED",
         progress_frames: 50,
-        output_path: "/tmp/test-DRAFT.mp4",
+        output_path: "/tmp/test-草稿.mp4",
         output_sha256: "b".repeat(64),
         output_bytes: 2048,
       }),
@@ -321,7 +321,7 @@ describe("real saved-assembly DRAFT export", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);
     });
-    expect(screen.getByText("草稿文件已验证并保存 · DRAFT")).toBeInTheDocument();
+    expect(screen.getByText("草稿文件已验证并保存")).toBeInTheDocument();
     const count = vi.mocked(env.exports.list).mock.calls.length;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6000);
@@ -345,7 +345,7 @@ describe("real saved-assembly DRAFT export", () => {
     await screen.findByText(/任务身份与先前保存的提交记录不符/);
     expect(submit()).toBeDisabled();
     expect(env.exports.createFromPicker).not.toHaveBeenCalled();
-    expect(screen.queryByText("排队中 · DRAFT")).not.toBeInTheDocument();
+    expect(screen.queryByText("排队中")).not.toBeInTheDocument();
   });
   it("recovers a dismissed-before-submit operation only after a definitive readback absence", async () => {
     const env = setup();

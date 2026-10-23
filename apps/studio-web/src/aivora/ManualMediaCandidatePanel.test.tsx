@@ -178,7 +178,7 @@ test("production workflow combines both real child dirty guards into one confirm
   await waitFor(() => expect(screen.getByRole("button", { name: "核对请求 1" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "核对请求 1" }));
   await screen.findByLabelText("精确请求详情");
-  fireEvent.click(screen.getByText("关联本地素材为手工候选 · DRAFT", { selector: "summary" }));
+  fireEvent.click(screen.getByText("关联本地素材为手工候选 · 草稿", { selector: "summary" }));
   await fillCandidate();
   expect(guard!()).toBe(false);
   expect(window.confirm).toHaveBeenCalledOnce();

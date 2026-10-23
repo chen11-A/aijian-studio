@@ -67,6 +67,7 @@ type Sub2APIClient = {
   ): Promise<Sub2APIApprovalReadResult>;
 };
 
+/** Queue and one-call approval return 410 from the client. Operation and approval reads stay. */
 export function registerSub2APISourceExtractHandlers<TEvent>(
   handle: (
     channel: string,

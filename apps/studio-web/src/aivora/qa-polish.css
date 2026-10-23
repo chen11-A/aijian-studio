@@ -1,0 +1,214 @@
+/* Hands-on QA: contrast, header fit, margins, and controls that only look clickable. */
+
+.demo-root .v2-launch .welcome-sign-in .button.primary {
+  background: #f4f6f8;
+  color: #141518;
+  border-color: #d7dde6;
+}
+
+.demo-root .button.primary:disabled {
+  opacity: 1;
+  background: #16324a;
+  color: #d7e6f2;
+  border-color: #3d6484;
+}
+
+.demo-root .flow-footer > span {
+  color: #d5e4f0;
+}
+
+.welcome-more,
+.welcome-more summary {
+  font-size: 14px;
+  line-height: 22px;
+  color: #d5e0ea;
+}
+
+.v2-recent-heading > button {
+  font-size: 14px;
+  color: #d5e6f5;
+}
+
+.demo-root .mode-switch {
+  z-index: 4;
+}
+
+.demo-root.production-workbench .v2-welcome {
+  height: auto;
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.demo-root.production-workbench .v2-welcome h2,
+.demo-root.production-workbench .v2-welcome-copy,
+.demo-root.production-workbench .v2-welcome-actions {
+  position: static;
+  width: auto;
+  margin: 0;
+  padding-right: 0;
+}
+
+.demo-root.production-workbench .v2-welcome-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.demo-root.production-workbench .v2-recent-heading {
+  margin-top: 20px;
+}
+
+.demo-root.production-workbench .service-indicator,
+.demo-root.production-workbench.no-stage.no-rail .service-indicator {
+  right: 540px;
+  width: auto;
+  max-width: 148px;
+  height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 32px;
+  z-index: 1;
+}
+
+.demo-root.production-workbench.no-rail,
+.demo-root.production-workbench.is-pro.no-rail {
+  --main-right: 20px;
+}
+
+.demo-root .user-menu > summary {
+  max-width: 240px;
+  height: auto;
+  min-height: 36px;
+  white-space: normal;
+}
+
+.demo-root .user-chip-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+button.nav-label {
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #215173;
+  border-radius: 8px;
+  color: #d5e6f5;
+  background: transparent;
+  pointer-events: none;
+}
+
+.model-notice-slot {
+  min-height: 24px;
+}
+
+.production-workbench .service-secondary {
+  overflow: auto;
+}
+
+.production-workbench .service-secondary section[aria-label="已连接账号"] {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.demo-root.production-workbench .v2-cost-summary {
+  height: auto;
+}
+
+.demo-root.production-workbench .v2-cost-summary strong {
+  margin: 8px 12px 0;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.demo-root.production-workbench .v2-cost-summary p {
+  margin: 8px 12px 12px;
+}
+
+.demo-root .v2-utility-management .v2-utility-heading > .button {
+  position: static;
+  right: auto;
+  top: auto;
+}
+
+.account-model-grid .mouse-select-face > span,
+.mouse-select-face > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.demo-root.production-workbench .page-title {
+  height: auto;
+  min-height: 0;
+  margin-bottom: 16px;
+}
+
+.demo-root.production-workbench .page-title > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demo-root.production-workbench .page-title h1,
+.demo-root.production-workbench .page-title p {
+  margin: 0;
+  height: auto;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.demo-root.production-workbench .page-scroll > :not(.page-title):not(.flow-footer) {
+  flex: 0 0 auto;
+}
+
+.demo-root.production-workbench .v2-assets-body {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  overflow: visible;
+}
+
+.demo-root.production-workbench .v2-assets-toolbar,
+.demo-root.production-workbench .v2-assets-toolbar > div {
+  height: auto;
+  min-height: 36px;
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
+.demo-root.production-workbench .manual-creative-page > .manual-creative-empty {
+  flex: 0 0 auto;
+  min-height: 280px;
+  overflow: visible;
+}
+
+.demo-root.production-workbench .v2-generation-body,
+.demo-root.production-workbench .v2-assembly-body {
+  height: auto;
+  grid-template-rows: auto auto auto;
+}
+
+.short-film .film-still {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  margin-top: 12px;
+  border-radius: 8px;
+}

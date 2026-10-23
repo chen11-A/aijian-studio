@@ -87,7 +87,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 async function inspect() {
-  fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
   await screen.findByRole("button", { name: "固定此批准视觉和设定版本" });
 }
 describe("explicit G5 consumption in both storyboard entry points", () => {
@@ -105,7 +105,7 @@ describe("explicit G5 consumption in both storyboard entry points", () => {
     expect(bound.schema_version).toBe("1.3.0");
     expect(bound.visual_bible_pin.version_id).toBe(fixture.saved.version.id);
     expect(bound.shots).toEqual(initial.shots);
-    fireEvent.click(screen.getByRole("button", { name: "解除G5批准引用" }));
+    fireEvent.click(screen.getByRole("button", { name: "解除视觉版本引用" }));
     const unbound = JSON.parse(screen.getByTestId("content").textContent!);
     expect(unbound.schema_version).toBe("1.3.0");
     expect(unbound.visual_bible_pin).toBeNull();
@@ -123,7 +123,7 @@ describe("explicit G5 consumption in both storyboard entry points", () => {
       content_hash: fixture.saved.version.content_hash,
     });
     expect(value.shots).toEqual(board().shots);
-    fireEvent.click(screen.getByRole("button", { name: "解除G5批准引用" }));
+    fireEvent.click(screen.getByRole("button", { name: "解除视觉版本引用" }));
     value = JSON.parse(screen.getByTestId("content").textContent!);
     expect(value.schema_version).toBe("1.2.0");
     expect(value.visual_bible_pin).toBe(null);
@@ -134,7 +134,7 @@ describe("explicit G5 consumption in both storyboard entry points", () => {
     async (status) => {
       bridge(status);
       render(<Harness />);
-      fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+      fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
       await screen.findByText(/当前批准版本未通过核对/);
       expect(screen.queryByRole("button", { name: "固定此批准视觉和设定版本" })).toBe(null);
       expect(JSON.parse(screen.getByTestId("content").textContent!).schema_version).toBe("1.1.0");
@@ -153,7 +153,7 @@ describe("explicit G5 consumption in both storyboard entry points", () => {
       }),
     );
     render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
     await screen.findByText(/当前批准版本未通过核对/);
     expect(JSON.parse(screen.getByTestId("content").textContent!).episode_id).toBe(ep);
   });
@@ -175,7 +175,7 @@ describe("explicit G5 consumption in both storyboard entry points", () => {
           edit={edit}
         />,
       );
-    fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
     rerender(
       <StoryboardVisualBiblePin
         content={board("ep_" + "c".repeat(32))}

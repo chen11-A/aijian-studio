@@ -250,7 +250,7 @@ describe("exact confirmed sound/subtitle source workflow", () => {
     );
     await screen.findByText(/确认来源未可靠读回/);
     expect(blocked).toHaveBeenLastCalledWith(true);
-    expect(screen.queryByRole("button", { name: "转回未确认 DRAFT 来源" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "转回未确认 草稿 来源" })).not.toBeInTheDocument();
     expect(edit).not.toHaveBeenCalled();
   });
   it("empty/mixed/incorrect hash sources cannot be adopted", async () => {

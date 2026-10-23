@@ -223,6 +223,7 @@ export type RemoteSourceExtractCreateInput = {
     end_byte: number;
   };
   selection: { connection_id: string; connection_revision: number; model_id: string };
+  billing_account_kind?: "gpt_login" | "grok_login";
 };
 export type RemoteSourceExtractCreateCommand = {
   operation_id: string;
@@ -899,6 +900,47 @@ export interface AijianDesktopBridge
   health(): Promise<HealthResponse>;
   listProjects(): Promise<ProjectListResponse>;
   createProject(input: CreateProjectInput): Promise<ProjectResponse>;
+  getStoryFilmPlan?(projectId: string): Promise<{
+    data: {
+      providers: Array<{
+        id: string;
+        label: string;
+        billing_label: string;
+        available: boolean;
+        fix?: string | null;
+        unavailable_reason?: string | null;
+      }>;
+    };
+    request_id: string;
+  }>;
+  createStoryFilm?(
+    projectId: string,
+    input: {
+      scene_label: string;
+      narration: string;
+      subtitle?: string;
+      provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
+      confirmed: boolean;
+      voice_id?: string;
+    },
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  getStoryFilmProgress?(projectId: string): Promise<{
+    data: {
+      stage?: string;
+      label?: string;
+      elapsed_seconds?: number;
+      message?: string;
+      image_saved?: boolean;
+      preview_image?: string | null;
+    };
+    request_id: string;
+  }>;
+  cancelStoryFilm?(
+    projectId: string,
+  ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  readStoryFilmMedia?(path: string): Promise<Uint8Array>;
+  revealStoryFilm?(path: string): Promise<{ ok: boolean }>;
+  exportStoryFilm?(path: string): Promise<{ ok: boolean; cancelled?: boolean }>;
   getProject(projectId: string): Promise<ProjectResponse>;
   getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
   getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];

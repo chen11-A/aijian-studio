@@ -253,7 +253,7 @@ export function StoryboardWorkspaceView({
                 ? `已保存版本 ${version.version_id} · 回读核验通过`
                 : "保存后可重开本集继续编辑。"}
             </p>
-            {shot && <p>镜头身份：{shot.shot_id}</p>}
+            {shot && <p>镜头已编号，保存后仍是这一镜。</p>}
             <Button disabled={busy} onClick={() => void state.reload()}>
               重新读取
             </Button>
