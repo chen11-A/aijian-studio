@@ -22,6 +22,38 @@ const fallbackVoices = [
 
 type ProviderId = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
 
+const choiceKey = "aivora.short-film.choices";
+
+function readFilmChoices(): {
+  scene?: string;
+  line?: string;
+  subtitle?: string;
+  provider?: ProviderId;
+  voiceId?: string;
+} {
+  try {
+    const raw = window.localStorage.getItem(choiceKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const provider = parsed.provider;
+    return {
+      scene: typeof parsed.scene === "string" ? parsed.scene : undefined,
+      line: typeof parsed.line === "string" ? parsed.line : undefined,
+      subtitle: typeof parsed.subtitle === "string" ? parsed.subtitle : undefined,
+      provider:
+        provider === "stub" ||
+        provider === "grok_subscription" ||
+        provider === "xai_api_key" ||
+        provider === "chatgpt"
+          ? provider
+          : undefined,
+      voiceId: typeof parsed.voiceId === "string" ? parsed.voiceId : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 const providers: { id: ProviderId; label: string; billing: string }[] = [
   { id: "stub", label: "本地占位", billing: "不花钱" },
   { id: "grok_subscription", label: "Grok 订阅", billing: "包含在订阅里，不另收费" },
@@ -40,6 +72,7 @@ type FilmResult = {
   duration_seconds?: string | null;
   has_video?: boolean;
   has_audio?: boolean;
+  preview_image?: string | null;
 };
 
 function desktopFilm() {
@@ -51,19 +84,28 @@ function desktopFilm() {
 export function ShortFilmGuide() {
   const d = useDemo();
   const step = Math.min(Math.max(d.filmStep, 0), 3);
-  const [scene, setScene] = useState(SAMPLE_SCENE);
-  const [line, setLine] = useState(SAMPLE_LINE);
-  const [subtitle, setSubtitle] = useState("雾城来信");
-  const [provider, setProvider] = useState<ProviderId>("stub");
-  const [voiceId, setVoiceId] = useState("eve");
+  const savedChoices = readFilmChoices();
+  const [scene, setScene] = useState(savedChoices.scene || SAMPLE_SCENE);
+  const [line, setLine] = useState(savedChoices.line || SAMPLE_LINE);
+  const [subtitle, setSubtitle] = useState(savedChoices.subtitle ?? "雾城来信");
+  const [provider, setProvider] = useState<ProviderId>(savedChoices.provider ?? "stub");
+  const [voiceId, setVoiceId] = useState(savedChoices.voiceId || "eve");
   const [voices, setVoices] = useState(fallbackVoices);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState<FilmResult | null>(null);
+  const [preview, setPreview] = useState("");
   const choice = providers.find((item) => item.id === provider) ?? providers[0]!;
   const voice = voices.find((item) => item.id === voiceId) ?? voices[0]!;
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      choiceKey,
+      JSON.stringify({ scene, line, subtitle, provider, voiceId }),
+    );
+  }, [scene, line, subtitle, provider, voiceId]);
 
   useEffect(() => {
     const bridge = grokBridge();
@@ -95,6 +137,8 @@ export function ShortFilmGuide() {
           const key = response.data?.stage;
           const index = stageKeys.indexOf(key as (typeof stageKeys)[number]);
           if (index >= 0) setStage(index);
+          const picture = response.data?.preview_image;
+          if (typeof picture === "string" && picture.startsWith("data:image/")) setPreview(picture);
         })
         .catch(() => undefined);
     }, 800);
@@ -126,6 +170,8 @@ export function ShortFilmGuide() {
       });
       const data = (response.data ?? {}) as FilmResult;
       setResult(data);
+      if (typeof data.preview_image === "string" && data.preview_image.startsWith("data:image/"))
+        setPreview(data.preview_image);
       setNotice(data.message || "没有得到结果。");
     } catch {
       setNotice(
@@ -284,6 +330,7 @@ export function ShortFilmGuide() {
             <li>已用 {elapsed} 秒</li>
           </ol>
         )}
+        {preview && <img className="film-still" alt="已生成的画面" src={preview} />}
         {notice && <p role="status">{notice}</p>}
         {result?.status === "SUCCEEDED" && result.output_path && (
           <p>

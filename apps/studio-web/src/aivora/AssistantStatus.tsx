@@ -111,7 +111,11 @@ export function AssistantContext() {
         <dt>剧集</dt>
         <dd>{episode?.title ?? "尚未选择真实剧集"}</dd>
         <dt>页面</dt>
-        <dd>{pages[d.page][0]}</dd>
+        <dd>
+          {!d.professional && d.page === "project"
+            ? (["故事", "画面", "声音", "成片"] as const)[Math.min(3, Math.max(0, d.filmStep))]
+            : pages[d.page][0]}
+        </dd>
         <dt>来源文档</dt>
         <dd>{source?.filename ?? "尚未读取来源"}</dd>
         <dt>来源状态</dt>

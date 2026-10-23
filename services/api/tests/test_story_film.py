@@ -300,8 +300,8 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert token not in text
     assert "灯塔夜班" not in text
     events = [json.loads(line)["event"] for line in text.splitlines()]
-    assert events[:4] == ["image", "video_submit", "video_poll", "video_poll"]
-    assert "tts" in events
+    assert events[:5] == ["image", "image_saved", "video_submit", "video_poll", "video_poll"]
+    assert "tts" in events and "compose" in events
 
 
 def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monkeypatch):

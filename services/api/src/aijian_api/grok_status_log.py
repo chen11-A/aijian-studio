@@ -20,7 +20,12 @@ def _http_status(value: int | None) -> bool:
 
 
 def append_grok_status(
-    event: str, *, code: str | None = None, http_status: int | None = None
+    event: str,
+    *,
+    code: str | None = None,
+    http_status: int | None = None,
+    error_stage: str | None = None,
+    error_code: str | None = None,
 ) -> None:
     raw = os.environ.get("AIVORA_GROK_LOGIN_LOG", "")
     if not raw or "\n" in raw or "\x00" in raw:
@@ -36,6 +41,12 @@ def append_grok_status(
         payload["code"] = safe_code
     if status is not None:
         payload["httpStatus"] = status
+    stage = error_stage if error_stage and _NAME.fullmatch(error_stage) else None
+    failure = error_code if error_code and _NAME.fullmatch(error_code) else None
+    if stage:
+        payload["error_stage"] = stage
+    if failure:
+        payload["error_code"] = failure
     line = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if _SECRET.search(line):
         line = json.dumps(

@@ -16,6 +16,7 @@ export function AssistantChatConversation({
   setIncluded,
   onOpenServices,
   onOpenEditor,
+  grokModel,
 }: {
   bridge?: AssistantChatBridge;
   scope: AssistantChatScope;
@@ -27,6 +28,7 @@ export function AssistantChatConversation({
   setIncluded: (included: boolean) => void;
   onOpenServices: () => void;
   onOpenEditor: () => void;
+  grokModel?: string | null;
 }) {
   const chat = useAssistantChatConversation({
     bridge,
@@ -36,6 +38,7 @@ export function AssistantChatConversation({
     modelVerified,
     publication,
     included,
+    grokModel,
   });
   const logRef = useRef<HTMLDivElement>(null);
   const lastAssistantCountRef = useRef(0);
@@ -182,7 +185,7 @@ export function AssistantChatConversation({
           placeholder="输入问题。Ctrl+Enter 预览，Enter 换行。"
         />
         <Button primary disabled={!chat.canPreview} onClick={() => void chat.requestPreview()}>
-          {chat.busy ? "正在处理…" : "预览发送内容"}
+          {chat.busy ? "正在处理…" : chat.sendsDirectly ? "发送" : "预览发送内容"}
         </Button>
         {chat.preview && (
           <section className="assistant-chat-preview" aria-label="实际发送预览">

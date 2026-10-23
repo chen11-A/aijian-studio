@@ -90,6 +90,7 @@ class StoryFilmData(BaseModel):
     has_audio: bool = False
     draft: bool = True
     live_call: bool = False
+    preview_image: str | None = None
 
 
 class StoryFilmProgressData(BaseModel):
@@ -100,6 +101,7 @@ class StoryFilmProgressData(BaseModel):
     elapsed_seconds: int
     image_saved: bool
     message: str
+    preview_image: str | None = None
 
 
 class StoryFilmProgressResponse(BaseModel):
@@ -282,4 +284,5 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         has_audio=result.has_audio,
         draft=result.draft,
         live_call=result.live_call,
+        preview_image=result.preview_image,
     )

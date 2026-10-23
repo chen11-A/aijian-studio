@@ -23142,6 +23142,17 @@
             ],
             "title": "Output Sha256"
           },
+          "preview_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Image"
+          },
           "provider_label": {
             "title": "Provider Label",
             "type": "string"
@@ -23256,6 +23267,17 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "preview_image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Image"
           },
           "stage": {
             "enum": [

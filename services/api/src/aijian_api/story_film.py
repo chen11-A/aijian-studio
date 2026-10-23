@@ -9,6 +9,7 @@ a paid call happened.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -37,6 +38,7 @@ from aijian_api.episode_media_assembly_contracts import (
     EpisodeMediaAssemblyContentV1,
 )
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
+from aijian_api.grok_status_log import append_grok_status
 from aijian_api.media_asset_contracts import MediaAssetData
 from aijian_api.media_asset_store import MediaAssetError, MediaAssetStore
 from aijian_api.media_budget_policy import BudgetAmount, evaluate_media_budget
@@ -110,6 +112,7 @@ class StoryFilmResult:
     has_audio: bool
     draft: bool
     live_call: bool
+    preview_image: str | None = None
 
 
 def live_media_enabled() -> bool:
@@ -209,19 +212,29 @@ class StoryFilmService:
             )
         except (StoryFilmError, DraftExportError, MediaAssetError, OSError, XaiMediaError) as error:
             self._ledger.fail_local_task(running, error_code="STORY_FILM_FAILED")
-            detail = (
-                error.message
-                if isinstance(error, (StoryFilmError, XaiMediaError))
-                else "成片没有做完。"
-            )
-            mark_film_progress(project_id, "failed", detail)
+            grok = request.provider == "grok_subscription"
+            progress = film_progress(project_id)
+            saved = bool(progress.get("image_saved"))
+            stage = str(progress.get("stage") or "image")
             if isinstance(error, (StoryFilmError, XaiMediaError)):
-                message = error.message
+                message = _named_stage_message(stage, saved, error.message)
             elif isinstance(error, (DraftExportError, MediaAssetError)):
                 message = str(error)
             else:
                 message = "成片没有做完。"
-            grok = request.provider == "grok_subscription"
+            mark_film_progress(project_id, "failed", message)
+            preview = progress.get("preview_image")
+            if grok:
+                code = (
+                    error.code if isinstance(error, (StoryFilmError, XaiMediaError)) else "FAILED"
+                )
+                append_grok_status(
+                    _failure_event(stage),
+                    code=code,
+                    http_status=getattr(error, "http_status", None),
+                    error_stage=_failure_stage(stage),
+                    error_code=code,
+                )
             return _failed(
                 message,
                 provider_label,
@@ -230,14 +243,18 @@ class StoryFilmService:
                 running.attempt_id,
                 suggested=None if grok else "stub",
                 fix="可以重试。" if grok else "请改用本地占位再试一次。",
+                preview_image=preview if isinstance(preview, str) else None,
             )
         self._ledger.complete_local_task(
             running, output_version_id=result.artifact_version_id or ""
         )
         mark_film_progress(project_id, "done", result.message)
+        if request.provider == "grok_subscription":
+            append_grok_status("compose", code="ok")
         message = result.message
         if self._partial_note:
             message = f"{self._partial_note} 成片已保存。"
+        preview = film_progress(project_id).get("preview_image")
         return StoryFilmResult(
             status="SUCCEEDED",
             message=message,
@@ -255,6 +272,7 @@ class StoryFilmService:
             has_audio=result.has_audio,
             draft=True,
             live_call=live_call,
+            preview_image=preview if isinstance(preview, str) else None,
         )
 
     def _preflight(
@@ -498,17 +516,41 @@ class StoryFilmService:
         client = XaiMediaClient(transport, token=media_token)
         self._partial_note = None
         self._ensure_running(project_id)
-        mark_film_progress(project_id, "image", "正在生成画面。")
-        image = client.generate_image(
-            prompt=request.scene_label, model=request.image_model or IMAGE_MODEL
-        )
-        image_path = self._persist_image(request, image.data)
-        mark_film_progress(project_id, "image", "画面已保存。", image_saved=True)
+        saved = self._find_saved_image(project_id, request)
+        if saved is not None:
+            data = saved.read_bytes()
+            image = XaiImage(data=data, source_url=None, model=request.image_model or IMAGE_MODEL)
+            append_grok_status("image_saved", code="reused")
+            mark_film_progress(
+                project_id,
+                "image",
+                "沿用已经生成的画面。",
+                image_saved=True,
+                preview_image=_preview_data_url(data),
+            )
+        else:
+            mark_film_progress(project_id, "image", "正在生成画面。")
+            image = client.generate_image(
+                prompt=request.scene_label, model=request.image_model or IMAGE_MODEL
+            )
+            if image.data:
+                self._persist_image(project_id, request, image.data)
+                append_grok_status("image_saved", code="ok")
+                mark_film_progress(
+                    project_id,
+                    "image",
+                    "画面已保存。",
+                    image_saved=True,
+                    preview_image=_preview_data_url(image.data),
+                )
+            else:
+                mark_film_progress(project_id, "image", "画面地址已拿到，正在交给视频。")
         self._ensure_running(project_id)
-        mark_film_progress(project_id, "video", "正在生成视频。", image_saved=True)
-        clip, video_note = self._live_video(client, request, image, project_id, image_path)
+        kept = bool(image.data)
+        mark_film_progress(project_id, "video", "正在生成视频。", image_saved=kept)
+        clip, video_note = self._live_video(client, request, image, project_id)
         self._ensure_running(project_id)
-        mark_film_progress(project_id, "speech", "正在生成配音。", image_saved=True)
+        mark_film_progress(project_id, "speech", "正在生成配音。", image_saved=kept)
         try:
             speech = client.synthesize(
                 text=request.narration,
@@ -519,19 +561,25 @@ class StoryFilmService:
             if clip is None:
                 raise StoryFilmError(
                     "MEDIA_INCOMPLETE",
-                    f"画面已保存在本机：{image_path}。视频和配音都没有完成。可以重试。",
+                    "画面已生成，视频和配音这一步没有成功，可以重试",
                 ) from error
             raise StoryFilmError(
                 "SPEECH_FAILED",
-                f"视频已生成，配音没有完成。画面在 {image_path}。可以重试。",
+                "画面已生成，配音这一步没有成功，可以重试",
             ) from error
         if clip is None:
+            if not image.data:
+                raise StoryFilmError(
+                    "MEDIA_INCOMPLETE",
+                    video_note or "画面已生成，视频这一步没有成功，可以重试",
+                )
             clip = self._still_clip(request, image.data, speech)
-            self._partial_note = video_note or "视频没有完成，已用这张画面和配音做成片。"
+            self._partial_note = video_note or "画面已生成，视频这一步没有成功，可以重试"
             mark_film_progress(project_id, "assemble", self._partial_note, image_saved=True)
         else:
             mark_film_progress(project_id, "assemble", "正在合成。", image_saved=True)
-        return image.data, clip, speech
+        picture = image.data or _FALLBACK_PNG
+        return picture, clip, speech
 
     def _ensure_running(self, project_id: str) -> None:
         if project_id and film_cancel_requested(project_id):
@@ -540,11 +588,31 @@ class StoryFilmService:
                 "已停止等待。画面如果已经生成，会留在这台电脑上。可以重试。",
             )
 
-    def _persist_image(self, request: StoryFilmRequest, image: bytes) -> Path:
-        directory = Path(self._repository.database_path).parent / "story-films"
+    def _image_directory(self) -> Path:
+        return Path(self._repository.database_path).parent / "story-films"
+
+    def _image_stem(self, project_id: str, request: StoryFilmRequest) -> str:
+        raw = f"{project_id}\n{request.scene_label}".encode()
+        return hashlib.sha256(raw).hexdigest()[:16]
+
+    def _find_saved_image(self, project_id: str, request: StoryFilmRequest) -> Path | None:
+        directory = self._image_directory()
+        stem = self._image_stem(project_id, request)
+        for suffix in (".jpg", ".png", ".webp"):
+            path = directory / f"{stem}-key{suffix}"
+            if path.is_file() and path.stat().st_size > 0:
+                return path
+        return None
+
+    def _persist_image(self, project_id: str, request: StoryFilmRequest, image: bytes) -> Path:
+        directory = self._image_directory()
         directory.mkdir(parents=True, exist_ok=True)
-        stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
-        path = directory / f"{stem}-key.png"
+        suffix = ".png"
+        if image.startswith(b"\xff\xd8"):
+            suffix = ".jpg"
+        elif image.startswith(b"RIFF") and b"WEBP" in image[:16]:
+            suffix = ".webp"
+        path = directory / f"{self._image_stem(project_id, request)}-key{suffix}"
         path.write_bytes(image)
         return path
 
@@ -554,7 +622,6 @@ class StoryFilmService:
         request: StoryFilmRequest,
         image: object,
         project_id: str,
-        image_path: Path,
     ) -> tuple[bytes | None, str | None]:
         if not isinstance(image, XaiImage):
             raise StoryFilmError("IMAGE_RESPONSE_INVALID", "画面没有保存下来。")
@@ -565,25 +632,25 @@ class StoryFilmService:
                 model=request.video_model or VIDEO_MODEL,
                 duration=2,
             )
-        except XaiMediaError as error:
-            return None, error.message
+        except XaiMediaError:
+            return None, "画面已生成，视频这一步没有成功，可以重试"
         for _ in range(90):
             self._ensure_running(project_id)
             try:
                 polled = client.poll_video(submitted.request_id)
-            except XaiMediaError as error:
-                return None, error.message
+            except XaiMediaError:
+                return None, "画面已生成，视频这一步没有成功，可以重试"
             if polled.status == "done" and polled.video_url:
                 try:
                     return client.download(polled.video_url), None
-                except XaiMediaError as error:
-                    return None, error.message
+                except XaiMediaError:
+                    return None, "画面已生成，视频这一步没有成功，可以重试"
             if polled.status in {"failed", "expired"}:
                 client.cancel_video(submitted.request_id)
-                return None, "视频没有生成成功。画面已保留，可以重试。"
+                return None, "画面已生成，视频这一步没有成功，可以重试"
             self._sleep(2)
         client.cancel_video(submitted.request_id)
-        return None, f"视频还在生成，已停止等待。画面在 {image_path}。可以重试。"
+        return None, "画面已生成，视频这一步没有成功，可以重试"
 
     def _still_clip(self, request: StoryFilmRequest, image: bytes, speech: bytes) -> bytes:
         tools = self._tools()
@@ -903,7 +970,12 @@ _STAGE_LABELS = {
 
 
 def mark_film_progress(
-    project_id: str, stage: str, message: str, *, image_saved: bool = False
+    project_id: str,
+    stage: str,
+    message: str,
+    *,
+    image_saved: bool = False,
+    preview_image: str | None = None,
 ) -> None:
     if not project_id:
         return
@@ -912,11 +984,14 @@ def mark_film_progress(
         continuing = current is not None and current.get("stage") not in {"done", "failed", "idle"}
         started = current.get("started") if current is not None and continuing else time.monotonic()
         saved = image_saved or bool(current and current.get("image_saved"))
+        previous = current.get("preview_image") if current else None
+        preview = preview_image or (previous if isinstance(previous, str) else None)
         _PROGRESS[project_id] = {
             "stage": stage,
             "message": message,
             "started": started,
             "image_saved": saved,
+            "preview_image": preview,
         }
 
 
@@ -930,16 +1005,19 @@ def film_progress(project_id: str) -> dict[str, object]:
             "elapsed_seconds": 0,
             "image_saved": False,
             "message": "",
+            "preview_image": None,
         }
     started = current.get("started")
     elapsed = max(0, int(time.monotonic() - float(started))) if isinstance(started, float) else 0
     stage = str(current.get("stage") or "idle")
+    preview = current.get("preview_image")
     return {
         "stage": stage,
         "label": _STAGE_LABELS.get(stage, "等待"),
         "elapsed_seconds": elapsed,
         "image_saved": bool(current.get("image_saved")),
         "message": str(current.get("message") or ""),
+        "preview_image": preview if isinstance(preview, str) else None,
     }
 
 
@@ -956,6 +1034,47 @@ def film_cancel_requested(project_id: str) -> bool:
 def clear_film_cancel(project_id: str) -> None:
     with _PROGRESS_LOCK:
         _CANCEL.discard(project_id)
+
+
+_FALLBACK_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQ"
+    "DwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+def _preview_data_url(data: bytes) -> str | None:
+    if not data or len(data) > 1_500_000:
+        return None
+    mime = "image/png"
+    if data.startswith(b"\xff\xd8"):
+        mime = "image/jpeg"
+    elif data.startswith(b"RIFF") and b"WEBP" in data[:16]:
+        mime = "image/webp"
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _named_stage_message(stage: str, saved: bool, fallback: str) -> str:
+    if saved and stage not in {"image", "idle"}:
+        label = {"speech": "配音", "assemble": "合成"}.get(stage, "视频")
+        return f"画面已生成，{label}这一步没有成功，可以重试"
+    if stage in {"image", "idle", "failed"} or not saved:
+        return "画面这一步没有成功，可以重试"
+    return fallback
+
+
+def _failure_event(stage: str) -> str:
+    return {
+        "video": "video_submit",
+        "speech": "tts",
+        "assemble": "compose",
+    }.get(stage, "image_saved")
+
+
+def _failure_stage(stage: str) -> str:
+    if stage in {"image", "video", "speech", "assemble"}:
+        return stage
+    return "image"
 
 
 def _blocked(
@@ -994,6 +1113,7 @@ def _failed(
     *,
     suggested: Literal["stub", "grok_subscription"] | None = "stub",
     fix: str | None = "请改用本地占位再试一次。",
+    preview_image: str | None = None,
 ) -> StoryFilmResult:
     return StoryFilmResult(
         status="FAILED",
@@ -1012,4 +1132,5 @@ def _failed(
         has_audio=False,
         draft=True,
         live_call=False,
+        preview_image=preview_image,
     )

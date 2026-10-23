@@ -16,6 +16,20 @@ export const nodeLabels: Record<string, string> = {
   "asset.generate": "素材生成",
   "edit.assemble": "剪辑合成",
   "export.master": "母版导出",
+  story_film: "一句话成片",
+  "local.story_film.v1": "一句话成片",
+};
+
+export const attemptLabels: Record<string, string> = {
+  FAILED: "没有完成",
+  SUCCEEDED: "已完成",
+  CANCELLED: "已取消",
+  REMOTE_UNKNOWN: "结果未知",
+  NOT_SUBMITTED: "没有提交",
+  READY: "等待开始",
+  LEASED: "已接手",
+  RUNNING: "进行中",
+  WAITING_REMOTE: "等待结果",
 };
 
 export function shortHash(value: string): string {

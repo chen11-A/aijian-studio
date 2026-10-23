@@ -9,6 +9,7 @@ import type {
   SourceManifestResponse,
 } from "../api/studio";
 import { Button } from "./Common";
+import { useModelCenter } from "./account/CurrentModelLink";
 import { getModelCenterSnapshot } from "./account/model-center";
 import { useApiKeyFallback } from "./account/navigation";
 import { dispatchGrokLoginText } from "./grok-auth/dispatch";
@@ -65,6 +66,8 @@ export function SourceExtractionPanel({
   sourceApproved,
 }: SourceExtractionPanelProps) {
   const transport = useMemo(createStudioTransport, []);
+  const grokText = useModelCenter().choices.TEXT;
+  const grokModel = grokText?.provider === "GROK_LOGIN" ? grokText.modelId : "";
   const epoch = useRef(0);
   const activeProject = useRef(projectId);
   activeProject.current = projectId;
@@ -542,13 +545,17 @@ export function SourceExtractionPanel({
       {!projectId ? (
         <p role="status">请先选择真实项目。</p>
       ) : !acceptedCurrent || !document ? (
-        <p role="status">当前来源没有可用的已接受清单与选中文档，已阻止入队。</p>
+        <p role="status">还没有可写的来源。可以先在来源页放入文字，再用已登录的 Grok 写这一段。</p>
       ) : (
         <p>已接受来源，可选 {document.blocks.length} 个块。</p>
       )}
       {connections.kind === "error" && <p role="alert">连接目录读取失败；不能入队。</p>}
       {connections.kind === "ready" && eligible.length === 0 && (
-        <p role="status">没有可用的文本连接；请先在 AI 服务页配置并核对。</p>
+        <p role="status">
+          {grokModel
+            ? `将使用已选择的 Grok 文本模型 ${grokModel}。`
+            : "没有可用的文本连接；请先在 AI 服务页选择 Grok 文本模型。"}
+        </p>
       )}
       {(journal.kind === "BLOCKED" || sub2Journal.kind === "BLOCKED") && (
         <p role="alert">本地原操作记录无法安全读取，已阻止再次提交。</p>
@@ -582,7 +589,7 @@ export function SourceExtractionPanel({
             disabled={!document || !!operation || busy}
             onChange={(event) => setBlockId(event.target.value)}
           >
-            <option value="">请选择</option>
+            {!document?.blocks.length && <option value="">还没有来源块</option>}
             {document?.blocks.map((item) => (
               <option key={item.source_block_id} value={item.source_block_id}>
                 第 {item.ordinal + 1} 块 · {item.kind} · {item.end_byte - item.start_byte} 字节
@@ -593,14 +600,16 @@ export function SourceExtractionPanel({
         <label>
           文本连接
           <Select
-            value={connectionId}
-            disabled={!!operation || busy || !document}
+            value={connectionId || (grokModel ? "grok-login" : "")}
+            disabled={!!operation || busy || (!document && !grokModel)}
             onChange={(event) => {
-              setConnectionId(event.target.value);
+              const value = event.target.value === "grok-login" ? "" : event.target.value;
+              setConnectionId(value);
               setModelId("");
             }}
           >
-            <option value="">请选择</option>
+            {!eligible.length && !grokModel && <option value="">还没有文本连接</option>}
+            {grokModel && <option value="grok-login">Grok 账号</option>}
             {eligible.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.display_name} · 修订 {item.revision}
@@ -611,11 +620,14 @@ export function SourceExtractionPanel({
         <label>
           文本模型
           <Select
-            value={modelId}
-            disabled={!!operation || busy || !selectedConnection}
+            value={modelId || (!selectedConnection ? grokModel : "")}
+            disabled={!!operation || busy || (!selectedConnection && !grokModel)}
             onChange={(event) => setModelId(event.target.value)}
           >
-            <option value="">请选择</option>
+            {!models.length && !grokModel && <option value="">还没有文本模型</option>}
+            {grokModel && !models.some((item) => item.model_id === grokModel) && (
+              <option value={grokModel}>{grokModel}</option>
+            )}
             {models.map((item) => (
               <option key={item.model_id} value={item.model_id}>
                 {item.model_id}
@@ -626,7 +638,10 @@ export function SourceExtractionPanel({
         <Button disabled={!canQueue} onClick={() => void queue()}>
           仅入队原来源抽取
         </Button>
-        <Button disabled={busy || !block} onClick={() => void generateWithGrokLogin()}>
+        <Button
+          disabled={busy || (!block && !grokModel)}
+          onClick={() => void generateWithGrokLogin()}
+        >
           用 Grok 账号生成这段文本
         </Button>
         <Button

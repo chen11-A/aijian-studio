@@ -930,6 +930,8 @@ export interface AijianDesktopBridge
       label?: string;
       elapsed_seconds?: number;
       message?: string;
+      image_saved?: boolean;
+      preview_image?: string | null;
     };
     request_id: string;
   }>;

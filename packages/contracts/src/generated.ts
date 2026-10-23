@@ -10070,6 +10070,8 @@ export interface components {
             output_path?: string | null;
             /** Output Sha256 */
             output_sha256?: string | null;
+            /** Preview Image */
+            preview_image?: string | null;
             /** Provider Label */
             provider_label: string;
             /**
@@ -10114,6 +10116,8 @@ export interface components {
             label: string;
             /** Message */
             message: string;
+            /** Preview Image */
+            preview_image?: string | null;
             /**
              * Stage
              * @enum {string}

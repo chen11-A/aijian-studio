@@ -273,4 +273,26 @@ describe("simple story-to-film navigation", () => {
       expect.objectContaining({ provider: "grok_subscription", voice_id: "ara" }),
     );
   });
+
+  it("restores the story and generator after leaving the guide", () => {
+    const first = render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "旧灯塔来信" } });
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    fireEvent.change(screen.getByLabelText("用什么生成"), {
+      target: { value: "grok_subscription" },
+    });
+    first.unmount();
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    expect(screen.getByLabelText("这一场")).toHaveValue("旧灯塔来信");
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByLabelText("用什么生成")).toHaveValue("grok_subscription");
+  });
 });

@@ -1,6 +1,11 @@
+import { attemptLabels, formatTime, nodeLabels } from "../domain/task-queue-model";
 import type { useTaskQueue } from "../domain/use-task-queue";
 import { Button } from "./Common";
 import "./project-costs.css";
+
+function taskName(nodeType: string, kind: string): string {
+  return nodeLabels[nodeType] ?? nodeLabels[kind] ?? "创作任务";
+}
 
 export function ProjectCosts({
   projectId,
@@ -85,10 +90,9 @@ export function ProjectCosts({
                   </thead>
                   <tbody>
                     {data.tasks.map((item) => (
-                      <tr key={item.attempt.attempt_id}>
+                      <tr key={item.attempt.attempt_id} data-task={item.task.task_id}>
                         <td>
-                          <strong>{item.node.node_type}</strong>
-                          <code>{item.task.task_id}</code>
+                          <strong>{taskName(item.node.node_type, item.task.kind)}</strong>
                           <span>{item.attempt.provider_model ?? "未记录模型"}</span>
                           <span>
                             {item.attempt.execution_mode === "remote" ? "远程任务" : "本地任务"} ·
@@ -97,8 +101,8 @@ export function ProjectCosts({
                         </td>
                         <td>
                           <span>{item.presentation.status_label}</span>
-                          <span>{item.attempt.status}</span>
-                          <time>{item.attempt.updated_at}</time>
+                          <span>{attemptLabels[item.attempt.status] ?? "进行中"}</span>
+                          <time>{formatTime(item.attempt.updated_at)}</time>
                           {(item.attempt.status === "REMOTE_UNKNOWN" ||
                             item.attempt.retry_disposition === "REMOTE_UNKNOWN") && (
                             <p>结果未知，不自动重发。</p>

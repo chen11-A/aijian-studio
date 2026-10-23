@@ -380,7 +380,7 @@ export async function queueSub2APISourceExtract(
   const own = readSub2APISourceExtractJournal(storage, identity.projectId);
   const cpa = readRemoteSourceExtractJournal(storage, identity.projectId);
   if (own.kind === "BLOCKED" || cpa.kind === "BLOCKED")
-    return { kind: "UNAVAILABLE", message: "来源操作记录不可安全读取，已阻止入队。" };
+    return { kind: "UNAVAILABLE", message: "来源操作记录读不出来，这次不能提交。" };
   if (own.kind === "VALID") return { kind: "TRACKED", operation: own.operation };
   if (cpa.kind === "VALID")
     return { kind: "UNAVAILABLE", message: "此项目已有 CPA 来源操作，已阻止并列入队。" };
@@ -392,7 +392,7 @@ export async function queueSub2APISourceExtract(
     rejection: null,
   };
   if (!persistSub2API(storage, operation))
-    return { kind: "UNAVAILABLE", message: "Sub2API 原操作未能持久保存并回读，已阻止入队。" };
+    return { kind: "UNAVAILABLE", message: "上次的来源操作没有保存好，这次不能提交。" };
   try {
     const result = await capability.create(
       identity.projectId,

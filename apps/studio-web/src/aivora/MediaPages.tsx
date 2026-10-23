@@ -1219,9 +1219,9 @@ export function MediaPages() {
         <FlowFooter
           secondaryLabel="返回项目素材"
           secondaryAction={() => d.go("assets")}
-          label="导出本地 草稿 草稿"
+          label="导出本地草稿"
           action={() => d.go("export")}
-          reason="导出使用已保存的本集版本；草稿 草稿不代表正式发布批准"
+          reason="导出使用已保存的本集版本；草稿不代表正式发布批准"
         />
       </>
     );

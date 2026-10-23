@@ -648,4 +648,32 @@ describe("production assistant conversation", () => {
     await act(async () => answer?.({ kind: "COMPLETED", operationId, text: "旧作用域结果" }));
     expect(screen.queryByText("旧作用域结果")).not.toBeInTheDocument();
   });
+
+  it("sends with the connected Grok text model instead of asking for another login", async () => {
+    const completeText = vi.fn(async () => ({
+      kind: "OK" as const,
+      text: "可以先写灯塔。",
+      model: "grok-4.7",
+      billingAccountKind: "grok_login" as const,
+    }));
+    window.aijianGrok = {
+      status: vi.fn(),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(),
+      completeText,
+    } as unknown as Window["aijianGrok"];
+    view(undefined, { modelVerified: false, profileId: null, model: "", grokModel: "grok-4.7" });
+    expect(screen.queryByText(/请先确认文字模型已登录/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "给 AI 助手的消息" }), {
+      target: { value: "这一场怎么写" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("可以先写灯塔。")).toBeInTheDocument();
+    expect(completeText).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "grok-4.7", text: "这一场怎么写" }),
+    );
+    delete window.aijianGrok;
+  });
 });
