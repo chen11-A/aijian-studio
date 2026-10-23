@@ -70,23 +70,22 @@ afterEach(() => {
 });
 
 describe("explicit local media tools settings", () => {
-  it.each([
-    ["DEVELOPMENT_OVERRIDE", "开发环境指定工具"],
-    ["DEVELOPMENT_LOCAL", "开发环境本地工具"],
-    ["BUNDLED", "随包工具"],
-  ] as const)("labels %s from verified runtime status precisely", async (source, label) => {
-    const native = gateway({
-      ...available,
-      source,
-      profile_id: "admitted-existing-tools",
-      version: "7.1.1",
-    });
-    render(<MediaToolchainSettings gateway={native} />);
-    await screen.findByText(`来源：${label}`);
-    expect(screen.getByText(`${label}已核验 · 仅供 DRAFT`)).toBeInTheDocument();
-    expect(clear()).toBeDisabled();
-    expect(native.selectMediaToolchain).not.toHaveBeenCalled();
-  });
+  it.each(["DEVELOPMENT_OVERRIDE", "DEVELOPMENT_LOCAL", "BUNDLED"] as const)(
+    "labels %s from verified runtime status precisely",
+    async (source) => {
+      const native = gateway({
+        ...available,
+        source,
+        profile_id: "admitted-existing-tools",
+        version: "7.1.1",
+      });
+      render(<MediaToolchainSettings gateway={native} />);
+      await screen.findByText("视频工具已就绪");
+      expect(screen.getByText("版本：7.1.1")).toBeInTheDocument();
+      expect(clear()).toBeDisabled();
+      expect(native.selectMediaToolchain).not.toHaveBeenCalled();
+    },
+  );
 
   it("requires an explicit native folder choice and updates all capability consumers on removal", async () => {
     const native = gateway();
@@ -101,9 +100,9 @@ describe("explicit local media tools settings", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "草稿导出测试" })).toBeDisabled();
     fireEvent.click(select());
-    await screen.findByText("已验证外部媒体工具 · 仅供本地 DRAFT");
+    await screen.findByText("视频工具已就绪");
     expect(native.selectMediaToolchain).toHaveBeenCalledExactlyOnceWith();
-    expect(screen.getByText(/不代表正式发布批准/)).toBeInTheDocument();
+    expect(screen.getByText("版本：8.1.2")).toBeInTheDocument();
     for (const name of ["探测测试", "连续预览测试", "草稿导出测试"])
       expect(screen.getByRole("button", { name })).toBeEnabled();
     fireEvent.click(clear());
@@ -163,13 +162,13 @@ describe("explicit local media tools settings", () => {
   it("refreshes on re-entry and focus so a changed tool cannot retain an old available status", async () => {
     const native = gateway(available);
     const view = render(<MediaToolchainSettings gateway={native} />);
-    await screen.findByText("已验证外部媒体工具 · 仅供本地 DRAFT");
+    await screen.findByText("视频工具已就绪");
     native.getMediaToolchainStatus.mockResolvedValue({
       kind: "STATUS",
       status: { ...absent, state: "INVALID", diagnostic: "File changed" },
     });
     fireEvent.focus(window);
-    await screen.findByText("File changed");
+    await screen.findByText("媒体工具未通过校验，请在用户设置中核对或重新选择。");
     view.unmount();
     native.getMediaToolchainStatus.mockResolvedValue({ kind: "STATUS", status: absent });
     render(<MediaToolchainSettings gateway={native} />);
@@ -206,7 +205,7 @@ describe("settings card native selection lifecycle", () => {
       finish({ kind: "STATUS", status: available });
     });
     await screen.findByText(/尚未配置媒体工具/);
-    expect(screen.queryByText("已验证外部媒体工具 · 仅供本地 DRAFT")).not.toBeInTheDocument();
+    expect(screen.queryByText("视频工具已就绪")).not.toBeInTheDocument();
     expect(native.selectMediaToolchain).toHaveBeenCalledTimes(1);
   });
 });

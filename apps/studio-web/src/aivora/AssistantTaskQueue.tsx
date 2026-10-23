@@ -1,4 +1,4 @@
-import { formatTime, nodeLabels, shortHash, toneFor } from "../domain/task-queue-model";
+import { formatTime, nodeLabels, toneFor } from "../domain/task-queue-model";
 import { useDemo } from "./model";
 import { Button } from "./Common";
 
@@ -56,42 +56,17 @@ export function AssistantTaskQueue() {
                     {nodeLabels[item.node.node_type] ?? item.node.node_type} ·{" "}
                     {item.presentation.status_label}
                   </strong>
-                  <small>{item.task.task_id}</small>
                   <small>
-                    {item.node.responsible_role} ·{" "}
-                    {item.node.upstream_gate ? `上游 ${item.node.upstream_gate}` : "无上游 Gate"} ·
-                    尝试 {item.attempt.number} / {item.node.max_attempts}
+                    {item.node.responsible_role} · 第 {item.attempt.number} 次
                   </small>
                   <small>
-                    执行位置：{item.attempt.execution_mode === "remote" ? "远程" : "本地"}
+                    执行位置：{item.attempt.execution_mode === "remote" ? "远程" : "这台电脑"}
                   </small>
                   <small>
                     最近检查点：{formatTime(item.task.heartbeat_at ?? item.task.updated_at)}
                   </small>
-                  <small>
-                    成本：
-                    {item.cost.status === "NOT_RECORDED"
-                      ? "未知，成本账本尚未接入"
-                      : item.cost.status}
-                  </small>
+                  <small>金额未知。用订阅生成不会另外扣费。</small>
                   <small>下一步：{item.presentation.next_action_label}</small>
-                  {item.attempt.error_code && <small>错误码：{item.attempt.error_code}</small>}
-                  <details>
-                    <summary>查看真实输入与执行身份</summary>
-                    <code>{item.node.workflow_run_id}</code>
-                    <code>{item.node.node_run_id}</code>
-                    <code>{item.attempt.attempt_id}</code>
-                    <code title={item.node.input_hash}>{shortHash(item.node.input_hash)}</code>
-                    {item.node.input_version_ids.map((version) => (
-                      <code key={version}>{version}</code>
-                    ))}
-                    <small>执行状态：{item.attempt.status}</small>
-                    <small>
-                      产物版本：
-                      {item.attempt.output_version_id ?? item.node.output_version_id ?? "尚未产生"}
-                    </small>
-                    <small>提案：{item.proposal_id ?? "尚无提案"}</small>
-                  </details>
                 </article>
               ))}
             </>

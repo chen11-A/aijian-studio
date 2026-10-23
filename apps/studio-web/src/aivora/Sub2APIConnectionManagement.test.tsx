@@ -136,10 +136,10 @@ describe("Sub2API metadata management preserves revision and pending intent", ()
     ["公网 HTTPS origin", "https://example.com/path"],
     ["公网 HTTPS origin", "https://[invalid"],
     ["公网 HTTPS origin", "https://user@example.com"],
-    ["TEXT 模型 ID（逗号分隔）", ""],
-    ["TEXT 模型 ID（逗号分隔）", "same,same"],
-    ["TEXT 模型 ID（逗号分隔）", "x".repeat(201)],
-    ["TEXT 模型 ID（逗号分隔）", Array.from({ length: 101 }, (_, n) => `model-${n}`).join(",")],
+    ["文本模型标识（逗号分隔）", ""],
+    ["文本模型标识（逗号分隔）", "same,same"],
+    ["文本模型标识（逗号分隔）", "x".repeat(201)],
+    ["文本模型标识（逗号分隔）", Array.from({ length: 101 }, (_, n) => `model-${n}`).join(",")],
   ])("invalid %s=%s is rejected before read or write", async (label, value) => {
     const h = setup();
     change(label, value);
@@ -204,7 +204,7 @@ describe("Sub2API metadata management preserves revision and pending intent", ()
     expect(screen.getByLabelText("新密钥")).toBeDisabled();
     change("本机 IP 与显式端口", "http://127.0.0.1:8000");
     fireEvent.click(screen.getByLabelText("启用连接"));
-    change("TEXT 模型 ID（逗号分隔）", "other, second");
+    change("文本模型标识（逗号分隔）", "other, second");
     save();
     await waitFor(() => expect(h.api.editSub2APIMetadata).toHaveBeenCalledTimes(1));
     expect(h.api.editSub2APIMetadata.mock.calls[0]![1]).toMatchObject({

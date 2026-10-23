@@ -33,69 +33,10 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("local Sub2API creation requires matching receipt and readback", () => {
-  const faults = [
-    "request",
-    "id",
-    "provider",
-    "mode",
-    "revision",
-    "url",
-    "name",
-    "enabled",
-    "credential",
-    "models",
-  ] as const;
-  for (const phase of ["receipt", "readback"] as const) {
-    test.each(faults)(`${phase} rejects %s mismatch without repeating create`, async (fault) => {
-      const created = connection();
-      const read = connection();
-      const corrupted = phase === "receipt" ? created : read;
-      if (fault === "id") corrupted.id = "pcn_other";
-      if (fault === "provider") corrupted.provider_kind = "OPENAI";
-      if (fault === "mode") corrupted.origin_mode = "PUBLIC_HTTPS";
-      if (fault === "revision") corrupted.revision = 2;
-      if (fault === "url") corrupted.base_url = "http://127.0.0.1:9000/v1";
-      if (fault === "name") corrupted.display_name = "Changed";
-      if (fault === "enabled") corrupted.enabled = false;
-      if (fault === "credential") corrupted.credential_status = "MISSING";
-      if (fault === "models")
-        corrupted.models = [{ model_id: "different-model", capabilities: ["TEXT"] }];
-      const initial = { request_id: requestId, data: [] };
-      const listConnections = vi.fn().mockResolvedValue(initial);
-      const createConnection = vi.fn().mockResolvedValue({
-        request_id: phase === "receipt" && fault === "request" ? "" : requestId,
-        data: created,
-      });
-      const { result } = renderHook(() =>
-        useProviderSettings({
-          listConnections,
-          createConnection,
-          deleteConnection: vi.fn(),
-        }),
-      );
-      await waitFor(() => expect(result.current.state.kind).toBe("ready"));
-      if (phase === "readback")
-        listConnections.mockResolvedValueOnce({
-          request_id: fault === "request" ? "" : requestId,
-          data: [read],
-        });
-      await act(async () => {
-        await expect(result.current.create(input)).rejects.toThrow();
-      });
-      expect(createConnection).toHaveBeenCalledExactlyOnceWith(input);
-      expect(result.current.saving).toBe(false);
-      expect(result.current.saveError).toContain("连接保存结果未知");
-      expect(result.current.state).toEqual({ kind: "ready", response: initial });
-    });
-  }
-
-  test("only exact readback completes local creation", async () => {
-    const response = { request_id: requestId, data: [connection()] };
-    const listConnections = vi.fn().mockResolvedValue(response);
-    const createConnection = vi
-      .fn()
-      .mockResolvedValue({ request_id: requestId, data: connection() });
+describe("retired connection creation never reaches the transport", () => {
+  test("refuses a retired provider before any create request", async () => {
+    const listConnections = vi.fn().mockResolvedValue({ request_id: requestId, data: [] });
+    const createConnection = vi.fn();
     const { result } = renderHook(() =>
       useProviderSettings({ listConnections, createConnection, deleteConnection: vi.fn() }),
     );
@@ -103,10 +44,8 @@ describe("local Sub2API creation requires matching receipt and readback", () => 
     await act(async () => {
       await result.current.create(input);
     });
-    expect(result.current.state).toEqual({ kind: "ready", response });
-    expect(result.current.saveError).toBeNull();
-    expect(listConnections).toHaveBeenCalledTimes(2);
-    expect(createConnection).toHaveBeenCalledTimes(1);
+    expect(createConnection).not.toHaveBeenCalled();
+    expect(result.current.saveError).toContain("已停用");
   });
 
   test("simultaneous create requests dispatch once while waiting for receipt", async () => {
@@ -125,8 +64,9 @@ describe("local Sub2API creation requires matching receipt and readback", () => 
     );
     await waitFor(() => expect(result.current.state.kind).toBe("ready"));
     await act(async () => {
-      const first = result.current.create(input);
-      await result.current.create(input);
+      const openai = { ...input, provider_kind: "OPENAI" as const };
+      const first = result.current.create(openai);
+      await result.current.create(openai);
       expect(createConnection).toHaveBeenCalledTimes(1);
       finish({ request_id: requestId, data: connection() });
       await first;

@@ -214,7 +214,7 @@ def _available(toolchain: MediaToolchain) -> LocalMediaToolchainStatus:
         profile_id=toolchain.profile_id,
         version=toolchain.version,
         directory=str(toolchain.ffmpeg_path.parent),
-        diagnostic="Verified local tools are available for probing, preview and DRAFT MP4 only.",
+        diagnostic="视频工具已就绪，可用于探测、预览和草稿视频。",
         can_probe=True,
         can_preview=True,
         can_draft_export=True,

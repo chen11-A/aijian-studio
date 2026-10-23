@@ -37,9 +37,10 @@ it("opens the connected Costs page in both modes with only read and navigation a
   const result = render(<UtilityPages />);
   expect(screen.getByLabelText("当前作品任务与费用记录")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "查看固定演示账单" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "预算设置待接入" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "重新读取项目任务账本（只读）" }));
-  expect(model.taskQueue.reload).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("button", { name: "预算设置待接入" })).not.toBeInTheDocument();
+  expect(screen.getByText(/用订阅生成不会另外收费/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  expect(model.taskQueue.reload).toHaveBeenCalledTimes(2);
   fireEvent.click(screen.getByRole("button", { name: "选择作品" }));
   expect(model.go).toHaveBeenCalledWith("project");
   fireEvent.click(screen.getByRole("button", { name: "前往 AI 服务" }));
@@ -47,5 +48,5 @@ it("opens the connected Costs page in both modes with only read and navigation a
   model.professional = true;
   result.rerender(<UtilityPages />);
   expect(screen.getAllByText("未知")).toHaveLength(3);
-  expect(screen.getByRole("button", { name: "预算设置待接入" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "预算设置待接入" })).not.toBeInTheDocument();
 });

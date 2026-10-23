@@ -1,5 +1,6 @@
 """Read-only remote operation recovery on temporary SQLite; no authorization or dispatch."""
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import replace
@@ -95,10 +96,54 @@ def readback(operation, monkeypatch, transform):
         yield
 
 
+def test_gpt_login_scope_stays_free_of_billing_account_kind(operation):
+    with sqlite3.connect(operation.repository.database_path) as database:
+        scope = database.execute("SELECT scope_json FROM remote_dispatch_snapshots").fetchone()[0]
+    assert "billing_account_kind" not in json.loads(scope)
+
+
+def test_grok_login_is_stored_on_the_dispatch_scope_and_keeps_the_cpa_endpoint(operation):
+    selection = replace(operation.args["selection"], billing_account_kind="grok_login")
+    created = operation.factory.create_remote(
+        **{
+            **operation.args,
+            "idempotency_key": "synthetic-grok-login",
+            "selection": selection,
+        }
+    )
+    with sqlite3.connect(operation.repository.database_path) as database:
+        database.row_factory = sqlite3.Row
+        row = database.execute(
+            """
+            SELECT endpoint_binding, scope_json
+            FROM remote_dispatch_snapshots
+            WHERE attempt_id = ?
+            """,
+            (created.attempt.attempt_id,),
+        ).fetchone()
+    assert row["endpoint_binding"] == "CPA_LOOPBACK_V1"
+    assert json.loads(row["scope_json"])["billing_account_kind"] == "grok_login"
+
+
 def test_exact_remote_intent_replays_same_task_and_reads_without_writes(operation, monkeypatch):
     replay = operation.factory.create_remote(**operation.args)
     assert replay.replayed
     assert replay.task == operation.created.task
+    with sqlite3.connect(operation.repository.database_path) as connection:
+        billing = connection.execute(
+            """
+            SELECT billing_class, account_kind, classification_source, reservation_id
+            FROM dispatch_billing_records
+            """
+        ).fetchall()
+        budget = connection.execute(
+            """
+            SELECT requested_additional_budget_micros, approved_currency
+            FROM remote_dispatch_snapshots
+            """
+        ).fetchall()
+    assert billing == [("subscription", "gpt_login", "account_kind", None)]
+    assert budget == [(0, "USD")]
     with readback(operation, monkeypatch, lambda row: row):
         value = read(operation)
     assert value.operation_status == "TRACKED"

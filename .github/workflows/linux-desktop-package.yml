@@ -1,0 +1,54 @@
+name: Linux desktop package
+
+on:
+  pull_request:
+    branches: [codex/aivora-handoff-20261012]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-desktop:
+    if: github.repository == 'chen11-A/aijian-studio'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - name: Enable pinned pnpm
+        run: corepack enable pnpm
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: false
+      - name: Install desktop libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxss1 libxkbcommon0 \
+            xdg-utils libsecret-1-0
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the Linux desktop tarball
+        run: |
+          python3 packaging/linux/package-desktop.py \
+            --cache "$RUNNER_TEMP/aivora-linux-cache" \
+            --out-dir "$RUNNER_TEMP/AIVORA-Desktop-0.2.6-linux-x64"
+      - name: Launch under xvfb and check health
+        run: |
+          xvfb-run -a node scripts/e2e/linux-desktop-health.mjs \
+            --root "$RUNNER_TEMP/AIVORA-Desktop-0.2.6-linux-x64"
+      - name: Upload the Linux desktop package
+        uses: actions/upload-artifact@v7
+        with:
+          name: AIVORA-Desktop-linux-x64
+          path: ${{ runner.temp }}/AIVORA-Desktop-0.2.6-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

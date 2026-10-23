@@ -351,10 +351,10 @@ export function FixtureAssistantPanel() {
             <Icon name="folder" size={18} />
           </Button>
           <Button
-            aria-label="语音输入暂未接入"
+            aria-label="语音输入还不能用"
             onClick={() =>
               d.setEditor({
-                title: "语音输入尚未接入",
+                title: "语音输入还不能用",
                 description: "演示版未连接语音服务，也不会请求麦克风权限。请使用文字输入。",
               })
             }

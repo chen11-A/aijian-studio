@@ -20,7 +20,7 @@ export function VisualEnvironmentScopeEditor({
       <legend>世界与地点状态人工审查范围</legend>
       {!scope ? (
         <>
-          <p>此版本的旧 G5 只覆盖基础视觉。扩展范围需要另存新候选，再检查、送审和批准。</p>
+          <p>此版本的旧视觉约定只覆盖基础视觉。扩展范围需要另存新候选，再检查、送审和批准。</p>
           <button
             type="button"
             onClick={() => {

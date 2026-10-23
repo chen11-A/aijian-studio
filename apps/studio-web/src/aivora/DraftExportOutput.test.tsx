@@ -19,8 +19,8 @@ const job: DraftExportJob = {
   status: "SUCCEEDED",
   total_frames: 50,
   progress_frames: 50,
-  output_filename: "test-DRAFT.mp4",
-  output_path: "/local/test-DRAFT.mp4",
+  output_filename: "test-草稿.mp4",
+  output_path: "/local/test-草稿.mp4",
   output_sha256: "6".repeat(64),
   output_bytes: 12,
   error_code: null,
@@ -75,12 +75,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("verified DRAFT output actions", () => {
+describe("verified 草稿 output actions", () => {
   it("requests IDs only, creates a bounded MP4 blob, and never autoplays", async () => {
     const gateway = setup();
     render(<DraftExportOutput {...props} gateway={gateway} />);
     play();
-    const video = await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    const video = await screen.findByLabelText("已验证草稿视频");
     expect(gateway.preview).toHaveBeenCalledWith(job.project_id, job.episode_id, job.operation_id);
     expect(video).toHaveAttribute("src", "blob:draft-1");
     expect(video).toHaveAttribute("controls");
@@ -102,9 +102,9 @@ describe("verified DRAFT output actions", () => {
     await act(async () => pending.resolve(ready()));
     close();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:draft-1");
-    expect(screen.queryByLabelText("已验证 DRAFT 草稿视频")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("已验证草稿视频")).not.toBeInTheDocument();
     play();
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     expect(gateway.preview).toHaveBeenCalledTimes(2);
     view.unmount();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:draft-2");
@@ -117,20 +117,20 @@ describe("verified DRAFT output actions", () => {
     play();
     close();
     play();
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     await act(async () => old.resolve(ready()));
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText("已验证 DRAFT 草稿视频")).toHaveAttribute("src", "blob:draft-1");
+    expect(screen.getByLabelText("已验证草稿视频")).toHaveAttribute("src", "blob:draft-1");
   });
   it("revokes an open preview before replacing it with a newly verified read", async () => {
     const gateway = setup();
     render(<DraftExportOutput {...props} gateway={gateway} />);
     play();
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     play();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:draft-1");
     await waitFor(() =>
-      expect(screen.getByLabelText("已验证 DRAFT 草稿视频")).toHaveAttribute("src", "blob:draft-2"),
+      expect(screen.getByLabelText("已验证草稿视频")).toHaveAttribute("src", "blob:draft-2"),
     );
   });
   it("discards old gateway responses when the desktop capability changes", async () => {
@@ -158,15 +158,15 @@ describe("verified DRAFT output actions", () => {
     { operation_id: `dmp_${"7".repeat(32)}` },
     { output_sha256: "7".repeat(64) },
     { output_bytes: 13 },
-    { output_path: "/local/other-DRAFT.mp4" },
+    { output_path: "/local/other-草稿.mp4" },
   ])("revokes and resets when immutable displayed job identity changes: %j", async (patch) => {
     const gateway = setup();
     const view = render(<DraftExportOutput {...props} gateway={gateway} />);
     play();
-    await screen.findByLabelText("已验证 DRAFT 草稿视频");
+    await screen.findByLabelText("已验证草稿视频");
     view.rerender(<DraftExportOutput {...props} job={{ ...job, ...patch }} gateway={gateway} />);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:draft-1");
-    expect(screen.queryByLabelText("已验证 DRAFT 草稿视频")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("已验证草稿视频")).not.toBeInTheDocument();
   });
   it("discards a pending response after job/scope switch and hides mismatched scope", async () => {
     const gateway = setup();
@@ -248,7 +248,7 @@ describe("verified DRAFT output actions", () => {
   it("releases the blob when the media decoder fails", async () => {
     render(<DraftExportOutput {...props} gateway={setup()} />);
     play();
-    fireEvent.error(await screen.findByLabelText("已验证 DRAFT 草稿视频"));
+    fireEvent.error(await screen.findByLabelText("已验证草稿视频"));
     await screen.findByText(/无法解码/);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:draft-1");
   });

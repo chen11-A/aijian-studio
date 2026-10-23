@@ -18,7 +18,7 @@ export function DraftExportPanel(props: DraftExportProps & { showReview?: boolea
   return (
     <section className="v2-media-card episode-assembly draft-export" aria-label="草稿 MP4 导出">
       <header>
-        <span className="draft-export-badge">DRAFT · 本地草稿</span>
+        <span className="draft-export-badge">本地草稿</span>
         <h2>导出草稿 MP4</h2>
         <p>
           把本集已保存的真实媒体剪辑编码为本地
@@ -52,7 +52,7 @@ export function DraftExportPanel(props: DraftExportProps & { showReview?: boolea
             <p>{state.version.content_hash}</p>
           </details>
           {media.canDraftExport && (
-            <p>本机 FFmpeg 编码 · 无云端上传 · 文件名默认含 DRAFT · 不覆盖已存在的文件</p>
+            <p>本机 FFmpeg 编码 · 无云端上传 · 文件名默认含 草稿 · 不覆盖已存在的文件</p>
           )}
           {state.version.media_checks.some(
             (check) => check.availability === "UNVERIFIED_SIZE_LIMIT",
@@ -67,7 +67,7 @@ export function DraftExportPanel(props: DraftExportProps & { showReview?: boolea
           disabled={state.busy || !canEncode}
           onChange={(event) => setRights(event.currentTarget.checked)}
         />
-        我确认本集素材由我拥有或为合法合成素材，且理解此文件仅为本地 DRAFT
+        我确认本集素材由我拥有或为合法合成素材，且理解此文件仅为本地 草稿
         草稿，不代表权利审核通过或获得正式发布批准。
       </label>
       <Button

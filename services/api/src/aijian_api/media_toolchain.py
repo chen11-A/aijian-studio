@@ -217,7 +217,8 @@ def _parse_version_output(output: str, tool_name: str) -> _ParsedVersion:
             MediaToolchainErrorCode.INVALID_VERSION_OUTPUT,
             f"{tool_name} returned an invalid version banner",
         )
-    base_match = re.match(r"^(?P<base>[0-9]+\.[0-9]+\.[0-9]+)", match.group("token"))
+    # BtbN static/shared builds prefix the release, for example n8.1.3-20-g<hash>.
+    base_match = re.match(r"^n?(?P<base>[0-9]+\.[0-9]+\.[0-9]+)(?:$|[^0-9])", match.group("token"))
     configuration_line = next(
         (
             line.removeprefix("configuration:").strip()

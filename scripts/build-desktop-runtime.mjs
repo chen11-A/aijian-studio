@@ -71,7 +71,9 @@ function filesIn(directory) {
 function sourceFingerprint() {
   const inputs = [
     ...filesIn(join(root, "apps/desktop/src")).filter((path) => path.endsWith(".ts")),
-    ...filesIn(join(root, "packages/contracts/src")).filter((path) => path.endsWith(".ts")),
+    ...filesIn(join(root, "packages/contracts/src")).filter(
+      (path) => path.endsWith(".ts") || path.endsWith(".js") || path.endsWith(".d.ts"),
+    ),
     ...[
       "apps/desktop/tsconfig.json",
       "packages/contracts/tsconfig.json",

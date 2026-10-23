@@ -54,7 +54,7 @@ def verify_delivery(directory: Path, environment: dict[str, str], expected_run: 
     if size > MAX_SOURCE_BYTES:
         raise ValueError("Delivery exceeds the one-shot storage allowance")
     installers = [path for path in files if path.suffix == ".exe"]
-    if len(installers) != 1 or not installers[0].name.startswith("AIVORA-Dev-Core-"):
+    if len(installers) != 1 or not installers[0].name.startswith("AIVORA-Setup-"):
         raise ValueError("Expected exactly one development installer")
     receipt = json.loads((directory / "INSTALL-RESULT.json").read_text(encoding="utf-8"))
     required_results = (
@@ -70,7 +70,7 @@ def verify_delivery(directory: Path, environment: dict[str, str], expected_run: 
         or receipt.get("candidate_head") != environment["GITHUB_SHA"]
         or receipt.get("release_approved") is not False
         or any(receipt.get(key) != "PASS" for key in required_results)
-        or receipt.get("reinstall_existing_data") != "SAFELY_ABORTED"
+        or receipt.get("reinstall_existing_data") != "PRESERVED"
     ):
         raise ValueError("The exact candidate has not passed installation acceptance")
     installer = installers[0]

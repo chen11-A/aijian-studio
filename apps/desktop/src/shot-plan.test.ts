@@ -390,6 +390,7 @@ describe("shot plan native IPC and sandbox preload boundaries", () => {
     });
     expect([...exposures.keys()].filter((name) => name !== "aijianShotPlan")).toEqual([
       "aijianChatGPT",
+      "aijianGrok",
       "aijianAssistantChat",
       "aijianOfficialText",
       "aijianOfficialDirector",

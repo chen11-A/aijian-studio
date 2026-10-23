@@ -124,10 +124,10 @@ def main() -> None:
     app = json.loads((stage / "app/package.json").read_text())
     app.update(
         {
-            "name": "aivora-development-core",
-            "productName": "AIVORA Dev Core",
-            "version": "0.1.0-dev.core",
-            "description": "AIVORA development core; no bundled media encoding tools",
+            "name": "aivora",
+            "productName": "AIVORA",
+            "version": "0.2.6",
+            "description": "AIVORA",
             "author": "Aijian Studio contributors",
         }
     )
@@ -245,7 +245,7 @@ def main() -> None:
         "media_rendering_available": False,
         "signed": False,
         "release_approved": False,
-        "upgrade_supported": False,
+        "upgrade_supported": True,
         "installer_engine": "first-party-nsis-core-zlib",
         "minimum_windows_major": 10,
         "ucrt_resolution": "OPERATING_SYSTEM",
@@ -289,7 +289,7 @@ def main() -> None:
     core_nsis = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(core_nsis)
     core_nsis.build(stage, tools, args.evidence)
-    installers = list((stage / "installer-output").glob("AIVORA-Dev-Core-*-win-x64.exe"))
+    installers = list((stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))
     if len(installers) != 1:
         raise ValueError("Expected exactly one development-core NSIS installer")
     if installers[0].stat().st_size > 250 * 1024**2:

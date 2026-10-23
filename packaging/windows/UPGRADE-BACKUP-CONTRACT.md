@@ -1,6 +1,6 @@
 # Windows 升级前数据备份契约
 
-状态：待 DEV05/DEV07 接口与独立 QA 核准。当前 `installer.nsh` 在 `customInit` 检出旧安装时直接中止，防止在尚无备份能力时覆盖旧版本。
+状态：待 DEV05/DEV07 接口与独立 QA 核准。草稿 `installer.nsh` 在 `customInit` 检出旧安装时直接中止。已经发给用户的安装器是 `installer.dev-core.nsh`：就地覆盖所选目录里的程序文件，不删除 `%APPDATA%\AIVORA` 或 `%APPDATA%\AIVORA Dev Core`。下面的独立备份 helper 仍未实现，不能把就地升级说成已有备份恢复。
 
 ## 安装器顺序
 
@@ -15,8 +15,8 @@
 
 ## 旧版身份与凭据边界（静态审查）
 
-- 当前桌面源码 `apps/desktop/src/main.ts` 仅在未打包的 E2E 模式调用 `app.setPath("userData", ...)`；打包分支把 `app.getPath("userData")/workspace` 传给 sidecar。运行时包的 `productName` 固定为 `AIVORA`，但仍须对实际打包程序读回 `app.getName()`、`app.getPath("userData")` 和工作区位置。不能仅由配置文本断言 `%APPDATA%/AIVORA` 已被使用。
+- 打包后的程序在 `app.whenReady()` 之前把 `userData` 固定到 `%APPDATA%\AIVORA`。如果新目录还不存在、旧的 `%APPDATA%\AIVORA Dev Core` 还在，第一次启动会整份复制过去，不删除旧目录。未打包的 E2E 仍可用 `app.setPath("userData", ...)`。打包分支把 `app.getPath("userData")/workspace` 传给 sidecar。实际打包程序仍须读回 `app.getName()`、`app.getPath("userData")` 和工作区位置。
 - 源码桌面包名为 `@aijian/desktop`。若历史安装包使用该名称、另一 `productName` 或自定义 `userData`，旧工作区可能不在当前 `installer.nsh` 只检查的 `%APPDATA%/AIVORA` 下。旧版的安装登记键、可执行文件名、`appId`、`app.getName()`、`userData`、工作区和数据库路径均需从**实际旧版安装**记录；未取得映射前，不能宣称现有 NSIS 门覆盖所有升级路径，也不能把发现的旧目录自动迁到新目录。
 - `services/api/src/aijian_api/credential_vault.py` 使用系统 `keyring`，服务标识为 `aijian-studio/provider-api-key`，账号键为数据库中的 `credential_ref`（旧连接初始值为连接 ID，轮换后可变）；工作区数据库只持凭据引用。备份工作区不等于导出系统保管的密钥。验收只核引用身份、状态和升级/卸载后可用性，不读取、打印或复制密钥值；服务标识或账号映射变化须由 DEV05 单独核定。
 - DEV05 静态核对 v30→31 数据库迁移：旧连接的 `credential_ref` 取原 `connection_id`，原有 keyring 槽并不随数据库备份复制。仅在同一系统账号、同一 keyring 后端且旧槽仍存在时，旧引用才可能继续解析；跨账号、跨机器或系统凭据丢失时，数据库中的引用可能变为 `MISSING`/`UNAVAILABLE`，应由用户明确重新配置，不能自动外呼、轮换或声称密钥已从工作区备份恢复。DEV05/独立 QA 仍需以隔离旧版数据库和假 Vault 验证迁移、缺槽及轮换后的读回。
-- 独立 QA 用隔离的旧版 fixture 验证目录映射、备份恢复可读性、数据/凭据引用保留以及备份失败时旧程序和原数据不被覆盖。`customInit` 当前仍只是拒绝已识别的旧安装/目录，不是升级实现。历史身份与目录未穷尽前，首次安装判定也不能当作“机器上没有旧用户数据”的证明。
+- 独立 QA 用隔离的旧版 fixture 验证目录映射、备份恢复可读性、数据/凭据引用保留以及备份失败时旧程序和原数据不被覆盖。草稿 `installer.nsh` 的 `customInit` 仍只拒绝已识别的旧安装/目录。已发布的安装器会就地升级程序文件，并且不删除用户数据目录；这不是备份 helper。历史身份与目录未穷尽前，首次安装判定也不能当作“机器上没有旧用户数据”的证明。
