@@ -440,12 +440,14 @@ describe("compact native-only AI director review", () => {
     expect(screen.getByLabelText("人工驳回理由")).toHaveValue("原始理由");
     fireEvent.click(screen.getByRole("button", { name: "核对原操作（只读）" }));
     await screen.findByText(/人工驳回理由：原始理由/);
-    expect(fixture.input.onWorkStateChange).toHaveBeenLastCalledWith({
-      dirty: false,
-      pending: false,
-      busy: false,
-      storyboardPending: false,
-    });
+    await waitFor(() =>
+      expect(fixture.input.onWorkStateChange).toHaveBeenLastCalledWith({
+        dirty: false,
+        pending: false,
+        busy: false,
+        storyboardPending: false,
+      }),
+    );
     expect(reject).toHaveBeenCalledTimes(1);
   });
   it("preserves a malformed journal seen on focus and reports truncated recent history explicitly", async () => {

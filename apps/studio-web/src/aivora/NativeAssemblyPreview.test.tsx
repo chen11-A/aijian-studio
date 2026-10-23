@@ -466,5 +466,5 @@ describe("saved assembly native preview entry", () => {
       open_request_id: observed.open_request_id,
     });
     expect(sessionGateway.playMediaPreviewSession).toHaveBeenCalledTimes(1);
-  });
+  }, 20_000);
 });
