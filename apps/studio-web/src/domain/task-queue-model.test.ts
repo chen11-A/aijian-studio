@@ -30,7 +30,9 @@ describe("task queue presentation model", () => {
     replaced.presentation = { status_label: "已被后来的成片取代" } as TaskQueueItem["presentation"];
     expect(toneFor(replaced)).toBe("quiet");
     const stale = item("FAILED", "FAILED");
-    stale.presentation = { status_label: "上一次没有做完，已经结束" } as TaskQueueItem["presentation"];
+    stale.presentation = {
+      status_label: "上一次没有做完，已经结束",
+    } as TaskQueueItem["presentation"];
     expect(toneFor(stale)).toBe("quiet");
   });
 
