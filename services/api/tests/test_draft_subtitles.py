@@ -273,6 +273,24 @@ def test_bundled_font_draws_chinese_without_system_fonts(tmp_path, toolchain, mo
     assert lit > 20
 
 
+def test_portrait_subtitle_is_large_and_inside_the_lower_third(tmp_path):
+    image = _png(tmp_path / "black.png", (0, 0, 0))
+    assembly = _assembly(
+        [_visual(image, 0, 8)],
+        canvas_width=448,
+        canvas_height=672,
+        subtitle_segments=[cue("雾城来信", start=0, end=8)],
+    )
+    directory = tmp_path / "private"
+    directory.mkdir()
+    prepared = prepare_subtitles(assembly.content, directory)
+    assert prepared.evidence["fontsize_px"] == round(672 * 0.048)
+    assert "fontsize=32" in prepared.filters
+    assert "box=1:boxcolor=black@0.55" in prepared.filters
+    assert "y=h-text_h-h/10" in prepared.filters
+    assert "x=(w-text_w)/2" in prepared.filters
+
+
 def test_font_change_and_literal_files_fail_closed(tmp_path, monkeypatch):
     image = _png(tmp_path / "black.png", (0, 0, 0))
     assembly = _assembly([_visual(image, 0, 18)], subtitle_segments=[cue()])

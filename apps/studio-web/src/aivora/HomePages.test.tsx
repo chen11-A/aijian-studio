@@ -268,7 +268,7 @@ describe("project centre filtering", () => {
     const project = await screen.findByRole("button", { name: "管理真实项目记录" });
     fireEvent.click(project);
     fireEvent.change(screen.getByLabelText("操作"), {
-      target: { value: "收藏 / 取消收藏（待接入）" },
+      target: { value: "收藏 / 取消收藏（还不能用）" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     expect(
@@ -500,7 +500,7 @@ describe("project centre filtering", () => {
       target: { value: "已归档" },
     });
     fireEvent.click(screen.getByRole("button", { name: "管理真实项目记录" }));
-    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除（待影响核对）" } });
+    fireEvent.change(screen.getByLabelText("操作"), { target: { value: "删除（还不能用）" } });
     fireEvent.click(screen.getByRole("button", { name: "保存真实项目修改" }));
     await waitFor(() =>
       expect(

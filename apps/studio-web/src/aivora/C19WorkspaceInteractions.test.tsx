@@ -94,7 +94,7 @@ describe("C19 assistant real interaction boundaries", () => {
 
   it("opens the honest microphone boundary instead of requesting audio access", () => {
     openAssistant();
-    fireEvent.click(screen.getByRole("button", { name: "语音输入暂未接入" }));
+    fireEvent.click(screen.getByRole("button", { name: "语音输入还不能用" }));
     expect(screen.getByRole("dialog")).toHaveTextContent(
       "演示版未连接语音服务，也不会请求麦克风权限",
     );

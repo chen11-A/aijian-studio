@@ -10,6 +10,7 @@ export type StoryFilmCreateInput = {
   provider: StoryFilmProvider;
   confirmed: boolean;
   voice_id?: string;
+  regenerate?: boolean;
 };
 
 const projectIdPattern = /^prj_[0-9a-f]{32}$/;
@@ -111,6 +112,7 @@ export function createStoryFilmClient(
           provider: input.provider,
           confirmed: input.confirmed,
           ...(input.voice_id ? { voice_id: input.voice_id } : {}),
+          ...(input.regenerate ? { regenerate: true } : {}),
         }),
       }).then(read);
     },
@@ -120,7 +122,15 @@ export function createStoryFilmClient(
 export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   if (typeof value !== "object" || value === null) throw new Error("Invalid story film request");
   const body = value as Record<string, unknown>;
-  const allowed = ["scene_label", "narration", "subtitle", "provider", "confirmed", "voice_id"];
+  const allowed = [
+    "scene_label",
+    "narration",
+    "subtitle",
+    "provider",
+    "confirmed",
+    "voice_id",
+    "regenerate",
+  ];
   if (Object.keys(body).some((key) => !allowed.includes(key))) {
     throw new Error("Invalid story film request");
   }
@@ -143,6 +153,9 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     throw new Error("Invalid story film request");
   }
   if (typeof body.confirmed !== "boolean") throw new Error("Invalid story film request");
+  if (body.regenerate !== undefined && typeof body.regenerate !== "boolean") {
+    throw new Error("Invalid story film request");
+  }
   const voice = body.voice_id;
   if (voice !== undefined && (typeof voice !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(voice))) {
     throw new Error("Invalid story film request");
@@ -156,5 +169,6 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     provider: provider as StoryFilmProvider,
     confirmed: body.confirmed,
     ...(typeof voice === "string" ? { voice_id: voice } : {}),
+    ...(body.regenerate === true ? { regenerate: true } : {}),
   };
 }

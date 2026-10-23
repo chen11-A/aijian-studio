@@ -33,8 +33,11 @@ const inside = relative(resolve(process.env.RUNNER_TEMP), executable);
 if (isAbsolute(inside) || inside.startsWith("..")) {
   throw new Error("Use an isolated CI install directory");
 }
-const userData = join(process.env.APPDATA, "AIVORA Dev Core");
-if (existsSync(userData)) throw new Error("Smoke refuses an existing AIVORA Dev Core profile");
+const userData = join(process.env.APPDATA, "AIVORA");
+const legacyUserData = join(process.env.APPDATA, "AIVORA Dev Core");
+if (existsSync(userData) || existsSync(legacyUserData)) {
+  throw new Error("Smoke refuses an existing AIVORA profile");
+}
 const ffmpegSha = "ad8f211bc894755e0061c55ab280ae00e8d3d4f15a8cc4372b24cfa247b5942e";
 const ffprobeSha = "9df3b0b5275e830961df6d94e1f7a71121a7abd5ff708e9fec8a0b6084a55015";
 const hash = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -86,7 +89,7 @@ try {
     userData: app.getPath("userData"),
   }));
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.2.5");
+  assert.equal(identity.version, "0.2.6");
   assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(sidecars().length, 1);
   const resources = await application.evaluate(() => globalThis.process.resourcesPath);

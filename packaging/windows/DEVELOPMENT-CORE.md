@@ -16,14 +16,14 @@ Windows 云构建机器的真实安装、桌面启动、剧本保存重开及卸
 3. 新建项目并选择剧集，在“故事/剧本”中编辑场景和正文，点击保存，等待
    “已读回保存版本”。角色、世界、场景及分镜也支持手工文本编辑和保存。
 4. 关闭软件后再打开项目，可以继续编辑。工作区位于
-   `%APPDATA%\AIVORA Dev Core\workspace`。备份前先正常退出软件，保留整个
+   `%APPDATA%\AIVORA\workspace`。备份前先正常退出软件，保留整个
    工作区，不要只复制数据库文件。
 5. 本包未附带 FFmpeg/FFprobe 命令行工具。未配置经过校验的工具时，素材原件
    可以导入并尝试播放，但音视频探测、连续预览生成及 MP4 编码不可用。新的
    本机工具选择入口仅接受明确锁定的工具版本和哈希；Windows 实机媒体验收
    仍在进行中，请以同包验收记录为准。“字节已校验”不等于已成为可剪辑输入。
 6. 安装到已经有 AIVORA 的目录会就地升级程序文件。登录和作品留在
-   `%APPDATA%\AIVORA Dev Core`，安装程序不会删除这个目录。目录里如果是别的
+   `%APPDATA%\AIVORA`。第一次打开会从旧的 `%APPDATA%\AIVORA Dev Core` 复制一份，旧目录保留。安装程序不会删除这两个目录。目录里如果是别的
    文件，安装会停下来。卸载仅移除已记录的软件文件，保留工作区和未知的用户
    新增文件。
 
@@ -32,8 +32,8 @@ Windows 云构建机器的真实安装、桌面启动、剧本保存重开及卸
 
 This unsigned build is a limited desktop installer, not a completed
 media-production release. The displayed name is AIVORA. Packaged Windows builds
-keep the existing user-data folder `%APPDATA%\AIVORA Dev Core`, including login
-and projects created by 0.1.x.
+use `%APPDATA%\AIVORA`. The first launch copies an existing
+`%APPDATA%\AIVORA Dev Core` folder and does not delete it.
 
 ## Operating-system prerequisite
 
@@ -84,7 +84,7 @@ Microsoft files. No OS runtime is downloaded or installed by this installer.
   do not disable security protections to install it.
 - Installing into an existing AIVORA directory replaces program files in place.
   A separate backup/restore helper is not implemented or claimed. The installer
-  and uninstaller do not delete `%APPDATA%\AIVORA Dev Core`. Uninstall preserves
+  and uninstaller do not delete `%APPDATA%\AIVORA` or `%APPDATA%\AIVORA Dev Core`. Uninstall preserves
   the user workspace; data cleanup is a separate action.
 - Hosted-runner installation and native smoke are bounded engineering evidence,
   not clean standard-user, all-Windows-version or full user-workflow acceptance.

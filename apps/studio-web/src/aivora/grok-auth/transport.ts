@@ -73,7 +73,7 @@ export const GROK_WAITING_MESSAGE =
   "已打开系统浏览器。在 xAI 页面点同意后会自动回到这里，并显示已登录和可用模型。不用复制代码，也不用输入密码或密钥。若回调被拒绝，会自动打开已带验证码的链接并完成登录。";
 
 export const GROK_LOGIN_LOG_HINT =
-  "登录失败时请看本机日志 %APPDATA%\\AIVORA Dev Core\\logs\\grok-login.log。日志只记状态码，不写令牌。";
+  "登录失败时请看本机日志 %APPDATA%\\AIVORA\\logs\\grok-login.log。日志只记状态码，不写令牌。";
 
 const LOGIN_LOG_CODES = new Set([
   "REAUTH_REQUIRED",

@@ -26,6 +26,12 @@ describe("task queue presentation model", () => {
     expect(toneFor(item("RUNNING", "RUNNING"))).toBe("working");
     expect(toneFor(item("RUNNING", "WAITING_REMOTE"))).toBe("working");
     expect(toneFor(item("CANCELLED", "CANCELLED"))).toBe("quiet");
+    const replaced = item("FAILED", "FAILED");
+    replaced.presentation = { status_label: "已被后来的成片取代" } as TaskQueueItem["presentation"];
+    expect(toneFor(replaced)).toBe("quiet");
+    const stale = item("FAILED", "FAILED");
+    stale.presentation = { status_label: "上一次没有做完，已经结束" } as TaskQueueItem["presentation"];
+    expect(toneFor(stale)).toBe("quiet");
   });
 
   test("matches each user-facing filter against the derived tone", () => {

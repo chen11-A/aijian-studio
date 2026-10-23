@@ -1,7 +1,19 @@
-import { attemptLabels, formatTime, nodeLabels } from "../domain/task-queue-model";
+import { useState } from "react";
+import { attemptLabels, formatTime, nodeLabels, toneFor } from "../domain/task-queue-model";
 import type { useTaskQueue } from "../domain/use-task-queue";
 import { Button } from "./Common";
 import "./project-costs.css";
+
+const DISMISSED_FAILURES = "aivora.dismissed-task-failures";
+
+function readDismissed(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DISMISSED_FAILURES) ?? "[]") as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 function taskName(nodeType: string, kind: string): string {
   return nodeLabels[nodeType] ?? nodeLabels[kind] ?? "创作任务";
@@ -19,6 +31,16 @@ export function ProjectCosts({
     projectId && state.kind === "ready" && state.response.data.project_id === projectId
       ? state.response.data
       : null;
+  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
+  const hidden = new Set(dismissed);
+  const visible = data?.tasks.filter((item) => !hidden.has(item.attempt.attempt_id)) ?? [];
+  const folded = visible.filter((item) => item.presentation.status_label === "已被后来的成片取代");
+  const rows = visible.filter((item) => item.presentation.status_label !== "已被后来的成片取代");
+  const attention = rows.filter((item) => toneFor(item) === "attention").length;
+  const failedIds = (data?.tasks ?? [])
+    .filter((item) => item.attempt.status === "FAILED")
+    .map((item) => item.attempt.attempt_id);
+  const canClear = failedIds.some((id) => !hidden.has(id));
   return (
     <div className="v2-cost-body project-costs" aria-label="当前作品任务与费用记录">
       <div className="v2-cost-summary">
@@ -39,35 +61,42 @@ export function ProjectCosts({
       <section className="v2-utility-card">
         <h2>作品预算</h2>
         <p>还不能在这里设置花费上限。每次真正调用前都会再确认一次。</p>
-        <p>预算设置还不能用，所以下面的按钮是停用的。</p>
-        <Button disabled title="预算设置还不能用">
-          预算设置待接入
-        </Button>
+        <p>用订阅生成不会另外收费，所以金额保持未知，这不是一张账单。</p>
       </section>
       <section className="v2-utility-card project-cost-ledger">
-        <h2>项目任务账本</h2>
+        <h2>用量记录</h2>
         <p>{projectId ? "当前作品" : "尚未选择作品"}</p>
         <p>这里只列出已经记下的任务，不是完整账单。没有记下来的金额不能当成 0。</p>
         <Button
           disabled={!projectId || state.kind === "loading"}
           onClick={() => void queue.reload()}
         >
-          重新读取项目任务账本（只读）
+          刷新
         </Button>
+        {canClear && (
+          <Button
+            onClick={() => {
+              const next = [...new Set([...dismissed, ...failedIds])];
+              localStorage.setItem(DISMISSED_FAILURES, JSON.stringify(next));
+              setDismissed(next);
+            }}
+          >
+            清理失败记录
+          </Button>
+        )}
         {!projectId && <p role="status">请先选择真实作品，再读取该作品的任务与费用记录。</p>}
         {projectId && (state.kind === "loading" || state.kind === "idle") && (
-          <p role="status">正在读取当前作品任务账本…</p>
+          <p role="status">正在读取用量记录…</p>
         )}
         {projectId && (state.kind === "error" || (state.kind === "ready" && !data)) && (
-          <p role="alert">项目任务账本未可靠读回，当前无法判断任务或费用；请重新读取。</p>
+          <p role="alert">用量记录没有读出来。请再刷新一次。</p>
         )}
         {data && (
           <>
             <p>
-              现有记录 {data.tasks.length} 项 · 需处理 {data.summary.attention}{" "}
-              项。任务状态不代表收费状态。
+              现有记录 {rows.length} 项 · 需处理 {attention} 项。任务状态不代表收费状态。
             </p>
-            {!data.tasks.length ? (
+            {!rows.length && !folded.length ? (
               <p role="status">尚无任务记录；这不代表费用为零，也不证明没有发生外部调用。</p>
             ) : (
               <div
@@ -89,15 +118,12 @@ export function ProjectCosts({
                     </tr>
                   </thead>
                   <tbody>
-                    {data.tasks.map((item) => (
+                    {rows.map((item) => (
                       <tr key={item.attempt.attempt_id} data-task={item.task.task_id}>
                         <td>
                           <strong>{taskName(item.node.node_type, item.task.kind)}</strong>
                           <span>{item.attempt.provider_model ?? "未记录模型"}</span>
-                          <span>
-                            {item.attempt.execution_mode === "remote" ? "远程任务" : "本地任务"} ·
-                            尝试 {item.attempt.number}
-                          </span>
+                          <span>第 {item.attempt.number} 次</span>
                         </td>
                         <td>
                           <span>{item.presentation.status_label}</span>
@@ -114,33 +140,22 @@ export function ProjectCosts({
                         <td>
                           <span>金额尚未记录</span>
                           <span>{item.presentation.next_action_label}</span>
-                          <details>
-                            <summary>查看任务、输入版本与费用证据</summary>
-                            <p>尝试：{item.attempt.attempt_id}</p>
-                            <p>工作流：{item.node.workflow_run_id}</p>
-                            <p>节点：{item.node.node_run_id}</p>
-                            <p>输入校验值：{item.node.input_hash}</p>
-                            {item.node.input_version_ids.map((id) => (
-                              <p key={id}>输入版本：{id}</p>
-                            ))}
-                            <p>供应商任务：{item.attempt.provider_job_id ?? "尚未记录"}</p>
-                            <p>
-                              费用状态：{item.cost.status}
-                              ；币种、预留、累计、实付、预算和追加上限尚无可靠合同。
-                            </p>
-                            <p>
-                              产物：
-                              {item.attempt.output_version_id ??
-                                item.node.output_version_id ??
-                                "尚未产生"}
-                            </p>
-                            {item.attempt.error_code && <p>错误码：{item.attempt.error_code}</p>}
-                          </details>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {folded.length > 0 && (
+                  <details>
+                    <summary>更早的失败，已被后来的成片取代</summary>
+                    {folded.map((item) => (
+                      <p key={item.attempt.attempt_id}>
+                        {taskName(item.node.node_type, item.task.kind)} ·{" "}
+                        {formatTime(item.attempt.updated_at)} · {item.presentation.status_label}
+                      </p>
+                    ))}
+                  </details>
+                )}
               </div>
             )}
           </>

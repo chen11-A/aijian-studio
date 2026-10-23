@@ -922,6 +922,7 @@ export interface AijianDesktopBridge
       provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
       confirmed: boolean;
       voice_id?: string;
+      regenerate?: boolean;
     },
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{

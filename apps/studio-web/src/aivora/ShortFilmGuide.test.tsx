@@ -407,4 +407,29 @@ describe("simple story-to-film navigation", () => {
     releaseRetry({ data: { status: "FAILED", message: reason } });
     expect(await screen.findByRole("list", { name: "生成进度" })).toBeInTheDocument();
   });
+
+  it("asks for a fresh generation when the user clicks 重新生成", async () => {
+    const createStoryFilm = vi.fn(async () => ({
+      data: { status: "SUCCEEDED", message: "做好了", output_path: "/tmp/fresh.mp4" },
+    }));
+    connectedBridge(createStoryFilm);
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "重新生成" }));
+    await screen.findByText(/\/tmp\/fresh\.mp4/);
+    expect(createStoryFilm).toHaveBeenCalledWith(
+      PROJECT_ID,
+      expect.objectContaining({ regenerate: true }),
+    );
+  });
 });

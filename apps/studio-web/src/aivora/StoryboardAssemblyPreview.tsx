@@ -175,7 +175,7 @@ function ScopedStoryboardAssemblyPreview(props: Props) {
           )}
           <p>
             关联数量只说明保存的引用，不代表画面覆盖、权利、声音、口型或正式审片已经通过。实时预演与正式
-            Animatic 仍待接入。
+            动态分镜预览还不能用。
           </p>
         </>
       )}

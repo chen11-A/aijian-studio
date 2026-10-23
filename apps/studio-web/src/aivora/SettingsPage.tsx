@@ -701,7 +701,7 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
               <input readOnly value="未提供项目持久设置" />
             </label>
             <Button disabled title="项目说明尚无持久保存接口">
-              编辑项目说明 · 待接入
+              项目说明还不能在这里修改
             </Button>
           </div>
         </section>

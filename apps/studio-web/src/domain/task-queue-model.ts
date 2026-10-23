@@ -51,6 +51,8 @@ export function formatTime(value: string | null): string {
 }
 
 export function toneFor(item: TaskQueueItem): "working" | "attention" | "done" | "quiet" {
+  const label = item.presentation?.status_label;
+  if (label === "已被后来的成片取代" || label === "上一次没有做完，已经结束") return "quiet";
   if (
     item.node.status === "RECONCILIATION_REQUIRED" ||
     ["REMOTE_UNKNOWN", "FAILED", "NOT_SUBMITTED"].includes(item.attempt.status)

@@ -4,7 +4,7 @@ The wizard is Simplified Chinese: welcome, components, directory, progress, and
 finish. Modern UI 2 is the interface shipped with NSIS. No StdUtils, Nsis7z, UAC,
 or other third-party resource plug-in is loaded. The uninstaller enumerates only
 installed program files and removes empty directories. It does not delete
-%APPDATA%\\AIVORA Dev Core.
+%APPDATA%\\AIVORA or %APPDATA%\\AIVORA Dev Core.
 """
 
 from __future__ import annotations
@@ -20,15 +20,17 @@ NSIS_COPYING_SHA256 = "3c8de989f6504d52f5f8dfafedb6668cd47201f5d01f1319570727c09
 NSIS_WINDOWS_COMPILER_SHA256 = "e277b7378931b74392015f5ad6b1d744dcd8a347baa4480350a75ebeab8d8e3d"
 NSIS_LINUX_COMPILER_SHA256 = "4c9ef29d87623f72163eadd8de1b63811f7aa85fd18352559315dac58da83844"
 PRODUCT = "AIVORA"
-PRODUCT_VERSION = "0.2.5"
-PRODUCT_VERSION_QUAD = "0.2.5.0"
-INSTALLER_FILENAME = "AIVORA-Setup-0.2.5-win-x64.exe"
+PRODUCT_VERSION = "0.2.6"
+PRODUCT_VERSION_QUAD = "0.2.6.0"
+INSTALLER_FILENAME = "AIVORA-Setup-0.2.6-win-x64.exe"
 REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA"
 LEGACY_REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA-Dev-Core"
 LEGACY_EXECUTABLE = "AIVORA Dev Core.exe"
-# v0.1.x stored login, projects, and logs here. The folder name stays so an
-# upgrade does not move them. The installer never reads or deletes it.
-USER_DATA_FOLDER = "AIVORA Dev Core"
+# New installs keep login, projects, and logs in AIVORA. The app copies an
+# existing "AIVORA Dev Core" folder on first launch and does not delete it.
+# The installer never reads or deletes either folder.
+USER_DATA_FOLDER = "AIVORA"
+LEGACY_USER_DATA_FOLDER = "AIVORA Dev Core"
 
 
 def digest(path: Path) -> str:
@@ -409,8 +411,9 @@ def generate_script(app: Path, installer: Path, hook: Path) -> tuple[str, dict[s
         raise ValueError("Unexpected plugin/process/recursive-delete instruction")
     if "0.1.0-dev" in script or 'Name "AIVORA Dev Core"' in script:
         raise ValueError("Installer display name still uses a development label")
-    if USER_DATA_FOLDER and f'Delete "$APPDATA\\{USER_DATA_FOLDER}' in script:
-        raise ValueError("Installer must not delete the stable user-data folder")
+    for folder in (USER_DATA_FOLDER, LEGACY_USER_DATA_FOLDER):
+        if f'Delete "$APPDATA\\{folder}' in script:
+            raise ValueError("Installer must not delete the stable user-data folder")
     return script, files
 
 

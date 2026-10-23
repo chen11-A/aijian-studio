@@ -207,7 +207,7 @@ export async function runWindowsSmoke(values) {
   const executable = plain(resolve(values.exe));
   const resources = plain(join(dirname(executable), "resources"), "directory");
   const mediaRoot = plain(resolve(values["media-root"]), "directory");
-  const userData = plain(join(process.env.APPDATA, "AIVORA Dev Core"), "directory");
+  const userData = plain(join(process.env.APPDATA, "AIVORA"), "directory");
   const reportPath = resolve(values.report);
   const workRoot = plain(join(process.env.RUNNER_TEMP, "aivora-external-media-test"), "directory");
   const outputRoot = join(workRoot, "native-outputs");

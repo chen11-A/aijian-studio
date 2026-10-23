@@ -208,7 +208,7 @@ describe("project centre uses journaled authoritative management", () => {
       expect(gateway.updateProject).not.toHaveBeenCalled();
     },
   );
-  test.each(["重命名", "收藏 / 取消收藏（待接入）", "删除（待影响核对）"])(
+  test.each(["重命名", "收藏 / 取消收藏（还不能用）", "删除（还不能用）"])(
     "unchanged or unsupported action %s cannot write",
     async (action) => {
       const gateway = api();

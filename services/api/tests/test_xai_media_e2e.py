@@ -430,12 +430,32 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
             project_id, _request("grok_subscription"), media_token="subscription-token"
         )
         assert again.status == "SUCCEEDED", again.message
+        assert "已用上次已生成的画面" in again.message
         assert script.image_posts == 1
         assert len(script.video_bodies) == 1
         assert script.tts == 1
+        changed = service.produce(
+            project_id,
+            _request("grok_subscription", narration="灯塔换了班，雾还没有散。"),
+            media_token="subscription-token",
+        )
+        assert changed.status == "SUCCEEDED", changed.message
+        assert "已用上次已生成的画面" not in changed.message
+        assert script.image_posts == 2
+        assert len(script.video_bodies) == 2
+        assert script.tts == 2
+        forced = service.produce(
+            project_id,
+            _request("grok_subscription", regenerate=True),
+            media_token="subscription-token",
+        )
+        assert forced.status == "SUCCEEDED", forced.message
+        assert script.image_posts == 3
+        assert len(script.video_bodies) == 3
+        assert script.tts == 3
         tasks = TaskQueueReader(tmp_path / "workspace.db").list_project_tasks(project_id)
         films = [item for item in tasks if item.node_type == "story_film"]
-        assert len(films) == 2
+        assert len(films) == 4
         assert {item.attempt_status for item in films} == {"SUCCEEDED"}
     finally:
         httpd.shutdown()

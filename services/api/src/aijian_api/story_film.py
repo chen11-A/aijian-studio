@@ -106,6 +106,7 @@ class StoryFilmRequest:
     currency: str | None
     amount_micro: int | None
     idempotency_key: str
+    regenerate: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +164,7 @@ class StoryFilmService:
         self._ledger = LocalTaskLedger(repository.database_path)
         self._sleep = time.sleep
         self._partial_note: str | None = None
+        self._reuse_note: str | None = None
 
     def produce(
         self,
@@ -171,6 +173,8 @@ class StoryFilmService:
         *,
         media_token: str | None = None,
     ) -> StoryFilmResult:
+        self._partial_note = None
+        self._reuse_note = None
         clear_film_cancel(project_id)
         provider_label, billing_label = provider_copy(request.provider)
         blocked = self._preflight(project_id, request, media_token)
@@ -268,6 +272,8 @@ class StoryFilmService:
         message = result.message
         if self._partial_note:
             message = f"{self._partial_note} 成片已保存。"
+        if self._reuse_note:
+            message = f"{message}{self._reuse_note}"
         preview = film_progress(project_id).get("preview_image")
         return StoryFilmResult(
             status="SUCCEEDED",
@@ -521,7 +527,7 @@ class StoryFilmService:
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
-        bundle = self._saved_bundle(project_id, request)
+        bundle = None if request.regenerate else self._saved_bundle(project_id, request)
         if bundle is not None:
             image_bytes, saved_clip, saved_speech = bundle
             append_grok_status("image_saved", code="reused")
@@ -529,10 +535,11 @@ class StoryFilmService:
             append_grok_status("video_poll", code="reused")
             append_grok_status("tts", code="reused")
             preview = _preview_data_url(image_bytes)
+            self._reuse_note = "已用上次已生成的画面、视频和配音。"
             mark_film_progress(
                 project_id,
                 "assemble",
-                "沿用已经生成的画面、视频和配音。",
+                self._reuse_note,
                 image_saved=True,
                 preview_image=preview,
             )
@@ -546,15 +553,16 @@ class StoryFilmService:
         client = XaiMediaClient(transport, token=media_token)
         self._partial_note = None
         self._ensure_running(project_id)
-        saved = self._find_saved_image(project_id, request)
+        saved = None if request.regenerate else self._find_saved_image(project_id, request)
         if saved is not None:
             data = saved.read_bytes()
             image = XaiImage(data=data, source_url=None, model=request.image_model or IMAGE_MODEL)
             append_grok_status("image_saved", code="reused")
+            self._reuse_note = "已用上次已生成的画面。"
             mark_film_progress(
                 project_id,
                 "image",
-                "沿用已经生成的画面。",
+                self._reuse_note,
                 image_saved=True,
                 preview_image=_preview_data_url(data),
             )
@@ -626,7 +634,16 @@ class StoryFilmService:
         return Path(self._repository.database_path).parent / "story-films"
 
     def _image_stem(self, project_id: str, request: StoryFilmRequest) -> str:
-        raw = f"{project_id}\n{request.scene_label}".encode()
+        # Subtitle text is burned at compose, so it does not change this key.
+        # A retry of the same scene, narration and voice reuses the files.
+        raw = "\n".join(
+            (
+                project_id,
+                request.scene_label,
+                request.narration,
+                request.voice_id or "eve",
+            )
+        ).encode()
         return hashlib.sha256(raw).hexdigest()[:16]
 
     def _find_saved_image(self, project_id: str, request: StoryFilmRequest) -> Path | None:
@@ -673,7 +690,14 @@ class StoryFilmService:
             return
         directory = self._image_directory()
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / f"{self._image_stem(project_id, request)}{suffix}").write_bytes(data)
+        stem = self._image_stem(project_id, request)
+        target = directory / f"{stem}{suffix}"
+        if suffix.startswith("-voice"):
+            for old in (".mp3", ".wav"):
+                previous = directory / f"{stem}-voice{old}"
+                if previous != target and previous.is_file():
+                    previous.unlink()
+        target.write_bytes(data)
 
     def _artifact_head(
         self, project_id: str, artifact_type: str, episode_id: str | None
@@ -699,7 +723,12 @@ class StoryFilmService:
             suffix = ".jpg"
         elif image.startswith(b"RIFF") and b"WEBP" in image[:16]:
             suffix = ".webp"
-        path = directory / f"{self._image_stem(project_id, request)}-key{suffix}"
+        stem = self._image_stem(project_id, request)
+        path = directory / f"{stem}-key{suffix}"
+        for old in (".jpg", ".png", ".webp"):
+            previous = directory / f"{stem}-key{old}"
+            if previous != path and previous.is_file():
+                previous.unlink()
         path.write_bytes(image)
         return path
 

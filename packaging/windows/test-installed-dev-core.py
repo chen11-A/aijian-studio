@@ -146,7 +146,7 @@ def main() -> None:
     ):
         parser.error("This installer test is restricted to its authorized ephemeral CI branch")
     install = Path(os.environ["RUNNER_TEMP"]) / "AivoraDevCoreInstall"
-    user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
+    user_data = Path(os.environ["APPDATA"]) / "AIVORA"
     if install.exists() or user_data.exists() or args.delivery.exists():
         raise ValueError("Refusing existing install/profile/delivery data")
     installers = list((args.stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))

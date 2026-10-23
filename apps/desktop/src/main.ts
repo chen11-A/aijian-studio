@@ -21,6 +21,7 @@ import { createSubscriptionLedger } from "./desktop-subscription-ledger";
 import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
 import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
 import { registerGrokHandlers } from "./grok-auth-ipc";
+import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
@@ -32,7 +33,7 @@ import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
 import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
-import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { developmentPythonLaunch } from "./development-python";
@@ -121,11 +122,30 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 let nativePreviewDocumentEpoch = 0;
 
-function pinPackagedWindowsUserData(): void {
-  // v0.1.x saved login, projects, and logs here because productName was
-  // "AIVORA Dev Core". Keep that folder when the displayed name is AIVORA.
-  if (!app.isPackaged || process.platform !== "win32") return;
-  app.setPath("userData", join(app.getPath("appData"), "AIVORA Dev Core"));
+function pinPackagedUserData(): void {
+  // New installs use AIVORA. The first launch copies an existing
+  // "AIVORA Dev Core" folder and leaves the old one in place.
+  if (!app.isPackaged) return;
+  const legacy = join(app.getPath("appData"), "AIVORA Dev Core");
+  const next = join(app.getPath("appData"), "AIVORA");
+  if (!existsSync(next) && existsSync(legacy)) {
+    try {
+      cpSync(legacy, next, { recursive: true, dereference: false });
+    } catch {
+      app.setPath("userData", legacy);
+      return;
+    }
+  }
+  app.setPath("userData", next);
+}
+
+function revealSavedFile(path: string): void {
+  revealInFolder(path, {
+    platform: process.platform,
+    showItemInFolder: (item) => {
+      shell.showItemInFolder(item);
+    },
+  });
 }
 
 function configureDevelopmentUserData(): boolean {
@@ -581,7 +601,7 @@ registerDraftExportOutputHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
-  (trustedPath) => shell.showItemInFolder(trustedPath),
+  (trustedPath) => revealSavedFile(trustedPath),
 );
 registerDraftReviewHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -738,7 +758,7 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     },
     read: async (path) => new Uint8Array(await readFile(path)),
     reveal: (path) => {
-      shell.showItemInFolder(path);
+      revealSavedFile(path);
     },
     chooseExport: async (suggestedName) => {
       if (mainWindow === null) return null;
@@ -896,7 +916,7 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
-  pinPackagedWindowsUserData();
+  pinPackagedUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
   await app.whenReady();
   useGrokEncryption();

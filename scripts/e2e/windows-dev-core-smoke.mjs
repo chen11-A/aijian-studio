@@ -42,8 +42,11 @@ const executable = resolve(values.exe);
 const inside = relative(resolve(process.env.RUNNER_TEMP), executable);
 if (isAbsolute(inside) || inside.startsWith(".."))
   throw new Error("Use an isolated CI install directory");
-const userData = join(process.env.APPDATA, "AIVORA Dev Core");
-if (existsSync(userData)) throw new Error("Smoke refuses an existing AIVORA Dev Core profile");
+const userData = join(process.env.APPDATA, "AIVORA");
+const legacyUserData = join(process.env.APPDATA, "AIVORA Dev Core");
+if (existsSync(userData) || existsSync(legacyUserData)) {
+  throw new Error("Smoke refuses an existing AIVORA profile");
+}
 const manifest = JSON.parse(readFileSync(values.manifest, "utf8"));
 assert.equal(manifest.profile, "DEVELOPMENT_CORE");
 assert.equal(manifest.candidate_head, process.env.GITHUB_SHA);
@@ -136,7 +139,7 @@ async function launch() {
   }));
   assert.equal(identity.packaged, true);
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.2.5");
+  assert.equal(identity.version, "0.2.6");
   assert.equal(identity.electron, "43.2.0");
   assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(identity.preferences.sandbox, true);

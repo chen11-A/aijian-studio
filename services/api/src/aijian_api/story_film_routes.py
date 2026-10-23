@@ -69,6 +69,7 @@ class CreateStoryFilmBody(BaseModel):
     connection_revision: str = Field(default="unspecified", min_length=1, max_length=80)
     currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     amount_micro: int | None = Field(default=None, ge=0)
+    regenerate: bool = False
 
 
 class StoryFilmData(BaseModel):
@@ -258,6 +259,7 @@ def create_story_film_router(
                 currency=payload.currency,
                 amount_micro=payload.amount_micro,
                 idempotency_key=idempotency_key,
+                regenerate=payload.regenerate,
             ),
             media_token=token,
         )

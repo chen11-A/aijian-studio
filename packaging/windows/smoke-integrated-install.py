@@ -38,12 +38,18 @@ def main() -> None:
     ):
         parser.error("Integrated install smoke runs only on this repository's Windows runner")
     install = Path(os.environ["RUNNER_TEMP"]) / "AivoraIntegratedInstall"
-    user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
-    if install.exists() or user_data.exists() or args.delivery.exists():
+    user_data = Path(os.environ["APPDATA"]) / "AIVORA"
+    legacy_user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
+    if (
+        install.exists()
+        or user_data.exists()
+        or legacy_user_data.exists()
+        or args.delivery.exists()
+    ):
         raise ValueError("Refusing existing install, profile, or delivery data")
     installers = list((args.stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))
-    if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.2.5-win-x64.exe":
-        raise ValueError("Expected AIVORA-Setup-0.2.5-win-x64.exe")
+    if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.2.6-win-x64.exe":
+        raise ValueError("Expected AIVORA-Setup-0.2.6-win-x64.exe")
     installer = installers[0]
     if "Dev Core" in installer.name or "0.1.0-dev" in installer.name:
         raise ValueError("Shipped installer name still uses a development label")
@@ -97,8 +103,8 @@ def main() -> None:
         "silent_directory_switch": "/D",
         "executable_name": "AIVORA.exe",
         "display_name": "AIVORA",
-        "display_version": "0.2.5",
-        "user_data_directory": "AIVORA Dev Core",
+        "display_version": "0.2.6",
+        "user_data_directory": "AIVORA",
         "health_and_window": "PASS",
         "uninstall_app_removed": "PASS",
         "uninstall_workspace_preserved": "PASS",

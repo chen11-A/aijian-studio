@@ -73,6 +73,42 @@ describe("story film client", () => {
     await expect(client.progress(projectId)).rejects.toThrow("整理视频时没有成功");
   });
 
+  it("sends regenerate only when the user asks for a new generation", async () => {
+    const calls: { body?: string }[] = [];
+    const fetcher = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ body: typeof init?.body === "string" ? init.body : undefined });
+      return new Response(
+        JSON.stringify({
+          data: { status: "SUCCEEDED", message: "好了" },
+          request_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        }),
+        { status: 200 },
+      );
+    });
+    const client = createStoryFilmClient(
+      fetcher,
+      { origin, token },
+      () => "11111111-1111-4111-8111-111111111111",
+    );
+    await client.create(projectId, {
+      scene_label: "灯塔",
+      narration: "一句旁白",
+      provider: "stub",
+      confirmed: false,
+      regenerate: true,
+    });
+    expect(JSON.parse(calls[0]?.body ?? "{}")).toMatchObject({ regenerate: true });
+    expect(() =>
+      parseStoryFilmCreate({
+        scene_label: "灯塔",
+        narration: "一句旁白",
+        provider: "stub",
+        confirmed: false,
+        regenerate: "yes",
+      }),
+    ).toThrow("Invalid story film request");
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

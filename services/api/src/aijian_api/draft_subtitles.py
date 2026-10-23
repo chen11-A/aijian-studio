@@ -241,9 +241,10 @@ def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -
         raise DraftSubtitleError(
             "SUBTITLE_FONT_INVALID", "Pinned font lacks its expected Unicode cmap"
         ) from error
-    # Conservative character limit and scale leave at least two ems at either side.
-    size = max(1, min(content.canvas_width // 32, content.canvas_height // 18))
-    border = max(1, size // 16)
+    # About 4.8% of the frame height, still narrow enough to stay inside the width.
+    size = max(1, min(round(content.canvas_height * 0.048), content.canvas_width // 12))
+    border = max(2, size // 12)
+    box = max(4, size // 5)
     spacing = max(1, size // 4)
     hashes = [("font.otf", font_hash)]
     font_file = directory / "font.otf"
@@ -269,8 +270,9 @@ def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -
         # expansion=none makes %, backslashes, brackets and braces literal text.
         filters.append(
             f"drawtext=fontfile={font_option}:textfile={filename}:expansion=none:text_shaping=0:"
-            f"fontsize={size}:fontcolor=white:borderw={border}:bordercolor=black:text_align=C:"
-            f"x=(w-text_w)/2:y=h-text_h-{size}:line_spacing={spacing}:"
+            f"fontsize={size}:fontcolor=white:borderw={border}:bordercolor=black@0.9:"
+            f"box=1:boxcolor=black@0.55:boxborderw={box}:text_align=C:"
+            f"x=(w-text_w)/2:y=h-text_h-h/10:line_spacing={spacing}:"
             f"enable='gte(n,{cue.start_frame})*lt(n,{cue.end_frame})'"
         )
         cues.append(
@@ -294,11 +296,13 @@ def prepare_subtitles(content: EpisodeMediaAssemblyContentV1, directory: Path) -
             "frame_enable": "start_inclusive_end_exclusive",
             "fontsize_px": size,
             "border_px": border,
+            "box_px": box,
+            "boxcolor": "black@0.55",
             "line_spacing_px": spacing,
-            "bottom_margin_px": size,
+            "bottom_margin": "h/10",
             "fontcolor": "white",
-            "bordercolor": "black",
-            "alignment": "bottom_center",
+            "bordercolor": "black@0.9",
+            "alignment": "lower_third",
             "line_alignment": "center",
             "text_shaping": False,
             "cues": cues,

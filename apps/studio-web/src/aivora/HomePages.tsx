@@ -402,7 +402,7 @@ export function HomePages() {
     d.setEditor({
       title: `管理 ${project.name}`,
       description:
-        "重命名和归档写入本地工作区，并在读回后显示。归档仅改变分类，不停止在途任务、不删除产物。收藏与删除尚无持久合同，当前不可执行。",
+        "重命名和归档会写到这台电脑上，保存后能再读出来。归档只是分类，不会停掉正在做的事，也不会删掉成片。收藏和删除现在还不能用。",
       fields: [
         { key: "name", label: "项目名称", value: project.name, required: true },
         {
@@ -412,8 +412,8 @@ export function HomePages() {
           options: [
             "重命名",
             originalStatus === "archived" ? "恢复项目" : "归档",
-            "收藏 / 取消收藏（待接入）",
-            "删除（待影响核对）",
+            "收藏 / 取消收藏（还不能用）",
+            "删除（还不能用）",
           ],
         },
       ],
@@ -434,8 +434,8 @@ export function HomePages() {
         if (data.action?.startsWith("收藏") || data.action?.startsWith("删除")) {
           d.notify(
             data.action.startsWith("删除")
-              ? "尚无删除影响清单和确认合同；未删除项目或任何产物。"
-              : "收藏尚无持久合同；未修改项目或界面状态。",
+              ? "删除还不能用。作品和成片都还在。"
+              : "收藏还不能用。作品没有改动。",
           );
           return false;
         }
@@ -810,7 +810,7 @@ export function HomePages() {
             </Button>
             <WorkspaceLink />
           </div>
-          {filter === "收藏" && <p role="status">收藏尚无项目持久字段，此筛选无法给出真实结果。</p>}
+          {filter === "收藏" && <p role="status">收藏还不能用，所以这里列不出结果。</p>}
           {(filter === "草稿" || filter === "已完成") && (
             <p role="status">项目接口目前只提供进行中与已归档状态，无法判断此筛选。</p>
           )}

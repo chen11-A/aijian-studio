@@ -3,7 +3,7 @@
 import json
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -61,6 +61,7 @@ class TaskQueueRecord:
     lease_expires_at: datetime | None
     heartbeat_at: datetime | None
     task_updated_at: datetime
+    superseded: bool = False
 
     @property
     def responsible_role(self) -> str:
@@ -98,6 +99,8 @@ class TaskQueueRecord:
 
     @property
     def is_attention(self) -> bool:
+        if self.superseded or self.error_code == "STALE_SESSION":
+            return False
         return (
             self.node_status in {"RECONCILIATION_REQUIRED", "FAILED"}
             or self.attempt_status in _ATTENTION_ATTEMPTS
@@ -118,35 +121,65 @@ _SESSION_STARTED = datetime.now(UTC)
 def retire_stale_local_executions(database_path: Path, started: datetime) -> None:
     """Close local work left running by a previous process.
 
-    A task still leased from before this process started cannot be the current
-    session. Expire that lease and use the existing recovery path so 用量 does
-    not keep saying it is running.
+    Opening 用量 must not turn that leftover lease into a safe retry or a new
+    attempt. The original timestamps stay, so the row does not look like a
+    run the user just started.
     """
 
-    from aijian_api.task_ledger import LocalTaskLedger
     from aijian_api.task_ledger_models import timestamp
 
     cutoff = timestamp(started)
-    expired = timestamp(datetime(1970, 1, 1, tzinfo=UTC))
     connection = sqlite3.connect(database_path, timeout=5)
     try:
         connection.execute("BEGIN IMMEDIATE")
-        connection.execute(
+        rows = connection.execute(
             """
-            UPDATE task_ledger
-            SET lease_expires_at = ?
-            WHERE status = 'LEASED' AND updated_at < ?
-              AND task_kind LIKE 'local.%'
+            SELECT task.task_id, task.attempt_id, attempt.node_run_id
+            FROM task_ledger AS task
+            JOIN workflow_attempts AS attempt ON attempt.attempt_id = task.attempt_id
+            WHERE task.status = 'LEASED' AND task.updated_at < ?
+              AND task.task_kind LIKE 'local.%'
             """,
-            (expired, cutoff),
-        )
+            (cutoff,),
+        ).fetchall()
+        for task_id, attempt_id, node_run_id in rows:
+            updated = connection.execute(
+                """
+                UPDATE workflow_attempts
+                SET status = 'FAILED', retry_disposition = 'NON_RETRYABLE',
+                    error_code = 'STALE_SESSION', finished_at = updated_at,
+                    revision = revision + 1
+                WHERE attempt_id = ? AND status IN ('LEASED', 'RUNNING')
+                """,
+                (attempt_id,),
+            ).rowcount
+            if updated != 1:
+                continue
+            connection.execute(
+                """
+                UPDATE workflow_node_runs
+                SET status = 'FAILED', active_attempt_id = NULL,
+                    revision = revision + 1
+                WHERE node_run_id = ? AND status = 'RUNNING'
+                """,
+                (node_run_id,),
+            )
+            connection.execute(
+                """
+                UPDATE task_ledger
+                SET status = 'COMPLETED', lease_owner = NULL, lease_token = NULL,
+                    lease_expires_at = NULL, heartbeat_at = NULL,
+                    revision = revision + 1
+                WHERE task_id = ? AND status = 'LEASED'
+                """,
+                (task_id,),
+            )
         connection.commit()
     except Exception:
         connection.rollback()
         raise
     finally:
         connection.close()
-    LocalTaskLedger(database_path).recover_expired_local_tasks()
 
 
 class TaskQueueReader:
@@ -202,12 +235,13 @@ class TaskQueueReader:
                 """,
                 (project_id,),
             ).fetchall()
-            return [_record(row) for row in rows]
+            return _with_superseded([_record(row) for row in rows])
         finally:
             connection.close()
 
 
 def _record(row: sqlite3.Row) -> TaskQueueRecord:
+    bindings = json.loads(str(row["input_bindings_json"]))
     return TaskQueueRecord(
         proposal_id=_optional_text(row["proposal_id"]),
         workflow_run_id=str(row["workflow_run_id"]),
@@ -216,7 +250,7 @@ def _record(row: sqlite3.Row) -> TaskQueueRecord:
         node_type=str(row["node_type"]),
         node_status=str(row["node_status"]),
         input_hash=str(row["input_hash"]),
-        input_version_ids=_version_ids(json.loads(str(row["input_bindings_json"]))),
+        input_version_ids=_version_ids(bindings),
         node_output_version_id=_optional_text(row["node_output_version_id"]),
         attempt_count=int(row["attempt_count"]),
         max_attempts=int(row["max_attempts"]),
@@ -225,7 +259,7 @@ def _record(row: sqlite3.Row) -> TaskQueueRecord:
         attempt_number=int(row["attempt_number"]),
         execution_mode=str(row["execution_mode"]),
         attempt_status=str(row["attempt_status"]),
-        provider_model=_optional_text(row["provider_model"]),
+        provider_model=_recorded_model(row["provider_model"], bindings),
         provider_job_id=_optional_text(row["provider_job_id"]),
         retry_disposition=_optional_text(row["retry_disposition"]),
         error_code=_optional_text(row["error_code"]),
@@ -243,6 +277,46 @@ def _record(row: sqlite3.Row) -> TaskQueueRecord:
         heartbeat_at=_optional_datetime(row["heartbeat_at"]),
         task_updated_at=parse_datetime(str(row["task_updated_at"])),
     )
+
+
+def _recorded_model(column: object, bindings: object) -> str | None:
+    recorded = _optional_text(column)
+    if recorded:
+        return recorded
+    if not isinstance(bindings, dict):
+        return None
+    names: list[str] = []
+    for key in ("image_model", "video_model", "speech_model"):
+        value = bindings.get(key)
+        if isinstance(value, str) and value.strip() and value.strip() not in names:
+            names.append(value.strip())
+    return "、".join(names) or None
+
+
+def _moment(record: TaskQueueRecord) -> datetime:
+    return record.started_at or record.attempt_updated_at
+
+
+def _with_superseded(records: list[TaskQueueRecord]) -> list[TaskQueueRecord]:
+    latest: dict[str, datetime] = {}
+    for record in records:
+        if record.attempt_status != "SUCCEEDED" or not record.task_kind.startswith("local."):
+            continue
+        when = _moment(record)
+        current = latest.get(record.task_kind)
+        if current is None or when > current:
+            latest[record.task_kind] = when
+    marked: list[TaskQueueRecord] = []
+    for record in records:
+        success_at = latest.get(record.task_kind)
+        superseded = (
+            record.attempt_status == "FAILED"
+            and record.task_kind.startswith("local.")
+            and success_at is not None
+            and _moment(record) < success_at
+        )
+        marked.append(replace(record, superseded=True) if superseded else record)
+    return marked
 
 
 def _version_ids(value: object) -> tuple[str, ...]:

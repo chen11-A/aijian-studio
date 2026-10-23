@@ -222,6 +222,13 @@ export function ShortFilmGuide() {
           if (index >= 0) setStage(index);
           const picture = response.data?.preview_image;
           if (typeof picture === "string" && picture.startsWith("data:image/")) setPreview(picture);
+          const progressMessage = response.data?.message;
+          if (
+            typeof progressMessage === "string" &&
+            progressMessage.includes("已用上次已生成的画面")
+          ) {
+            setNotice(progressMessage);
+          }
         })
         .catch(() => undefined);
     }, 800);
@@ -255,7 +262,7 @@ export function ShortFilmGuide() {
 
   const go = (next: number) => d.setFilmStep(next);
 
-  const make = async (confirmed: boolean) => {
+  const make = async (confirmed: boolean, regenerate = false) => {
     const bridge = desktopFilm();
     const projectId = d.backendProjectId;
     if (!bridge || !projectId) {
@@ -275,6 +282,7 @@ export function ShortFilmGuide() {
         provider,
         confirmed,
         voice_id: voiceId,
+        ...(regenerate ? { regenerate: true } : {}),
       });
       const data = (response.data ?? {}) as FilmResult;
       const picture =
@@ -487,6 +495,9 @@ export function ShortFilmGuide() {
             <Button primary onClick={() => void make(true)}>
               确认花钱并继续
             </Button>
+          )}
+          {step === 3 && !busy && d.backendProjectId && (
+            <Button onClick={() => void make(provider === "xai_api_key", true)}>重新生成</Button>
           )}
           {busy && <Button onClick={cancel}>取消</Button>}
         </div>

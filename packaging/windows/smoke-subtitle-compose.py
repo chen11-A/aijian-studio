@@ -73,7 +73,8 @@ def main() -> None:
         drawtext = (
             f"drawtext=fontfile={escaped}:textfile={escape_drawtext_path(str(cue.resolve()))}:"
             "expansion=none:text_shaping=0:fontsize=32:fontcolor=white:"
-            "x=(w-text_w)/2:y=h-text_h-16"
+            "box=1:boxcolor=black@0.55:boxborderw=8:"
+            "x=(w-text_w)/2:y=h-text_h-h/10"
         )
         environment = os.environ.copy()
         environment["FONTCONFIG_FILE"] = str(config)
@@ -87,7 +88,11 @@ def main() -> None:
                 "-f",
                 "lavfi",
                 "-i",
-                "color=c=black:s=320x180:r=24:d=0.5",
+                "color=c=black:s=448x672:r=24:d=0.5",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=0.5",
                 "-vf",
                 drawtext,
                 "-frames:v",
@@ -96,6 +101,9 @@ def main() -> None:
                 "libx264",
                 "-pix_fmt",
                 "yuv420p",
+                "-c:a",
+                "aac",
+                "-shortest",
                 str(output),
             ],
             check=False,
@@ -125,8 +133,27 @@ def main() -> None:
             capture_output=True,
             text=True,
         )
-        if probe.returncode != 0 or "h264" not in probe.stdout:
-            raise SystemExit("composed clip has no h264 picture")
+        if probe.returncode != 0 or "h264,448,672" not in probe.stdout.replace(" ", ""):
+            raise SystemExit(f"composed clip has no 448x672 h264 picture: {probe.stdout!r}")
+        audio = subprocess.run(
+            [
+                str(ffprobe),
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "csv=p=0",
+                str(output),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if audio.returncode != 0 or "audio" not in audio.stdout:
+            raise SystemExit("composed clip has no audio stream")
     print("SUBTITLE_COMPOSE=ok")
 
 

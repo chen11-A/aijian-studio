@@ -243,10 +243,11 @@ describe("real task queue in the assistant", () => {
     const listTasks = openRemote();
     showTasks();
     expect(await screen.findByText("故事提取 · 正在本地执行")).toBeInTheDocument();
-    expect(screen.getByText(`task_${"5".repeat(32)}`)).toBeInTheDocument();
-    expect(screen.getByText(`ver_${"3".repeat(32)}`)).toBeInTheDocument();
-    expect(screen.getByText(/编剧 · 上游 G1 · 尝试 1 \/ 2/)).toBeInTheDocument();
-    expect(screen.getByText("成本：未知，成本账本尚未接入")).toBeInTheDocument();
+    expect(screen.queryByText(`task_${"5".repeat(32)}`)).not.toBeInTheDocument();
+    expect(screen.queryByText(`ver_${"3".repeat(32)}`)).not.toBeInTheDocument();
+    expect(screen.queryByText("RUNNING")).not.toBeInTheDocument();
+    expect(screen.getByText(/编剧 · 第 1 次/)).toBeInTheDocument();
+    expect(screen.getByText("金额未知。用订阅生成不会另外扣费。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "需处理" }));
     expect(screen.getByText("当前筛选条件下没有任务")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "执行中" }));
