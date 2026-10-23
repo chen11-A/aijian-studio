@@ -3798,6 +3798,11 @@ export interface components {
              * @enum {string}
              */
             provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
+            /**
+             * Regenerate
+             * @default false
+             */
+            regenerate: boolean;
             /** Scene Label */
             scene_label: string;
             /**

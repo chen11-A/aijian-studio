@@ -4256,6 +4256,11 @@
             "title": "Provider",
             "type": "string"
           },
+          "regenerate": {
+            "default": false,
+            "title": "Regenerate",
+            "type": "boolean"
+          },
           "scene_label": {
             "maxLength": 80,
             "minLength": 1,
