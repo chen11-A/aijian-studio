@@ -723,6 +723,16 @@ def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkey
     service._store_part(project_id, request, b"RIFF" + b"\x00" * 4 + b"WAVEold", "-voice.wav")
     preferred = service._saved_bundle(project_id, request)
     assert preferred is not None and preferred[2].startswith(b"\xff\xf3")
+    forced = _request(
+        regenerate=True,
+        scene_label=request.scene_label,
+        narration=request.narration,
+        voice_id=request.voice_id,
+    )
+    service._store_part(project_id, forced, b"RIFF" + b"\x00" * 4 + b"WAVEnew", "-voice.wav")
+    replaced = service._saved_bundle(project_id, forced)
+    assert replaced is not None and replaced[2].startswith(b"RIFF")
+    assert not list((tmp_path / "story-films").glob("*-voice.mp3"))
     assert service._artifact_head(project_id, "story_film", None) == (None, None)
 
     def _broken_tools():

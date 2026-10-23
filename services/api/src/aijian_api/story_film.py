@@ -692,7 +692,7 @@ class StoryFilmService:
         directory.mkdir(parents=True, exist_ok=True)
         stem = self._image_stem(project_id, request)
         target = directory / f"{stem}{suffix}"
-        if suffix.startswith("-voice"):
+        if suffix.startswith("-voice") and request.regenerate:
             for old in (".mp3", ".wav"):
                 previous = directory / f"{stem}-voice{old}"
                 if previous != target and previous.is_file():
