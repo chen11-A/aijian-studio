@@ -52,14 +52,22 @@ def validate_draft_subtitles(content: EpisodeMediaAssemblyContentV1) -> None:
 
 
 def escape_drawtext_path(path: str) -> str:
-    """Escape a font path for one ffmpeg drawtext option.
+    """Escape a font path for ffmpeg drawtext.
 
-    A filter option ends at the next colon. Windows paths contain backslashes
-    and a drive-letter colon, so those characters are escaped before the path
-    is placed in ``fontfile=``.
+    The filtergraph parser and the drawtext option parser each consume one
+    backslash. A Windows path has to survive both, or the colon after the
+    drive letter ends the ``fontfile`` option.
     """
 
-    return path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace(",", "\\,")
+    option = path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace(",", "\\,")
+    return (
+        option.replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace(",", "\\,")
+        .replace(";", "\\;")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+    )
 
 
 def _font_candidates() -> list[Path]:

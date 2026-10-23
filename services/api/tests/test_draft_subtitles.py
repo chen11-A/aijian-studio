@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 from aijian_api.assembly_subtitles import SUBTITLE_FONT_SHA256, SUBTITLE_PROFILE
@@ -162,8 +163,51 @@ def test_actual_pixels_on_exact_half_open_frames(tmp_path, toolchain, rate):
 def test_windows_drawtext_path_escapes_drive_colon_and_backslashes():
     raw = "C:\\Program Files\\AIVORA\\fonts\\NotoSansCJKsc-Regular.otf"
     escaped = escape_drawtext_path(raw)
-    assert escaped == "C\\:\\\\Program Files\\\\AIVORA\\\\fonts\\\\NotoSansCJKsc-Regular.otf"
+    expected = (
+        "C\\\\:\\\\\\\\Program Files\\\\\\\\AIVORA\\\\\\\\fonts\\\\\\\\NotoSansCJKsc-Regular.otf"
+    )
+    assert escaped == expected
     assert "fontfile=font.otf" not in f"fontfile={escaped}"
+
+
+def test_drawtext_keeps_a_colon_inside_the_font_path(tmp_path, toolchain):
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "apps/studio-web/src/aivora/assets/v2/NotoSansCJKsc-Regular.otf"
+    )
+    nested = tmp_path / "drive:C"
+    nested.mkdir()
+    font = nested / "NotoSansCJKsc-Regular.otf"
+    font.symlink_to(source)
+    cue_path = tmp_path / "cue.txt"
+    cue_path.write_text("雾城来信", encoding="utf-8")
+    output = tmp_path / "caption.mp4"
+    drawtext = (
+        f"drawtext=fontfile={escape_drawtext_path(str(font))}:"
+        f"textfile={escape_drawtext_path(str(cue_path))}:expansion=none:text_shaping=0:"
+        "fontsize=32:fontcolor=white:x=10:y=10"
+    )
+    completed = subprocess.run(
+        [
+            str(toolchain.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=320x180:r=24:d=0.2",
+            "-vf",
+            drawtext,
+            "-frames:v",
+            "4",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+    )
+    assert completed.returncode == 0
+    assert output.stat().st_size > 0
 
 
 def test_bundled_font_draws_chinese_without_system_fonts(tmp_path, toolchain, monkeypatch):

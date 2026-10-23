@@ -54,7 +54,7 @@ def main() -> None:
     resolved = str(font.resolve())
     escaped = escape_drawtext_path(resolved)
     drive = resolved.split(":", 1)[0]
-    if not escaped.startswith(drive + "\\:") or "\\\\" not in escaped:
+    if not escaped.startswith(drive + "\\\\:") or "\\\\\\\\" not in escaped:
         raise SystemExit("Windows font path was not escaped for drawtext")
     with tempfile.TemporaryDirectory(prefix="aivora-subtitle-smoke-") as temporary:
         work = Path(temporary)
@@ -103,7 +103,11 @@ def main() -> None:
             env=environment,
         )
         if completed.returncode != 0 or not output.is_file():
-            raise SystemExit(f"bundled-font subtitle compose failed ({completed.returncode})")
+            detail = completed.stderr.decode("utf-8", "replace").strip().splitlines()
+            tail = " | ".join(detail[-4:])[:500]
+            raise SystemExit(
+                f"bundled-font subtitle compose failed ({completed.returncode}): {tail}"
+            )
         probe = subprocess.run(
             [
                 str(ffprobe),
