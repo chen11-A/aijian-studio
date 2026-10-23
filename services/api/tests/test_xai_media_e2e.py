@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import ssl
 import subprocess
 import threading
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -46,23 +46,28 @@ class _Script:
 
 @pytest.fixture(scope="module", autouse=True)
 def _trusted_certificate(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
-    """One certificate for every server. OpenSSL keeps the first trust file."""
+    """Trust one local certificate on the real urllib opener.
+
+    The full suite calls urlopen before this file, and that caches an opener
+    whose trust store does not include the stand-in certificate. Setting
+    SSL_CERT_FILE afterwards does not replace that opener, so every request
+    fails before the image body is read. The transport, User-Agent, and
+    response handling stay the production ones.
+    """
 
     directory = tmp_path_factory.mktemp("xai-cert")
     cert, key = _certificate(directory)
-    previous = os.environ.get("SSL_CERT_FILE")
-    previous_dir = os.environ.get("SSL_CERT_DIR")
-    os.environ["SSL_CERT_FILE"] = str(cert)
-    os.environ.pop("SSL_CERT_DIR", None)
-    yield cert, key
-    if previous is None:
-        os.environ.pop("SSL_CERT_FILE", None)
-    else:
-        os.environ["SSL_CERT_FILE"] = previous
-    if previous_dir is None:
-        os.environ.pop("SSL_CERT_DIR", None)
-    else:
-        os.environ["SSL_CERT_DIR"] = previous_dir
+    context = ssl.create_default_context()
+    context.load_verify_locations(cafile=str(cert))
+    context.set_alpn_protocols(["http/1.1"])
+    previous = urllib.request._opener
+    urllib.request.install_opener(
+        urllib.request.build_opener(urllib.request.HTTPSHandler(context=context))
+    )
+    try:
+        yield cert, key
+    finally:
+        urllib.request._opener = previous
 
 
 def _certificate(directory: Path) -> tuple[Path, Path]:
