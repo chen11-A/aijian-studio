@@ -324,3 +324,116 @@ def test_subscription_keeps_the_image_and_voice_when_video_fails(tmp_path, monke
     assert result.suggested_provider is None
     assert result.fix is None
     assert "本地占位" not in result.message
+
+
+def test_normalize_keeps_portrait_widescreen_and_square(tmp_path):
+    from aijian_api.story_film import _normalize_film_media
+
+    tools = toolchain()
+    voice = tmp_path / "voice.wav"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=330:sample_rate=24000:duration=0.8",
+            "-ac",
+            "1",
+            "-c:a",
+            "pcm_s16le",
+            str(voice),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    expected = {"448x672": (448, 672), "640x360": (640, 360), "320x320": (320, 320)}
+    for size, canvas in expected.items():
+        clip = tmp_path / f"{size}.mp4"
+        audio = tmp_path / f"{size}.wav"
+        audio.write_bytes(voice.read_bytes())
+        subprocess.run(
+            [
+                str(tools.ffmpeg_path),
+                "-hide_banner",
+                "-nostdin",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"testsrc=size={size}:rate=24:duration=1",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=1",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=blue:s=16x16:r=1:d=0.2",
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-map",
+                "2:v:0",
+                "-c:v:0",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-r",
+                "24",
+                "-c:a",
+                "aac",
+                "-ac",
+                "2",
+                "-c:v:1",
+                "mjpeg",
+                "-disposition:v:1",
+                "attached_pic",
+                str(clip),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        width, height, frames = _normalize_film_media(
+            tools.ffmpeg_path, tools.ffprobe_path, clip, audio
+        )
+        assert (width, height) == canvas
+        assert frames >= 24
+        probed = json.loads(
+            subprocess.run(
+                [
+                    str(tools.ffprobe_path),
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                    str(clip),
+                ],
+                check=True,
+                capture_output=True,
+            ).stdout
+        )
+        assert [stream["codec_type"] for stream in probed["streams"]] == ["video"]
+        heard = json.loads(
+            subprocess.run(
+                [
+                    str(tools.ffprobe_path),
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                    str(audio),
+                ],
+                check=True,
+                capture_output=True,
+            ).stdout
+        )
+        track = heard["streams"][0]
+        assert track["sample_rate"] == "48000"
+        assert int(track["channels"]) == 2

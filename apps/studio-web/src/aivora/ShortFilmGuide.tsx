@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./Common";
 import { capabilitiesForListedModel } from "./account/model-capabilities";
 import { grokBridge } from "./grok-auth/transport";
@@ -23,6 +23,65 @@ const fallbackVoices = [
 type ProviderId = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
 
 const choiceKey = "aivora.short-film.choices";
+const playbackKey = "aivora.short-film.playback";
+
+type SavedPlayback = {
+  projectId: string;
+  preview: string;
+  outputPath: string;
+  duration: string;
+  message: string;
+};
+
+function readPlayback(projectId: string | null): SavedPlayback | null {
+  if (!projectId) return null;
+  try {
+    const raw = window.localStorage.getItem(playbackKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (parsed.projectId !== projectId) return null;
+    const preview = typeof parsed.preview === "string" ? parsed.preview : "";
+    const outputPath = typeof parsed.outputPath === "string" ? parsed.outputPath : "";
+    const safePreview =
+      preview.startsWith("data:image/") && preview.length <= 1_500_000 ? preview : "";
+    if (!safePreview && !outputPath) return null;
+    return {
+      projectId,
+      preview: safePreview,
+      outputPath,
+      duration: typeof parsed.duration === "string" ? parsed.duration : "",
+      message: typeof parsed.message === "string" ? parsed.message : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePlayback(saved: SavedPlayback) {
+  try {
+    window.localStorage.setItem(playbackKey, JSON.stringify(saved));
+  } catch {
+    return;
+  }
+}
+
+function asFilmBytes(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  return null;
+}
+
+function spokenError(error: unknown): string {
+  if (
+    error instanceof Error &&
+    error.message.length > 0 &&
+    error.message.length <= 240 &&
+    /[\u4e00-\u9fff]/.test(error.message)
+  ) {
+    return error.message;
+  }
+  return "成片没有做完。可以重试。";
+}
 
 function readFilmChoices(): {
   scene?: string;
@@ -97,6 +156,8 @@ export function ShortFilmGuide() {
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState<FilmResult | null>(null);
   const [preview, setPreview] = useState("");
+  const [filmUrl, setFilmUrl] = useState("");
+  const previewRef = useRef("");
   const choice = providers.find((item) => item.id === provider) ?? providers[0]!;
   const voice = voices.find((item) => item.id === voiceId) ?? voices[0]!;
 
@@ -106,6 +167,27 @@ export function ShortFilmGuide() {
       JSON.stringify({ scene, line, subtitle, provider, voiceId }),
     );
   }, [scene, line, subtitle, provider, voiceId]);
+
+  useEffect(() => {
+    previewRef.current = preview;
+  }, [preview]);
+
+  useEffect(() => {
+    const saved = readPlayback(d.backendProjectId);
+    if (!saved) return;
+    if (saved.preview) setPreview(saved.preview);
+    if (saved.outputPath) {
+      setResult({
+        status: "SUCCEEDED",
+        message: saved.message,
+        output_path: saved.outputPath,
+        duration_seconds: saved.duration || null,
+        has_video: true,
+        has_audio: true,
+      });
+    }
+    if (saved.message) setNotice(saved.message);
+  }, [d.backendProjectId]);
 
   useEffect(() => {
     const bridge = grokBridge();
@@ -145,6 +227,31 @@ export function ShortFilmGuide() {
     return () => window.clearInterval(timer);
   }, [busy, d.backendProjectId]);
 
+  const filmPath = result?.status === "SUCCEEDED" ? result.output_path || "" : "";
+  useEffect(() => {
+    const read = desktopFilm()?.readStoryFilmMedia;
+    if (!filmPath || !read || typeof URL.createObjectURL !== "function") {
+      setFilmUrl("");
+      return;
+    }
+    let cancelled = false;
+    let url = "";
+    void read(filmPath)
+      .then((bytes) => {
+        const media = asFilmBytes(bytes);
+        if (cancelled || !media || media.byteLength === 0) return;
+        url = URL.createObjectURL(new Blob([media.slice().buffer], { type: "video/mp4" }));
+        setFilmUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setFilmUrl("");
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [filmPath]);
+
   const go = (next: number) => d.setFilmStep(next);
 
   const make = async (confirmed: boolean) => {
@@ -158,7 +265,6 @@ export function ShortFilmGuide() {
     setStage(0);
     setElapsed(0);
     setNotice("");
-    setResult(null);
     try {
       const response = await bridge.createStoryFilm!(projectId, {
         scene_label: scene.trim() || SAMPLE_SCENE,
@@ -169,16 +275,79 @@ export function ShortFilmGuide() {
         voice_id: voiceId,
       });
       const data = (response.data ?? {}) as FilmResult;
-      setResult(data);
-      if (typeof data.preview_image === "string" && data.preview_image.startsWith("data:image/"))
-        setPreview(data.preview_image);
+      const picture =
+        typeof data.preview_image === "string" && data.preview_image.startsWith("data:image/")
+          ? data.preview_image
+          : previewRef.current;
+      if (picture) setPreview(picture);
+      const previous = readPlayback(projectId);
+      const succeeded = data.status === "SUCCEEDED" && Boolean(data.output_path);
+      const outputPath = succeeded ? data.output_path || "" : previous?.outputPath || "";
+      const duration = succeeded ? data.duration_seconds || "" : previous?.duration || "";
+      const keptMessage = succeeded ? data.message || "" : previous?.message || "";
+      if (picture || outputPath) {
+        writePlayback({
+          projectId,
+          preview: picture || previous?.preview || "",
+          outputPath,
+          duration,
+          message: keptMessage,
+        });
+      }
+      if (outputPath) {
+        setResult({
+          status: "SUCCEEDED",
+          message: keptMessage,
+          output_path: outputPath,
+          duration_seconds: duration || null,
+          has_video: succeeded ? Boolean(data.has_video) : true,
+          has_audio: succeeded ? Boolean(data.has_audio) : true,
+          preview_image: picture,
+        });
+      } else {
+        setResult(data);
+      }
       setNotice(data.message || "没有得到结果。");
-    } catch {
-      setNotice(
-        provider === "grok_subscription" ? "成片没有做完。可以重试。" : "成片没有做完。可以重试。",
-      );
+    } catch (error) {
+      setNotice(spokenError(error));
+      const previous = readPlayback(projectId);
+      if (previous?.preview) setPreview(previous.preview);
+      if (previous?.outputPath) {
+        setResult({
+          status: "SUCCEEDED",
+          message: previous.message,
+          output_path: previous.outputPath,
+          duration_seconds: previous.duration || null,
+          has_video: true,
+          has_audio: true,
+        });
+      }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openFolder = async () => {
+    const path = result?.output_path;
+    const reveal = desktopFilm()?.revealStoryFilm;
+    if (!path || !reveal) return;
+    try {
+      await reveal(path);
+    } catch {
+      setNotice("没有打开所在位置。");
+    }
+  };
+
+  const saveCopy = async () => {
+    const path = result?.output_path;
+    const save = desktopFilm()?.exportStoryFilm;
+    if (!path || !save) return;
+    try {
+      const saved = await save(path);
+      if (saved && typeof saved === "object" && saved.cancelled) return;
+      setNotice("已导出。");
+    } catch {
+      setNotice("没有导出。");
     }
   };
 
@@ -333,11 +502,20 @@ export function ShortFilmGuide() {
         {preview && <img className="film-still" alt="已生成的画面" src={preview} />}
         {notice && <p role="status">{notice}</p>}
         {result?.status === "SUCCEEDED" && result.output_path && (
-          <p>
-            已保存{result.duration_seconds ? `，大约 ${result.duration_seconds} 秒` : ""}
-            {result.has_video && result.has_audio ? "，有画面也有声音" : ""}。文件在本机：
-            {result.output_path}
-          </p>
+          <div className="film-export">
+            {filmUrl && (
+              <video className="film-player" controls aria-label="成片回放" src={filmUrl} />
+            )}
+            <p>
+              已保存{result.duration_seconds ? `，大约 ${result.duration_seconds} 秒` : ""}
+              {result.has_video && result.has_audio ? "，有画面也有声音" : ""}。文件在本机：
+              {result.output_path}
+            </p>
+            <div className="film-actions">
+              <Button onClick={() => void openFolder()}>打开所在位置</Button>
+              <Button onClick={() => void saveCopy()}>导出</Button>
+            </div>
+          </div>
         )}
         {result?.fix && result.status !== "SUCCEEDED" && <p>{result.fix}</p>}
       </section>

@@ -424,6 +424,7 @@ function Workspace({ reset }: { reset: () => void }) {
         </nav>
         <div className="nav-bottom">
           {!global && <NavItem page="services" label="AI 服务" icon="spark" />}
+          {!global && <NavItem page="costs" label="用量" icon="clock" />}
           {!global && <NavItem page="settings" label="设置" icon="settings" />}
           {d.isFixture ? (
             <div className="local-note">

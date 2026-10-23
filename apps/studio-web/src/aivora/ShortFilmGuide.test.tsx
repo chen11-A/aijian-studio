@@ -67,6 +67,7 @@ describe("simple story-to-film navigation", () => {
     const provider = screen.getByRole("combobox", { name: "用什么生成" });
     expect(within(provider).getAllByRole("option").length).toBeGreaterThan(1);
     expect(within(provider).getByRole("option", { name: /本地占位/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "用量" })).toBeInTheDocument();
     expect(screen.getAllByText(/不花钱/).length).toBeGreaterThan(0);
     fireEvent.click(
       within(screen.getByLabelText("短片向导")).getByRole("button", { name: "专业模式" }),
@@ -177,6 +178,8 @@ describe("simple story-to-film navigation", () => {
     fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
     expect(await screen.findByText(/有画面也有声音/)).toBeInTheDocument();
     expect(screen.getByText(/\/tmp\/wucheng-draft\.mp4/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开所在位置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导出" })).toBeInTheDocument();
     expect(createStoryFilm).toHaveBeenLastCalledWith(PROJECT_ID, {
       scene_label: SAMPLE_SCENE,
       narration: SAMPLE_LINE,
@@ -294,5 +297,80 @@ describe("simple story-to-film navigation", () => {
     expect(screen.getByLabelText("这一场")).toHaveValue("旧灯塔来信");
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.getByLabelText("用什么生成")).toHaveValue("grok_subscription");
+  });
+
+  it("keeps the picture and the film player after leaving and a failed retry", async () => {
+    const preview = "data:image/png;base64,aaaa";
+    const outputPath = "/tmp/story-films/film.mp4";
+    URL.createObjectURL = vi.fn(() => "blob:film");
+    URL.revokeObjectURL = vi.fn();
+    const readStoryFilmMedia = vi.fn(async () => new Uint8Array([1, 2, 3, 4]));
+    const revealStoryFilm = vi.fn(async () => ({ ok: true }));
+    const exportStoryFilm = vi.fn(async () => ({ ok: true }));
+    const createStoryFilm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          status: "SUCCEEDED",
+          message: "草稿成片已经保存。",
+          output_path: outputPath,
+          duration_seconds: "2.040",
+          has_video: true,
+          has_audio: true,
+          preview_image: preview,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          status: "FAILED",
+          message: "画面、视频和配音都已经做好。整理视频时没有成功，可以重试。",
+          preview_image: preview,
+        },
+      });
+    connectedBridge(createStoryFilm, { readStoryFilmMedia, revealStoryFilm, exportStoryFilm });
+    const first = render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
+    expect(await screen.findByText(outputPath, { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "已生成的画面" })).toHaveAttribute("src", preview);
+    expect(await screen.findByLabelText("成片回放")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开所在位置" }));
+    expect(revealStoryFilm).toHaveBeenCalledWith(outputPath);
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    await waitFor(() => expect(exportStoryFilm).toHaveBeenCalledWith(outputPath));
+    first.unmount();
+    createStoryFilm.mockClear();
+    readStoryFilmMedia.mockClear();
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    expect(await screen.findByRole("img", { name: "已生成的画面" })).toHaveAttribute(
+      "src",
+      preview,
+    );
+    expect(await screen.findByLabelText("成片回放")).toBeInTheDocument();
+    expect(screen.getByText(outputPath, { exact: false })).toBeInTheDocument();
+    expect(createStoryFilm).not.toHaveBeenCalled();
+    expect(readStoryFilmMedia).toHaveBeenCalledWith(outputPath);
+    const again = screen.getByLabelText("短片向导");
+    fireEvent.click(within(again).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(again).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(again).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(again).getByRole("button", { name: "开始做成片" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("整理视频时没有成功");
+    expect(screen.getByLabelText("成片回放")).toBeInTheDocument();
+    expect(screen.getByText(outputPath, { exact: false })).toBeInTheDocument();
   });
 });

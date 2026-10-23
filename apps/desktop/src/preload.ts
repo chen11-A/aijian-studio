@@ -544,6 +544,12 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:create", projectId, input),
   getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
   cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
+  readStoryFilmMedia: (path: string) =>
+    ipcRenderer.invoke("story-film:read", path) as Promise<Uint8Array>,
+  revealStoryFilm: (path: string) =>
+    ipcRenderer.invoke("story-film:reveal", path) as Promise<{ ok: boolean }>,
+  exportStoryFilm: (path: string) =>
+    ipcRenderer.invoke("story-film:export", path) as Promise<{ ok: boolean; cancelled?: boolean }>,
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
   getProjectSettings: ((projectId) =>

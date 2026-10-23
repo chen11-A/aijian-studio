@@ -51,6 +51,28 @@ describe("story film client", () => {
     });
   });
 
+  it("surfaces a finished Chinese reason when the service responds with an error", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              status: "FAILED",
+              message: "画面、视频和配音都已经做好。整理视频时没有成功，可以重试。",
+            },
+            request_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+          }),
+          { status: 500 },
+        ),
+    );
+    const client = createStoryFilmClient(
+      fetcher,
+      { origin, token },
+      () => "11111111-1111-4111-8111-111111111111",
+    );
+    await expect(client.progress(projectId)).rejects.toThrow("整理视频时没有成功");
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

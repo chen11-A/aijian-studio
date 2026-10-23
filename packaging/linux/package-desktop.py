@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE_NAME = "AIVORA-Desktop-0.2.3-linux-x64"
+PACKAGE_NAME = "AIVORA-Desktop-0.2.4-linux-x64"
 PYTHON_URL = (
     "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/"
     "cpython-3.12.15%2B20261021-x86_64-unknown-linux-gnu-install_only.tar.gz"
@@ -273,7 +273,7 @@ def build(output: Path, cache: Path) -> None:
     package = {
         "name": "AIVORA",
         "productName": "AIVORA",
-        "version": "0.2.3",
+        "version": "0.2.4",
         "private": True,
         "type": "commonjs",
         "main": "dist/main.js",
@@ -296,7 +296,7 @@ def build(output: Path, cache: Path) -> None:
         helper.copy_file(ROOT / name, output / "licenses" / f"AIVORA-{name}")
     receipt = {
         "kind": "aivora-linux-x64-desktop",
-        "version": "0.2.3",
+        "version": "0.2.4",
         "electron": electron_version,
         "python": "3.12.15+20261021",
         "python_sha256": PYTHON_SHA256,

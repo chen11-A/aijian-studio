@@ -23,8 +23,8 @@ sudo apt-get install libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libxss1 libxkbc
 ## 启动
 
 ```sh
-tar -xzf AIVORA-Desktop-0.2.3-linux-x64.tar.gz
-cd AIVORA-Desktop-0.2.3-linux-x64
+tar -xzf AIVORA-Desktop-0.2.4-linux-x64.tar.gz
+cd AIVORA-Desktop-0.2.4-linux-x64
 ./launch-aivora.sh
 ```
 

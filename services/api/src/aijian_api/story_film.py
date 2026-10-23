@@ -13,6 +13,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -34,6 +35,7 @@ from aijian_api.dispatch_billing import budget_display_reason
 from aijian_api.draft_export_contracts import CreateDraftExportRequest, DraftExportJob
 from aijian_api.draft_export_runtime import DraftExportError, DraftExportRuntime
 from aijian_api.episode_media_assembly_contracts import (
+    ASSEMBLY_ARTIFACT_TYPE,
     CreateEpisodeMediaAssemblyVersionRequest,
     EpisodeMediaAssemblyContentV1,
 )
@@ -71,10 +73,19 @@ _CANVAS = (160, 90)
 
 
 class StoryFilmError(RuntimeError):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        ffmpeg_stage: str | None = None,
+        exit_code: int | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
+        self.ffmpeg_stage = ffmpeg_stage
+        self.exit_code = exit_code
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,29 +221,29 @@ class StoryFilmService:
                 clip,
                 speech,
             )
-        except (StoryFilmError, DraftExportError, MediaAssetError, OSError, XaiMediaError) as error:
-            self._ledger.fail_local_task(running, error_code="STORY_FILM_FAILED")
+        except Exception as error:
+            try:
+                self._ledger.fail_local_task(running, error_code="STORY_FILM_FAILED")
+            except Exception:
+                pass
             grok = request.provider == "grok_subscription"
             progress = film_progress(project_id)
             saved = bool(progress.get("image_saved"))
             stage = str(progress.get("stage") or "image")
-            if isinstance(error, (StoryFilmError, XaiMediaError)):
-                message = _named_stage_message(stage, saved, error.message)
-            elif isinstance(error, (DraftExportError, MediaAssetError)):
-                message = str(error)
-            else:
-                message = "成片没有做完。"
+            made = self._saved_bundle(project_id, request) is not None
+            message = _failure_message(error, stage, saved, made)
             mark_film_progress(project_id, "failed", message)
             preview = progress.get("preview_image")
             if grok:
-                code = (
-                    error.code if isinstance(error, (StoryFilmError, XaiMediaError)) else "FAILED"
+                code = _failure_log_code(error)
+                failure_stage = getattr(error, "ffmpeg_stage", None) or _failure_stage(
+                    "assemble" if made else stage
                 )
                 append_grok_status(
-                    _failure_event(stage),
+                    _failure_event("assemble" if made else stage),
                     code=code,
                     http_status=getattr(error, "http_status", None),
-                    error_stage=_failure_stage(stage),
+                    error_stage=failure_stage if isinstance(failure_stage, str) else "assemble",
                     error_code=code,
                 )
             return _failed(
@@ -507,6 +518,22 @@ class StoryFilmService:
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
+        bundle = self._saved_bundle(project_id, request)
+        if bundle is not None:
+            image_bytes, saved_clip, saved_speech = bundle
+            append_grok_status("image_saved", code="reused")
+            append_grok_status("video_submit", code="reused")
+            append_grok_status("video_poll", code="reused")
+            append_grok_status("tts", code="reused")
+            preview = _preview_data_url(image_bytes)
+            mark_film_progress(
+                project_id,
+                "assemble",
+                "沿用已经生成的画面、视频和配音。",
+                image_saved=True,
+                preview_image=preview,
+            )
+            return image_bytes, saved_clip, saved_speech
         if self._transport is None:
             from aijian_api.xai_media_transport import urllib_xai_transport
 
@@ -567,6 +594,7 @@ class StoryFilmService:
                 "SPEECH_FAILED",
                 "画面已生成，配音这一步没有成功，可以重试",
             ) from error
+        real_clip = clip is not None
         if clip is None:
             if not image.data:
                 raise StoryFilmError(
@@ -579,6 +607,9 @@ class StoryFilmService:
         else:
             mark_film_progress(project_id, "assemble", "正在合成。", image_saved=True)
         picture = image.data or _FALLBACK_PNG
+        if real_clip:
+            self._store_part(project_id, request, clip, "-clip.mp4")
+            self._store_part(project_id, request, speech, "-voice.wav")
         return picture, clip, speech
 
     def _ensure_running(self, project_id: str) -> None:
@@ -603,6 +634,50 @@ class StoryFilmService:
             if path.is_file() and path.stat().st_size > 0:
                 return path
         return None
+
+    def _saved_bundle(
+        self, project_id: str, request: StoryFilmRequest
+    ) -> tuple[bytes, bytes, bytes] | None:
+        image = self._find_saved_image(project_id, request)
+        if image is None:
+            return None
+        directory = self._image_directory()
+        stem = self._image_stem(project_id, request)
+        clip = directory / f"{stem}-clip.mp4"
+        voice = directory / f"{stem}-voice.wav"
+        if not (
+            clip.is_file()
+            and clip.stat().st_size > 0
+            and voice.is_file()
+            and voice.stat().st_size > 0
+        ):
+            return None
+        return image.read_bytes(), clip.read_bytes(), voice.read_bytes()
+
+    def _store_part(
+        self, project_id: str, request: StoryFilmRequest, data: bytes, suffix: str
+    ) -> None:
+        if not data:
+            return
+        directory = self._image_directory()
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{self._image_stem(project_id, request)}{suffix}").write_bytes(data)
+
+    def _artifact_head(
+        self, project_id: str, artifact_type: str, episode_id: str | None
+    ) -> tuple[str | None, int | None]:
+        with self._repository._connection() as connection:
+            row = connection.execute(
+                """SELECT head.latest_version_id, head.revision
+                   FROM artifact_heads AS head
+                   JOIN artifacts AS artifact ON artifact.artifact_id = head.artifact_id
+                   WHERE artifact.project_id = ? AND artifact.artifact_type = ?
+                     AND artifact.episode_id IS ?""",
+                (project_id, artifact_type, episode_id),
+            ).fetchone()
+        if row is None:
+            return None, None
+        return str(row["latest_version_id"]), int(row["revision"])
 
     def _persist_image(self, project_id: str, request: StoryFilmRequest, image: bytes) -> Path:
         directory = self._image_directory()
@@ -710,7 +785,9 @@ class StoryFilmService:
         image_path.write_bytes(image)
         clip_path.write_bytes(clip)
         audio_path.write_bytes(speech)
-        frames = _video_frames(tools.ffprobe_path, clip_path)
+        width, height, frames = _normalize_film_media(
+            tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
+        )
         store = MediaAssetStore(self._repository)
         image_asset = store.import_local(project_id, image_path, display_filename="关键画面.png")
         clip_asset = store.import_local(project_id, clip_path, display_filename="镜头.mp4")
@@ -724,8 +801,8 @@ class StoryFilmService:
                 "frame_rate": {"num": _FRAME_RATE, "den": 1},
                 "timecode_mode": "NON_DROP_FRAME",
             },
-            "canvas_width": _CANVAS[0],
-            "canvas_height": _CANVAS[1],
+            "canvas_width": width,
+            "canvas_height": height,
             "total_frames": frames,
             "visual_segments": [
                 {
@@ -757,11 +834,14 @@ class StoryFilmService:
                     "render_profile": "noto-cjk-sc-bottom-v1",
                 }
             ]
+        parent_id, revision = self._artifact_head(project_id, ASSEMBLY_ARTIFACT_TYPE, episode_id)
         assembly = EpisodeMediaAssemblyStore(self._repository).create_version(
             project_id,
             episode_id,
             CreateEpisodeMediaAssemblyVersionRequest(
                 content=EpisodeMediaAssemblyContentV1.model_validate(content),
+                parent_version_id=parent_id,
+                expected_revision=revision,
                 change_summary="由一句话故事合成的草稿成片",
             ),
             author_actor_id="story-film",
@@ -783,7 +863,13 @@ class StoryFilmService:
         job = _wait_export(runtime, project_id, episode_id, export.operation_id)
         runtime.join_workers()
         if job.status != "SUCCEEDED" or job.output_path is None or job.output_sha256 is None:
-            raise StoryFilmError("EXPORT_FAILED", job.error_message or "成片导出没有完成。")
+            code = job.error_code or "EXPORT_FAILED"
+            reason = _export_reason(code) or "合成没有完成"
+            raise StoryFilmError(
+                code if _safe_token(code) else "EXPORT_FAILED",
+                f"画面、视频和配音都已经做好。{reason}，可以重试。",
+                ffmpeg_stage="assemble",
+            )
         has_video, has_audio, duration = _probe_movie(tools.ffprobe_path, Path(job.output_path))
         manifest = {
             "schema_version": "1.0.0",
@@ -803,6 +889,7 @@ class StoryFilmService:
             "draft": True,
             "release_claim": False,
         }
+        film_parent, film_revision = self._artifact_head(project_id, "story_film", None)
         record = self._repository.create_artifact_version(
             project_id=project_id,
             artifact_type="story_film",
@@ -812,6 +899,8 @@ class StoryFilmService:
             author_actor_id="story-film",
             change_summary="一句话故事的草稿成片",
             producer_attempt_id=attempt_id,
+            parent_version_id=film_parent,
+            expected_revision=film_revision,
         )
         provider_label, billing_label = provider_copy(request.provider)
         return StoryFilmResult(
@@ -857,14 +946,25 @@ def _media_ref(asset: MediaAssetData) -> dict[str, str]:
     }
 
 
-def _ffmpeg(ffmpeg: Path, args: list[str]) -> None:
+def _ffmpeg(ffmpeg: Path, args: list[str], *, stage: str | None = None) -> None:
     completed = subprocess.run(
         [str(ffmpeg), "-hide_banner", "-nostdin", "-y", *args],
         check=False,
         capture_output=True,
     )
     if completed.returncode != 0:
-        raise StoryFilmError("MEDIA_ENCODE_FAILED", "成片没有编码成功，请确认视频工具可用。")
+        if stage == "normalize_voice":
+            message = "画面、视频和配音都已经做好。整理配音时没有成功，可以重试。"
+        elif stage == "normalize_video":
+            message = "画面、视频和配音都已经做好。整理视频时没有成功，可以重试。"
+        else:
+            message = "成片没有编码成功，可以重试。"
+        raise StoryFilmError(
+            "MEDIA_ENCODE_FAILED",
+            message,
+            ffmpeg_stage=stage,
+            exit_code=completed.returncode,
+        )
 
 
 def _video_frames(ffprobe: Path, path: Path) -> int:
@@ -931,7 +1031,12 @@ def _ffprobe(ffprobe: Path, args: list[str]) -> dict[str, object]:
         capture_output=True,
     )
     if completed.returncode != 0:
-        raise StoryFilmError("PROBE_FAILED", "没有读到成片信息。")
+        raise StoryFilmError(
+            "PROBE_FAILED",
+            "没有读到可以合成的画面。",
+            ffmpeg_stage="probe_video",
+            exit_code=completed.returncode,
+        )
     try:
         payload = json.loads(completed.stdout.decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as error:
@@ -1052,6 +1157,156 @@ def _preview_data_url(data: bytes) -> str | None:
         mime = "image/webp"
     encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mime};base64,{encoded}"
+
+
+def _safe_token(value: object) -> bool:
+    return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9_]{1,40}", value))
+
+
+def _fit_canvas(width: int, height: int) -> tuple[int, int]:
+    width = width - width % 2
+    height = height - height % 2
+    if width < 16 or height < 16:
+        raise StoryFilmError("PROBE_FAILED", "画面太小，没法做成片。", ffmpeg_stage="probe_video")
+    limit = 1920
+    if max(width, height) > limit:
+        scale = limit / max(width, height)
+        width = max(16, int(width * scale) // 2 * 2)
+        height = max(16, int(height * scale) // 2 * 2)
+    return width, height
+
+
+def _primary_video(streams: list[object]) -> tuple[int, int, int]:
+    chosen: tuple[int, int, int, int] | None = None
+    for index, stream in enumerate(streams):
+        if not isinstance(stream, dict) or stream.get("codec_type") != "video":
+            continue
+        disposition = stream.get("disposition")
+        attached = isinstance(disposition, dict) and disposition.get("attached_pic") in {1, "1"}
+        codec = stream.get("codec_name")
+        if attached or codec in {"mjpeg", "png", "jpeg", "gif"}:
+            continue
+        try:
+            width = int(stream.get("width") or 0)
+            height = int(stream.get("height") or 0)
+        except (TypeError, ValueError):
+            continue
+        area = width * height
+        if area < 4:
+            continue
+        if chosen is None or area > chosen[0]:
+            chosen = (area, index, width, height)
+    if chosen is None:
+        raise StoryFilmError("PROBE_FAILED", "没有读到可以合成的画面。", ffmpeg_stage="probe_video")
+    return chosen[1], chosen[2], chosen[3]
+
+
+def _normalize_film_media(
+    ffmpeg: Path, ffprobe: Path, clip_path: Path, audio_path: Path
+) -> tuple[int, int, int]:
+    payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
+    streams = payload.get("streams")
+    if not isinstance(streams, list):
+        raise StoryFilmError("PROBE_FAILED", "没有读到可以合成的画面。", ffmpeg_stage="probe_video")
+    index, width, height = _primary_video(streams)
+    width, height = _fit_canvas(width, height)
+    clean = clip_path.with_name(f"{clip_path.stem}-cfr.mp4")
+    _ffmpeg(
+        ffmpeg,
+        [
+            "-i",
+            str(clip_path),
+            "-map",
+            f"0:{index}",
+            "-an",
+            "-vf",
+            f"scale={width}:{height}:flags=lanczos,fps={_FRAME_RATE},format=yuv420p",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            str(_FRAME_RATE),
+            str(clean),
+        ],
+        stage="normalize_video",
+    )
+    clean.replace(clip_path)
+    frames = _video_frames(ffprobe, clip_path)
+    seconds = frames / _FRAME_RATE + 0.08
+    voiced = audio_path.with_name(f"{audio_path.stem}-fit.wav")
+    _ffmpeg(
+        ffmpeg,
+        [
+            "-i",
+            str(audio_path),
+            "-af",
+            f"apad=whole_dur={seconds:.3f},atrim=duration={seconds:.3f}",
+            "-ac",
+            "2",
+            "-ar",
+            "48000",
+            "-c:a",
+            "pcm_s16le",
+            str(voiced),
+        ],
+        stage="normalize_voice",
+    )
+    voiced.replace(audio_path)
+    return width, height, frames
+
+
+_EXPORT_REASONS = {
+    "SOURCE_PROBE_INVALID": "合成没有读懂视频里的封面或多余音轨",
+    "VIDEO_FRAME_RATE_MISMATCH": "视频帧率和成片时间轴不一致",
+    "VIDEO_VFR_UNSUPPORTED": "视频帧间隔不均匀",
+    "AUDIO_RANGE_UNSUPPORTED": "配音比画面短，合成没有把声音补齐",
+    "AUDIO_LAYOUT_UNSUPPORTED": "配音的采样率或声道合成没有接住",
+    "AUDIO_TIMING_UNSUPPORTED": "配音的时间不连续，合成没有接住",
+    "CANVAS_UNSUPPORTED": "画面尺寸合成没有接住",
+    "VIDEO_ROTATION_UNSUPPORTED": "视频带有旋转信息，合成没有接住",
+    "MEDIA_ENCODE_FAILED": "整理画面或配音时没有成功",
+    "PROBE_FAILED": "没有读到可以合成的画面",
+    "EXPORT_FAILED": "合成没有完成",
+}
+
+
+def _export_reason(code: object) -> str | None:
+    if isinstance(code, str):
+        return _EXPORT_REASONS.get(code)
+    return None
+
+
+def _failure_log_code(error: BaseException) -> str:
+    exit_code = getattr(error, "exit_code", None)
+    if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+        token = f"exit_{abs(exit_code)}"
+        if _safe_token(token):
+            return token
+    code = getattr(error, "code", None)
+    if _safe_token(code):
+        return str(code)
+    name = type(error).__name__
+    return name if _safe_token(name) else "FAILED"
+
+
+def _failure_message(error: BaseException, stage: str, saved: bool, made: bool) -> str:
+    if made:
+        if isinstance(error, StoryFilmError) and error.message:
+            if "已经做好" in error.message:
+                return error.message
+            detail = error.message.rstrip("。")
+            return f"画面、视频和配音都已经做好。{detail}，可以重试。"
+        export_reason = _export_reason(getattr(error, "code", None))
+        if export_reason:
+            return f"画面、视频和配音都已经做好。{export_reason}，可以重试。"
+        return "画面、视频和配音都已经做好，合成这一步没有成功，可以重试。"
+    if isinstance(error, (StoryFilmError, XaiMediaError)):
+        return _named_stage_message(stage, saved, error.message)
+    if isinstance(error, (DraftExportError, MediaAssetError)):
+        export_reason = _export_reason(getattr(error, "code", None))
+        return export_reason or "成片没有做完。"
+    return "成片没有做完。"
 
 
 def _named_stage_message(stage: str, saved: bool, fallback: str) -> str:

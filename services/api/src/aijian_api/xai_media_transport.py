@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse, XaiMediaError, XaiTransport
 
-_USER_AGENT = "AIVORA/0.2.3"
+_USER_AGENT = "AIVORA/0.2.4"
 
 
 def urllib_xai_transport() -> XaiTransport:

@@ -1,9 +1,14 @@
+import { useEffect } from "react";
 import { Button, PageTitle } from "./Common";
 import { ProjectCosts } from "./ProjectCosts";
 import { useDemo } from "./model";
 
 export function NativeCostsPage() {
   const d = useDemo();
+  const reload = d.taskQueue.reload;
+  useEffect(() => {
+    void reload();
+  }, [reload]);
   return (
     <div className="v2-utility-page v2-utility-management">
       <PageTitle

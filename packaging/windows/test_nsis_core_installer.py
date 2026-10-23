@@ -44,7 +44,7 @@ class NsisCoreTests(unittest.TestCase):
             self.assertIn('Section "桌面快捷方式" SEC_DESKTOP', script)
             self.assertIn('InstallDir "$LOCALAPPDATA\\Programs\\AIVORA"', script)
             self.assertIn('Name "AIVORA"', script)
-            self.assertIn('VIProductVersion "0.2.3.0"', script)
+            self.assertIn('VIProductVersion "0.2.4.0"', script)
             self.assertNotIn("0.1.0-dev", script)
             self.assertNotIn('Name "AIVORA Dev Core"', script)
             hook = (HERE / "installer.dev-core.nsh").read_text()

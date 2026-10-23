@@ -938,6 +938,9 @@ export interface AijianDesktopBridge
   cancelStoryFilm?(
     projectId: string,
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
+  readStoryFilmMedia?(path: string): Promise<Uint8Array>;
+  revealStoryFilm?(path: string): Promise<{ ok: boolean }>;
+  exportStoryFilm?(path: string): Promise<{ ok: boolean; cancelled?: boolean }>;
   getProject(projectId: string): Promise<ProjectResponse>;
   getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
   getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];

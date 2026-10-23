@@ -54,7 +54,19 @@ export function createStoryFilmClient(
     } catch {
       throw new Error("成片服务没有返回结果。可以改用本地占位再试一次。");
     }
-    if (!response.ok || !readable(payload)) {
+    if (!readable(payload)) {
+      throw new Error("成片服务没有完成。可以改用本地占位再试一次。");
+    }
+    if (!response.ok) {
+      const message = payload.data.message;
+      if (
+        typeof message === "string" &&
+        message.length > 0 &&
+        message.length <= 240 &&
+        !/[\r\n\0]/.test(message)
+      ) {
+        throw new Error(message);
+      }
       throw new Error("成片服务没有完成。可以改用本地占位再试一次。");
     }
     return payload;

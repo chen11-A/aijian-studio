@@ -33,6 +33,7 @@ import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
 import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { developmentPythonLaunch } from "./development-python";
 
@@ -726,6 +727,30 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
     } catch {
       return null;
     }
+  },
+  globalThis.fetch,
+  {
+    workspace: () => join(app.getPath("userData"), "workspace"),
+    byteLength: async (path) => {
+      const info = await stat(path);
+      if (!info.isFile()) throw new Error("Story film media is unavailable");
+      return info.size;
+    },
+    read: async (path) => new Uint8Array(await readFile(path)),
+    reveal: (path) => {
+      shell.showItemInFolder(path);
+    },
+    chooseExport: async (suggestedName) => {
+      if (mainWindow === null) return null;
+      const selected = await dialog.showSaveDialog(mainWindow, {
+        title: "导出成片",
+        defaultPath: suggestedName,
+        filters: [{ name: "MP4", extensions: ["mp4"] }],
+        buttonLabel: "导出",
+      });
+      return selected.canceled ? null : (selected.filePath ?? null);
+    },
+    copy: (source, destination) => copyFile(source, destination),
   },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>
