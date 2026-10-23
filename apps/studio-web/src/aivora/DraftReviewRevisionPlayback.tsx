@@ -144,7 +144,7 @@ export function DraftReviewRevisionPlayback({ target, exports, label, verified }
           controls
           preload="metadata"
           src={url}
-          aria-label={`${label}精确 DRAFT 草稿`}
+          aria-label={`${label}精确草稿`}
           onError={() => {
             close();
             setNotice("本地播放器无法解码此草稿，请核对原文件。");

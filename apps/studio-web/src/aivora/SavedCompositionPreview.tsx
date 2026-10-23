@@ -65,7 +65,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
       {open && (
         <>
           <p>
-            按已保存版本生成真实 DRAFT
+            按已保存版本生成真实 草稿
             MP4，连续播放画面剪辑和已支持的声音、字幕。使用与草稿导出相同的本地编码和文件校验。
           </p>
           <p role="status">{media.message}</p>
@@ -84,7 +84,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
               disabled={!canEncode || disabled || state.busy}
               onChange={(event) => setRights(event.currentTarget.checked)}
             />
-            我确认素材由我拥有或为合法合成素材，同意在本机生成 DRAFT
+            我确认素材由我拥有或为合法合成素材，同意在本机生成 草稿
             预览；这不代表权利审核或正式发布批准。
           </label>
           <div className="assembly-actions">
@@ -120,7 +120,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
           )}
           {selected && (
             <article className="draft-export-job">
-              <p role="status">{statuses[selected.status]} · DRAFT</p>
+              <p role="status">{statuses[selected.status]} · 草稿</p>
               <progress
                 aria-label="连续预览编码进度"
                 value={selected.progress_frames}
@@ -150,13 +150,7 @@ export function SavedCompositionPreview(props: SavedCompositionPreviewProps) {
                   gateway={exports}
                 />
               )}
-              <details>
-                <summary>预览任务与版本</summary>
-                <p>{selected.output_filename}</p>
-                <p>{selected.operation_id}</p>
-                <p>{selected.assembly_version_id}</p>
-                <p>{selected.assembly_content_hash}</p>
-              </details>
+              <p>预览保存在这台电脑上，和当时的剪辑绑在一起。</p>
             </article>
           )}
           {otherActive.map((job) => (

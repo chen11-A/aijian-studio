@@ -66,7 +66,7 @@ describe("Sub2API connection form", () => {
       result.current.setModel("TEXT", " ");
     });
     act(() => result.current.submit());
-    expect(result.current.modelError).toContain("只接受显式 TEXT 模型");
+    expect(result.current.modelError).toContain("只接受显式文本模型标识");
     expect(submit).not.toHaveBeenCalled();
   });
 

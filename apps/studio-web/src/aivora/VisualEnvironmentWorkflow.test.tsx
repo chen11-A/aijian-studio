@@ -159,7 +159,7 @@ it("unknown or wrong source retains exact selected state and approval pin", asyn
 it("new approval adoption preserves all choices", async () => {
   const g = bridge();
   render(<Board adopt />);
-  fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
   await waitFor(() => expect(g.getProjectCreativeLibraryVersion).toHaveBeenCalled());
   const bind = await screen.findByRole("button", { name: "固定此批准视觉和设定版本" });
   await waitFor(() => expect((bind as HTMLButtonElement).disabled).toBe(false));
@@ -187,7 +187,7 @@ it("out-of-scope approval adoption refuses without clearing manual choices", asy
   );
   render(<Board adopt />);
   const before = saved;
-  fireEvent.click(screen.getByRole("button", { name: "检查当前批准G5版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "检查当前批准的视觉版本" }));
   await screen.findByText(/核对到视觉/);
   expect(
     (screen.getByRole("button", { name: "固定此批准视觉和设定版本" }) as HTMLButtonElement)

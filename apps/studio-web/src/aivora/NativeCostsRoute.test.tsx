@@ -39,7 +39,7 @@ it("opens the connected Costs page in both modes with only read and navigation a
   expect(screen.queryByRole("button", { name: "查看固定演示账单" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "预算设置待接入" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "重新读取项目任务账本（只读）" }));
-  expect(model.taskQueue.reload).toHaveBeenCalledOnce();
+  expect(model.taskQueue.reload).toHaveBeenCalledTimes(2);
   fireEvent.click(screen.getByRole("button", { name: "选择作品" }));
   expect(model.go).toHaveBeenCalledWith("project");
   fireEvent.click(screen.getByRole("button", { name: "前往 AI 服务" }));

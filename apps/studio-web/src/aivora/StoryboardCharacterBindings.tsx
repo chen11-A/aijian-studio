@@ -8,6 +8,7 @@ import {
   type StoryboardShot,
 } from "./adapters/episodeStoryboard";
 import type { components } from "@aijian/contracts";
+import { Select } from "./Select";
 
 type Binding = components["schemas"]["EpisodeStoryboardCharacterBindingV1"];
 export function StoryboardCharacterBindings({
@@ -107,11 +108,13 @@ export function StoryboardCharacterBindings({
       <legend>镜头造型与参考草稿选用</legend>
       <p>
         {visualPin
-          ? "此分镜固定G5批准版本；选用必须属于其角色和服装参考范围，保存时重新核对。视觉批准不授权媒体生成或费用。"
-          : "仅选用当前固定设定版本中的记录，随本集分镜保存。不表示身份锁定、G5批准或真实媒体生成。"}
+          ? "此分镜固定已批准的视觉版本；选用必须属于其角色和服装参考范围，保存时重新核对。视觉批准不授权媒体生成或费用。"
+          : "仅选用当前固定设定版本中的记录，随本集分镜保存。不表示身份锁定、视觉版本批准或真实媒体生成。"}
       </p>
       {!verifiedLibrary && <p>固定版本尚未核对，现有选用保留。</p>}
-      {scopeUnavailable && <p>固定G5参考范围尚未可靠读回；现有服装和参考选用保留，暂不能调整。</p>}
+      {scopeUnavailable && (
+        <p>固定视觉参考范围尚未可靠读回；现有服装和参考选用保留，暂不能调整。</p>
+      )}
       {shot.character_ids.map((id) => {
         const name = details?.characters.find((item) => item.character_id === id)?.name ?? id;
         const binding = bindings.find((item) => item.character_id === id) ?? {
@@ -128,7 +131,7 @@ export function StoryboardCharacterBindings({
           <div key={id}>
             <label>
               {name} · 本镜服装
-              <select
+              <Select
                 value={binding.costume_id ?? ""}
                 aria-label={`${name}本镜服装`}
                 onChange={(event) => {
@@ -159,7 +162,7 @@ export function StoryboardCharacterBindings({
                       {item.name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             {eligible.map((reference) => (
               <label key={reference.reference_id}>
@@ -176,15 +179,15 @@ export function StoryboardCharacterBindings({
                     })
                   }
                 />
-                {reference.label} · {reference.asset_version_id.slice(-8)} ·{" "}
-                {reference.asset_sha256.slice(0, 12)}
+                {reference.label}
               </label>
             ))}
             {!eligible.length && verifiedLibrary && (
               <small>此角色/服装在固定版本中没有可选参考。</small>
             )}
-            {!verifiedLibrary &&
-              binding.reference_ids.map((refId) => <code key={refId}>{refId}</code>)}
+            {!verifiedLibrary && binding.reference_ids.length > 0 && (
+              <small>已选用的参考仍保留。</small>
+            )}
           </div>
         );
       })}

@@ -1,4 +1,4 @@
-# AIVORA Dev Core — Windows x64 development installer
+# AIVORA — Windows x64 installer
 
 ## 中文快速使用说明
 
@@ -6,10 +6,11 @@
 Windows 云构建机器的真实安装、桌面启动、剧本保存重开及卸载保留数据检查；
 尚未完成普通用户 Windows 10/11 电脑上的完整手工验收，也不是签名正式版。
 
-1. 保存安装器及同包的 `SHA256SUMS`。运行安装器会按当前用户安装，不需要
-   关闭杀毒软件或修改系统安全设置。未签名软件可能收到系统提示，请自行
-   核对来源和校验值；本说明不要求绕过安全警告。
-2. 在 Windows 开始菜单的 AIVORA Dev Core 文件夹中打开软件，进入创作工作台。
+1. 保存安装器及同包的 `SHA256SUMS`。安装向导可以选择目录、当前用户或所有用户，
+   以及开始菜单和桌面快捷方式。默认安装给当前用户。为所有用户安装需要管理员
+   权限。不需要关闭杀毒软件或修改系统安全设置。未签名软件可能收到系统提示，
+   请自行核对来源和校验值；本说明不要求绕过安全警告。
+2. 在开始菜单或桌面打开 AIVORA，进入创作工作台。最后一页可以勾选“启动 AIVORA”。
    首次服务选择可以跳过账号登录，
    先使用本地编辑；也可进入 API 设置。显示登录入口不代表真实 AI 已验收。
 3. 新建项目并选择剧集，在“故事/剧本”中编辑场景和正文，点击保存，等待
@@ -21,16 +22,18 @@ Windows 云构建机器的真实安装、桌面启动、剧本保存重开及卸
    可以导入并尝试播放，但音视频探测、连续预览生成及 MP4 编码不可用。新的
    本机工具选择入口仅接受明确锁定的工具版本和哈希；Windows 实机媒体验收
    仍在进行中，请以同包验收记录为准。“字节已校验”不等于已成为可剪辑输入。
-6. 发现已有安装或工作数据时，当前安装器会停止。安全升级恢复还未完成；
-   不要为了重装而删除工作区。卸载仅移除已记录的软件文件，保留工作区和
-   未知的用户新增文件。
+6. 安装到已经有 AIVORA 的目录会就地升级程序文件。登录和作品留在
+   `%APPDATA%\AIVORA Dev Core`，安装程序不会删除这个目录。目录里如果是别的
+   文件，安装会停下来。卸载仅移除已记录的软件文件，保留工作区和未知的用户
+   新增文件。
 
 完整媒体制作、真实 AI、升级恢复和正式发布检查仍在继续，不能将本包当作
 完整首发产品。后面的英文说明列出构建证据和边界；组件许可证保持原文。
 
-This unsigned development build is a limited core desktop installer, not a
-completed media-production release. The development product identity and user
-data directory are separate from the future AIVORA release.
+This unsigned build is a limited desktop installer, not a completed
+media-production release. The displayed name is AIVORA. Packaged Windows builds
+keep the existing user-data folder `%APPDATA%\AIVORA Dev Core`, including login
+and projects created by 0.1.x.
 
 ## Operating-system prerequisite
 
@@ -79,9 +82,10 @@ Microsoft files. No OS runtime is downloaded or installed by this installer.
   bundled. Real authorization and any provider costs remain user decisions.
 - No signing certificate is used. Windows may warn about unsigned software;
   do not disable security protections to install it.
-- Existing recognized AIVORA or Dev Core installation/data causes installation
-  to stop. Upgrade backup/restore is not implemented or claimed. Uninstall is
-  intended to preserve the user workspace; data cleanup is a separate action.
+- Installing into an existing AIVORA directory replaces program files in place.
+  A separate backup/restore helper is not implemented or claimed. The installer
+  and uninstaller do not delete `%APPDATA%\AIVORA Dev Core`. Uninstall preserves
+  the user workspace; data cleanup is a separate action.
 - Hosted-runner installation and native smoke are bounded engineering evidence,
   not clean standard-user, all-Windows-version or full user-workflow acceptance.
 
@@ -102,18 +106,23 @@ pipeline does not alter them.
 The second preparation checkpoint pins the exact Python companion licence texts
 and maps native DLL/PYD bytes back to the original verified archives. A complete
 mapping is a factual material-hash check, not whole-installer legal approval.
-The development installer now uses a small first-party NSIS script with only
-core/zlib instructions. It does not embed StdUtils, Nsis7z, UAC or other NSIS
-resource plug-ins. The exact core compiler and its supplied COPYING text are
-pinned; Electron's own supplied licence texts must also remain intact. The final
-gate regenerates the script and rechecks its input-file, installer and licence
-hashes. Unknown native bytes or missing material still block binary upload while
-native build/tests and bounded non-binary diagnostic evidence can proceed.
+The installer now uses a small first-party NSIS script with core/zlib instructions
+and the Simplified Chinese Modern UI 2 pages shipped with NSIS. It does not embed
+StdUtils, Nsis7z, UAC or other third-party NSIS resource plug-ins. The exact core
+compiler and its supplied COPYING text are pinned; Electron's own supplied licence
+texts must also remain intact. The final gate regenerates the script and rechecks
+its input-file, installer and licence hashes. Unknown native bytes or missing
+material still block binary upload while native build/tests and bounded
+non-binary diagnostic evidence can proceed.
 
-Installation refuses recognized existing installation/data and occupied target
-directories. Uninstall removes only the enumerated program files and then empty
-directories. User-created files not in that list are retained; the Windows
-synthetic acceptance specifically verifies that behavior and workspace retention.
+The wizard asks for an install directory, per-user or all-users scope, Start Menu
+and desktop shortcuts, and offers “启动 AIVORA” on the finish page. A silent
+`/S /D=` install uses the requested directory and does not launch the app.
+Installation replaces program files when the directory already contains AIVORA
+and refuses a directory occupied by unrelated files. Uninstall removes only the
+enumerated program files and then empty directories. User-created files not in
+that list are retained; the Windows synthetic acceptance specifically verifies
+that behavior and workspace retention.
 
 The workflow is restricted to `codex/windows-installer-dev-20261008`, uses the
 standard Windows hosted runner with a 35-minute job timeout and one-day artifact
