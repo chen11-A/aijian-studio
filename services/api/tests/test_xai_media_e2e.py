@@ -154,7 +154,7 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
                 return
             if self.path == "/v1/tts":
                 script.tts += 1
-                self._send(200, script.audio, "audio/wav")
+                self._send(200, script.audio, "audio/mpeg")
                 return
             self._send(404, b"{}", "application/json")
 
@@ -201,18 +201,18 @@ def _serve(script: _Script, certificate: tuple[Path, Path]) -> tuple[ThreadingHT
 
 
 def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
-    """Portrait h264 + AAC + mjpeg cover, and a shorter mono wav at another rate.
+    """The shape of a real SuperGrok run, including the mislabeled voice.
 
-    This is the shape that came back from a real SuperGrok run: 448x672,
-    about 2.04s, an attached picture, and a voice file that does not match
-    the clip length or sample rate.
+    The clip is h264 yuv420p, 24 fps, 448x672, 2.04s, plus AAC 48 kHz stereo
+    and an mjpeg attached picture. The voice is MP3, 24 kHz, mono, 2.616s,
+    longer than the clip. The bytes are what matter; the filename is not.
     """
 
     tools = toolchain()
     directory = tmp_path / "real-xai"
     directory.mkdir()
     clip = directory / "clip.mp4"
-    voice = directory / "voice.wav"
+    voice = directory / "voice.mp3"
     subprocess.run(
         [
             str(tools.ffmpeg_path),
@@ -265,16 +265,65 @@ def _real_xai_media(tmp_path: Path) -> tuple[bytes, bytes]:
             "-f",
             "lavfi",
             "-i",
-            "sine=frequency=330:sample_rate=24000:duration=2.0",
+            "sine=frequency=330:sample_rate=24000:duration=2.616",
             "-ac",
             "1",
             "-c:a",
-            "pcm_s16le",
+            "libmp3lame",
+            "-b:a",
+            "128k",
             str(voice),
         ],
         check=True,
         capture_output=True,
     )
+    clip_probe = json.loads(
+        subprocess.run(
+            [
+                str(tools.ffprobe_path),
+                "-v",
+                "error",
+                "-show_streams",
+                "-show_format",
+                "-of",
+                "json",
+                str(clip),
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    streams = clip_probe["streams"]
+    picture = next(item for item in streams if item.get("codec_name") == "h264")
+    assert (picture["width"], picture["height"], picture["pix_fmt"]) == (448, 672, "yuv420p")
+    assert picture["avg_frame_rate"] == "24/1"
+    audio = next(item for item in streams if item.get("codec_name") == "aac")
+    assert audio["sample_rate"] == "48000" and int(audio["channels"]) == 2
+    cover = next(item for item in streams if item.get("codec_name") == "mjpeg")
+    assert cover["disposition"]["attached_pic"] == 1
+    assert abs(float(clip_probe["format"]["duration"]) - 2.04) < 0.05
+    voice_probe = json.loads(
+        subprocess.run(
+            [
+                str(tools.ffprobe_path),
+                "-v",
+                "error",
+                "-show_streams",
+                "-show_format",
+                "-of",
+                "json",
+                str(voice),
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    heard = voice_probe["streams"][0]
+    assert heard["codec_name"] == "mp3"
+    assert heard["sample_rate"] == "24000" and int(heard["channels"]) == 1
+    voice_duration = float(voice_probe["format"]["duration"])
+    assert voice_duration > float(clip_probe["format"]["duration"])
+    assert abs(voice_duration - 2.616) < 0.05
     return clip.read_bytes(), voice.read_bytes()
 
 
@@ -353,6 +402,11 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         )
         picture = probed["streams"][0]
         assert (picture["width"], picture["height"]) == (448, 672)
+        assert result.duration_seconds is not None
+        assert 2.0 <= float(result.duration_seconds) < 2.4
+        voices = list((tmp_path / "story-films").glob("*-voice.mp3"))
+        assert voices and all(path.read_bytes() == script.audio for path in voices)
+        assert not list((tmp_path / "story-films").glob("*-voice.wav"))
         saved = list((tmp_path / "story-films").glob("*-key.png")) + list(
             (tmp_path / "story-films").glob("*-key.jpg")
         )

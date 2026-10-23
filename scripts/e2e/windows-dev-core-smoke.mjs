@@ -136,7 +136,7 @@ async function launch() {
   }));
   assert.equal(identity.packaged, true);
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.2.4");
+  assert.equal(identity.version, "0.2.5");
   assert.equal(identity.electron, "43.2.0");
   assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(identity.preferences.sandbox, true);

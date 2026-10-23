@@ -2,7 +2,7 @@ import { realpathSync } from "node:fs";
 import { basename, extname, resolve, sep } from "node:path";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 
-const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav"]);
+const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav", ".mp3"]);
 const maxMediaBytes = 80 * 1024 * 1024;
 
 export type StoryFilmFiles = {

@@ -399,9 +399,10 @@ def test_normalize_keeps_portrait_widescreen_and_square(tmp_path):
             check=True,
             capture_output=True,
         )
-        width, height, frames = _normalize_film_media(
+        width, height, frames, fitted = _normalize_film_media(
             tools.ffmpeg_path, tools.ffprobe_path, clip, audio
         )
+        assert fitted == audio
         assert (width, height) == canvas
         assert frames >= 24
         probed = json.loads(
@@ -440,11 +441,124 @@ def test_normalize_keeps_portrait_widescreen_and_square(tmp_path):
         assert int(track["channels"]) == 2
 
 
+def test_mp3_named_as_wav_is_trimmed_to_the_longer_voice(tmp_path):
+    """The real xAI voice is MP3, 24 kHz, mono, 2.616s, often saved as .wav.
+
+    The clip is 448x672 h264 yuv420p at 24 fps for 2.04s, with AAC 48 kHz
+    stereo and an mjpeg cover. Forcing a wav demuxer from the filename fails.
+    """
+
+    from aijian_api.story_film import _audio_suffix, _normalize_film_media
+
+    tools = toolchain()
+    clip = tmp_path / "clip.mp4"
+    named = tmp_path / "voice.wav"
+    real = tmp_path / "voice.mp3"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=448x672:rate=24:duration=2.04",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=2.04",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=32x32:r=1:d=0.2",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-map",
+            "2:v:0",
+            "-c:v:0",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "24",
+            "-c:a",
+            "aac",
+            "-ac",
+            "2",
+            "-c:v:1",
+            "mjpeg",
+            "-disposition:v:1",
+            "attached_pic",
+            str(clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=330:sample_rate=24000:duration=2.616",
+            "-ac",
+            "1",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "128k",
+            str(real),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    mp3 = real.read_bytes()
+    assert _audio_suffix(mp3) == ".mp3"
+    named.write_bytes(mp3)
+    width, height, frames, fitted = _normalize_film_media(
+        tools.ffmpeg_path, tools.ffprobe_path, clip, named
+    )
+    assert (width, height, frames) == (448, 672, 49)
+    assert fitted == named and fitted.read_bytes().startswith(b"RIFF")
+    heard = json.loads(
+        subprocess.run(
+            [
+                str(tools.ffprobe_path),
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_type,sample_rate,channels:format=duration",
+                "-of",
+                "json",
+                str(fitted),
+            ],
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    assert heard["streams"][0]["sample_rate"] == "48000"
+    assert float(heard["format"]["duration"]) < 2.5
+    kept = tmp_path / "kept.mp3"
+    kept.write_bytes(mp3)
+    _width, _height, _frames, voiced = _normalize_film_media(
+        tools.ffmpeg_path, tools.ffprobe_path, clip, kept
+    )
+    assert voiced.suffix == ".wav" and voiced.read_bytes().startswith(b"RIFF")
+    assert kept.read_bytes() == mp3
+
+
 def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkeypatch):
     from aijian_api.draft_export_runtime import DraftExportError
     from aijian_api.media_asset_store import MediaAssetError
     from aijian_api.story_film import (
         StoryFilmError,
+        _audio_suffix,
         _export_reason,
         _failure_event,
         _failure_log_code,
@@ -581,6 +695,17 @@ def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkey
     assert service._saved_bundle(project_id, request) is None
     service._store_part(project_id, request, b"voice", "-voice.wav")
     assert service._saved_bundle(project_id, request) is not None
+    assert _audio_suffix(b"RIFF" + b"\x00" * 4 + b"WAVE") == ".wav"
+    assert _audio_suffix(b"ID3" + b"\x00" * 9) == ".mp3"
+    assert _audio_suffix(b"\xff\xf3\xc4\xc4") == ".mp3"
+    assert _audio_suffix(b"nope") == ".wav"
+    service._store_part(project_id, request, b"\xff\xf3\xc4\xc4voice", "-voice.wav")
+    renamed = service._saved_bundle(project_id, request)
+    assert renamed is not None and renamed[2].startswith(b"\xff\xf3")
+    assert not list((tmp_path / "story-films").glob("*-voice.wav"))
+    service._store_part(project_id, request, b"RIFF" + b"\x00" * 4 + b"WAVEold", "-voice.wav")
+    preferred = service._saved_bundle(project_id, request)
+    assert preferred is not None and preferred[2].startswith(b"\xff\xf3")
     assert service._artifact_head(project_id, "story_film", None) == (None, None)
 
     def _broken_tools():

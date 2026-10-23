@@ -96,6 +96,10 @@ describe("story film IPC", () => {
     );
     const bytes = await handlers.get("story-film:read")?.(true, film);
     expect(Array.from(bytes as Uint8Array)).toEqual([109, 112, 52, 45, 98, 121, 116, 101, 115]);
+    const voice = join(films, "voice.mp3");
+    writeFileSync(voice, Buffer.from("mp3"));
+    const heard = await handlers.get("story-film:read")?.(true, voice);
+    expect(Array.from(heard as Uint8Array)).toEqual([109, 112, 51]);
     await expect(handlers.get("story-film:read")?.(false, film)).rejects.toThrow("not authorized");
     await expect(handlers.get("story-film:read")?.(true, outside)).rejects.toThrow(
       "Invalid story film path",

@@ -609,7 +609,7 @@ class StoryFilmService:
         picture = image.data or _FALLBACK_PNG
         if real_clip:
             self._store_part(project_id, request, clip, "-clip.mp4")
-            self._store_part(project_id, request, speech, "-voice.wav")
+            self._store_part(project_id, request, speech, f"-voice{_audio_suffix(speech)}")
         return picture, clip, speech
 
     def _ensure_running(self, project_id: str) -> None:
@@ -644,15 +644,24 @@ class StoryFilmService:
         directory = self._image_directory()
         stem = self._image_stem(project_id, request)
         clip = directory / f"{stem}-clip.mp4"
-        voice = directory / f"{stem}-voice.wav"
-        if not (
-            clip.is_file()
-            and clip.stat().st_size > 0
-            and voice.is_file()
-            and voice.stat().st_size > 0
-        ):
+        voice = self._saved_voice(directory, stem)
+        if voice is None or not (clip.is_file() and clip.stat().st_size > 0):
             return None
         return image.read_bytes(), clip.read_bytes(), voice.read_bytes()
+
+    def _saved_voice(self, directory: Path, stem: str) -> Path | None:
+        mp3 = directory / f"{stem}-voice.mp3"
+        if mp3.is_file() and mp3.stat().st_size > 0:
+            return mp3
+        wav = directory / f"{stem}-voice.wav"
+        if not (wav.is_file() and wav.stat().st_size > 0):
+            return None
+        with wav.open("rb") as stream:
+            header = stream.read(16)
+        if _audio_suffix(header) != ".mp3":
+            return wav
+        wav.replace(mp3)
+        return mp3
 
     def _store_part(
         self, project_id: str, request: StoryFilmRequest, data: bytes, suffix: str
@@ -781,17 +790,17 @@ class StoryFilmService:
         stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
         image_path = directory / f"{stem}-key.png"
         clip_path = directory / f"{stem}-clip.mp4"
-        audio_path = directory / f"{stem}-voice.wav"
+        audio_path = directory / f"{stem}-voice{_audio_suffix(speech)}"
         image_path.write_bytes(image)
         clip_path.write_bytes(clip)
         audio_path.write_bytes(speech)
-        width, height, frames = _normalize_film_media(
+        width, height, frames, voiced = _normalize_film_media(
             tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
         )
         store = MediaAssetStore(self._repository)
         image_asset = store.import_local(project_id, image_path, display_filename="关键画面.png")
         clip_asset = store.import_local(project_id, clip_path, display_filename="镜头.mp4")
-        audio_asset = store.import_local(project_id, audio_path, display_filename="旁白.wav")
+        audio_asset = store.import_local(project_id, voiced, display_filename="旁白.wav")
         episode_id = self._episode_id(project_id)
         subtitle = request.subtitle.strip() if request.subtitle else ""
         content: dict[str, object] = {
@@ -1201,9 +1210,26 @@ def _primary_video(streams: list[object]) -> tuple[int, int, int]:
     return chosen[1], chosen[2], chosen[3]
 
 
+def _audio_suffix(header: bytes) -> str:
+    """Pick an extension from the audio header, never from the filename.
+
+    xAI TTS is requested as MP3. A file that is still named ``.wav`` can hold
+    those bytes, and opening it with a wav demuxer fails. The same header rule
+    as the draft encoder selects MP3.
+    """
+
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WAVE":
+        return ".wav"
+    if header.startswith(b"ID3") or (
+        len(header) >= 2 and header[0] == 0xFF and header[1] & 0xE6 == 0xE2
+    ):
+        return ".mp3"
+    return ".wav"
+
+
 def _normalize_film_media(
     ffmpeg: Path, ffprobe: Path, clip_path: Path, audio_path: Path
-) -> tuple[int, int, int]:
+) -> tuple[int, int, int, Path]:
     payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
     streams = payload.get("streams")
     if not isinstance(streams, list):
@@ -1234,10 +1260,15 @@ def _normalize_film_media(
     clean.replace(clip_path)
     frames = _video_frames(ffprobe, clip_path)
     seconds = frames / _FRAME_RATE + 0.08
+    with audio_path.open("rb") as stream:
+        header = stream.read(16)
+    demuxer = "mp3" if _audio_suffix(header) == ".mp3" else "wav"
     voiced = audio_path.with_name(f"{audio_path.stem}-fit.wav")
     _ffmpeg(
         ffmpeg,
         [
+            "-f",
+            demuxer,
             "-i",
             str(audio_path),
             "-af",
@@ -1252,8 +1283,10 @@ def _normalize_film_media(
         ],
         stage="normalize_voice",
     )
-    voiced.replace(audio_path)
-    return width, height, frames
+    if audio_path.suffix.lower() == ".wav":
+        voiced.replace(audio_path)
+        return width, height, frames, audio_path
+    return width, height, frames, voiced
 
 
 _EXPORT_REASONS = {
