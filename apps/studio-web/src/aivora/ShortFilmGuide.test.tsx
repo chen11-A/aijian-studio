@@ -373,4 +373,38 @@ describe("simple story-to-film navigation", () => {
     expect(screen.getByLabelText("成片回放")).toBeInTheDocument();
     expect(screen.getByText(outputPath, { exact: false })).toBeInTheDocument();
   });
+
+  it("keeps the stage list and shows it again from the first stage on retry", async () => {
+    const reason = "画面、视频和配音都已经做好。没有找到可以压字幕的中文字体，可以重试。";
+    let releaseRetry: (value: unknown) => void = () => undefined;
+    const createStoryFilm = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { status: "FAILED", message: reason } })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseRetry = resolve;
+          }),
+      );
+    connectedBridge(createStoryFilm);
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("没有找到可以压字幕的中文字体");
+    expect(screen.getByRole("list", { name: "生成进度" })).toBeInTheDocument();
+    fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
+    expect(await screen.findByText("画面 · 进行中")).toBeInTheDocument();
+    releaseRetry({ data: { status: "FAILED", message: reason } });
+    expect(await screen.findByRole("list", { name: "生成进度" })).toBeInTheDocument();
+  });
 });

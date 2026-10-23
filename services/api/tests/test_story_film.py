@@ -3,6 +3,7 @@
 import base64
 import json
 import subprocess
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -153,6 +154,22 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
             "SELECT COUNT(*) FROM media_budget_reservations"
         ).fetchone()[0]
     assert reservations == 0
+
+
+def test_missing_font_saves_srt_and_still_makes_the_film(tmp_path, monkeypatch):
+    empty = tmp_path / "no-fonts"
+    empty.mkdir()
+    monkeypatch.setattr("aijian_api.draft_subtitles._font_root", lambda: empty)
+    monkeypatch.setattr("aijian_api.draft_subtitles._font_candidates", lambda: [empty])
+    monkeypatch.setattr("aijian_api.draft_subtitles._system_cjk_font", lambda: None)
+    repository, project_id = _project(tmp_path)
+    result = StoryFilmService(repository, toolchain).produce(project_id, _request())
+    assert result.status == "SUCCEEDED", result.message
+    assert "字幕没能压进视频，已单独保存为字幕文件" in (result.message or "")
+    assert result.output_path
+    srt = Path(result.output_path).with_suffix(".srt")
+    assert "雾城来信" in srt.read_text(encoding="utf-8")
+    assert result.has_video and result.has_audio
 
 
 def test_story_film_route_explains_the_provider_before_any_call(tmp_path):

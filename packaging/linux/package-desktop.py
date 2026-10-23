@@ -294,6 +294,10 @@ def build(output: Path, cache: Path) -> None:
         (output / name).chmod(0o755)
     for name in ("LICENSE", "NOTICE"):
         helper.copy_file(ROOT / name, output / "licenses" / f"AIVORA-{name}")
+    font_source = ROOT / "apps/studio-web/src/aivora/assets/v2"
+    for name in ("NotoSansCJKsc-Regular.otf", "Noto-LICENSE.txt"):
+        helper.copy_file(font_source / name, output / "fonts" / name)
+    helper.copy_file(font_source / "Noto-LICENSE.txt", output / "licenses" / "Noto-LICENSE.txt")
     receipt = {
         "kind": "aivora-linux-x64-desktop",
         "version": "0.2.5",

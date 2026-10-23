@@ -4,7 +4,7 @@ import json
 import re
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from aijian_api.repository import ProjectNotFoundError
@@ -112,11 +112,49 @@ class TaskQueueRecord:
         return self.attempt_status == "SUCCEEDED"
 
 
+_SESSION_STARTED = datetime.now(UTC)
+
+
+def retire_stale_local_executions(database_path: Path, started: datetime) -> None:
+    """Close local work left running by a previous process.
+
+    A task still leased from before this process started cannot be the current
+    session. Expire that lease and use the existing recovery path so 用量 does
+    not keep saying it is running.
+    """
+
+    from aijian_api.task_ledger import LocalTaskLedger
+    from aijian_api.task_ledger_models import timestamp
+
+    cutoff = timestamp(started)
+    expired = timestamp(datetime(1970, 1, 1, tzinfo=UTC))
+    connection = sqlite3.connect(database_path, timeout=5)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """
+            UPDATE task_ledger
+            SET lease_expires_at = ?
+            WHERE status = 'LEASED' AND updated_at < ?
+              AND task_kind LIKE 'local.%'
+            """,
+            (expired, cutoff),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+    LocalTaskLedger(database_path).recover_expired_local_tasks()
+
+
 class TaskQueueReader:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
 
     def list_project_tasks(self, project_id: str) -> list[TaskQueueRecord]:
+        retire_stale_local_executions(self._database_path, _SESSION_STARTED)
         connection = sqlite3.connect(self._database_path, timeout=5)
         connection.row_factory = sqlite3.Row
         try:

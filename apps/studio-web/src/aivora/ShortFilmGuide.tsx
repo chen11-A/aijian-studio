@@ -151,6 +151,7 @@ export function ShortFilmGuide() {
   const [voiceId, setVoiceId] = useState(savedChoices.voiceId || "eve");
   const [voices, setVoices] = useState(fallbackVoices);
   const [busy, setBusy] = useState(false);
+  const [showStages, setShowStages] = useState(false);
   const [stage, setStage] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [notice, setNotice] = useState("");
@@ -262,6 +263,7 @@ export function ShortFilmGuide() {
       return;
     }
     setBusy(true);
+    setShowStages(true);
     setStage(0);
     setElapsed(0);
     setNotice("");
@@ -488,15 +490,15 @@ export function ShortFilmGuide() {
           )}
           {busy && <Button onClick={cancel}>取消</Button>}
         </div>
-        {busy && (
+        {(busy || showStages) && (
           <ol className="film-progress" aria-label="生成进度">
             {filmStages.map((label, index) => (
-              <li key={label} aria-current={index === stage ? "step" : undefined}>
+              <li key={label} aria-current={busy && index === stage ? "step" : undefined}>
                 {label}
-                {index === stage ? " · 进行中" : index < stage ? " · 已完成" : ""}
+                {busy && index === stage ? " · 进行中" : index < stage ? " · 已完成" : ""}
               </li>
             ))}
-            <li>已用 {elapsed} 秒</li>
+            {busy && <li>已用 {elapsed} 秒</li>}
           </ol>
         )}
         {preview && <img className="film-still" alt="已生成的画面" src={preview} />}

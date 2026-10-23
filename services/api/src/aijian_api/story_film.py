@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -34,10 +35,12 @@ from aijian_api.desktop_subscription_dispatch import (
 from aijian_api.dispatch_billing import budget_display_reason
 from aijian_api.draft_export_contracts import CreateDraftExportRequest, DraftExportJob
 from aijian_api.draft_export_runtime import DraftExportError, DraftExportRuntime
+from aijian_api.draft_subtitles import DraftSubtitleError, prepare_subtitles
 from aijian_api.episode_media_assembly_contracts import (
     ASSEMBLY_ARTIFACT_TYPE,
     CreateEpisodeMediaAssemblyVersionRequest,
     EpisodeMediaAssemblyContentV1,
+    EpisodeMediaAssemblyVersionData,
 )
 from aijian_api.episode_media_assembly_store import EpisodeMediaAssemblyStore
 from aijian_api.grok_status_log import append_grok_status
@@ -843,40 +846,23 @@ class StoryFilmService:
                     "render_profile": "noto-cjk-sc-bottom-v1",
                 }
             ]
-        parent_id, revision = self._artifact_head(project_id, ASSEMBLY_ARTIFACT_TYPE, episode_id)
-        assembly = EpisodeMediaAssemblyStore(self._repository).create_version(
-            project_id,
-            episode_id,
-            CreateEpisodeMediaAssemblyVersionRequest(
-                content=EpisodeMediaAssemblyContentV1.model_validate(content),
-                parent_version_id=parent_id,
-                expected_revision=revision,
-                change_summary="由一句话故事合成的草稿成片",
-            ),
-            author_actor_id="story-film",
-        )
         output = directory / f"{stem}-film.mp4"
         runtime = DraftExportRuntime(
             self._repository,
             self._toolchain_provider,
             ProductExportJobManager() if sys.platform == "win32" else None,
         )
-        export = CreateDraftExportRequest(
-            operation_id="dmp_" + uuid4().hex,
-            assembly_version_id=assembly.version_id,
-            assembly_content_hash=assembly.content_hash,
-            rights_declaration="OWNED_OR_SYNTHETIC",
-            output_path=str(output),
+        subtitle_note = _save_subtitle_without_blocking(content, output, subtitle, frames)
+        assembly, job = self._export_story_assembly(
+            project_id, episode_id, content, output, runtime
         )
-        runtime.submit(project_id, episode_id, export)
-        job = _wait_export(runtime, project_id, episode_id, export.operation_id)
-        runtime.join_workers()
         if job.status != "SUCCEEDED" or job.output_path is None or job.output_sha256 is None:
             code = job.error_code or "EXPORT_FAILED"
             reason = _export_reason(code) or "合成没有完成"
+            note = f"。{subtitle_note}" if subtitle_note else ""
             raise StoryFilmError(
                 code if _safe_token(code) else "EXPORT_FAILED",
-                f"画面、视频和配音都已经做好。{reason}，可以重试。",
+                f"画面、视频和配音都已经做好。{reason}{note}，可以重试。",
                 ffmpeg_stage="assemble",
             )
         has_video, has_audio, duration = _probe_movie(tools.ffprobe_path, Path(job.output_path))
@@ -891,7 +877,7 @@ class StoryFilmService:
             "audio_role": "narration",
             "assembly_version_id": assembly.version_id,
             "assembly_content_hash": assembly.content_hash,
-            "draft_operation_id": export.operation_id,
+            "draft_operation_id": job.operation_id,
             "output_sha256": job.output_sha256,
             "duration_frames": frames,
             "frame_rate": _FRAME_RATE,
@@ -912,9 +898,12 @@ class StoryFilmService:
             expected_revision=film_revision,
         )
         provider_label, billing_label = provider_copy(request.provider)
+        message = "草稿成片已经保存。这还不是正式发行，可以在播放器里打开看看。"
+        if subtitle_note:
+            message = f"{message}{subtitle_note}"
         return StoryFilmResult(
             status="SUCCEEDED",
-            message="草稿成片已经保存。这还不是正式发行，可以在播放器里打开看看。",
+            message=message,
             provider_label=provider_label,
             billing_label=billing_label,
             suggested_provider=None,
@@ -930,6 +919,38 @@ class StoryFilmService:
             draft=True,
             live_call=False,
         )
+
+    def _export_story_assembly(
+        self,
+        project_id: str,
+        episode_id: str,
+        content: dict[str, object],
+        output: Path,
+        runtime: DraftExportRuntime,
+    ) -> tuple[EpisodeMediaAssemblyVersionData, DraftExportJob]:
+        parent_id, revision = self._artifact_head(project_id, ASSEMBLY_ARTIFACT_TYPE, episode_id)
+        assembly = EpisodeMediaAssemblyStore(self._repository).create_version(
+            project_id,
+            episode_id,
+            CreateEpisodeMediaAssemblyVersionRequest(
+                content=EpisodeMediaAssemblyContentV1.model_validate(content),
+                parent_version_id=parent_id,
+                expected_revision=revision,
+                change_summary="由一句话故事合成的草稿成片",
+            ),
+            author_actor_id="story-film",
+        )
+        export = CreateDraftExportRequest(
+            operation_id="dmp_" + uuid4().hex,
+            assembly_version_id=assembly.version_id,
+            assembly_content_hash=assembly.content_hash,
+            rights_declaration="OWNED_OR_SYNTHETIC",
+            output_path=str(output),
+        )
+        runtime.submit(project_id, episode_id, export)
+        job = _wait_export(runtime, project_id, episode_id, export.operation_id)
+        runtime.join_workers()
+        return assembly, job
 
     def _episode_id(self, project_id: str) -> str:
         episodes = self._repository.list_episodes(project_id)
@@ -1301,7 +1322,43 @@ _EXPORT_REASONS = {
     "MEDIA_ENCODE_FAILED": "整理画面或配音时没有成功",
     "PROBE_FAILED": "没有读到可以合成的画面",
     "EXPORT_FAILED": "合成没有完成",
+    "SUBTITLE_FONT_UNAVAILABLE": "没有找到可以压字幕的中文字体",
+    "SUBTITLE_GLYPH_UNSUPPORTED": "字幕里有当前字体写不出的字",
+    "SUBTITLE_FONT_INVALID": "字幕字体读不出来",
 }
+
+
+def _save_subtitle_without_blocking(
+    content: dict[str, object], output: Path, subtitle: str, frames: int
+) -> str | None:
+    """Keep the film when the caption cannot be burned in, and leave an .srt beside it."""
+
+    if not subtitle or "subtitle_segments" not in content:
+        return None
+    try:
+        with tempfile.TemporaryDirectory(prefix="aivora-subtitle-check-") as temporary:
+            prepare_subtitles(
+                EpisodeMediaAssemblyContentV1.model_validate(content),
+                Path(temporary),
+            )
+    except DraftSubtitleError:
+        _write_srt(output.with_suffix(".srt"), subtitle, frames)
+        content.pop("subtitle_segments", None)
+        return "字幕没能压进视频，已单独保存为字幕文件"
+    return None
+
+
+def _srt_clock(seconds: float) -> str:
+    total_ms = max(0, int(round(seconds * 1000)))
+    hours, remainder = divmod(total_ms, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    secs, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def _write_srt(path: Path, text: str, frames: int) -> None:
+    end = _srt_clock(frames / _FRAME_RATE)
+    path.write_text(f"1\n00:00:00,000 --> {end}\n{text}\n", encoding="utf-8")
 
 
 def _export_reason(code: object) -> str | None:

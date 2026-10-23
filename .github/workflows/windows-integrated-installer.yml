@@ -65,6 +65,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python packaging/windows/bundle-locked-media.py --stage "$env:RUNNER_TEMP\aivora-stage" --tools "$env:RUNNER_TEMP\aivora-tools" --media $media.root --evidence "$env:RUNNER_TEMP\aivora-evidence"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compose a Chinese subtitle with the bundled font
+        shell: pwsh
+        run: |
+          uv run --frozen python packaging/windows/smoke-subtitle-compose.py --stage "$env:RUNNER_TEMP\aivora-stage"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Silent install, health check, screenshot, and uninstall
         shell: pwsh
         run: |
