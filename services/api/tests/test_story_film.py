@@ -5,6 +5,7 @@ import json
 import subprocess
 from uuid import uuid4
 
+import pytest
 from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
@@ -437,3 +438,153 @@ def test_normalize_keeps_portrait_widescreen_and_square(tmp_path):
         track = heard["streams"][0]
         assert track["sample_rate"] == "48000"
         assert int(track["channels"]) == 2
+
+
+def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkeypatch):
+    from aijian_api.draft_export_runtime import DraftExportError
+    from aijian_api.media_asset_store import MediaAssetError
+    from aijian_api.story_film import (
+        StoryFilmError,
+        _export_reason,
+        _failure_event,
+        _failure_log_code,
+        _failure_message,
+        _failure_stage,
+        _ffmpeg,
+        _ffprobe,
+        _fit_canvas,
+        _named_stage_message,
+        _normalize_film_media,
+        _preview_data_url,
+        _primary_video,
+        _video_frames,
+    )
+    from aijian_api.xai_media import XaiMediaError
+
+    assert _fit_canvas(448, 672) == (448, 672)
+    assert _fit_canvas(1919, 1079) == (1918, 1078)
+    wide, high = _fit_canvas(3840, 2160)
+    assert max(wide, high) <= 1920 and wide % 2 == 0 and high % 2 == 0
+    with pytest.raises(StoryFilmError, match="画面太小"):
+        _fit_canvas(15, 40)
+    picture = {"codec_type": "video", "codec_name": "h264", "width": 448, "height": 672}
+    cover = {
+        "codec_type": "video",
+        "codec_name": "mjpeg",
+        "disposition": {"attached_pic": "1"},
+        "width": 32,
+        "height": 32,
+    }
+    assert _primary_video(["skip", {"codec_type": "audio"}, cover, picture]) == (3, 448, 672)
+    with pytest.raises(StoryFilmError, match="没有读到可以合成的画面"):
+        _primary_video(
+            [
+                cover,
+                {"codec_type": "video", "codec_name": "h264", "width": [], "height": 20},
+                {"codec_type": "video", "codec_name": "h264", "width": 1, "height": 1},
+            ]
+        )
+    probed = StoryFilmError(
+        "PROBE_FAILED",
+        "没有读到可以合成的画面。",
+        ffmpeg_stage="probe_video",
+        exit_code=1,
+    )
+    assert "已经做好" in _failure_message(probed, "assemble", True, True)
+    ready = StoryFilmError(
+        "MEDIA_ENCODE_FAILED",
+        "画面、视频和配音都已经做好。整理视频时没有成功，可以重试。",
+        exit_code=1,
+    )
+    assert _failure_message(ready, "assemble", True, True) == ready.message
+
+    class _Coded(Exception):
+        code = "SOURCE_PROBE_INVALID"
+
+    assert "封面" in _failure_message(_Coded(), "assemble", True, True)
+    assert "合成这一步" in _failure_message(RuntimeError("plain"), "assemble", True, True)
+    assert "配音" in _failure_message(StoryFilmError("X", "x"), "speech", True, False)
+    assert "视频" in _failure_message(XaiMediaError("X", "x"), "video", True, False)
+    assert "画面这一步" in _failure_message(StoryFilmError("X", "x"), "image", False, False)
+    assert "成片没有做完" in _failure_message(
+        MediaAssetError("SOURCE_SIZE", "big"), "assemble", False, False
+    )
+    assert "封面" in _failure_message(
+        DraftExportError("SOURCE_PROBE_INVALID", "layout"), "assemble", False, False
+    )
+    assert _failure_message(RuntimeError("x"), "assemble", False, False) == "成片没有做完。"
+    assert _failure_log_code(probed) == "exit_1"
+    assert _failure_log_code(StoryFilmError("SOURCE_PROBE_INVALID", "x")) == "SOURCE_PROBE_INVALID"
+    huge = StoryFilmError("OK_CODE", "m", exit_code=10**40)
+    assert _failure_log_code(huge) == "OK_CODE"
+    assert _failure_log_code(StoryFilmError("bad code", "m")) == "StoryFilmError"
+    assert _failure_log_code(type("bad name", (Exception,), {})()) == "FAILED"
+    assert _export_reason(None) is None
+    assert _export_reason("EXPORT_FAILED") == "合成没有完成"
+    assert _failure_event("video") == "video_submit"
+    assert _failure_event("speech") == "tts"
+    assert _failure_event("assemble") == "compose"
+    assert _failure_event("other") == "image_saved"
+    assert _failure_stage("video") == "video"
+    assert _failure_stage("later") == "image"
+    assert "合成" in _named_stage_message("assemble", True, "fallback")
+    assert "视频" in _named_stage_message("other", True, "fallback")
+    assert _named_stage_message("image", True, "fallback") == "画面这一步没有成功，可以重试"
+    assert _preview_data_url(b"") is None
+    assert _preview_data_url(b"\xff\xd8rest").startswith("data:image/jpeg")
+    assert _preview_data_url(b"RIFFWEBP").startswith("data:image/webp")
+    assert _preview_data_url(b"x" * 1_500_001) is None
+    tools = toolchain()
+    for stage, expected in (
+        ("normalize_video", "整理视频"),
+        ("normalize_voice", "整理配音"),
+        (None, "没有编码成功"),
+    ):
+        with pytest.raises(StoryFilmError, match=expected) as caught:
+            _ffmpeg(tools.ffmpeg_path, ["-i", str(tmp_path / "missing.bin")], stage=stage)
+        assert isinstance(caught.value.exit_code, int) and caught.value.exit_code != 0
+    with pytest.raises(StoryFilmError, match="没有读到可以合成的画面") as probed_file:
+        _ffprobe(tools.ffprobe_path, [str(tmp_path / "missing.bin")])
+    assert probed_file.value.exit_code
+    voice = tmp_path / "only.wav"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=0.2",
+            str(voice),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    with pytest.raises(StoryFilmError, match="没有读到镜头"):
+        _video_frames(tools.ffprobe_path, voice)
+
+    monkeypatch.setattr(
+        "aijian_api.story_film._ffprobe", lambda *_args, **_kwargs: {"streams": None}
+    )
+    with pytest.raises(StoryFilmError, match="没有读到可以合成的画面"):
+        _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, voice, voice)
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    request = _request()
+    assert service._saved_bundle(project_id, request) is None
+    service._store_part(project_id, request, b"", "-clip.mp4")
+    service._persist_image(project_id, request, b"\xff\xd8jpeg")
+    assert service._saved_bundle(project_id, request) is None
+    service._store_part(project_id, request, b"clip", "-clip.mp4")
+    assert service._saved_bundle(project_id, request) is None
+    service._store_part(project_id, request, b"voice", "-voice.wav")
+    assert service._saved_bundle(project_id, request) is not None
+    assert service._artifact_head(project_id, "story_film", None) == (None, None)
+
+    def _broken_tools():
+        raise RuntimeError("no ffmpeg")
+
+    with pytest.raises(StoryFilmError, match="视频工具"):
+        StoryFilmService(repository, _broken_tools)._tools()
