@@ -2,13 +2,20 @@
 
 import json
 
+import pytest
+
 from aijian_api.xai_media import (
+    EDIT_MODEL,
     IMAGE_GENERATION_PATH,
     TTS_PATH,
+    VIDEO_EDIT_PATH,
+    VIDEO_EXTEND_PATH,
     VIDEO_GENERATION_PATH,
+    VIDEO_MODEL,
     XaiHttpRequest,
     XaiHttpResponse,
     XaiMediaClient,
+    XaiMediaError,
 )
 
 
@@ -108,3 +115,55 @@ def test_b64_image_is_sent_to_video_as_a_data_uri_and_logged(tmp_path, monkeypat
     assert events == ["image", "video_submit", "video_poll", "video_poll", "tts"]
     logged = [json.loads(line) for line in log_path.read_text().splitlines()]
     assert all(item["httpStatus"] == 200 and item["code"] == "ok" for item in logged)
+
+
+def test_generation_can_pin_frames_and_mute_audio_without_using_the_edit_route():
+    transport = RecordingTransport([XaiHttpResponse(200, json.dumps({"request_id": "req-pin"}).encode())])
+    client = XaiMediaClient(transport, token="test-token-not-a-secret")
+    client.submit_video(
+        prompt="侧身让过",
+        image_url="https://api.x.ai/generated/start.png",
+        duration=3,
+        generate_audio=False,
+        resolution="720p",
+        reference_images=("https://api.x.ai/generated/face.png",),
+        last_frame_url="https://api.x.ai/generated/end.png",
+    )
+    body = json.loads(transport.requests[0].body or b"{}")
+    assert transport.requests[0].url.endswith(VIDEO_GENERATION_PATH)
+    assert body["model"] == VIDEO_MODEL
+    assert body["generate_audio"] is False
+    assert body["resolution"] == "720p"
+    assert body["reference_images"] == [{"url": "https://api.x.ai/generated/face.png"}]
+    assert body["last_frame"] == {"url": "https://api.x.ai/generated/end.png"}
+    plain = RecordingTransport([XaiHttpResponse(200, json.dumps({"request_id": "plain"}).encode())])
+    XaiMediaClient(plain, token="test-token-not-a-secret").submit_video(prompt="原样", duration=2)
+    assert "generate_audio" not in json.loads(plain.requests[0].body or b"{}")
+
+
+def test_edits_and_extensions_use_the_older_model_and_reject_1_5():
+    transport = RecordingTransport(
+        [
+            XaiHttpResponse(200, json.dumps({"request_id": "edit-1"}).encode()),
+            XaiHttpResponse(200, json.dumps({"request_id": "ext-1"}).encode()),
+        ]
+    )
+    client = XaiMediaClient(transport, token="test-token-not-a-secret")
+    edited = client.edit_video(prompt="只把铁棍换成木棍，其他不变", video_url="https://vidgen.x.ai/clip.mp4")
+    extended = client.extend_video(
+        prompt="雨还在下，两人分开",
+        video_url="https://vidgen.x.ai/clip.mp4",
+        duration=4,
+    )
+    assert edited.request_id == "edit-1"
+    assert extended.request_id == "ext-1"
+    assert transport.requests[0].url.endswith(VIDEO_EDIT_PATH)
+    assert transport.requests[1].url.endswith(VIDEO_EXTEND_PATH)
+    assert json.loads(transport.requests[0].body or b"{}")["model"] == EDIT_MODEL
+    assert json.loads(transport.requests[1].body or b"{}")["duration"] == 4
+    with pytest.raises(XaiMediaError, match="1.5"):
+        client.edit_video(
+            prompt="不行",
+            video_url="https://vidgen.x.ai/clip.mp4",
+            model=VIDEO_MODEL,
+        )

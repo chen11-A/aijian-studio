@@ -7,6 +7,7 @@ import type {
 import { assistantChatReferences, type AssistantSelectionPublication } from "./assistantSelection";
 import { dispatchGrokLoginText } from "./grok-auth/dispatch";
 import { grokBridge } from "./grok-auth/transport";
+import { assistantPrompt, readFilm } from "./film/project";
 
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 type ActivePreview = Extract<AssistantChatPreviewResult, { kind: "READY" }> & {
@@ -148,7 +149,7 @@ export function useAssistantChatConversation(inputs: AssistantChatInputs) {
     try {
       const result = await dispatchGrokLoginText(grokBridge(), {
         model: grokModel,
-        text: submitted,
+        text: assistantPrompt(submitted, readFilm(window.localStorage)),
         projectId: scope.projectId,
       });
       if (!mounted.current) return;

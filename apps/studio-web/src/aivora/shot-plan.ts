@@ -127,11 +127,18 @@ export function fightSample(): string {
 }
 
 export function planShots(story: string): PlannedShot[] {
-  const text = story.split(/\s+/).join(" ").trim();
+  const text = story.trim();
   if (!text) throw new Error("需要一段故事才能拆镜");
   if (text.includes("雨夜巷战")) {
     return fight.map((row, index) => shotFrom(index + 1, row));
   }
+  return offlineRotation(text);
+}
+
+/** Offline director. The lines stay the user's. The fight table is only the sample button. */
+export function offlineRotation(story: string): PlannedShot[] {
+  const text = story.trim();
+  if (!text) throw new Error("需要一段故事才能拆镜");
   const pieces = splitPieces(text);
   const count = Math.min(10, Math.max(6, pieces.length));
   while (pieces.length < count) pieces.push(pieces[pieces.length - 1]!);
@@ -149,9 +156,9 @@ function splitPieces(text: string): string[] {
     .replaceAll("\n", "。");
   const parts = cleaned
     .split("。")
-    .map((part) => part.trim())
+    .map((part) => part.split(/\s+/).join(" ").trim())
     .filter(Boolean);
-  return parts.length > 0 ? parts : [text.trim()];
+  return parts.length > 0 ? parts : [text.split(/\s+/).join(" ").trim()];
 }
 
 function shotFrom(index: number, row: readonly (string | number)[]): PlannedShot {

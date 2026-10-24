@@ -19,6 +19,7 @@ import { UserChip } from "./UserChip";
 import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { AssistantSelectionProvider } from "./assistantSelection";
 import { Select } from "./Select";
+import { ProWorkspace } from "./pro/ProWorkspace";
 import { openWuchengSample, promptNewProject } from "./sample-project";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
@@ -55,6 +56,7 @@ function AssistantSelectionBoundary({ children }: { children: ReactNode }) {
 }
 function Workspace({ reset }: { reset: () => void }) {
   const d = useDemo();
+  if (!d.isFixture) return <ProWorkspace />;
   const global = pages[d.page][2] < 0;
   const activeStage = pages[d.page][2];
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));

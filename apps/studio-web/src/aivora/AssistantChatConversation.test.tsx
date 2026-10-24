@@ -672,8 +672,13 @@ describe("production assistant conversation", () => {
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
     expect(await screen.findByText("可以先写灯塔。")).toBeInTheDocument();
     expect(completeText).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "grok-4.7", text: "这一场怎么写" }),
+      expect.objectContaining({
+        model: "grok-4.7",
+        text: expect.stringContaining("这一场怎么写"),
+      }),
     );
+    expect(JSON.stringify(completeText.mock.calls)).toContain("短剧");
+    expect(JSON.stringify(completeText.mock.calls)).not.toContain("\"text\":\"这一场怎么写\"");
     delete window.aijianGrok;
   });
 });

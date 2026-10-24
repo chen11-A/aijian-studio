@@ -298,12 +298,14 @@ describe("source extraction panel queue and original read", () => {
     expect(screen.getByRole("status")).toHaveTextContent("还不能用来生成");
     expect(completeText).toHaveBeenCalledWith({
       model: "grok-4",
-      text: "hello world!",
+      text: expect.stringContaining("hello world!"),
       projectId,
       idempotencyKey: expect.stringMatching(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       ),
     });
+    expect(JSON.stringify(completeText.mock.calls)).toContain("来源正文");
+    expect(JSON.stringify(completeText.mock.calls)).toContain("hello world!");
     expect(h.api.remoteSourceExtract.create).not.toHaveBeenCalled();
   });
   test.each(["unknown", "rejected", "storage"])(

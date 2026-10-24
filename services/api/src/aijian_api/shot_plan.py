@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from aijian_api.style_bible import DEFAULT_PROMPT_ZH
+
 MAX_CLIP_SECONDS = 15
-STYLE_REALISM = "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。"
+# Default preset text. A project style bible can replace it. Do not branch on this string.
+STYLE_REALISM = DEFAULT_PROMPT_ZH
 AI_GENERATED_NOTE = "画面和声音由 AI 生成，不是实拍。"
 
 _BEATS = (
@@ -136,7 +139,9 @@ def character_reference_prompt(story: str) -> str:
 
 
 def plan_shots(story: str) -> list[ShotPlan]:
-    text = " ".join(story.split())
+    """Curated fight sample only when the story is that example. Otherwise rotate."""
+
+    text = story.strip()
     if not text:
         raise ValueError("需要一段故事才能拆镜")
     if "雨夜巷战" in text:
@@ -147,12 +152,20 @@ def plan_shots(story: str) -> list[ShotPlan]:
         rows[4] = (*rows[4][:8], 6)
         rows[5] = (*rows[5][:8], 6)
         return [_shot(index, row) for index, row in enumerate(rows, start=1)]
+    return offline_rotation(text)
+
+
+def offline_rotation(story: str) -> list[ShotPlan]:
+    """Offline director. Shot text is the user's own lines, never a hidden cast."""
+
+    text = story.strip()
+    if not text:
+        raise ValueError("需要一段故事才能拆镜")
     pieces = _pieces(text)
     count = min(10, max(6, len(pieces)))
     while len(pieces) < count:
         pieces.append(pieces[-1])
     pieces = pieces[:count]
-    duration = 5 if count < 10 else 5
     return [
         _shot(
             index,
@@ -160,7 +173,7 @@ def plan_shots(story: str) -> list[ShotPlan]:
                 f"镜头{index}",
                 piece,
                 *_BEATS[(index - 1) % len(_BEATS)],
-                duration,
+                5,
             ),
         )
         for index, piece in enumerate(pieces, start=1)
@@ -171,8 +184,9 @@ def _pieces(text: str) -> list[str]:
     cleaned = text
     for mark in "。！？；\n":
         cleaned = cleaned.replace(mark, "。")
-    parts = [part.strip() for part in cleaned.split("。") if part.strip()]
-    return parts or [text.strip()]
+    parts = [" ".join(part.split()) for part in cleaned.split("。")]
+    parts = [part for part in parts if part]
+    return parts or [" ".join(text.split())]
 
 
 def _shot(index: int, row: tuple[object, ...]) -> ShotPlan:

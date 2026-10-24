@@ -15,16 +15,19 @@ from typing import Protocol
 from urllib.parse import urlsplit
 
 from aijian_api.grok_status_log import append_grok_status
+from aijian_api.model_config import EDIT_MODEL as EDIT_MODEL
+from aijian_api.model_config import IMAGE_MODEL as IMAGE_MODEL
+from aijian_api.model_config import TTS_MODEL as TTS_MODEL
+from aijian_api.model_config import VIDEO_MODEL as VIDEO_MODEL
 
 XAI_API_ORIGIN = "https://api.x.ai"
 _USER_AGENT = "AIVORA/0.3.0"
 IMAGE_GENERATION_PATH = "/v1/images/generations"
 VIDEO_GENERATION_PATH = "/v1/videos/generations"
+VIDEO_EDIT_PATH = "/v1/videos/edits"
+VIDEO_EXTEND_PATH = "/v1/videos/extensions"
 VIDEO_POLL_PATH = "/v1/videos/{request_id}"
 TTS_PATH = "/v1/tts"
-IMAGE_MODEL = "grok-imagine-image-2.0"
-VIDEO_MODEL = "grok-imagine-video-1.5"
-TTS_MODEL = "grok-tts"
 
 
 class XaiMediaError(RuntimeError):
@@ -123,6 +126,10 @@ class XaiMediaClient:
         image: XaiImage | None = None,
         model: str = VIDEO_MODEL,
         duration: int = 2,
+        generate_audio: bool | None = None,
+        resolution: str | None = None,
+        reference_images: tuple[str, ...] = (),
+        last_frame_url: str | None = None,
     ) -> XaiVideoSubmit:
         body: dict[str, object] = {"model": model, "prompt": prompt, "duration": duration}
         reference = _image_reference(image) if image is not None else None
@@ -130,7 +137,63 @@ class XaiMediaClient:
             reference = {"url": image_url}
         if reference is not None:
             body["image"] = reference
+        if generate_audio is not None:
+            body["generate_audio"] = generate_audio
+        if resolution:
+            body["resolution"] = resolution
+        if reference_images:
+            body["reference_images"] = [{"url": url} for url in reference_images]
+        if last_frame_url:
+            body["last_frame"] = {"url": last_frame_url}
         payload = self._post_json(VIDEO_GENERATION_PATH, body, "video_submit")
+        request_id = payload.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise XaiMediaError("VIDEO_RESPONSE_INVALID", "视频接口没有返回任务编号。")
+        return XaiVideoSubmit(request_id=request_id.strip(), model=model)
+
+    def edit_video(self, *, prompt: str, video_url: str, model: str = EDIT_MODEL) -> XaiVideoSubmit:
+        """Text-only edit. grok-imagine-video, not 1.5. No mask."""
+
+        self._require_edit_model(model)
+        payload = self._post_json(
+            VIDEO_EDIT_PATH,
+            {"model": model, "prompt": prompt, "video": {"url": video_url}},
+            "video_edit",
+        )
+        return self._video_submit(payload, model)
+
+    def extend_video(
+        self,
+        *,
+        prompt: str,
+        video_url: str,
+        duration: int = 6,
+        model: str = EDIT_MODEL,
+    ) -> XaiVideoSubmit:
+        """Continue from the last frame. grok-imagine-video, source 2–15s, add 2–10s."""
+
+        self._require_edit_model(model)
+        seconds = max(2, min(duration, 10))
+        payload = self._post_json(
+            VIDEO_EXTEND_PATH,
+            {
+                "model": model,
+                "prompt": prompt,
+                "duration": seconds,
+                "video": {"url": video_url},
+            },
+            "video_extend",
+        )
+        return self._video_submit(payload, model)
+
+    def _require_edit_model(self, model: str) -> None:
+        if model != EDIT_MODEL:
+            raise XaiMediaError(
+                "VIDEO_EDIT_UNSUPPORTED",
+                "改画面细节和延长只能用 grok-imagine-video。视频 1.5 不能走这两个接口。",
+            )
+
+    def _video_submit(self, payload: Mapping[str, object], model: str) -> XaiVideoSubmit:
         request_id = payload.get("request_id")
         if not isinstance(request_id, str) or not request_id.strip():
             raise XaiMediaError("VIDEO_RESPONSE_INVALID", "视频接口没有返回任务编号。")

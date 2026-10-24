@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef } from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { DemoApp } from "./DemoApp";
 import { DemoProvider, createAivoraSampleFixture, useDemo } from "./model";
 import { SAMPLE_LINE, SAMPLE_SCENE, ShortFilmGuide } from "./ShortFilmGuide";
@@ -421,5 +421,147 @@ describe("simple story-to-film navigation", () => {
       PROJECT_ID,
       expect.objectContaining({ regenerate: true }),
     );
+  });
+
+  it("sends the fight sample as separate shots and can redo one", async () => {
+    const createStoryFilm = vi.fn(
+      async (
+        _projectId: string,
+        _input: {
+          shots?: {
+            narration: string;
+            prompt?: string;
+            subtitle?: string;
+            duration_seconds?: number;
+            regenerate?: boolean;
+          }[];
+        },
+      ) => ({
+        data: {
+          status: "SUCCEEDED",
+          message: "做好了",
+          output_path: "/tmp/fight.mp4",
+          duration_seconds: 42,
+          has_video: true,
+          has_audio: true,
+        },
+      }),
+    );
+    connectedBridge(createStoryFilm);
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "用示例：雨夜巷战" }));
+    expect(within(guide).getByRole("status")).toHaveTextContent("已用示例「雨夜巷战」");
+    expect(screen.getByLabelText("这一场")).toHaveValue("雨夜巷战");
+    expect(within(guide).getByText("导演拆好的 8 个镜头")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("第 1 镜旁白"), { target: { value: "雨停了" } });
+    fireEvent.change(screen.getByLabelText("第 1 镜动作"), { target: { value: "停步" } });
+    fireEvent.click(within(guide).getAllByRole("button", { name: "重做这一镜" })[0]!);
+    for (let index = 0; index < 3; index += 1) {
+      fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    }
+    fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
+    await screen.findByText(/\/tmp\/fight\.mp4/);
+    const shots = createStoryFilm.mock.calls[0]![1].shots!;
+    expect(shots).toHaveLength(8);
+    expect(shots[0]).toMatchObject({
+      narration: "雨停了",
+      subtitle: "雨停了",
+      duration_seconds: 5,
+      regenerate: true,
+    });
+    expect(shots[0]?.prompt).toContain("停步");
+    expect(shots[1]?.regenerate).toBeUndefined();
+    expect(shots[4]?.duration_seconds).toBe(6);
+  });
+
+  it("drafts shots locally and asks for a story when the fields are empty", () => {
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    const guide = screen.getByLabelText("短片向导");
+    fireEvent.click(within(guide).getByRole("button", { name: "一键让导演拆镜" }));
+    expect(within(guide).getByRole("status")).toHaveTextContent(
+      "这是本地草稿。连上 Grok 后，导演会按你的故事重写。",
+    );
+    expect(within(guide).getByText("导演拆好的 6 个镜头")).toBeInTheDocument();
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
+    fireEvent.change(screen.getByLabelText("旁白"), { target: { value: "" } });
+    fireEvent.click(within(guide).getByRole("button", { name: "上一步" }));
+    fireEvent.click(within(guide).getByRole("button", { name: "上一步" }));
+    fireEvent.change(screen.getByLabelText("这一场"), { target: { value: " " } });
+    fireEvent.click(within(guide).getByRole("button", { name: "一键让导演拆镜" }));
+    expect(within(guide).getByRole("status")).toHaveTextContent("需要一段故事才能拆镜。");
+  });
+
+  it("uses Grok narration when a text model answers and keeps a local draft when it does not", async () => {
+    const completeText = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: "OK",
+        text: "雨打巷口。\n林夏停步。\n阿凯抬手。\n两人错身。\n雨还在下。\n巷子静了。",
+      })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ kind: "OK", text: "   " });
+    const textModel = { id: "grok-4", label: "Grok", outputModalities: ["text"] };
+    let catalog: "text" | "audio" | "failed" = "text";
+    const models = vi.fn(async () => {
+      if (catalog === "failed") return { kind: "FAILED" };
+      if (catalog === "audio") {
+        return {
+          kind: "OK",
+          models: [{ id: "eve", label: "Eve", outputModalities: ["audio"] }],
+        };
+      }
+      return { kind: "OK", models: [textModel] };
+    });
+    connectedBridge(vi.fn());
+    window.aijianGrok = { models, completeText } as unknown as Window["aijianGrok"];
+    render(
+      <DemoProvider>
+        <Harness />
+      </DemoProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/还没有保存到电脑上的作品/)).not.toBeInTheDocument(),
+    );
+    const guide = screen.getByLabelText("短片向导");
+    const plan = async () => {
+      fireEvent.click(within(guide).getByRole("button", { name: "一键让导演拆镜" }));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+    await plan();
+    expect(within(guide).getByRole("status")).toHaveTextContent("导演按你的故事拆好了，可以改。");
+    expect(screen.getByLabelText("第 1 镜旁白")).toHaveValue("灯塔夜班");
+    expect(screen.getByLabelText("第 2 镜旁白")).toHaveValue("雨打巷口");
+    await plan();
+    expect(within(guide).getByRole("status")).toHaveTextContent(
+      "Grok 这次没有拆成镜头，先用本地草稿。",
+    );
+    await plan();
+    expect(within(guide).getByRole("status")).toHaveTextContent(
+      "Grok 这次没有拆成镜头，先用本地草稿。",
+    );
+    expect(completeText).toHaveBeenCalledTimes(3);
+    catalog = "audio";
+    await plan();
+    catalog = "failed";
+    await plan();
+    expect(within(guide).getByRole("status")).toHaveTextContent(
+      "Grok 这次没有拆成镜头，先用本地草稿。",
+    );
+    expect(completeText).toHaveBeenCalledTimes(3);
   });
 });

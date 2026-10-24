@@ -289,7 +289,7 @@ export function SourceExtractionPanel({
       }
       const result = await dispatchGrokLoginText(bridge, {
         model: choice.modelId,
-        text: excerpt.slice(0, 8000),
+        text: `你在阅读来源正文。只根据正文整理，不要编造正文里没有的事。用户确认之前，不要改作品。\n\n正文：\n${excerpt.slice(0, 7500)}`,
         projectId,
       });
       if (epoch.current !== request || activeProject.current !== requested) return;

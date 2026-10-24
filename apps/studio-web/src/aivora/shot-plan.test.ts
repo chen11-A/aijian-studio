@@ -12,6 +12,17 @@ describe("local shot plan", () => {
     expect(shots.every((shot) => shot.action && shot.performance && shot.shotSize)).toBe(true);
   });
 
+  it("keeps one narration per line", () => {
+    const shots = planShots("雨打巷口\n林夏停步\n阿凯抬手\n两人错身\n雨还在下\n巷子静了");
+    expect(shots.map((shot) => shot.narration)).toEqual([
+      "雨打巷口",
+      "林夏停步",
+      "阿凯抬手",
+      "两人错身",
+      "雨还在下",
+      "巷子静了",
+    ]);
+  });
   it("uses the fight sample without graphic injury", () => {
     const script = fightSample();
     const shots = planShots(script);

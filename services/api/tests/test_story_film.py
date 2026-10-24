@@ -677,6 +677,59 @@ def test_two_shots_hold_a_character_still_and_join(tmp_path):
     assert list((tmp_path / "story-films").glob("*-cast.png"))
 
 
+def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monkeypatch):
+    from aijian_api.story_film import StoryShot
+
+    repository, project_id = _project(tmp_path)
+    _allow_live(monkeypatch, tmp_path / "grok-login.log")
+    clip, voice = _media_bytes(tmp_path)
+    done = {"status": "done", "video": {"url": "https://vidgen.x.ai/live.mp4"}}
+    transport = _ScriptedTransport(
+        [
+            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, json.dumps({"request_id": "req-1"}).encode()),
+            XaiHttpResponse(200, json.dumps(done).encode()),
+            XaiHttpResponse(200, clip, "video/mp4"),
+            XaiHttpResponse(200, voice, "audio/wav"),
+            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
+            XaiHttpResponse(200, json.dumps({"request_id": "req-2"}).encode()),
+            XaiHttpResponse(200, json.dumps(done).encode()),
+            XaiHttpResponse(200, clip, "video/mp4"),
+            XaiHttpResponse(200, voice, "audio/wav"),
+        ]
+    )
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    service._sleep = lambda _seconds: None
+    shots = (
+        StoryShot("林夏把阿凯推进巷口。", "雨夜巷口，全景。", 5, "林夏把阿凯推进巷口"),
+        StoryShot("阿凯侧身躲开第一拳。", "躲开，中景。", 5, "阿凯侧身躲开第一拳"),
+    )
+    result = service.produce(
+        project_id,
+        _request(narration="雨夜巷战", subtitle=None, shots=shots, provider="grok_subscription"),
+        media_token="grok-subscription-token",
+    )
+    assert result.status == "SUCCEEDED", result.message
+    bodies = []
+    for item in transport.requests:
+        raw = item.body or b""
+        if raw.startswith(b"{"):
+            bodies.append(json.loads(raw))
+    image_prompts = [body["prompt"] for body in bodies if body.get("n") == 1]
+    assert len(image_prompts) == 3
+    assert "定妆照" in image_prompts[0]
+    assert "起始画面" in image_prompts[1] and "雨夜巷口" in image_prompts[1]
+    assert "起始画面" in image_prompts[2] and "躲开" in image_prompts[2]
+    assert image_prompts[1] != image_prompts[2]
+    videos = [body for body in bodies if body.get("duration")]
+    assert len(videos) == 2
+    assert all(body["generate_audio"] is False for body in videos)
+    assert all("reference_images" not in body for body in videos)
+    assert len(list((tmp_path / "story-films").glob("*-key.png"))) >= 2
+
+
+
 def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkeypatch):
     from aijian_api.draft_export_runtime import DraftExportError
     from aijian_api.media_asset_store import MediaAssetError

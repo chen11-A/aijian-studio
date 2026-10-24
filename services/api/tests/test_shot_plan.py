@@ -35,6 +35,15 @@ def test_fight_sample_is_about_forty_five_seconds_and_names_both_people():
     assert all("血腥" not in shot.action for shot in shots)
 
 
-def test_empty_story_is_refused():
+def test_line_breaks_stay_separate_shots():
+    shots = plan_shots("雨打巷口\n林夏停步\n阿凯抬手\n两人错身\n雨还在下\n巷子静了")
+    assert [shot.narration for shot in shots] == [
+        "雨打巷口",
+        "林夏停步",
+        "阿凯抬手",
+        "两人错身",
+        "雨还在下",
+        "巷子静了",
+    ]
     with pytest.raises(ValueError, match="故事"):
         plan_shots("   ")

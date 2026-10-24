@@ -52,6 +52,7 @@ from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
+from aijian_api.shot_pipeline import keyframe_prompt, reference_url, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE, STYLE_REALISM, character_reference_prompt
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
@@ -125,6 +126,7 @@ class StoryFilmRequest:
     regenerate: bool = False
     shots: tuple[StoryShot, ...] = ()
     visual_prompt: str = ""
+    style_block: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -557,38 +559,36 @@ class StoryFilmService:
         project_id: str,
     ) -> tuple[bytes, bytes, bytes]:
         tools = self._tools()
-        reference, prepared = self._cast_still(request, media_token, project_id)
+        reference, cast_image = self._cast_still(request, media_token, project_id)
+        ref = reference_url(cast_image.source_url if cast_image is not None else None)
         total = len(request.shots)
         picture = reference
         normalized: list[tuple[Path, Path, str]] = []
         with tempfile.TemporaryDirectory(prefix="aivora-shots-") as temporary:
             directory = Path(temporary)
             for index, shot in enumerate(request.shots, start=1):
-                label = f"正在生成第 {index} 个镜头，共 {total} 个。"
+                label = f"正在生成第 {index} 个镜头的起始画面，共 {total} 个。"
+                if ref is None:
+                    label += "定妆照在本机，没有网址，外貌写在提示词里。"
                 mark_film_progress(project_id, "image", label)
+                still = keyframe_prompt(shot.prompt, style_zh=request.style_block)
                 child = replace(
                     request,
                     scene_label=shot.prompt or request.scene_label,
                     narration=shot.narration,
                     subtitle=shot.subtitle or None,
-                    visual_prompt=shot.prompt,
+                    visual_prompt=still,
                     regenerate=request.regenerate or shot.regenerate,
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
-                    if (
-                        reference
-                        and not child.regenerate
-                        and self._find_saved_image(project_id, child) is None
-                    ):
-                        self._persist_image(project_id, child, reference)
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
                         project_id,
                         duration=max(1, min(int(shot.duration_seconds), 15)),
-                        prepared_image=None if reference or child.regenerate else prepared,
                         shot_label=label,
+                        reference_url=ref,
                     )
                 else:
                     image, clip, speech = self._placeholder_media(child)
@@ -692,7 +692,7 @@ class StoryFilmService:
         if image.data:
             path.write_bytes(image.data)
             append_grok_status("image_saved", code="ok")
-            return image.data, None
+            return image.data, image
         return None, image
 
     def _live_media(
@@ -704,6 +704,7 @@ class StoryFilmService:
         duration: int = 2,
         prepared_image: XaiImage | None = None,
         shot_label: str | None = None,
+        reference_url: str | None = None,
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
@@ -759,7 +760,9 @@ class StoryFilmService:
         else:
             mark_film_progress(project_id, "image", shot_label or "正在生成画面。")
             image = client.generate_image(
-                prompt=_styled(request.visual_prompt or request.scene_label),
+                prompt=_styled(
+                    request.visual_prompt or request.scene_label, request.style_block
+                ),
                 model=request.image_model or IMAGE_MODEL,
             )
             if image.data:
@@ -781,7 +784,14 @@ class StoryFilmService:
         self._ensure_running(project_id)
         kept = bool(image.data)
         mark_film_progress(project_id, "video", shot_label or "正在生成视频。", image_saved=kept)
-        clip, video_note = self._live_video(client, request, image, project_id, duration=duration)
+        clip, video_note = self._live_video(
+            client,
+            request,
+            image,
+            project_id,
+            duration=duration,
+            reference_url=reference_url,
+        )
         self._ensure_running(project_id)
         mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
         try:
@@ -935,15 +945,21 @@ class StoryFilmService:
         project_id: str,
         *,
         duration: int = 2,
+        reference_url: str | None = None,
     ) -> tuple[bytes | None, str | None]:
         if not isinstance(image, XaiImage):
             raise StoryFilmError("IMAGE_RESPONSE_INVALID", "画面没有保存下来。")
         try:
             submitted = client.submit_video(
-                prompt=_styled(request.visual_prompt or request.narration),
+                prompt=_styled(
+                    video_prompt(request.narration or request.visual_prompt),
+                    request.style_block,
+                ),
                 image=image,
                 model=request.video_model or VIDEO_MODEL,
                 duration=max(1, min(duration, 15)),
+                generate_audio=False,
+                reference_images=(reference_url,) if reference_url else (),
             )
         except XaiMediaError:
             return None, "画面已生成，视频这一步没有成功，可以重试"
@@ -1484,10 +1500,13 @@ def _audio_suffix(header: bytes) -> str:
     return ".wav"
 
 
-def _styled(text: str) -> str:
+def _styled(text: str, style: str = "") -> str:
+    block = (style or STYLE_REALISM).strip()
+    if block and block in text:
+        return text
     if STYLE_REALISM in text:
         return text
-    return f"{text}。{STYLE_REALISM}"
+    return f"{text.rstrip('。')}。{block}"
 
 
 def _loudnorm_number(value: object) -> str | None:
