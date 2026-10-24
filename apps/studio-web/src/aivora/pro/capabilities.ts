@@ -24,8 +24,6 @@ export type VideoAction = "regenerate" | "rewrite" | "edit" | "extend" | "voice"
 
 export type ActionGate = { enabled: boolean; reason: string };
 
-const OFF = "当前登录还不能用这一项。";
-
 export function videoActions(modelIds: readonly string[]): Record<VideoAction, ActionGate> {
   const ids = new Set(modelIds.map((id) => id.trim()));
   const hasGenerate = ids.has(GENERATE_MODEL);

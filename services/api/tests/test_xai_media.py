@@ -3,7 +3,6 @@
 import json
 
 import pytest
-
 from aijian_api.xai_media import (
     EDIT_MODEL,
     IMAGE_GENERATION_PATH,
