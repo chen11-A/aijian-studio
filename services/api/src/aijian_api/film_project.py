@@ -386,9 +386,7 @@ def apply_agent_shots(project: FilmProject, incoming: list[Shot], scene_id: str)
         if shot.scene_id != scene_id or shot.user_fields or shot.source == "user"
     ]
     locked = {shot.id for shot in kept if shot.scene_id == scene_id}
-    fresh = [
-        shot for shot in incoming if shot.scene_id == scene_id and shot.id not in locked
-    ]
+    fresh = [shot for shot in incoming if shot.scene_id == scene_id and shot.id not in locked]
     project.shots = kept + fresh
     return project
 

@@ -1,4 +1,6 @@
+import action from "../../../../../services/api/src/aijian_api/agents/prompts/action.md?raw";
 import director from "../../../../../services/api/src/aijian_api/agents/prompts/director.md?raw";
+import performance from "../../../../../services/api/src/aijian_api/agents/prompts/performance.md?raw";
 import writer from "../../../../../services/api/src/aijian_api/agents/prompts/writer.md?raw";
 import { offlineRotation } from "../shot-plan";
 import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
@@ -18,7 +20,23 @@ export const STYLE_PRESETS: { name: string; zh: string }[] = [
   { name: "黑白悬疑", zh: "黑白悬疑：硬光，影子深，颗粒明显，不要彩色。" },
 ];
 
-const PROMPTS: Record<string, string> = { director, writer };
+const PROMPTS: Record<string, string> = { director, writer, action, performance };
+
+export type FilmJob = {
+  id: string;
+  shotId: string;
+  kind: "video" | "keyframe" | "portrait";
+  take: number;
+  status: "queued" | "blocked" | "running" | "done" | "failed" | "cancelled";
+  prompt: string;
+  reason: string;
+};
+
+export type FilmLocation = {
+  id: string;
+  name: string;
+  prompt: string;
+};
 
 export type FilmCharacter = {
   id: string;
@@ -50,6 +68,7 @@ export type FilmShot = {
   action: string;
   performance: string;
   characters: string[];
+  line: string;
   source: string;
   userFields: string[];
   poster: string;
@@ -69,6 +88,8 @@ export type FilmProject = {
   parallelism: number;
   maxRetryRounds: number;
   draft: boolean;
+  jobs: FilmJob[];
+  locations: FilmLocation[];
 };
 
 export function blankFilm(): FilmProject {
@@ -79,12 +100,24 @@ export function blankFilm(): FilmProject {
     stylePreset: "写实电影感",
     styleZh: DEFAULT_STYLE_ZH,
     characters: [],
-    scenes: [{ id: "scene-1", no: 1, title: "第 1 场", where: "", text: "", source: "user", userFields: [] }],
+    scenes: [
+      {
+        id: "scene-1",
+        no: 1,
+        title: "第 1 场",
+        where: "",
+        text: "",
+        source: "user",
+        userFields: [],
+      },
+    ],
     shots: [],
     takesPerShot: 2,
     parallelism: 2,
     maxRetryRounds: 2,
     draft: false,
+    jobs: [],
+    locations: [],
   };
 }
 
@@ -110,7 +143,15 @@ export function sampleFilm(): FilmProject {
     },
   ];
   film.scenes = [
-    { id: "01", no: 1, title: "雨夜·巷口", where: "外景 · 夜", text: "雨夜巷口。", source: "sample", userFields: [] },
+    {
+      id: "01",
+      no: 1,
+      title: "雨夜·巷口",
+      where: "外景 · 夜",
+      text: "雨夜巷口。",
+      source: "sample",
+      userFields: [],
+    },
     {
       id: "02",
       no: 2,
@@ -120,13 +161,52 @@ export function sampleFilm(): FilmProject {
       source: "sample",
       userFields: [],
     },
-    { id: "03", no: 3, title: "巷战·被围", where: "外景 · 夜", text: "", source: "sample", userFields: [] },
-    { id: "04", no: 4, title: "转折·断刀", where: "外景 · 夜", text: "", source: "sample", userFields: [] },
-    { id: "05", no: 5, title: "反击", where: "外景 · 夜", text: "", source: "sample", userFields: [] },
-    { id: "06", no: 6, title: "余韵·雨停", where: "外景 · 黎明", text: "", source: "sample", userFields: [] },
+    {
+      id: "03",
+      no: 3,
+      title: "巷战·被围",
+      where: "外景 · 夜",
+      text: "",
+      source: "sample",
+      userFields: [],
+    },
+    {
+      id: "04",
+      no: 4,
+      title: "转折·断刀",
+      where: "外景 · 夜",
+      text: "",
+      source: "sample",
+      userFields: [],
+    },
+    {
+      id: "05",
+      no: 5,
+      title: "反击",
+      where: "外景 · 夜",
+      text: "",
+      source: "sample",
+      userFields: [],
+    },
+    {
+      id: "06",
+      no: 6,
+      title: "余韵·雨停",
+      where: "外景 · 黎明",
+      text: "",
+      source: "sample",
+      userFields: [],
+    },
   ];
   const rows: [string, string, string, string, string, number][] = [
-    ["远景", "俯拍窄巷，霓虹倒映在积水里，三道黑影从巷口走来。", "/pro/key.jpg", "50% 18%", "2.0", 2],
+    [
+      "远景",
+      "俯拍窄巷，霓虹倒映在积水里，三道黑影从巷口走来。",
+      "/pro/key.jpg",
+      "50% 18%",
+      "2.0",
+      2,
+    ],
     ["特写", "刀背上的雨水一滴滴落下，林骁平稳呼吸。", "/pro/f1.0.jpg", "50% 70%", "1.5", 1.5],
     ["中景", "刀疤叼着烟开口威胁，身后两个打手。", "/pro/f0.2.jpg", "50% 30%", "2.0", 2],
     ["近景", "林骁抬眼，眼神平静，雨水顺着眉骨流下。", "/pro/key.jpg", "20% 52%", "1.5", 1.5],
@@ -144,6 +224,7 @@ export function sampleFilm(): FilmProject {
     action: row[1],
     performance: index === 3 ? "冷静，眼神盯着刀疤。" : "",
     characters: row[1].includes("刀疤") ? ["刀疤"] : ["林骁"],
+    line: ["", "", "东西交出来，留你一条腿。", "雨太大，我听不清。", "", "一起上！"][index] ?? "",
     source: "sample",
     userFields: [],
     poster: row[2],
@@ -182,6 +263,7 @@ export function offlineShots(story: string, sceneId: string): FilmShot[] {
     action: item.action,
     performance: item.performance,
     characters: [],
+    line: "",
     source: "offline:director",
     userFields: [],
     poster: "",
@@ -198,7 +280,11 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
   return { ...film, shots: [...kept, ...fresh] };
 }
 
-export function agentRequest(agentId: "director" | "writer", context: string, user: string): string {
+export function agentRequest(
+  agentId: "director" | "writer" | "action" | "performance",
+  context: string,
+  user: string,
+): string {
   const system = (PROMPTS[agentId] ?? "").trim();
   const body = `${system}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
   return body.length > 7500 ? body.slice(0, 7500) : body;
@@ -239,6 +325,7 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
       characters: Array.isArray(record.characters)
         ? record.characters.filter((item): item is string => typeof item === "string")
         : [],
+      line: typeof record.line === "string" ? record.line : "",
       source: "agent:director",
       userFields: [],
       poster: "",
@@ -285,7 +372,9 @@ export function readFilm(storage: Storage): FilmProject | null {
       ...value,
       characters: value.characters ?? [],
       scenes: value.scenes?.length ? value.scenes : base.scenes,
-      shots: value.shots ?? [],
+      shots: (value.shots ?? []).map((shot) => ({ ...shot, line: shot.line ?? "" })),
+      jobs: value.jobs ?? [],
+      locations: value.locations ?? [],
       styleZh: value.styleZh || base.styleZh,
     };
   } catch {

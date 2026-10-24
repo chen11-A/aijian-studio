@@ -118,7 +118,9 @@ def test_b64_image_is_sent_to_video_as_a_data_uri_and_logged(tmp_path, monkeypat
 
 
 def test_generation_can_pin_frames_and_mute_audio_without_using_the_edit_route():
-    transport = RecordingTransport([XaiHttpResponse(200, json.dumps({"request_id": "req-pin"}).encode())])
+    transport = RecordingTransport(
+        [XaiHttpResponse(200, json.dumps({"request_id": "req-pin"}).encode())]
+    )
     client = XaiMediaClient(transport, token="test-token-not-a-secret")
     client.submit_video(
         prompt="侧身让过",
@@ -149,7 +151,9 @@ def test_edits_and_extensions_use_the_older_model_and_reject_1_5():
         ]
     )
     client = XaiMediaClient(transport, token="test-token-not-a-secret")
-    edited = client.edit_video(prompt="只把铁棍换成木棍，其他不变", video_url="https://vidgen.x.ai/clip.mp4")
+    edited = client.edit_video(
+        prompt="只把铁棍换成木棍，其他不变", video_url="https://vidgen.x.ai/clip.mp4"
+    )
     extended = client.extend_video(
         prompt="雨还在下，两人分开",
         video_url="https://vidgen.x.ai/clip.mp4",

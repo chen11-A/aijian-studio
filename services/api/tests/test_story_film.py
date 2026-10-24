@@ -729,7 +729,6 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
     assert len(list((tmp_path / "story-films").glob("*-key.png"))) >= 2
 
 
-
 def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkeypatch):
     from aijian_api.draft_export_runtime import DraftExportError
     from aijian_api.media_asset_store import MediaAssetError

@@ -760,9 +760,7 @@ class StoryFilmService:
         else:
             mark_film_progress(project_id, "image", shot_label or "正在生成画面。")
             image = client.generate_image(
-                prompt=_styled(
-                    request.visual_prompt or request.scene_label, request.style_block
-                ),
+                prompt=_styled(request.visual_prompt or request.scene_label, request.style_block),
                 model=request.image_model or IMAGE_MODEL,
             )
             if image.data:

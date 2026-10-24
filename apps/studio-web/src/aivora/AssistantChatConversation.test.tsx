@@ -678,7 +678,7 @@ describe("production assistant conversation", () => {
       }),
     );
     expect(JSON.stringify(completeText.mock.calls)).toContain("短剧");
-    expect(JSON.stringify(completeText.mock.calls)).not.toContain("\"text\":\"这一场怎么写\"");
+    expect(JSON.stringify(completeText.mock.calls)).not.toContain('"text":"这一场怎么写"');
     delete window.aijianGrok;
   });
 });

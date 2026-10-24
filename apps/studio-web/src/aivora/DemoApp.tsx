@@ -56,7 +56,7 @@ function AssistantSelectionBoundary({ children }: { children: ReactNode }) {
 }
 function Workspace({ reset }: { reset: () => void }) {
   const d = useDemo();
-  if (!d.isFixture) return <ProWorkspace />;
+  if (!d.isFixture) return <ProWorkspace projectId={d.backendProjectId} />;
   const global = pages[d.page][2] < 0;
   const activeStage = pages[d.page][2];
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));

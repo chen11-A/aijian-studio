@@ -14,18 +14,13 @@
 
 export const GENERATE_MODEL = "grok-imagine-video-1.5";
 export const VIDEO_MODEL = GENERATE_MODEL;
+export const VIDEO_DRAFT_MODEL = "grok-imagine-video-1.5-lite";
 export const EDIT_MODEL = "grok-imagine-video";
 export const IMAGE_MODEL = "grok-imagine-image-2.0";
 export const IMAGE_MODEL_RETIRES_ON = "2026-11-02";
 export const TEXT_MODEL = "grok-4.7";
 
-export type VideoAction =
-  | "regenerate"
-  | "rewrite"
-  | "edit"
-  | "extend"
-  | "voice"
-  | "cut";
+export type VideoAction = "regenerate" | "rewrite" | "edit" | "extend" | "voice" | "cut";
 
 export type ActionGate = { enabled: boolean; reason: string };
 
@@ -35,9 +30,7 @@ export function videoActions(modelIds: readonly string[]): Record<VideoAction, A
   const ids = new Set(modelIds.map((id) => id.trim()));
   const hasGenerate = ids.has(GENERATE_MODEL);
   const hasEditModel = ids.has(EDIT_MODEL);
-  const generateReason = hasGenerate
-    ? ""
-    : "需要 Grok 会员，并且模型列表里要有视频 1.5。";
+  const generateReason = hasGenerate ? "" : "需要 Grok 会员，并且模型列表里要有视频 1.5。";
   const editReason = hasEditModel
     ? ""
     : "当前登录看不到 grok-imagine-video 的编辑接口，不能改画面细节。";
@@ -45,8 +38,14 @@ export function videoActions(modelIds: readonly string[]): Record<VideoAction, A
     ? ""
     : "当前登录看不到延长接口。列表里出现 grok-imagine-video 之后才能从片尾往后接。";
   return {
-    regenerate: { enabled: hasGenerate, reason: generateReason || "按原描述再生成，每个版本各算一次。" },
-    rewrite: { enabled: hasGenerate, reason: generateReason || "改描述后再生成，每个版本各算一次。" },
+    regenerate: {
+      enabled: hasGenerate,
+      reason: generateReason || "按原描述再生成，每个版本各算一次。",
+    },
+    rewrite: {
+      enabled: hasGenerate,
+      reason: generateReason || "改描述后再生成，每个版本各算一次。",
+    },
     edit: { enabled: hasEditModel, reason: editReason || "只用文字说明改细节，没有画笔。" },
     extend: { enabled: hasEditModel, reason: extendReason || "从最后一帧往后接一段。" },
     voice: {

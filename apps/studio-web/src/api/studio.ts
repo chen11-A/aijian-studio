@@ -922,6 +922,7 @@ export interface AijianDesktopBridge
       provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
       confirmed: boolean;
       voice_id?: string;
+      video_model?: string;
       regenerate?: boolean;
       shots?: Array<{
         narration: string;

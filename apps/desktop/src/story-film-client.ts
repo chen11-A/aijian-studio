@@ -18,6 +18,7 @@ export type StoryFilmCreateInput = {
   provider: StoryFilmProvider;
   confirmed: boolean;
   voice_id?: string;
+  video_model?: string;
   regenerate?: boolean;
   shots?: StoryFilmShotInput[];
 };
@@ -121,6 +122,7 @@ export function createStoryFilmClient(
           provider: input.provider,
           confirmed: input.confirmed,
           ...(input.voice_id ? { voice_id: input.voice_id } : {}),
+          ...(input.video_model ? { video_model: input.video_model } : {}),
           ...(input.regenerate ? { regenerate: true } : {}),
           ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
         }),
@@ -139,6 +141,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     "provider",
     "confirmed",
     "voice_id",
+    "video_model",
     "regenerate",
     "shots",
   ];
@@ -171,6 +174,13 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   if (voice !== undefined && (typeof voice !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(voice))) {
     throw new Error("Invalid story film request");
   }
+  const videoModel = body.video_model;
+  if (
+    videoModel !== undefined &&
+    (typeof videoModel !== "string" || !/^[A-Za-z0-9._-]{1,80}$/.test(videoModel))
+  ) {
+    throw new Error("Invalid story film request");
+  }
   const shots = parseShots(body.shots);
   return {
     scene_label: scene.trim(),
@@ -181,6 +191,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     provider: provider as StoryFilmProvider,
     confirmed: body.confirmed,
     ...(typeof voice === "string" ? { voice_id: voice } : {}),
+    ...(typeof videoModel === "string" ? { video_model: videoModel } : {}),
     ...(body.regenerate === true ? { regenerate: true } : {}),
     ...(shots.length > 0 ? { shots } : {}),
   };

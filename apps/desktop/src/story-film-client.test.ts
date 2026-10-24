@@ -150,6 +150,27 @@ describe("story film client", () => {
     ).toThrow("Invalid story film request");
   });
 
+  it("keeps a draft video model and rejects a model id with spaces", () => {
+    expect(
+      parseStoryFilmCreate({
+        scene_label: "灯塔",
+        narration: "一句旁白",
+        provider: "stub",
+        confirmed: true,
+        video_model: "grok-imagine-video-1.5-lite",
+      }).video_model,
+    ).toBe("grok-imagine-video-1.5-lite");
+    expect(() =>
+      parseStoryFilmCreate({
+        scene_label: "灯塔",
+        narration: "一句旁白",
+        provider: "stub",
+        confirmed: true,
+        video_model: "not a model",
+      }),
+    ).toThrow("Invalid story film request");
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

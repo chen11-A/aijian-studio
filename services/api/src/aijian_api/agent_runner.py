@@ -166,10 +166,7 @@ def run_agent(
     value = parse_json(reply)
     problems = _problems(agent_id, value)
     if problems:
-        repair = (
-            f"{request}\n\n上次输出不能用：{'；'.join(problems)}。"
-            "只输出 JSON，不要解释。"
-        )
+        repair = f"{request}\n\n上次输出不能用：{'；'.join(problems)}。只输出 JSON，不要解释。"
         if len(repair) > 7500:
             repair = repair[:7500]
         reply = complete(repair)
