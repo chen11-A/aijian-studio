@@ -6,6 +6,7 @@ import {
   adaptToShortDrama,
   addShot,
   applyScenes,
+  moveShot,
   clipLayout,
   continuityPrompt,
   ensureLocations,
@@ -176,10 +177,14 @@ describe("film operations", () => {
     );
   });
 
-  it("adds and removes a shot without touching the others", () => {
-    const film = addShot(blankFilm(), "scene-1");
-    expect(film.shots).toHaveLength(1);
-    expect(removeShot(film, film.shots[0]!.id).shots).toHaveLength(0);
+  it("adds, moves, and removes a shot without touching the others", () => {
+    const film = addShot(addShot(blankFilm(), "scene-1"), "scene-1");
+    expect(film.shots).toHaveLength(2);
+    const moved = moveShot(film, film.shots[0]!.id, 1);
+    expect(moved.shots[1]?.id).toBe(film.shots[0]?.id);
+    expect(moved.shots[1]?.no).toBe(2);
+    expect(moveShot(film, film.shots[0]!.id, -1)).toBe(film);
+    expect(removeShot(film, film.shots[0]!.id).shots).toHaveLength(1);
   });
 
   it("reads txt, docx and epub, and refuses other files", async () => {

@@ -17,6 +17,7 @@ import {
   offlineScreenplay,
   parseWriterScenes,
   performanceLine,
+  moveShot,
   planVideoJobs,
   portraitPrompts,
   PORTRAIT_REASON,
@@ -657,6 +658,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onWrite={() => void planWriter("write")}
                   onAdapt={() => void planWriter("adapt")}
                   onImport={() => fileRef.current?.click()}
+                  onAction={() => void planAction()}
+                  onPerformance={() => void planPerformance()}
                   pending={pending}
                   pendingScenes={pendingScenes}
                   onApply={applyPending}
@@ -713,6 +716,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onRole={setRole}
                   pending={pending}
                   onApply={applyPending}
+                  onAction={() => void planAction()}
+                  onPerformance={() => void planPerformance()}
                   chat={chat}
                   onChat={setChat}
                   onSend={sendChat}
@@ -1070,6 +1075,8 @@ function ScriptPage({
   onWrite,
   onAdapt,
   onImport,
+  onAction,
+  onPerformance,
   pending,
   pendingScenes,
   onApply,
@@ -1088,6 +1095,8 @@ function ScriptPage({
   onWrite: () => void;
   onAdapt: () => void;
   onImport: () => void;
+  onAction: () => void;
+  onPerformance: () => void;
   pending: FilmShot[] | null;
   pendingScenes: FilmScene[] | null;
   onApply: () => void;
@@ -1235,6 +1244,8 @@ function ScriptPage({
             if (label === "让编剧写" || label === "节奏再快些") onWrite();
             else if (label === "改成短剧" || label === "加一个特写") onAdapt();
             else if (label === "导入小说") onImport();
+            else if (label.includes("动作")) onAction();
+            else if (label.includes("表演")) onPerformance();
             else onSend();
           }}
         />
@@ -1507,6 +1518,8 @@ function BoardPage({
   onRole,
   pending,
   onApply,
+  onAction,
+  onPerformance,
   chat,
   onChat,
   onSend,
@@ -1525,6 +1538,8 @@ function BoardPage({
   onRole: (role: Role) => void;
   pending: FilmShot[] | null;
   onApply: () => void;
+  onAction: () => void;
+  onPerformance: () => void;
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
@@ -1647,8 +1662,9 @@ function BoardPage({
             onChat={onChat}
             onSend={onSend}
             onQuick={(label) => {
-              if (label.includes("动作")) onRole("action");
-              onSend();
+              if (label.includes("动作")) onAction();
+              else if (label.includes("表演")) onPerformance();
+              else onSend();
             }}
           />
         ) : current ? (
@@ -1787,6 +1803,21 @@ function BoardPage({
               </div>
             </div>
             <div className="pfoot2">
+              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, -1))}>
+                前移
+              </button>
+              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, 1))}>
+                后移
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  onFilm(removeShot(film, current.id));
+                  onNotice("已删除这一镜。");
+                }}
+              >
+                删除
+              </button>
               <button className="btn" onClick={onStills}>
                 生成画面
               </button>

@@ -297,6 +297,25 @@ export function removeShot(film: FilmProject, shotId: string): FilmProject {
   return { ...film, shots: film.shots.filter((item) => item.id !== shotId) };
 }
 
+export function moveShot(film: FilmProject, shotId: string, direction: -1 | 1): FilmProject {
+  const current = film.shots.find((item) => item.id === shotId);
+  if (!current) return film;
+  const sceneShots = film.shots.filter((item) => item.sceneId === current.sceneId);
+  const local = sceneShots.findIndex((item) => item.id === shotId);
+  const target = local + direction;
+  if (target < 0 || target >= sceneShots.length) return film;
+  const reordered = sceneShots.slice();
+  const moved = reordered[local];
+  if (!moved) return film;
+  reordered.splice(local, 1);
+  reordered.splice(target, 0, moved);
+  const numbered = reordered.map((item, index) => ({ ...item, no: index + 1 }));
+  return {
+    ...film,
+    shots: [...film.shots.filter((item) => item.sceneId !== current.sceneId), ...numbered],
+  };
+}
+
 export function updateShot(
   film: FilmProject,
   shotId: string,
