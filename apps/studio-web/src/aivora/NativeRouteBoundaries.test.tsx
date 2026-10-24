@@ -126,7 +126,7 @@ describe("production routes without demo fixtures", () => {
     expect(
       screen.getByText("还没有打开作品。打开示例「雾城来信」后，才能查看这一集的草稿和修改。"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "打开雾城来信" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "确认并执行" })).not.toBeInTheDocument();
     expect(screen.queryByRole("slider", { name: "审片时间轴" })).not.toBeInTheDocument();
   });

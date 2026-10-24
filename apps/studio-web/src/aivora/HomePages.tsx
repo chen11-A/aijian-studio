@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { readChatGPTStatus } from "./chatgpt-auth/transport";
@@ -41,7 +40,7 @@ import "./v2-home.css";
 import "./welcome-sign-in.css";
 
 import { Select } from "./Select";
-import { openWuchengSample } from "./sample-project";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 const projectImages = [storyArt, streetArt, cityArt];
 function WorkspaceLink() {
   const d = useDemo();
@@ -245,44 +244,11 @@ export function HomePages() {
         if (outcome.kind !== "SUCCEEDED") return false;
         d.put("input", [...line].slice(0, 200).join(""));
         d.setFilmStep(0);
-        d.go("project");
+        d.go("story");
       },
     );
   };
-  const newProject = () =>
-    d.edit(
-      "新建项目",
-      [
-        { key: "title", label: "作品名称", value: "", required: true },
-        { key: "aspect_ratio", label: "项目画幅", value: "16:9", options: ["16:9", "9:16"] },
-        { key: "input", label: "故事灵感", type: "textarea", value: d.value("input") },
-      ],
-      async (data) => {
-        if (d.workspaceState !== "connected") {
-          d.notify("请先连接本地工作区，再创建真实项目。");
-          return false;
-        }
-        const title = data.title!.trim();
-        if (!title) return false;
-        if (!isProjectAspectRatio(data.aspect_ratio)) {
-          d.notify("请选择 16:9 或 9:16 项目画幅，再创建项目。");
-          return false;
-        }
-        const outcome = await d.createRealProject({
-          name: title,
-          aspect_ratio: data.aspect_ratio,
-          target_duration_seconds: 60,
-          source_language: "zh-CN",
-        });
-        if (outcome.kind === "SUCCEEDED") {
-          const inspiration = data.input?.trim() ?? "";
-          d.put("input", inspiration);
-          d.put("c3DraftIntent", inspiration ? "original" : "");
-          d.go("source");
-        }
-        return outcome.kind === "SUCCEEDED" ? undefined : false;
-      },
-    );
+  const newProject = () => promptNewProject(d);
   const newEpisode = () =>
     d.setEditor({
       title: "新建剧集",
@@ -611,7 +577,7 @@ export function HomePages() {
         </p>
         {(mode === "empty" || mode === "error") && (
           <>
-            <Button onClick={openSampleProject}>打开雾城来信</Button>
+            <Button onClick={openSampleProject}>打开示例</Button>
             <Button onClick={startFromSentence}>写一句话开始</Button>
           </>
         )}
@@ -769,9 +735,9 @@ export function HomePages() {
                 <div className="v2-home-state">
                   <h2>还没有项目</h2>
                   <p>可以打开示例，或写一句话开始。</p>
-                  <Button onClick={openSampleProject}>打开雾城来信</Button>
-                  <Button onClick={startFromSentence}>写一句话开始</Button>
                   <Button onClick={newProject}>新建项目</Button>
+                  <Button onClick={openSampleProject}>打开示例</Button>
+                  <Button onClick={startFromSentence}>写一句话开始</Button>
                 </div>
               ))}
           </div>
@@ -908,16 +874,8 @@ export function HomePages() {
             <p>还没有打开作品。可以打开示例「雾城来信」，或回到首页写一句话开始。</p>
           </div>
           <div className="actions">
-            {!d.isFixture && d.professional && (
-              <Button
-                onClick={() => {
-                  d.setProfessional(false);
-                  d.setInspector(false);
-                }}
-              >
-                普通模式
-              </Button>
-            )}
+            <Button onClick={newProject}>新建项目</Button>
+            <Button onClick={openSampleProject}>打开示例</Button>
             <Button aria-label="打开项目中心" onClick={() => d.go("projects")}>
               项目中心
             </Button>

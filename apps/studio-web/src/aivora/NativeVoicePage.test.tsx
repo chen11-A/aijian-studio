@@ -256,7 +256,7 @@ it("saves a real audio reference bound to exact dialogue and reopens the same ob
     expect(screen.getByRole("button", { name: "绑定所选音频为对白轨" })).not.toBeDisabled(),
   );
   fireEvent.click(screen.getByRole("button", { name: "绑定所选音频为对白轨" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await waitFor(() => expect(api.create).toHaveBeenCalledOnce());
   await screen.findByText("已从项目重新读回装配版本。");
   const saved = api.records.get(`${project}/${episode}`)!;
@@ -285,7 +285,7 @@ it("protects unapplied trim inputs until apply or explicit discard without writi
   render(<UtilityPages />);
   await addAudio();
   fireEvent.change(screen.getByLabelText("片段时长（帧）"), { target: { value: "20" } });
-  expect(screen.getByRole("button", { name: "保存集级媒体装配版本" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "保存这一集" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "绑定所选音频为对白轨" })).toBeDisabled();
   const event = new Event("beforeunload", { cancelable: true });
   act(() => {
@@ -330,15 +330,15 @@ it("does not resend an unknown audio save on reopen and uses read-only reconcili
   api.create.mockResolvedValueOnce({ kind: "REMOTE_UNKNOWN" });
   const view = render(<UtilityPages />);
   await addAudio();
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await screen.findByText(/原保存结果UNKNOWN/);
   view.unmount();
   render(<UtilityPages />);
   await screen.findByText(/先前写入尚未核实/);
-  fireEvent.click(screen.getByRole("button", { name: "重新读取装配与素材" }));
+  fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
   await waitFor(() => expect(api.read.mock.calls.length).toBeGreaterThan(2));
   expect(api.original).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "只读准确核对原装配保存" }));
+  fireEvent.click(screen.getByRole("button", { name: "核对保存" }));
   await waitFor(() => expect(api.original).toHaveBeenCalledOnce());
   expect(api.create).toHaveBeenCalledOnce();
   expect(api.transport.episodeMediaAssembly.createVersion).not.toHaveBeenCalled();
@@ -372,7 +372,7 @@ it("uses the selected audio version's durable source rate for splitting without 
   // A sequence frame at 25fps maps to 1280 samples in this original, regardless of decoder rate.
   fireEvent.change(screen.getByLabelText("剪切位置（序列帧）"), { target: { value: "1" } });
   fireEvent.click(screen.getByRole("button", { name: "在此帧分割" }));
-  fireEvent.click(screen.getByRole("button", { name: "保存集级媒体装配版本" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存这一集" }));
   await waitFor(() => expect(api.create).toHaveBeenCalledOnce());
   const saved = api.records.get(`${project}/${episode}`)!;
   expect(saved.data.content.audio_segments).toHaveLength(2);

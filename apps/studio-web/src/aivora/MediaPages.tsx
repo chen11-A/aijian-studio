@@ -18,7 +18,7 @@ import { createStudioTransport } from "../api/studio";
 import { EpisodeStoryboardPanel } from "./EpisodeStoryboardPanel";
 import { EpisodeMediaAssemblyPanel } from "./EpisodeMediaAssemblyPanel";
 import { Select } from "./Select";
-import { openWuchengSample } from "./sample-project";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 
 const FPS = 24;
 export function mediaTimecode(time: number) {
@@ -1179,8 +1179,9 @@ export function MediaPages() {
         ) : (
           <section className="v2-media-body" role="status">
             <p>还没有打开作品。打开示例「雾城来信」，或回到首页写一句话开始。</p>
+            <Button onClick={() => promptNewProject(d)}>新建项目</Button>
             <Button primary onClick={() => void openWuchengSample(d)}>
-              打开雾城来信
+              打开示例
             </Button>
             <Button onClick={() => d.go("home")}>回到首页</Button>
           </section>

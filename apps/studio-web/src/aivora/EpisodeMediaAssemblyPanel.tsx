@@ -477,7 +477,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
     <section
       className={`v2-media-card episode-assembly ${audioOnly ? "" : "assembly-edit-workbench"}`}
       data-monitor-size={monitorSize}
-      aria-label="集级媒体装配"
+      aria-label="成片组装"
     >
       {audioOnly && overview}
       {audioOnly && !content.total_frames && (
@@ -503,7 +503,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
           disabled={locked || scriptSaveBlocked || !state.dirty || !content.visual_segments.length}
           onClick={() => void state.save()}
         >
-          保存集级媒体装配版本
+          保存这一集
         </Button>
         <Button disabled={locked || !state.canUndo} onClick={() => state.undo()}>
           撤销
@@ -513,7 +513,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
         </Button>
 
         <Button disabled={state.busy || !state.writeUnknown} onClick={() => void state.recover()}>
-          只读准确核对原装配保存
+          核对保存
         </Button>
         <Button
           disabled={
@@ -526,7 +526,7 @@ export function EpisodeMediaAssemblyPanel(props: EpisodeAssemblyProps & { audioO
           }
           onClick={() => void state.load()}
         >
-          重新读取装配与素材
+          重新读取
         </Button>
       </div>
       {!audioOnly && trackEditor}

@@ -124,7 +124,7 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
     assert result.output_path and result.output_sha256
     assert result.task_id and result.attempt_id and result.artifact_version_id
     duration = float(result.duration_seconds or "0")
-    assert 1.5 <= duration <= 2.5
+    assert 1.5 <= duration <= 3.2
     tools = toolchain()
     probe = subprocess.run(
         [
@@ -143,7 +143,7 @@ def test_stub_pipeline_writes_a_playable_mp4_with_picture_and_sound(tmp_path):
     payload = json.loads(probe.stdout)
     kinds = {stream["codec_type"] for stream in payload["streams"]}
     assert {"video", "audio"} <= kinds
-    assert 1.5 <= float(payload["format"]["duration"]) <= 2.5
+    assert 1.5 <= float(payload["format"]["duration"]) <= 3.2
     with repository._connection() as connection:
         task = connection.execute(
             "SELECT status FROM task_ledger WHERE task_id = ?",
@@ -463,6 +463,8 @@ def test_mp3_named_as_wav_is_trimmed_to_the_longer_voice(tmp_path):
 
     The clip is 448x672 h264 yuv420p at 24 fps for 2.04s, with AAC 48 kHz
     stereo and an mjpeg cover. Forcing a wav demuxer from the filename fails.
+    The narration is kept whole: the film holds the last frame instead of
+    cutting the voice down to the clip.
     """
 
     from aijian_api.story_film import _audio_suffix, _normalize_film_media
@@ -541,7 +543,8 @@ def test_mp3_named_as_wav_is_trimmed_to_the_longer_voice(tmp_path):
     width, height, frames, fitted = _normalize_film_media(
         tools.ffmpeg_path, tools.ffprobe_path, clip, named
     )
-    assert (width, height, frames) == (448, 672, 49)
+    assert (width, height) == (448, 672)
+    assert frames >= int(2.616 * 24)
     assert fitted == named and fitted.read_bytes().startswith(b"RIFF")
     heard = json.loads(
         subprocess.run(
@@ -560,7 +563,7 @@ def test_mp3_named_as_wav_is_trimmed_to_the_longer_voice(tmp_path):
         ).stdout
     )
     assert heard["streams"][0]["sample_rate"] == "48000"
-    assert float(heard["format"]["duration"]) < 2.5
+    assert float(heard["format"]["duration"]) >= 2.616
     kept = tmp_path / "kept.mp3"
     kept.write_bytes(mp3)
     _width, _height, _frames, voiced = _normalize_film_media(
@@ -568,6 +571,110 @@ def test_mp3_named_as_wav_is_trimmed_to_the_longer_voice(tmp_path):
     )
     assert voiced.suffix == ".wav" and voiced.read_bytes().startswith(b"RIFF")
     assert kept.read_bytes() == mp3
+
+
+def _integrated_loudness(ffmpeg: Path, path: Path, window: float) -> float:
+    completed = subprocess.run(
+        [
+            str(ffmpeg),
+            "-hide_banner",
+            "-nostdin",
+            "-i",
+            str(path),
+            "-af",
+            f"atrim=duration={window:.3f},ebur128=peak=true",
+            "-f",
+            "null",
+            "-",
+        ],
+        check=False,
+        capture_output=True,
+    )
+    text = completed.stderr.decode("utf-8", errors="replace")
+    matched = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("I:"):
+            matched = stripped
+    assert matched is not None, text[-800:]
+    return float(matched.split()[1])
+
+
+def test_quiet_narration_is_lifted_and_not_cut_off(tmp_path):
+    from aijian_api.story_film import _normalize_film_media
+
+    tools = toolchain()
+    voice = tmp_path / "quiet.wav"
+    clip = tmp_path / "clip.mp4"
+    narration = 2.28
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency=440:sample_rate=48000:duration={narration}",
+            "-af",
+            "volume=-20dB",
+            "-ac",
+            "1",
+            "-c:a",
+            "pcm_s16le",
+            str(voice),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=448x672:rate=24:duration=2.04",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "24",
+            str(clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    _width, _height, frames, fitted = _normalize_film_media(
+        tools.ffmpeg_path, tools.ffprobe_path, clip, voice
+    )
+    assert frames / 24 >= narration
+    loudness = _integrated_loudness(tools.ffmpeg_path, fitted, narration)
+    assert -17 <= loudness <= -15
+
+
+def test_two_shots_hold_a_character_still_and_join(tmp_path):
+    from aijian_api.story_film import StoryShot
+
+    repository, project_id = _project(tmp_path)
+    service = StoryFilmService(repository, toolchain)
+    shots = (
+        StoryShot("林夏把阿凯推进巷口。", "雨夜巷口，全景，低机位。", 5, "林夏把阿凯推进巷口"),
+        StoryShot("阿凯侧身躲开第一拳。", "躲开，中景，侧面。", 5, "阿凯侧身躲开第一拳"),
+    )
+    result = service.produce(
+        project_id,
+        _request(narration="雨夜巷战", subtitle=None, shots=shots),
+    )
+    assert result.status == "SUCCEEDED", result.message
+    assert "AI 生成" in result.message
+    assert float(result.duration_seconds or "0") >= 4
+    assert list((tmp_path / "story-films").glob("*-cast.png"))
 
 
 def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkeypatch):

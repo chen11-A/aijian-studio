@@ -4267,6 +4267,14 @@
             "title": "Scene Label",
             "type": "string"
           },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/StoryShotBody"
+            },
+            "maxItems": 10,
+            "title": "Shots",
+            "type": "array"
+          },
           "speech_model": {
             "default": "grok-tts",
             "maxLength": 200,
@@ -23604,6 +23612,47 @@
           "status"
         ],
         "title": "StoryQuestionV1",
+        "type": "object"
+      },
+      "StoryShotBody": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_seconds": {
+            "default": 5,
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "narration": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Narration",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "regenerate": {
+            "default": false,
+            "title": "Regenerate",
+            "type": "boolean"
+          },
+          "subtitle": {
+            "default": "",
+            "maxLength": 57,
+            "title": "Subtitle",
+            "type": "string"
+          }
+        },
+        "required": [
+          "narration",
+          "prompt"
+        ],
+        "title": "StoryShotBody",
         "type": "object"
       },
       "StorySourceScopeV1": {

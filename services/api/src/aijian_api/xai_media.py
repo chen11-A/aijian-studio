@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 from aijian_api.grok_status_log import append_grok_status
 
 XAI_API_ORIGIN = "https://api.x.ai"
-_USER_AGENT = "AIVORA/0.2.6"
+_USER_AGENT = "AIVORA/0.3.0"
 IMAGE_GENERATION_PATH = "/v1/images/generations"
 VIDEO_GENERATION_PATH = "/v1/videos/generations"
 VIDEO_POLL_PATH = "/v1/videos/{request_id}"

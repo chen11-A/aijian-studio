@@ -19,7 +19,7 @@ import { UserChip } from "./UserChip";
 import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { AssistantSelectionProvider } from "./assistantSelection";
 import { Select } from "./Select";
-import { openWuchengSample } from "./sample-project";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
   const [revision, setRevision] = useState(0);
@@ -258,28 +258,30 @@ function Workspace({ reset }: { reset: () => void }) {
           </>
         )}
         <div className="topbar-spacer" />
-        <div className="mode-switch">
-          <button
-            className={!d.professional ? "active" : ""}
-            aria-pressed={!d.professional}
-            onClick={() => {
-              d.setProfessional(false);
-              d.setInspector(false);
-            }}
-          >
-            普通模式
-          </button>
-          <button
-            className={d.professional ? "active" : ""}
-            aria-pressed={d.professional}
-            onClick={() => {
-              d.setProfessional(true);
-              d.setInspector(true);
-            }}
-          >
-            专业模式
-          </button>
-        </div>
+        {d.isFixture && (
+          <div className="mode-switch">
+            <button
+              className={!d.professional ? "active" : ""}
+              aria-pressed={!d.professional}
+              onClick={() => {
+                d.setProfessional(false);
+                d.setInspector(false);
+              }}
+            >
+              普通模式
+            </button>
+            <button
+              className={d.professional ? "active" : ""}
+              aria-pressed={d.professional}
+              onClick={() => {
+                d.setProfessional(true);
+                d.setInspector(true);
+              }}
+            >
+              专业模式
+            </button>
+          </div>
+        )}
         {pro && (
           <button
             className="professional-dock-toggle"
@@ -540,7 +542,7 @@ function Workspace({ reset }: { reset: () => void }) {
               aria-selected={d.rightTab === "inspector"}
               onClick={() => d.selectRightTab("inspector")}
             >
-              Inspector
+              属性
             </button>
             <button
               id="dock-ai-tab"
@@ -577,10 +579,10 @@ function ProjectContentEmpty({ page }: { page: PageId }) {
       <h1>{pages[page][0]}</h1>
       <p>尚未选择真实项目。可以打开示例「雾城来信」，或回到首页新建。</p>
       <div className="actions">
+        <Button onClick={() => promptNewProject(d)}>新建项目</Button>
         <Button primary onClick={() => void openWuchengSample(d)}>
-          打开雾城来信
+          打开示例
         </Button>
-        <Button onClick={() => d.go("home")}>回到首页</Button>
       </div>
     </section>
   );

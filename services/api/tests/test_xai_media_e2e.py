@@ -403,7 +403,7 @@ def test_url_image_is_saved_and_handed_to_video_tts_and_compose(
         picture = probed["streams"][0]
         assert (picture["width"], picture["height"]) == (448, 672)
         assert result.duration_seconds is not None
-        assert 2.0 <= float(result.duration_seconds) < 2.4
+        assert 2.616 <= float(result.duration_seconds) < 3.6
         voices = list((tmp_path / "story-films").glob("*-voice.mp3"))
         assert voices and all(path.read_bytes() == script.audio for path in voices)
         assert not list((tmp_path / "story-films").glob("*-voice.wav"))

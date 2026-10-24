@@ -3,6 +3,14 @@ import { canonicalLoopbackOrigin } from "./sidecar-origin";
 
 export type StoryFilmProvider = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
 
+export type StoryFilmShotInput = {
+  narration: string;
+  prompt: string;
+  subtitle?: string;
+  duration_seconds: number;
+  regenerate?: boolean;
+};
+
 export type StoryFilmCreateInput = {
   scene_label: string;
   narration: string;
@@ -11,6 +19,7 @@ export type StoryFilmCreateInput = {
   confirmed: boolean;
   voice_id?: string;
   regenerate?: boolean;
+  shots?: StoryFilmShotInput[];
 };
 
 const projectIdPattern = /^prj_[0-9a-f]{32}$/;
@@ -113,6 +122,7 @@ export function createStoryFilmClient(
           confirmed: input.confirmed,
           ...(input.voice_id ? { voice_id: input.voice_id } : {}),
           ...(input.regenerate ? { regenerate: true } : {}),
+          ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
         }),
       }).then(read);
     },
@@ -130,6 +140,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     "confirmed",
     "voice_id",
     "regenerate",
+    "shots",
   ];
   if (Object.keys(body).some((key) => !allowed.includes(key))) {
     throw new Error("Invalid story film request");
@@ -160,6 +171,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   if (voice !== undefined && (typeof voice !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(voice))) {
     throw new Error("Invalid story film request");
   }
+  const shots = parseShots(body.shots);
   return {
     scene_label: scene.trim(),
     narration: narration.trim(),
@@ -170,5 +182,54 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     confirmed: body.confirmed,
     ...(typeof voice === "string" ? { voice_id: voice } : {}),
     ...(body.regenerate === true ? { regenerate: true } : {}),
+    ...(shots.length > 0 ? { shots } : {}),
   };
+}
+
+function parseShots(value: unknown): StoryFilmShotInput[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 10) throw new Error("Invalid story film request");
+  return value.map((item) => {
+    if (typeof item !== "object" || item === null) throw new Error("Invalid story film request");
+    const shot = item as Record<string, unknown>;
+    const allowed = ["narration", "prompt", "subtitle", "duration_seconds", "regenerate"];
+    if (Object.keys(shot).some((key) => !allowed.includes(key))) {
+      throw new Error("Invalid story film request");
+    }
+    const narration = shot.narration;
+    const prompt = shot.prompt;
+    const duration = shot.duration_seconds;
+    if (typeof narration !== "string" || narration.trim().length < 1 || narration.length > 80) {
+      throw new Error("Invalid story film request");
+    }
+    if (typeof prompt !== "string" || prompt.trim().length < 1 || prompt.length > 400) {
+      throw new Error("Invalid story film request");
+    }
+    if (
+      shot.subtitle !== undefined &&
+      (typeof shot.subtitle !== "string" || shot.subtitle.length > 57)
+    ) {
+      throw new Error("Invalid story film request");
+    }
+    if (
+      typeof duration !== "number" ||
+      !Number.isInteger(duration) ||
+      duration < 1 ||
+      duration > 15
+    ) {
+      throw new Error("Invalid story film request");
+    }
+    if (shot.regenerate !== undefined && typeof shot.regenerate !== "boolean") {
+      throw new Error("Invalid story film request");
+    }
+    return {
+      narration: narration.trim(),
+      prompt: prompt.trim(),
+      duration_seconds: duration,
+      ...(typeof shot.subtitle === "string" && shot.subtitle.trim()
+        ? { subtitle: shot.subtitle.trim() }
+        : {}),
+      ...(shot.regenerate === true ? { regenerate: true } : {}),
+    };
+  });
 }

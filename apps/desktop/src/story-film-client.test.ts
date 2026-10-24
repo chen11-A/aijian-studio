@@ -109,6 +109,47 @@ describe("story film client", () => {
     ).toThrow("Invalid story film request");
   });
 
+  it("sends a shot list and rejects a shot that is not a clip", () => {
+    expect(
+      parseStoryFilmCreate({
+        scene_label: "雨夜巷战",
+        narration: "林夏把阿凯推进巷口。",
+        provider: "stub",
+        confirmed: false,
+        shots: [
+          {
+            narration: "林夏把阿凯推进巷口。",
+            prompt: "全景，推一把。",
+            subtitle: "林夏把阿凯推进巷口",
+            duration_seconds: 5,
+          },
+        ],
+      }).shots,
+    ).toEqual([
+      {
+        narration: "林夏把阿凯推进巷口。",
+        prompt: "全景，推一把。",
+        subtitle: "林夏把阿凯推进巷口",
+        duration_seconds: 5,
+      },
+    ]);
+    expect(() =>
+      parseStoryFilmCreate({
+        scene_label: "雨夜巷战",
+        narration: "一句旁白",
+        provider: "stub",
+        confirmed: false,
+        shots: [
+          {
+            narration: "一句旁白",
+            prompt: "全景",
+            duration_seconds: 20,
+          },
+        ],
+      }),
+    ).toThrow("Invalid story film request");
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

@@ -3805,6 +3805,8 @@ export interface components {
             regenerate: boolean;
             /** Scene Label */
             scene_label: string;
+            /** Shots */
+            shots?: components["schemas"]["StoryShotBody"][];
             /**
              * Speech Model
              * @default grok-tts
@@ -10224,6 +10226,28 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "resolved";
+        };
+        /** StoryShotBody */
+        StoryShotBody: {
+            /**
+             * Duration Seconds
+             * @default 5
+             */
+            duration_seconds: number;
+            /** Narration */
+            narration: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Regenerate
+             * @default false
+             */
+            regenerate: boolean;
+            /**
+             * Subtitle
+             * @default
+             */
+            subtitle: string;
         };
         /** StorySourceScopeV1 */
         StorySourceScopeV1: {

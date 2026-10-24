@@ -222,11 +222,11 @@ describe("C19 workspace controls", () => {
   it("switches professional dock tabs and returns to the normal workspace mode", () => {
     openWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "专业模式" }));
-    expect(screen.getByRole("tab", { name: "Inspector" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "属性" })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("tab", { name: "Aivora AI" }));
     expect(screen.getByRole("tab", { name: "Aivora AI" })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("button", { name: "普通模式" }));
-    expect(screen.queryByRole("tab", { name: "Inspector" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "属性" })).not.toBeInTheDocument();
   });
 
   it("uses the demo dropdown to show a controlled unavailable state and reset its workspace", () => {
@@ -278,7 +278,8 @@ describe("C19 workspace controls", () => {
     for (const page of ["generation", "voice", "export"] as const) {
       window.history.replaceState({}, "", `#${page}`);
       render(<DemoApp />);
-      expect(screen.getByRole("button", { name: "打开雾城来信" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
       expect(screen.queryByLabelText("媒体任务沙箱")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("配音方案沙箱")).not.toBeInTheDocument();
       cleanup();

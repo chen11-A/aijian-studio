@@ -1,5 +1,5 @@
 import { ChangeCostNotice, FormalDeliveryChecklist } from "./account/SandboxSurfaces";
-import { openWuchengSample } from "./sample-project";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 import { AssemblyReadinessPanel } from "./AssemblyReadinessPanel";
 import { ScriptConfirmationImpactHistory } from "./ScriptConfirmationImpactHistory";
 import { SavedInvalidationHistory } from "./SavedInvalidationHistory";
@@ -72,8 +72,9 @@ export function NativeDraftPages({
         ) : (
           <section role="status">
             <p>还没有打开作品。打开示例「雾城来信」后，才能查看这一集的草稿和修改。</p>
+            <Button onClick={() => promptNewProject(d)}>新建项目</Button>
             <Button primary onClick={() => void openWuchengSample(d)}>
-              打开雾城来信
+              打开示例
             </Button>
             <Button onClick={() => d.go("home")}>回到首页</Button>
           </section>

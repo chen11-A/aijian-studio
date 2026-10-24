@@ -91,7 +91,7 @@ it.each(["review", "changes", "export"] as const)(
     state.page = page;
     state.episodeId = null;
     render(<MediaPages />);
-    expect(screen.getByRole("button", { name: "打开雾城来信" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "打开示例" })).toBeEnabled();
     expect(screen.queryByLabelText("审片原版草稿")).not.toBeInTheDocument();
     expect(state.exports!.get).not.toHaveBeenCalled();
   },
@@ -125,7 +125,7 @@ it("shows the saved project approval impact source on native changes even withou
   render(<MediaPages />);
   expect(screen.getByRole("heading", { name: "作品批准替代与下游影响" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "内容版本发生变更 · 4 条影响路径" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "打开雾城来信" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "打开示例" })).toBeEnabled();
   expect(list).toHaveBeenCalledWith(source.project_id, { limit: 20 });
   expect(state.exports!.createFromPicker).not.toHaveBeenCalled();
   expect(state.exports!.revision!.approveDraftReviewRevisionPlan).not.toHaveBeenCalled();

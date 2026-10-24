@@ -528,7 +528,7 @@ function CurrentObjectInspector() {
         )}
       </div>
       <div className="v2-inspector-reference">
-        <small>本次演示内保存 · 切换模式保留</small>
+        <small>只保存在这次演示里</small>
         <Button
           icon="link"
           onClick={() => {
@@ -546,7 +546,7 @@ function CurrentObjectInspector() {
       <header>
         <Logo />
         <div>
-          <h2>Inspector</h2>
+          <h2>属性</h2>
           <p>当前对象 · 演示属性</p>
         </div>
       </header>

@@ -56,23 +56,14 @@ function connectedBridge(createStoryFilm: unknown, extra: Record<string, unknown
 }
 
 describe("simple story-to-film navigation", () => {
-  it("shows the four steps and a provider choice, and keeps the full nav behind professional mode", () => {
+  it("opens the professional workspace with no mode switch", () => {
     window.history.replaceState({}, "", "#project");
     render(<DemoApp />);
-    const stages = screen.getByRole("navigation", { name: "创作阶段" });
-    expect(within(stages).getByRole("button", { name: "故事" })).toBeInTheDocument();
-    expect(within(stages).queryByRole("button", { name: "分镜" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "分镜" })).not.toBeInTheDocument();
-    fireEvent.click(within(stages).getByRole("button", { name: "画面" }));
-    const provider = screen.getByRole("combobox", { name: "用什么生成" });
-    expect(within(provider).getAllByRole("option").length).toBeGreaterThan(1);
-    expect(within(provider).getByRole("option", { name: /本地占位/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "用量" })).toBeInTheDocument();
-    expect(screen.getAllByText(/不花钱/).length).toBeGreaterThan(0);
-    fireEvent.click(
-      within(screen.getByLabelText("短片向导")).getByRole("button", { name: "专业模式" }),
-    );
+    expect(screen.queryByRole("button", { name: "普通模式" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "分镜" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
   });
 
   it("keeps the full navigation in the fixture without professional mode", () => {
@@ -102,9 +93,8 @@ describe("simple story-to-film navigation", () => {
     fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
     expect(within(guide).getByRole("status")).toHaveTextContent("网页预览不能生成成片");
     fireEvent.click(within(guide).getByRole("button", { name: "回首页开始" }));
-    expect(screen.getByLabelText("guide-state")).toHaveTextContent("home:simple");
-    fireEvent.click(within(guide).getByRole("button", { name: "专业模式" }));
     expect(screen.getByLabelText("guide-state")).toHaveTextContent("home:pro");
+    expect(within(guide).queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
   });
 
   it("confirms a metered call, then saves a stub film with picture and sound", async () => {
@@ -261,7 +251,7 @@ describe("simple story-to-film navigation", () => {
       expect(screen.queryByRole("option", { name: "Rex" })).not.toBeInTheDocument(),
     );
     fireEvent.change(screen.getByLabelText("配音"), { target: { value: "ara" } });
-    expect(screen.getByText("当前配音：Ara")).toBeInTheDocument();
+    expect(screen.getByText(/当前配音：Ara/)).toBeInTheDocument();
     fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
     fireEvent.click(within(guide).getByRole("button", { name: "开始做成片" }));
     expect(

@@ -1189,7 +1189,7 @@ it("starts a film from the empty workspace sample or one sentence", async () => 
     </DemoProvider>,
   );
   await screen.findByRole("status", { name: "本地工作区已连接" });
-  fireEvent.click(screen.getAllByRole("button", { name: "打开雾城来信" })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: "打开示例" })[0]!);
   await waitFor(() =>
     expect(desktop.createProject).toHaveBeenCalledWith({
       name: "雾城来信",

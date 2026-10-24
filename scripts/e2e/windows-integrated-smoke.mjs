@@ -89,7 +89,7 @@ try {
     userData: app.getPath("userData"),
   }));
   assert.equal(identity.name, "AIVORA");
-  assert.equal(identity.version, "0.2.6");
+  assert.equal(identity.version, "0.3.0");
   assert.equal(resolve(identity.userData).toLowerCase(), resolve(userData).toLowerCase());
   assert.equal(sidecars().length, 1);
   const resources = await application.evaluate(() => globalThis.process.resourcesPath);

@@ -4,6 +4,9 @@ import { capabilitiesForListedModel } from "./account/model-capabilities";
 import { grokBridge } from "./grok-auth/transport";
 import { useDemo } from "./model";
 import { Select } from "./Select";
+import { fightSample, planShots, type PlannedShot } from "./shot-plan";
+
+type EditableShot = PlannedShot & { regenerate?: boolean };
 
 export const SAMPLE_TITLE = "雾城来信";
 export const SAMPLE_SCENE = "灯塔夜班";
@@ -12,12 +15,30 @@ export const SAMPLE_LINE = "雾散之前，不要回头。";
 const steps = ["故事", "画面", "声音", "成片"] as const;
 const filmStages = ["画面", "视频", "配音", "合成"] as const;
 const stageKeys = ["image", "video", "speech", "assemble"] as const;
+const voiceDescriptions: Record<string, string> = {
+  ara: "女声 · 温和友好",
+  eve: "女声 · 活泼，英式口音 · 推荐",
+  leo: "男声 · 沉稳，英式口音",
+  rex: "男声 · 清晰自信",
+  sal: "男声 · 平稳",
+  carina: "旁白 · 柔和",
+  luna: "旁白 · 轻声耐心",
+  iris: "旁白 · 明快",
+  orion: "旁白 · 电影感",
+  rexus: "旁白",
+};
+
+export function voiceOptionLabel(id: string, name: string): string {
+  const description = voiceDescriptions[id.toLowerCase()];
+  return description ? `${name} · ${description}` : `${name} · 旁白`;
+}
+
 const fallbackVoices = [
-  { id: "eve", label: "Eve" },
-  { id: "ara", label: "Ara" },
-  { id: "rex", label: "Rex" },
-  { id: "sal", label: "Sal" },
-  { id: "leo", label: "Leo" },
+  { id: "eve", label: voiceOptionLabel("eve", "Eve") },
+  { id: "ara", label: voiceOptionLabel("ara", "Ara") },
+  { id: "rex", label: voiceOptionLabel("rex", "Rex") },
+  { id: "sal", label: voiceOptionLabel("sal", "Sal") },
+  { id: "leo", label: voiceOptionLabel("leo", "Leo") },
 ];
 
 type ProviderId = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
@@ -150,6 +171,7 @@ export function ShortFilmGuide() {
   const [provider, setProvider] = useState<ProviderId>(savedChoices.provider ?? "stub");
   const [voiceId, setVoiceId] = useState(savedChoices.voiceId || "eve");
   const [voices, setVoices] = useState(fallbackVoices);
+  const [shots, setShots] = useState<EditableShot[]>([]);
   const [busy, setBusy] = useState(false);
   const [showStages, setShowStages] = useState(false);
   const [stage, setStage] = useState(0);
@@ -200,7 +222,12 @@ export function ShortFilmGuide() {
         capabilitiesForListedModel(model).includes("SPEECH"),
       );
       if (speech.length === 0) return;
-      setVoices(speech.map((model) => ({ id: model.id, label: model.label || model.id })));
+      setVoices(
+        speech.map((model) => ({
+          id: model.id,
+          label: voiceOptionLabel(model.id, model.label || model.id),
+        })),
+      );
     });
     return () => {
       live = false;
@@ -283,6 +310,21 @@ export function ShortFilmGuide() {
         confirmed,
         voice_id: voiceId,
         ...(regenerate ? { regenerate: true } : {}),
+        ...(shots.length > 0
+          ? {
+              shots: shots.map((shot) => ({
+                narration: shot.narration.slice(0, 80),
+                prompt:
+                  `${shot.narration}景别${shot.shotSize}，机位${shot.camera}。动作：${shot.action}。表演：${shot.performance}。`.slice(
+                    0,
+                    400,
+                  ),
+                subtitle: (shot.subtitle || shot.narration).slice(0, 28),
+                duration_seconds: shot.durationSeconds,
+                ...(shot.regenerate ? { regenerate: true } : {}),
+              })),
+            }
+          : {}),
       });
       const data = (response.data ?? {}) as FilmResult;
       const picture =
@@ -368,6 +410,63 @@ export function ShortFilmGuide() {
     setNotice("已停止等待。可以重试。");
   };
 
+  const applyPlan = (story: string, note: string) => {
+    try {
+      setShots(planShots(story));
+      setNotice(note);
+    } catch {
+      setNotice("需要一段故事才能拆镜。");
+    }
+  };
+
+  const planWithDirector = async () => {
+    const story = `${scene}\n${line}`.trim();
+    const bridge = grokBridge();
+    if (bridge && d.backendProjectId) {
+      try {
+        const listed = await bridge.models();
+        const textModel =
+          listed.kind === "OK"
+            ? listed.models.find((model) => {
+                const caps = capabilitiesForListedModel(model);
+                return caps.includes("TEXT") && !caps.includes("IMAGE") && !caps.includes("SPEECH");
+              })
+            : undefined;
+        if (textModel) {
+          const result = await bridge.completeText({
+            model: textModel.id,
+            text: `请把故事拆成6到8句旁白，每句不超过20个字，不要血腥。只输出旁白，一句一行。\n${story}`,
+            projectId: d.backendProjectId,
+            idempotencyKey: crypto.randomUUID(),
+          });
+          if (result.kind === "OK" && result.text.trim()) {
+            applyPlan(`${scene}\n${result.text}`, "导演按你的故事拆好了，可以改。");
+            return;
+          }
+        }
+      } catch {
+        applyPlan(story, "Grok 这次没有拆成镜头，先用本地草稿。");
+        return;
+      }
+      applyPlan(story, "Grok 这次没有拆成镜头，先用本地草稿。");
+      return;
+    }
+    applyPlan(story, "这是本地草稿。连上 Grok 后，导演会按你的故事重写。");
+  };
+
+  const useFight = () => {
+    const script = fightSample();
+    setScene("雨夜巷战");
+    setLine(script);
+    applyPlan(script, "已用示例「雨夜巷战」。动作是推挡和闪避，没有受伤画面。");
+  };
+
+  const editShot = (index: number, patch: Partial<EditableShot>) => {
+    setShots((current) =>
+      current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)),
+    );
+  };
+
   return (
     <div className="v2-home-page v2-project-home short-film">
       <header className="page-title v2-home-heading">
@@ -404,6 +503,57 @@ export function ShortFilmGuide() {
               onChange={(event) => setScene(event.target.value)}
             />
           </label>
+        )}
+        {step === 0 && (
+          <div className="account-actions">
+            <Button disabled={busy} onClick={() => void planWithDirector()}>
+              一键让导演拆镜
+            </Button>
+            <Button disabled={busy} onClick={useFight}>
+              用示例：雨夜巷战
+            </Button>
+          </div>
+        )}
+        {step === 0 && shots.length > 0 && (
+          <details>
+            <summary>导演拆好的 {shots.length} 个镜头</summary>
+            {shots.map((shot, index) => (
+              <div key={`${shot.index}-${index}`}>
+                <label>
+                  第 {index + 1} 镜旁白
+                  <input
+                    aria-label={`第 ${index + 1} 镜旁白`}
+                    value={shot.narration}
+                    onChange={(event) =>
+                      editShot(index, {
+                        narration: event.target.value,
+                        subtitle: event.target.value.slice(0, 28),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  动作
+                  <input
+                    aria-label={`第 ${index + 1} 镜动作`}
+                    value={shot.action}
+                    onChange={(event) => editShot(index, { action: event.target.value })}
+                  />
+                </label>
+                <label>
+                  表演
+                  <input
+                    aria-label={`第 ${index + 1} 镜表演`}
+                    value={shot.performance}
+                    onChange={(event) => editShot(index, { performance: event.target.value })}
+                  />
+                </label>
+                <Button disabled={busy} onClick={() => editShot(index, { regenerate: true })}>
+                  重做这一镜
+                </Button>
+              </div>
+            ))}
+          </details>
         )}
         {step === 1 && (
           <label>
@@ -459,7 +609,8 @@ export function ShortFilmGuide() {
         {step === 3 && (
           <p>
             将用「{choice.label}」把「{scene || SAMPLE_SCENE}」做成大约两秒的草稿视频。
-            {choice.billing}。这是草稿，不是正式发行。
+            {shots.length > 0 ? `已拆成 ${shots.length} 个镜头，接在一起。` : ""}
+            {choice.billing}。这是草稿，不是正式发行。画面和声音由 AI 生成，不是实拍。
           </p>
         )}
         {!d.backendProjectId && (
@@ -479,11 +630,6 @@ export function ShortFilmGuide() {
           {step < 3 && (
             <Button primary disabled={busy} onClick={() => go(step + 1)}>
               下一步
-            </Button>
-          )}
-          {d.projects.length === 0 && (
-            <Button disabled={busy} onClick={() => d.setProfessional(true)}>
-              专业模式
             </Button>
           )}
           {step === 3 && provider !== "xai_api_key" && !busy && (

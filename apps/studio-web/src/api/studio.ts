@@ -923,6 +923,13 @@ export interface AijianDesktopBridge
       confirmed: boolean;
       voice_id?: string;
       regenerate?: boolean;
+      shots?: Array<{
+        narration: string;
+        prompt: string;
+        subtitle?: string;
+        duration_seconds: number;
+        regenerate?: boolean;
+      }>;
     },
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;
   getStoryFilmProgress?(projectId: string): Promise<{

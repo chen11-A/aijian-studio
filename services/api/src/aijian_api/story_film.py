@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -20,7 +21,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -51,6 +52,7 @@ from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
+from aijian_api.shot_plan import AI_GENERATED_NOTE, STYLE_REALISM, character_reference_prompt
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
 from aijian_api.xai_media import (
@@ -73,6 +75,11 @@ _GRAPH = {"nodes": [NODE_KEY], "intent": "scene-to-mp4"}
 _DEFINITION_HASH = canonical_content_hash(_GRAPH)
 _FRAME_RATE = 24
 _CANVAS = (160, 90)
+_LOUDNESS_I = -16
+_LOUDNESS_TP = -1.5
+_LOUDNESS_LRA = 11
+_NARRATION_TAIL_SECONDS = 0.5
+_CROSSFADE_SECONDS = 0.4
 
 
 class StoryFilmError(RuntimeError):
@@ -92,6 +99,15 @@ class StoryFilmError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class StoryShot:
+    narration: str
+    prompt: str
+    duration_seconds: int
+    subtitle: str
+    regenerate: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class StoryFilmRequest:
     scene_label: str
     narration: str
@@ -107,6 +123,8 @@ class StoryFilmRequest:
     amount_micro: int | None
     idempotency_key: str
     regenerate: bool = False
+    shots: tuple[StoryShot, ...] = ()
+    visual_prompt: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +183,7 @@ class StoryFilmService:
         self._sleep = time.sleep
         self._partial_note: str | None = None
         self._reuse_note: str | None = None
+        self._shot_captions: list[tuple[str, float, float]] | None = None
 
     def produce(
         self,
@@ -175,6 +194,7 @@ class StoryFilmService:
     ) -> StoryFilmResult:
         self._partial_note = None
         self._reuse_note = None
+        self._shot_captions = None
         clear_film_cancel(project_id)
         provider_label, billing_label = provider_copy(request.provider)
         blocked = self._preflight(project_id, request, media_token)
@@ -215,7 +235,10 @@ class StoryFilmService:
         running = self._ledger.mark_attempt_running(claim)
         live_call = False
         try:
-            if request.provider == "grok_subscription":
+            if request.shots:
+                image, clip, speech = self._shots_media(request, media_token, project_id)
+                live_call = request.provider == "grok_subscription"
+            elif request.provider == "grok_subscription":
                 live_call = True
                 image, clip, speech = self._live_media(request, media_token, project_id)
             else:
@@ -274,6 +297,8 @@ class StoryFilmService:
             message = f"{self._partial_note} 成片已保存。"
         if self._reuse_note:
             message = f"{message}{self._reuse_note}"
+        if AI_GENERATED_NOTE not in message:
+            message = f"{message}{AI_GENERATED_NOTE}"
         preview = film_progress(project_id).get("preview_image")
         return StoryFilmResult(
             status="SUCCEEDED",
@@ -439,6 +464,7 @@ class StoryFilmService:
                 else "metered"
             ),
             "confirmed_metered": request.confirmed and request.provider == "xai_api_key",
+            "shot_count": len(request.shots),
         }
         input_hash = canonical_content_hash(bindings)
         fingerprint = canonical_content_hash(
@@ -474,7 +500,9 @@ class StoryFilmService:
         tools = self._tools()
         directory = Path(self._repository.database_path).parent / "story-films" / "placeholder"
         directory.mkdir(parents=True, exist_ok=True)
-        stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
+        stem = hashlib.sha256(
+            f"{request.idempotency_key}\n{request.narration}".encode()
+        ).hexdigest()[:16]
         image_path = directory / f"{stem}.png"
         clip_path = directory / f"{stem}.mp4"
         audio_path = directory / f"{stem}.wav"
@@ -522,8 +550,160 @@ class StoryFilmService:
         )
         return image_path.read_bytes(), clip_path.read_bytes(), audio_path.read_bytes()
 
+    def _shots_media(
+        self,
+        request: StoryFilmRequest,
+        media_token: str | None,
+        project_id: str,
+    ) -> tuple[bytes, bytes, bytes]:
+        tools = self._tools()
+        reference, prepared = self._cast_still(request, media_token, project_id)
+        total = len(request.shots)
+        picture = reference
+        normalized: list[tuple[Path, Path, str]] = []
+        with tempfile.TemporaryDirectory(prefix="aivora-shots-") as temporary:
+            directory = Path(temporary)
+            for index, shot in enumerate(request.shots, start=1):
+                label = f"正在生成第 {index} 个镜头，共 {total} 个。"
+                mark_film_progress(project_id, "image", label)
+                child = replace(
+                    request,
+                    scene_label=shot.prompt or request.scene_label,
+                    narration=shot.narration,
+                    subtitle=shot.subtitle or None,
+                    visual_prompt=shot.prompt,
+                    regenerate=request.regenerate or shot.regenerate,
+                    shots=(),
+                )
+                if request.provider == "grok_subscription":
+                    if (
+                        reference
+                        and not child.regenerate
+                        and self._find_saved_image(project_id, child) is None
+                    ):
+                        self._persist_image(project_id, child, reference)
+                    image, clip, speech = self._live_media(
+                        child,
+                        media_token,
+                        project_id,
+                        duration=max(1, min(int(shot.duration_seconds), 15)),
+                        prepared_image=None if reference or child.regenerate else prepared,
+                        shot_label=label,
+                    )
+                else:
+                    image, clip, speech = self._placeholder_media(child)
+                if picture is None and image:
+                    picture = image
+                clip_path = directory / f"shot-{index}.mp4"
+                audio_path = directory / f"shot-{index}{_audio_suffix(speech)}"
+                clip_path.write_bytes(clip)
+                audio_path.write_bytes(speech)
+                _width, _height, _frames, voiced = _normalize_film_media(
+                    tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
+                )
+                synced = directory / f"shot-{index}-sync.wav"
+                video_seconds = _media_duration(tools.ffprobe_path, clip_path)
+                _ffmpeg(
+                    tools.ffmpeg_path,
+                    [
+                        "-i",
+                        str(voiced),
+                        "-af",
+                        f"apad=whole_dur={video_seconds:.3f},atrim=duration={video_seconds:.3f}",
+                        "-ac",
+                        "2",
+                        "-ar",
+                        "48000",
+                        "-c:a",
+                        "pcm_s16le",
+                        str(synced),
+                    ],
+                    stage="normalize_voice",
+                )
+                normalized.append((clip_path, synced, shot.subtitle))
+            if len(normalized) == 1:
+                video = normalized[0][0].read_bytes()
+                audio = normalized[0][1].read_bytes()
+                self._shot_captions = [
+                    (
+                        normalized[0][2],
+                        0.0,
+                        _media_duration(tools.ffprobe_path, normalized[0][0]),
+                    )
+                ]
+            else:
+                video_path = directory / "joined.mp4"
+                audio_path = directory / "joined.wav"
+                self._shot_captions = _join_shot_files(
+                    tools.ffmpeg_path,
+                    tools.ffprobe_path,
+                    [item[0] for item in normalized],
+                    [item[1] for item in normalized],
+                    [item[2] for item in normalized],
+                    video_path,
+                    audio_path,
+                )
+                video = video_path.read_bytes()
+                audio = audio_path.read_bytes()
+        return picture or _FALLBACK_PNG, video, audio
+
+    def _cast_still(
+        self,
+        request: StoryFilmRequest,
+        media_token: str | None,
+        project_id: str,
+    ) -> tuple[bytes | None, XaiImage | None]:
+        story = "\n".join((request.narration, *(shot.narration for shot in request.shots)))
+        prompt = character_reference_prompt(story)
+        directory = self._image_directory()
+        directory.mkdir(parents=True, exist_ok=True)
+        stem = hashlib.sha256(f"{project_id}\n{prompt}".encode()).hexdigest()[:16]
+        path = directory / f"{stem}-cast.png"
+        if path.is_file() and path.stat().st_size > 0 and not request.regenerate:
+            return path.read_bytes(), None
+        if request.provider != "grok_subscription":
+            tools = self._tools()
+            _ffmpeg(
+                tools.ffmpeg_path,
+                [
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc=size=160x90:rate=24",
+                    "-frames:v",
+                    "1",
+                    str(path),
+                ],
+            )
+            return path.read_bytes(), None
+        if not media_token or not live_media_enabled():
+            raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
+        mark_film_progress(project_id, "image", "正在生成角色定妆照。")
+        if self._transport is None:
+            from aijian_api.xai_media_transport import urllib_xai_transport
+
+            transport = urllib_xai_transport()
+        else:
+            transport = self._transport
+        client = XaiMediaClient(transport, token=media_token)
+        image = client.generate_image(
+            prompt=_styled(prompt), model=request.image_model or IMAGE_MODEL
+        )
+        if image.data:
+            path.write_bytes(image.data)
+            append_grok_status("image_saved", code="ok")
+            return image.data, None
+        return None, image
+
     def _live_media(
-        self, request: StoryFilmRequest, media_token: str | None, project_id: str = ""
+        self,
+        request: StoryFilmRequest,
+        media_token: str | None,
+        project_id: str = "",
+        *,
+        duration: int = 2,
+        prepared_image: XaiImage | None = None,
+        shot_label: str | None = None,
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
@@ -566,10 +746,21 @@ class StoryFilmService:
                 image_saved=True,
                 preview_image=_preview_data_url(data),
             )
+        elif prepared_image is not None:
+            image = prepared_image
+            append_grok_status("image_saved", code="reused")
+            mark_film_progress(
+                project_id,
+                "image",
+                shot_label or "已用这一场的角色定妆照。",
+                image_saved=bool(image.data),
+                preview_image=_preview_data_url(image.data) if image.data else None,
+            )
         else:
-            mark_film_progress(project_id, "image", "正在生成画面。")
+            mark_film_progress(project_id, "image", shot_label or "正在生成画面。")
             image = client.generate_image(
-                prompt=request.scene_label, model=request.image_model or IMAGE_MODEL
+                prompt=_styled(request.visual_prompt or request.scene_label),
+                model=request.image_model or IMAGE_MODEL,
             )
             if image.data:
                 self._persist_image(project_id, request, image.data)
@@ -577,18 +768,22 @@ class StoryFilmService:
                 mark_film_progress(
                     project_id,
                     "image",
-                    "画面已保存。",
+                    shot_label or "画面已保存。",
                     image_saved=True,
                     preview_image=_preview_data_url(image.data),
                 )
             else:
-                mark_film_progress(project_id, "image", "画面地址已拿到，正在交给视频。")
+                mark_film_progress(
+                    project_id,
+                    "image",
+                    shot_label or "画面地址已拿到，正在交给视频。",
+                )
         self._ensure_running(project_id)
         kept = bool(image.data)
-        mark_film_progress(project_id, "video", "正在生成视频。", image_saved=kept)
-        clip, video_note = self._live_video(client, request, image, project_id)
+        mark_film_progress(project_id, "video", shot_label or "正在生成视频。", image_saved=kept)
+        clip, video_note = self._live_video(client, request, image, project_id, duration=duration)
         self._ensure_running(project_id)
-        mark_film_progress(project_id, "speech", "正在生成配音。", image_saved=kept)
+        mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
         try:
             speech = client.synthesize(
                 text=request.narration,
@@ -738,15 +933,17 @@ class StoryFilmService:
         request: StoryFilmRequest,
         image: object,
         project_id: str,
+        *,
+        duration: int = 2,
     ) -> tuple[bytes | None, str | None]:
         if not isinstance(image, XaiImage):
             raise StoryFilmError("IMAGE_RESPONSE_INVALID", "画面没有保存下来。")
         try:
             submitted = client.submit_video(
-                prompt=request.narration,
+                prompt=_styled(request.visual_prompt or request.narration),
                 image=image,
                 model=request.video_model or VIDEO_MODEL,
-                duration=2,
+                duration=max(1, min(duration, 15)),
             )
         except XaiMediaError:
             return None, "画面已生成，视频这一步没有成功，可以重试"
@@ -772,7 +969,9 @@ class StoryFilmService:
         tools = self._tools()
         directory = Path(self._repository.database_path).parent / "story-films"
         directory.mkdir(parents=True, exist_ok=True)
-        stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
+        stem = hashlib.sha256(
+            f"{request.idempotency_key}\n{request.narration}".encode()
+        ).hexdigest()[:16]
         image_path = directory / f"{stem}-still-src.png"
         audio_path = directory / f"{stem}-still-voice.bin"
         clip_path = directory / f"{stem}-still.mp4"
@@ -865,7 +1064,11 @@ class StoryFilmService:
                 }
             ],
         }
-        if subtitle:
+        cues = _caption_segments(self._shot_captions, frames)
+        if cues:
+            content["subtitle_segments"] = cues
+            subtitle = " ".join(str(cue["text"]) for cue in cues)
+        elif subtitle:
             content["subtitle_segments"] = [
                 {
                     "segment_id": "seg_caption",
@@ -894,7 +1097,10 @@ class StoryFilmService:
                 f"画面、视频和配音都已经做好。{reason}{note}，可以重试。",
                 ffmpeg_stage="assemble",
             )
-        has_video, has_audio, duration = _probe_movie(tools.ffprobe_path, Path(job.output_path))
+        output_path = Path(job.output_path)
+        _tag_ai_generated(tools.ffmpeg_path, tools.ffprobe_path, output_path)
+        has_video, has_audio, duration = _probe_movie(tools.ffprobe_path, output_path)
+        file_hash = hashlib.sha256(output_path.read_bytes()).hexdigest()
         manifest = {
             "schema_version": "1.0.0",
             "kind": "story_film",
@@ -907,10 +1113,11 @@ class StoryFilmService:
             "assembly_version_id": assembly.version_id,
             "assembly_content_hash": assembly.content_hash,
             "draft_operation_id": job.operation_id,
-            "output_sha256": job.output_sha256,
+            "output_sha256": file_hash,
             "duration_frames": frames,
             "frame_rate": _FRAME_RATE,
             "draft": True,
+            "ai_generated": True,
             "release_claim": False,
         }
         film_parent, film_revision = self._artifact_head(project_id, "story_film", None)
@@ -941,7 +1148,7 @@ class StoryFilmService:
             attempt_id=attempt_id,
             artifact_version_id=record.version.id,
             output_path=job.output_path,
-            output_sha256=job.output_sha256,
+            output_sha256=file_hash,
             duration_seconds=f"{duration:.3f}",
             has_video=has_video,
             has_audio=has_audio,
@@ -1277,9 +1484,81 @@ def _audio_suffix(header: bytes) -> str:
     return ".wav"
 
 
+def _styled(text: str) -> str:
+    if STYLE_REALISM in text:
+        return text
+    return f"{text}。{STYLE_REALISM}"
+
+
+def _loudnorm_number(value: object) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    text = str(value).strip()
+    if not re.fullmatch(r"-?\d+(?:\.\d+)?", text):
+        return None
+    return text
+
+
+def _measure_loudness(ffmpeg: Path, demuxer: str, audio_path: Path) -> dict[str, str] | None:
+    completed = subprocess.run(
+        [
+            str(ffmpeg),
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-f",
+            demuxer,
+            "-i",
+            str(audio_path),
+            "-af",
+            (f"loudnorm=I={_LOUDNESS_I}:TP={_LOUDNESS_TP}:LRA={_LOUDNESS_LRA}:print_format=json"),
+            "-f",
+            "null",
+            "-",
+        ],
+        check=False,
+        capture_output=True,
+    )
+    text = completed.stderr.decode("utf-8", errors="replace")
+    start = text.rfind("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        payload = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    measured: dict[str, str] = {}
+    for key in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset"):
+        number = _loudnorm_number(payload.get(key))
+        if number is None:
+            return None
+        measured[key] = number
+    return measured
+
+
+def _loudnorm_filter(measured: dict[str, str] | None) -> str:
+    if measured is None:
+        return f"loudnorm=I={_LOUDNESS_I}:TP={_LOUDNESS_TP}:LRA={_LOUDNESS_LRA}"
+    return (
+        f"loudnorm=I={_LOUDNESS_I}:TP={_LOUDNESS_TP}:LRA={_LOUDNESS_LRA}:linear=true:"
+        f"measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:"
+        f"measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}:"
+        f"offset={measured['target_offset']}"
+    )
+
+
 def _normalize_film_media(
     ffmpeg: Path, ffprobe: Path, clip_path: Path, audio_path: Path
 ) -> tuple[int, int, int, Path]:
+    """Loudness-normalize the narration and hold the last frame instead of cutting it.
+
+    The film is at least as long as the narration plus a short tail. A longer
+    video is kept, and the narration is padded with silence rather than trimmed.
+    """
+
     payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
     streams = payload.get("streams")
     if not isinstance(streams, list):
@@ -1309,11 +1588,10 @@ def _normalize_film_media(
     )
     clean.replace(clip_path)
     frames = _video_frames(ffprobe, clip_path)
-    seconds = frames / _FRAME_RATE + 0.08
     with audio_path.open("rb") as stream:
         header = stream.read(16)
     demuxer = "mp3" if _audio_suffix(header) == ".mp3" else "wav"
-    voiced = audio_path.with_name(f"{audio_path.stem}-fit.wav")
+    normalized = audio_path.with_name(f"{audio_path.stem}-norm.wav")
     _ffmpeg(
         ffmpeg,
         [
@@ -1322,7 +1600,54 @@ def _normalize_film_media(
             "-i",
             str(audio_path),
             "-af",
-            f"apad=whole_dur={seconds:.3f},atrim=duration={seconds:.3f}",
+            _loudnorm_filter(_measure_loudness(ffmpeg, demuxer, audio_path)),
+            "-ac",
+            "2",
+            "-ar",
+            "48000",
+            "-c:a",
+            "pcm_s16le",
+            str(normalized),
+        ],
+        stage="normalize_voice",
+    )
+    narration_seconds = _media_duration(ffprobe, normalized)
+    target_frames = max(
+        frames,
+        math.ceil((narration_seconds + _NARRATION_TAIL_SECONDS) * _FRAME_RATE - 1e-6),
+    )
+    if target_frames > frames:
+        extra = (target_frames - frames) / _FRAME_RATE
+        held = clip_path.with_name(f"{clip_path.stem}-hold.mp4")
+        _ffmpeg(
+            ffmpeg,
+            [
+                "-i",
+                str(clip_path),
+                "-an",
+                "-vf",
+                f"tpad=stop_mode=clone:stop_duration={extra:.3f},format=yuv420p",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-r",
+                str(_FRAME_RATE),
+                str(held),
+            ],
+            stage="normalize_video",
+        )
+        held.replace(clip_path)
+        frames = _video_frames(ffprobe, clip_path)
+    pad_seconds = max(frames / _FRAME_RATE + 0.08, narration_seconds)
+    voiced = audio_path.with_name(f"{audio_path.stem}-fit.wav")
+    _ffmpeg(
+        ffmpeg,
+        [
+            "-i",
+            str(normalized),
+            "-af",
+            f"apad=whole_dur={pad_seconds:.3f},atrim=duration={pad_seconds:.3f}",
             "-ac",
             "2",
             "-ar",
@@ -1333,10 +1658,168 @@ def _normalize_film_media(
         ],
         stage="normalize_voice",
     )
+    normalized.unlink(missing_ok=True)
     if audio_path.suffix.lower() == ".wav":
         voiced.replace(audio_path)
         return width, height, frames, audio_path
     return width, height, frames, voiced
+
+
+def _media_duration(ffprobe: Path, path: Path) -> float:
+    payload = _ffprobe(
+        ffprobe,
+        ["-show_entries", "format=duration", "-of", "json", str(path)],
+    )
+    fmt = payload.get("format")
+    raw = fmt.get("duration") if isinstance(fmt, dict) else None
+    try:
+        duration = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as error:
+        raise StoryFilmError(
+            "PROBE_FAILED", "没有读到配音的长度。", ffmpeg_stage="probe_video"
+        ) from error
+    if duration <= 0:
+        raise StoryFilmError("PROBE_FAILED", "没有读到配音的长度。", ffmpeg_stage="probe_video")
+    return duration
+
+
+def _join_shot_files(
+    ffmpeg: Path,
+    ffprobe: Path,
+    clips: list[Path],
+    audios: list[Path],
+    subtitles: list[str],
+    video_out: Path,
+    audio_out: Path,
+) -> list[tuple[str, float, float]]:
+    if len(clips) < 2 or len(clips) != len(audios) or len(clips) != len(subtitles):
+        raise StoryFilmError(
+            "MEDIA_ENCODE_FAILED",
+            "镜头不够，没法接在一起。",
+            ffmpeg_stage="assemble",
+        )
+    durations = [_media_duration(ffprobe, path) for path in clips]
+    fade = min(_CROSSFADE_SECONDS, min(durations) / 3)
+    video_filters: list[str] = []
+    offset = durations[0] - fade
+    previous = "[0:v]"
+    for index in range(1, len(clips)):
+        label = "[vout]" if index == len(clips) - 1 else f"[v{index}]"
+        video_filters.append(
+            f"{previous}[{index}:v]xfade=transition=fade:"
+            f"duration={fade:.3f}:offset={offset:.3f}{label}"
+        )
+        previous = label
+        if index < len(clips) - 1:
+            offset += durations[index] - fade
+    count = len(clips)
+    audio_filters: list[str] = []
+    previous_audio = f"[{count}:a]"
+    for index in range(1, count):
+        label = "[aout]" if index == count - 1 else f"[a{index}]"
+        audio_filters.append(
+            f"{previous_audio}[{count + index}:a]acrossfade=d={fade:.3f}:c1=tri:c2=tri{label}"
+        )
+        previous_audio = label
+    filter_complex = ";".join((*video_filters, *audio_filters, "[vout]format=yuv420p[vfmt]"))
+    arguments: list[str] = []
+    for path in (*clips, *audios):
+        arguments.extend(["-i", str(path)])
+    arguments.extend(
+        [
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[vfmt]",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            str(_FRAME_RATE),
+            str(video_out),
+            "-map",
+            "[aout]",
+            "-vn",
+            "-c:a",
+            "pcm_s16le",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            str(audio_out),
+        ]
+    )
+    _ffmpeg(ffmpeg, arguments, stage="assemble")
+    starts = [0.0]
+    for index in range(1, count):
+        starts.append(starts[-1] + durations[index - 1] - fade)
+    total = starts[-1] + durations[-1]
+    captions: list[tuple[str, float, float]] = []
+    for index, text in enumerate(subtitles):
+        end = starts[index + 1] if index + 1 < count else total
+        if end <= starts[index]:
+            end = starts[index] + 1 / _FRAME_RATE
+        captions.append((text, starts[index], end))
+    return captions
+
+
+def _caption_segments(
+    captions: list[tuple[str, float, float]] | None, frames: int
+) -> list[dict[str, object]]:
+    if not captions:
+        return []
+    usable = [
+        (text.strip()[:28], start, end) for text, start, end in captions if text and text.strip()
+    ]
+    cues: list[dict[str, object]] = []
+    cursor = 0
+    for index, (text, start, end) in enumerate(usable):
+        start_frame = max(cursor, int(start * _FRAME_RATE))
+        end_frame = int(round(end * _FRAME_RATE))
+        if index == len(usable) - 1:
+            end_frame = max(end_frame, start_frame + 1)
+        end_frame = min(frames, max(start_frame + 1, end_frame))
+        if start_frame >= frames:
+            break
+        cues.append(
+            {
+                "segment_id": f"seg_caption_{index + 1}",
+                "text": text,
+                "start_frame": start_frame,
+                "end_frame": end_frame,
+                "render_profile": "noto-cjk-sc-bottom-v1",
+            }
+        )
+        cursor = end_frame
+    return cues
+
+
+def _tag_ai_generated(ffmpeg: Path, ffprobe: Path, path: Path) -> None:
+    temporary = path.with_name(f"{path.stem}-ai.mp4")
+    try:
+        _ffmpeg(
+            ffmpeg,
+            [
+                "-i",
+                str(path),
+                "-c",
+                "copy",
+                "-map",
+                "0",
+                "-metadata",
+                "comment=AI-generated",
+                str(temporary),
+            ],
+        )
+        has_video, has_audio, _duration = _probe_movie(ffprobe, temporary)
+        if has_video and has_audio:
+            temporary.replace(path)
+        else:
+            temporary.unlink(missing_ok=True)
+    except StoryFilmError:
+        temporary.unlink(missing_ok=True)
 
 
 _EXPORT_REASONS = {

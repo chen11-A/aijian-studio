@@ -17,6 +17,7 @@ from aijian_api.story_film import (
     StoryFilmRequest,
     StoryFilmResult,
     StoryFilmService,
+    StoryShot,
     film_progress,
     live_media_enabled,
     request_film_cancel,
@@ -54,6 +55,16 @@ class StoryFilmPlanResponse(BaseModel):
     request_id: UUID
 
 
+class StoryShotBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    narration: str = Field(min_length=1, max_length=80)
+    prompt: str = Field(min_length=1, max_length=400)
+    subtitle: str = Field(default="", max_length=57)
+    duration_seconds: int = Field(default=5, ge=1, le=15)
+    regenerate: bool = False
+
+
 class CreateStoryFilmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -70,6 +81,7 @@ class CreateStoryFilmBody(BaseModel):
     currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     amount_micro: int | None = Field(default=None, ge=0)
     regenerate: bool = False
+    shots: list[StoryShotBody] = Field(default_factory=list, max_length=10)
 
 
 class StoryFilmData(BaseModel):
@@ -260,6 +272,16 @@ def create_story_film_router(
                 amount_micro=payload.amount_micro,
                 idempotency_key=idempotency_key,
                 regenerate=payload.regenerate,
+                shots=tuple(
+                    StoryShot(
+                        narration=shot.narration.strip(),
+                        prompt=shot.prompt.strip(),
+                        duration_seconds=shot.duration_seconds,
+                        subtitle=shot.subtitle.strip(),
+                        regenerate=shot.regenerate,
+                    )
+                    for shot in payload.shots
+                ),
             ),
             media_token=token,
         )

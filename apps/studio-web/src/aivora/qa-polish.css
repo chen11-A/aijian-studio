@@ -212,3 +212,28 @@ button.nav-label {
   margin-top: 12px;
   border-radius: 8px;
 }
+
+/* Keep the asset footer below the type tabs and stop the grid from clipping cards. */
+.demo-root .main-panel.page-assets .page-scroll {
+  overflow: auto;
+}
+
+.demo-root .main-panel.page-assets .flow-footer {
+  position: static;
+  z-index: 2;
+}
+
+.demo-root .main-panel.page-assets .v2-assets-toolbar {
+  position: relative;
+  z-index: 5;
+}
+
+.demo-root .main-panel.page-assets .v2-assets-grid {
+  grid-auto-rows: minmax(180px, auto);
+  overflow: visible;
+}
+
+.demo-root .main-panel.page-assets .v2-assets-card {
+  min-height: 180px;
+  overflow: visible;
+}

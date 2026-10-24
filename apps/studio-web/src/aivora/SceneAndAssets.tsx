@@ -1231,7 +1231,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         reason={
           notice ||
           (state.kind === "READY"
-            ? "项目素材 " + assets.length + " 项 · 引用按资产和版本 ID 保存"
+            ? "已有 " + assets.length + " 项素材，保存在这台电脑上。"
             : "仅权威项目素材可供后续制作引用")
         }
         disabled={!selected || !selectedVersion || busy}

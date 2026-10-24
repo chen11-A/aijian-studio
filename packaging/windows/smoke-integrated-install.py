@@ -48,8 +48,8 @@ def main() -> None:
     ):
         raise ValueError("Refusing existing install, profile, or delivery data")
     installers = list((args.stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))
-    if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.2.6-win-x64.exe":
-        raise ValueError("Expected AIVORA-Setup-0.2.6-win-x64.exe")
+    if len(installers) != 1 or installers[0].name != "AIVORA-Setup-0.3.0-win-x64.exe":
+        raise ValueError("Expected AIVORA-Setup-0.3.0-win-x64.exe")
     installer = installers[0]
     if "Dev Core" in installer.name or "0.1.0-dev" in installer.name:
         raise ValueError("Shipped installer name still uses a development label")
@@ -103,7 +103,7 @@ def main() -> None:
         "silent_directory_switch": "/D",
         "executable_name": "AIVORA.exe",
         "display_name": "AIVORA",
-        "display_version": "0.2.6",
+        "display_version": "0.3.0",
         "user_data_directory": "AIVORA",
         "health_and_window": "PASS",
         "uninstall_app_removed": "PASS",

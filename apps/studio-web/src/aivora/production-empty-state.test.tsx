@@ -12,7 +12,7 @@ describe("production empty project state", () => {
   it.each([
     ["launch", "把故事，变成看得见的世界。"],
     ["home", "创作首页"],
-    ["project", "故事"],
+    ["project", "项目创作首页"],
     ["projects", "项目中心"],
     ["source", "故事输入与来源"],
     ["story", "故事理解"],
@@ -44,9 +44,9 @@ describe("production empty project state", () => {
   });
 
   it.each([
-    ["generation", "镜头生成", "打开雾城来信"],
-    ["voice", "声音", "打开雾城来信"],
-    ["export", "导出", "打开雾城来信"],
+    ["generation", "镜头生成", "打开示例"],
+    ["voice", "声音", "打开示例"],
+    ["export", "导出", "打开示例"],
   ])(
     "renders the %s sandbox before a project exists and without sample domain facts",
     (page, heading, desk) => {
