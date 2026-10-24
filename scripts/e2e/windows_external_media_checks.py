@@ -730,7 +730,7 @@ def main() -> None:
         _STAGE = "admit_pinned_pair"
         root = tools(args.tool_root, temporary)
         path = plain(args.input)
-        preview = plain(Path(os.environ["APPDATA"]) / "AIVORA Dev Core/composition-previews")
+        preview = plain(Path(os.environ["APPDATA"]) / "AIVORA/composition-previews")
         if (
             not path.is_file()
             or path.suffix.lower() != ".mp4"

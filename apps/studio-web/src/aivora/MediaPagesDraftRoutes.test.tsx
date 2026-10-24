@@ -67,7 +67,7 @@ it("renders real notes and plans on original review/changes/export routes and ke
   );
   const result = render(<MediaPages />);
   await screen.findByLabelText("评论");
-  expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id);
+  expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id);
   state.page = "changes";
   result.rerender(<MediaPages />);
   await screen.findByLabelText("人工修改指令");
@@ -79,7 +79,7 @@ it("renders real notes and plans on original review/changes/export routes and ke
   state.page = "export";
   result.rerender(<MediaPages />);
   await screen.findByLabelText("评论");
-  expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id);
+  expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id);
   expect(screen.getAllByLabelText("评论")).toHaveLength(1);
   expect(state.exports!.createFromPicker).not.toHaveBeenCalled();
   expect(state.exports!.revision!.approveDraftReviewRevisionPlan).not.toHaveBeenCalled();
@@ -91,8 +91,8 @@ it.each(["review", "changes", "export"] as const)(
     state.page = page;
     state.episodeId = null;
     render(<MediaPages />);
-    expect(screen.getByRole("button", { name: "选择项目和剧集" })).toBeEnabled();
-    expect(screen.queryByLabelText("审片原版 DRAFT")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开示例" })).toBeEnabled();
+    expect(screen.queryByLabelText("审片原版草稿")).not.toBeInTheDocument();
     expect(state.exports!.get).not.toHaveBeenCalled();
   },
 );
@@ -125,7 +125,7 @@ it("shows the saved project approval impact source on native changes even withou
   render(<MediaPages />);
   expect(screen.getByRole("heading", { name: "作品批准替代与下游影响" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "内容版本发生变更 · 4 条影响路径" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "选择项目和剧集" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "打开示例" })).toBeEnabled();
   expect(list).toHaveBeenCalledWith(source.project_id, { limit: 20 });
   expect(state.exports!.createFromPicker).not.toHaveBeenCalled();
   expect(state.exports!.revision!.approveDraftReviewRevisionPlan).not.toHaveBeenCalled();

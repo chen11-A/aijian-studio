@@ -24,9 +24,8 @@ export function ProductionInspector() {
           <dt>页面</dt>
           <dd>{pages[d.page][0]}</dd>
         </dl>
-        <p role="status">本页的对象级属性绑定尚未接入此面板。</p>
-        <p>请在中间工作区选择和编辑真实场次、镜头或片段。保存版本与回读状态以该编辑器为准。</p>
-        <p>这里不会提供默认镜头、模型参数或批准操作。</p>
+        <p role="status">详细属性在中间的工作区里编辑。</p>
+        <p>作品、剧集和当前页面显示在上面。</p>
         <Button onClick={() => document.getElementById("demo-scroll")?.focus()}>
           返回编辑工作区
         </Button>

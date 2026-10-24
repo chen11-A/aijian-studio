@@ -53,7 +53,7 @@ async function mount() {
       <Capture />
     </DemoProvider>,
   );
-  await screen.findByRole("button", { name: "本地工作区已连接" });
+  await screen.findByRole("status", { name: "本地工作区已连接" });
   return view;
 }
 async function submit() {
@@ -94,7 +94,7 @@ it("persists before the only POST, keeps exact UNKNOWN through refresh/dialog re
   expect(raw).not.toBeNull();
   await close();
   api.listProjects.mockResolvedValue({ request_id: "list", data: [saved] } as never);
-  fireEvent.click(screen.getByRole("button", { name: "本地工作区已连接" }));
+  fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
   await waitFor(() => expect(api.listProjects).toHaveBeenCalledTimes(2));
   fireEvent.click(screen.getByRole("button", { name: "新建项目" }));
   expect(screen.getByLabelText("作品名称")).toHaveValue(input.name);

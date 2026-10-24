@@ -1,4 +1,4 @@
-"""Fresh ephemeral Windows CI install, native smoke, abort-on-reinstall and uninstall."""
+"""Fresh ephemeral Windows CI install, native smoke, in-place reinstall, and uninstall."""
 
 from __future__ import annotations
 
@@ -146,17 +146,17 @@ def main() -> None:
     ):
         parser.error("This installer test is restricted to its authorized ephemeral CI branch")
     install = Path(os.environ["RUNNER_TEMP"]) / "AivoraDevCoreInstall"
-    user_data = Path(os.environ["APPDATA"]) / "AIVORA Dev Core"
+    user_data = Path(os.environ["APPDATA"]) / "AIVORA"
     if install.exists() or user_data.exists() or args.delivery.exists():
         raise ValueError("Refusing existing install/profile/delivery data")
-    installers = list((args.stage / "installer-output").glob("AIVORA-Dev-Core-*-win-x64.exe"))
+    installers = list((args.stage / "installer-output").glob("AIVORA-Setup-*-win-x64.exe"))
     if len(installers) != 1:
         raise ValueError("Expected exactly one bounded NSIS artifact")
     installer = installers[0]
     subprocess.run([str(installer), "/S", "/D=" + str(install)], check=True, timeout=120)
-    executable = install / "AIVORA Dev Core.exe"
+    executable = install / "AIVORA.exe"
     if not executable.is_file():
-        raise ValueError("Installer returned without the expected installed executable")
+        raise ValueError("Silent /D install did not produce AIVORA.exe in the requested directory")
     subprocess.run(
         [
             "node",
@@ -174,17 +174,24 @@ def main() -> None:
     )
     database = user_data / "workspace/workspace.sqlite3"
     # Keep the old core phase first; media work is optional and never changes
-    # the original install/reinstall-abort/uninstall preservation assertions.
+    # the install, in-place upgrade, or uninstall preservation assertions.
     media_result = external_media_phase(args, executable)
     before = (digest(executable), digest(database))
     retained = install / "user-created-keep.txt"
     retained_text = "Synthetic file outside the program manifest must survive uninstall."
     retained.write_text(retained_text)
-    # The same development installer must refuse recognized installation/data;
-    # this is a fail-closed test, not an implementation of safe upgrade.
-    reinstall = subprocess.run([str(installer), "/S", "/D=" + str(install)], timeout=60)
-    if reinstall.returncode == 0 or (digest(executable), digest(database)) != before:
-        raise ValueError("Reinstallation did not stop before changing existing app/data")
+    # Reinstall into the same /D directory replaces program files and must
+    # leave the workspace database and unknown user files unchanged.
+    reinstall = subprocess.run([str(installer), "/S", "/D=" + str(install)], timeout=120)
+    if (
+        reinstall.returncode != 0
+        or not executable.is_file()
+        or digest(executable) != before[0]
+        or digest(database) != before[1]
+        or not retained.is_file()
+        or retained.read_text() != retained_text
+    ):
+        raise ValueError("Reinstallation changed the workspace or did not keep the program")
     uninstallers = list(install.glob("Uninstall*.exe"))
     if len(uninstallers) != 1:
         raise ValueError("Expected one generated development uninstaller")
@@ -217,12 +224,12 @@ def main() -> None:
         "installer_bytes": installer.stat().st_size,
         "fresh_install": "PASS",
         "installed_native_create_save_reopen": "PASS",
-        "reinstall_existing_data": "SAFELY_ABORTED",
+        "reinstall_existing_data": "PRESERVED",
         "uninstall_app_removed": "PASS",
         "uninstall_workspace_preserved": "PASS",
         "uninstall_unknown_user_file_preserved": "PASS",
         "standard_user_clean_machine_acceptance": "NOT_ESTABLISHED",
-        "upgrade_restore": "NOT_IMPLEMENTED",
+        "upgrade_restore": "IN_PLACE_PROGRAM_FILES_USER_DATA_UNTOUCHED",
         "media_encode": "EXTERNAL_DRAFT_PASS" if media_result else "UNAVAILABLE",
         "external_media_validation": media_result or "NOT_REQUESTED",
         "signing": "NOT_PERFORMED",

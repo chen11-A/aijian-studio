@@ -12,6 +12,8 @@ import { useOfficialConnection } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { useOptionalAssistantSelection } from "./assistantSelection";
 import { AssistantChatConversation } from "./AssistantChatConversation";
 import { assistantChatBridge } from "./assistantChatTransport";
+import { useModelCenter } from "./account/CurrentModelLink";
+import { useGrokConnected } from "./grok-auth/useGrokConnected";
 import "./v2-assistant.css";
 import "./assistant-workbench.css";
 
@@ -27,9 +29,20 @@ export function AssistantPanel() {
 function ProductionAssistantPanel() {
   const d = useDemo();
   const account = useOfficialConnection();
+  const grokConnected = useGrokConnected();
+  const grokText = useModelCenter().choices.TEXT;
+  const grokModel =
+    grokConnected && grokText?.provider === "GROK_LOGIN"
+      ? grokText.modelId
+      : grokConnected
+        ? "grok-4.7"
+        : null;
   const selection = useOptionalAssistantSelection();
   const [tab, setTab] = useState("对话");
-  const pageLabel = pages[d.page][0];
+  const pageLabel =
+    !d.professional && d.page === "project"
+      ? (["故事", "画面", "声音", "成片"] as const)[Math.min(3, Math.max(0, d.filmStep))]
+      : pages[d.page][0];
   const chosen = account?.resolve(d.backendProjectId ?? "");
   const profileId = account?.catalogProfileId ?? null;
   const closeAssistant = () => {
@@ -49,6 +62,7 @@ function ProductionAssistantPanel() {
             {assistantServiceLabel(
               d.providerSettings.state,
               account ? assessChatGPTConnection(account.connection) : undefined,
+              grokConnected,
             )}
           </p>
         </div>
@@ -111,6 +125,7 @@ function ProductionAssistantPanel() {
             publication={selection?.publication ?? { kind: "NONE" }}
             included={selection?.included ?? false}
             setIncluded={(included) => selection?.setIncluded(included)}
+            grokModel={grokModel}
             onOpenServices={() => d.go("services")}
             onOpenEditor={() =>
               d.go(

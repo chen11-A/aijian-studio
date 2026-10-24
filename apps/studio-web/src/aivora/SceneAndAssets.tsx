@@ -21,6 +21,7 @@ import medical from "./assets/v2/medical.png";
 import "./v2-visual.css";
 import "./v21-scene-r1.css";
 
+import { Select } from "./Select";
 export function ScenePage() {
   const d = useDemo();
   return d.isFixture ? <FixtureScenePage /> : <ManualCreativePage kind="scenes" />;
@@ -154,7 +155,7 @@ function FixtureScenePage() {
         style={{ "--v21-local-media-aspect": mediaAspect } as CSSProperties}
       >
         <div className="v2-scenes-toolbar">
-          <select
+          <Select
             aria-label="当前地点"
             value={location.id}
             onChange={(event) => d.setSelectedLocation(Number(event.target.value))}
@@ -164,8 +165,8 @@ function FixtureScenePage() {
                 {item.name}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="环境状态"
             value={state}
             onChange={(event) => {
@@ -179,7 +180,7 @@ function FixtureScenePage() {
                 环境：{item === "夜 · 雨" ? "雨夜" : item}
               </option>
             ))}
-          </select>
+          </Select>
           <Button onClick={details}>空间设定</Button>
         </div>
         <div className="v21-scene-stage" style={{ "--scene-aspect": mediaAspect } as CSSProperties}>
@@ -1061,7 +1062,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
             <h3>素材版本 · {selected.latest_version.filename}</h3>
             <label>
               查看素材版本
-              <select
+              <Select
                 value={selectedVersionId}
                 onChange={(event) => chooseAsset(selected, event.target.value)}
               >
@@ -1074,7 +1075,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
                       {version.id === selected.latest_version.id ? " · 当前最新版" : " · 历史版本"}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             {selectedVersion ? (
               <>
@@ -1230,7 +1231,7 @@ function RealAssetsPage({ projectId }: { projectId: string }) {
         reason={
           notice ||
           (state.kind === "READY"
-            ? "项目素材 " + assets.length + " 项 · 引用按资产和版本 ID 保存"
+            ? "已有 " + assets.length + " 项素材，保存在这台电脑上。"
             : "仅权威项目素材可供后续制作引用")
         }
         disabled={!selected || !selectedVersion || busy}

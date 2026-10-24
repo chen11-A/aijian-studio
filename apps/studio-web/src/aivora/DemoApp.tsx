@@ -1,24 +1,26 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useGrokConnected } from "./grok-auth/useGrokConnected";
 import { DemoProvider, useDemo } from "./model";
 import type { DemoFixture } from "./model";
-import { art, pages, projectNav, stages } from "./data";
+import { pages, projectNav, stages } from "./data";
 import type { PageId, Scenario } from "./data";
 import { Button, EditorDialog } from "./Common";
 import { Icon, Logo } from "./Icon";
 import { AssistantPanel } from "./AssistantPanel";
 import { HomePages } from "./HomePages";
+import { ShortFilmGuide } from "./ShortFilmGuide";
 import { StoryPages } from "./StoryPages";
 import { VisualPages } from "./VisualPages";
 import { MediaPages } from "./MediaPages";
 import { UtilityPages } from "./UtilityPages";
 import { Inspector } from "./Inspector";
 import { Dropdown } from "./Dropdown";
-import {
-  OfficialConnectionProvider,
-  useOfficialConnection,
-} from "./chatgpt-auth/ChatGPTConnectionContext";
-import { assessChatGPTConnection, readinessLabels } from "../domain/ai-capability-readiness";
+import { UserChip } from "./UserChip";
+import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { AssistantSelectionProvider } from "./assistantSelection";
+import { Select } from "./Select";
+import { ProWorkspace } from "./pro/ProWorkspace";
+import { openWuchengSample, promptNewProject } from "./sample-project";
 
 export function DemoApp({ fixture }: { fixture?: DemoFixture }) {
   const [revision, setRevision] = useState(0);
@@ -54,7 +56,7 @@ function AssistantSelectionBoundary({ children }: { children: ReactNode }) {
 }
 function Workspace({ reset }: { reset: () => void }) {
   const d = useDemo();
-  const account = useOfficialConnection();
+  if (!d.isFixture) return <ProWorkspace projectId={d.backendProjectId} />;
   const global = pages[d.page][2] < 0;
   const activeStage = pages[d.page][2];
   const activeProject = d.projects.find((project) => String(project.id) === d.value("projectId"));
@@ -65,6 +67,7 @@ function Workspace({ reset }: { reset: () => void }) {
     activeProject.backendId === d.backendProjectId &&
     ["story", "script"].includes(d.page) &&
     !d.value("source").trim();
+  const surfacesBeforeProject: PageId[] = ["generation", "voice", "export"];
   const missingPageData =
     !activeProject ||
     (d.isFixture && ["story", "script"].includes(d.page) && !d.value("source").trim()) ||
@@ -104,6 +107,7 @@ function Workspace({ reset }: { reset: () => void }) {
     const node = lastDockFocus.current;
     if (node?.isConnected && node.getClientRects().length) node.focus({ preventScroll: true });
   }, [hasRail]);
+  const grokConnected = useGrokConnected();
   const providerState = d.providerSettings.state;
   const serviceStatus = d.isFixture
     ? "未连接真实服务"
@@ -112,11 +116,8 @@ function Workspace({ reset }: { reset: () => void }) {
       : providerState.kind === "error"
         ? "服务配置读取失败"
         : providerState.response.data.length === 0
-          ? "没有 API 连接"
+          ? "没有密钥连接"
           : `已配置 ${providerState.response.data.length} 个模型连接 · 可用性待核验`;
-  const officialStatus = account
-    ? readinessLabels[assessChatGPTConnection(account.connection)]
-    : "账号状态未读取";
   const taskState = d.taskQueue.state;
   const notificationDescription = d.isFixture
     ? d.tasks.length
@@ -158,7 +159,7 @@ function Workspace({ reset }: { reset: () => void }) {
             <small>AI Story & Motion Studio</small>
           </span>
         </button>
-        <select
+        <Select
           aria-label="作品选择"
           value={d.value("projectId", "1")}
           onChange={async (event) => {
@@ -172,13 +173,13 @@ function Workspace({ reset }: { reset: () => void }) {
               {project.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button icon="back" onClick={d.back}>
           返回
         </Button>
         {!management && (
           <>
-            <select
+            <Select
               className="episode-select"
               aria-label="剧集选择"
               value={d.isFixture ? d.value("episode") : (d.selectedEpisodeId ?? "")}
@@ -206,7 +207,7 @@ function Workspace({ reset }: { reset: () => void }) {
                   </option>
                 ))
               )}
-            </select>
+            </Select>
             <Button
               disabled={
                 d.episodeState === "loading" ||
@@ -259,28 +260,30 @@ function Workspace({ reset }: { reset: () => void }) {
           </>
         )}
         <div className="topbar-spacer" />
-        <div className="mode-switch">
-          <button
-            className={!d.professional ? "active" : ""}
-            aria-pressed={!d.professional}
-            onClick={() => {
-              d.setProfessional(false);
-              d.setInspector(false);
-            }}
-          >
-            普通模式
-          </button>
-          <button
-            className={d.professional ? "active" : ""}
-            aria-pressed={d.professional}
-            onClick={() => {
-              d.setProfessional(true);
-              d.setInspector(true);
-            }}
-          >
-            专业模式
-          </button>
-        </div>
+        {d.isFixture && (
+          <div className="mode-switch">
+            <button
+              className={!d.professional ? "active" : ""}
+              aria-pressed={!d.professional}
+              onClick={() => {
+                d.setProfessional(false);
+                d.setInspector(false);
+              }}
+            >
+              普通模式
+            </button>
+            <button
+              className={d.professional ? "active" : ""}
+              aria-pressed={d.professional}
+              onClick={() => {
+                d.setProfessional(true);
+                d.setInspector(true);
+              }}
+            >
+              专业模式
+            </button>
+          </div>
+        )}
         {pro && (
           <button
             className="professional-dock-toggle"
@@ -294,18 +297,20 @@ function Workspace({ reset }: { reset: () => void }) {
             {hasRail ? "收起专业右栏" : "恢复专业右栏"}
           </button>
         )}
-        <button className="service-indicator" onClick={() => d.go("services")}>
+        <button
+          className="service-indicator"
+          title={d.isFixture ? serviceStatus : grokConnected ? "Grok 已连接" : "Grok 未连接"}
+          onClick={() => d.go("services")}
+        >
           <span />
-          {d.isFixture
-            ? serviceStatus
-            : `API / Sub2API：${serviceStatus} · ChatGPT：${officialStatus}`}
+          {d.isFixture ? serviceStatus : grokConnected ? "Grok 已连接" : "Grok 未连接"}
         </button>
         {d.isFixture && (
           <Dropdown className="demo-controls" summary="UI 演示 · 样例">
             <div>
               <label>
                 演示页面
-                <select
+                <Select
                   aria-label="演示页面"
                   value={d.page}
                   onChange={(event) => d.go(event.target.value as PageId)}
@@ -315,11 +320,11 @@ function Workspace({ reset }: { reset: () => void }) {
                       {value[0]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 页面状态
-                <select
+                <Select
                   aria-label="页面状态"
                   value={d.scenario}
                   onChange={(event) => d.setScenario(event.target.value as Scenario)}
@@ -329,7 +334,7 @@ function Workspace({ reset }: { reset: () => void }) {
                   <option value="loading">加载中</option>
                   <option value="error">失败</option>
                   <option value="unavailable">能力未接入</option>
-                </select>
+                </Select>
               </label>
               <p>全部编辑只在内存中保存，刷新后恢复样例。</p>
               <Button onClick={reset}>重置演示</Button>
@@ -346,23 +351,23 @@ function Workspace({ reset }: { reset: () => void }) {
             })
           }
         />
-        <Dropdown
-          className="user-menu"
-          label="用户菜单"
-          summary={
-            <>
-              <img className="user-avatar" src={d.value("avatar", art.portrait)} alt="" />
-              <span>{d.value("userName", "陈")}</span>
-              <span>⌄</span>
-            </>
-          }
-        >
-          <div>
-            <button onClick={() => d.go("settings")}>用户中心</button>
-            <button onClick={() => d.go("projectSettings")}>项目设置</button>
-            <button onClick={() => d.go("launch")}>返回启动页</button>
-          </div>
-        </Dropdown>
+        <div className="topbar-tools">
+          <button
+            className="ai-toggle button"
+            aria-label={hasRail ? "切换 AI 助手" : "展开 AI 助手"}
+            onClick={() => {
+              if (pro) {
+                d.setProfessionalDockCollapsed(false);
+                d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
+              } else if (management) d.put("managementAI", hasRail ? "false" : "true");
+              else d.setAiOpen(!d.aiOpen);
+            }}
+          >
+            <Icon name="spark" />
+            AI
+          </button>
+          <UserChip />
+        </div>
       </header>
       <aside className="left-nav" aria-label="主导航">
         <nav>
@@ -378,17 +383,43 @@ function Workspace({ reset }: { reset: () => void }) {
                 <NavItem key={item.page} {...item} page={item.page as PageId} />
               ))}
             </>
+          ) : !d.professional && !d.isFixture ? (
+            (
+              [
+                ["故事", 0],
+                ["画面", 1],
+                ["声音", 2],
+                ["成片", 3],
+              ] as const
+            ).map(([label, step]) => (
+              <button
+                key={label}
+                className={`nav-item ${d.page === "project" && d.filmStep === step ? "selected" : ""}`}
+                aria-label={label}
+                title={label}
+                aria-current={d.page === "project" && d.filmStep === step ? "page" : undefined}
+                onClick={() => {
+                  d.setFilmStep(step);
+                  d.go("project");
+                }}
+              >
+                <Icon name="film" />
+                <span>{label}</span>
+              </button>
+            ))
           ) : (
             projectNav.map((item) => (
               <div key={item.page}>
                 {item.group && (
-                  <small
+                  <button
+                    type="button"
                     className="nav-label"
                     data-group={item.group === "资源与交付" ? "resources" : "characters"}
+                    onClick={() => d.go(item.page)}
                   >
                     <Icon name="globe" size={19} />
                     {item.group}
-                  </small>
+                  </button>
                 )}
                 <NavItem {...item} />
               </div>
@@ -397,6 +428,7 @@ function Workspace({ reset }: { reset: () => void }) {
         </nav>
         <div className="nav-bottom">
           {!global && <NavItem page="services" label="AI 服务" icon="spark" />}
+          {!global && <NavItem page="costs" label="用量" icon="clock" />}
           {!global && <NavItem page="settings" label="设置" icon="settings" />}
           {d.isFixture ? (
             <div className="local-note">
@@ -413,42 +445,74 @@ function Workspace({ reset }: { reset: () => void }) {
           )}
         </div>
       </aside>
-      {hasStage && (
+      {hasStage && !d.professional && !d.isFixture ? (
         <nav className="stage-bar" aria-label="创作阶段">
-          {stages.map((stage, index) => (
+          {(
+            [
+              ["故事", 0],
+              ["画面", 1],
+              ["声音", 2],
+              ["成片", 3],
+            ] as const
+          ).map(([label, step]) => (
             <button
-              key={stage.page}
-              aria-current={index === activeStage ? "step" : undefined}
-              className={index === activeStage ? "current" : ""}
-              onClick={() => d.go(stage.page)}
+              key={label}
+              aria-current={d.filmStep === step ? "step" : undefined}
+              className={d.filmStep === step ? "current" : ""}
+              onClick={() => {
+                d.setFilmStep(step);
+                d.go("project");
+              }}
             >
-              <span>
-                {d.value(
-                  [
-                    "storyConfirmed",
-                    "assetsConfirmed",
-                    "animaticConfirmed",
-                    "assemblyConfirmed",
-                    "reviewDone",
-                  ][index]!,
-                ) === "true" ? (
-                  <Icon name="check" size={16} />
-                ) : (
-                  index + 1
-                )}
-              </span>
-              <b>{stage.label}</b>
-              {index < 4 && <i>›</i>}
+              <span>{step + 1}</span>
+              <b>{label}</b>
+              {step < 3 && <i>›</i>}
             </button>
           ))}
         </nav>
+      ) : (
+        hasStage && (
+          <nav className="stage-bar" aria-label="创作阶段">
+            {stages.map((stage, index) => (
+              <button
+                key={stage.page}
+                aria-current={index === activeStage ? "step" : undefined}
+                className={index === activeStage ? "current" : ""}
+                onClick={() => d.go(stage.page)}
+              >
+                <span>
+                  {d.value(
+                    [
+                      "storyConfirmed",
+                      "assetsConfirmed",
+                      "animaticConfirmed",
+                      "assemblyConfirmed",
+                      "reviewDone",
+                    ][index]!,
+                  ) === "true" ? (
+                    <Icon name="check" size={16} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <b>{stage.label}</b>
+                {index < 4 && <i>›</i>}
+              </button>
+            ))}
+          </nav>
+        )
       )}
       <main className={`main-panel page-${d.page}`}>
         <div id="demo-scroll" tabIndex={-1} className="page-scroll">
           {sourceUnavailable ? (
             <SourceContentEmpty page={d.page} onOpenSource={() => d.go("source")} />
-          ) : missingPageData && !global && d.page !== "project" ? (
+          ) : missingPageData &&
+            !global &&
+            d.page !== "project" &&
+            (d.isFixture || !surfacesBeforeProject.includes(d.page)) ? (
             <ProjectContentEmpty page={d.page} />
+          ) : !d.isFixture && !d.professional && d.page === "project" ? (
+            <ShortFilmGuide />
           ) : homes.includes(d.page) ? (
             <HomePages />
           ) : stories.includes(d.page) ? (
@@ -480,7 +544,7 @@ function Workspace({ reset }: { reset: () => void }) {
               aria-selected={d.rightTab === "inspector"}
               onClick={() => d.selectRightTab("inspector")}
             >
-              Inspector
+              属性
             </button>
             <button
               id="dock-ai-tab"
@@ -500,20 +564,6 @@ function Workspace({ reset }: { reset: () => void }) {
           <AssistantPanel />
         </div>
       </aside>
-      <button
-        className="ai-toggle button"
-        aria-label={hasRail ? "切换 AI 助手" : "展开 AI 助手"}
-        onClick={() => {
-          if (pro) {
-            d.setProfessionalDockCollapsed(false);
-            d.selectRightTab(d.rightTab === "ai" ? "inspector" : "ai");
-          } else if (management) d.put("managementAI", hasRail ? "false" : "true");
-          else d.setAiOpen(!d.aiOpen);
-        }}
-      >
-        <Icon name="spark" />
-        AI
-      </button>
       {d.toast && (
         <div className="toast" role="status">
           <Icon name="check" />
@@ -525,13 +575,21 @@ function Workspace({ reset }: { reset: () => void }) {
   );
 }
 function ProjectContentEmpty({ page }: { page: PageId }) {
+  const d = useDemo();
   return (
     <section className="v2-visual-page" role="status">
       <h1>{pages[page][0]}</h1>
-      <p>尚未选择真实项目。创建或选择项目后，才会读取此页面的内容。</p>
+      <p>尚未选择真实项目。可以打开示例「雾城来信」，或回到首页新建。</p>
+      <div className="actions">
+        <Button onClick={() => promptNewProject(d)}>新建项目</Button>
+        <Button primary onClick={() => void openWuchengSample(d)}>
+          打开示例
+        </Button>
+      </div>
     </section>
   );
 }
+
 function SourceContentEmpty({ page, onOpenSource }: { page: PageId; onOpenSource: () => void }) {
   return (
     <section className="v2-visual-page" role="status">
