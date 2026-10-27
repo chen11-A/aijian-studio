@@ -262,7 +262,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "直接出成片" }));
     fireEvent.change(screen.getByLabelText("画面描述"), { target: { value: "雨停了" } });
     fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
-    expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+    expect(await screen.findByText("这一版已经生成。", {}, { timeout: 5_000 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /用这一版/ }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
@@ -510,5 +510,8 @@ async function openSample() {
     expect(screen.getByRole("button", { name: /Grok 会员|需要重新登录/ })).toHaveTextContent(
       "已连接",
     ),
+  );
+  await waitFor(() =>
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
   );
 }

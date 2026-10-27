@@ -822,7 +822,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
 
   return (
-    <div className="pro-root" data-stage={stage} data-sample={open ? "open" : "empty"}>
+    <div
+      className="pro-root"
+      data-stage={stage}
+      data-sample={open ? "open" : "empty"}
+      data-generate={actions.regenerate.enabled ? "on" : "off"}
+    >
       <div className="app">
         <header className="topbar">
           <div className="tb-left">
