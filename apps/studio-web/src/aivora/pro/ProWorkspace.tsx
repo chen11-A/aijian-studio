@@ -82,6 +82,28 @@ const SETTINGS_NOTE = "设置页还没接上。画风在角色与场景，每镜
 const USAGE_NOTE = "用量页还没接上。生成次数记在每部作品里。";
 const ROUGH_CUT_REASON = "多镜头还没接成一条，先播放这一镜。";
 
+function settleNextJob(
+  base: FilmProject,
+  shotId: string,
+  status: "done" | "failed" | "queued",
+): FilmProject {
+  let marked = false;
+  return {
+    ...base,
+    jobs: base.jobs.map((job) => {
+      if (
+        marked ||
+        job.shotId !== shotId ||
+        (job.status !== "running" && job.status !== "queued")
+      ) {
+        return job;
+      }
+      marked = true;
+      return { ...job, status };
+    }),
+  };
+}
+
 function filmSignature(value: FilmProject): string {
   return JSON.stringify({
     ...value,
@@ -844,6 +866,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               saved = updateShot(saved, group.shot.id, { seconds: shown });
             }
           }
+          saved = settleNextJob(saved, group.shot.id, done ? "done" : "failed");
           applyLive(saved);
           if (done && group.shot.id === openShotRef.current) setPlaying(true);
           setNotice(message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"));
@@ -863,7 +886,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           ),
         );
       }
-      applyLive(failed);
+      applyLive({
+        ...failed,
+        jobs: failed.jobs.map((job) =>
+          job.status === "running" || job.status === "queued"
+            ? { ...job, status: "failed" as const }
+            : job,
+        ),
+      });
       setNotice("没有生成成功，可以重试。");
     }
   }
@@ -1565,7 +1595,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   ? job.reason
                   : job.status === "done"
                     ? "好了"
-                    : "点此取消"}
+                    : job.status === "failed"
+                      ? "没有成功"
+                      : job.status === "cancelled"
+                        ? "已取消"
+                        : "点此取消"}
               </button>
             ))}
           </div>
