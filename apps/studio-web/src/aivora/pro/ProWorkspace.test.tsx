@@ -507,7 +507,7 @@ describe("professional workspace", () => {
     const { completeText } = installDesktop();
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("把这一场拆成镜头")) return { kind: "OK", text: "{不是镜头}" };
-      if (text.includes("抽出人物")) return { kind: "FAILED" };
+      if (text.includes("抽出人物")) return { kind: "FAILED", text: "" };
       return { kind: "OK", text: "好" };
     });
     render(<ProWorkspace projectId={PROJECT_ID} />);
