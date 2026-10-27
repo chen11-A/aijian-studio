@@ -1350,6 +1350,7 @@ function CastPage({
                         voiceId: "leo",
                         source: "user",
                         userFields: ["name"],
+                        portraits: [],
                       },
                     ],
                   });

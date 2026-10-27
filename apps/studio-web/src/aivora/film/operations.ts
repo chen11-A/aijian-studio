@@ -1,6 +1,7 @@
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import {
   keyframePrompt,
+  shotIdentity,
   type FilmJob,
   type FilmProject,
   type FilmScene,
@@ -39,11 +40,18 @@ export type StoryFilmBody = {
   provider: "grok_subscription";
   confirmed: boolean;
   voice_id: string;
+  style_block?: string;
   shots: {
     narration: string;
     prompt: string;
     subtitle: string;
     duration_seconds: number;
+    size?: string;
+    angle?: string;
+    move?: string;
+    action?: string;
+    performance?: string;
+    identity?: string;
   }[];
   video_model?: string;
 };
@@ -278,6 +286,7 @@ export function addShot(film: FilmProject, sceneId: string): FilmProject {
     sceneId,
     no: siblings.length + 1,
     size: "中景",
+    angle: "平视",
     move: "固定",
     seconds: 3,
     picture: "新镜头。",
@@ -289,6 +298,9 @@ export function addShot(film: FilmProject, sceneId: string): FilmProject {
     userFields: ["picture"],
     poster: "",
     posterPosition: "",
+    takes: [],
+    stills: [],
+    selectedTakeId: "",
   };
   return { ...film, shots: [...film.shots, shot] };
 }
@@ -392,12 +404,25 @@ function oneShot(shot: FilmShot, film: FilmProject) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
+  const picture = (shot.picture || shot.action || "起始画面").replace(/\s+/g, " ").trim();
   return {
     narration: narration || "这一镜",
-    prompt: (keyframePrompt(shot, film) || "起始画面").slice(0, 400),
+    prompt: picture.slice(0, 400),
     subtitle: shot.line.trim().slice(0, 28),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
+    size: shot.size.slice(0, 20),
+    angle: (shot.angle || "平视").slice(0, 20),
+    move: (shot.move || "固定").slice(0, 20),
+    action: shot.action.replace(/\s+/g, " ").trim().slice(0, 80),
+    performance: shot.performance.replace(/\s+/g, " ").trim().slice(0, 80),
+    identity: shotIdentity(shot, film).slice(0, 200),
   };
+}
+
+export function generationEstimate(shots: number, versions: number, seconds: number): string {
+  const count = Math.max(0, shots) * Math.max(1, versions);
+  const duration = Math.round(count * Math.max(0, seconds));
+  return `将生成 ${count} 个视频 · 约 ${duration} 秒 · 记在 Grok 会员额度里`;
 }
 
 export function storyFilmBatches(
@@ -417,6 +442,7 @@ export function storyFilmBatches(
       provider: "grok_subscription",
       confirmed: true,
       voice_id: film.characters[0]?.voiceId || "eve",
+      style_block: film.styleZh.trim().slice(0, 400),
       shots: (slice.length > 0 ? slice : rows).slice(0, 10).map((shot) => oneShot(shot, film)),
       ...(draft ? { video_model: VIDEO_DRAFT_MODEL } : { video_model: VIDEO_MODEL }),
     });

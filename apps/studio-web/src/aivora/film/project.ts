@@ -38,6 +38,31 @@ export type FilmLocation = {
   prompt: string;
 };
 
+export type FilmPortrait = {
+  view: string;
+  prompt: string;
+  url: string;
+};
+
+export type FilmStill = {
+  id: string;
+  prompt: string;
+  url: string;
+};
+
+export type FilmTake = {
+  id: string;
+  shotId: string;
+  index: number;
+  status: "queued" | "running" | "done" | "failed";
+  stillUrl: string;
+  videoPath: string;
+  videoUrl: string;
+  prompt: string;
+  createdAt: string;
+  reason: string;
+};
+
 export type FilmCharacter = {
   id: string;
   name: string;
@@ -45,6 +70,7 @@ export type FilmCharacter = {
   voiceId: string;
   source: string;
   userFields: string[];
+  portraits: FilmPortrait[];
 };
 
 export type FilmScene = {
@@ -62,6 +88,7 @@ export type FilmShot = {
   sceneId: string;
   no: number;
   size: string;
+  angle: string;
   move: string;
   seconds: number;
   picture: string;
@@ -73,11 +100,18 @@ export type FilmShot = {
   userFields: string[];
   poster: string;
   posterPosition: string;
+  takes: FilmTake[];
+  stills: FilmStill[];
+  selectedTakeId: string;
 };
 
 export type FilmProject = {
   schemaVersion: number;
   id: string;
+  seriesId: string;
+  seriesTitle: string;
+  episodeNo: number;
+  episodeTitle: string;
   title: string;
   stylePreset: string;
   styleZh: string;
@@ -90,12 +124,29 @@ export type FilmProject = {
   draft: boolean;
   jobs: FilmJob[];
   locations: FilmLocation[];
+  savedAt: string;
+  directory: string;
+  assemblyPath: string;
+  assemblyUrl: string;
+  exportPath: string;
 };
 
+export function newFilmId(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `film_${hex}`;
+}
+
 export function blankFilm(): FilmProject {
+  const seriesId = newFilmId();
   return {
     schemaVersion: 1,
-    id: "film-local",
+    id: newFilmId(),
+    seriesId,
+    seriesTitle: "未命名作品",
+    episodeNo: 1,
+    episodeTitle: "第 1 集",
     title: "未命名作品",
     stylePreset: "写实电影感",
     styleZh: DEFAULT_STYLE_ZH,
@@ -118,11 +169,38 @@ export function blankFilm(): FilmProject {
     draft: false,
     jobs: [],
     locations: [],
+    savedAt: "",
+    directory: "",
+    assemblyPath: "",
+    assemblyUrl: "",
+    exportPath: "",
   };
+}
+
+export function newEpisode(current: FilmProject): FilmProject {
+  const next = blankFilm();
+  next.seriesId = current.seriesId;
+  next.seriesTitle = current.seriesTitle || current.title;
+  next.episodeNo = current.episodeNo + 1;
+  next.episodeTitle = `第 ${next.episodeNo} 集`;
+  next.title = next.seriesTitle;
+  next.stylePreset = current.stylePreset;
+  next.styleZh = current.styleZh;
+  next.characters = current.characters.map((item) => ({
+    ...item,
+    portraits: item.portraits.map((portrait) => ({ ...portrait })),
+  }));
+  next.locations = current.locations.map((item) => ({ ...item }));
+  return next;
 }
 
 export function sampleFilm(): FilmProject {
   const film = blankFilm();
+  film.id = "film_sample000000000001";
+  film.seriesId = "film_sampleseries00001";
+  film.seriesTitle = "雨夜巷战";
+  film.episodeNo = 1;
+  film.episodeTitle = "第 1 集";
   film.title = "雨夜巷战";
   film.characters = [
     {
@@ -132,6 +210,7 @@ export function sampleFilm(): FilmProject {
       voiceId: "leo",
       source: "sample",
       userFields: [],
+      portraits: [],
     },
     {
       id: "dao",
@@ -140,6 +219,7 @@ export function sampleFilm(): FilmProject {
       voiceId: "leo",
       source: "sample",
       userFields: [],
+      portraits: [],
     },
   ];
   film.scenes = [
@@ -198,52 +278,64 @@ export function sampleFilm(): FilmProject {
       userFields: [],
     },
   ];
-  const rows: [string, string, string, string, string, number][] = [
-    [
-      "远景",
-      "俯拍窄巷，霓虹倒映在积水里，三道黑影从巷口走来。",
-      "/pro/key.jpg",
-      "50% 18%",
-      "2.0",
-      2,
-    ],
-    ["特写", "刀背上的雨水一滴滴落下，林骁平稳呼吸。", "/pro/f1.0.jpg", "50% 70%", "1.5", 1.5],
-    ["中景", "刀疤叼着烟开口威胁，身后两个打手。", "/pro/f0.2.jpg", "50% 30%", "2.0", 2],
-    ["近景", "林骁抬眼，眼神平静，雨水顺着眉骨流下。", "/pro/key.jpg", "20% 52%", "1.5", 1.5],
-    ["跟拍", "侧身让过铁棍，反手用刀柄砸中对方手腕。", "/pro/f1.4.jpg", "50% 55%", "3.0", 3],
-    ["慢镜", "铁棍落进积水，水花在霓虹里四溅。", "", "", "4.0", 4],
+  const rows: [string, string, string, number][] = [
+    ["远景", "俯拍窄巷，霓虹倒映在积水里，三道黑影从巷口走来。", "俯拍", 2],
+    ["特写", "刀背上的雨水一滴滴落下，林骁平稳呼吸。", "平视", 1.5],
+    ["中景", "刀疤叼着烟开口威胁，身后两个打手。", "平视", 2],
+    ["近景", "林骁抬眼，眼神平静，雨水顺着眉骨流下。", "平视", 1.5],
+    ["跟拍", "侧身让过铁棍，反手用刀柄砸中对方手腕。", "平视", 3],
+    ["慢镜", "铁棍落进积水，水花在霓虹里四溅。", "俯拍", 4],
   ];
   film.shots = rows.map((row, index) => ({
     id: `02-shot-${index + 1}`,
     sceneId: "02",
     no: index + 1,
     size: row[0],
+    angle: row[2],
     move: index === 4 ? "跟拍" : "固定",
-    seconds: row[5],
+    seconds: row[3],
     picture: row[1],
-    action: row[1],
+    action: index === 4 ? "侧身让过铁棍，反手砸中手腕。" : row[1],
     performance: index === 3 ? "冷静，眼神盯着刀疤。" : "",
     characters: row[1].includes("刀疤") ? ["刀疤"] : ["林骁"],
     line: ["", "", "东西交出来，留你一条腿。", "雨太大，我听不清。", "", "一起上！"][index] ?? "",
     source: "sample",
     userFields: [],
-    poster: row[2],
-    posterPosition: row[3],
+    poster: "",
+    posterPosition: "",
+    takes: [],
+    stills: [],
+    selectedTakeId: "",
   }));
   return film;
 }
 
-export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
+export function shotIdentity(shot: FilmShot, film: FilmProject): string {
   const names = new Set(shot.characters);
-  const identity = film.characters
+  return film.characters
     .filter((item) => item.identity && (names.size === 0 || names.has(item.name)))
     .map((item) => item.identity.replace(/。$/, ""))
     .join("。");
+}
+
+export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
+  const picture = (shot.picture || shot.action).trim();
+  if (picture.startsWith("这一镜的起始画面")) {
+    return picture.endsWith("。") ? picture : `${picture}。`;
+  }
   const bits = ["这一镜的起始画面，不是角色定妆照"];
+  const identity = shotIdentity(shot, film);
   if (identity) bits.push(identity);
-  bits.push((shot.picture || shot.action).replace(/。$/, ""));
-  bits.push(film.styleZh.replace(/。$/, ""));
-  return `${bits.join("。")}。`;
+  if (picture) bits.push(picture.replace(/。$/, ""));
+  if (shot.size) bits.push(`景别${shot.size}`);
+  if (shot.angle) bits.push(`角度${shot.angle}`);
+  if (shot.move) bits.push(`运镜${shot.move}`);
+  const action = shot.action.trim().replace(/。$/, "");
+  if (action && action !== picture.replace(/。$/, "")) bits.push(`动作要点${action}`);
+  if (shot.performance.trim()) bits.push(`表演${shot.performance.trim().replace(/。$/, "")}`);
+  const style = film.styleZh.trim().replace(/。$/, "");
+  if (style && !bits.join("").includes(style)) bits.push(style);
+  return `${bits.filter(Boolean).join("。")}。`;
 }
 
 export function videoPrompt(shot: FilmShot): string {
@@ -268,6 +360,10 @@ export function offlineShots(story: string, sceneId: string): FilmShot[] {
     userFields: [],
     poster: "",
     posterPosition: "",
+    angle: "平视",
+    takes: [],
+    stills: [],
+    selectedTakeId: "",
   }));
 }
 
@@ -330,6 +426,10 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
       userFields: [],
       poster: "",
       posterPosition: "",
+      angle: typeof record.angle === "string" ? record.angle : "平视",
+      takes: [],
+      stills: [],
+      selectedTakeId: "",
     });
   });
   return shots.length > 0 ? shots : null;
@@ -370,12 +470,33 @@ export function readFilm(storage: Storage): FilmProject | null {
     return {
       ...base,
       ...value,
-      characters: value.characters ?? [],
+      id: value.id || base.id,
+      seriesId: value.seriesId || value.id || base.seriesId,
+      seriesTitle: value.seriesTitle || value.title || base.seriesTitle,
+      episodeNo: value.episodeNo || 1,
+      episodeTitle: value.episodeTitle || "第 1 集",
+      characters: (value.characters ?? []).map((item) => ({
+        ...item,
+        portraits: item.portraits ?? [],
+      })),
       scenes: value.scenes?.length ? value.scenes : base.scenes,
-      shots: (value.shots ?? []).map((shot) => ({ ...shot, line: shot.line ?? "" })),
+      shots: (value.shots ?? []).map((shot) => ({
+        ...shot,
+        line: shot.line ?? "",
+        angle: shot.angle ?? "平视",
+        takes: shot.takes ?? [],
+        stills: shot.stills ?? [],
+        selectedTakeId: shot.selectedTakeId ?? "",
+        poster: shot.poster?.startsWith("/pro/") ? "" : (shot.poster ?? ""),
+      })),
       jobs: value.jobs ?? [],
       locations: value.locations ?? [],
       styleZh: value.styleZh || base.styleZh,
+      savedAt: value.savedAt ?? "",
+      directory: value.directory ?? "",
+      assemblyPath: value.assemblyPath ?? "",
+      assemblyUrl: "",
+      exportPath: value.exportPath ?? "",
     };
   } catch {
     return null;
