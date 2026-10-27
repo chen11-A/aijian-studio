@@ -63,7 +63,7 @@ import {
 } from "../film/project";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokConnected } from "../grok-auth/useGrokConnected";
-import { videoActions, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
+import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
 
@@ -81,6 +81,7 @@ const STAGES: { id: Stage; label: string }[] = [
 const SETTINGS_NOTE = "设置页还没接上。画风在角色与场景，每镜次数在单镜工作台。";
 const USAGE_NOTE = "用量页还没接上。生成次数记在每部作品里。";
 const ROUGH_CUT_REASON = "多镜头还没接成一条，先播放这一镜。";
+const SHOT_SIZES = ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"];
 
 function settleNextJob(
   base: FilmProject,
@@ -147,32 +148,64 @@ function PreviewVideo({
   onTime: (seconds: number) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const onPlayingRef = useRef(onPlaying);
+  const onTimeRef = useRef(onTime);
+  onPlayingRef.current = onPlaying;
+  onTimeRef.current = onTime;
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
+    let frame = 0;
+    let cancelled = false;
+    const stop = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    const tick = () => {
+      onTimeRef.current(video.currentTime || 0);
+      frame = requestAnimationFrame(tick);
+    };
     if (!playing) {
       video.pause();
+      stop();
       return;
     }
-    if (typeof video.play !== "function") return;
-    video.muted = false;
-    const attempt = video.play();
-    if (attempt && typeof attempt.catch === "function") {
-      void attempt.catch(() => {
+    const start = async () => {
+      if (typeof video.play !== "function") return;
+      video.muted = false;
+      try {
+        await video.play();
+      } catch {
+        if (cancelled) return;
         video.muted = true;
-        const retry = video.play();
-        if (retry && typeof retry.catch === "function") void retry.catch(() => onPlaying(false));
-      });
-    }
-  }, [playing, src, onPlaying]);
+        try {
+          await video.play();
+        } catch {
+          if (!cancelled) onPlayingRef.current(false);
+          return;
+        }
+      }
+      if (!cancelled) tick();
+    };
+    void start();
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [playing, src]);
   return (
     <video
       ref={ref}
       className="frame"
       src={src}
       playsInline
-      onTimeUpdate={() => onTime(ref.current?.currentTime ?? 0)}
-      onEnded={() => onPlaying(false)}
+      preload="auto"
+      onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
+      onEnded={() => {
+        onTimeRef.current(ref.current?.currentTime ?? 0);
+        onPlayingRef.current(false);
+      }}
+      onError={() => onPlayingRef.current(false)}
     />
   );
 }
@@ -190,6 +223,33 @@ function Thumb({
     ? { backgroundImage: `url(${src})`, backgroundPosition: position ?? "50% 50%" }
     : undefined;
   return <div className={rain || !src ? "thumb rain" : "thumb"} style={style} />;
+}
+
+function displayableImage(url: string | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http")) return url;
+  return "";
+}
+
+function takeVideo(shot: FilmShot | undefined): string {
+  if (!shot) return "";
+  const take =
+    shot.takes.find((item) => item.id === shot.selectedTakeId && item.videoUrl) ??
+    shot.takes.find((item) => item.status === "done" && item.videoUrl);
+  return take?.videoUrl ?? "";
+}
+
+function FrameThumb({ shot }: { shot?: FilmShot }) {
+  const frame = shotFrame(shot);
+  const video = frame ? "" : takeVideo(shot);
+  if (video) {
+    return (
+      <div className="thumb">
+        <video src={video} muted playsInline preload="metadata" />
+      </div>
+    );
+  }
+  return <Thumb src={frame || undefined} position={shot?.posterPosition} rain={!frame} />;
 }
 
 export function ProWorkspace({ projectId = null }: { projectId?: string | null }) {
@@ -845,18 +905,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 : item,
           );
           const frame =
-            preview.startsWith("data:") ||
-            preview.startsWith("blob:") ||
-            preview.startsWith("http")
+            preview.startsWith("data:") || preview.startsWith("blob:") || preview.startsWith("http")
               ? preview
               : "";
           let saved = replaceTakes(
             latest,
             group.shot.id,
             takes,
-            done
-              ? take.id
-              : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
+            done ? take.id : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
           );
           if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
           if (done && Number.isFinite(reported) && reported > 0.4) {
@@ -1069,6 +1125,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     const next = blankFilm();
                     applyLive(next);
                     setPending(null);
+                    setShot(0);
                     setRange(false);
                     setComparing(false);
                     setBench(false);
@@ -1208,6 +1265,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onClick={() => {
                     setStage(item.id);
                     setMenu(null);
+                    if (item.id === "board") {
+                      const current = filmRef.current;
+                      const rows =
+                        current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
+                      const list = rows.length > 0 ? rows : (current?.shots ?? []);
+                      const next = list.findIndex(
+                        (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
+                      );
+                      setShot(next >= 0 ? next : 0);
+                    }
                     if (item.id !== "cast") return;
                     const current = filmRef.current;
                     if (
@@ -1461,6 +1528,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onSelectRange={() => {
                     setRange(true);
                     setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  onPickClip={() => {
+                    setRange(true);
                     setRightTab("fix");
                   }}
                   onClearRange={() => {
@@ -2248,7 +2319,7 @@ function CastPage({
             {VOICES.map((voice) => (
               <div className="vcard" key={voice.id}>
                 <div>
-                  <b>
+                  <b title={voice.id}>
                     {voice.name}
                     {voice.recommended ? " · 推荐" : ""}
                   </b>
@@ -2425,11 +2496,7 @@ function BoardPage({
               onClick={() => onShot(index)}
             >
               <div style={{ position: "relative" }}>
-                <Thumb
-                  src={shotFrame(item) || undefined}
-                  position={item.posterPosition}
-                  rain={!shotFrame(item)}
-                />
+                <FrameThumb shot={item} />
                 <span
                   className={
                     item.takes.some((take) => take.status === "done") ? "badge ok" : "badge none"
@@ -2503,7 +2570,10 @@ function BoardPage({
                         )
                       }
                     >
-                      {["远景", "全景", "中景", "近景", "特写", "跟拍", "慢镜"].map((item) => (
+                      {(SHOT_SIZES.includes(current.size)
+                        ? SHOT_SIZES
+                        : [current.size, ...SHOT_SIZES]
+                      ).map((item) => (
                         <option key={item}>{item}</option>
                       ))}
                     </select>
@@ -2542,6 +2612,37 @@ function BoardPage({
                 </div>
               </div>
               <div className="field">
+                <label htmlFor="shot-style">画风</label>
+                <select
+                  id="shot-style"
+                  className="input"
+                  aria-label="画风"
+                  value={film.stylePreset}
+                  onChange={(event) => {
+                    const preset =
+                      STYLE_PRESETS.find((item) => item.name === event.target.value) ??
+                      STYLE_PRESETS[0]!;
+                    onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
+                  }}
+                >
+                  {STYLE_PRESETS.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className="area"
+                  aria-label="这一镜的画风"
+                  style={{ marginTop: 8 }}
+                  placeholder="不写就用整部作品的画风"
+                  value={current.styleNote ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="field">
                 <label>画面描述</label>
                 <textarea
                   className="area"
@@ -2578,6 +2679,7 @@ function BoardPage({
                 <textarea
                   className="area"
                   aria-label="动作要点"
+                  placeholder="没有就留空"
                   value={current.action}
                   onChange={(event) =>
                     onFilm(
@@ -2712,11 +2814,7 @@ function GeneratePage({
               className={index === shot ? "shotrow on" : "shotrow"}
               onClick={() => onShot(index)}
             >
-              <Thumb
-                src={shotFrame(item) || undefined}
-                position={item.posterPosition}
-                rain={!shotFrame(item)}
-              />
+              <FrameThumb shot={item} />
               <div>
                 <b>
                   镜头 {item.no} · {item.size}
@@ -2781,7 +2879,19 @@ function GeneratePage({
                 className={item.id === current?.selectedTakeId ? "cand pick" : "cand"}
                 onClick={() => choose(item.id)}
               >
-                <div className={item.stillUrl || item.videoUrl ? "thumb" : "thumb rain"}>
+                <div
+                  className={
+                    displayableImage(item.stillUrl) || item.videoUrl ? "thumb" : "thumb rain"
+                  }
+                >
+                  {displayableImage(item.stillUrl) ? (
+                    <div
+                      className="still"
+                      style={{ backgroundImage: `url(${displayableImage(item.stillUrl)})` }}
+                    />
+                  ) : item.videoUrl ? (
+                    <video src={item.videoUrl} muted playsInline preload="metadata" />
+                  ) : null}
                   <span className="dur">
                     {item.status === "done"
                       ? `${current?.seconds ?? 0}s`
@@ -2821,11 +2931,7 @@ function GeneratePage({
             <span>不是定妆照</span>
           </div>
           <div className="startf">
-            <Thumb
-              src={shotFrame(current) || undefined}
-              position={current?.posterPosition}
-              rain={!shotFrame(current)}
-            />
+            <FrameThumb shot={current} />
             <div>
               <b>{current ? `镜头 ${current.no} · ${current.size}` : "还没有镜头"}</b>
               先出这一镜的图，再让它动起来
@@ -2883,7 +2989,7 @@ function GeneratePage({
                 {[2, 3, 5, 8].map((seconds) => (
                   <button
                     key={seconds}
-                    className={duration === seconds ? "on" : ""}
+                    className={(current?.seconds ?? duration) === seconds ? "on" : ""}
                     onClick={() => onDuration(seconds)}
                   >
                     {seconds} 秒
@@ -2930,7 +3036,7 @@ function GeneratePage({
           <div className="model">
             <Ic name="spark" size={14} />
             <span>Grok 会员</span>
-            <small>视频 1.5</small>
+            <small title={GENERATE_MODEL}>成片</small>
             <span className="sp" />
             <small>不另外收费</small>
           </div>
@@ -2960,6 +3066,7 @@ function EditPage({
   actions,
   onTogglePlay,
   onSelectRange,
+  onPickClip,
   onClearRange,
   onAction,
   onKeep,
@@ -2981,6 +3088,7 @@ function EditPage({
   actions: ReturnType<typeof videoActions>;
   onTogglePlay: () => void;
   onSelectRange: () => void;
+  onPickClip: () => void;
   onClearRange: () => void;
   onAction: (action: FixAction) => void;
   onKeep: () => void;
@@ -3113,11 +3221,7 @@ function EditPage({
                   }}
                 >
                   <div style={{ position: "relative" }}>
-                    <Thumb
-                      src={shotFrame(item) || undefined}
-                      position={item.posterPosition}
-                      rain={!shotFrame(item)}
-                    />
+                    <FrameThumb shot={item} />
                     <span className="dur">{item.seconds}s</span>
                   </div>
                   <p>
@@ -3459,7 +3563,7 @@ function EditPage({
                     style={{ left: clip.left, width: clip.width }}
                     onClick={() => {
                       onShot(index);
-                      onSelectRange();
+                      onPickClip();
                     }}
                   >
                     <span className="lb">

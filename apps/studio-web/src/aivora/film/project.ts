@@ -104,6 +104,8 @@ export type FilmShot = {
   picture: string;
   action: string;
   performance: string;
+  /** Optional per-shot style. Empty means the project style bible. */
+  styleNote?: string;
   characters: string[];
   line: string;
   /** Phase 2 sound block. Generation ignores it in Phase 1. */
@@ -309,8 +311,8 @@ export function sampleFilm(): FilmProject {
     ["特写", "刀背上的雨水一滴滴落下，林骁平稳呼吸。", "平视", 1.5],
     ["中景", "刀疤叼着烟开口威胁，身后两个打手。", "平视", 2],
     ["近景", "林骁抬眼，眼神平静，雨水顺着眉骨流下。", "平视", 1.5],
-    ["跟拍", "侧身让过铁棍，反手用刀柄砸中对方手腕。", "平视", 3],
-    ["慢镜", "铁棍落进积水，水花在霓虹里四溅。", "俯拍", 4],
+    ["中景", "侧身让过铁棍，反手用刀柄砸中对方手腕。", "平视", 3],
+    ["全景", "铁棍落进积水，水花在霓虹里四溅。", "俯拍", 4],
   ];
   film.shots = rows.map((row, index) => ({
     id: `02-shot-${index + 1}`,
@@ -318,7 +320,7 @@ export function sampleFilm(): FilmProject {
     no: index + 1,
     size: row[0],
     angle: row[2],
-    move: index === 4 ? "跟拍" : "固定",
+    move: index === 4 ? "跟拍" : index === 5 ? "慢镜" : "固定",
     seconds: row[3],
     picture: row[1],
     action: index === 4 ? "侧身让过铁棍，反手砸中手腕。" : row[1],
@@ -360,7 +362,7 @@ export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
   const action = shot.action.trim().replace(/。$/, "");
   if (action && action !== picture.replace(/。$/, "")) bits.push(`动作要点${action}`);
   if (shot.performance.trim()) bits.push(`表演${shot.performance.trim().replace(/。$/, "")}`);
-  const style = film.styleZh.trim().replace(/。$/, "");
+  const style = (shot.styleNote || film.styleZh).trim().replace(/。$/, "");
   if (style && !bits.join("").includes(style)) bits.push(style);
   return `${bits.filter(Boolean).join("。")}。`;
 }
@@ -431,10 +433,12 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
-    const picture = [record.action, record.picture, record.narration].find(
+    const picture = [record.picture, record.narration, record.action].find(
       (item) => typeof item === "string" && item.trim(),
     );
     if (typeof picture !== "string") return;
+    const told = picture.trim();
+    const action = typeof record.action === "string" ? record.action.trim() : "";
     const seconds = typeof record.seconds === "number" ? record.seconds : 3;
     shots.push({
       id: `${sceneId}-shot-${index + 1}`,
@@ -443,8 +447,8 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
       size: typeof record.size === "string" ? record.size : "中景",
       move: typeof record.move === "string" ? record.move : "固定",
       seconds: storedShotSeconds(seconds),
-      picture: picture.trim(),
-      action: picture.trim(),
+      picture: told,
+      action: action && action !== told ? action : "",
       performance: "",
       characters: Array.isArray(record.characters)
         ? record.characters.filter((item): item is string => typeof item === "string")
