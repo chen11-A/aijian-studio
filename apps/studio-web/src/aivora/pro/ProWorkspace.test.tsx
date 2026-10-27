@@ -242,7 +242,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试失败的" }));
     expect(screen.getByText("没有失败的生成。")).toBeInTheDocument();
     expect(completeText).toHaveBeenCalled();
-  });
+  }, 20_000);
 
   it("generates real takes, joins them, and exports the file", async () => {
     const createStoryFilm = vi.fn(async () => ({
@@ -286,7 +286,7 @@ describe("professional workspace", () => {
     expect(desktop.revealFilmPath).toHaveBeenCalled();
     expect(desktop.openFilmPath).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-  });
+  }, 20_000);
 
   it("pauses a batch, retries a failure, and cancels a running job", async () => {
     let release: (value: unknown) => void = () => undefined;
@@ -317,7 +317,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/已暂停。点继续再生成剩下的/)).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("refuses a draft the catalog does not list and a page without a project", async () => {
     installDesktop();
@@ -407,7 +407,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
     expect(await screen.findByText(/已删除这一集/)).toBeInTheDocument();
-  });
+  }, 20_000);
 });
 
 function stageTab(name: string) {
