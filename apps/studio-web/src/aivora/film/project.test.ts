@@ -5,10 +5,18 @@ import {
   assistantPrompt,
   agentRequest,
   blankFilm,
+  generationNote,
   keyframePrompt,
+  newFilmId,
   offlineShots,
+  parseDirectorShots,
+  readFilm,
   sampleFilm,
+  textModel,
+  videoPrompt,
+  writeFilm,
 } from "./project";
+import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 
 describe("film project", () => {
   it("gives each shot its own keyframe and the character's looks", () => {
@@ -59,5 +67,41 @@ describe("film project", () => {
     expect(prompt).toContain("这一场怎么写");
     expect(prompt).toContain("不要改作品");
     expect(agentRequest("director", "画风", "拆开")).toContain("你是短剧导演");
+    expect(assistantPrompt("   ", null)).toContain("短剧助手");
+    expect(assistantPrompt("很".repeat(8000), film).length).toBe(7500);
+    expect(agentRequest("writer", "很".repeat(8000), "写").length).toBe(7500);
+  });
+
+  it("reads a saved film and ignores a broken record", () => {
+    expect(newFilmId()).toMatch(/^film_[0-9a-f]{16}$/);
+    expect(readFilm(window.localStorage)).toBeNull();
+    window.localStorage.setItem("aivora.film.active", "{");
+    expect(readFilm(window.localStorage)).toBeNull();
+    window.localStorage.setItem("aivora.film.active", JSON.stringify({ title: "" }));
+    expect(readFilm(window.localStorage)).toBeNull();
+    const film = sampleFilm();
+    film.shots[0]!.poster = "/pro/key.jpg";
+    film.shots[0]!.line = "对白";
+    writeFilm(window.localStorage, film);
+    const restored = readFilm(window.localStorage);
+    expect(restored?.title).toBe("雨夜巷战");
+    expect(restored?.shots[0]?.poster).toBe("");
+    expect(restored?.shots[0]?.takes).toEqual([]);
+    expect(videoPrompt(film.shots[0]!)).toContain("视频不要自己出声");
+    expect(parseDirectorShots("没有括号", "02")).toBeNull();
+    expect(parseDirectorShots("{", "02")).toBeNull();
+    expect(parseDirectorShots('{"shots":"no"}', "02")).toBeNull();
+    expect(parseDirectorShots('{"shots":[{}]}', "02")).toBeNull();
+    const parsed = parseDirectorShots(
+      '说明 {"shots":[{"picture":"抬眼","seconds":99,"characters":["林骁",1]}]}',
+      "02",
+    );
+    expect(parsed?.[0]?.seconds).toBe(15);
+    expect(parsed?.[0]?.characters).toEqual(["林骁"]);
+    expect(generationNote([])).toContain(IMAGE_MODEL);
+    expect(generationNote([IMAGE_MODEL])).toContain(VIDEO_MODEL);
+    expect(generationNote([IMAGE_MODEL, VIDEO_MODEL])).toContain("起始画面");
+    expect(textModel([])).toBe(TEXT_MODEL);
+    expect(textModel(["grok-4-fast"])).toBe("grok-4-fast");
   });
 });
