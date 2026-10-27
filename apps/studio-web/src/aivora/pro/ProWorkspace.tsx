@@ -1610,6 +1610,7 @@ function ScriptPage({
                     title: `第 ${film.scenes.length + 1} 场`,
                     where: "",
                     text: "",
+                    ambience: "",
                     source: "user",
                     userFields: ["text"],
                   },

@@ -97,7 +97,32 @@ describe("film project", () => {
       "02",
     );
     expect(parsed?.[0]?.seconds).toBe(15);
+    expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);
+    expect(restored?.audioClips).toEqual([]);
+    expect(restored?.shots[0]?.sound.source).toBe("native");
+    film.shots[0]!.seconds = 99;
+    film.audioClips = [
+      {
+        id: "clip-1",
+        lane: "dialogue",
+        shotId: film.shots[0]!.id,
+        takeId: "",
+        label: "原声",
+        startSeconds: 0,
+        durationSeconds: 2,
+        offsetSeconds: 0,
+        gainDb: 0,
+      },
+    ];
+    film.narrationVoiceId = "eve";
+    writeFilm(window.localStorage, film);
+    const withAudio = readFilm(window.localStorage);
+    expect(withAudio?.shots[0]?.seconds).toBe(15);
+    expect(withAudio?.audioClips).toHaveLength(1);
+    expect(withAudio?.audioClips[0]?.lane).toBe("dialogue");
+    expect(withAudio?.narrationVoiceId).toBe("eve");
+    expect(withAudio?.scenes[0]?.ambience).toBe("");
     expect(generationNote([])).toContain(IMAGE_MODEL);
     expect(generationNote([IMAGE_MODEL])).toContain(VIDEO_MODEL);
     expect(generationNote([IMAGE_MODEL, VIDEO_MODEL])).toContain("起始画面");

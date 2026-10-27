@@ -15,6 +15,10 @@ opens the professional workspace and cannot switch to a beginner mode.
 - 剪辑 plays the joined file, or one take with the reason it could not join.
 - Export writes the file the user picked. 打开文件夹 and 播放 use that path.
 - Undo and redo cover the open film.
+- A shot can store a length up to 15 seconds. Each shot keeps an empty sound
+  plan, and the film keeps an empty list of clips for the later lanes 对白,
+  环境音, 音效, and 配乐. Phase 1 does not fill them, does not call speech,
+  and still asks the video to stay silent.
 - Image model `grok-imagine-image-2.0` (retires 2026-11-02), video
   `grok-imagine-video-1.5`, draft `grok-imagine-video-1.5-lite`. Empty model
   lists disable generate and say why.
@@ -26,12 +30,16 @@ opens the professional workspace and cannot switch to a beginner mode.
 
 一键成片 stops at 分镜 before video generation. 角色与场景 becomes a series-wide
 library of 角色, 场景, and 道具. Templates and one beginner 助手 land here.
+Sound probes, a character voice with 试听, scene 环境音, the shot sound block,
+and shot length taken from the line are also Phase 2. They are not in this build.
 
 ## Phase 3, not in this build
 
 Takes on the timeline, 定稿, gap close, the pre-export check, 16:9 / 9:16 /
 subtitle export, snapshots, bundled music and effects, 声音自动调好, 统一色调,
-and 审片 markers. The loudness sentence in the product note stays until then.
+and 审片 markers. The four audio lanes, ducking, and loudness export are Phase 3.
+The loudness sentence in the product note stays until then. The timeline in this
+build still shows 字幕, 视频, 配音, and 音乐.
 
 ## Honesty
 

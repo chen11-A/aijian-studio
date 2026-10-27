@@ -4,6 +4,14 @@ import performance from "../../../../../services/api/src/aijian_api/agents/promp
 import writer from "../../../../../services/api/src/aijian_api/agents/prompts/writer.md?raw";
 import { offlineRotation } from "../shot-plan";
 import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
+import {
+  emptySoundPlan,
+  normalizeAudioClips,
+  normalizeSoundPlan,
+  storedShotSeconds,
+  type AudioClip,
+  type ShotSoundPlan,
+} from "./audio";
 
 export const FILM_KEY = "aivora.film.active";
 export const DEFAULT_STYLE_ZH =
@@ -79,6 +87,8 @@ export type FilmScene = {
   title: string;
   where: string;
   text: string;
+  /** Phase 2. Empty until a scene writes 环境音. */
+  ambience: string;
   source: string;
   userFields: string[];
 };
@@ -96,6 +106,8 @@ export type FilmShot = {
   performance: string;
   characters: string[];
   line: string;
+  /** Phase 2 sound block. Generation ignores it in Phase 1. */
+  sound: ShotSoundPlan;
   source: string;
   userFields: string[];
   poster: string;
@@ -129,6 +141,10 @@ export type FilmProject = {
   assemblyPath: string;
   assemblyUrl: string;
   exportPath: string;
+  /** Phase 2. Empty until a series picks a narration voice. */
+  narrationVoiceId: string;
+  /** Phase 3 timeline audio. Empty until 剪辑 writes clips. */
+  audioClips: AudioClip[];
 };
 
 export function newFilmId(): string {
@@ -158,6 +174,7 @@ export function blankFilm(): FilmProject {
         title: "第 1 场",
         where: "",
         text: "",
+        ambience: "",
         source: "user",
         userFields: [],
       },
@@ -174,6 +191,8 @@ export function blankFilm(): FilmProject {
     assemblyPath: "",
     assemblyUrl: "",
     exportPath: "",
+    narrationVoiceId: "",
+    audioClips: [],
   };
 }
 
@@ -186,6 +205,7 @@ export function newEpisode(current: FilmProject): FilmProject {
   next.title = next.seriesTitle;
   next.stylePreset = current.stylePreset;
   next.styleZh = current.styleZh;
+  next.narrationVoiceId = current.narrationVoiceId;
   next.characters = current.characters.map((item) => ({
     ...item,
     portraits: item.portraits.map((portrait) => ({ ...portrait })),
@@ -229,6 +249,7 @@ export function sampleFilm(): FilmProject {
       title: "雨夜·巷口",
       where: "外景 · 夜",
       text: "雨夜巷口。",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -238,6 +259,7 @@ export function sampleFilm(): FilmProject {
       title: "巷战·初交手",
       where: "外景 · 夜",
       text: "积水映着霓虹。林骁背靠砖墙。刀疤挥手。林骁侧身让过铁棍。",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -247,6 +269,7 @@ export function sampleFilm(): FilmProject {
       title: "巷战·被围",
       where: "外景 · 夜",
       text: "",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -256,6 +279,7 @@ export function sampleFilm(): FilmProject {
       title: "转折·断刀",
       where: "外景 · 夜",
       text: "",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -265,6 +289,7 @@ export function sampleFilm(): FilmProject {
       title: "反击",
       where: "外景 · 夜",
       text: "",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -274,6 +299,7 @@ export function sampleFilm(): FilmProject {
       title: "余韵·雨停",
       where: "外景 · 黎明",
       text: "",
+      ambience: "",
       source: "sample",
       userFields: [],
     },
@@ -299,6 +325,7 @@ export function sampleFilm(): FilmProject {
     performance: index === 3 ? "冷静，眼神盯着刀疤。" : "",
     characters: row[1].includes("刀疤") ? ["刀疤"] : ["林骁"],
     line: ["", "", "东西交出来，留你一条腿。", "雨太大，我听不清。", "", "一起上！"][index] ?? "",
+    sound: emptySoundPlan(),
     source: "sample",
     userFields: [],
     poster: "",
@@ -350,12 +377,13 @@ export function offlineShots(story: string, sceneId: string): FilmShot[] {
     no: item.index,
     size: item.shotSize,
     move: "固定",
-    seconds: Math.min(item.durationSeconds, 5),
+    seconds: storedShotSeconds(item.durationSeconds),
     picture: item.narration,
     action: item.action,
     performance: item.performance,
     characters: [],
     line: "",
+    sound: emptySoundPlan(),
     source: "offline:director",
     userFields: [],
     poster: "",
@@ -414,7 +442,7 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
       no: index + 1,
       size: typeof record.size === "string" ? record.size : "中景",
       move: typeof record.move === "string" ? record.move : "固定",
-      seconds: Math.max(1, Math.min(seconds, 15)),
+      seconds: storedShotSeconds(seconds),
       picture: picture.trim(),
       action: picture.trim(),
       performance: "",
@@ -422,6 +450,7 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
         ? record.characters.filter((item): item is string => typeof item === "string")
         : [],
       line: typeof record.line === "string" ? record.line : "",
+      sound: normalizeSoundPlan(record.sound),
       source: "agent:director",
       userFields: [],
       poster: "",
@@ -479,11 +508,16 @@ export function readFilm(storage: Storage): FilmProject | null {
         ...item,
         portraits: item.portraits ?? [],
       })),
-      scenes: value.scenes?.length ? value.scenes : base.scenes,
+      scenes: (value.scenes?.length ? value.scenes : base.scenes).map((item) => ({
+        ...item,
+        ambience: item.ambience ?? "",
+      })),
       shots: (value.shots ?? []).map((shot) => ({
         ...shot,
         line: shot.line ?? "",
         angle: shot.angle ?? "平视",
+        sound: normalizeSoundPlan(shot.sound),
+        seconds: storedShotSeconds(shot.seconds),
         takes: shot.takes ?? [],
         stills: shot.stills ?? [],
         selectedTakeId: shot.selectedTakeId ?? "",
@@ -497,6 +531,8 @@ export function readFilm(storage: Storage): FilmProject | null {
       assemblyPath: value.assemblyPath ?? "",
       assemblyUrl: "",
       exportPath: value.exportPath ?? "",
+      narrationVoiceId: value.narrationVoiceId ?? "",
+      audioClips: normalizeAudioClips(value.audioClips),
     };
   } catch {
     return null;

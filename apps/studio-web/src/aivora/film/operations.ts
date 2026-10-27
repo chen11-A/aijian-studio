@@ -1,4 +1,5 @@
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
+import { emptySoundPlan } from "./audio";
 import {
   keyframePrompt,
   shotIdentity,
@@ -65,6 +66,7 @@ function scene(no: number, title: string, text: string, where = ""): FilmScene {
     title: title.slice(0, 40) || `第 ${no} 场`,
     where,
     text,
+    ambience: "",
     source: "import",
     userFields: [],
   };
@@ -293,6 +295,7 @@ export function addShot(film: FilmProject, sceneId: string): FilmProject {
     action: "",
     performance: "",
     line: "",
+    sound: emptySoundPlan(),
     characters: film.characters[0] ? [film.characters[0].name] : [],
     source: "user",
     userFields: ["picture"],

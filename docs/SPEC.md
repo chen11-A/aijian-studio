@@ -22,6 +22,9 @@ the cast, and the style, then starts from an empty scene.
 ## Shot and prompt
 
 景别, 角度, 运镜, 动作要点, and 表演 travel with the shot.
+A stored shot length may be any value from 1 to 15 seconds. The duration
+buttons in this phase still offer 2, 3, 5, and 8. The line-length formula is
+reserved and is not used when a video is generated.
 The style block is sent once. A prompt that already starts as a keyframe is not
 wrapped again. 写实 is the default preset for a new film. It is not appended to
 a different preset. `reference_images` are not sent. There is no shared cast still.
@@ -50,3 +53,6 @@ Export asks for a folder, writes one file, then 打开文件夹 and 播放 work 
 Timeline takes, full-quality 定稿, multi-format export, music and sound effects,
 审片 badges, 设置, and 用量 are Phase 3. Those controls stay disabled with a
 reason, or the menu says the page is not connected yet.
+The later sound work keeps four audio lanes (对白, 环境音, 音效, 配乐) and a
+per-shot sound plan. This phase only stores those records empty. It does not
+draw the four lanes, and it does not change the silent-video prompt.
