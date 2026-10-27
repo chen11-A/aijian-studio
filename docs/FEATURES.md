@@ -13,7 +13,11 @@ opens the professional workspace and cannot switch to a beginner mode.
   once. Unproven `reference_images` are omitted.
 - The queue shows real progress. A batch waits for 开始生成 after the estimate.
 - 剪辑 plays the joined file, or one take with the reason it could not join.
-- Export writes the file the user picked. 打开文件夹 and 播放 use that path.
+- Export writes the file the user picked, keeping Chinese in the file name.
+  打开文件夹 and 播放 use that path. A clip longer than the chosen seconds is trimmed.
+- 生成画面 and 生成定妆照 call image generation. 导演拆镜头 calls the signed-in text model.
+- The cast page fills characters and places from the script. The queue chip
+  clears when a take finishes. 剪辑 plays with the app's own controls.
 - Undo and redo cover the open film.
 - A shot can store a length up to 15 seconds. Each shot keeps an empty sound
   plan, and the film keeps an empty list of clips for the later lanes 对白,
@@ -38,7 +42,8 @@ and shot length taken from the line are also Phase 2. They are not in this build
 Takes on the timeline, 定稿, gap close, the pre-export check, 16:9 / 9:16 /
 subtitle export, snapshots, bundled music and effects, 声音自动调好, 统一色调,
 and 审片 markers. The four audio lanes, ducking, and loudness export are Phase 3.
-The loudness sentence in the product note stays until then. The timeline in this
+The visible note says the loudness will match across phones and computers.
+It does not name LUFS. The numeric target stays internal until then. The timeline in this
 build still shows 字幕, 视频, 配音, and 音乐.
 
 ## Honesty

@@ -28,13 +28,11 @@ export function videoActions(modelIds: readonly string[]): Record<VideoAction, A
   const ids = new Set(modelIds.map((id) => id.trim()));
   const hasGenerate = ids.has(GENERATE_MODEL);
   const hasEditModel = ids.has(EDIT_MODEL);
-  const generateReason = hasGenerate ? "" : "需要 Grok 会员，并且模型列表里要有视频 1.5。";
-  const editReason = hasEditModel
-    ? ""
-    : "当前登录看不到 grok-imagine-video 的编辑接口，不能改画面细节。";
+  const generateReason = hasGenerate ? "" : "需要 Grok 会员，模型列表里还没有成片用的视频模型。";
+  const editReason = hasEditModel ? "" : "当前登录看不到可以改画面的模型，不能改画面细节。";
   const extendReason = hasEditModel
     ? ""
-    : "当前登录看不到延长接口。列表里出现 grok-imagine-video 之后才能从片尾往后接。";
+    : "当前登录看不到可以延长的模型。列表里出现之后才能从片尾往后接。";
   return {
     regenerate: {
       enabled: hasGenerate,

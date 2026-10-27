@@ -15,7 +15,8 @@ short Chinese sentence.
 
 A film is 剧 → 集 → 场 → 镜头 → 版本.
 On the desktop, one series is a folder under the app data `films` directory.
-The browser keeps each series in local storage and says it is not on disk.
+The status bar names that folder. The browser keeps each series in local storage
+and says it is not on disk.
 Open, rename, and delete work on that store. A new episode copies the series,
 the cast, and the style, then starts from an empty scene.
 
@@ -44,6 +45,10 @@ no still. It is never a stock photo.
 剪辑 plays the assembled MP4. If several shots cannot be joined, it plays the
 selected take and says 多镜头还没接成一条，先播放这一镜。
 Export asks for a folder, writes one file, then 打开文件夹 and 播放 work on that file.
+The file name keeps Chinese and only drops characters the file system rejects.
+A generated clip is cut to the shot length. The visible note about loudness
+does not name LUFS or dBTP. Voice names in the cast page are Chinese. The
+model id stays on the tooltip.
 撤销 and 重做 apply to the open film.
 
 ## Not in this phase

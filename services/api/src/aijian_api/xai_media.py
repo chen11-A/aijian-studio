@@ -190,7 +190,7 @@ class XaiMediaClient:
         if model != EDIT_MODEL:
             raise XaiMediaError(
                 "VIDEO_EDIT_UNSUPPORTED",
-                "改画面细节和延长只能用 grok-imagine-video。视频 1.5 不能走这两个接口。",
+                "改画面细节和往后延长还不能用现在登录到的成片模型。",
             )
 
     def _video_submit(self, payload: Mapping[str, object], model: str) -> XaiVideoSubmit:

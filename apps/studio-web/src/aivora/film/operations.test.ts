@@ -253,7 +253,9 @@ describe("film operations", () => {
   });
 
   it("describes every voice in plain words", () => {
-    expect(VOICES.every((voice) => voice.description.includes("·"))).toBe(true);
+    expect(VOICES.every((voice) => !/[A-Za-z]/.test(`${voice.name}${voice.description}`))).toBe(
+      true,
+    );
     expect(PREVIEW_REASON).toContain("不播放");
   });
 });

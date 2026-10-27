@@ -351,7 +351,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "改细节" }));
     expect(screen.getByText(/不能改画面细节/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "延长" }));
-    expect(screen.getByText(/看不到延长接口/)).toBeInTheDocument();
+    expect(screen.getByText(/看不到可以延长/)).toBeInTheDocument();
     cleanup();
     window.localStorage.clear();
     render(<ProWorkspace />);
@@ -386,9 +386,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "打开示例" }).at(-1)!);
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
-    expect(completeText).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: PROJECT_ID }),
-    );
+    expect(completeText).toHaveBeenCalledWith(expect.objectContaining({ projectId: PROJECT_ID }));
     fireEvent.click(screen.getByRole("button", { name: "节奏再快些" }));
     fireEvent.click(screen.getByRole("button", { name: "加一个特写" }));
     fireEvent.click(screen.getByRole("button", { name: "导演" }));

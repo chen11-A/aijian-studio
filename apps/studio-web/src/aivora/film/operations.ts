@@ -14,18 +14,18 @@ import {
 export const QC_REASON = "审片还不能看图打分。版本由你来选，不会自动重做。";
 export const PORTRAIT_REASON = "请打开安装好的 AIVORA 再出图。";
 export const CONTINUITY_REASON =
-  "首尾帧还没验证。这一镜会写上上一镜的结尾，生成后再裁到入点，不把尾帧传给接口。";
+  "这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。";
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
-export const LOUDNESS_NOTE = "成片旁白对齐到 −16 LUFS，真峰值 −1.5 dBTP。视频自己的声音关掉。";
+export const LOUDNESS_NOTE = "整片音量会调到手机和电脑上听着一样大。视频自己的声音关掉。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
 export const VOICES: { id: string; name: string; description: string; recommended?: boolean }[] = [
-  { id: "eve", name: "Eve", description: "女声 · 活泼，英式口音", recommended: true },
-  { id: "ara", name: "Ara", description: "女声 · 温和友好" },
-  { id: "leo", name: "Leo", description: "男声 · 沉稳，英式口音" },
-  { id: "rex", name: "Rex", description: "男声 · 清晰自信" },
-  { id: "sal", name: "Sal", description: "男声 · 平稳" },
+  { id: "eve", name: "女声·清亮", description: "女声，语速轻快", recommended: true },
+  { id: "ara", name: "女声·温和", description: "女声，语气友好" },
+  { id: "leo", name: "男声·沉稳", description: "男声，语速平稳" },
+  { id: "rex", name: "男声·自信", description: "男声，吐字清楚" },
+  { id: "sal", name: "男声·平稳", description: "男声，语气放平" },
 ];
 
 export type ActionBeat = {
@@ -232,7 +232,7 @@ export type ExtractedCast = {
 };
 
 const NAME_BEFORE =
-  /([\u4e00-\u9fff]{2,3})(?=站|跑|笑|说|看|走|撑|等|问|答|抬|停|推|拉|坐|躺|哭|喊)/g;
+  /(?<![\u4e00-\u9fff])([\u4e00-\u9fff]{2,3})(?=站|跑|笑|说|看|走|撑|等|问|答|抬|停|推|拉|坐|躺|哭|喊)/g;
 const PLACE_AT = /(?:在|到)([\u4e00-\u9fff]{2,8})/g;
 const NOT_A_NAME = new Set(["两人", "他们", "她们", "我们", "夜里", "雨夜", "一个人"]);
 
@@ -550,7 +550,9 @@ export function storyFilmBatches(
       provider: "grok_subscription",
       confirmed: true,
       voice_id: film.characters[0]?.voiceId || "eve",
-      style_block: film.styleZh.trim().slice(0, 400),
+      style_block: (slice.length === 1 ? slice[0]?.styleNote?.trim() || film.styleZh : film.styleZh)
+        .trim()
+        .slice(0, 400),
       shots: (slice.length > 0 ? slice : rows).slice(0, 10).map((shot) => oneShot(shot, film)),
       ...(draft ? { video_model: VIDEO_DRAFT_MODEL } : { video_model: VIDEO_MODEL }),
     });
