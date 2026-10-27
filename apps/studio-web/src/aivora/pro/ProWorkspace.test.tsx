@@ -957,6 +957,15 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   expect(await screen.findByText(/拆成两镜/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "美术" }));
+  fireEvent.click(screen.getByRole("button", { name: "请美术定画风" }));
+  expect(await screen.findByText(/美术没有按格式返回/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "提示词" }));
+  fireEvent.click(screen.getByRole("button", { name: "写这一镜的提示词" }));
+  expect(await screen.findByText(/提示词没有按格式返回/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "审片" }));
+  fireEvent.click(screen.getByRole("button", { name: "请审片看看" }));
+  expect(await screen.findByText(/还不能看画面/)).toBeInTheDocument();
   fireEvent.click(stageTab("剧本"));
   fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
   fireEvent.click(stageTab("分镜"));
@@ -981,6 +990,15 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   fireEvent.click(screen.getByRole("button", { name: "审片" }));
   fireEvent.click(screen.getByRole("button", { name: "请审片看看" }));
   expect(await screen.findByText(/还不能看画面/)).toBeInTheDocument();
+  const beforeSend = completeText.mock.calls.length;
+  for (const roleName of ["动作指导", "表演指导", "美术", "提示词", "审片"]) {
+    fireEvent.click(screen.getByRole("button", { name: roleName }));
+    fireEvent.click(screen.getByRole("button", { name: "再改改" }));
+  }
+  await waitFor(() =>
+    expect(completeText.mock.calls.length).toBeGreaterThanOrEqual(beforeSend + 7),
+  );
+  expect(await screen.findByText(/还不能看画面|没有按格式返回|离线/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
   expect(await screen.findByText(/已用离线拆镜，停在分镜/)).toBeInTheDocument();
   mode = "play";
