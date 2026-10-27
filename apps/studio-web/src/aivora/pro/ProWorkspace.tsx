@@ -1567,8 +1567,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </div>
               </div>
               <div className="field">
-                <label>保存到</label>
-                <div className="input">{exportDir || "还没有选择文件夹"}</div>
+                <label htmlFor="export-dir">保存到</label>
+                <button
+                  id="export-dir"
+                  className="input"
+                  type="button"
+                  onClick={() => {
+                    void window.aijian?.pickFilmFolder?.().then((dir) => {
+                      if (dir) setExportDir(dir);
+                    });
+                  }}
+                >
+                  {exportDir || "点这里选择文件夹"}
+                </button>
               </div>
               <p className="role-desc" data-testid="export-summary">
                 {film ? exportSummary(film) : "还没有作品。"}

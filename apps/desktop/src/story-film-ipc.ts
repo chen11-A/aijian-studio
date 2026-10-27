@@ -38,9 +38,12 @@ function trustedStoryFilmPath(workspace: string, raw: unknown): string {
 }
 
 function suggestedFilmName(path: string): string {
-  const name = basename(path);
-  if (/^[A-Za-z0-9._-]{1,80}$/.test(name) && name.toLowerCase().endsWith(".mp4")) return name;
-  return "aivora-film.mp4";
+  const name = basename(path)
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
+    .trim()
+    .slice(0, 80);
+  if (!name || name === "." || name === "..") return "aivora-film.mp4";
+  return name.toLowerCase().endsWith(".mp4") ? name : `${name}.mp4`;
 }
 
 const projectIdPattern = /^prj_[0-9a-f]{32}$/;

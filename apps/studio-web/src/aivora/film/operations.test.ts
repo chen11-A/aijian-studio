@@ -148,6 +148,22 @@ describe("film operations", () => {
     film.jobs = planVideoJobs(film.shots[0]!, 1, true, "");
     film.jobs[0]!.status = "done";
     expect(exportSummary(film)).toContain("还有 5 个镜头没生成");
+    film.jobs[0]!.status = "queued";
+    film.shots[0]!.takes = [
+      {
+        id: "take-1",
+        shotId: film.shots[0]!.id,
+        index: 1,
+        status: "done",
+        stillUrl: "",
+        videoPath: "/tmp/a.mp4",
+        videoUrl: "",
+        prompt: "",
+        createdAt: "",
+        reason: "",
+      },
+    ];
+    expect(exportSummary(film)).toContain("还有 5 个镜头没生成");
     const cues = subtitleCues(film.shots);
     expect(cues.map((item) => item.text)).toEqual([
       "东西交出来，留你一条腿。",

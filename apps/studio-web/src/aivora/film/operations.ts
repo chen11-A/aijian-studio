@@ -12,8 +12,7 @@ import {
 } from "./project";
 
 export const QC_REASON = "审片还不能看图打分。版本由你来选，不会自动重做。";
-export const PORTRAIT_REASON =
-  "改图接口还没验证。正面、侧面、背面和脸部各记一条新提示词，不在一张定妆照上涂改。单独出图还没接到桌面，生成视频时会把外貌写进起始画面。";
+export const PORTRAIT_REASON = "请打开安装好的 AIVORA 再出图。";
 export const CONTINUITY_REASON =
   "首尾帧还没验证。这一镜会写上上一镜的结尾，生成后再裁到入点，不把尾帧传给接口。";
 export const PREVIEW_REASON =
@@ -481,7 +480,10 @@ export function exportSummary(film: FilmProject): string {
       .filter((job) => job.kind === "video" && job.status === "done")
       .map((job) => job.shotId),
   );
-  const missing = film.shots.filter((shot) => !done.has(shot.id)).length;
+  const missing = film.shots.filter((shot) => {
+    const takeDone = shot.takes.some((take) => take.status === "done");
+    return !takeDone && !done.has(shot.id);
+  }).length;
   const gap = missing === 0 ? "镜头都已生成" : `还有 ${missing} 个镜头没生成`;
   return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · 约 ${seconds} 秒 · ${gap}。${QC_REASON} ${LOUDNESS_NOTE}`;
 }

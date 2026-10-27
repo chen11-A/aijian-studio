@@ -358,7 +358,10 @@ export async function requestStill(options: {
 }
 
 export function safeExportName(name: string): string {
-  const base = basename(name).replace(/[^A-Za-z0-9._-]/g, "");
-  if (/^[A-Za-z0-9._-]{1,80}$/.test(base) && base.toLowerCase().endsWith(".mp4")) return base;
-  return "aivora-film.mp4";
+  const cleaned = basename(name)
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
+    .trim()
+    .slice(0, 80);
+  if (!cleaned || cleaned === "." || cleaned === "..") return "aivora-film.mp4";
+  return cleaned.toLowerCase().endsWith(".mp4") ? cleaned : `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;
 }
