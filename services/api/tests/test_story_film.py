@@ -11,7 +11,14 @@ from aijian_api.local_media_toolchain import LocalMediaToolchainService
 from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
-from aijian_api.story_film import StoryFilmRequest, StoryFilmService, live_media_enabled
+from aijian_api.story_film import (
+    StoryFilmError,
+    StoryFilmRequest,
+    StoryFilmService,
+    _fit_clip_length,
+    _media_duration,
+    live_media_enabled,
+)
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
 from test_draft_export_runtime import toolchain
@@ -912,3 +919,54 @@ def test_real_media_edges_name_the_stage_and_keep_even_canvases(tmp_path, monkey
 
     with pytest.raises(StoryFilmError, match="视频工具"):
         StoryFilmService(repository, _broken_tools)._tools()
+
+
+def test_a_long_clip_is_cut_to_the_chosen_length_and_a_short_one_stays(tmp_path):
+    tools = toolchain()
+    long_clip = tmp_path / "long.mp4"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:rate=24:duration=4",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(long_clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, long_clip, 2)
+    assert _media_duration(tools.ffprobe_path, long_clip) <= 2.3
+    short_clip = tmp_path / "short.mp4"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:rate=24:duration=1",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(short_clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    before = short_clip.read_bytes()
+    _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, short_clip, 2)
+    assert short_clip.read_bytes() == before
+    junk = tmp_path / "nope.mp4"
+    junk.write_bytes(b"not a movie")
+    _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, junk, 2)
+    assert junk.read_bytes() == b"not a movie"

@@ -607,6 +607,12 @@ class StoryFilmService:
                 clip_path = directory / f"shot-{index}.mp4"
                 audio_path = directory / f"shot-{index}{_audio_suffix(speech)}"
                 clip_path.write_bytes(clip)
+                _fit_clip_length(
+                    tools.ffmpeg_path,
+                    tools.ffprobe_path,
+                    clip_path,
+                    max(1, min(int(shot.duration_seconds), 15)),
+                )
                 audio_path.write_bytes(speech)
                 _width, _height, _frames, voiced = _normalize_film_media(
                     tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
@@ -1640,6 +1646,35 @@ def _normalize_film_media(
         voiced.replace(audio_path)
         return width, height, frames, audio_path
     return width, height, frames, voiced
+
+
+def _fit_clip_length(ffmpeg: Path, ffprobe: Path, path: Path, seconds: int) -> None:
+    """Cut a longer model clip to the length the user chose. A shorter clip stays as it is."""
+
+    try:
+        actual = _media_duration(ffprobe, path)
+    except StoryFilmError:
+        return
+    if actual <= seconds + 0.25:
+        return
+    trimmed = path.with_name(f"{path.stem}-fit.mp4")
+    _ffmpeg(
+        ffmpeg,
+        [
+            "-i",
+            str(path),
+            "-t",
+            f"{max(1, seconds):.3f}",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(trimmed),
+        ],
+        stage="trim_shot",
+    )
+    trimmed.replace(path)
 
 
 def _media_duration(ffprobe: Path, path: Path) -> float:

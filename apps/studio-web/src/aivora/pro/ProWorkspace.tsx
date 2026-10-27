@@ -798,6 +798,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           const message = typeof data.message === "string" ? data.message : "";
           const output = typeof data.output_path === "string" ? data.output_path : "";
           const preview = typeof data.preview_image === "string" ? data.preview_image : "";
+          const reportedRaw = data.duration_seconds;
+          const reported =
+            typeof reportedRaw === "number"
+              ? reportedRaw
+              : typeof reportedRaw === "string"
+                ? Number(reportedRaw)
+                : 0;
           const ok = data.status === "SUCCEEDED";
           const videoUrl = ok ? await clipUrl(output) : "";
           const done = ok && Boolean(videoUrl || preview || output);
@@ -830,6 +837,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
           );
           if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
+          if (done && Number.isFinite(reported) && reported > 0.4) {
+            const shown = Math.max(1, Math.min(15, Math.round(reported)));
+            const chosen = saved.shots.find((item) => item.id === group.shot.id)?.seconds ?? 0;
+            if (Math.abs(shown - chosen) >= 1) {
+              saved = updateShot(saved, group.shot.id, { seconds: shown });
+            }
+          }
           applyLive(saved);
           if (done && group.shot.id === openShotRef.current) setPlaying(true);
           setNotice(message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"));

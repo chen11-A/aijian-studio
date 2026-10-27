@@ -363,5 +363,6 @@ export function safeExportName(name: string): string {
     .trim()
     .slice(0, 80);
   if (!cleaned || cleaned === "." || cleaned === "..") return "aivora-film.mp4";
-  return cleaned.toLowerCase().endsWith(".mp4") ? cleaned : `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;
+  if (cleaned.toLowerCase().endsWith(".mp4")) return cleaned;
+  return `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;
 }
