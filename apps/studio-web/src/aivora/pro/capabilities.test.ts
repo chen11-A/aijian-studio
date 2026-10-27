@@ -10,7 +10,7 @@ describe("subscription video actions", () => {
     expect(actions.cut.enabled).toBe(true);
     expect(actions.edit.enabled).toBe(false);
     expect(actions.extend.enabled).toBe(false);
-    expect(actions.edit.reason).toContain("grok-imagine-video");
+    expect(actions.edit.reason).toContain("不能改画面细节");
   });
 
   it("does not treat the 1.5 id as the edit model", () => {

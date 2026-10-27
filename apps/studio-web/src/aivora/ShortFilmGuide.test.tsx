@@ -493,7 +493,7 @@ describe("simple story-to-film navigation", () => {
     expect(within(guide).getByRole("status")).toHaveTextContent(
       "这是本地草稿。连上 Grok 后，导演会按你的故事重写。",
     );
-    expect(within(guide).getByText("导演拆好的 6 个镜头")).toBeInTheDocument();
+    expect(within(guide).getByText("导演拆好的 2 个镜头")).toBeInTheDocument();
     fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
     fireEvent.click(within(guide).getByRole("button", { name: "下一步" }));
     fireEvent.change(screen.getByLabelText("旁白"), { target: { value: "" } });
