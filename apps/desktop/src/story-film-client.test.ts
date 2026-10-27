@@ -171,6 +171,38 @@ describe("story film client", () => {
     ).toThrow("Invalid story film request");
   });
 
+  it("keeps one style block and the shot fields", () => {
+    const parsed = parseStoryFilmCreate({
+      scene_label: "雨夜巷战",
+      narration: "林夏把阿凯推进巷口。",
+      provider: "stub",
+      confirmed: true,
+      style_block: " 冷色夜戏 ",
+      shots: [
+        {
+          narration: "林夏把阿凯推进巷口。",
+          prompt: "全景，推一把。",
+          duration_seconds: 3,
+          size: "全景",
+          angle: "平视",
+          move: "跟拍",
+          action: "推一把",
+          performance: "咬牙",
+          identity: "林夏，短发",
+        },
+      ],
+    });
+    expect(parsed.style_block).toBe("冷色夜戏");
+    expect(parsed.shots?.[0]).toMatchObject({
+      size: "全景",
+      angle: "平视",
+      move: "跟拍",
+      action: "推一把",
+      performance: "咬牙",
+      identity: "林夏，短发",
+    });
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

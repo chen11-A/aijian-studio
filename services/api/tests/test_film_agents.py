@@ -186,7 +186,18 @@ def test_each_shot_gets_its_own_keyframe_and_unproven_refs_stay_off() -> None:
     assert reference_url("file:///tmp/a.png") is None
     assert reference_url("https://api.x.ai/a.png") == "https://api.x.ai/a.png"
     assert "视频不要自己出声" in video_prompt("抬眼", move="跟拍")
-    assert "起始画面" in keyframe_prompt("抬眼")
+    bare = keyframe_prompt("抬眼")
+    assert "起始画面" in bare
+    assert "写实" not in bare
+    wrapped = "这一镜的起始画面，不是角色定妆照。抬眼。写实电影感。"
+    assert keyframe_prompt(wrapped, style_zh="写实电影感") == wrapped
+    partial = "这一镜的起始画面，不是角色定妆照。抬眼。"
+    assert keyframe_prompt(partial, style_zh="冷色") == f"{partial}冷色。"
+    once = keyframe_prompt("抬眼", style_zh="写实电影感", size="中景", action="抬眼")
+    assert once.count("这一镜的起始画面") == 1
+    assert once.count("写实电影感") == 1
+    assert "景别中景" in once
+    assert "动作要点" not in once
 
 
 def test_missing_video_model_disables_the_job() -> None:

@@ -52,8 +52,8 @@ from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
-from aijian_api.shot_pipeline import keyframe_prompt, reference_url, video_prompt
-from aijian_api.shot_plan import AI_GENERATED_NOTE, STYLE_REALISM, character_reference_prompt
+from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
+from aijian_api.shot_plan import AI_GENERATED_NOTE
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
 from aijian_api.xai_media import (
@@ -106,6 +106,12 @@ class StoryShot:
     duration_seconds: int
     subtitle: str
     regenerate: bool = False
+    size: str = ""
+    angle: str = ""
+    move: str = ""
+    action: str = ""
+    performance: str = ""
+    identity: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -559,19 +565,24 @@ class StoryFilmService:
         project_id: str,
     ) -> tuple[bytes, bytes, bytes]:
         tools = self._tools()
-        reference, cast_image = self._cast_still(request, media_token, project_id)
-        ref = reference_url(cast_image.source_url if cast_image is not None else None)
         total = len(request.shots)
-        picture = reference
+        picture = None
         normalized: list[tuple[Path, Path, str]] = []
         with tempfile.TemporaryDirectory(prefix="aivora-shots-") as temporary:
             directory = Path(temporary)
             for index, shot in enumerate(request.shots, start=1):
                 label = f"正在生成第 {index} 个镜头的起始画面，共 {total} 个。"
-                if ref is None:
-                    label += "定妆照在本机，没有网址，外貌写在提示词里。"
                 mark_film_progress(project_id, "image", label)
-                still = keyframe_prompt(shot.prompt, style_zh=request.style_block)
+                still = keyframe_prompt(
+                    shot.prompt,
+                    style_zh=request.style_block,
+                    identity=shot.identity,
+                    size=shot.size,
+                    angle=shot.angle,
+                    move=shot.move,
+                    action=shot.action,
+                    performance=shot.performance,
+                )
                 child = replace(
                     request,
                     scene_label=shot.prompt or request.scene_label,
@@ -588,7 +599,6 @@ class StoryFilmService:
                         project_id,
                         duration=max(1, min(int(shot.duration_seconds), 15)),
                         shot_label=label,
-                        reference_url=ref,
                     )
                 else:
                     image, clip, speech = self._placeholder_media(child)
@@ -646,54 +656,6 @@ class StoryFilmService:
                 video = video_path.read_bytes()
                 audio = audio_path.read_bytes()
         return picture or _FALLBACK_PNG, video, audio
-
-    def _cast_still(
-        self,
-        request: StoryFilmRequest,
-        media_token: str | None,
-        project_id: str,
-    ) -> tuple[bytes | None, XaiImage | None]:
-        story = "\n".join((request.narration, *(shot.narration for shot in request.shots)))
-        prompt = character_reference_prompt(story)
-        directory = self._image_directory()
-        directory.mkdir(parents=True, exist_ok=True)
-        stem = hashlib.sha256(f"{project_id}\n{prompt}".encode()).hexdigest()[:16]
-        path = directory / f"{stem}-cast.png"
-        if path.is_file() and path.stat().st_size > 0 and not request.regenerate:
-            return path.read_bytes(), None
-        if request.provider != "grok_subscription":
-            tools = self._tools()
-            _ffmpeg(
-                tools.ffmpeg_path,
-                [
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "testsrc=size=160x90:rate=24",
-                    "-frames:v",
-                    "1",
-                    str(path),
-                ],
-            )
-            return path.read_bytes(), None
-        if not media_token or not live_media_enabled():
-            raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
-        mark_film_progress(project_id, "image", "正在生成角色定妆照。")
-        if self._transport is None:
-            from aijian_api.xai_media_transport import urllib_xai_transport
-
-            transport = urllib_xai_transport()
-        else:
-            transport = self._transport
-        client = XaiMediaClient(transport, token=media_token)
-        image = client.generate_image(
-            prompt=_styled(prompt), model=request.image_model or IMAGE_MODEL
-        )
-        if image.data:
-            path.write_bytes(image.data)
-            append_grok_status("image_saved", code="ok")
-            return image.data, image
-        return None, image
 
     def _live_media(
         self,
@@ -1499,10 +1461,8 @@ def _audio_suffix(header: bytes) -> str:
 
 
 def _styled(text: str, style: str = "") -> str:
-    block = (style or STYLE_REALISM).strip()
-    if block and block in text:
-        return text
-    if STYLE_REALISM in text:
+    block = style.strip()
+    if not block or block in text:
         return text
     return f"{text.rstrip('。')}。{block}"
 

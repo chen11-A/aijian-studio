@@ -924,12 +924,19 @@ export interface AijianDesktopBridge
       voice_id?: string;
       video_model?: string;
       regenerate?: boolean;
+      style_block?: string;
       shots?: Array<{
         narration: string;
         prompt: string;
         subtitle?: string;
         duration_seconds: number;
         regenerate?: boolean;
+        size?: string;
+        angle?: string;
+        move?: string;
+        action?: string;
+        performance?: string;
+        identity?: string;
       }>;
     },
   ): Promise<{ data: Record<string, unknown>; request_id: string }>;

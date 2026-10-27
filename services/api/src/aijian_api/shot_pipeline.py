@@ -8,21 +8,52 @@ from __future__ import annotations
 
 from aijian_api.film_project import FilmProject, Shot
 from aijian_api.model_config import IMAGE_MODEL, VIDEO_DRAFT_MODEL, VIDEO_MODEL
-from aijian_api.style_bible import DEFAULT_PROMPT_ZH
 
 REFERENCE_REASON = "定妆照在本机，没有可传的网址。这一镜把外貌写进提示词，不附参考图。"
 QC_REASON = "审片要看画面。会员登录还没验证这项，先由你选版本。"
 EDIT_REASON = "当前登录看不到 grok-imagine-video，不能改画面细节，也不能从片尾往后接。"
 
 
-def keyframe_prompt(picture: str, *, style_zh: str = "", identity: str = "") -> str:
-    style = (style_zh or DEFAULT_PROMPT_ZH).strip().rstrip("。")
+def keyframe_prompt(
+    picture: str,
+    *,
+    style_zh: str = "",
+    identity: str = "",
+    size: str = "",
+    angle: str = "",
+    move: str = "",
+    action: str = "",
+    performance: str = "",
+) -> str:
+    """Wrap a shot once. An empty style stays empty; 写实 is not filled in."""
+
+    text = picture.strip()
+    style = style_zh.strip().rstrip("。")
+    if text.startswith("这一镜的起始画面"):
+        if style and style not in text:
+            base = text if text.endswith("。") else f"{text}。"
+            return f"{base}{style}。"
+        return text if text.endswith("。") else f"{text}。"
     bits = ["这一镜的起始画面，不是角色定妆照"]
     if identity.strip():
         bits.append(identity.strip().rstrip("。"))
-    bits.append(picture.strip().rstrip("。"))
-    bits.append(style)
-    return "。".join(bit for bit in bits if bit) + "。"
+    if text:
+        bits.append(text.rstrip("。"))
+    if size.strip():
+        bits.append(f"景别{size.strip()}")
+    if angle.strip():
+        bits.append(f"角度{angle.strip()}")
+    if move.strip():
+        bits.append(f"运镜{move.strip()}")
+    action_text = action.strip().rstrip("。")
+    if action_text and action_text != text.rstrip("。"):
+        bits.append(f"动作要点{action_text}")
+    if performance.strip():
+        bits.append(f"表演{performance.strip().rstrip('。')}")
+    joined = "。".join(bit for bit in bits if bit)
+    if style and style not in joined:
+        joined = f"{joined}。{style}" if joined else style
+    return f"{joined}。"
 
 
 def video_prompt(picture: str, *, move: str = "固定") -> str:
@@ -62,7 +93,16 @@ def plan_shot(
     ids = catalog
     style = project.style.prompt_block_zh
     who = identities(project, shot)
-    still = keyframe_prompt(shot.picture or shot.action, style_zh=style, identity=who)
+    still = keyframe_prompt(
+        shot.picture or shot.action,
+        style_zh=style,
+        identity=who,
+        size=shot.size,
+        angle=shot.angle,
+        move=shot.move,
+        action=shot.action,
+        performance=shot.performance,
+    )
     motion = video_prompt(shot.picture or shot.action, move=shot.move)
     video_model = VIDEO_DRAFT_MODEL if project.settings.draft else VIDEO_MODEL
     image_ready = ids is None or IMAGE_MODEL in ids

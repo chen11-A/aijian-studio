@@ -3812,6 +3812,11 @@ export interface components {
              * @default grok-tts
              */
             speech_model: string;
+            /**
+             * Style Block
+             * @default
+             */
+            style_block: string;
             /** Subtitle */
             subtitle?: string | null;
             /**
@@ -10230,12 +10235,37 @@ export interface components {
         /** StoryShotBody */
         StoryShotBody: {
             /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Angle
+             * @default
+             */
+            angle: string;
+            /**
              * Duration Seconds
              * @default 5
              */
             duration_seconds: number;
+            /**
+             * Identity
+             * @default
+             */
+            identity: string;
+            /**
+             * Move
+             * @default
+             */
+            move: string;
             /** Narration */
             narration: string;
+            /**
+             * Performance
+             * @default
+             */
+            performance: string;
             /** Prompt */
             prompt: string;
             /**
@@ -10243,6 +10273,11 @@ export interface components {
              * @default false
              */
             regenerate: boolean;
+            /**
+             * Size
+             * @default
+             */
+            size: string;
             /**
              * Subtitle
              * @default

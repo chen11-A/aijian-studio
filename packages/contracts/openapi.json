@@ -4282,6 +4282,12 @@
             "title": "Speech Model",
             "type": "string"
           },
+          "style_block": {
+            "default": "",
+            "maxLength": 400,
+            "title": "Style Block",
+            "type": "string"
+          },
           "subtitle": {
             "anyOf": [
               {
@@ -23617,6 +23623,18 @@
       "StoryShotBody": {
         "additionalProperties": false,
         "properties": {
+          "action": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Action",
+            "type": "string"
+          },
+          "angle": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Angle",
+            "type": "string"
+          },
           "duration_seconds": {
             "default": 5,
             "maximum": 15.0,
@@ -23624,10 +23642,28 @@
             "title": "Duration Seconds",
             "type": "integer"
           },
+          "identity": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Identity",
+            "type": "string"
+          },
+          "move": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Move",
+            "type": "string"
+          },
           "narration": {
             "maxLength": 80,
             "minLength": 1,
             "title": "Narration",
+            "type": "string"
+          },
+          "performance": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Performance",
             "type": "string"
           },
           "prompt": {
@@ -23640,6 +23676,12 @@
             "default": false,
             "title": "Regenerate",
             "type": "boolean"
+          },
+          "size": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Size",
+            "type": "string"
           },
           "subtitle": {
             "default": "",

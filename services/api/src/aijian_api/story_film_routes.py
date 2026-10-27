@@ -63,6 +63,12 @@ class StoryShotBody(BaseModel):
     subtitle: str = Field(default="", max_length=57)
     duration_seconds: int = Field(default=5, ge=1, le=15)
     regenerate: bool = False
+    size: str = Field(default="", max_length=20)
+    angle: str = Field(default="", max_length=20)
+    move: str = Field(default="", max_length=20)
+    action: str = Field(default="", max_length=80)
+    performance: str = Field(default="", max_length=80)
+    identity: str = Field(default="", max_length=200)
 
 
 class CreateStoryFilmBody(BaseModel):
@@ -81,6 +87,7 @@ class CreateStoryFilmBody(BaseModel):
     currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     amount_micro: int | None = Field(default=None, ge=0)
     regenerate: bool = False
+    style_block: str = Field(default="", max_length=400)
     shots: list[StoryShotBody] = Field(default_factory=list, max_length=10)
 
 
@@ -272,6 +279,7 @@ def create_story_film_router(
                 amount_micro=payload.amount_micro,
                 idempotency_key=idempotency_key,
                 regenerate=payload.regenerate,
+                style_block=payload.style_block.strip(),
                 shots=tuple(
                     StoryShot(
                         narration=shot.narration.strip(),
@@ -279,6 +287,12 @@ def create_story_film_router(
                         duration_seconds=shot.duration_seconds,
                         subtitle=shot.subtitle.strip(),
                         regenerate=shot.regenerate,
+                        size=shot.size.strip(),
+                        angle=shot.angle.strip(),
+                        move=shot.move.strip(),
+                        action=shot.action.strip(),
+                        performance=shot.performance.strip(),
+                        identity=shot.identity.strip(),
                     )
                     for shot in payload.shots
                 ),

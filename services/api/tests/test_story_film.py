@@ -674,7 +674,7 @@ def test_two_shots_hold_a_character_still_and_join(tmp_path):
     assert result.status == "SUCCEEDED", result.message
     assert "AI 生成" in result.message
     assert float(result.duration_seconds or "0") >= 4
-    assert list((tmp_path / "story-films").glob("*-cast.png"))
+    assert list((tmp_path / "story-films").glob("*-cast.png")) == []
 
 
 def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monkeypatch):
@@ -686,7 +686,6 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
     done = {"status": "done", "video": {"url": "https://vidgen.x.ai/live.mp4"}}
     transport = _ScriptedTransport(
         [
-            XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
             XaiHttpResponse(200, json.dumps(_IMAGE).encode()),
             XaiHttpResponse(200, json.dumps({"request_id": "req-1"}).encode()),
             XaiHttpResponse(200, json.dumps(done).encode()),
@@ -717,11 +716,12 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
         if raw.startswith(b"{"):
             bodies.append(json.loads(raw))
     image_prompts = [body["prompt"] for body in bodies if body.get("n") == 1]
-    assert len(image_prompts) == 3
-    assert "定妆照" in image_prompts[0]
-    assert "起始画面" in image_prompts[1] and "雨夜巷口" in image_prompts[1]
-    assert "起始画面" in image_prompts[2] and "躲开" in image_prompts[2]
-    assert image_prompts[1] != image_prompts[2]
+    assert len(image_prompts) == 2
+    assert "定妆照" not in image_prompts[0]
+    assert "起始画面" in image_prompts[0] and "雨夜巷口" in image_prompts[0]
+    assert "起始画面" in image_prompts[1] and "躲开" in image_prompts[1]
+    assert image_prompts[0] != image_prompts[1]
+    assert image_prompts[0].count("这一镜的起始画面") == 1
     videos = [body for body in bodies if body.get("duration")]
     assert len(videos) == 2
     assert all(body["generate_audio"] is False for body in videos)

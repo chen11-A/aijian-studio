@@ -9,6 +9,12 @@ export type StoryFilmShotInput = {
   subtitle?: string;
   duration_seconds: number;
   regenerate?: boolean;
+  size?: string;
+  angle?: string;
+  move?: string;
+  action?: string;
+  performance?: string;
+  identity?: string;
 };
 
 export type StoryFilmCreateInput = {
@@ -20,6 +26,7 @@ export type StoryFilmCreateInput = {
   voice_id?: string;
   video_model?: string;
   regenerate?: boolean;
+  style_block?: string;
   shots?: StoryFilmShotInput[];
 };
 
@@ -124,6 +131,7 @@ export function createStoryFilmClient(
           ...(input.voice_id ? { voice_id: input.voice_id } : {}),
           ...(input.video_model ? { video_model: input.video_model } : {}),
           ...(input.regenerate ? { regenerate: true } : {}),
+          ...(input.style_block ? { style_block: input.style_block } : {}),
           ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
         }),
       }).then(read);
@@ -143,6 +151,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     "voice_id",
     "video_model",
     "regenerate",
+    "style_block",
     "shots",
   ];
   if (Object.keys(body).some((key) => !allowed.includes(key))) {
@@ -181,6 +190,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   ) {
     throw new Error("Invalid story film request");
   }
+  const styleBlock = optionalText(body, "style_block", 400);
   const shots = parseShots(body.shots);
   return {
     scene_label: scene.trim(),
@@ -193,8 +203,23 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     ...(typeof voice === "string" ? { voice_id: voice } : {}),
     ...(typeof videoModel === "string" ? { video_model: videoModel } : {}),
     ...(body.regenerate === true ? { regenerate: true } : {}),
+    ...(styleBlock ? { style_block: styleBlock } : {}),
     ...(shots.length > 0 ? { shots } : {}),
   };
+}
+
+function optionalText(
+  record: Record<string, unknown>,
+  key: string,
+  max: number,
+): string | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.length > max) {
+    throw new Error("Invalid story film request");
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function parseShots(value: unknown): StoryFilmShotInput[] {
@@ -203,7 +228,19 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
   return value.map((item) => {
     if (typeof item !== "object" || item === null) throw new Error("Invalid story film request");
     const shot = item as Record<string, unknown>;
-    const allowed = ["narration", "prompt", "subtitle", "duration_seconds", "regenerate"];
+    const allowed = [
+      "narration",
+      "prompt",
+      "subtitle",
+      "duration_seconds",
+      "regenerate",
+      "size",
+      "angle",
+      "move",
+      "action",
+      "performance",
+      "identity",
+    ];
     if (Object.keys(shot).some((key) => !allowed.includes(key))) {
       throw new Error("Invalid story film request");
     }
@@ -233,6 +270,12 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     if (shot.regenerate !== undefined && typeof shot.regenerate !== "boolean") {
       throw new Error("Invalid story film request");
     }
+    const size = optionalText(shot, "size", 20);
+    const angle = optionalText(shot, "angle", 20);
+    const move = optionalText(shot, "move", 20);
+    const action = optionalText(shot, "action", 80);
+    const performance = optionalText(shot, "performance", 80);
+    const identity = optionalText(shot, "identity", 200);
     return {
       narration: narration.trim(),
       prompt: prompt.trim(),
@@ -241,6 +284,12 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
         ? { subtitle: shot.subtitle.trim() }
         : {}),
       ...(shot.regenerate === true ? { regenerate: true } : {}),
+      ...(size ? { size } : {}),
+      ...(angle ? { angle } : {}),
+      ...(move ? { move } : {}),
+      ...(action ? { action } : {}),
+      ...(performance ? { performance } : {}),
+      ...(identity ? { identity } : {}),
     };
   });
 }
