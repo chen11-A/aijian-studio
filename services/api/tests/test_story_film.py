@@ -717,7 +717,8 @@ def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monke
             bodies.append(json.loads(raw))
     image_prompts = [body["prompt"] for body in bodies if body.get("n") == 1]
     assert len(image_prompts) == 2
-    assert "定妆照" not in image_prompts[0]
+    assert "不是角色定妆照" in image_prompts[0]
+    assert image_prompts[0].count("定妆照") == 1
     assert "起始画面" in image_prompts[0] and "雨夜巷口" in image_prompts[0]
     assert "起始画面" in image_prompts[1] and "躲开" in image_prompts[1]
     assert image_prompts[0] != image_prompts[1]
