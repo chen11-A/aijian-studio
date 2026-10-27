@@ -39,18 +39,11 @@ function ProductionAssistantPanel() {
         : null;
   const selection = useOptionalAssistantSelection();
   const [tab, setTab] = useState("对话");
-  const pageLabel =
-    !d.professional && d.page === "project"
-      ? (["故事", "画面", "声音", "成片"] as const)[Math.min(3, Math.max(0, d.filmStep))]
-      : pages[d.page][0];
+  const pageLabel = pages[d.page][0];
   const chosen = account?.resolve(d.backendProjectId ?? "");
   const profileId = account?.catalogProfileId ?? null;
   const closeAssistant = () => {
-    if (d.professional) d.selectRightTab("inspector");
-    else {
-      d.setAiOpen(false);
-      d.put("managementAI", "false");
-    }
+    d.selectRightTab("inspector");
   };
   return (
     <aside className="assistant-panel v2-assistant assistant-workbench" aria-label="Aivora AI 助手">
@@ -75,11 +68,6 @@ function ProductionAssistantPanel() {
         >
           {tab === "对话" ? pageLabel : tab}
         </button>
-        {!d.professional && (
-          <button className="assistant-collapse" onClick={closeAssistant} aria-label="收起助手面板">
-            收起
-          </button>
-        )}
         <Dropdown
           className="v2-ai-menu"
           label="助手工具"
@@ -103,9 +91,7 @@ function ProductionAssistantPanel() {
                 {value}
               </button>
             ))}
-            <button onClick={closeAssistant}>
-              {d.professional ? "查看对象属性" : "收起助手面板"}
-            </button>
+            <button onClick={closeAssistant}>查看对象属性</button>
           </nav>
         </Dropdown>
       </div>

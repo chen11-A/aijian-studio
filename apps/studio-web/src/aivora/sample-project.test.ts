@@ -31,7 +31,7 @@ describe("雾城来信", () => {
     });
     expect(d.put).toHaveBeenCalledWith("input", "雾散之前，不要回头。");
     expect(d.setFilmStep).toHaveBeenCalledWith(0);
-    expect(d.go).toHaveBeenCalledWith("project");
+    expect(d.go).toHaveBeenCalledWith("story");
   });
 
   it("stops when the project is not created", async () => {

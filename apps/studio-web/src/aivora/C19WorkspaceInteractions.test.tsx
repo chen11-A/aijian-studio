@@ -279,7 +279,7 @@ describe("C19 workspace controls", () => {
       window.history.replaceState({}, "", `#${page}`);
       render(<DemoApp />);
       expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
       expect(screen.queryByLabelText("媒体任务沙箱")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("配音方案沙箱")).not.toBeInTheDocument();
       cleanup();

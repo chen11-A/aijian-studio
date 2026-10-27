@@ -61,8 +61,8 @@ describe("simple story-to-film navigation", () => {
     render(<DemoApp />);
     expect(screen.queryByRole("button", { name: "普通模式" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "分镜" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "新建项目" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /分镜/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
   });
 

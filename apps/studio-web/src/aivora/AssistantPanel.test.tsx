@@ -311,10 +311,12 @@ describe("production assistant boundaries without demo mode", () => {
     expect(state().messages).toEqual([]);
   });
 
-  it("collapses the management assistant and records the panel preference", () => {
+  it("hides the management collapse control in the product workspace", () => {
     openNative();
-    fireEvent.click(screen.getByText("收起", { selector: "button.assistant-collapse" }));
-    expect(state()).toMatchObject({ aiOpen: false, managementAI: "false" });
+    expect(
+      screen.queryByText("收起", { selector: "button.assistant-collapse" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "收起助手面板" })).not.toBeInTheDocument();
   });
 
   it("returns the professional layout to its inspector", () => {

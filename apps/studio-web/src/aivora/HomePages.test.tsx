@@ -5,7 +5,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 
 import { HomePages } from "./HomePages";
 import { StoryPages } from "./StoryPages";
-import { DemoApp } from "./DemoApp";
 import { EditorDialog } from "./Common";
 import { createAivoraSampleFixture, DemoProvider, useDemo } from "./model";
 
@@ -621,10 +620,18 @@ it("restores a saved episode through its exact ID even when the current list pag
     listSources: vi.fn().mockRejectedValue(new Error("source unavailable")),
   };
   window.aijian = desktop as unknown as NonNullable<Window["aijian"]>;
-  render(<DemoApp />);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectId, episodeId));
-  expect(await screen.findByRole("option", { name: "列表外恢复集" })).toHaveValue(episodeId);
-  expect(screen.getByLabelText("剧集选择")).toHaveValue(episodeId);
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episodeId }),
+  );
+  expect(screen.queryByLabelText("剧集选择")).not.toBeInTheDocument();
   expect(desktop.listSources).toHaveBeenCalledWith(projectId);
 });
 
@@ -900,16 +907,28 @@ it("clears a failed refreshed project view but retains and restores the exact sa
     createEpisode: vi.fn(),
   };
   window.aijian = desktop as unknown as NonNullable<Window["aijian"]>;
-  render(<DemoApp />);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledWith(projectId, episode.id));
-  expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episode.id }),
+  );
 
   failProjects = true;
   fireEvent.click(screen.getByRole("button", { name: "重新读取本地项目" }));
   expect(
     await screen.findByRole("heading", { name: "本地工作区暂时无法读取" }),
   ).toBeInTheDocument();
-  expect((screen.getByLabelText("作品选择") as HTMLSelectElement).value).toBe("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: null, projects: [] }),
+  );
   expect(
     JSON.parse(window.localStorage.getItem("aivora.c2b.workspace-selection.v1") ?? "{}"),
   ).toMatchObject({
@@ -919,7 +938,11 @@ it("clears a failed refreshed project view but retains and restores the exact sa
   failProjects = false;
   fireEvent.click(screen.getByRole("button", { name: "连接本地工作区" }));
   await waitFor(() => expect(desktop.getEpisode).toHaveBeenCalledTimes(2));
-  expect(screen.getByLabelText("作品选择")).not.toHaveValue("");
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: episode.id }),
+  );
   expect(desktop.getEpisode).toHaveBeenLastCalledWith(projectId, episode.id);
 });
 it("persists a newly created project and automatically restores its exact default episode", async () => {
@@ -1036,9 +1059,16 @@ it("persists a newly created project and automatically restores its exact defaul
   });
   cleanup();
   window.history.replaceState({}, "", "#project");
-  render(<DemoApp />);
-  expect(await screen.findByRole("option", { name: "B 默认剧集" })).toHaveValue(defaultB.id);
-  expect(screen.getByLabelText("剧集选择")).toHaveValue(defaultB.id);
+  render(
+    <DemoProvider>
+      <ProjectHarness />
+    </DemoProvider>,
+  );
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("project-list-state").textContent ?? "{}"),
+    ).toMatchObject({ selectedEpisodeId: defaultB.id }),
+  );
 });
 
 it("preserves the exact selected episode when the same real project is reopened from project centre", async () => {
