@@ -415,6 +415,9 @@
   border-radius: var(--r);
   color: var(--text-2);
 }
+.pro-root .scene.place {
+  grid-template-columns: minmax(0, 1fr);
+}
 .pro-root .scene:hover {
   background: var(--panel-2);
 }
@@ -428,6 +431,7 @@
   color: var(--text-3);
 }
 .pro-root .scene .t {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

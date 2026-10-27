@@ -370,7 +370,7 @@ export function stripUnsafeFileChars(name: string): string {
 }
 
 export function safeExportName(name: string): string {
-  const cleaned = stripUnsafeFileChars(basename(name)).trim().slice(0, 80);
+  const cleaned = stripUnsafeFileChars(basename(name)).replace(/\s+/g, "").trim().slice(0, 80);
   if (!cleaned || cleaned === "." || cleaned === "..") return "aivora-film.mp4";
   if (cleaned.toLowerCase().endsWith(".mp4")) return cleaned;
   return `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;

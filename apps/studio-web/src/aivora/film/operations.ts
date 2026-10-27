@@ -218,8 +218,19 @@ export function portraitPrompts(
   ];
   return views.map(([view, pose]) => ({
     view: view!,
-    prompt: `角色定妆照，不要画成某一场的动作。${who}。${pose}。${style}。`,
+    prompt: `角色定妆照，不要画成某一场的动作。${who}。按这句话里的性别和年龄来画，不要改成另一种性别。${pose}。${style}。`,
   }));
+}
+
+export function filmFileName(series: string, episode: string): string {
+  const base = `${series.trim() || "未命名"}-${episode.trim() || "第1集"}`.replace(/\s+/g, "");
+  return base.toLowerCase().endsWith(".mp4") ? base : `${base}.mp4`;
+}
+
+export function shotProgress(shot: FilmShot): "视频已出" | "画面已出" | "未生成" {
+  if (shot.takes.some((take) => take.status === "done")) return "视频已出";
+  if (shot.poster || shot.takes.some((take) => Boolean(take.stillUrl))) return "画面已出";
+  return "未生成";
 }
 
 export function locationPlate(where: string, styleZh: string, variant: string): string {

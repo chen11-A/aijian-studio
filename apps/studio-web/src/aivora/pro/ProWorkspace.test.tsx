@@ -281,6 +281,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
     expect(await screen.findByText(/已导出到/)).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: "导出成片" });
+    expect(within(dialog).getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "打开文件夹" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "播放" }));
     expect(desktop.revealFilmPath).toHaveBeenCalled();
@@ -338,7 +339,7 @@ describe("professional workspace", () => {
     } as unknown as Window["aijianGrok"];
     await openSample();
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
-    expect(await screen.findByText(/模型没有返回/)).toBeInTheDocument();
+    expect(await screen.findByText(/没有能写字的模型/)).toBeInTheDocument();
     fireEvent.click(stageTab("分镜"));
     fireEvent.click(screen.getByRole("button", { name: "单镜" }));
     fireEvent.click(screen.getByRole("button", { name: "先出草稿" }));
@@ -452,6 +453,7 @@ describe("professional workspace", () => {
       fireEvent.change(screen.getByLabelText("画风"), { target: { value: "赛博夜景" } });
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText("画面已生成。")).toBeInTheDocument();
+      expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText("模型拒绝了这一张。")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
@@ -543,6 +545,155 @@ describe("professional workspace", () => {
     expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
     expect(await screen.findByText(/已记下人物：林雨/)).toBeInTheDocument();
+  }, 20_000);
+
+  it("shows the text failure, infers a look, and marks a stale queue interrupted", async () => {
+    const { completeText, exportFilmCut } = installDesktop();
+    const replies: ((value: {
+      kind: string;
+      code?: string;
+      detail?: string;
+      billingAccountKind?: string;
+      text?: string;
+      model?: string;
+    }) => void)[] = [];
+    completeText.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          replies.push(resolve);
+        }),
+    );
+    await openSample();
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    await waitFor(() => expect(replies).toHaveLength(1));
+    expect(screen.getByRole("button", { name: /正在问模型/ })).toBeDisabled();
+    expect(completeText.mock.calls[0]?.[0]).toMatchObject({ model: "grok-4.7" });
+    replies[0]?.({
+      kind: "ERROR",
+      code: "TEXT_FAILED",
+      billingAccountKind: "grok_login",
+      detail: "文本接口返回 404。已改用普通对话再试过。",
+      text: "",
+    });
+    expect(await screen.findByText(/再用普通对话问一次/)).toBeInTheDocument();
+    await waitFor(() => expect(replies).toHaveLength(2));
+    replies[1]?.({
+      kind: "ERROR",
+      code: "TEXT_FAILED",
+      billingAccountKind: "grok_login",
+      detail: "文本接口返回 404。已改用普通对话再试过。",
+      text: "",
+    });
+    expect(await screen.findByText(/文本接口返回 404/)).toBeInTheDocument();
+    expect(screen.getByText(/已用离线拆镜/)).toBeInTheDocument();
+
+    completeText.mockImplementation(async ({ text }: { text: string }) => {
+      if (text.includes("一句外貌")) {
+        return { kind: "OK", text: "年轻女性，二十多岁，黑色长发。", model: "grok-4.7" };
+      }
+      return { kind: "OK", text: "性别未写明", model: "grok-4.7" };
+    });
+    fireEvent.click(stageTab("角色与场景"));
+    fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    expect(
+      await screen.findByText(/将按这句话出图：年轻女性，二十多岁，黑色长发/),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("外貌")).toHaveValue("年轻女性，二十多岁，黑色长发。");
+    completeText.mockResolvedValue({ kind: "OK", text: "性别未写明", model: "grok-4.7" });
+    fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "场景" }));
+    const place = document.querySelector(".scene.place");
+    expect(place?.getAttribute("title")).toBe("外景 · 夜");
+    expect(place?.textContent).toContain("外景 · 夜");
+
+    fireEvent.click(stageTab("分镜"));
+    const size = screen.getByLabelText("景别");
+    size.focus();
+    fireEvent.keyDown(size, { key: "2" });
+    expect(screen.getByLabelText("景别")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "5 秒" })[0]!);
+    expect(screen.getAllByRole("button", { name: "5 秒" })[0]).toHaveClass("on");
+
+    fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+    expect(screen.getByText("雨夜巷战-第1集.mp4")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(exportFilmCut).not.toHaveBeenCalled();
+
+    const queued = sampleFilm();
+    queued.id = "film_episode2000000001";
+    queued.episodeTitle = "第 2 集";
+    queued.jobs = [
+      {
+        id: "job-1",
+        shotId: queued.shots[0]!.id,
+        kind: "video",
+        take: 1,
+        status: "queued",
+        prompt: "",
+        reason: "",
+      },
+    ];
+    window.aijian = {
+      ...window.aijian!,
+      readFilmProject: vi.fn(async () => queued),
+    } as unknown as Window["aijian"];
+    fireEvent.click(screen.getByRole("button", { name: "作品" }));
+    fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
+    expect(await screen.findByText(/已标成已中断/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有排队");
+    fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
+    expect(screen.getByRole("button", { name: /已中断/ })).toBeInTheDocument();
+  }, 20_000);
+
+  it("plays the open shot once and pauses on the next click", async () => {
+    let paused = true;
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(async () => {
+      paused = false;
+    });
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {
+      paused = true;
+    });
+    const previous = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "paused");
+    Object.defineProperty(HTMLMediaElement.prototype, "paused", {
+      configurable: true,
+      get() {
+        return paused;
+      },
+    });
+    const createStoryFilm = vi.fn(async () => ({
+      data: {
+        status: "SUCCEEDED",
+        message: "",
+        output_path: "/tmp/aivora/shot.mp4",
+        preview_image: "",
+        duration_seconds: "2",
+      },
+    }));
+    installDesktop(createStoryFilm);
+    try {
+      await openSample();
+      fireEvent.click(stageTab("分镜"));
+      fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+      fireEvent.click(screen.getByRole("button", { name: "1" }));
+      fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+      await waitFor(() => expect(play).toHaveBeenCalled());
+      fireEvent.click(stageTab("剪辑"));
+      expect(screen.getAllByRole("button", { name: "暂停" }).length).toBeGreaterThan(0);
+      const started = play.mock.calls.length;
+      fireEvent.click(screen.getAllByRole("button", { name: "暂停" })[0]!);
+      expect(pause).toHaveBeenCalled();
+      expect(screen.getAllByRole("button", { name: "播放" }).length).toBeGreaterThan(0);
+      const preview = document.querySelector("video.frame");
+      if (preview) fireEvent.ended(preview);
+      expect(play.mock.calls.length).toBe(started);
+    } finally {
+      play.mockRestore();
+      pause.mockRestore();
+      if (previous) Object.defineProperty(HTMLMediaElement.prototype, "paused", previous);
+    }
   }, 20_000);
 });
 

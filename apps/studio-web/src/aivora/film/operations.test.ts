@@ -21,6 +21,7 @@ import {
   parseWriterScenes,
   performanceLine,
   planVideoJobs,
+  filmFileName,
   portraitPrompts,
   PREVIEW_REASON,
   removeShot,
@@ -127,6 +128,8 @@ describe("film operations", () => {
     const portraits = portraitPrompts("林骁", "林骁，短发", "写实电影感");
     expect(portraits.map((item) => item.view)).toEqual(["正面", "侧面", "背面", "脸部"]);
     expect(portraits[0]?.prompt).toContain("定妆照");
+    expect(portraits[0]?.prompt).toContain("性别");
+    expect(filmFileName("雨夜重逢", "第 1 集")).toBe("雨夜重逢-第1集.mp4");
     expect(portraits[0]?.prompt).not.toContain("起始画面");
     expect(locationPlate("窄巷", "写实。", "雨")).toContain("空镜");
     const film = ensureLocations(sampleFilm());
