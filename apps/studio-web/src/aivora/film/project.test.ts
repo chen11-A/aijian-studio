@@ -58,10 +58,9 @@ describe("film project", () => {
     expect(text).not.toContain("林夏");
     expect(text).not.toContain("阿凯");
     expect(offlineRotation("雨夜巷战")).toHaveLength(1);
-    expect(offlineRotation("林雨站在巷口。阿哲撑着伞跑过来。").map((shot) => shot.narration)).toEqual([
-      "林雨站在巷口",
-      "阿哲撑着伞跑过来",
-    ]);
+    expect(
+      offlineRotation("林雨站在巷口。阿哲撑着伞跑过来。").map((shot) => shot.narration),
+    ).toEqual(["林雨站在巷口", "阿哲撑着伞跑过来"]);
   });
 
   it("puts the project in front of the assistant and the director", () => {

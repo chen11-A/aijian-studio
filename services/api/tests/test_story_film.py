@@ -12,7 +12,6 @@ from aijian_api.main import create_app
 from aijian_api.repository import StudioRepository
 from aijian_api.security import SidecarSecurity
 from aijian_api.story_film import (
-    StoryFilmError,
     StoryFilmRequest,
     StoryFilmService,
     _fit_clip_length,

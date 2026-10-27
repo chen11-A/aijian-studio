@@ -113,7 +113,7 @@ describe("film library", () => {
   it("keeps Chinese in an export name and strips characters a folder cannot hold", () => {
     expect(safeExportName("巷口重逢-第1集.mp4")).toBe("巷口重逢-第1集.mp4");
     expect(safeExportName("巷口重逢-第1集")).toBe("巷口重逢-第1集.mp4");
-    expect(safeExportName('巷口重逢:第1集?.mp4')).toBe("巷口重逢第1集.mp4");
+    expect(safeExportName("巷口重逢:第1集?.mp4")).toBe("巷口重逢第1集.mp4");
     expect(safeExportName(`巷口${String.fromCharCode(0)}重逢.mp4`)).toBe("巷口重逢.mp4");
     expect(safeExportName("")).toBe("aivora-film.mp4");
   });
