@@ -677,6 +677,18 @@ def test_two_shots_hold_a_character_still_and_join(tmp_path):
     assert list((tmp_path / "story-films").glob("*-cast.png")) == []
 
 
+def test_style_block_and_loudness_numbers_stay_plain() -> None:
+    from aijian_api.story_film import _loudnorm_number, _styled
+
+    assert _styled("雨停了", "") == "雨停了"
+    assert _styled("雨停了。冷色", "冷色") == "雨停了。冷色"
+    assert _styled("雨停了", "冷色") == "雨停了。冷色"
+    assert _loudnorm_number(True) is None
+    assert _loudnorm_number("响") is None
+    assert _loudnorm_number("-16.0") == "-16.0"
+    assert _loudnorm_number(-1.5) == "-1.5"
+
+
 def test_each_shot_generates_its_own_still_and_mutes_video_audio(tmp_path, monkeypatch):
     from aijian_api.story_film import StoryShot
 

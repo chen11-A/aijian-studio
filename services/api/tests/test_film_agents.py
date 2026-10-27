@@ -19,7 +19,12 @@ from aijian_api.film_project import (
     migrate,
     save_project,
 )
-from aijian_api.model_config import IMAGE_MODEL, IMAGE_MODEL_RETIRES_ON, VIDEO_MODEL
+from aijian_api.model_config import (
+    IMAGE_MODEL,
+    IMAGE_MODEL_RETIRES_ON,
+    VIDEO_DRAFT_MODEL,
+    VIDEO_MODEL,
+)
 from aijian_api.shot_pipeline import keyframe_prompt, plan_shot, reference_url, video_prompt
 from aijian_api.shot_plan import character_reference_prompt, offline_rotation, plan_shots
 from aijian_api.style_bible import DEFAULT_PROMPT_ZH, PRESETS
@@ -48,6 +53,75 @@ def test_migration_fills_defaults_and_keeps_unknown_keys(tmp_path: Path) -> None
     assert loaded.title == "雾城"
     assert loaded.extra["future_note"] == "保留"
     assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 9
+
+
+def test_a_saved_shot_keeps_a_15_second_length_and_its_fields(tmp_path: Path) -> None:
+    project = migrate(
+        {
+            "schema_version": True,
+            "preset": "古风武侠",
+            "characters": [{}, {"name": "林骁", "identity": "短发", "voice_id": "leo"}],
+            "scenes": [{"title": "巷口", "characters": ["林骁", 1], "tags": ["夜", None]}],
+            "shots": [
+                {},
+                {"action": "他站住"},
+                {
+                    "id": "s1",
+                    "picture": "雨停了",
+                    "action": "抬头",
+                    "performance": "眼神稳住",
+                    "size": "近景",
+                    "angle": "俯拍",
+                    "move": "跟拍",
+                    "seconds": 99,
+                    "characters": ["林骁"],
+                    "continuity_from_prev": True,
+                },
+            ],
+            "takes": [{}, {"shot_id": "s1", "qc_total": True}, {"shot_id": "s1", "qc_total": 3}],
+        }
+    )
+    assert project.schema_version == 1
+    assert project.style.preset == "古风武侠"
+    assert [item.name for item in project.characters] == ["林骁"]
+    assert project.shots[0].picture == "他站住"
+    assert project.shots[1].seconds == 15
+    assert project.shots[1].performance == "眼神稳住"
+    assert project.shots[1].angle == "俯拍"
+    assert project.takes[0].qc_total is None
+    assert project.takes[1].qc_total == 3
+    assert project.shots[1].to_dict()["seconds"] == 15
+    assert project.characters[0].to_dict()["name"] == "林骁"
+    assert project.takes[1].to_dict()["shot_id"] == "s1"
+    full = keyframe_prompt(
+        "",
+        style_zh="冷色",
+        identity="林骁，短发",
+        size="近景",
+        angle="俯拍",
+        move="跟拍",
+        action="抬头",
+        performance="眼神稳住。",
+    )
+    assert "动作要点抬头" in full
+    assert "表演眼神稳住" in full
+    assert "角度俯拍" in full
+    assert "运镜跟拍" in full
+    assert full.endswith("冷色。")
+    assert video_prompt("抬眼", move="  ").endswith("运镜用固定。背景保持稳定。视频不要自己出声。")
+    draft = empty_project()
+    draft.settings.draft = True
+    draft.shots = [
+        Shot(id="a", scene_id="scene-1", no=1, picture="站住", action="站住", seconds=15)
+    ]
+    planned = plan_shot(draft, draft.shots[0], catalog={IMAGE_MODEL, VIDEO_DRAFT_MODEL})
+    jobs = planned["jobs"]
+    assert isinstance(jobs, list)
+    assert jobs[1]["duration"] == 15
+    assert jobs[1]["model"] == VIDEO_DRAFT_MODEL
+    path = tmp_path / "missing" / "film.json"
+    save_project(path, project)
+    assert load_project(path).title
 
 
 def test_agent_does_not_overwrite_a_user_field() -> None:
