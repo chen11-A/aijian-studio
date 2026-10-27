@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { offlineRotation } from "../shot-plan";
 import {
   applyShots,
+  interruptStaleWork,
   assistantPrompt,
   agentRequest,
   blankFilm,
@@ -17,7 +18,7 @@ import {
   videoPrompt,
   writeFilm,
 } from "./project";
-import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
+import { IMAGE_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 
 describe("film project", () => {
   it("gives each shot its own keyframe and the character's looks", () => {
@@ -146,7 +147,40 @@ describe("film project", () => {
     expect(generationNote([])).toContain(IMAGE_MODEL);
     expect(generationNote([IMAGE_MODEL])).toContain(VIDEO_MODEL);
     expect(generationNote([IMAGE_MODEL, VIDEO_MODEL])).toContain("起始画面");
-    expect(textModel([])).toBe(TEXT_MODEL);
+    expect(textModel([])).toBe("");
+    expect(textModel(["grok-imagine-video", "grok-4"])).toBe("grok-4");
     expect(textModel(["grok-4-fast"])).toBe("grok-4-fast");
+    const stale = sampleFilm();
+    stale.jobs = [
+      {
+        id: "job-1",
+        shotId: stale.shots[0]!.id,
+        kind: "video",
+        take: 1,
+        status: "queued",
+        prompt: "",
+        reason: "",
+      },
+    ];
+    stale.shots[0]!.takes = [
+      {
+        id: "take-1",
+        shotId: stale.shots[0]!.id,
+        index: 1,
+        status: "running",
+        stillUrl: "",
+        videoPath: "",
+        videoUrl: "",
+        prompt: "",
+        createdAt: "",
+        reason: "",
+      },
+    ];
+    const settled = interruptStaleWork(stale);
+    expect(settled.interrupted).toBe(true);
+    expect(settled.film.jobs[0]?.status).toBe("failed");
+    expect(settled.film.jobs[0]?.reason).toBe("已中断");
+    expect(settled.film.shots[0]?.takes[0]?.reason).toBe("已中断，可以重试。");
+    expect(interruptStaleWork(settled.film).interrupted).toBe(false);
   });
 });

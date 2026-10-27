@@ -7,9 +7,11 @@ import type {
   GrokLoginTextResult,
 } from "@aijian/contracts/grok-auth";
 import { authorizeGrokInBrowser } from "./grok-auth-callback";
+import type { AgentLog } from "./agent-log";
 import {
   completeGrokText,
   exchangeAuthorizationCode,
+  GrokTextFailure,
   listGrokCatalog,
   listGrokModels,
   OFFICIAL_GROK_ENDPOINTS,
@@ -66,6 +68,8 @@ type Dependencies = {
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   /** Status codes only. Never pass a token, code, or URL. */
   log?: GrokLoginLog;
+  /** Text-call failures. The writer redacts tokens before they reach disk. */
+  agentLog?: AgentLog;
   /** When set, provider HTTP waits until this ledger has a billing row. No token is passed. */
   ledger?: SubscriptionLedger;
 };
@@ -414,11 +418,37 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           })
           .catch(() => undefined);
       }
+      if (error instanceof GrokTextFailure) {
+        for (const attempt of error.attempts) {
+          dependencies.agentLog?.write({
+            model: input.model,
+            endpoint: attempt.endpoint,
+            httpStatus: attempt.httpStatus,
+            body: attempt.body,
+          });
+        }
+      }
       if (safe === "ENTITLEMENT_DENIED" && session) {
         await persist({ ...session, inferenceDenied: true });
         lastError = safe;
       } else if (safe === "REAUTH_REQUIRED") {
         lastError = safe;
+      }
+      if (safe === "TEXT_FAILED" && error instanceof GrokTextFailure) {
+        const last = error.attempts[error.attempts.length - 1];
+        const status = last?.httpStatus
+          ? `文本接口返回 ${last.httpStatus}`
+          : "文本接口没有返回正文";
+        const tried = error.attempts.some((item) => item.endpoint === "chat")
+          ? "。已改用普通对话再试过"
+          : "";
+        return {
+          kind: "ERROR",
+          code: safe,
+          billingAccountKind: "grok_login",
+          ...(last?.httpStatus ? { httpStatus: last.httpStatus } : {}),
+          detail: `${status}${tried}。`,
+        };
       }
       return { kind: "ERROR", code: safe, billingAccountKind: "grok_login" };
     }

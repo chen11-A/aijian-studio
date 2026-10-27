@@ -496,8 +496,32 @@ export function textModel(modelIds: readonly string[]): string {
     text.find((id) => id === TEXT_MODEL) ||
     text.find((id) => id.startsWith("grok-4")) ||
     text[0] ||
-    TEXT_MODEL
+    ""
   );
+}
+
+/** A previous session cannot still be queued after the app opens the film again. */
+export function interruptStaleWork(film: FilmProject): { film: FilmProject; interrupted: boolean } {
+  const pending = (status: string) => status === "queued" || status === "running";
+  const interrupted =
+    film.jobs.some((job) => pending(job.status)) ||
+    film.shots.some((shot) => shot.takes.some((take) => pending(take.status)));
+  if (!interrupted) return { film, interrupted: false };
+  return {
+    interrupted: true,
+    film: {
+      ...film,
+      jobs: film.jobs.map((job) =>
+        pending(job.status) ? { ...job, status: "failed", reason: "已中断" } : job,
+      ),
+      shots: film.shots.map((shot) => ({
+        ...shot,
+        takes: shot.takes.map((take) =>
+          pending(take.status) ? { ...take, status: "failed", reason: "已中断，可以重试。" } : take,
+        ),
+      })),
+    },
+  };
 }
 
 export function readFilm(storage: Storage): FilmProject | null {

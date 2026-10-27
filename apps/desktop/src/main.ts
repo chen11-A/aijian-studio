@@ -16,6 +16,7 @@ import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
 import { createGrokRuntime } from "./grok-auth-runtime";
 import { liveMediaSidecarEnv } from "./live-media-env";
+import { createAgentLog } from "./agent-log";
 import { createGrokLoginLog } from "./grok-login-log";
 import { createSubscriptionLedger } from "./desktop-subscription-ledger";
 import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
@@ -406,6 +407,7 @@ function getGrokRuntime() {
       window.focus();
     },
     log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
+    agentLog: createAgentLog(join(app.getPath("userData"), "logs", "agents.log")),
     // The labeled button is the confirmation. One click opens the system browser.
     confirmSignIn: async () => true,
   });

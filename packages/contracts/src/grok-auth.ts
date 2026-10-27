@@ -32,7 +32,15 @@ export type GrokLoginActionResult =
 
 export type GrokLoginTextResult =
   | { kind: "OK"; text: string; billingAccountKind: "grok_login"; model: string }
-  | { kind: "ERROR"; code: string; billingAccountKind: "grok_login" };
+  | {
+      kind: "ERROR";
+      code: string;
+      billingAccountKind: "grok_login";
+      /** Present when the text call reached the network. */
+      httpStatus?: number;
+      /** Short reason for the screen. Never a token or a raw body. */
+      detail?: string;
+    };
 
 export type GrokLoginBridge = {
   status(): Promise<GrokLoginStatus>;

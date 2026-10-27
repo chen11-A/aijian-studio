@@ -116,6 +116,14 @@ async function mockOAuth() {
       json(response, { output_text: "fixture reply" });
       return;
     }
+    if (url.pathname === "/v1/chat/completions") {
+      if (textStatus !== 200) {
+        response.writeHead(textStatus).end("{}");
+        return;
+      }
+      json(response, { choices: [{ message: { content: "chat reply" } }] });
+      return;
+    }
     response.writeHead(404).end();
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));

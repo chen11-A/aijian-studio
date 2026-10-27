@@ -361,28 +361,119 @@ function readOutputModalities(item: Record<string, unknown>): string[] | undefin
   return values.length > 0 ? values.slice(0, 8) : undefined;
 }
 
-export async function completeGrokText(
+export type TextAttempt = { endpoint: string; httpStatus: number; body: string };
+
+/** A text call failed after the responses request, and after a plain chat retry when one was made. */
+export class GrokTextFailure extends GrokAuthError {
+  readonly attempts: readonly TextAttempt[];
+  constructor(code: string, attempts: readonly TextAttempt[]) {
+    const last = attempts[attempts.length - 1];
+    super(code, { httpStatus: last?.httpStatus });
+    this.attempts = attempts;
+  }
+}
+
+function modelText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const cleaned = value.replaceAll("\u0000", "").trim();
+  if (!cleaned || cleaned.length > 100_000) return "";
+  return cleaned;
+}
+
+function responseText(value: unknown): string {
+  if (!isRecord(value)) return "";
+  const direct = modelText(value.output_text);
+  if (direct) return direct;
+  if (!Array.isArray(value.output)) return "";
+  const parts: string[] = [];
+  for (const item of value.output) {
+    if (!isRecord(item)) continue;
+    const own = modelText(item.text);
+    if (own) parts.push(own);
+    if (!Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (!isRecord(part)) continue;
+      const text = modelText(part.text);
+      if (text) parts.push(text);
+    }
+  }
+  return parts.join("").slice(0, 100_000);
+}
+
+function chatText(value: unknown): string {
+  if (!isRecord(value) || !Array.isArray(value.choices)) return "";
+  const first = value.choices[0];
+  if (!isRecord(first) || !isRecord(first.message)) return "";
+  const content = first.message.content;
+  if (typeof content === "string") return modelText(content);
+  if (!Array.isArray(content)) return "";
+  const parts: string[] = [];
+  for (const part of content) {
+    if (!isRecord(part)) continue;
+    const text = modelText(part.text);
+    if (text) parts.push(text);
+  }
+  return parts.join("").slice(0, 100_000);
+}
+
+async function postText(
   fetch: Fetch,
-  input: { accessToken: string; model: string; text: string; endpoints?: GrokEndpoints },
-): Promise<string> {
-  const endpoints = input.endpoints ?? OFFICIAL_GROK_ENDPOINTS;
-  const response = await fetch(`${endpoints.api}/responses`, {
+  url: string,
+  token: string,
+  body: Record<string, unknown>,
+): Promise<{ status: number; json: unknown | null; raw: string }> {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${input.accessToken}`,
+      authorization: `Bearer ${token}`,
       "content-type": "application/json",
       accept: "application/json",
       "user-agent": USER_AGENT,
     },
-    body: JSON.stringify({ model: input.model, input: input.text, store: false }),
+    body: JSON.stringify(body),
   });
-  if (response.status === 403) throw new GrokAuthError("ENTITLEMENT_DENIED");
-  if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED");
-  if (!response.ok) throw new GrokAuthError("TEXT_FAILED");
-  const value = await readJson(response);
-  if (!isRecord(value) || !safeString(value.output_text, 100_000))
-    throw new GrokAuthError("TEXT_FAILED");
-  return value.output_text;
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const raw = bytes.subarray(0, 800).toString("utf8");
+  let json: unknown | null = null;
+  if (bytes.length > 0 && bytes.length <= MAX_JSON) {
+    try {
+      json = JSON.parse(bytes.toString("utf8")) as unknown;
+    } catch {
+      json = null;
+    }
+  }
+  return { status: response.status, json, raw };
+}
+
+export async function completeGrokText(
+  fetch: Fetch,
+  input: { accessToken: string; model: string; text: string; endpoints?: GrokEndpoints },
+): Promise<string> {
+  const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
+  const responses = await postText(fetch, `${api}/responses`, input.accessToken, {
+    model: input.model,
+    input: input.text,
+    store: false,
+  });
+  const first = responseText(responses.json);
+  if (responses.status === 200 && first) return first;
+  const attempts: TextAttempt[] = [
+    { endpoint: "responses", httpStatus: responses.status, body: responses.raw },
+  ];
+  if (responses.status === 401) throw new GrokTextFailure("REAUTH_REQUIRED", attempts);
+  const chat = await postText(fetch, `${api}/chat/completions`, input.accessToken, {
+    model: input.model,
+    messages: [{ role: "user", content: input.text }],
+    stream: false,
+  });
+  const second = chatText(chat.json);
+  if (chat.status === 200 && second) return second;
+  attempts.push({ endpoint: "chat", httpStatus: chat.status, body: chat.raw });
+  if (chat.status === 401) throw new GrokTextFailure("REAUTH_REQUIRED", attempts);
+  if (responses.status === 403 && chat.status === 403) {
+    throw new GrokTextFailure("ENTITLEMENT_DENIED", attempts);
+  }
+  throw new GrokTextFailure("TEXT_FAILED", attempts);
 }
 
 export type GrokDeviceLogin = {
