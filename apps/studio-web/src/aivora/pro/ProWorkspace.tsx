@@ -56,6 +56,7 @@ import {
   offlineShots,
   textModel,
   STYLE_PRESETS,
+  type FilmPortrait,
   type FilmProject,
   type FilmScene,
   type FilmShot,
@@ -124,6 +125,27 @@ const ROLE_COPY: Record<Role, string> = {
   action: "动作指导：把打斗拆成一拍一拍的动作，标出力度、方向和慢镜。",
   performance: "表演指导：给每个镜头写情绪、眼神和语气。",
 };
+
+async function requestStill(
+  seriesId: string,
+  prompt: string,
+): Promise<{ url: string; reason: string }> {
+  const bridge = window.aijian;
+  if (!seriesId || !bridge?.generateFilmStill) {
+    return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
+  }
+  try {
+    const result = await bridge.generateFilmStill(seriesId, prompt);
+    if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
+    const bytes = bridge.readFilmMedia ? await bridge.readFilmMedia(result.path) : null;
+    return {
+      url: bytes ? mediaUrl(bytes, "image/png") : "",
+      reason: bytes ? "画面已生成。" : "画面已保存，这一页还打不开。",
+    };
+  } catch {
+    return { url: "", reason: "出图没有成功，可以重试。" };
+  }
+}
 
 function shotFrame(shot: FilmShot | undefined): string {
   if (!shot) return "";
@@ -754,22 +776,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function makeStill(prompt: string): Promise<{ url: string; reason: string }> {
-    const bridge = window.aijian;
     const current = filmRef.current;
-    if (!current || !bridge?.generateFilmStill) {
-      return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
-    }
-    try {
-      const result = await bridge.generateFilmStill(current.seriesId, prompt);
-      if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
-      const bytes = bridge.readFilmMedia ? await bridge.readFilmMedia(result.path) : null;
-      return {
-        url: bytes ? mediaUrl(bytes, "image/png") : "",
-        reason: bytes ? "画面已生成。" : "画面已保存，这一页还打不开。",
-      };
-    } catch {
-      return { url: "", reason: "出图没有成功，可以重试。" };
-    }
+    if (!current) return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
+    return requestStill(current.seriesId, prompt);
   }
 
   async function clipUrl(path: string): Promise<string> {
@@ -2290,9 +2299,9 @@ function CastPage({
               const prompts = portraitPrompts(character.name, character.identity, film.styleZh);
               onNotice("正在出定妆照。");
               void (async () => {
-                const portraits = [];
+                const portraits: FilmPortrait[] = [];
                 for (const item of prompts) {
-                  const made = await makeStill(item.prompt);
+                  const made = await requestStill(film.seriesId, item.prompt);
                   portraits.push({ view: item.view, prompt: item.prompt, url: made.url });
                   if (!made.url) {
                     onNotice(made.reason);
