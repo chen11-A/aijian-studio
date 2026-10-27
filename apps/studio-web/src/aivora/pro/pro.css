@@ -286,6 +286,12 @@
   align-items: center;
   gap: 6px;
   color: var(--text-2);
+  flex: none;
+}
+.pro-root .statusbar .where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pro-root .bar {
   width: 80px;

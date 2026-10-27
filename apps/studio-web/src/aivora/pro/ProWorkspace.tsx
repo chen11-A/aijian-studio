@@ -33,6 +33,7 @@ import {
 import {
   activeFilmId,
   BROWSER_DIRECTORY,
+  filmDiskReady,
   listEpisodes,
   listFilms,
   mediaUrl,
@@ -41,6 +42,7 @@ import {
   renameFilm,
   saveFilm,
   type EpisodeEntry,
+  type FilmIndexEntry,
 } from "../film/library";
 import {
   applyShots,
@@ -120,7 +122,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [stage, setStage] = useState<Stage>("script");
   const [scene, setScene] = useState("02");
   const [role, setRole] = useState<Role>("director");
-  const [shot, setShot] = useState(4);
+  const [shot, setShot] = useState(0);
   const [pending, setPending] = useState<FilmShot[] | null>(null);
   const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
   const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
@@ -139,6 +141,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [bench, setBench] = useState(false);
   const [paused, setPaused] = useState(false);
   const [episodes, setEpisodes] = useState<EpisodeEntry[]>([]);
+  const [seriesList, setSeriesList] = useState<FilmIndexEntry[]>([]);
+  const [diskPath, setDiskPath] = useState("");
+  const [diskFilmId, setDiskFilmId] = useState("");
+  const [diskError, setDiskError] = useState("");
   const [pendingBatch, setPendingBatch] = useState<FilmShot[] | null>(null);
   const [exportDir, setExportDir] = useState("");
   const [exportFile, setExportFile] = useState("");
@@ -188,26 +194,41 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useEffect(() => {
     filmRef.current = film;
     if (!film) return;
-    void saveFilm(film);
+    const savingId = film.id;
+    let cancelled = false;
+    void saveFilm(film)
+      .then((stored) => {
+        if (cancelled) return;
+        if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
+          setDiskFilmId(savingId);
+          setDiskPath(stored.directory);
+          setDiskError("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDiskError("没有写到应用数据目录，可以重试。");
+      });
+    let timer = 0;
     if (skipHistory.current) {
       skipHistory.current = false;
       committed.current = film;
-      return;
-    }
-    if (!committed.current) {
+    } else if (!committed.current) {
       committed.current = film;
-      return;
+    } else {
+      timer = window.setTimeout(() => {
+        const previous = committed.current;
+        if (previous && filmSignature(previous) !== filmSignature(film)) {
+          pastRef.current = [...pastRef.current, previous].slice(-50);
+          futureRef.current = [];
+          setHistoryTick((value) => value + 1);
+        }
+        committed.current = film;
+      }, 500);
     }
-    const timer = window.setTimeout(() => {
-      const previous = committed.current;
-      if (previous && filmSignature(previous) !== filmSignature(film)) {
-        pastRef.current = [...pastRef.current, previous].slice(-50);
-        futureRef.current = [];
-        setHistoryTick((value) => value + 1);
-      }
-      committed.current = film;
-    }, 500);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, [film]);
 
   function rememberFilm(next: FilmProject) {
@@ -311,6 +332,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   };
 
   const title = film?.title ?? "未命名作品";
+  const savedDirectory =
+    diskFilmId === film?.id && diskPath && diskPath !== BROWSER_DIRECTORY
+      ? diskPath
+      : film?.directory && film.directory !== BROWSER_DIRECTORY
+        ? film.directory
+        : "";
   const sceneShots = film?.shots.filter((item) => item.sceneId === scene) ?? [];
   const shownShots = sceneShots.length > 0 ? sceneShots : (film?.shots ?? []);
 
@@ -844,6 +871,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setMenu(opening ? "project" : null);
                 if (opening && film) {
                   setRename(film.seriesTitle || film.title);
+                  void listFilms().then(setSeriesList);
                   void listEpisodes(film.seriesId).then(setEpisodes);
                 }
               }}
@@ -901,6 +929,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 >
                   打开示例
                 </button>
+                {seriesList.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      void readSaved(item.id).then((saved) => {
+                        if (!saved) {
+                          setNotice("没有打开这部作品。");
+                          return;
+                        }
+                        applyLive(saved);
+                        setScene(saved.scenes[0]?.id ?? "scene-1");
+                        setShot(0);
+                        setMenu(null);
+                        setNotice(`已打开${saved.seriesTitle || saved.title}。`);
+                      });
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))}
                 <button
                   onClick={() => {
                     if (!film) return;
@@ -931,6 +979,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     {item.title}
                   </button>
                 ))}
+                <input
+                  aria-label="作品名"
+                  value={rename}
+                  onChange={(event) => setRename(event.target.value)}
+                />
                 <button
                   onClick={() => {
                     if (!film || !rename.trim()) return;
@@ -942,11 +995,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 >
                   保存名字
                 </button>
-                <input
-                  aria-label="作品名"
-                  value={rename}
-                  onChange={(event) => setRename(event.target.value)}
-                />
                 <button
                   onClick={() => {
                     if (!film) return;
@@ -961,6 +1009,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                 >
                   删除这一集
+                </button>
+                <button
+                  onClick={() => {
+                    if (!film) return;
+                    void removeFilm(film.seriesId).then(() => {
+                      setFilm(null);
+                      setMenu(null);
+                      setNotice("已删除这部作品。");
+                    });
+                  }}
+                >
+                  删除这部作品
                 </button>
                 <button
                   onClick={() => {
@@ -1275,15 +1335,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </>
           )}
           <span className="sp" />
-          <span>
-            {film?.directory && film.directory !== BROWSER_DIRECTORY
+          <span className="where">
+            {savedDirectory
               ? "作品保存在"
-              : BROWSER_DIRECTORY}{" "}
-            <b>
-              {film?.directory && film.directory !== BROWSER_DIRECTORY
-                ? film.directory
-                : film?.title || ""}
-            </b>
+              : filmDiskReady()
+                ? diskError || "正在写入应用数据目录"
+                : BROWSER_DIRECTORY}{" "}
+            <b>{savedDirectory || film?.title || ""}</b>
           </span>
         </footer>
         {menu === "queue" && (
