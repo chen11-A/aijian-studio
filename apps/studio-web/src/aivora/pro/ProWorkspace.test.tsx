@@ -409,6 +409,141 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
     expect(await screen.findByText(/已删除这一集/)).toBeInTheDocument();
   }, 20_000);
+
+  it("writes a still, keeps the reported length, and plays without a sound device", async () => {
+    let playbacks = 0;
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(async () => {
+      playbacks += 1;
+      if (playbacks === 1) throw new Error("no device");
+    });
+    const createStoryFilm = vi.fn(async () => ({
+      data: {
+        status: "SUCCEEDED",
+        message: "",
+        output_path: "/tmp/aivora/shot.mp4",
+        preview_image: "https://example.test/frame.png",
+        duration_seconds: "4",
+      },
+    }));
+    installDesktop(createStoryFilm);
+    let videos = 0;
+    window.aijian = {
+      ...window.aijian!,
+      generateFilmStill: vi
+        .fn()
+        .mockResolvedValueOnce({ path: "/tmp/a.png", reason: "" })
+        .mockResolvedValueOnce({ path: "", reason: "模型拒绝了这一张。" })
+        .mockRejectedValueOnce(new Error("down"))
+        .mockResolvedValueOnce({ path: "/tmp/b.png", reason: "" })
+        .mockResolvedValue({ path: "/tmp/c.png", reason: "" }),
+      readFilmMedia: vi.fn(async (path: string) => {
+        if (path.endsWith("b.png")) return null;
+        if (path.endsWith(".mp4")) {
+          videos += 1;
+          if (videos === 1) throw new Error("read");
+        }
+        return new Uint8Array([1, 2, 3, 4]);
+      }),
+    } as unknown as Window["aijian"];
+    try {
+      await openSample();
+      fireEvent.click(stageTab("分镜"));
+      fireEvent.change(screen.getByLabelText("这一镜的画风"), { target: { value: "冷色雨夜" } });
+      fireEvent.change(screen.getByLabelText("画风"), { target: { value: "赛博夜景" } });
+      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      expect(await screen.findByText("画面已生成。")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      expect(await screen.findByText("模型拒绝了这一张。")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      expect(await screen.findByText("出图没有成功，可以重试。")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
+      expect(await screen.findByText("画面已保存，这一页还打不开。")).toBeInTheDocument();
+      fireEvent.click(stageTab("角色与场景"));
+      fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+      expect(await screen.findByText("定妆照已生成。")).toBeInTheDocument();
+      fireEvent.click(stageTab("分镜"));
+      fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+      fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
+      fireEvent.click(screen.getByRole("button", { name: "生成 2 个版本" }));
+      expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+      expect(document.querySelector(".still")).toBeTruthy();
+      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain("没有排队");
+      const preview = document.querySelector("video.frame");
+      expect(preview).toBeTruthy();
+      fireEvent.timeUpdate(preview!);
+      fireEvent.ended(preview!);
+      expect(play).toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+      expect(screen.getByText("4 秒")).toBeInTheDocument();
+      fireEvent.click(stageTab("剪辑"));
+      expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+      fireEvent.click(screen.getByRole("button", { name: "保存到" }));
+      expect(await screen.findByRole("button", { name: "保存到" })).toHaveTextContent(
+        "/tmp/aivora/export",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+      fireEvent.click(screen.getByRole("button", { name: "设入点" }));
+      expect(screen.getByText("左右对比")).toBeInTheDocument();
+      expect(document.querySelector(".cmp video")).toBeTruthy();
+    } finally {
+      play.mockRestore();
+    }
+  }, 20_000);
+
+  it("says when a story is not billed to a project and when no cast is found", async () => {
+    installDesktop();
+    render(<ProWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Grok 会员|需要重新登录/ })).toHaveTextContent(
+        "已连接",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    expect(await screen.findByText(/没有记到作品上/)).toBeInTheDocument();
+    cleanup();
+    window.localStorage.clear();
+    const { completeText } = installDesktop();
+    completeText.mockImplementation(async ({ text }: { text: string }) => {
+      if (text.includes("把这一场拆成镜头")) return { kind: "OK", text: "{不是镜头}" };
+      if (text.includes("抽出人物")) return { kind: "FAILED" };
+      return { kind: "OK", text: "好" };
+    });
+    render(<ProWorkspace projectId={PROJECT_ID} />);
+    fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Grok 会员|需要重新登录/ })).toHaveTextContent(
+        "已连接",
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "风吹过屋顶。" } });
+    fireEvent.click(screen.getByRole("button", { name: "编剧" }));
+    fireEvent.click(screen.getByRole("button", { name: "让编剧写" }));
+    expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "导演" }));
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+    expect(await screen.findByText(/还没有认出人物和场景/)).toBeInTheDocument();
+    completeText.mockImplementation(async ({ text }: { text: string }) => {
+      if (text.includes("抽出人物")) {
+        return {
+          kind: "OK",
+          text: '{"characters":[{"name":"林雨","identity":"短发"}],"locations":[{"name":"雨夜巷口","prompt":"夜雨"}]}',
+        };
+      }
+      if (text.includes("把这一场拆成镜头")) {
+        return { kind: "OK", text: '{"shots":[{"picture":"她站住","action":"她站住"}]}' };
+      }
+      return { kind: "OK", text: "好" };
+    });
+    fireEvent.change(screen.getByLabelText("这一场"), { target: { value: "她在门口。" } });
+    fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
+    expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+    expect(await screen.findByText(/已记下人物：林雨/)).toBeInTheDocument();
+  }, 20_000);
 });
 
 function stageTab(name: string) {

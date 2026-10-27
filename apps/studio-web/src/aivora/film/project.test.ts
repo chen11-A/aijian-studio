@@ -7,6 +7,7 @@ import {
   blankFilm,
   generationNote,
   keyframePrompt,
+  newEpisode,
   newFilmId,
   offlineShots,
   parseDirectorShots,
@@ -95,6 +96,22 @@ describe("film project", () => {
     expect(parseDirectorShots("{", "02")).toBeNull();
     expect(parseDirectorShots('{"shots":"no"}', "02")).toBeNull();
     expect(parseDirectorShots('{"shots":[{}]}', "02")).toBeNull();
+    expect(parseDirectorShots("{nope}", "02")).toBeNull();
+    const told = parseDirectorShots(
+      '{"shots":[{"narration":"她站住","action":"抬一下手","size":"近景"}]}',
+      "02",
+    );
+    expect(told?.[0]?.picture).toBe("她站住");
+    expect(told?.[0]?.action).toBe("抬一下手");
+    const prefixed = sampleFilm();
+    prefixed.shots[0]!.picture = "这一镜的起始画面，雨停了";
+    expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe("这一镜的起始画面，雨停了。");
+    prefixed.characters[0]!.portraits = [
+      { view: "正面", prompt: "定妆", url: "data:image/png;base64,aa" },
+    ];
+    const episode = newEpisode(prefixed);
+    expect(episode.characters[0]?.portraits[0]?.url).toBe("data:image/png;base64,aa");
+    expect(episode.characters[0]?.portraits[0]).not.toBe(prefixed.characters[0]?.portraits[0]);
     const parsed = parseDirectorShots(
       '说明 {"shots":[{"picture":"抬眼","seconds":99,"characters":["林骁",1]}]}',
       "02",

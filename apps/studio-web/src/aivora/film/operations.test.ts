@@ -114,6 +114,7 @@ describe("film operations", () => {
     expect(parsed?.[0]?.text).toBe("只有风");
     expect(parsed?.[0]?.where).toContain("巷口");
     expect(parseWriterScenes("不是 json")).toBeNull();
+    expect(parseWriterScenes("{nope}")).toBeNull();
     const film = blankFilm();
     film.scenes[0]!.text = "用户写的";
     film.scenes[0]!.userFields = ["text"];
@@ -194,6 +195,8 @@ describe("film operations", () => {
     expect(storyFilmBatches(film, film.shots, false)[0]?.video_model).toBe(
       "grok-imagine-video-1.5",
     );
+    film.shots[0]!.styleNote = "冷色雨夜";
+    expect(storyFilmBatches(film, [film.shots[0]!], false)[0]?.style_block).toContain("冷色雨夜");
   });
 
   it("reads names and a rainy alley from the script, and keeps names the user already wrote", () => {
@@ -203,6 +206,8 @@ describe("film operations", () => {
     expect(found.characters.map((item) => item.name)).toEqual(["林雨", "阿哲"]);
     expect(found.locations.map((item) => item.name)).toEqual(["雨夜巷口"]);
     expect(parseCastReply("不是")).toBeNull();
+    expect(parseCastReply("{nope}")).toBeNull();
+    expect(parseCastReply('{"characters":[],"locations":[]}')).toBeNull();
     const parsed = parseCastReply(
       '好 {"characters":[{"name":"林雨","identity":"短发"}],"locations":[{"name":"巷口","prompt":"夜"}]}',
     );
@@ -241,10 +246,15 @@ describe("film operations", () => {
     const plain = await extractBookText("故事.txt", encoder.encode("第一章 夜\n只有风。"));
     expect(plain.text).toContain("只有风");
     const docx = storedZip({
-      "word/document.xml": encoder.encode("<w:p>巷口只有风。</w:p>"),
+      "word/document.xml": encoder.encode("<w:p>巷口只有风&#12290;</w:p>"),
     });
     const fromDoc = await extractBookText("故事.docx", docx);
-    expect(fromDoc.text).toContain("巷口只有风");
+    expect(fromDoc.text).toContain("巷口只有风。");
+    const corrupt = storedZip({ "word/document.xml": encoder.encode("<w:p>坏掉的压缩</w:p>") }, 8);
+    const nameLength = "word/document.xml".length;
+    corrupt.fill(0xff, 30 + nameLength, 30 + nameLength + 6);
+    const unreadable = await extractBookText("坏.docx", corrupt);
+    expect(unreadable.text).toBe("");
     const epub = storedZip({ "OEBPS/chap.xhtml": encoder.encode("<p>他还没走。</p>") }, 8);
     const fromBook = await extractBookText("故事.epub", epub);
     expect(fromBook.text).toContain("他还没走");
