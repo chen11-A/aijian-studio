@@ -3,7 +3,9 @@ import { emptySoundPlan } from "./audio";
 import {
   keyframePrompt,
   shotIdentity,
+  type FilmCharacter,
   type FilmJob,
+  type FilmLocation,
   type FilmProject,
   type FilmScene,
   type FilmShot,
@@ -223,6 +225,107 @@ export function portraitPrompts(
 
 export function locationPlate(where: string, styleZh: string, variant: string): string {
   return `空镜，没有人物。${where || "地点"}。${variant}。${styleZh}`;
+}
+
+export type ExtractedCast = {
+  characters: { name: string; identity: string }[];
+  locations: { name: string; prompt: string }[];
+};
+
+const NAME_BEFORE =
+  /([\u4e00-\u9fff]{2,3})(?=站|跑|笑|说|看|走|撑|等|问|答|抬|停|推|拉|坐|躺|哭|喊)/g;
+const PLACE_AT = /(?:在|到)([\u4e00-\u9fff]{2,8})/g;
+const NOT_A_NAME = new Set(["两人", "他们", "她们", "我们", "夜里", "雨夜", "一个人"]);
+
+export function extractCastOffline(text: string): ExtractedCast {
+  const names = new Set<string>();
+  for (const match of text.matchAll(NAME_BEFORE)) {
+    const name = match[1] ?? "";
+    if (name && !NOT_A_NAME.has(name)) names.add(name);
+  }
+  const rainy = /雨夜|夜里下雨|下雨/.test(text);
+  const places = new Set<string>();
+  for (const match of text.matchAll(PLACE_AT)) {
+    const place = (match[1] ?? "").replace(/(等人|等他|等她|里面|里|上|下|中)$/u, "");
+    if (place.length >= 2) places.add(place);
+  }
+  return {
+    characters: [...names].map((name) => ({ name, identity: "" })),
+    locations: [...places].map((name) => {
+      const label = rainy && name.includes("巷") && !name.startsWith("雨") ? `雨夜${name}` : name;
+      return { name: label, prompt: label };
+    }),
+  };
+}
+
+export function parseCastReply(text: string): ExtractedCast | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const value = JSON.parse(text.slice(start, end + 1)) as {
+      characters?: { name?: unknown; identity?: unknown }[];
+      locations?: { name?: unknown; prompt?: unknown }[];
+    };
+    const characters = (value.characters ?? [])
+      .map((item) => ({
+        name: typeof item.name === "string" ? item.name.trim() : "",
+        identity: typeof item.identity === "string" ? item.identity.trim() : "",
+      }))
+      .filter((item) => item.name);
+    const locations = (value.locations ?? [])
+      .map((item) => ({
+        name: typeof item.name === "string" ? item.name.trim() : "",
+        prompt: typeof item.prompt === "string" ? item.prompt.trim() : "",
+      }))
+      .filter((item) => item.name);
+    if (characters.length === 0 && locations.length === 0) return null;
+    return { characters, locations };
+  } catch {
+    return null;
+  }
+}
+
+export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
+  const known = new Set(film.characters.map((item) => item.name));
+  const characters: FilmCharacter[] = [...film.characters];
+  for (const item of extracted.characters) {
+    if (!item.name || known.has(item.name)) continue;
+    known.add(item.name);
+    characters.push({
+      id: `cast-${characters.length + 1}`,
+      name: item.name,
+      identity: item.identity,
+      voiceId: "",
+      source: "script",
+      userFields: [],
+      portraits: [],
+    });
+  }
+  const knownPlaces = new Set(film.locations.map((item) => item.name));
+  const locations: FilmLocation[] = [...film.locations];
+  for (const item of extracted.locations) {
+    if (!item.name || knownPlaces.has(item.name)) continue;
+    knownPlaces.add(item.name);
+    locations.push({
+      id: `loc-${locations.length + 1}`,
+      name: item.name,
+      prompt: item.prompt || item.name,
+    });
+  }
+  let scenes = film.scenes;
+  const place = locations[0]?.name ?? "";
+  if (place && scenes[0] && !scenes[0].where.trim()) {
+    scenes = scenes.map((scene, index) => (index === 0 ? { ...scene, where: place } : scene));
+  }
+  if (
+    characters.length === film.characters.length &&
+    locations.length === film.locations.length &&
+    scenes === film.scenes
+  ) {
+    return film;
+  }
+  return { ...film, characters, locations, scenes };
 }
 
 export function ensureLocations(film: FilmProject): FilmProject {

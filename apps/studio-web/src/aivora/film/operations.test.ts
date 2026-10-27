@@ -10,7 +10,10 @@ import {
   clipLayout,
   continuityPrompt,
   ensureLocations,
+  extractCastOffline,
   exportSummary,
+  mergeCast,
+  parseCastReply,
   extractBookText,
   keyframeVariants,
   locationPlate,
@@ -175,6 +178,32 @@ describe("film operations", () => {
     expect(storyFilmBatches(film, film.shots, false)[0]?.video_model).toBe(
       "grok-imagine-video-1.5",
     );
+  });
+
+  it("reads names and a rainy alley from the script, and keeps names the user already wrote", () => {
+    const found = extractCastOffline("01夜里下雨，林雨站在巷口等人。阿哲撑着伞跑过来，两人对视，林雨笑了。");
+    expect(found.characters.map((item) => item.name)).toEqual(["林雨", "阿哲"]);
+    expect(found.locations.map((item) => item.name)).toEqual(["雨夜巷口"]);
+    expect(parseCastReply("不是")).toBeNull();
+    const parsed = parseCastReply('好 {"characters":[{"name":"林雨","identity":"短发"}],"locations":[{"name":"巷口","prompt":"夜"}]}');
+    expect(parsed?.characters[0]?.identity).toBe("短发");
+    const film = blankFilm();
+    film.characters = [
+      {
+        id: "cast-1",
+        name: "林雨",
+        identity: "我写的",
+        voiceId: "",
+        source: "user",
+        userFields: ["identity"],
+        portraits: [],
+      },
+    ];
+    const merged = mergeCast(film, found);
+    expect(merged.characters.find((item) => item.name === "林雨")?.identity).toBe("我写的");
+    expect(merged.characters.map((item) => item.name)).toEqual(["林雨", "阿哲"]);
+    expect(merged.scenes[0]?.where).toBe("雨夜巷口");
+    expect(mergeCast(merged, found)).toBe(merged);
   });
 
   it("adds, moves, and removes a shot without touching the others", () => {

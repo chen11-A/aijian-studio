@@ -10,7 +10,10 @@ import {
   CONTINUITY_REASON,
   DESKTOP_REASON,
   ensureLocations,
+  extractCastOffline,
   exportSummary,
+  mergeCast,
+  parseCastReply,
   extractBookText,
   LOUDNESS_NOTE,
   offlineScreenplay,
@@ -405,7 +408,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const sceneId =
       film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
-    setFilm(applyShots(film, pending, sceneId));
+    const placed = applyShots(film, pending, sceneId);
+    setFilm(placed);
+    setShot(0);
+    void fillCast(placed);
     setNotice("已放入分镜。你改过的镜头没有被盖掉。");
   }
 
@@ -425,6 +431,33 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       idempotencyKey: crypto.randomUUID(),
     });
     return result.kind === "OK" ? result.text : null;
+  }
+
+  async function fillCast(base: FilmProject) {
+    if (base.characters.length > 0 && base.locations.length > 0) return;
+    const story = base.scenes
+      .map((item) => item.text)
+      .filter(Boolean)
+      .join("\n");
+    if (!story.trim()) return;
+    let extracted = extractCastOffline(story);
+    const reply = await completeAgent(
+      "writer",
+      story,
+      '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":""}],"locations":[{"name":"","prompt":""}]}',
+    );
+    const parsed = reply ? parseCastReply(reply) : null;
+    if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0)) extracted = parsed;
+    const merged = mergeCast(filmRef.current ?? base, extracted);
+    if (merged === (filmRef.current ?? base)) {
+      if (base.characters.length === 0 && base.locations.length === 0) {
+        setNotice("这一场还没有认出人物和场景。");
+      }
+      return;
+    }
+    applyLive(merged);
+    const names = merged.characters.map((item) => item.name).filter(Boolean);
+    if (names.length > 0) setNotice(`已记下人物：${names.join("、")}。`);
   }
 
   async function planWriter(kind: "write" | "adapt") {
@@ -468,6 +501,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const next = applyScenes(film, pendingScenes);
     setFilm(next);
+    void fillCast(next);
     const first = next.scenes[0]?.id;
     if (first) setScene(first);
     setNotice("已放入剧本。你改过的场没有被盖掉。");
@@ -1051,6 +1085,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onClick={() => {
                     setStage(item.id);
                     setMenu(null);
+                    if (item.id !== "cast") return;
+                    const current = filmRef.current;
+                    if (
+                      current &&
+                      current.characters.length === 0 &&
+                      current.locations.length === 0 &&
+                      current.scenes.some((sceneItem) => sceneItem.text.trim())
+                    ) {
+                      void fillCast(current);
+                    }
                   }}
                 >
                   <span className="n">
@@ -1874,7 +1918,11 @@ function CastPage({
               </button>
             ))}
           {film.characters.length === 0 && (
-            <p className="role-desc">还没有人物。写下名字，生成时会写进每一镜。</p>
+            <p className="role-desc">
+              {film.scenes.some((item) => item.text.trim())
+                ? "这一场还没有认出人物和场景。"
+                : "还没有人物。写下名字，生成时会写进每一镜。"}
+            </p>
           )}
         </div>
       </section>
