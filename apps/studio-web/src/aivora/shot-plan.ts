@@ -4,19 +4,6 @@ export const MAX_CLIP_SECONDS = 15;
 export const STYLE_REALISM =
   "写实电影感：自然光、真实镜头、人物有重量，动作遵守重力，不要卡通，不要血腥。";
 
-const beats = [
-  ["全景", "平视", "慢", "叠化", "人物入画，步伐稳定", "表情平静，眼神看向前方，语速慢"],
-  ["中景", "侧面", "中", "硬切", "转身，重心留在前脚", "眉头微动，视线转向同伴，语气压低"],
-  ["近景", "过肩", "快", "硬切", "抬手示意，停在身侧", "眼睛睁大一点，短句，不喊叫"],
-  ["中景", "低机位", "中", "叠化", "向前一步，然后停住", "呼吸可见，看着对方的眼睛"],
-  ["全景", "高机位", "慢", "叠化", "两人拉开距离", "表情放松，把话说完"],
-  ["近景", "平视", "慢", "硬切", "点头，手放下", "眼神稳住，语气放轻"],
-  ["中景", "侧面", "中", "叠化", "回头看一眼来路", "嘴角不动，停顿一下"],
-  ["全景", "平视", "慢", "叠化", "一起走向画面深处", "表情收住，不再开口"],
-  ["近景", "过肩", "中", "硬切", "侧过脸，避开正对镜头", "说话前先吸气"],
-  ["中景", "低机位", "慢", "叠化", "停下，站稳", "看向镜头外，语气平静"],
-] as const;
-
 const fight = [
   [
     "雨夜巷口",
@@ -135,17 +122,15 @@ export function planShots(story: string): PlannedShot[] {
   return offlineRotation(text);
 }
 
-/** Offline director. The lines stay the user's. The fight table is only the sample button. */
+/** Offline director. One shot per sentence. It never repeats a line or invents an action. */
 export function offlineRotation(story: string): PlannedShot[] {
   const text = story.trim();
   if (!text) throw new Error("需要一段故事才能拆镜");
-  const pieces = splitPieces(text);
-  const count = Math.min(10, Math.max(6, pieces.length));
-  while (pieces.length < count) pieces.push(pieces[pieces.length - 1]!);
-  return pieces.slice(0, count).map((piece, index) => {
-    const beat = beats[index % beats.length]!;
-    return shotFrom(index + 1, [`镜头${index + 1}`, piece, ...beat, 5]);
-  });
+  return splitPieces(text)
+    .slice(0, 10)
+    .map((piece, index) =>
+      shotFrom(index + 1, [`镜头${index + 1}`, piece, "全景", "平视", "中", "切", "", "", 5]),
+    );
 }
 
 function splitPieces(text: string): string[] {
@@ -166,7 +151,17 @@ function shotFrom(index: number, row: readonly (string | number)[]): PlannedShot
   const narration = String(line).trim();
   const seconds = Math.max(1, Math.min(Number(duration), MAX_CLIP_SECONDS));
   const subtitle = narration.length <= 28 ? narration : narration.slice(0, 28);
-  const prompt = `${title}。${narration}景别${size}，机位${camera}，节奏${rhythm}，转场${transition}。动作：${action}。表演：${performance}。${STYLE_REALISM}`;
+  const actionText = String(action).trim();
+  const performanceText = String(performance).trim();
+  const extras = [
+    actionText ? `动作：${actionText}` : "",
+    performanceText ? `表演：${performanceText}` : "",
+  ].filter(Boolean);
+  const prompt = [
+    `${title}。${narration}景别${size}，机位${camera}，节奏${rhythm}，转场${transition}`,
+    ...extras,
+    STYLE_REALISM,
+  ].join("。");
   return {
     index,
     narration,

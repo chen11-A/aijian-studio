@@ -108,7 +108,7 @@ def plan_shot(
     image_ready = ids is None or IMAGE_MODEL in ids
     video_ready = ids is None or video_model in ids
     takes = project.settings.takes_per_shot
-    request_seconds = max(shot.seconds, min(shot.seconds + 1, 15))
+    request_seconds = max(1, min(int(shot.seconds), 15))
     jobs: list[dict[str, object]] = [
         {
             "kind": "keyframe",

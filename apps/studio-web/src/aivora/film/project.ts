@@ -485,8 +485,15 @@ export function generationNote(modelIds: readonly string[]): string {
 }
 
 export function textModel(modelIds: readonly string[]): string {
-  const listed = modelIds.find((id) => id === TEXT_MODEL || id.startsWith("grok-4"));
-  return listed || TEXT_MODEL;
+  const text = modelIds.filter(
+    (id) => id.startsWith("grok-") && !id.includes("imagine") && !id.includes("tts"),
+  );
+  return (
+    text.find((id) => id === TEXT_MODEL) ||
+    text.find((id) => id.startsWith("grok-4")) ||
+    text[0] ||
+    TEXT_MODEL
+  );
 }
 
 export function readFilm(storage: Storage): FilmProject | null {

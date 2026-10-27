@@ -16,19 +16,6 @@ MAX_CLIP_SECONDS = 15
 STYLE_REALISM = DEFAULT_PROMPT_ZH
 AI_GENERATED_NOTE = "画面和声音由 AI 生成，不是实拍。"
 
-_BEATS = (
-    ("全景", "平视", "慢", "叠化", "人物入画，步伐稳定", "表情平静，眼神看向前方，语速慢"),
-    ("中景", "侧面", "中", "硬切", "转身，重心留在前脚", "眉头微动，视线转向同伴，语气压低"),
-    ("近景", "过肩", "快", "硬切", "抬手示意，停在身侧", "眼睛睁大一点，短句，不喊叫"),
-    ("中景", "低机位", "中", "叠化", "向前一步，然后停住", "呼吸可见，看着对方的眼睛"),
-    ("全景", "高机位", "慢", "叠化", "两人拉开距离", "表情放松，把话说完"),
-    ("近景", "平视", "慢", "硬切", "点头，手放下", "眼神稳住，语气放轻"),
-    ("中景", "侧面", "中", "叠化", "回头看一眼来路", "嘴角不动，停顿一下"),
-    ("全景", "平视", "慢", "叠化", "一起走向画面深处", "表情收住，不再开口"),
-    ("近景", "过肩", "中", "硬切", "侧过脸，避开正对镜头", "说话前先吸气"),
-    ("中景", "低机位", "慢", "叠化", "停下，站稳", "看向镜头外，语气平静"),
-)
-
 _FIGHT = (
     (
         "雨夜巷口",
@@ -156,27 +143,14 @@ def plan_shots(story: str) -> list[ShotPlan]:
 
 
 def offline_rotation(story: str) -> list[ShotPlan]:
-    """Offline director. Shot text is the user's own lines, never a hidden cast."""
+    """Offline director. One shot per sentence, never a repeated line or an invented action."""
 
     text = story.strip()
     if not text:
         raise ValueError("需要一段故事才能拆镜")
-    pieces = _pieces(text)
-    count = min(10, max(6, len(pieces)))
-    while len(pieces) < count:
-        pieces.append(pieces[-1])
-    pieces = pieces[:count]
     return [
-        _shot(
-            index,
-            (
-                f"镜头{index}",
-                piece,
-                *_BEATS[(index - 1) % len(_BEATS)],
-                5,
-            ),
-        )
-        for index, piece in enumerate(pieces, start=1)
+        _shot(index, (f"镜头{index}", piece, "全景", "平视", "中", "切", "", "", 5))
+        for index, piece in enumerate(_pieces(text)[:10], start=1)
     ]
 
 
@@ -196,10 +170,15 @@ def _shot(index: int, row: tuple[object, ...]) -> ShotPlan:
         raise ValueError("镜头时长不对")
     seconds = max(1, min(duration, MAX_CLIP_SECONDS))
     subtitle = narration if len(narration) <= 28 else narration[:28]
-    prompt = (
-        f"{title}。{narration}景别{size}，机位{camera}，节奏{rhythm}，转场{transition}。"
-        f"动作：{action}。表演：{performance}。{STYLE_REALISM}"
-    )
+    extras = []
+    if str(action).strip():
+        extras.append(f"动作：{action}")
+    if str(performance).strip():
+        extras.append(f"表演：{performance}")
+    prompt = f"{title}。{narration}景别{size}，机位{camera}，节奏{rhythm}，转场{transition}"
+    if extras:
+        prompt = f"{prompt}。{'。'.join(extras)}"
+    prompt = f"{prompt}。{STYLE_REALISM}"
     return ShotPlan(
         index=index,
         narration=narration,

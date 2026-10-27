@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import { fightSample, planShots } from "./shot-plan";
 
 describe("local shot plan", () => {
-  it("turns a short story into six to ten shots", () => {
+  it("turns each sentence into one shot and does not repeat a line", () => {
     const shots = planShots("雾还没散。灯塔亮着。她没有回头。");
-    const total = shots.reduce((sum, shot) => sum + shot.durationSeconds, 0);
-    expect(shots.length).toBeGreaterThanOrEqual(6);
-    expect(shots.length).toBeLessThanOrEqual(10);
-    expect(total).toBeGreaterThanOrEqual(30);
-    expect(total).toBeLessThanOrEqual(60);
-    expect(shots.every((shot) => shot.action && shot.performance && shot.shotSize)).toBe(true);
+    expect(shots.map((shot) => shot.narration)).toEqual(["雾还没散", "灯塔亮着", "她没有回头"]);
+    expect(new Set(shots.map((shot) => shot.narration)).size).toBe(shots.length);
+    expect(shots.every((shot) => shot.action === "" && shot.performance === "")).toBe(true);
+    expect(shots.every((shot) => shot.shotSize === "全景")).toBe(true);
   });
 
   it("keeps one narration per line", () => {

@@ -351,11 +351,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     let next = offlineShots(story, sceneId);
     let text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
     const bridge = grokBridge();
-    if (connected && bridge) {
+    const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
+    if (connected && bridge && !billingProject) {
+      text = "这一次没有记到作品上，已用离线拆镜。点「放入分镜」才会写入。";
+    } else if (connected && bridge && billingProject) {
       const result = await bridge.completeText({
         model: textModel(modelIds),
         text: agentRequest("director", context, "把这一场拆成镜头"),
-        projectId: film.id,
+        projectId: billingProject,
         idempotencyKey: crypto.randomUUID(),
       });
       if (result.kind === "OK") {
@@ -413,10 +416,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   ): Promise<string | null> {
     const bridge = grokBridge();
     if (!connected || !bridge || !film) return null;
+    const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
+    if (!billingProject) return null;
     const result = await bridge.completeText({
       model: textModel(modelIds),
       text: agentRequest(agent, context, user),
-      projectId: film.id,
+      projectId: billingProject,
       idempotencyKey: crypto.randomUUID(),
     });
     return result.kind === "OK" ? result.text : null;

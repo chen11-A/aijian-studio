@@ -373,7 +373,7 @@ describe("professional workspace", () => {
   });
 
   it("records an undo step and the project menu", async () => {
-    installDesktop();
+    const { completeText } = installDesktop();
     render(<ProWorkspace projectId={PROJECT_ID} />);
     fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
     expect(screen.getByText("从一句故事开始。")).toBeInTheDocument();
@@ -386,6 +386,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "打开示例" }).at(-1)!);
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/导演拆好了/)).toBeInTheDocument();
+    expect(completeText).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: PROJECT_ID }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "节奏再快些" }));
     fireEvent.click(screen.getByRole("button", { name: "加一个特写" }));
     fireEvent.click(screen.getByRole("button", { name: "导演" }));

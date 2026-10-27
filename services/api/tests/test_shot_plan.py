@@ -8,14 +8,13 @@ from aijian_api.shot_plan import (
 )
 
 
-def test_a_story_becomes_six_to_ten_shots_inside_half_a_minute_to_a_minute():
+def test_each_sentence_is_one_shot_and_a_line_is_not_repeated():
     shots = plan_shots("雾还没散。灯塔亮着。她没有回头。")
-    assert 6 <= len(shots) <= 10
-    total = sum(shot.duration_seconds for shot in shots)
-    assert 30 <= total <= 60
+    assert [shot.narration for shot in shots] == ["雾还没散", "灯塔亮着", "她没有回头"]
+    assert len({shot.narration for shot in shots}) == len(shots)
+    assert all(shot.action == "" and shot.performance == "" for shot in shots)
     assert all(1 <= shot.duration_seconds <= MAX_CLIP_SECONDS for shot in shots)
     assert all(shot.shot_size and shot.camera and shot.rhythm and shot.transition for shot in shots)
-    assert all(shot.action and shot.performance for shot in shots)
 
 
 def test_changed_story_text_changes_the_shot_narration():
