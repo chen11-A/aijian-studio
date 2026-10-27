@@ -1,9 +1,20 @@
 import action from "../../../../../services/api/src/aijian_api/agents/prompts/action.md?raw";
+import art from "../../../../../services/api/src/aijian_api/agents/prompts/art.md?raw";
 import director from "../../../../../services/api/src/aijian_api/agents/prompts/director.md?raw";
 import performance from "../../../../../services/api/src/aijian_api/agents/prompts/performance.md?raw";
+import prompter from "../../../../../services/api/src/aijian_api/agents/prompts/prompter.md?raw";
+import qc from "../../../../../services/api/src/aijian_api/agents/prompts/qc.md?raw";
 import writer from "../../../../../services/api/src/aijian_api/agents/prompts/writer.md?raw";
 import { offlineRotation } from "../shot-plan";
 import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
+import {
+  classifyShotSize,
+  gazeHandoff,
+  identityLock,
+  lineInScript,
+  soundFromDirector,
+  type AgentId,
+} from "./phase2";
 import {
   emptySoundPlan,
   normalizeAudioClips,
@@ -28,7 +39,15 @@ export const STYLE_PRESETS: { name: string; zh: string }[] = [
   { name: "黑白悬疑", zh: "黑白悬疑：硬光，影子深，颗粒明显，不要彩色。" },
 ];
 
-const PROMPTS: Record<string, string> = { director, writer, action, performance };
+const PROMPTS: Record<AgentId, string> = {
+  director,
+  writer,
+  action,
+  performance,
+  art,
+  prompter,
+  qc,
+};
 
 export type FilmJob = {
   id: string;
@@ -44,6 +63,13 @@ export type FilmLocation = {
   id: string;
   name: string;
   prompt: string;
+  ambience: string;
+};
+
+export type FilmProp = {
+  id: string;
+  name: string;
+  note: string;
 };
 
 export type FilmPortrait = {
@@ -110,6 +136,12 @@ export type FilmShot = {
   line: string;
   /** Phase 2 sound block. Generation ignores it in Phase 1. */
   sound: ShotSoundPlan;
+  /** Insert and other non-size labels. Empty when the size already says it. */
+  tag?: string;
+  blocking?: string;
+  facing?: string;
+  promptZh?: string;
+  promptEn?: string;
   source: string;
   userFields: string[];
   poster: string;
@@ -138,6 +170,9 @@ export type FilmProject = {
   draft: boolean;
   jobs: FilmJob[];
   locations: FilmLocation[];
+  props: FilmProp[];
+  /** Imported novel text. Empty until the user imports a file. */
+  sourceText: string;
   savedAt: string;
   directory: string;
   assemblyPath: string;
@@ -188,6 +223,8 @@ export function blankFilm(): FilmProject {
     draft: false,
     jobs: [],
     locations: [],
+    props: [],
+    sourceText: "",
     savedAt: "",
     directory: "",
     assemblyPath: "",
@@ -212,7 +249,11 @@ export function newEpisode(current: FilmProject): FilmProject {
     ...item,
     portraits: item.portraits.map((portrait) => ({ ...portrait })),
   }));
-  next.locations = current.locations.map((item) => ({ ...item }));
+  next.locations = (current.locations ?? []).map((item) => ({
+    ...item,
+    ambience: item.ambience ?? "",
+  }));
+  next.props = (current.props ?? []).map((item) => ({ ...item }));
   return next;
 }
 
@@ -349,14 +390,19 @@ export function shotIdentity(shot: FilmShot, film: FilmProject): string {
 
 export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
   const picture = (shot.picture || shot.action).trim();
-  if (picture.startsWith("这一镜的起始画面")) {
-    return picture.endsWith("。") ? picture : `${picture}。`;
-  }
+  const base = picture.startsWith("这一镜的起始画面")
+    ? picture.endsWith("。")
+      ? picture
+      : `${picture}。`
+    : framedKeyframe(shot, film, picture);
+  return lockKeyframe(base, shot, film);
+}
+
+function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): string {
   const bits = ["这一镜的起始画面，不是角色定妆照"];
-  const identity = shotIdentity(shot, film);
-  if (identity) bits.push(identity);
   if (picture) bits.push(picture.replace(/。$/, ""));
   if (shot.size) bits.push(`景别${shot.size}`);
+  if (shot.tag) bits.push(shot.tag);
   if (shot.angle) bits.push(`角度${shot.angle}`);
   if (shot.move) bits.push(`运镜${shot.move}`);
   const action = shot.action.trim().replace(/。$/, "");
@@ -367,9 +413,24 @@ export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
   return `${bits.filter(Boolean).join("。")}。`;
 }
 
+function lockKeyframe(body: string, shot: FilmShot, film: FilmProject): string {
+  const names = new Set(shot.characters);
+  let next = body;
+  for (const person of film.characters) {
+    if (!person.identity.trim()) continue;
+    if (names.size > 0 && !names.has(person.name)) continue;
+    const lock = identityLock(person.identity);
+    if (lock && !next.includes(lock)) next += lock;
+  }
+  const gaze = gazeHandoff(shot.characters);
+  if (gaze && !next.includes("视线")) next += gaze;
+  return next;
+}
+
 export function videoPrompt(shot: FilmShot): string {
   const motion = (shot.picture || shot.action).replace(/。$/, "");
-  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。`;
+  const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
+  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}`;
 }
 
 export function offlineShots(story: string, sceneId: string): FilmShot[] {
@@ -406,17 +467,17 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
   return { ...film, shots: [...kept, ...fresh] };
 }
 
-export function agentRequest(
-  agentId: "director" | "writer" | "action" | "performance",
-  context: string,
-  user: string,
-): string {
+export function agentRequest(agentId: AgentId, context: string, user: string): string {
   const system = (PROMPTS[agentId] ?? "").trim();
   const body = `${system}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
   return body.length > 7500 ? body.slice(0, 7500) : body;
 }
 
-export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | null {
+export function parseDirectorShots(
+  text: string,
+  sceneId: string,
+  sceneText = "",
+): FilmShot[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
@@ -440,11 +501,15 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
     const told = picture.trim();
     const action = typeof record.action === "string" ? record.action.trim() : "";
     const seconds = typeof record.seconds === "number" ? record.seconds : 3;
+    const sized = classifyShotSize(typeof record.size === "string" ? record.size : "中景");
+    const tag = typeof record.tag === "string" && record.tag.trim() ? record.tag.trim() : sized.tag;
+    const proposed = typeof record.line === "string" ? record.line : "";
     shots.push({
       id: `${sceneId}-shot-${index + 1}`,
       sceneId,
       no: index + 1,
-      size: typeof record.size === "string" ? record.size : "中景",
+      size: sized.size,
+      tag,
       move: typeof record.move === "string" ? record.move : "固定",
       seconds: storedShotSeconds(seconds),
       picture: told,
@@ -453,8 +518,10 @@ export function parseDirectorShots(text: string, sceneId: string): FilmShot[] | 
       characters: Array.isArray(record.characters)
         ? record.characters.filter((item): item is string => typeof item === "string")
         : [],
-      line: typeof record.line === "string" ? record.line : "",
-      sound: normalizeSoundPlan(record.sound),
+      line: lineInScript(sceneText, proposed),
+      blocking: typeof record.blocking === "string" ? record.blocking : "",
+      facing: typeof record.facing === "string" ? record.facing : "",
+      sound: soundFromDirector(record, ""),
       source: "agent:director",
       userFields: [],
       poster: "",
@@ -552,6 +619,8 @@ export function readFilm(storage: Storage): FilmProject | null {
         line: shot.line ?? "",
         angle: shot.angle ?? "平视",
         sound: normalizeSoundPlan(shot.sound),
+        size: classifyShotSize(shot.size || "中景").size,
+        tag: shot.tag || classifyShotSize(shot.size || "中景").tag,
         seconds: storedShotSeconds(shot.seconds),
         takes: shot.takes ?? [],
         stills: shot.stills ?? [],
@@ -559,7 +628,12 @@ export function readFilm(storage: Storage): FilmProject | null {
         poster: shot.poster?.startsWith("/pro/") ? "" : (shot.poster ?? ""),
       })),
       jobs: value.jobs ?? [],
-      locations: value.locations ?? [],
+      locations: (value.locations ?? []).map((item) => ({
+        ...item,
+        ambience: item.ambience ?? "",
+      })),
+      props: value.props ?? [],
+      sourceText: value.sourceText ?? "",
       styleZh: value.styleZh || base.styleZh,
       savedAt: value.savedAt ?? "",
       directory: value.directory ?? "",

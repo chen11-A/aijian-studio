@@ -274,6 +274,7 @@ contextBridge.exposeInMainWorld("aijianGrok", {
   signOut: () => ipcRenderer.invoke("grok-auth:sign-out"),
   models: () => ipcRenderer.invoke("grok-auth:models"),
   completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
+  speak: (input) => ipcRenderer.invoke("grok-auth:speech", input),
 } satisfies GrokLoginBridge);
 
 contextBridge.exposeInMainWorld("aijianAssistantChat", {

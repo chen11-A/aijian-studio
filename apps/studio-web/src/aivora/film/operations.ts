@@ -20,13 +20,51 @@ export const PREVIEW_REASON =
 export const LOUDNESS_NOTE = "整片音量会调到手机和电脑上听着一样大。视频自己的声音关掉。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
-export const VOICES: { id: string; name: string; description: string; recommended?: boolean }[] = [
-  { id: "eve", name: "女声·清亮", description: "女声，语速轻快", recommended: true },
-  { id: "ara", name: "女声·温和", description: "女声，语气友好" },
-  { id: "leo", name: "男声·沉稳", description: "男声，语速平稳" },
-  { id: "rex", name: "男声·自信", description: "男声，吐字清楚" },
-  { id: "sal", name: "男声·平稳", description: "男声，语气放平" },
-];
+/** Chinese labels for preset voices. The live list still comes from the account. */
+export const VOICE_LABELS: Record<string, string> = {
+  carina: "柔和体贴",
+  zagan: "有力有戏",
+  helix: "大胆有冲劲",
+  orion: "浑厚电影感",
+  luna: "温和耐心",
+  iris: "亲切活泼",
+  altair: "优雅高级",
+  zenith: "干脆利落",
+  perseus: "坚定可靠",
+  helios: "明快有劲",
+  lux: "沉稳睿智",
+  kepler: "有感染力",
+  rigel: "专业冷静",
+  cosmo: "明亮好奇",
+  celeste: "温暖安心",
+  ursa: "亲切踏实",
+  sirius: "机灵俏皮",
+  lumen: "温暖清楚",
+  castor: "随和接地气",
+  naksh: "温暖深思",
+  atlas: "自信有威严",
+  aurora: "宁静明亮",
+  liora: "平静透亮",
+  ara: "温暖友好",
+  eve: "有活力",
+  leo: "威严有力",
+  rex: "自信清楚",
+  sal: "平稳均衡",
+};
+
+export const VOICES: { id: string; name: string; description: string; recommended?: boolean }[] =
+  Object.entries(VOICE_LABELS).map(([id, name]) => ({
+    id,
+    name,
+    description: name,
+    ...(id === "orion" ? { recommended: true } : {}),
+  }));
+
+export function voiceLabel(id: string, apiName = ""): string {
+  if (VOICE_LABELS[id]) return VOICE_LABELS[id];
+  const name = apiName.trim();
+  return name || id;
+}
 
 export type ActionBeat = {
   text: string;
@@ -321,6 +359,7 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
       id: `loc-${locations.length + 1}`,
       name: item.name,
       prompt: item.prompt || item.name,
+      ambience: "",
     });
   }
   let scenes = film.scenes;
@@ -347,6 +386,7 @@ export function ensureLocations(film: FilmProject): FilmProject {
       id: `loc-${index + 1}`,
       name,
       prompt: locationPlate(name, film.styleZh, "夜"),
+      ambience: "",
     })),
   };
 }

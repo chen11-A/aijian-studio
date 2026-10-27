@@ -106,7 +106,17 @@ describe("film project", () => {
     expect(told?.[0]?.action).toBe("抬一下手");
     const prefixed = sampleFilm();
     prefixed.shots[0]!.picture = "这一镜的起始画面，雨停了";
-    expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe("这一镜的起始画面，雨停了。");
+    expect(keyframePrompt(prefixed.shots[0]!, prefixed)).toBe(
+      `这一镜的起始画面，雨停了。${prefixed.characters[0]?.identity}。`,
+    );
+    const inserted = parseDirectorShots(
+      '{"shots":[{"action":"手按在刀上","size":"插入","line":"另写一句"}]}',
+      "02",
+      "剧本里没有这句",
+    );
+    expect(inserted?.[0]?.size).toBe("特写");
+    expect(inserted?.[0]?.tag).toBe("插入");
+    expect(inserted?.[0]?.line).toBe("");
     prefixed.characters[0]!.portraits = [
       { view: "正面", prompt: "定妆", url: "data:image/png;base64,aa" },
     ];

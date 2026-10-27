@@ -445,6 +445,93 @@ async function postText(
   return { status: response.status, json, raw };
 }
 
+export type GrokSpeechAudio = {
+  mime: string;
+  audioBase64: string;
+  seconds: number | null;
+  timestamps: boolean;
+};
+
+function speechSeconds(value: unknown): { seconds: number | null; timestamps: boolean } {
+  if (!isRecord(value)) return { seconds: null, timestamps: false };
+  const duration = value.duration ?? value.duration_seconds ?? value.audio_duration;
+  if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
+    return { seconds: duration, timestamps: false };
+  }
+  const rows = value.timestamps ?? value.alignment ?? value.words;
+  if (!Array.isArray(rows) || rows.length === 0) return { seconds: null, timestamps: false };
+  let end = 0;
+  for (const row of rows) {
+    if (typeof row === "number" && row > end) end = row;
+    if (!isRecord(row)) continue;
+    const mark = row.end ?? row.end_time ?? row.end_s;
+    if (typeof mark === "number" && mark > end) end = mark;
+  }
+  return end > 0 ? { seconds: end, timestamps: true } : { seconds: null, timestamps: false };
+}
+
+function speechPayload(value: unknown): string {
+  if (!isRecord(value)) return "";
+  for (const key of ["audio", "audio_base64", "b64_json", "data"]) {
+    const item = value[key];
+    if (typeof item === "string" && item.length > 32) return item;
+  }
+  return "";
+}
+
+/** POST /v1/tts. One line, Chinese, with timestamps when the account returns them. */
+export async function speakGrokLine(
+  fetch: Fetch,
+  input: { accessToken: string; voiceId: string; text: string; endpoints?: GrokEndpoints },
+): Promise<GrokSpeechAudio> {
+  const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
+  const response = await fetch(`${api}/tts`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${input.accessToken}`,
+      "content-type": "application/json",
+      accept: "audio/mpeg, application/json",
+      "user-agent": USER_AGENT,
+    },
+    body: JSON.stringify({
+      text: input.text,
+      voice_id: input.voiceId,
+      language: "zh",
+      with_timestamps: true,
+    }),
+  });
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED", { httpStatus: 401 });
+  if (response.status === 403) throw new GrokAuthError("ENTITLEMENT_DENIED", { httpStatus: 403 });
+  if (!response.ok || bytes.length === 0 || bytes.length > 8_000_000) {
+    throw new GrokAuthError("TEXT_FAILED", { httpStatus: response.status });
+  }
+  const type = (response.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
+  if (type.startsWith("audio/")) {
+    return { mime: type, audioBase64: bytes.toString("base64"), seconds: null, timestamps: false };
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(bytes.toString("utf8")) as unknown;
+  } catch {
+    json = null;
+  }
+  const payload = speechPayload(json);
+  if (!payload) {
+    if (bytes.length > 128) {
+      return {
+        mime: "audio/mpeg",
+        audioBase64: bytes.toString("base64"),
+        seconds: null,
+        timestamps: false,
+      };
+    }
+    throw new GrokAuthError("TEXT_FAILED", { httpStatus: response.status });
+  }
+  const timing = speechSeconds(json);
+  return { mime: "audio/mpeg", audioBase64: payload, ...timing };
+}
+
 export async function completeGrokText(
   fetch: Fetch,
   input: { accessToken: string; model: string; text: string; endpoints?: GrokEndpoints },

@@ -30,6 +30,22 @@ export type GrokLoginActionResult =
   | { kind: "CANCELLED"; status: GrokLoginStatus }
   | { kind: "ERROR"; code: string; status: GrokLoginStatus };
 
+export type GrokSpeechResult =
+  | {
+      kind: "OK";
+      mime: string;
+      audioBase64: string;
+      seconds: number | null;
+      timestamps: boolean;
+      billingAccountKind: "grok_login";
+    }
+  | {
+      kind: "ERROR";
+      code: string;
+      detail: string;
+      billingAccountKind: "grok_login";
+    };
+
 export type GrokLoginTextResult =
   | { kind: "OK"; text: string; billingAccountKind: "grok_login"; model: string }
   | {
@@ -57,4 +73,11 @@ export type GrokLoginBridge = {
     projectId?: string;
     idempotencyKey?: string;
   }): Promise<GrokLoginTextResult>;
+  /** Optional until a desktop build exposes POST /v1/tts. */
+  speak?(input: {
+    voiceId: string;
+    text: string;
+    projectId?: string;
+    idempotencyKey?: string;
+  }): Promise<GrokSpeechResult>;
 };

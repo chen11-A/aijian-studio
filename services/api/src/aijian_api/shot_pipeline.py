@@ -32,8 +32,8 @@ def keyframe_prompt(
     if text.startswith("这一镜的起始画面"):
         if style and style not in text:
             base = text if text.endswith("。") else f"{text}。"
-            return f"{base}{style}。"
-        return text if text.endswith("。") else f"{text}。"
+            return _with_identity_lock(f"{base}{style}。", identity)
+        return _with_identity_lock(text if text.endswith("。") else f"{text}。", identity)
     bits = ["这一镜的起始画面，不是角色定妆照"]
     if identity.strip():
         bits.append(identity.strip().rstrip("。"))
@@ -53,16 +53,44 @@ def keyframe_prompt(
     joined = "。".join(bit for bit in bits if bit)
     if style and style not in joined:
         joined = f"{joined}。{style}" if joined else style
-    return f"{joined}。"
+    return _with_identity_lock(f"{joined}。", identity)
 
 
-def video_prompt(picture: str, *, move: str = "固定") -> str:
+def _with_identity_lock(text: str, identity: str) -> str:
+    lock = identity.strip()
+    if not lock:
+        return text
+    if not lock.endswith("。"):
+        lock = f"{lock}。"
+    if lock in text:
+        return text
+    base = text if text.endswith("。") else f"{text}。"
+    return f"{base}{lock}"
+
+
+def video_prompt(picture: str, *, move: str = "固定", line: str = "") -> str:
     motion = picture.strip().rstrip("。")
     camera = move.strip() or "固定"
+    spoken = f"台词原句：「{line.strip()}」。不要背景音乐。" if line.strip() else ""
     return (
         f"从这张起始画面开始。{motion}。只做这一个动作，运镜用{camera}。"
-        "背景保持稳定。视频不要自己出声。"
+        f"背景保持稳定。视频不要自己出声。{spoken}"
     )
+
+
+def missing_identity_locks(prompt: str, identities: list[str]) -> list[str]:
+    """Shots whose prompt dropped a fixed appearance sentence."""
+
+    missing: list[str] = []
+    for raw in identities:
+        lock = raw.strip()
+        if not lock:
+            continue
+        if not lock.endswith("。"):
+            lock = f"{lock}。"
+        if lock not in prompt:
+            missing.append(lock)
+    return missing
 
 
 def identities(project: FilmProject, shot: Shot) -> str:

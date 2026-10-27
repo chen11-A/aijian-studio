@@ -11,7 +11,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
-from aijian_api.film_project import Shot
+from aijian_api.film_project import Shot, normalize_shot_size
 from aijian_api.shot_plan import offline_rotation
 
 AGENTS = ("writer", "director", "action", "performance", "art", "prompter", "qc")
@@ -103,12 +103,16 @@ def shots_from_director(value: object, scene_id: str) -> list[Shot]:
         characters = (
             [item for item in names if isinstance(item, str)] if isinstance(names, list) else []
         )
+        size, tag = normalize_shot_size(str(row.get("size") or "中景"))
+        stored_tag = row.get("tag")
+        label = stored_tag.strip() if isinstance(stored_tag, str) else ""
         shots.append(
             Shot(
                 id=str(row.get("id") or f"{scene_id}-shot-{index}"),
                 scene_id=str(row.get("scene_id") or scene_id),
                 no=index,
-                size=str(row.get("size") or "中景"),
+                size=size,
+                tag=label or tag,
                 angle=str(row.get("angle") or "平视"),
                 move=str(row.get("move") or "固定"),
                 seconds=max(1, min(int(whole), 15)),

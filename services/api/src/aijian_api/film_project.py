@@ -85,6 +85,7 @@ class Shot:
     source: str = "agent:director"
     user_fields: list[str] = field(default_factory=list)
     continuity_from_prev: bool = False
+    tag: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -248,16 +249,36 @@ def _scene(raw: object, index: int) -> Scene | None:
     )
 
 
+SHOT_SIZES = ("大远景", "远景", "全景", "中景", "近景", "特写", "大特写")
+
+
+def normalize_shot_size(raw: str) -> tuple[str, str]:
+    """Shot size is one of seven. An insert is a tag."""
+
+    text = raw.strip() or "中景"
+    if text in SHOT_SIZES:
+        return text, ""
+    if "插入" in text:
+        return ("近景" if "近" in text else "特写"), "插入"
+    for size in SHOT_SIZES:
+        if size in text:
+            return size, ""
+    return "中景", text
+
+
 def _shot(raw: object, index: int) -> Shot | None:
     data = _mapping(raw)
     picture = _text(data.get("picture")) or _text(data.get("action"))
     if not picture.strip() and not _text(data.get("id")):
         return None
+    size, tag = normalize_shot_size(_text(data.get("size"), "中景") or "中景")
+    stored_tag = _text(data.get("tag")) or tag
     return Shot(
         id=_text(data.get("id"), f"shot-{index}") or f"shot-{index}",
         scene_id=_text(data.get("scene_id"), "scene-1") or "scene-1",
         no=_int(data.get("no"), index, 1, 200),
-        size=_text(data.get("size"), "中景") or "中景",
+        size=size,
+        tag=stored_tag,
         angle=_text(data.get("angle"), "平视") or "平视",
         move=_text(data.get("move"), "固定") or "固定",
         seconds=_int(data.get("seconds"), 3, 1, 15),

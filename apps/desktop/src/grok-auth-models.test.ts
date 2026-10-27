@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listGrokCatalog, listGrokModels } from "./grok-auth-http";
+import { listGrokCatalog, listGrokModels, speakGrokLine } from "./grok-auth-http";
 import { createGrokRuntime } from "./grok-auth-runtime";
 import type { GrokSession } from "./grok-auth-storage";
 
@@ -182,6 +182,27 @@ describe("Grok model catalog", () => {
     );
     expect(JSON.stringify(events)).not.toContain(token);
     expect(JSON.stringify(events)).not.toContain("refresh-secret");
+  });
+});
+
+describe("Grok speech", () => {
+  it("keeps audio bytes and reports timestamps when the account sends them", async () => {
+    const audio = await speakGrokLine(
+      async () =>
+        new Response(Uint8Array.from([1, 2, 3, 4]), {
+          status: 200,
+          headers: { "content-type": "audio/mpeg" },
+        }),
+      { accessToken: "token", voiceId: "leo", text: "雨太大。", endpoints },
+    );
+    expect(audio.mime).toBe("audio/mpeg");
+    expect(audio.timestamps).toBe(false);
+    const timed = await speakGrokLine(
+      async () => json({ audio: "a".repeat(40), timestamps: [{ end: 1.2 }] }),
+      { accessToken: "token", voiceId: "leo", text: "雨太大。", endpoints },
+    );
+    expect(timed.timestamps).toBe(true);
+    expect(timed.seconds).toBe(1.2);
   });
 });
 

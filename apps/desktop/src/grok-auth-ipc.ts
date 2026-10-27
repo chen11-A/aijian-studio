@@ -28,7 +28,15 @@ export function registerGrokHandlers<TEvent>(
   authorized: (event: TEvent) => boolean,
   runtimeFor: () => GrokLoginBridge,
 ): void {
-  for (const action of ["status", "sign-in", "cancel", "sign-out", "models", "text"] as const) {
+  for (const action of [
+    "status",
+    "sign-in",
+    "cancel",
+    "sign-out",
+    "models",
+    "text",
+    "speech",
+  ] as const) {
     handle(`grok-auth:${action}`, async (event, ...args) => {
       if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
       const runtime = runtimeFor();
@@ -62,6 +70,56 @@ export function registerGrokHandlers<TEvent>(
         }
         return runtime.completeText({
           model: body.model,
+          text: body.text,
+          ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
+          ...(typeof body.idempotencyKey === "string"
+            ? { idempotencyKey: body.idempotencyKey }
+            : {}),
+        });
+      }
+      if (action === "speech") {
+        const input = args[0];
+        if (
+          args.length !== 1 ||
+          typeof input !== "object" ||
+          input === null ||
+          typeof (input as { voiceId?: unknown }).voiceId !== "string" ||
+          typeof (input as { text?: unknown }).text !== "string"
+        ) {
+          throw new Error("Invalid Grok speech request");
+        }
+        const body = input as {
+          voiceId: string;
+          text: string;
+          projectId?: unknown;
+          idempotencyKey?: unknown;
+        };
+        const keys = Object.keys(body);
+        if (
+          keys.some((key) => !["voiceId", "text", "projectId", "idempotencyKey"].includes(key)) ||
+          (body.projectId !== undefined && typeof body.projectId !== "string") ||
+          (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string")
+        ) {
+          throw new Error("Invalid Grok speech request");
+        }
+        if (screenshotGrokCatalog()) {
+          return {
+            kind: "ERROR",
+            code: "SCREENSHOT_ONLY",
+            detail: "这一页不能试听。",
+            billingAccountKind: "grok_login",
+          };
+        }
+        if (!runtime.speak) {
+          return {
+            kind: "ERROR",
+            code: "TEXT_FAILED",
+            detail: "试听还没接到语音接口。",
+            billingAccountKind: "grok_login",
+          };
+        }
+        return runtime.speak({
+          voiceId: body.voiceId,
           text: body.text,
           ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
           ...(typeof body.idempotencyKey === "string"

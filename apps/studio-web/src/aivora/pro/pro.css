@@ -650,6 +650,8 @@
   flex-direction: column;
   gap: 2px;
   margin: 4px 0 10px;
+  max-height: 280px;
+  overflow-y: auto;
 }
 .pro-root .shotlist div {
   display: grid;

@@ -171,7 +171,7 @@ def test_offline_director_uses_the_users_lines_not_the_fight_cast() -> None:
     assert "巷口只有一个人站住" in blob
     curated = plan_shots("雨夜巷战")
     assert any("林夏" in shot.narration for shot in curated)
-    assert prompt_version("director") == 1
+    assert prompt_version("director") == 2
     assert prompt_version("writer") == 1
 
 
@@ -209,6 +209,12 @@ def test_director_json_becomes_shots_and_names_only_from_the_reply() -> None:
     shots = shots_from_director(result["value"], "scene-1")
     assert [shot.picture for shot in shots] == ["巷口积水。", "他抬眼。"]
     assert shots[0].characters == ["林骁"]
+    inserted = shots_from_director(
+        {"shots": [{"action": "手按在刀柄上。", "size": "插入"}]},
+        "scene-1",
+    )
+    assert inserted[0].size == "特写"
+    assert inserted[0].tag == "插入"
     fallback = offline_shots("只有风。", "scene-1")
     assert fallback and "林夏" not in fallback[0].picture
 
@@ -260,6 +266,12 @@ def test_each_shot_gets_its_own_keyframe_and_unproven_refs_stay_off() -> None:
     assert reference_url("file:///tmp/a.png") is None
     assert reference_url("https://api.x.ai/a.png") == "https://api.x.ai/a.png"
     assert "视频不要自己出声" in video_prompt("抬眼", move="跟拍")
+    assert "台词原句：「雨太大。」" in video_prompt("抬眼", line="雨太大。")
+    assert "不要背景音乐" in video_prompt("抬眼", line="雨太大。")
+    from aijian_api.shot_pipeline import missing_identity_locks
+
+    assert missing_identity_locks("雨。", ["林骁，短发"]) == ["林骁，短发。"]
+    assert missing_identity_locks("林骁，短发。", ["林骁，短发"]) == []
     bare = keyframe_prompt("抬眼")
     assert "起始画面" in bare
     assert "写实" not in bare

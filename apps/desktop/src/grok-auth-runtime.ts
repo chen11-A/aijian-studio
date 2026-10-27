@@ -5,11 +5,13 @@ import type {
   GrokLoginModel,
   GrokLoginStatus,
   GrokLoginTextResult,
+  GrokSpeechResult,
 } from "@aijian/contracts/grok-auth";
 import { authorizeGrokInBrowser } from "./grok-auth-callback";
 import type { AgentLog } from "./agent-log";
 import {
   completeGrokText,
+  speakGrokLine,
   exchangeAuthorizationCode,
   GrokTextFailure,
   listGrokCatalog,
@@ -454,6 +456,78 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
+  async function speak(input: {
+    voiceId: string;
+    text: string;
+    projectId?: string;
+    idempotencyKey?: string;
+  }): Promise<GrokSpeechResult> {
+    const line = input.text.trim();
+    if (!line || line.length > 2000 || !input.voiceId.trim() || input.voiceId.length > 80) {
+      return {
+        kind: "ERROR",
+        code: "TEXT_REJECTED",
+        detail: "先写下要听的台词。",
+        billingAccountKind: "grok_login",
+      };
+    }
+    const ledger = dependencies.ledger;
+    let dispatchId: string | null = null;
+    try {
+      await restore();
+      await ensureFresh();
+      if (!session) throw new GrokAuthError("NOT_CONNECTED");
+      if (ledger) {
+        if (!input.projectId || !input.idempotencyKey) {
+          return {
+            kind: "ERROR",
+            code: "BILLING_PROJECT_REQUIRED",
+            detail: "这一次没有记到作品上。",
+            billingAccountKind: "grok_login",
+          };
+        }
+        const recorded = await ledger.record({
+          projectId: input.projectId,
+          accountKind: "grok_login",
+          model: "grok-tts",
+          text: line,
+          idempotencyKey: input.idempotencyKey,
+          connected: true,
+        });
+        dispatchId = recorded.dispatchId;
+      }
+      const audio = await speakGrokLine(dependencies.fetch, {
+        accessToken: session.accessToken,
+        voiceId: input.voiceId.trim(),
+        text: line,
+        endpoints,
+      });
+      if (ledger && dispatchId && input.projectId) {
+        await ledger.finish({ projectId: input.projectId, dispatchId, outcome: "COMPLETED" });
+      }
+      return { kind: "OK", ...audio, billingAccountKind: "grok_login" };
+    } catch (error) {
+      const code = error instanceof GrokAuthError ? error.code : "TEXT_FAILED";
+      if (ledger && dispatchId && input.projectId) {
+        await ledger.finish({
+          projectId: input.projectId,
+          dispatchId,
+          outcome: "FAILED",
+          failureCode: code,
+        });
+      }
+      const detail =
+        code === "ENTITLEMENT_DENIED"
+          ? "当前账号不能用配音。"
+          : code === "REAUTH_REQUIRED"
+            ? "需要重新登录。"
+            : code === "NOT_CONNECTED"
+              ? "没有登录。"
+              : "配音没有成功。";
+      return { kind: "ERROR", code, detail, billingAccountKind: "grok_login" };
+    }
+  }
+
   async function mediaAccessToken(): Promise<string | null> {
     await restore();
     if (!session) return null;
@@ -482,6 +556,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     signOut,
     models,
     completeText,
+    speak,
     mediaAccessToken,
   };
 }

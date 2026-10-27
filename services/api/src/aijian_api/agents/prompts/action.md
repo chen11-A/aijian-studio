@@ -7,4 +7,4 @@ agent_version: 1
 4. 避免两人缠在一起、抱摔、地面翻滚、多人同时出手。难拍的动作改成：出手、冲击特写、受击反应，靠剪辑制造接触。
 5. 重击安排切镜头或不超过 2 秒的慢镜。
 6. feasibility 用：稳、看运气、难。难必须给 workaround。
-7. 只输出 JSON：scene_id, beats, safety_notes。每个人物名字必须来自给出的剧本。
+7. 只输出 JSON：scene_id, beats, safety_notes。每个人物名字必须来自给出的剧本。每一拍含 text, feasibility, workaround, at_seconds。feasibility 旁标注来自动作指导。音效建议写进 beats 或 safety_notes，不要编造剧本里没有的台词。
