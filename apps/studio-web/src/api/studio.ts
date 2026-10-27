@@ -957,6 +957,36 @@ export interface AijianDesktopBridge
   readStoryFilmMedia?(path: string): Promise<Uint8Array>;
   revealStoryFilm?(path: string): Promise<{ ok: boolean }>;
   exportStoryFilm?(path: string): Promise<{ ok: boolean; cancelled?: boolean }>;
+  listFilmSeries?: () => Promise<{ id: string; title: string; savedAt: string; path: string }[]>;
+  listFilmEpisodes?: (seriesId: string) => Promise<
+    {
+      id: string;
+      seriesId: string;
+      title: string;
+      no: number;
+      shots: number;
+      done: number;
+      savedAt: string;
+    }[]
+  >;
+  readFilmProject?: (id: string) => Promise<Record<string, unknown> | null>;
+  writeFilmProject?: (film: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
+  renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
+  readFilmMedia?: (path: string) => Promise<Uint8Array>;
+  assembleFilm?: (seriesId: string, sources: string[]) => Promise<{ path: string; reason: string }>;
+  generateFilmStill?: (
+    seriesId: string,
+    prompt: string,
+  ) => Promise<{ path: string; reason: string }>;
+  pickFilmFolder?: () => Promise<string | null>;
+  exportFilmCut?: (
+    source: string,
+    directory: string,
+    name?: string,
+  ) => Promise<{ ok: boolean; path: string }>;
+  revealFilmPath?: (path: string) => Promise<{ ok: boolean }>;
+  openFilmPath?: (path: string) => Promise<{ ok: boolean; error: string }>;
   getProject(projectId: string): Promise<ProjectResponse>;
   getProjectSettings?: ProjectSettingsGateway["getProjectSettings"];
   getProjectSettingsReceipt?: ProjectSettingsGateway["getProjectSettingsReceipt"];

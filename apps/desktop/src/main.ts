@@ -23,6 +23,7 @@ import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-stor
 import { registerGrokHandlers } from "./grok-auth-ipc";
 import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
+import { registerFilmLibraryHandlers } from "./film-library-ipc";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -34,6 +35,7 @@ import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { developmentPythonLaunch } from "./development-python";
@@ -771,6 +773,45 @@ registerStoryFilmHandlers<IpcMainInvokeEvent>(
       return selected.canceled ? null : (selected.filePath ?? null);
     },
     copy: (source, destination) => copyFile(source, destination),
+  },
+);
+registerFilmLibraryHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: () => join(app.getPath("userData"), "films"),
+    storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
+    runFfmpeg: (args) =>
+      new Promise((resolve, reject) => {
+        const child = spawn("ffmpeg", args, { stdio: "ignore" });
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error("ffmpeg failed"));
+        });
+      }),
+    mediaToken: async () => {
+      try {
+        return await getGrokRuntime().mediaAccessToken();
+      } catch {
+        return null;
+      }
+    },
+    pickDirectory: async () => {
+      if (mainWindow === null) return null;
+      const selected = await dialog.showOpenDialog(mainWindow, {
+        title: "选择导出文件夹",
+        properties: ["openDirectory"],
+        buttonLabel: "选择文件夹",
+      });
+      return selected.canceled ? null : (selected.filePaths[0] ?? null);
+    },
+    copyFile: (source, destination) => copyFile(source, destination),
+    reveal: (path) => revealSavedFile(path),
+    open: (path) => shell.openPath(path),
   },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>

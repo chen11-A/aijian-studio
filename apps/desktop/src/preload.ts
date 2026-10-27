@@ -550,6 +550,24 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("story-film:reveal", path) as Promise<{ ok: boolean }>,
   exportStoryFilm: (path: string) =>
     ipcRenderer.invoke("story-film:export", path) as Promise<{ ok: boolean; cancelled?: boolean }>,
+  listFilmSeries: () => ipcRenderer.invoke("film:list-series"),
+  listFilmEpisodes: (seriesId: string) => ipcRenderer.invoke("film:list-episodes", seriesId),
+  readFilmProject: (id: string) => ipcRenderer.invoke("film:read", id),
+  writeFilmProject: (film: unknown) => ipcRenderer.invoke("film:write", film),
+  deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
+  renameFilmSeries: (seriesId: string, title: string) =>
+    ipcRenderer.invoke("film:rename", seriesId, title),
+  readFilmMedia: (path: string) =>
+    ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
+  assembleFilm: (seriesId: string, sources: string[]) =>
+    ipcRenderer.invoke("film:assemble", seriesId, sources),
+  generateFilmStill: (seriesId: string, prompt: string) =>
+    ipcRenderer.invoke("film:still", seriesId, prompt),
+  pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
+  exportFilmCut: (source: string, directory: string, name?: string) =>
+    ipcRenderer.invoke("film:export", source, directory, name),
+  revealFilmPath: (path: string) => ipcRenderer.invoke("film:reveal", path),
+  openFilmPath: (path: string) => ipcRenderer.invoke("film:open", path),
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
   getProjectSettings: ((projectId) =>
