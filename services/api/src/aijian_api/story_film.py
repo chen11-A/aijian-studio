@@ -251,6 +251,11 @@ class StoryFilmService:
                 image, clip, speech = self._live_media(request, media_token, project_id)
             else:
                 image, clip, speech = self._placeholder_media(request)
+            chosen = (
+                sum(max(1, min(int(shot.duration_seconds), 15)) for shot in request.shots)
+                if request.shots
+                else None
+            )
             result = self._assemble_and_export(
                 project_id,
                 request,
@@ -258,6 +263,7 @@ class StoryFilmService:
                 image,
                 clip,
                 speech,
+                max_seconds=chosen,
             )
         except Exception as error:
             try:
@@ -607,16 +613,30 @@ class StoryFilmService:
                 clip_path = directory / f"shot-{index}.mp4"
                 audio_path = directory / f"shot-{index}{_audio_suffix(speech)}"
                 clip_path.write_bytes(clip)
-                _fit_clip_length(
+                chosen = max(1, min(int(shot.duration_seconds), 15))
+                source_dir = Path(self._repository.database_path).parent / "story-films"
+                source_dir.mkdir(parents=True, exist_ok=True)
+                stem = hashlib.sha256(request.idempotency_key.encode()).hexdigest()[:16]
+                (source_dir / f"{stem}-shot-{index}-source.mp4").write_bytes(clip)
+                _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, clip_path, chosen)
+                audio_path.write_bytes(speech)
+                _width, _height, _frames, voiced = _normalize_film_media(
                     tools.ffmpeg_path,
                     tools.ffprobe_path,
                     clip_path,
-                    max(1, min(int(shot.duration_seconds), 15)),
+                    audio_path,
+                    chosen,
                 )
-                audio_path.write_bytes(speech)
-                _width, _height, _frames, voiced = _normalize_film_media(
-                    tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
-                )
+                actual = _media_duration(tools.ffprobe_path, clip_path)
+                if actual > chosen + 0.35:
+                    _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, clip_path, chosen)
+                    actual = _media_duration(tools.ffprobe_path, clip_path)
+                if actual > chosen + 0.35:
+                    raise StoryFilmError(
+                        "MEDIA_ENCODE_FAILED",
+                        f"这一镜选了 {chosen} 秒，剪完仍是 {actual:.1f} 秒。",
+                        ffmpeg_stage="trim_shot",
+                    )
                 synced = directory / f"shot-{index}-sync.wav"
                 video_seconds = _media_duration(tools.ffprobe_path, clip_path)
                 _ffmpeg(
@@ -996,6 +1016,7 @@ class StoryFilmService:
         image: bytes,
         clip: bytes,
         speech: bytes,
+        max_seconds: int | None = None,
     ) -> StoryFilmResult:
         tools = self._tools()
         directory = Path(self._repository.database_path).parent / "story-films"
@@ -1008,7 +1029,7 @@ class StoryFilmService:
         clip_path.write_bytes(clip)
         audio_path.write_bytes(speech)
         width, height, frames, voiced = _normalize_film_media(
-            tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path
+            tools.ffmpeg_path, tools.ffprobe_path, clip_path, audio_path, max_seconds
         )
         store = MediaAssetStore(self._repository)
         image_asset = store.import_local(project_id, image_path, display_filename="关键画面.png")
@@ -1534,12 +1555,18 @@ def _loudnorm_filter(measured: dict[str, str] | None) -> str:
 
 
 def _normalize_film_media(
-    ffmpeg: Path, ffprobe: Path, clip_path: Path, audio_path: Path
+    ffmpeg: Path,
+    ffprobe: Path,
+    clip_path: Path,
+    audio_path: Path,
+    max_seconds: int | None = None,
 ) -> tuple[int, int, int, Path]:
     """Loudness-normalize the narration and hold the last frame instead of cutting it.
 
-    The film is at least as long as the narration plus a short tail. A longer
-    video is kept, and the narration is padded with silence rather than trimmed.
+    Without a chosen length, the film is at least as long as the narration plus
+    a short tail. A longer video is kept, and the narration is padded with
+    silence rather than trimmed. When the user chose a length, that length is
+    the longest the picture is allowed to be.
     """
 
     payload = _ffprobe(ffprobe, ["-show_streams", "-of", "json", str(clip_path)])
@@ -1571,6 +1598,9 @@ def _normalize_film_media(
     )
     clean.replace(clip_path)
     frames = _video_frames(ffprobe, clip_path)
+    if max_seconds is not None and frames > max_seconds * _FRAME_RATE:
+        _fit_clip_length(ffmpeg, ffprobe, clip_path, max_seconds)
+        frames = _video_frames(ffprobe, clip_path)
     with audio_path.open("rb") as stream:
         header = stream.read(16)
     demuxer = "mp3" if _audio_suffix(header) == ".mp3" else "wav"
@@ -1599,6 +1629,9 @@ def _normalize_film_media(
         frames,
         math.ceil((narration_seconds + _NARRATION_TAIL_SECONDS) * _FRAME_RATE - 1e-6),
     )
+    if max_seconds is not None:
+        cap_frames = max(1, math.floor(max_seconds * _FRAME_RATE + 1e-6))
+        target_frames = min(target_frames, cap_frames)
     if target_frames > frames:
         extra = (target_frames - frames) / _FRAME_RATE
         held = clip_path.with_name(f"{clip_path.stem}-hold.mp4")
@@ -1623,6 +1656,8 @@ def _normalize_film_media(
         held.replace(clip_path)
         frames = _video_frames(ffprobe, clip_path)
     pad_seconds = max(frames / _FRAME_RATE + 0.08, narration_seconds)
+    if max_seconds is not None:
+        pad_seconds = min(pad_seconds, max_seconds + 0.08)
     voiced = audio_path.with_name(f"{audio_path.stem}-fit.wav")
     _ffmpeg(
         ffmpeg,

@@ -680,6 +680,9 @@ def test_two_shots_hold_a_character_still_and_join(tmp_path):
     assert result.status == "SUCCEEDED", result.message
     assert "AI 生成" in result.message
     assert float(result.duration_seconds or "0") >= 4
+    sources = list((tmp_path / "story-films").glob("*-shot-*-source.mp4"))
+    assert len(sources) == 2
+    assert all(item.stat().st_size > 100 for item in sources)
     assert list((tmp_path / "story-films").glob("*-cast.png")) == []
 
 
@@ -969,3 +972,46 @@ def test_a_long_clip_is_cut_to_the_chosen_length_and_a_short_one_stays(tmp_path)
     junk.write_bytes(b"not a movie")
     _fit_clip_length(tools.ffmpeg_path, tools.ffprobe_path, junk, 2)
     assert junk.read_bytes() == b"not a movie"
+
+
+def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
+    from aijian_api.story_film import _normalize_film_media
+
+    tools = toolchain()
+    clip = tmp_path / "clip.mp4"
+    voice = tmp_path / "voice.wav"
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=size=160x90:rate=24:duration=4",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(clip),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            str(tools.ffmpeg_path),
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000:duration=4",
+            "-c:a",
+            "pcm_s16le",
+            str(voice),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
+    assert _media_duration(tools.ffprobe_path, clip) <= 2.35
