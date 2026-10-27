@@ -164,7 +164,7 @@ def test_edits_and_extensions_use_the_older_model_and_reject_1_5():
     assert transport.requests[1].url.endswith(VIDEO_EXTEND_PATH)
     assert json.loads(transport.requests[0].body or b"{}")["model"] == EDIT_MODEL
     assert json.loads(transport.requests[1].body or b"{}")["duration"] == 4
-    with pytest.raises(XaiMediaError, match="1.5"):
+    with pytest.raises(XaiMediaError, match="还不能用现在登录到的成片模型"):
         client.edit_video(
             prompt="不行",
             video_url="https://vidgen.x.ai/clip.mp4",
