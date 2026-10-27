@@ -50,7 +50,7 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
-    expect(screen.getAllByText(/改图接口还没验证/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/请打开安装好的 AIVORA 再出图/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole("button", { name: "选用" })[0]!);
     fireEvent.click(
       screen
@@ -60,7 +60,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "加镜头" }));
     expect(screen.getByText(/已加一个镜头/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
-    expect(screen.getByText(/审片还不能看图打分/)).toBeInTheDocument();
+    expect(screen.getByText(/请打开安装好的 AIVORA 再出图/)).toBeInTheDocument();
     fireEvent.click(
       screen
         .getAllByRole("button", { name: /剪辑/ })
@@ -161,7 +161,7 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("分镜画面"), { target: { value: "雨停了" } });
     fireEvent.change(screen.getByLabelText("表演"), { target: { value: "我改过表演" } });
     fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
-    expect(screen.getByText(/审片还不能看图打分/)).toBeInTheDocument();
+    expect(screen.getByText(/请打开安装好的 AIVORA 再出图/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.click(screen.getByRole("button", { name: "表演指导" }));
     fireEvent.click(screen.getByRole("button", { name: "请表演指导看看" }));
@@ -177,7 +177,7 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "老刀，光头" } });
     fireEvent.change(screen.getByLabelText("画风"), { target: { value: "古风武侠" } });
     fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
-    expect(screen.getAllByText(/改图接口还没验证/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/请打开安装好的 AIVORA 再出图/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole("button", { name: "选用" })[0]!);
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.click(stageTab("剪辑"));

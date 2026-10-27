@@ -22,9 +22,7 @@ import {
   moveShot,
   planVideoJobs,
   portraitPrompts,
-  PORTRAIT_REASON,
   PREVIEW_REASON,
-  QC_REASON,
   removeShot,
   splitNovel,
   generationEstimate,
@@ -616,6 +614,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           : item,
       ),
     };
+  }
+
+  async function makeStill(prompt: string): Promise<{ url: string; reason: string }> {
+    const bridge = window.aijian;
+    const current = filmRef.current;
+    if (!current || !bridge?.generateFilmStill) {
+      return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
+    }
+    try {
+      const result = await bridge.generateFilmStill(current.seriesId, prompt);
+      if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
+      const bytes = bridge.readFilmMedia ? await bridge.readFilmMedia(result.path) : null;
+      return {
+        url: bytes ? mediaUrl(bytes, "image/png") : "",
+        reason: bytes ? "画面已生成。" : "画面已保存，这一页还打不开。",
+      };
+    } catch {
+      return { url: "", reason: "出图没有成功，可以重试。" };
+    }
   }
 
   async function clipUrl(path: string): Promise<string> {
@@ -1237,7 +1254,30 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onBatch={askBatch}
                   stills={[]}
                   onStills={() => {
-                    setNotice(`${QC_REASON} ${PORTRAIT_REASON}`);
+                    const current = shownShots[shot];
+                    if (!current || !window.aijian?.generateFilmStill) {
+                      setNotice("请打开安装好的 AIVORA 再出图。");
+                      return;
+                    }
+                    setNotice("正在出这一镜的画面。");
+                    void makeStill(keyframePrompt(current, film)).then((made) => {
+                      if (!made.url) {
+                        setNotice(made.reason);
+                        return;
+                      }
+                      const latest = filmRef.current;
+                      if (!latest) return;
+                      setFilm(
+                        updateShot(latest, current.id, {
+                          poster: made.url,
+                          stills: [
+                            ...current.stills,
+                            { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
+                          ],
+                        }),
+                      );
+                      setNotice(made.reason);
+                    });
                   }}
                   onPickStill={(picture) => {
                     const current = shownShots[shot];
@@ -2035,7 +2075,10 @@ function CastPage({
               : []
             ).map((item) => (
               <div key={item.view}>
-                <Thumb rain />
+                <Thumb
+                  src={character?.portraits.find((portrait) => portrait.view === item.view)?.url}
+                  rain={!character?.portraits.find((portrait) => portrait.view === item.view)?.url}
+                />
                 <p>{item.view}</p>
               </div>
             ))}
@@ -2045,7 +2088,31 @@ function CastPage({
             type="button"
             onClick={() => {
               if (!character) return;
-              onNotice(PORTRAIT_REASON);
+              if (!window.aijian?.generateFilmStill) {
+                onNotice("请打开安装好的 AIVORA 再出图。");
+                return;
+              }
+              const prompts = portraitPrompts(character.name, character.identity, film.styleZh);
+              onNotice("正在出定妆照。");
+              void (async () => {
+                const portraits = [];
+                for (const item of prompts) {
+                  const made = await makeStill(item.prompt);
+                  portraits.push({ view: item.view, prompt: item.prompt, url: made.url });
+                  if (!made.url) {
+                    onNotice(made.reason);
+                    return;
+                  }
+                }
+                const latest = film;
+                onFilm({
+                  ...latest,
+                  characters: latest.characters.map((item) =>
+                    item.id === character.id ? { ...item, portraits } : item,
+                  ),
+                });
+                onNotice("定妆照已生成。");
+              })();
             }}
           >
             生成定妆照
