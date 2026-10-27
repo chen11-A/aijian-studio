@@ -9,7 +9,7 @@ const viewports = [
   { name: "1280x800", width: 1280, height: 800 },
   { name: "1920x1080", width: 1920, height: 1080 },
 ];
-const stages = ["剧本", "角色", "分镜", "生成", "剪辑"];
+const stages = ["剧本", "角色与场景", "分镜", "剪辑"];
 
 const browser = await chromium.launch({ headless: true });
 const failures = [];
@@ -27,6 +27,7 @@ try {
     await page.getByRole("button", { name: "打开示例" }).click();
     for (const stage of stages) {
       await page.locator("nav.tabs").getByRole("button", { name: stage }).click();
+      if (stage === "分镜") await page.getByRole("button", { name: "单镜" }).click();
       if (stage === "剪辑") {
         await page.locator(".bin .it").nth(4).click();
       }

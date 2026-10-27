@@ -12,7 +12,6 @@ import {
   ensureLocations,
   exportSummary,
   extractBookText,
-  keyframeVariants,
   LOUDNESS_NOTE,
   offlineScreenplay,
   parseWriterScenes,
@@ -25,27 +24,39 @@ import {
   QC_REASON,
   removeShot,
   splitNovel,
+  generationEstimate,
   storyFilmBatches,
   subtitleCues,
   updateShot,
   VOICES,
 } from "../film/operations";
 import {
+  activeFilmId,
+  BROWSER_DIRECTORY,
+  listEpisodes,
+  listFilms,
+  mediaUrl,
+  readSaved,
+  removeFilm,
+  renameFilm,
+  saveFilm,
+  type EpisodeEntry,
+} from "../film/library";
+import {
   applyShots,
   agentRequest,
   blankFilm,
-  generationNote,
   keyframePrompt,
+  newEpisode,
   parseDirectorShots,
-  readFilm,
   sampleFilm,
   offlineShots,
   textModel,
-  writeFilm,
   STYLE_PRESETS,
   type FilmProject,
   type FilmScene,
   type FilmShot,
+  type FilmTake,
 } from "../film/project";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokConnected } from "../grok-auth/useGrokConnected";
@@ -53,17 +64,33 @@ import { videoActions, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilitie
 import { Ic } from "./icons";
 import "./pro.css";
 
-type Stage = "script" | "cast" | "board" | "generate" | "edit";
+type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance";
 type FixAction = VideoAction;
 
 const STAGES: { id: Stage; label: string }[] = [
   { id: "script", label: "剧本" },
-  { id: "cast", label: "角色" },
+  { id: "cast", label: "角色与场景" },
   { id: "board", label: "分镜" },
-  { id: "generate", label: "生成" },
   { id: "edit", label: "剪辑" },
 ];
+
+const SETTINGS_NOTE = "设置页还没接上。画风在角色与场景，每镜次数在单镜工作台。";
+const USAGE_NOTE = "用量页还没接上。生成次数记在每部作品里。";
+const ROUGH_CUT_REASON = "多镜头还没接成一条，先播放这一镜。";
+
+function filmSignature(value: FilmProject): string {
+  return JSON.stringify({
+    ...value,
+    savedAt: "",
+    directory: "",
+    assemblyUrl: "",
+    shots: value.shots.map((shot) => ({
+      ...shot,
+      takes: shot.takes.map((take) => ({ ...take, videoUrl: "" })),
+    })),
+  });
+}
 
 const ROLE_COPY: Record<Role, string> = {
   writer: "编剧：把想法或小说收成一场一场的剧本。确认前不会改你写过的字。",
@@ -103,14 +130,28 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [comparing, setComparing] = useState(false);
   const [fixAction, setFixAction] = useState<FixAction>("rewrite");
   const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
-  const [notice, setNotice] = useState("已自动保存 · 09:02");
+  const [notice, setNotice] = useState("");
   const [modelIds, setModelIds] = useState<string[]>([]);
   const [versions, setVersions] = useState(2);
   const [duration, setDuration] = useState(3);
   const [playing, setPlaying] = useState(false);
   const [chat, setChat] = useState("");
-  const [stills, setStills] = useState<string[]>([]);
+  const [bench, setBench] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [episodes, setEpisodes] = useState<EpisodeEntry[]>([]);
+  const [pendingBatch, setPendingBatch] = useState<FilmShot[] | null>(null);
+  const [exportDir, setExportDir] = useState("");
+  const [exportFile, setExportFile] = useState("");
+  const [rename, setRename] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const filmRef = useRef<FilmProject | null>(null);
+  const pastRef = useRef<FilmProject[]>([]);
+  const futureRef = useRef<FilmProject[]>([]);
+  const committed = useRef<FilmProject | null>(null);
+  const skipHistory = useRef(false);
+  const pauseRef = useRef(false);
+  const assembledKey = useRef("");
+  const [historyTick, setHistoryTick] = useState(0);
   const actions = videoActions(modelIds);
 
   useEffect(() => {
@@ -127,17 +168,78 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, [connected]);
 
   useEffect(() => {
-    const stored = readFilm(window.localStorage);
-    if (stored) {
+    let live = true;
+    void (async () => {
+      const rows = await listFilms();
+      const id = activeFilmId() || rows[0]?.id || "";
+      const stored = id ? await readSaved(id) : null;
+      if (!live || !stored) return;
+      filmRef.current = stored;
+      committed.current = stored;
       setFilm(stored);
       const first = stored.scenes[0]?.id;
       if (first) setScene(first);
-    }
+    })();
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (film) writeFilm(window.localStorage, film);
+    filmRef.current = film;
+    if (!film) return;
+    void saveFilm(film);
+    if (skipHistory.current) {
+      skipHistory.current = false;
+      committed.current = film;
+      return;
+    }
+    if (!committed.current) {
+      committed.current = film;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const previous = committed.current;
+      if (previous && filmSignature(previous) !== filmSignature(film)) {
+        pastRef.current = [...pastRef.current, previous].slice(-50);
+        futureRef.current = [];
+        setHistoryTick((value) => value + 1);
+      }
+      committed.current = film;
+    }, 500);
+    return () => window.clearTimeout(timer);
   }, [film]);
+
+  function rememberFilm(next: FilmProject) {
+    filmRef.current = next;
+    setFilm(next);
+  }
+
+  function undoEdit() {
+    const current = filmRef.current;
+    const baseline = committed.current;
+    if (current && baseline && filmSignature(current) !== filmSignature(baseline)) {
+      skipHistory.current = true;
+      rememberFilm(baseline);
+      return;
+    }
+    const previous = pastRef.current.pop();
+    if (!previous || !current) return;
+    futureRef.current.push(current);
+    skipHistory.current = true;
+    setHistoryTick((value) => value + 1);
+    rememberFilm(previous);
+  }
+
+  function redoEdit() {
+    const current = filmRef.current;
+    const next = futureRef.current.pop();
+    if (!next || !current) return;
+    pastRef.current.push(current);
+    skipHistory.current = true;
+    setHistoryTick((value) => value + 1);
+    rememberFilm(next);
+  }
 
   const open = film !== null;
 
@@ -145,8 +247,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
-      if (event.key >= "1" && event.key <= "5") {
-        setStage(STAGES[Number(event.key) - 1]!.id);
+      if (event.key >= "1" && event.key <= String(STAGES.length)) {
+        const next = STAGES[Number(event.key) - 1];
+        if (next) setStage(next.id);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redoEdit();
+        else undoEdit();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redoEdit();
       }
       if (event.key === "i" || event.key === "I") {
         setRange(true);
@@ -171,7 +283,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stage]);
+  }, [stage, historyTick]);
 
   const runAction = (action: FixAction) => {
     setFixAction(action);
@@ -419,66 +531,295 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setChat("");
   }
 
-  async function submitGeneration() {
-    if (!film) return;
-    const current = shownShots[shot] ?? film.shots[0];
-    if (!current) {
+  function applyLive(next: FilmProject) {
+    filmRef.current = next;
+    setFilm(next);
+  }
+
+  function replaceTakes(
+    base: FilmProject,
+    shotId: string,
+    takes: FilmTake[],
+    selected = "",
+  ): FilmProject {
+    return {
+      ...base,
+      shots: base.shots.map((item) =>
+        item.id === shotId
+          ? { ...item, takes, selectedTakeId: selected || item.selectedTakeId }
+          : item,
+      ),
+    };
+  }
+
+  async function clipUrl(path: string): Promise<string> {
+    const bridge = window.aijian;
+    if (!path || !bridge) return "";
+    try {
+      const bytes = bridge.readFilmMedia
+        ? await bridge.readFilmMedia(path)
+        : bridge.readStoryFilmMedia
+          ? await bridge.readStoryFilmMedia(path)
+          : null;
+      return bytes ? mediaUrl(bytes, "video/mp4") : "";
+    } catch {
+      return "";
+    }
+  }
+
+  async function submitGeneration(targets?: FilmShot[]) {
+    const live = filmRef.current ?? film;
+    if (!live) return;
+    const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
+      (item): item is FilmShot => Boolean(item),
+    );
+    if (selected.length === 0) {
       setNotice("先在剧本里拆镜头。");
       return;
     }
-    if (film.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
+    setNotice(generationEstimate(selected.length, versions, duration));
+    if (live.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
       setNotice(`模型列表里没有 ${VIDEO_DRAFT_MODEL}，不能先出草稿。`);
       return;
     }
     const gate = actions.regenerate;
     const bridge = window.aijian;
     const canSubmit = gate.enabled && Boolean(projectId && bridge?.createStoryFilm);
-    const reason = !gate.enabled ? gate.reason : DESKTOP_REASON;
-    let jobs = planVideoJobs(current, versions, canSubmit, reason);
-    setFilm({ ...film, jobs: [...film.jobs.filter((job) => job.shotId !== current.id), ...jobs] });
+    const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
+    const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
     if (!canSubmit) {
-      setNotice(reason);
+      applyLive({
+        ...live,
+        jobs: [
+          ...live.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
+          ...jobs,
+        ],
+      });
+      setNotice(blocked);
       return;
     }
-    const body = storyFilmBatches(film, [current], film.draft)[0];
-    jobs = jobs.map((job) => ({ ...job, status: "running" as const }));
-    setFilm({ ...film, jobs: [...film.jobs.filter((job) => job.shotId !== current.id), ...jobs] });
+    let next = live;
+    const groups = selected.map((item) => {
+      const fresh: FilmTake[] = Array.from({ length: versions }, (_, index) => ({
+        id: crypto.randomUUID(),
+        shotId: item.id,
+        index: item.takes.length + index + 1,
+        status: "running",
+        stillUrl: "",
+        videoPath: "",
+        videoUrl: "",
+        prompt: item.picture,
+        createdAt: new Date().toISOString(),
+        reason: "",
+      }));
+      next = replaceTakes(
+        next,
+        item.id,
+        [...item.takes, ...fresh],
+        item.selectedTakeId || fresh[0]?.id || "",
+      );
+      return { shot: item, takes: fresh, hadTakes: item.takes.length > 0 };
+    });
+    next = {
+      ...next,
+      jobs: [
+        ...next.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
+        ...jobs.map((job) => ({ ...job, status: "running" as const })),
+      ],
+    };
+    applyLive(next);
     try {
-      for (let take = 0; take < jobs.length; take += 1) {
-        const response = await bridge!.createStoryFilm!(projectId!, {
-          ...body!,
-          regenerate: take > 0,
-        });
-        const data = response.data ?? {};
-        const message = typeof data.message === "string" ? data.message : "";
-        const ok = data.status === "SUCCEEDED";
-        jobs = jobs.map((job) =>
-          job.take === take + 1
-            ? { ...job, status: ok ? "done" : "failed", reason: message || job.reason }
-            : job,
-        );
-        setNotice(message || generationNote(modelIds));
+      for (const group of groups) {
+        for (let index = 0; index < group.takes.length; index += 1) {
+          const take = group.takes[index]!;
+          const current = filmRef.current ?? next;
+          if (pauseRef.current) {
+            const queued = group.takes.slice(index).map((item) => item.id);
+            applyLive(
+              replaceTakes(
+                current,
+                group.shot.id,
+                (current.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+                  (item) =>
+                    queued.includes(item.id)
+                      ? { ...item, status: "queued", reason: "已暂停。点继续再生成剩下的。" }
+                      : item,
+                ),
+              ),
+            );
+            setNotice("已暂停。点继续再生成剩下的。");
+            return;
+          }
+          const shotNow = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
+          const body = storyFilmBatches(current, [shotNow], current.draft)[0];
+          const response = await bridge!.createStoryFilm!(projectId!, {
+            ...body!,
+            regenerate: index > 0 || group.hadTakes,
+          });
+          const data = response.data ?? {};
+          const message = typeof data.message === "string" ? data.message : "";
+          const output = typeof data.output_path === "string" ? data.output_path : "";
+          const preview = typeof data.preview_image === "string" ? data.preview_image : "";
+          const ok = data.status === "SUCCEEDED";
+          const videoUrl = ok ? await clipUrl(output) : "";
+          const done = ok && Boolean(videoUrl || preview || output);
+          const latest = filmRef.current ?? current;
+          const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+            (item) =>
+              item.id === take.id
+                ? {
+                    ...item,
+                    status: done ? ("done" as const) : ("failed" as const),
+                    videoPath: output,
+                    videoUrl,
+                    stillUrl: preview,
+                    reason: message,
+                  }
+                : item,
+          );
+          applyLive(
+            replaceTakes(
+              latest,
+              group.shot.id,
+              takes,
+              done
+                ? take.id
+                : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
+            ),
+          );
+          setNotice(message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"));
+        }
       }
     } catch {
-      jobs = jobs.map((job) => ({
-        ...job,
-        status: "failed" as const,
-        reason: "没有生成成功，可以重试。",
-      }));
+      const latest = filmRef.current ?? next;
+      let failed = latest;
+      for (const group of groups) {
+        failed = replaceTakes(
+          failed,
+          group.shot.id,
+          (failed.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map((item) =>
+            item.status === "running"
+              ? { ...item, status: "failed", reason: "没有生成成功，可以重试。" }
+              : item,
+          ),
+        );
+      }
+      applyLive(failed);
       setNotice("没有生成成功，可以重试。");
     }
-    setFilm({
-      ...film,
-      jobs: [
-        ...film.jobs.filter((job) => job.shotId !== current.id || job.kind !== "video"),
-        ...jobs,
-      ],
-    });
   }
+
+  function askBatch() {
+    const rows = shownShots.length > 0 ? shownShots : (film?.shots ?? []);
+    if (rows.length === 0) {
+      setNotice("先在剧本里拆镜头。");
+      return;
+    }
+    setPendingBatch(rows);
+    setNotice(generationEstimate(rows.length, versions, duration));
+  }
+
+  async function joinedCut(paths: string[]) {
+    const current = filmRef.current;
+    const bridge = window.aijian;
+    if (!current || paths.length === 0) return;
+    if (paths.length === 1 || !bridge?.assembleFilm) {
+      if (paths.length > 1) setNotice(ROUGH_CUT_REASON);
+      return;
+    }
+    try {
+      const result = await bridge.assembleFilm(current.seriesId, paths);
+      const url = result.path ? await clipUrl(result.path) : "";
+      const latest = filmRef.current ?? current;
+      applyLive({ ...latest, assemblyPath: result.path, assemblyUrl: url });
+      if (result.reason) setNotice(result.reason);
+    } catch {
+      setNotice(ROUGH_CUT_REASON);
+    }
+  }
+
+  async function startExport() {
+    const bridge = window.aijian;
+    if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
+      setNotice("导出要在桌面版里选择文件夹。网页里不能写成片。");
+      return;
+    }
+    const current = filmRef.current;
+    if (!current) return;
+    const paths = current.shots
+      .map((item) => item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath)
+      .filter((item): item is string => Boolean(item));
+    let source = current.assemblyPath;
+    if (!source && paths.length > 1) {
+      await joinedCut(paths);
+      source = filmRef.current?.assemblyPath ?? "";
+    }
+    if (!source) source = paths[0] ?? "";
+    if (!source) {
+      setNotice("还没有可以导出的视频。");
+      return;
+    }
+    const directory = exportDir || (await bridge.pickFilmFolder()) || "";
+    if (!directory) {
+      setNotice("没有选择文件夹。");
+      return;
+    }
+    setExportDir(directory);
+    setExporting(true);
+    setNotice("正在导出。");
+    try {
+      const name = `${current.seriesTitle || current.title}-${current.episodeTitle || "第1集"}.mp4`;
+      const result = await bridge.exportFilmCut(source, directory, name);
+      setExportFile(result.path);
+      applyLive({ ...(filmRef.current ?? current), exportPath: result.path });
+      setNotice(`已导出到 ${result.path}`);
+    } catch {
+      setNotice("没有导出成功，可以重试。");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const wsClass =
     stage === "edit" && (range || comparing)
       ? "ws fix"
-      : `ws ${stage === "board" ? "board" : stage}`;
+      : bench && stage === "board"
+        ? "ws gen"
+        : `ws ${stage === "board" ? "board" : stage}`;
+
+  useEffect(() => {
+    if (stage !== "edit" || !film) return;
+    const paths = film.shots
+      .map(
+        (item) =>
+          item.takes.find((take) => take.id === item.selectedTakeId && take.videoPath)?.videoPath ||
+          item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath ||
+          "",
+      )
+      .filter((item) => item);
+    if (paths.length < 2) return;
+    const key = paths.join("|");
+    if (assembledKey.current === key) return;
+    assembledKey.current = key;
+    void joinedCut(paths);
+  }, [stage, film]);
+
+  const dirty =
+    film !== null &&
+    committed.current !== null &&
+    filmSignature(film) !== filmSignature(committed.current);
+  const canUndo = historyTick >= 0 && (pastRef.current.length > 0 || dirty);
+  const canRedo = futureRef.current.length > 0;
+  const tracked =
+    film?.jobs.filter(
+      (job) =>
+        job.status === "queued" ||
+        job.status === "running" ||
+        job.status === "done" ||
+        job.status === "failed",
+    ) ?? [];
+  const finished = tracked.filter((job) => job.status === "done" || job.status === "failed").length;
+  const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
 
   return (
     <div className="pro-root" data-stage={stage} data-sample={open ? "open" : "empty"}>
@@ -493,19 +834,49 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <button
               className="proj"
               aria-label="作品"
-              onClick={() => setMenu(menu === "project" ? null : "project")}
+              onClick={() => {
+                const opening = menu !== "project";
+                setMenu(opening ? "project" : null);
+                if (opening && film) {
+                  setRename(film.seriesTitle || film.title);
+                  void listEpisodes(film.seriesId).then(setEpisodes);
+                }
+              }}
             >
-              {title} <span className="ep">/ 第 1 集</span>
+              {title}
+              {film ? (
+                <span className="ep">/ {film.episodeTitle || `第 ${film.episodeNo} 集`}</span>
+              ) : null}
               <Ic name="chev" size={14} />
+            </button>
+            <button
+              className="icon-btn"
+              aria-label="撤销"
+              title="撤销"
+              disabled={!canUndo}
+              onClick={undoEdit}
+            >
+              <Ic name="undo" />
+            </button>
+            <button
+              className="icon-btn"
+              aria-label="重做"
+              title="重做"
+              disabled={!canRedo}
+              onClick={redoEdit}
+            >
+              <Ic name="redo" />
             </button>
             {menu === "project" && (
               <div className="menu" role="menu" aria-label="作品菜单">
                 <button
                   onClick={() => {
-                    setFilm(blankFilm());
+                    const next = blankFilm();
+                    applyLive(next);
                     setPending(null);
                     setRange(false);
                     setComparing(false);
+                    setBench(false);
                     setStage("script");
                     setMenu(null);
                     setNotice("已新建作品。写下故事，或打开示例。");
@@ -515,8 +886,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </button>
                 <button
                   onClick={() => {
-                    setFilm(sampleFilm());
+                    applyLive(sampleFilm());
                     setScene("02");
+                    setBench(false);
                     setStage("script");
                     setMenu(null);
                     setNotice("已打开示例「雨夜巷战」。");
@@ -526,16 +898,70 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </button>
                 <button
                   onClick={() => {
+                    if (!film) return;
+                    const next = newEpisode(film);
+                    applyLive(next);
+                    setScene(next.scenes[0]?.id ?? "scene-1");
+                    setBench(false);
+                    setStage("script");
                     setMenu(null);
-                    setNotice("这一集是第 1 集。");
+                    setNotice(`已新建${next.episodeTitle}。`);
                   }}
                 >
-                  切换剧集
+                  新建一集
+                </button>
+                {episodes.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      void readSaved(item.id).then((saved) => {
+                        if (!saved) return;
+                        applyLive(saved);
+                        setScene(saved.scenes[0]?.id ?? scene);
+                        setMenu(null);
+                        setNotice(`已打开${saved.episodeTitle}。`);
+                      });
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    if (!film || !rename.trim()) return;
+                    void renameFilm(film.seriesId, rename.trim());
+                    applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                    setMenu(null);
+                    setNotice("已改作品名。");
+                  }}
+                >
+                  保存名字
+                </button>
+                <input
+                  aria-label="作品名"
+                  value={rename}
+                  onChange={(event) => setRename(event.target.value)}
+                />
+                <button
+                  onClick={() => {
+                    if (!film) return;
+                    void removeFilm(film.id).then(async () => {
+                      const rows = await listFilms();
+                      const saved = rows[0] ? await readSaved(rows[0].id) : null;
+                      if (saved) applyLive(saved);
+                      else setFilm(null);
+                      setMenu(null);
+                      setNotice("已删除这一集。");
+                    });
+                  }}
+                >
+                  删除这一集
                 </button>
                 <button
                   onClick={() => {
                     setMenu(null);
-                    setNotice("作品设置：16:9 · 24 帧。");
+                    setStage("cast");
+                    setNotice(SETTINGS_NOTE);
                   }}
                 >
                   作品设置
@@ -589,7 +1015,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <button
                   onClick={() => {
                     setMenu(null);
-                    setNotice("设置保存在这台电脑上。");
+                    setNotice(SETTINGS_NOTE);
                   }}
                 >
                   设置
@@ -597,7 +1023,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <button
                   onClick={() => {
                     setMenu(null);
-                    setNotice("用量里不另收费。订阅内的生成另计次数。");
+                    setNotice(USAGE_NOTE);
                   }}
                 >
                   用量
@@ -669,6 +1095,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   chat={chat}
                   onChat={setChat}
                   onSend={sendChat}
+                  onUndo={undoEdit}
+                  onRedo={redoEdit}
                 />
               )}
               {stage === "cast" && (
@@ -683,7 +1111,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onSend={sendChat}
                 />
               )}
-              {stage === "board" && (
+              {stage === "board" && !bench && (
                 <BoardPage
                   film={film}
                   shots={shownShots}
@@ -691,13 +1119,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onShot={setShot}
                   onFilm={setFilm}
                   onNotice={setNotice}
-                  onGenerate={() => setStage("generate")}
-                  stills={stills}
+                  onGenerate={() => setBench(true)}
+                  onBatch={askBatch}
+                  stills={[]}
                   onStills={() => {
-                    const current = shownShots[shot];
-                    if (!current) return;
-                    setStills(keyframeVariants(current, film));
-                    setNotice(`${QC_REASON} 四种构图已记下，点一条就会换成这一镜的描述。`);
+                    setNotice(`${QC_REASON} ${PORTRAIT_REASON}`);
                   }}
                   onPickStill={(picture) => {
                     const current = shownShots[shot];
@@ -723,8 +1149,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onSend={sendChat}
                 />
               )}
-              {stage === "generate" && (
+              {stage === "board" && bench && (
                 <GeneratePage
+                  onBack={() => setBench(false)}
                   film={film}
                   shots={shownShots}
                   shot={shot}
@@ -790,6 +1217,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice("已用新版替换。旧版留在历史版本里。");
                   }}
                   onTab={setRightTab}
+                  onUndo={undoEdit}
+                  onRedo={redoEdit}
+                  onNotice={setNotice}
                 />
               )}
             </>
@@ -816,18 +1246,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               ? `视频 ${film.jobs.filter((job) => job.status === "queued" || job.status === "running").length} 个排队`
               : "没有排队"}
             <span className="bar">
-              <i
-                style={{
-                  width: film?.jobs.some((job) => job.status === "running") ? "60%" : "0%",
-                }}
-              />
+              <i style={{ width: `${progress}%` }} />
             </span>
           </button>
+          {pendingBatch && (
+            <>
+              <span data-testid="batch-estimate">
+                {generationEstimate(pendingBatch.length, versions, duration)}
+              </span>
+              <button
+                className="btn sm"
+                onClick={() => {
+                  const rows = pendingBatch;
+                  setPendingBatch(null);
+                  void submitGeneration(rows);
+                }}
+              >
+                开始生成
+              </button>
+              <button className="btn sm" onClick={() => setPendingBatch(null)}>
+                先不生成
+              </button>
+            </>
+          )}
           <span className="sp" />
           <span>
-            作品保存在本机 <b>{film ? film.title : "这台电脑"}</b>
+            {film?.directory && film.directory !== BROWSER_DIRECTORY
+              ? "作品保存在"
+              : BROWSER_DIRECTORY}{" "}
+            <b>
+              {film?.directory && film.directory !== BROWSER_DIRECTORY
+                ? film.directory
+                : film?.title || ""}
+            </b>
           </span>
-          <span>16:9 · 1080p · 24 帧</span>
         </footer>
         {menu === "queue" && (
           <div
@@ -836,6 +1288,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             role="dialog"
             aria-label="生成队列"
           >
+            <button
+              onClick={() => {
+                pauseRef.current = !paused;
+                setPaused((value) => !value);
+                setNotice(paused ? "继续排队。" : "已暂停。已经发出的请求不一定能停。");
+              }}
+            >
+              {paused ? "继续排队" : "暂停排队"}
+            </button>
+            <button
+              onClick={() => {
+                const failed = (film?.shots ?? []).filter((item) =>
+                  item.takes.some((take) => take.status === "failed"),
+                );
+                if (failed.length === 0) {
+                  setNotice("没有失败的生成。");
+                  return;
+                }
+                void submitGeneration(failed);
+              }}
+            >
+              重试失败的
+            </button>
             {(film?.jobs ?? []).length === 0 && <button>没有排队的生成</button>}
             {(film?.jobs ?? []).map((job) => (
               <button
@@ -870,25 +1345,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <h2>导出成片</h2>
               <div className="field">
                 <label>文件名</label>
-                <div className="input">{film?.title ?? "未命名"}-第1集</div>
-              </div>
-              <div className="field">
-                <label>保存到</label>
                 <div className="input">
-                  D:\AIVORA\雨夜巷战 <Ic name="folder" size={14} />
+                  {film ? `${film.seriesTitle || film.title}-${film.episodeTitle}` : "未命名"}
                 </div>
               </div>
               <div className="field">
-                <label>画面比例</label>
-                <div className="input">16:9</div>
-              </div>
-              <div className="field">
-                <label>清晰度</label>
-                <div className="input">1080p</div>
-              </div>
-              <div className="field">
-                <label>字幕</label>
-                <div className="input">烧录进画面</div>
+                <label>保存到</label>
+                <div className="input">{exportDir || "还没有选择文件夹"}</div>
               </div>
               <p className="role-desc" data-testid="export-summary">
                 {film ? exportSummary(film) : "还没有作品。"}
@@ -898,14 +1361,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   关闭
                 </button>
                 <button
-                  className="btn primary"
+                  className="btn"
+                  disabled={!exportFile}
+                  title={exportFile ? "打开导出的文件夹" : "还没有导出的文件"}
                   onClick={() => {
-                    setExporting(true);
-                    setNotice(
-                      exporting ? "正在导出。" : "开始导出。画面和声音由 AI 生成，不是实拍。",
-                    );
+                    if (exportFile) void window.aijian?.revealFilmPath?.(exportFile);
                   }}
                 >
+                  打开文件夹
+                </button>
+                <button
+                  className="btn"
+                  disabled={!exportFile}
+                  title={exportFile ? "播放导出的文件" : "还没有导出的文件"}
+                  onClick={() => {
+                    if (exportFile) void window.aijian?.openFilmPath?.(exportFile);
+                  }}
+                >
+                  播放
+                </button>
+                <button className="btn primary" onClick={() => void startExport()}>
                   {exporting ? "正在导出" : "开始导出"}
                 </button>
               </div>
@@ -1086,6 +1561,8 @@ function ScriptPage({
   chat,
   onChat,
   onSend,
+  onUndo,
+  onRedo,
 }: {
   film: FilmProject;
   scene: string;
@@ -1106,6 +1583,8 @@ function ScriptPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
 }) {
   const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
   const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
@@ -1170,18 +1649,24 @@ function ScriptPage({
       <section className="pane">
         <div className="tool">
           <h3>{current ? `${current.no}. ${current.title}` : "这一场"}</h3>
-          <button className="icon-btn" aria-label="撤销" title="撤销">
+          <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
             <Ic name="undo" />
           </button>
-          <button className="icon-btn" aria-label="重做" title="重做">
+          <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
             <Ic name="redo" />
           </button>
           <span className="vsep" />
           <div className="seg">
             <button className="on">场景</button>
-            <button>动作</button>
-            <button>角色</button>
-            <button>对白</button>
+            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
+              动作
+            </button>
+            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
+              角色
+            </button>
+            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
+              对白
+            </button>
           </div>
           <span className="sp" />
           <button className="btn primary" onClick={onPlan}>
@@ -1512,6 +1997,7 @@ function BoardPage({
   onFilm,
   onNotice,
   onGenerate,
+  onBatch,
   stills,
   onStills,
   onPickStill,
@@ -1532,6 +2018,7 @@ function BoardPage({
   onFilm: (film: FilmProject) => void;
   onNotice: (text: string) => void;
   onGenerate: () => void;
+  onBatch: () => void;
   stills: string[];
   onStills: () => void;
   onPickStill: (picture: string) => void;
@@ -1583,7 +2070,14 @@ function BoardPage({
         </div>
         <div className="pfoot">
           <span>
-            已生成 <b>0</b> / {film.shots.length}
+            已生成{" "}
+            <b>
+              {
+                film.shots.filter((item) => item.takes.some((take) => take.status === "done"))
+                  .length
+              }
+            </b>{" "}
+            / {film.shots.length}
           </span>
           <span>
             约 <b>{seconds} 秒</b>
@@ -1597,10 +2091,6 @@ function BoardPage({
             {shots.length} 个镜头 · {seconds} 秒
           </span>
           <span className="sp" />
-          <div className="seg">
-            <button className="on">网格</button>
-            <button>列表</button>
-          </div>
           <button
             className="btn"
             onClick={() => {
@@ -1611,9 +2101,12 @@ function BoardPage({
           >
             加镜头
           </button>
-          <button className="btn primary" onClick={onGenerate}>
+          <button className="btn" onClick={onGenerate}>
+            单镜
+          </button>
+          <button className="btn primary" onClick={onBatch}>
             <Ic name="spark" size={14} />
-            生成全部画面
+            生成这一场
           </button>
         </div>
         <div className="pb grid">
@@ -1629,7 +2122,15 @@ function BoardPage({
                   position={item.posterPosition}
                   rain={!item.poster}
                 />
-                <span className="badge none">未生成</span>
+                <span
+                  className={
+                    item.takes.some((take) => take.status === "done") ? "badge ok" : "badge none"
+                  }
+                >
+                  {item.takes.some((take) => take.status === "done")
+                    ? `版本 ${item.takes.find((take) => take.id === item.selectedTakeId)?.index ?? item.takes.filter((take) => take.status === "done").length}/${item.takes.length}`
+                    : "未生成"}
+                </span>
                 <span className="dur">{item.seconds}s</span>
               </div>
               <div className="cb">
@@ -1671,7 +2172,10 @@ function BoardPage({
         ) : current ? (
           <>
             <div className="shot-h">
-              镜头 {current.no} <span>未生成</span>
+              镜头 {current.no}{" "}
+              <span>
+                {current.takes.some((take) => take.status === "done") ? "已有版本" : "未生成"}
+              </span>
             </div>
             <div className="pb">
               <div className="field">
@@ -1724,8 +2228,8 @@ function BoardPage({
                     <div className="input">{current.seconds} 秒</div>
                   </div>
                   <div>
-                    <label>画面比例</label>
-                    <div className="input">{film.stylePreset === "都市写实" ? "9:16" : "16:9"}</div>
+                    <label>角度</label>
+                    <div className="input">{current.angle || "平视"}</div>
                   </div>
                 </div>
               </div>
@@ -1758,7 +2262,10 @@ function BoardPage({
               </div>
               <div className="field">
                 <label>
-                  动作要点 <span className="from role-a">来自动作指导</span>
+                  动作要点
+                  {current.source === "agent:action" && !current.userFields.includes("action") ? (
+                    <span className="from role-a">来自动作指导</span>
+                  ) : null}
                 </label>
                 <textarea
                   className="area"
@@ -1776,7 +2283,11 @@ function BoardPage({
               </div>
               <div className="field">
                 <label>
-                  表演 <span className="from role-e">来自表演指导</span>
+                  表演
+                  {current.source === "agent:performance" &&
+                  !current.userFields.includes("performance") ? (
+                    <span className="from role-e">来自表演指导</span>
+                  ) : null}
                 </label>
                 <textarea
                   className="area"
@@ -1846,6 +2357,7 @@ function GeneratePage({
   duration,
   onDuration,
   onCreate,
+  onBack,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -1857,9 +2369,23 @@ function GeneratePage({
   duration: number;
   onDuration: (seconds: number) => void;
   onCreate: () => void;
+  onBack: () => void;
 }) {
   const current = shots[shot];
   const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
+  const takes = current?.takes ?? [];
+  const picked =
+    takes.find((item) => item.id === current?.selectedTakeId) ??
+    takes.find((item) => item.status === "done");
+  function choose(takeId: string) {
+    if (!current) return;
+    onFilm({
+      ...film,
+      shots: film.shots.map((item) =>
+        item.id === current.id ? { ...item, selectedTakeId: takeId } : item,
+      ),
+    });
+  }
   return (
     <>
       <section className="pane">
@@ -1883,14 +2409,26 @@ function GeneratePage({
                 <b>
                   镜头 {item.no} · {item.size}
                 </b>
-                <small className="st-none">未生成</small>
+                <small
+                  className={
+                    item.takes.some((take) => take.status === "done") ? "st-ok" : "st-none"
+                  }
+                >
+                  {item.takes.some((take) => take.status === "done")
+                    ? `已完成 ${item.takes.filter((take) => take.status === "done").length}`
+                    : "未生成"}
+                </small>
               </div>
             </button>
           ))}
         </div>
         <div className="pfoot">
           <span>
-            已完成 <b>0</b> / {shots.length}
+            已完成{" "}
+            <b>
+              {shots.filter((item) => item.takes.some((take) => take.status === "done")).length}
+            </b>{" "}
+            / {shots.length}
           </span>
           <span>
             约 <b>{shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
@@ -1899,85 +2437,58 @@ function GeneratePage({
       </section>
       <section className="pane">
         <div className="ph">
-          <h3>镜头 5 · 版本</h3>
-          <span className="meta">选一个最好的，会自动放进剪辑</span>
+          <h3>{current ? `镜头 ${current.no}` : "镜头"} · 版本</h3>
+          <span className="meta">选一个最好的，会放进剪辑</span>
           <span className="sp" />
-          <button className="btn sm">
-            <Ic name="cols" size={13} />
-            对比
+          <button className="btn sm" onClick={onBack}>
+            返回分镜
           </button>
         </div>
         <div className="cand-wrap">
           <div className="bigprev">
-            <div
-              className="frame"
-              style={{ backgroundImage: "url(/pro/f1.4.jpg)", backgroundPosition: "50% 55%" }}
-            >
-              <span className="badge ok">版本 1 · 已选用</span>
-            </div>
-          </div>
-          <div className="ctrl">
-            <span className="tc">
-              <b>00:01:10</b> / 00:03:00
-            </span>
-            <button className="playb" aria-label="播放">
-              <Ic name="play" size={14} />
-            </button>
-            <div className="cr">
-              <button className="icon-btn" aria-label="音量">
-                <Ic name="vol" />
-              </button>
-            </div>
+            {picked?.videoUrl ? (
+              <video className="frame" src={picked.videoUrl} controls />
+            ) : (
+              <div className="frame rain">
+                <span className="badge none">
+                  {takes.length === 0 ? "还没有版本" : picked?.reason || "这一版还没有画面"}
+                </span>
+              </div>
+            )}
           </div>
           <div className="cands">
-            <div className="cand pick">
-              <div className="thumb" style={{ backgroundImage: "url(/pro/f1.4.jpg)" }}>
-                <span className="pickmark">
-                  <Ic name="check" size={12} />
-                </span>
-                <span className="dur">3.0s</span>
-              </div>
-              <div className="cl">
-                <span>版本 1</span>
-                <span>已选用</span>
-              </div>
-            </div>
-            <div className="cand">
-              <div className="thumb" style={{ backgroundImage: "url(/pro/f0.6.jpg)" }}>
-                <span className="dur">3.0s</span>
-              </div>
-              <div className="cl">
-                <span>版本 2</span>
-                <span>点击选用</span>
-              </div>
-            </div>
-            <div className="cand">
-              <div className="thumb rain">
-                <div className="genov">
-                  <Ic name="loader" size={18} />
-                  <span>生成中 60%</span>
+            {takes.length === 0 && <p className="role-desc">还没有版本。点下面生成。</p>}
+            {takes.map((item) => (
+              <button
+                key={item.id}
+                className={item.id === current?.selectedTakeId ? "cand pick" : "cand"}
+                onClick={() => choose(item.id)}
+              >
+                <div className={item.stillUrl || item.videoUrl ? "thumb" : "thumb rain"}>
+                  <span className="dur">
+                    {item.status === "done"
+                      ? `${current?.seconds ?? 0}s`
+                      : item.status === "running"
+                        ? "生成中"
+                        : item.status === "queued"
+                          ? "排队"
+                          : "失败"}
+                  </span>
                 </div>
-                <div className="prog">
-                  <i style={{ width: "60%" }} />
+                <div className="cl">
+                  <span>
+                    版本 {item.index}/{takes.length}
+                  </span>
+                  <span>
+                    {item.id === current?.selectedTakeId
+                      ? "当前版本"
+                      : item.status === "done"
+                        ? "用这一版"
+                        : item.reason || item.status}
+                  </span>
                 </div>
-              </div>
-              <div className="cl">
-                <span>版本 3</span>
-                <span style={{ color: "var(--warn)" }}>生成中</span>
-              </div>
-            </div>
-            <div className="cand">
-              <div className="thumb rain">
-                <div className="genov">
-                  <Ic name="clock" size={18} />
-                  <span>排队中 · 第 2 个</span>
-                </div>
-              </div>
-              <div className="cl">
-                <span>版本 4</span>
-                <span style={{ color: "var(--warn)" }}>排队中</span>
-              </div>
-            </div>
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -2011,7 +2522,7 @@ function GeneratePage({
           <div className="refs">
             {film.characters.map((item) => (
               <div className="ref" key={item.id}>
-                <Thumb src="/pro/key.jpg" position="20% 52%" />
+                <Thumb src={item.portraits.find((portrait) => portrait.url)?.url} />
                 <p>{item.name}</p>
               </div>
             ))}
@@ -2110,7 +2621,9 @@ function GeneratePage({
             <Ic name="video" size={16} />
             生成 {versions} 个版本
           </button>
-          <div className="note">约 1–3 分钟 · 可以先去做别的，好了会提醒 · 每个版本算一次生成</div>
+          <div className="note" data-testid="generation-estimate">
+            {generationEstimate(1, versions, duration)}
+          </div>
         </div>
       </section>
     </>
@@ -2135,6 +2648,9 @@ function EditPage({
   onKeep,
   onReplace,
   onTab,
+  onUndo,
+  onRedo,
+  onNotice,
 }: {
   film: FilmProject;
   shot: number;
@@ -2152,6 +2668,9 @@ function EditPage({
   onKeep: () => void;
   onReplace: () => void;
   onTab: (tab: "props" | "fix" | "ai") => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onNotice: (text: string) => void;
   shots: FilmShot[];
 }) {
   const clips = clipLayout(shots);
@@ -2177,30 +2696,32 @@ function EditPage({
             <span className="sp" />
             <div className="seg">
               <button className="on">左右对比</button>
-              <button>只看新版</button>
+              <button disabled title="只看新版还没接上。">
+                只看新版
+              </button>
             </div>
           </div>
           <div className="cmp">
-            <div className="side">
-              <div className="lbl">
-                <span>旧版 · 版本 1</span>
-                <span>正在用</span>
+            {(current?.takes ?? []).slice(0, 2).map((item) => (
+              <div className="side" key={item.id}>
+                <div className="lbl">
+                  <span>
+                    版本 {item.index}/{current?.takes.length ?? 0}
+                  </span>
+                  <span>
+                    {item.id === current?.selectedTakeId ? "当前版本" : item.reason || item.status}
+                  </span>
+                </div>
+                {item.videoUrl ? (
+                  <video className="frame" src={item.videoUrl} />
+                ) : (
+                  <div className="frame rain" />
+                )}
               </div>
-              <div
-                className="frame"
-                style={{ backgroundImage: "url(/pro/f1.4.jpg)", backgroundPosition: "50% 55%" }}
-              />
-            </div>
-            <div className="side new">
-              <div className="lbl">
-                <b>新版 · 版本 3</b>
-                <span>刚生成 · 3.0 秒</span>
-              </div>
-              <div
-                className="frame"
-                style={{ backgroundImage: "url(/pro/f0.6.jpg)", backgroundPosition: "50% 45%" }}
-              />
-            </div>
+            ))}
+            {(current?.takes.length ?? 0) < 2 && (
+              <p className="role-desc">还没有两个版本可以对比。</p>
+            )}
           </div>
           <div className="cmpbar">
             <button
@@ -2210,9 +2731,13 @@ function EditPage({
             >
               <Ic name={playing ? "pause" : "play"} />
             </button>
-            <span className="tc">同步播放 00:07.0 – 00:10.0</span>
+            <span className="tc">
+              {clock(start)} – {clock(start + (current?.seconds ?? 0))}
+            </span>
             <span className="sp" />
-            <span className="meta">新版 2 / 2</span>
+            <span className="meta">
+              {current?.takes.filter((item) => item.status === "done").length ?? 0} 个版本
+            </span>
             <button className="btn" onClick={onKeep}>
               保留旧版
             </button>
@@ -2230,15 +2755,15 @@ function EditPage({
                 <Ic name="film" size={16} />
                 镜头
               </button>
-              <button>
+              <button disabled title="配音轨还没接上。">
                 <Ic name="mic" size={16} />
                 配音
               </button>
-              <button>
+              <button disabled title="音乐轨还没接上。">
                 <Ic name="music" size={16} />
                 音乐
               </button>
-              <button>
+              <button disabled title="字幕轨还没接上。">
                 <Ic name="text" size={16} />
                 字幕
               </button>
@@ -2246,7 +2771,7 @@ function EditPage({
             <div className="ph">
               <span className="meta">{shots.length} 个镜头</span>
               <span className="sp" />
-              <button className="icon-btn sm" aria-label="搜索">
+              <button className="icon-btn sm" aria-label="搜索" disabled title="搜索还没接上。">
                 <Ic name="search" size={14} />
               </button>
             </div>
@@ -2280,22 +2805,38 @@ function EditPage({
               <h3>预览</h3>
               <span className="meta">{film.title}</span>
               <span className="sp" />
-              <span className="tag">16:9</span>
             </div>
             <div className="screen">
-              <div
-                className="frame"
-                style={{ backgroundImage: "url(/pro/key.jpg)", backgroundPosition: "50% 62%" }}
-              >
-                <span className="subt">雨太大，我听不清。</span>
-              </div>
+              {film.assemblyUrl ||
+              current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl ? (
+                <video
+                  className="frame"
+                  src={
+                    film.assemblyUrl ||
+                    current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl
+                  }
+                  controls
+                />
+              ) : (
+                <div className="frame rain">
+                  <span className="subt">
+                    {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
+                      ? ROUGH_CUT_REASON
+                      : "还没有可以播放的视频。"}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="ctrl">
               <span className="tc">
-                <b>00:05:12</b> / 00:14:00
+                <b>{clock(start)}</b> / {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
               </span>
               <div className="pc">
-                <button className="icon-btn" aria-label="上一个">
+                <button
+                  className="icon-btn"
+                  aria-label="上一个"
+                  onClick={() => onShot(Math.max(0, shot - 1))}
+                >
                   <Ic name="skipb" />
                 </button>
                 <button
@@ -2305,15 +2846,19 @@ function EditPage({
                 >
                   <Ic name={playing ? "pause" : "play"} size={16} />
                 </button>
-                <button className="icon-btn" aria-label="下一个">
+                <button
+                  className="icon-btn"
+                  aria-label="下一个"
+                  onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
+                >
                   <Ic name="skipf" />
                 </button>
               </div>
               <div className="cr">
-                <button className="icon-btn" aria-label="音量">
+                <button className="icon-btn" aria-label="音量" disabled title="音量还没接上。">
                   <Ic name="vol" />
                 </button>
-                <button className="icon-btn" aria-label="全屏">
+                <button className="icon-btn" aria-label="全屏" disabled title="全屏还没接上。">
                   <Ic name="max" />
                 </button>
               </div>
@@ -2360,19 +2905,12 @@ function EditPage({
                 ))}
               </div>
               <div style={{ padding: "12px 12px 0" }}>
-                <div className="sec-t">
-                  哪里不对？
-                  <span className="sp" />
-                  <span className="from role-a">
-                    <Ic name="sword" size={11} />
-                    动作指导帮你改写
-                  </span>
-                </div>
+                <div className="sec-t">这一镜的描述</div>
                 <div className="area" style={{ height: 62, overflow: "hidden" }}>
-                  铁棍落地太假了：改成铁棍被打飞，在空中翻两圈后砸进积水，溅起水花。
+                  {current?.picture || "还没有这一镜的描述。"}
                 </div>
                 <div className="row2" style={{ marginTop: 8 }}>
-                  <div className="input">一次出 2 个</div>
+                  <div className="input">一次出 {film.takesPerShot || 1} 个</div>
                   <button className="btn primary" onClick={() => onAction(fixAction)}>
                     <Ic name="spark" size={14} />
                     生成新版本
@@ -2384,27 +2922,29 @@ function EditPage({
         ) : (
           <div className="pb">
             <div className="field">
-              <label>镜头 4 · 近景 · 1.5 秒</label>
+              <label>
+                镜头 {current?.no ?? ""} · {current?.size || "中景"} · {current?.seconds ?? 0} 秒
+              </label>
             </div>
             <div className="field">
               <div className="row3">
                 <div>
                   <label>开始</label>
-                  <div className="input">00:05:12</div>
+                  <div className="input">{clock(start)}</div>
                 </div>
                 <div>
                   <label>结束</label>
-                  <div className="input">00:07:00</div>
+                  <div className="input">{clock(start + (current?.seconds ?? 0))}</div>
                 </div>
                 <div>
-                  <label>大小</label>
-                  <div className="input">100 %</div>
+                  <label>运镜</label>
+                  <div className="input">{current?.move || "固定"}</div>
                 </div>
               </div>
             </div>
             <div className="field">
               <label>进入方式</label>
-              <div className="input">直接切换</div>
+              <div className="input">转场还没接上。</div>
             </div>
             <div className="field">
               <button className="btn" onClick={onSelectRange}>
@@ -2418,7 +2958,10 @@ function EditPage({
       <section className="pane timeline">
         {range ? (
           <div className="selbar">
-            <span className="lab">已选 00:07.0–00:10.0 · 3 秒</span>
+            <span className="lab">
+              已选 {clock(start)}–{clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
+              秒
+            </span>
             <button
               className="btn primary"
               title={actions.regenerate.reason}
@@ -2478,10 +3021,20 @@ function EditPage({
             <button className="icon-btn on" aria-label="选择" title="选择 (V)">
               <Ic name="cursor" />
             </button>
-            <button className="icon-btn" aria-label="分割" title="分割 (Ctrl+B)">
+            <button
+              className="icon-btn"
+              aria-label="分割"
+              title="分割还没接上。"
+              onClick={() => onNotice("分割还没接上。")}
+            >
               <Ic name="split" />
             </button>
-            <button className="icon-btn" aria-label="删除" title="删除 (Del)">
+            <button
+              className="icon-btn"
+              aria-label="删除"
+              title="删除 (Del)"
+              onClick={() => onAction("cut")}
+            >
               <Ic name="trash" />
             </button>
             <span className="vsep" />
@@ -2502,21 +3055,21 @@ function EditPage({
               <Ic name="bracketR" />
             </button>
             <span className="vsep" />
-            <button className="icon-btn" aria-label="撤销" title="撤销">
+            <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
               <Ic name="undo" />
             </button>
-            <button className="icon-btn" aria-label="重做" title="重做">
+            <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
               <Ic name="redo" />
             </button>
             <span className="sp" />
-            <button className="icon-btn on" aria-label="自动吸附" title="自动吸附">
+            <button className="icon-btn" aria-label="自动吸附" disabled title="自动吸附还没接上。">
               <Ic name="magnet" />
             </button>
-            <button className="icon-btn" aria-label="缩小">
+            <button className="icon-btn" aria-label="缩小" disabled title="缩放还没接上。">
               <Ic name="zout" />
             </button>
             <span className="zoom" />
-            <button className="icon-btn" aria-label="放大">
+            <button className="icon-btn" aria-label="放大" disabled title="缩放还没接上。">
               <Ic name="zin" />
             </button>
           </div>
@@ -2547,13 +3100,14 @@ function EditPage({
           </div>
           <div className="tracks">
             <div className="ruler">
-              {["00:00", "00:02", "00:04", "00:06", "00:08", "00:10", "00:12", "00:14"].map(
-                (mark, index) => (
-                  <span key={mark} style={{ left: index * 104 }}>
-                    {mark}
+              {[0, 0.5, 1].map((part, index) => {
+                const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+                return (
+                  <span key={part} style={{ left: index * 160 }}>
+                    {clock(total * part)}
                   </span>
-                ),
-              )}
+                );
+              })}
             </div>
             <div className="lane" style={{ height: "var(--hs)" }}>
               {cues.map((cue) => {
@@ -2601,18 +3155,14 @@ function EditPage({
                 );
               })}
             </div>
-            <div className="lane" style={{ height: "var(--ha)" }}>
-              <div className="clip m" style={{ left: 0, width: 728 }}>
-                <span className="tx">雨夜 · 低频鼓点</span>
-              </div>
-            </div>
+            <div className="lane" style={{ height: "var(--ha)" }} />
             {range && selected && (
               <div className="range" style={{ left: selected.left, width: selected.width }}>
                 <span className="h l">入 {clock(start)}</span>
                 <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
               </div>
             )}
-            <div className="playhead" style={{ left: range ? 432 : 280 }} />
+            <div className="playhead" style={{ left: selected?.left ?? 1 }} />
           </div>
         </div>
       </section>
