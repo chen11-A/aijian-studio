@@ -102,6 +102,59 @@ const ROLE_COPY: Record<Role, string> = {
   performance: "表演指导：给每个镜头写情绪、眼神和语气。",
 };
 
+function shotFrame(shot: FilmShot | undefined): string {
+  if (!shot) return "";
+  if (shot.poster) return shot.poster;
+  const take =
+    shot.takes.find((item) => item.id === shot.selectedTakeId) ??
+    shot.takes.find((item) => item.status === "done");
+  const url = take?.stillUrl ?? "";
+  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http")) return url;
+  return "";
+}
+
+function PreviewVideo({
+  src,
+  playing,
+  onPlaying,
+  onTime,
+}: {
+  src: string;
+  playing: boolean;
+  onPlaying: (value: boolean) => void;
+  onTime: (seconds: number) => void;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    if (!playing) {
+      video.pause();
+      return;
+    }
+    if (typeof video.play !== "function") return;
+    video.muted = false;
+    const attempt = video.play();
+    if (attempt && typeof attempt.catch === "function") {
+      void attempt.catch(() => {
+        video.muted = true;
+        const retry = video.play();
+        if (retry && typeof retry.catch === "function") void retry.catch(() => onPlaying(false));
+      });
+    }
+  }, [playing, src, onPlaying]);
+  return (
+    <video
+      ref={ref}
+      className="frame"
+      src={src}
+      playsInline
+      onTimeUpdate={() => onTime(ref.current?.currentTime ?? 0)}
+      onEnded={() => onPlaying(false)}
+    />
+  );
+}
+
 function Thumb({
   src,
   position,
@@ -158,6 +211,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const skipHistory = useRef(false);
   const pauseRef = useRef(false);
   const assembledKey = useRef("");
+  const openShotRef = useRef("");
   const [historyTick, setHistoryTick] = useState(0);
   const actions = videoActions(modelIds);
 
@@ -341,6 +395,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : "";
   const sceneShots = film?.shots.filter((item) => item.sceneId === scene) ?? [];
   const shownShots = sceneShots.length > 0 ? sceneShots : (film?.shots ?? []);
+  openShotRef.current = shownShots[shot]?.id ?? "";
 
   async function planDirector(asked = "") {
     if (!film) return;
@@ -760,16 +815,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }
                 : item,
           );
-          applyLive(
-            replaceTakes(
-              latest,
-              group.shot.id,
-              takes,
-              done
-                ? take.id
-                : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
-            ),
+          const frame =
+            preview.startsWith("data:") ||
+            preview.startsWith("blob:") ||
+            preview.startsWith("http")
+              ? preview
+              : "";
+          let saved = replaceTakes(
+            latest,
+            group.shot.id,
+            takes,
+            done
+              ? take.id
+              : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
           );
+          if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
+          applyLive(saved);
+          if (done && group.shot.id === openShotRef.current) setPlaying(true);
           setNotice(message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"));
         }
       }
@@ -1335,6 +1397,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     });
                   }}
                   onCreate={() => void submitGeneration()}
+                  playing={playing}
+                  onPlaying={setPlaying}
                 />
               )}
               {stage === "edit" && (
@@ -1374,6 +1438,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onUndo={undoEdit}
                   onRedo={redoEdit}
                   onNotice={setNotice}
+                  onPlaying={setPlaying}
                 />
               )}
             </>
@@ -2302,9 +2367,9 @@ function BoardPage({
             >
               <div style={{ position: "relative" }}>
                 <Thumb
-                  src={item.poster || undefined}
+                  src={shotFrame(item) || undefined}
                   position={item.posterPosition}
-                  rain={!item.poster}
+                  rain={!shotFrame(item)}
                 />
                 <span
                   className={
@@ -2542,6 +2607,8 @@ function GeneratePage({
   onDuration,
   onCreate,
   onBack,
+  playing,
+  onPlaying,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -2554,6 +2621,8 @@ function GeneratePage({
   onDuration: (seconds: number) => void;
   onCreate: () => void;
   onBack: () => void;
+  playing: boolean;
+  onPlaying: (value: boolean) => void;
 }) {
   const current = shots[shot];
   const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
@@ -2585,9 +2654,9 @@ function GeneratePage({
               onClick={() => onShot(index)}
             >
               <Thumb
-                src={item.poster || undefined}
+                src={shotFrame(item) || undefined}
                 position={item.posterPosition}
-                rain={!item.poster}
+                rain={!shotFrame(item)}
               />
               <div>
                 <b>
@@ -2631,7 +2700,12 @@ function GeneratePage({
         <div className="cand-wrap">
           <div className="bigprev">
             {picked?.videoUrl ? (
-              <video className="frame" src={picked.videoUrl} controls />
+              <PreviewVideo
+                src={picked.videoUrl}
+                playing={playing}
+                onPlaying={onPlaying}
+                onTime={() => undefined}
+              />
             ) : (
               <div className="frame rain">
                 <span className="badge none">
@@ -2689,9 +2763,9 @@ function GeneratePage({
           </div>
           <div className="startf">
             <Thumb
-              src={current?.poster || undefined}
+              src={shotFrame(current) || undefined}
               position={current?.posterPosition}
-              rain={!current?.poster}
+              rain={!shotFrame(current)}
             />
             <div>
               <b>{current ? `镜头 ${current.no} · ${current.size}` : "还没有镜头"}</b>
@@ -2835,6 +2909,7 @@ function EditPage({
   onUndo,
   onRedo,
   onNotice,
+  onPlaying,
 }: {
   film: FilmProject;
   shot: number;
@@ -2855,11 +2930,20 @@ function EditPage({
   onUndo: () => void;
   onRedo: () => void;
   onNotice: (text: string) => void;
+  onPlaying: (value: boolean) => void;
   shots: FilmShot[];
 }) {
+  const [mediaTime, setMediaTime] = useState(0);
   const clips = clipLayout(shots);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  const previewSrc =
+    film.assemblyUrl ||
+    current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl ||
+    "";
+  useEffect(() => {
+    setMediaTime(0);
+  }, [shot, previewSrc]);
   const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
   const selected = clips[shot];
   const tiles: { id: FixAction; icon: string; label: string }[] = [
@@ -2971,9 +3055,9 @@ function EditPage({
                 >
                   <div style={{ position: "relative" }}>
                     <Thumb
-                      src={item.poster || undefined}
+                      src={shotFrame(item) || undefined}
                       position={item.posterPosition}
-                      rain={!item.poster}
+                      rain={!shotFrame(item)}
                     />
                     <span className="dur">{item.seconds}s</span>
                   </div>
@@ -2991,15 +3075,12 @@ function EditPage({
               <span className="sp" />
             </div>
             <div className="screen">
-              {film.assemblyUrl ||
-              current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl ? (
-                <video
-                  className="frame"
-                  src={
-                    film.assemblyUrl ||
-                    current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl
-                  }
-                  controls
+              {previewSrc ? (
+                <PreviewVideo
+                  src={previewSrc}
+                  playing={playing}
+                  onPlaying={onPlaying}
+                  onTime={setMediaTime}
                 />
               ) : (
                 <div className="frame rain">
@@ -3013,7 +3094,8 @@ function EditPage({
             </div>
             <div className="ctrl">
               <span className="tc">
-                <b>{clock(start)}</b> / {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
+                <b>{clock(film.assemblyUrl ? mediaTime : start + mediaTime)}</b> /{" "}
+                {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
               </span>
               <div className="pc">
                 <button
@@ -3309,19 +3391,24 @@ function EditPage({
               })}
             </div>
             <div className="lane" style={{ height: "var(--hv)" }}>
-              {clips.map((clip, index) => (
-                <button
-                  key={clip.id}
-                  className="clip v"
-                  style={{ left: clip.left, width: clip.width }}
-                  onClick={() => {
-                    onShot(index);
-                    onSelectRange();
-                  }}
-                >
-                  <span className="lb">镜头 {shots[index]?.no ?? index + 1}</span>
-                </button>
-              ))}
+              {clips.map((clip, index) => {
+                const ready = shots[index]?.takes.some((take) => take.status === "done");
+                return (
+                  <button
+                    key={clip.id}
+                    className={ready ? "clip v" : "clip v empty"}
+                    style={{ left: clip.left, width: clip.width }}
+                    onClick={() => {
+                      onShot(index);
+                      onSelectRange();
+                    }}
+                  >
+                    <span className="lb">
+                      {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="lane" style={{ height: "var(--ha)" }}>
               {cues.map((cue) => {
@@ -3346,7 +3433,16 @@ function EditPage({
                 <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
               </div>
             )}
-            <div className="playhead" style={{ left: selected?.left ?? 1 }} />
+            <div
+              className="playhead"
+              style={{
+                left:
+                  (selected?.left ?? 1) +
+                  (current && current.seconds > 0
+                    ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
+                    : 0),
+              }}
+            />
           </div>
         </div>
       </section>
