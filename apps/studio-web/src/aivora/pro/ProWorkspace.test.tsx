@@ -549,18 +549,19 @@ describe("professional workspace", () => {
 
   it("shows the text failure, infers a look, and marks a stale queue interrupted", async () => {
     const { completeText, exportFilmCut } = installDesktop();
-    const replies: ((value: {
+    type TextReply = {
       kind: string;
+      text: string;
       code?: string;
       detail?: string;
       billingAccountKind?: string;
-      text?: string;
       model?: string;
-    }) => void)[] = [];
+    };
+    const replies: ((value: TextReply) => void)[] = [];
     completeText.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          replies.push(resolve);
+        new Promise<TextReply>((resolve) => {
+          replies.push((value) => resolve(value));
         }),
     );
     await openSample();
@@ -720,22 +721,35 @@ function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
       { id: "grok-imagine-image-2.0", label: "image" },
     ],
   }));
-  const completeText = vi.fn(async ({ text }: { text: string }) => {
-    if (text.includes("把这一场拆成镜头")) {
-      return {
-        kind: "OK",
-        text: '{"shots":[{"picture":"抬眼看向巷口","size":"近景","seconds":3,"angle":"平视"}]}',
-      };
-    }
-    if (text.includes("写成短剧") || text.includes("改成短剧")) {
-      return {
-        kind: "OK",
-        text: '{"scenes":[{"title":"雨停","place":"巷口","time":"黎明","text":"雨停了。"}]}',
-      };
-    }
-    if (text.includes("写这一镜的表演")) return { kind: "OK", text: "眼神一沉，停半拍。" };
-    return { kind: "OK", text: "他抬手。停住。" };
-  });
+  const completeText = vi.fn(
+    async ({
+      text,
+    }: {
+      text: string;
+    }): Promise<{
+      kind: string;
+      text: string;
+      model?: string;
+      code?: string;
+      detail?: string;
+      billingAccountKind?: string;
+    }> => {
+      if (text.includes("把这一场拆成镜头")) {
+        return {
+          kind: "OK",
+          text: '{"shots":[{"picture":"抬眼看向巷口","size":"近景","seconds":3,"angle":"平视"}]}',
+        };
+      }
+      if (text.includes("写成短剧") || text.includes("改成短剧")) {
+        return {
+          kind: "OK",
+          text: '{"scenes":[{"title":"雨停","place":"巷口","time":"黎明","text":"雨停了。"}]}',
+        };
+      }
+      if (text.includes("写这一镜的表演")) return { kind: "OK", text: "眼神一沉，停半拍。" };
+      return { kind: "OK", text: "他抬手。停住。" };
+    },
+  );
   window.aijianGrok = {
     status: vi.fn(async () => ({
       provider: "GROK_LOGIN",
