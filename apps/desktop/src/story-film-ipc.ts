@@ -1,5 +1,6 @@
 import { realpathSync } from "node:fs";
 import { basename, extname, resolve, sep } from "node:path";
+import { stripUnsafeFileChars } from "./film-library";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 
 const mediaExtensions = new Set([".mp4", ".png", ".jpg", ".jpeg", ".webp", ".wav", ".mp3"]);
@@ -38,10 +39,7 @@ function trustedStoryFilmPath(workspace: string, raw: unknown): string {
 }
 
 function suggestedFilmName(path: string): string {
-  const name = basename(path)
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
-    .trim()
-    .slice(0, 80);
+  const name = stripUnsafeFileChars(basename(path)).trim().slice(0, 80);
   if (!name || name === "." || name === "..") return "aivora-film.mp4";
   return name.toLowerCase().endsWith(".mp4") ? name : `${name}.mp4`;
 }

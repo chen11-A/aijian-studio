@@ -357,11 +357,20 @@ export async function requestStill(options: {
   return { path: options.destination, reason: "" };
 }
 
+const exportIllegal = new Set(["\\", "/", ":", "*", "?", '"', "<", ">", "|"]);
+
+/** Drop characters a file name cannot keep. Control codes are rejected by code point, not a regex. */
+export function stripUnsafeFileChars(name: string): string {
+  return Array.from(name)
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && !exportIllegal.has(character);
+    })
+    .join("");
+}
+
 export function safeExportName(name: string): string {
-  const cleaned = basename(name)
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
-    .trim()
-    .slice(0, 80);
+  const cleaned = stripUnsafeFileChars(basename(name)).trim().slice(0, 80);
   if (!cleaned || cleaned === "." || cleaned === "..") return "aivora-film.mp4";
   if (cleaned.toLowerCase().endsWith(".mp4")) return cleaned;
   return `${cleaned.replace(/\.+$/, "").slice(0, 76)}.mp4`;
