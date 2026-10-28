@@ -327,7 +327,7 @@ describe("film operations", () => {
     const plan = chosenExport(film);
     expect(plan.paths).toEqual(["/films/new.mp4"]);
     expect(plan.missing.join(" ")).toContain("镜头");
-    const eight = Array.from({ length: 8 }, (_, index) => ({ seconds: 3 }));
+    const eight = Array.from({ length: 8 }, () => ({ seconds: 3 }));
     expect(confirmEstimate(eight, 1)).toBe("将生成 8 个视频 · 约 24 秒 · 记在 Grok 会员额度里");
   });
 
