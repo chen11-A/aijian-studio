@@ -1358,6 +1358,8 @@ it("says the call was not billed when a project cannot be created", async () => 
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /Grok 会员/ })).toHaveTextContent("已连接"),
   );
+  fireEvent.click(screen.getByRole("button", { name: "编剧" }));
+  fireEvent.click(screen.getByRole("button", { name: "导入小说" }));
   fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
   expect(await screen.findByText(/没有记到作品上/)).toBeInTheDocument();
 });
