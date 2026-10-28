@@ -17,7 +17,8 @@ export const CONTINUITY_REASON =
   "这一镜会接着上一镜的结尾来写。生成时不会把上一镜的最后一帧传过去。";
 export const PREVIEW_REASON =
   "单独试听还没接到语音接口。选定的声音会用在成片配音里，这一页不播放。";
-export const LOUDNESS_NOTE = "整片音量会调到手机和电脑上听着一样大。视频自己的声音关掉。";
+export const LOUDNESS_NOTE =
+  "导入的配乐会在对白出现时让路，对白本身不降低。这一版不会把整片音量调成统一大小。";
 export const DESKTOP_REASON = "请打开安装好的 AIVORA，并打开一部作品，再生成。网页里不能直接出片。";
 
 /** Chinese labels for preset voices. The live list still comes from the account. */
@@ -568,21 +569,35 @@ export function spokenLine(shot: FilmShot): string {
   return shot.line.replace(/\s+/g, " ").trim();
 }
 
-/** Picture, the applied prompt, and the action. The line stays out of this text. */
+export function isBeatList(text: string): boolean {
+  return text.includes("时长") && text.includes("镜头");
+}
+
+/** The picture the user can see. A prompt is used only until the picture is edited. Beat lists stay out. */
 export function motionPrompt(shot: FilmShot): string {
-  const picture = shot.promptZh?.trim() || shot.picture.trim() || shot.action.trim() || "起始画面";
-  const extra = [shot.action.trim(), shot.performance.trim()].filter(
-    (item) => item && item !== picture,
-  );
-  return [picture, ...extra].join("。");
+  const picture = shot.picture.trim();
+  const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
+  const prompted = edited ? "" : shot.promptZh?.trim() || "";
+  const visual = prompted || picture;
+  if (visual && !isBeatList(visual)) return visual;
+  return picture && !isBeatList(picture) ? picture : "起始画面";
 }
 
 export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
+  const named = shot.speaker?.trim() || "";
+  const fromSpeaker = film.characters.find((item) => named && item.name === named && item.voiceId);
+  if (fromSpeaker?.voiceId) return fromSpeaker.voiceId;
+  const fromLine = film.characters.find(
+    (item) => item.name && item.voiceId && shot.line.trim().startsWith(item.name),
+  );
+  if (fromLine?.voiceId) return fromLine.voiceId;
   const names = shot.characters.filter((name) => name && name !== "人物" && name !== "空镜");
-  const speaker = film.characters.find((item) => names.includes(item.name) && item.voiceId);
-  if (speaker?.voiceId) return speaker.voiceId;
+  if (names.length === 1) {
+    const only = film.characters.find((item) => item.name === names[0] && item.voiceId);
+    if (only?.voiceId) return only.voiceId;
+  }
   if (film.narrationVoiceId) return film.narrationVoiceId;
-  return film.characters.find((item) => item.voiceId)?.voiceId || "eve";
+  return "eve";
 }
 
 export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
@@ -645,7 +660,7 @@ export function storyFilmBatches(
     batches.push({
       scene_label: (film.title || "未命名").slice(0, 80),
       narration: narration || "未命名",
-      subtitle: film.title.slice(0, 28),
+      subtitle: "",
       provider: "grok_subscription",
       confirmed: true,
       voice_id: film.narrationVoiceId || film.characters[0]?.voiceId || "eve",

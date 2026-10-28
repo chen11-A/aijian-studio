@@ -34,7 +34,7 @@ describe("useGrokConnected", () => {
     expect(await screen.findByText("已连接")).toBeInTheDocument();
     window.dispatchEvent(new Event("aivora-grok-changed"));
     await waitFor(() => expect(status).toHaveBeenCalledTimes(2));
-    expect(screen.getByText("已连接")).toBeInTheDocument();
+    expect(screen.getByText("未连接")).toBeInTheDocument();
     window.dispatchEvent(new Event("aivora-grok-changed"));
     expect(await screen.findByText("未连接")).toBeInTheDocument();
   });

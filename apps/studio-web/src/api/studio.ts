@@ -981,11 +981,15 @@ export interface AijianDesktopBridge
     duck?: boolean,
   ) => Promise<{ path: string; reason: string }>;
   importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
+  filePath?: (file: File) => string;
+  flushed?: () => void;
+  onFlush?: (handler: () => void) => void;
   generateFilmStill?: (
     seriesId: string,
     prompt: string,
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
+  defaultFilmFolder?: () => Promise<string>;
   exportFilmCut?: (
     source: string,
     directory: string,

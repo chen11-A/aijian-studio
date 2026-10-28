@@ -10,10 +10,7 @@ export function useGrokConnected(): boolean {
       void readGrokStatus()
         .then((status) => {
           if (!live) return;
-          setConnected(
-            status.runtime === "DESKTOP" &&
-              (status.state === "CONNECTED" || status.state === "ENTITLEMENT_DENIED"),
-          );
+          setConnected(status.runtime === "DESKTOP" && status.state === "CONNECTED");
         })
         .catch(() => {
           if (live) setConnected(false);
@@ -27,4 +24,29 @@ export function useGrokConnected(): boolean {
     };
   }, []);
   return connected;
+}
+
+/** True when the signed-in membership cannot use this app's models. */
+export function useGrokDenied(): boolean {
+  const [denied, setDenied] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const pull = () => {
+      void readGrokStatus()
+        .then((status) => {
+          if (!live) return;
+          setDenied(status.runtime === "DESKTOP" && status.state === "ENTITLEMENT_DENIED");
+        })
+        .catch(() => {
+          if (live) setDenied(false);
+        });
+    };
+    pull();
+    window.addEventListener("aivora-grok-changed", pull);
+    return () => {
+      live = false;
+      window.removeEventListener("aivora-grok-changed", pull);
+    };
+  }, []);
+  return denied;
 }

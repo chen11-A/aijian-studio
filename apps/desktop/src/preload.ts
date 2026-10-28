@@ -146,7 +146,7 @@ import type {
   SourceProposalAcceptanceResult,
 } from "./api-client";
 import type { SourceManifestReviewOperationResult } from "./source-manifest-review";
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   InvalidationOperationPageQuery,
   InvalidationOperationPageResponse,
@@ -565,9 +565,15 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
+  filePath: (file: File) => webUtils.getPathForFile(file),
+  flushed: () => ipcRenderer.send("film:flushed"),
+  onFlush: (handler: () => void) => {
+    ipcRenderer.on("aivora:flush", () => handler());
+  },
   generateFilmStill: (seriesId: string, prompt: string) =>
     ipcRenderer.invoke("film:still", seriesId, prompt),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
+  defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
   exportFilmCut: (source: string, directory: string, name?: string) =>
     ipcRenderer.invoke("film:export", source, directory, name),
   revealFilmPath: (path: string) => ipcRenderer.invoke("film:reveal", path),

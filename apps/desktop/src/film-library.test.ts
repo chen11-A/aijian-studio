@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -104,12 +104,10 @@ describe("film library", () => {
     expect(listBody).toContain(a);
     expect(listBody).toContain(b);
     expect(seen[0]?.join(" ")).toContain("concat");
-    expect(musicMixArgs(destination, music, `${destination}.mix.mp4`, true).join(" ")).toContain(
-      "volume=0.2",
-    );
-    expect(musicMixArgs(destination, music, `${destination}.mix.mp4`, true).join(" ")).toContain(
-      music,
-    );
+    const mix = musicMixArgs(destination, music, `${destination}.mix.mp4`).join(" ");
+    expect(mix).toContain("sidechaincompress");
+    expect(mix).toContain("normalize=0");
+    expect(mix).toContain(music);
     const mixed = await mixMusic(destination, music, run, true);
     expect(mixed.path).toBe(destination);
     expect(await readFile(destination, "utf8")).toBe("mixed-audio");
@@ -181,5 +179,14 @@ describe("film library", () => {
     await mkdir(bin, { recursive: true });
     writeFileSync(join(bin, "ffmpeg.exe"), Buffer.from("ffmpeg"));
     expect(bundledFfmpeg(resources, "win32")).toBe(join(bin, "ffmpeg.exe"));
+    const packaged = mkdtempSync(join(tmpdir(), "aivora-linux-"));
+    const linuxBin = join(packaged, "runtime", "electron");
+    mkdirSync(join(packaged, "runtime", "ffmpeg", "bin"), { recursive: true });
+    mkdirSync(linuxBin, { recursive: true });
+    writeFileSync(join(packaged, "runtime", "ffmpeg", "bin", "ffmpeg"), Buffer.from("linux"));
+    writeFileSync(join(linuxBin, "electron"), Buffer.from("app"));
+    expect(bundledFfmpeg("", "linux", { execPath: join(linuxBin, "electron") })).toBe(
+      join(packaged, "runtime", "ffmpeg", "bin", "ffmpeg"),
+    );
   });
 });

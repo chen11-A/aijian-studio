@@ -27,6 +27,7 @@ export type FilmLibraryHost = {
   mediaToken: () => Promise<string | null>;
   fetcher?: typeof fetch;
   pickDirectory: () => Promise<string | null>;
+  defaultDirectory?: () => Promise<string>;
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
@@ -173,6 +174,12 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:pick-folder", async (event) => {
     guard(event);
     return host.pickDirectory();
+  });
+
+  handle("film:default-folder", async (event) => {
+    guard(event);
+    if (!host.defaultDirectory) return "";
+    return host.defaultDirectory();
   });
 
   handle("film:export", async (event, ...args) => {

@@ -135,6 +135,8 @@ export type FilmShot = {
   styleNote?: string;
   characters: string[];
   line: string;
+  /** Who says the line. Empty means the line names them, or the narrator. */
+  speaker?: string;
   /** Phase 2 sound block. Generation ignores it in Phase 1. */
   sound: ShotSoundPlan;
   /** Insert and other non-size labels. Empty when the size already says it. */
@@ -183,6 +185,8 @@ export type FilmProject = {
   narrationVoiceId: string;
   /** Phase 3 timeline audio. Empty until 剪辑 writes clips. */
   audioClips: AudioClip[];
+  /** Backend ledger id. Empty until the desktop creates a project for this film. */
+  backendProjectId: string;
 };
 
 export function newFilmId(): string {
@@ -218,7 +222,7 @@ export function blankFilm(): FilmProject {
       },
     ],
     shots: [],
-    takesPerShot: 2,
+    takesPerShot: 1,
     parallelism: 2,
     maxRetryRounds: 2,
     draft: false,
@@ -233,6 +237,7 @@ export function blankFilm(): FilmProject {
     exportPath: "",
     narrationVoiceId: "",
     audioClips: [],
+    backendProjectId: "",
   };
 }
 
@@ -246,6 +251,7 @@ export function newEpisode(current: FilmProject): FilmProject {
   next.stylePreset = current.stylePreset;
   next.styleZh = current.styleZh;
   next.narrationVoiceId = current.narrationVoiceId;
+  next.backendProjectId = current.backendProjectId;
   next.characters = current.characters.map((item) => ({
     ...item,
     portraits: item.portraits.map((portrait) => ({ ...portrait })),
@@ -280,7 +286,7 @@ export function sampleFilm(): FilmProject {
       id: "dao",
       name: "刀疤",
       identity: "刀疤，约四十岁，光头，右颊一道长疤，深色外套",
-      voiceId: "leo",
+      voiceId: "rex",
       source: "sample",
       userFields: [],
       portraits: [],
@@ -641,6 +647,7 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
       exportPath: value.exportPath ?? "",
       narrationVoiceId: value.narrationVoiceId ?? "",
       audioClips: normalizeAudioClips(value.audioClips),
+      backendProjectId: typeof value.backendProjectId === "string" ? value.backendProjectId : "",
     };
   } catch {
     return null;

@@ -125,8 +125,6 @@ def generate_script(app: Path, installer: Path, hook: Path) -> tuple[str, dict[s
         "Var AivoraValidateSilent",
         'Section "为当前用户安装" SEC_USER',
         "SectionEnd",
-        'Section /o "为所有用户安装" SEC_ALL',
-        "SectionEnd",
         'Section "开始菜单快捷方式" SEC_START',
         "SectionEnd",
         'Section "桌面快捷方式" SEC_DESKTOP',

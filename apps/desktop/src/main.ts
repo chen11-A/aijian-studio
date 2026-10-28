@@ -269,8 +269,8 @@ function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
     height: 920,
-    minWidth: 980,
-    minHeight: 680,
+    minWidth: 1280,
+    minHeight: 800,
     show: false,
     backgroundColor: "#0d0e0c",
     autoHideMenuBar: true,
@@ -292,7 +292,11 @@ function createMainWindow(): BrowserWindow {
     }
   });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    const bounds = window.getBounds();
+    if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
+    window.show();
+  });
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
@@ -791,7 +795,10 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
       new Promise((resolve, reject) => {
         let bin: string;
         try {
-          bin = bundledFfmpeg(process.resourcesPath ?? "", process.platform);
+          bin = bundledFfmpeg(process.resourcesPath ?? "", process.platform, {
+            execPath: process.execPath,
+            envRoot: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+          });
         } catch (error) {
           reject(error instanceof Error ? error : new Error("没有找到安装包里的 ffmpeg。"));
           return;
@@ -809,6 +816,11 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
       } catch {
         return null;
       }
+    },
+    defaultDirectory: async () => {
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
+      return videos;
     },
     pickDirectory: async () => {
       if (mainWindow === null) return null;
@@ -1010,6 +1022,21 @@ void startApplication().catch((error: unknown) => {
   app.quit();
 });
 
+function flushRenderer(): Promise<void> {
+  const window = mainWindow;
+  if (window === null || window.isDestroyed()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      ipcMain.removeListener("film:flushed", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, 1500);
+    ipcMain.once("film:flushed", finish);
+    window.webContents.send("aivora:flush");
+  });
+}
+
 app.on("before-quit", (event) => {
   nativePreviewHost.invalidateAll();
   void chatgptRuntime?.cancel();
@@ -1019,8 +1046,9 @@ app.on("before-quit", (event) => {
   const stoppedSidecar = sidecar;
   // Preserve the private channel until supervisor-owned stop attempts settle.
   // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
-  void nativePreviewHost
-    .shutdown()
+  void flushRenderer()
+    .catch(() => undefined)
+    .then(() => nativePreviewHost.shutdown())
     .catch(() => undefined)
     .then(() => stoppedSidecar?.stop())
     .catch(() => undefined)

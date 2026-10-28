@@ -65,6 +65,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python packaging/windows/bundle-locked-media.py --stage "$env:RUNNER_TEMP\aivora-stage" --tools "$env:RUNNER_TEMP\aivora-tools" --media $media.root --evidence "$env:RUNNER_TEMP\aivora-evidence"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Join two real shots with the bundled ffmpeg
+        shell: pwsh
+        run: |
+          $env:AIVORA_FFMPEG = "$env:RUNNER_TEMP\aivora-stage\resources\media\ffmpeg.exe"
+          $env:AIVORA_FFPROBE = "$env:RUNNER_TEMP\aivora-stage\resources\media\ffprobe.exe"
+          node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs --filter @aijian/desktop exec vitest run src/film-library-ffmpeg.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compose a Chinese subtitle with the bundled font
         shell: pwsh
         run: |

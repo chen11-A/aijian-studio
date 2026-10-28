@@ -40,7 +40,7 @@ class NsisCoreTests(unittest.TestCase):
             self.assertIn("!insertmacro MUI_PAGE_COMPONENTS", script)
             self.assertIn('!define MUI_FINISHPAGE_RUN_TEXT "启动 AIVORA"', script)
             self.assertIn('Section "为当前用户安装" SEC_USER', script)
-            self.assertIn('Section /o "为所有用户安装" SEC_ALL', script)
+            self.assertNotIn('Section /o "为所有用户安装" SEC_ALL', script)
             self.assertIn('Section "开始菜单快捷方式" SEC_START', script)
             self.assertIn('Section "桌面快捷方式" SEC_DESKTOP', script)
             self.assertIn('InstallDir "$LOCALAPPDATA\\Programs\\AIVORA"', script)

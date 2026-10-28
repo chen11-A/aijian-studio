@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -92,7 +92,7 @@ import {
   withIdentityLocks,
 } from "../film/phase2";
 import { grokBridge } from "../grok-auth/transport";
-import { useGrokConnected } from "../grok-auth/useGrokConnected";
+import { useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
 import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
 import { Ic } from "./icons";
 import "./pro.css";
@@ -141,6 +141,29 @@ function settleNextJob(
       return { ...job, status };
     }),
   };
+}
+
+async function hydrateFilm(film: FilmProject): Promise<FilmProject> {
+  const bridge = window.aijian;
+  if (!bridge?.readFilmMedia) return film;
+  const shots = [];
+  for (const shot of film.shots) {
+    const takes = [];
+    for (const take of shot.takes) {
+      if (!take.videoPath || take.videoUrl || take.status !== "done") {
+        takes.push(take);
+        continue;
+      }
+      try {
+        const bytes = await bridge.readFilmMedia(take.videoPath);
+        takes.push(bytes ? { ...take, videoUrl: mediaUrl(bytes, "video/mp4") } : take);
+      } catch {
+        takes.push(take);
+      }
+    }
+    shots.push({ ...shot, takes });
+  }
+  return { ...film, shots };
 }
 
 function filmSignature(value: FilmProject): string {
@@ -372,6 +395,7 @@ function FrameThumb({ shot }: { shot?: FilmShot }) {
 
 export function ProWorkspace({ projectId = null }: { projectId?: string | null }) {
   const connected = useGrokConnected();
+  const membershipDenied = useGrokDenied();
   const [film, setFilm] = useState<FilmProject | null>(null);
   const [stage, setStage] = useState<Stage>("script");
   const [scene, setScene] = useState("02");
@@ -386,6 +410,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [exporting, setExporting] = useState(false);
   const [asking, setAsking] = useState(false);
   const [range, setRange] = useState(false);
+  const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
   const [fixAction, setFixAction] = useState<FixAction>("rewrite");
   const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
@@ -407,7 +432,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
-  const [versions, setVersions] = useState(2);
+  const [versions, setVersions] = useState(1);
+  const [signingIn, setSigningIn] = useState(false);
   const [duration, setDuration] = useState(3);
   const [playing, setPlaying] = useState(false);
   const [chat, setChat] = useState("");
@@ -462,7 +488,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const id = activeFilmId() || rows[0]?.id || "";
       const stored = id ? await readSaved(id) : null;
       if (!live || !stored || filmRef.current) return;
-      const settled = interruptStaleWork(stored);
+      const settled = interruptStaleWork(await hydrateFilm(stored));
       filmRef.current = settled.film;
       committed.current = settled.film;
       setFilm(settled.film);
@@ -524,6 +550,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       if (timer) window.clearTimeout(timer);
     };
   }, [film]);
+
+  useEffect(() => {
+    window.aijian?.onFlush?.(() => {
+      const current = filmRef.current;
+      const done = current ? saveFilm(current) : Promise.resolve(null);
+      void done.finally(() => window.aijian?.flushed?.());
+    });
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("aivora.sound", soundOn ? "on" : "off");
@@ -647,29 +681,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     setMenu(null);
-    const result = await bridge.signIn();
-    window.dispatchEvent(new Event("aivora-grok-changed"));
-    setNotice(result.kind === "OK" ? "已用 Grok 会员登录。" : "登录没有完成。");
-  }
-
-  async function signInChatGPT() {
-    const bridge = window.aijianChatGPT;
-    if (!bridge?.signIn) {
-      setNotice(SIGN_IN_NOTE);
-      return;
+    setSigningIn(true);
+    setNotice(
+      "浏览器会打开 xAI 官方授权页，页面上写的是 Grok Build，这是 Grok 官方登录方式，点 Allow 即可。",
+    );
+    try {
+      const result = await bridge.signIn();
+      window.dispatchEvent(new Event("aivora-grok-changed"));
+      if (result.kind === "OK") setNotice("已用 Grok 会员登录。");
+      else if (result.kind === "CANCELLED") setNotice("登录已取消。");
+      else setNotice("登录没有完成。可以再试一次。");
+    } catch {
+      setNotice("登录没有完成。可以再试一次。");
+    } finally {
+      setSigningIn(false);
     }
-    setMenu(null);
-    const result = await bridge.signIn("LOCAL_PERSONAL");
-    window.dispatchEvent(new Event("aivora-grok-changed"));
-    setNotice(result.kind === "OK" ? "已用 ChatGPT 会员登录。" : "登录没有完成。");
   }
 
   async function signOutAccount() {
     setMenu(null);
-    setNotice("已退出登录。");
-    await window.aijianGrok?.signOut?.();
-    await window.aijianChatGPT?.signOut?.();
-    window.dispatchEvent(new Event("aivora-grok-changed"));
+    try {
+      await window.aijianGrok?.signOut?.();
+      window.dispatchEvent(new Event("aivora-grok-changed"));
+      setNotice("已退出登录。");
+    } catch {
+      setNotice("退出没有完成。可以再试一次。");
+    }
   }
 
   const storedTitle =
@@ -702,13 +739,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     let next: FilmShot[] | null = null;
     let text: string;
     const bridge = grokBridge();
-    const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
     try {
       if (!connected || !bridge) {
         next = offlineShots(story, sceneId);
         text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
-      } else if (!billingProject) {
-        text = "这一次没有记到作品上，没有拆镜头。";
       } else {
         const first = await completeAgent("director", context, "把这一场拆成镜头");
         let parsed = first.text
@@ -824,6 +858,46 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已放入分镜。你改过的镜头没有被盖掉。");
   }
 
+  const billingPromise = useRef<Promise<string> | null>(null);
+
+  async function ensureBillingProject(): Promise<string> {
+    const live = filmRef.current;
+    const stored = live?.backendProjectId ?? "";
+    if (/^prj_[0-9a-f]{32}$/.test(stored)) return stored;
+    if (/^prj_[0-9a-f]{32}$/.test(projectId ?? "")) {
+      if (live) applyLive({ ...live, backendProjectId: projectId ?? "" });
+      return projectId ?? "";
+    }
+    const api = window.aijian;
+    if (!api?.createProject) return "";
+    if (!billingPromise.current) {
+      const name = (live?.seriesTitle || live?.title || "未命名作品").slice(0, 80) || "未命名作品";
+      billingPromise.current = api
+        .createProject({
+          name,
+          aspect_ratio: "9:16",
+          source_language: "zh-CN",
+          target_duration_seconds: 90,
+        })
+        .then((response) => {
+          const id = response.data?.id ?? "";
+          if (!/^prj_[0-9a-f]{32}$/.test(id)) throw new Error("bad project");
+          const current = filmRef.current;
+          if (current) applyLive({ ...current, backendProjectId: id });
+          return id;
+        })
+        .catch((error: unknown) => {
+          billingPromise.current = null;
+          throw error;
+        });
+    }
+    try {
+      return await billingPromise.current;
+    } catch {
+      return "";
+    }
+  }
+
   async function completeAgent(
     agent: Role,
     context: string,
@@ -831,7 +905,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   ): Promise<{ text: string | null; detail: string }> {
     const bridge = grokBridge();
     if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
-    const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
+    const billingProject = await ensureBillingProject();
     if (!billingProject) return { text: null, detail: "这一次没有记到作品上。" };
     let ids = modelIds;
     let model = textModel(ids);
@@ -1493,7 +1567,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const bridge = grokBridge();
-    const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
+    const billingProject = await ensureBillingProject();
     if (!bridge?.speak || !billingProject) {
       setNotice(PREVIEW_REASON);
       return;
@@ -1682,7 +1756,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const gate = actions.regenerate;
     const bridge = window.aijian;
-    const canSubmit = gate.enabled && Boolean(projectId && bridge?.createStoryFilm);
+    const billingProject = await ensureBillingProject();
+    const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
     if (!canSubmit) {
@@ -1755,7 +1830,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }
           const shotNow = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
           const body = storyFilmBatches(current, [shotNow], current.draft)[0];
-          const response = await bridge!.createStoryFilm!(projectId!, {
+          const response = await bridge!.createStoryFilm!(billingProject, {
             ...body!,
             regenerate: index > 0 || group.hadTakes,
           });
@@ -1795,9 +1870,37 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             latest,
             group.shot.id,
             takes,
-            done ? take.id : latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId,
+            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ||
+              (done ? take.id : ""),
           );
           if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
+          if (done && output && group.shot.line.trim()) {
+            saved = {
+              ...saved,
+              shots: saved.shots.map((item) =>
+                item.id === group.shot.id
+                  ? { ...item, sound: { ...item.sound, source: "dub" } }
+                  : item,
+              ),
+              audioClips: [
+                ...saved.audioClips.filter(
+                  (clip) => !(clip.lane === "dialogue" && clip.shotId === group.shot.id),
+                ),
+                {
+                  id: `voice-${group.shot.id}`,
+                  lane: "dialogue",
+                  shotId: group.shot.id,
+                  takeId: take.id,
+                  label: "配音",
+                  startSeconds: 0,
+                  durationSeconds: group.shot.seconds,
+                  offsetSeconds: 0,
+                  gainDb: 0,
+                  path: output,
+                },
+              ],
+            };
+          }
           if (done && Number.isFinite(reported) && reported > 0.4) {
             const shown = Math.max(1, Math.min(15, Math.round(reported)));
             const chosen = saved.shots.find((item) => item.id === group.shot.id)?.seconds ?? 0;
@@ -1808,7 +1911,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           saved = settleNextJob(saved, group.shot.id, done ? "done" : "failed");
           applyLive(saved);
           if (done && group.shot.id === openShotRef.current) setPlaying(true);
-          setNotice(message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"));
+          setNotice((current) =>
+            current.startsWith("已暂停")
+              ? current
+              : message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"),
+          );
         }
       }
     } catch {
@@ -1892,8 +1999,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
       return;
     }
+    const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
     let source: string;
-    if (plan.paths.length === 1) source = plan.paths[0] ?? "";
+    if (plan.paths.length === 1 && music?.path && bridge.assembleFilm) {
+      const mixed = await bridge.assembleFilm(current.seriesId, plan.paths, music.path, true);
+      source = mixed.path || plan.paths[0] || "";
+    } else if (plan.paths.length === 1) source = plan.paths[0] ?? "";
     else {
       await joinedCut(plan.paths);
       source = filmRef.current?.assemblyPath ?? "";
@@ -1950,10 +2061,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     void joinedCut(paths);
   }, [stage, film]);
 
+  const liveSignature = useMemo(() => (film ? filmSignature(film) : ""), [film]);
   const dirty =
     film !== null &&
     committed.current !== null &&
-    filmSignature(film) !== filmSignature(committed.current);
+    liveSignature !== filmSignature(committed.current);
   const canUndo = historyTick >= 0 && (pastRef.current.length > 0 || dirty);
   const canRedo = futureRef.current.length > 0;
   const tracked =
@@ -2213,12 +2325,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <button
               className="chip"
               onClick={() => {
-                if (connected) setNotice("Grok 会员已连接。");
+                if (membershipDenied) setNotice("这个会员不能用这里的模型。");
+                else if (connected) setNotice("Grok 会员已连接。");
                 else void signInGrok();
               }}
             >
-              <span className="dot" style={connected ? undefined : { background: "#E8A33D" }} />
-              {connected ? "Grok 会员 · 已连接" : "需要重新登录"}
+              <span
+                className="dot"
+                style={connected && !membershipDenied ? undefined : { background: "#E8A33D" }}
+              />
+              {membershipDenied
+                ? "会员不能用这个功能"
+                : connected
+                  ? "Grok 会员 · 已连接"
+                  : signingIn
+                    ? "正在等浏览器"
+                    : "需要重新登录"}
             </button>
             <button
               className="btn"
@@ -2228,7 +2350,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             >
               {soundOn ? "声音开" : "声音关"}
             </button>
-            <button className="btn primary" onClick={() => setExportOpen(true)}>
+            <button
+              className="btn primary"
+              onClick={() => {
+                setExportOpen(true);
+                if (!exportDir) {
+                  void window.aijian?.defaultFilmFolder?.().then((dir) => {
+                    if (dir) setExportDir(dir);
+                  });
+                }
+              }}
+            >
               <Ic name="upload" size={15} />
               导出成片
             </button>
@@ -2241,8 +2373,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             {menu === "account" && (
               <div className="menu" role="menu" aria-label="账号菜单">
+                {signingIn && (
+                  <button
+                    onClick={() => {
+                      void window.aijianGrok?.cancel?.();
+                      setSigningIn(false);
+                      setNotice("登录已取消。");
+                    }}
+                  >
+                    取消登录
+                  </button>
+                )}
                 {!connected && <button onClick={() => void signInGrok()}>用 Grok 会员登录</button>}
-                <button onClick={() => void signInChatGPT()}>用 ChatGPT 会员登录</button>
                 <button onClick={() => void signOutAccount()}>退出登录</button>
               </div>
             )}
@@ -2261,9 +2403,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         用 Grok 会员登录
                       </button>
                     )}
-                    <button className="btn primary" onClick={() => void signInChatGPT()}>
-                      用 ChatGPT 会员登录
-                    </button>
                     <button
                       className="btn"
                       onClick={() => {
@@ -2501,7 +2640,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ),
                     });
                   }}
-                  onCreate={() => void submitGeneration()}
+                  onCreate={() => {
+                    const current = shownShots[shot];
+                    if (!current) return;
+                    setPendingBatch([current]);
+                  }}
                   playing={playing}
                   onPlaying={setPlaying}
                   audible={soundOn}
@@ -2521,19 +2664,50 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   actions={actions}
                   onTogglePlay={() => togglePlayback(setPlaying)}
                   onSelectRange={() => {
+                    setSpan({ from: shot, to: shot });
                     setRange(true);
                     setComparing(true);
                     setRightTab("fix");
+                  }}
+                  onMarkIn={() => {
+                    setSpan({ from: shot, to: span?.to ?? shot });
+                    setRange(true);
+                    setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  onMarkOut={() => {
+                    const from = span?.from ?? shot;
+                    setSpan({ from: Math.min(from, shot), to: Math.max(from, shot) });
+                    setRange(true);
+                    setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  span={span}
+                  onRewrite={(picture) => {
+                    const current = shownShots[shot];
+                    if (!film || !current) return;
+                    setFilm(
+                      updateShot(film, current.id, {
+                        picture,
+                        promptZh: "",
+                        source: "user",
+                        userFields: [...new Set([...current.userFields, "picture"])],
+                      }),
+                    );
                   }}
                   onPickClip={() => {
                     setRange(true);
                     setRightTab("fix");
                   }}
                   onRangeGenerate={() => {
-                    const current = shownShots[shot];
-                    if (!current) return;
-                    setPendingBatch([current]);
-                    setNotice(`只重做镜头 ${current.no}。确认表里点开始生成才会出视频。`);
+                    const from = span?.from ?? shot;
+                    const to = span?.to ?? shot;
+                    const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
+                    if (rows.length === 0) return;
+                    setPendingBatch(rows);
+                    setNotice(
+                      `只重做镜头 ${rows.map((item) => item.no).join("、")}。确认表里点开始生成才会出视频。`,
+                    );
                   }}
                   onClearRange={() => {
                     setRange(false);
@@ -2573,7 +2747,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onPlaying={setPlaying}
                   audible={soundOn}
                   onImportMusic={(file) => {
-                    const path = (file as File & { path?: string }).path || "";
+                    const path = window.aijian?.filePath?.(file) || "";
                     const bridge = window.aijian;
                     if (!film || !path || !bridge?.importMusic) {
                       setNotice("请在桌面版里选择一个 mp3 或 wav 音乐文件。");
@@ -2650,15 +2824,32 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               data-testid="confirm-table"
             >
               <h2>生成前确认</h2>
-              {pendingBatch.map((item) => (
-                <p key={item.id}>
-                  镜头 {item.no} · {item.seconds} 秒 · 台词 {item.line.trim() || "无"} · 单独配音 ·
-                  配乐{" "}
-                  {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
-                    ? "已导入"
-                    : "无"}
-                </p>
-              ))}
+              <table>
+                <thead>
+                  <tr>
+                    <th>镜头</th>
+                    <th>秒数</th>
+                    <th>台词</th>
+                    <th>声音来源</th>
+                    <th>配乐</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingBatch.map((item) => (
+                    <tr key={item.id}>
+                      <td>镜头 {item.no}</td>
+                      <td>{item.seconds}</td>
+                      <td>{item.line.trim() || "无"}</td>
+                      <td>单独配音</td>
+                      <td>
+                        {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
+                          ? "已导入"
+                          : "无"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
               <p data-testid="batch-estimate">{confirmEstimate(pendingBatch, versions)}</p>
               <div className="acts">
                 <button
@@ -2823,6 +3014,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <p className="role-desc" data-testid="export-summary">
                 {film ? exportSummary(film) : "还没有作品。"}
               </p>
+              {film && chosenExport(film).missing.length > 0 && (
+                <p className="role-desc">
+                  还没生成：{chosenExport(film).missing.join("、")}。可以只导出已生成的。
+                </p>
+              )}
               <div className="acts">
                 <button className="btn" onClick={() => setExportOpen(false)}>
                   关闭
@@ -4116,7 +4312,7 @@ function BoardPage({
                     </select>
                   </div>
                   <div>
-                    <label>运镜</label>
+                    <label>镜头怎么动</label>
                     <select
                       className="input"
                       aria-label="运镜"
@@ -4227,6 +4423,7 @@ function BoardPage({
                     onFilm(
                       updateShot(film, current.id, {
                         picture: event.target.value,
+                        promptZh: "",
                         source: "user",
                         userFields: [...new Set([...current.userFields, "picture"])],
                       }),
@@ -4578,7 +4775,7 @@ function GeneratePage({
                 </div>
                 <div className="cl">
                   <span>
-                    版本 {item.index}/{takes.length}
+                    第{item.index}版/{takes.length}
                   </span>
                   <span>
                     {item.id === current?.selectedTakeId
@@ -4644,6 +4841,7 @@ function GeneratePage({
                         ...item,
                         picture: event.target.value,
                         action: event.target.value,
+                        promptZh: "",
                         source: "user",
                         userFields: [...new Set([...item.userFields, "picture"])],
                       }
@@ -4680,7 +4878,7 @@ function GeneratePage({
                   className={film.draft ? "on" : ""}
                   onClick={() => onFilm({ ...film, draft: true })}
                 >
-                  先出草稿
+                  较快的一版
                 </button>
                 <button
                   className={film.draft ? "" : "on"}
@@ -4696,6 +4894,7 @@ function GeneratePage({
                 {[1, 2, 4].map((count) => (
                   <button
                     key={count}
+                    type="button"
                     className={versions === count ? "on" : ""}
                     onClick={() => onVersions(count)}
                   >
@@ -4753,6 +4952,10 @@ function EditPage({
   onPlaying,
   audible,
   onImportMusic,
+  onRewrite,
+  onMarkIn,
+  onMarkOut,
+  span,
 }: {
   film: FilmProject;
   shot: number;
@@ -4778,6 +4981,10 @@ function EditPage({
   onPlaying: (value: boolean) => void;
   audible: boolean;
   onImportMusic: (file: File) => void;
+  onRewrite: (picture: string) => void;
+  onMarkIn: () => void;
+  onMarkOut: () => void;
+  span: { from: number; to: number } | null;
   shots: FilmShot[];
 }) {
   const [mediaTime, setMediaTime] = useState(0);
@@ -4796,8 +5003,6 @@ function EditPage({
   const tiles: { id: FixAction; icon: string; label: string }[] = [
     { id: "regenerate", icon: "refresh", label: "重新生成" },
     { id: "rewrite", icon: "edit", label: "改描述再生成" },
-    { id: "edit", icon: "wand", label: "改画面细节" },
-    { id: "extend", icon: "extend", label: "往后延长" },
     { id: "voice", icon: "mic", label: "换配音字幕" },
     { id: "cut", icon: "cut", label: "剪掉这段" },
   ];
@@ -4818,7 +5023,7 @@ function EditPage({
               <div className="side" key={item.id}>
                 <div className="lbl">
                   <span>
-                    版本 {item.index}/{current?.takes.length ?? 0}
+                    第{item.index}版/{current?.takes.length ?? 0}
                   </span>
                   <span>
                     {item.id === current?.selectedTakeId ? "当前版本" : item.reason || item.status}
@@ -4983,9 +5188,13 @@ function EditPage({
               </div>
               <div style={{ padding: "12px 12px 0" }}>
                 <div className="sec-t">这一镜的描述</div>
-                <div className="area" style={{ height: 62, overflow: "hidden" }}>
-                  {current?.picture || "还没有这一镜的描述。"}
-                </div>
+                <textarea
+                  className="area"
+                  aria-label="改这一镜的描述"
+                  style={{ height: 62 }}
+                  value={current?.picture ?? ""}
+                  onChange={(event) => onRewrite(event.target.value)}
+                />
                 <div className="row2" style={{ marginTop: 8 }}>
                   <div className="input">一次出 {film.takesPerShot || 1} 个</div>
                   <button className="btn primary" onClick={() => onAction(fixAction)}>
@@ -5014,7 +5223,7 @@ function EditPage({
                   <div className="input">{clock(start + (current?.seconds ?? 0))}</div>
                 </div>
                 <div>
-                  <label>运镜</label>
+                  <label>镜头怎么动</label>
                   <div className="input">{current?.move || "固定"}</div>
                 </div>
               </div>
@@ -5055,24 +5264,6 @@ function EditPage({
             </button>
             <button
               className="btn"
-              title={actions.edit.reason}
-              aria-disabled={!actions.edit.enabled}
-              onClick={() => onAction("edit")}
-            >
-              <Ic name="wand" size={13} />
-              改细节
-            </button>
-            <button
-              className="btn"
-              title={actions.extend.reason}
-              aria-disabled={!actions.extend.enabled}
-              onClick={() => onAction("extend")}
-            >
-              <Ic name="extend" size={13} />
-              延长
-            </button>
-            <button
-              className="btn"
               title={actions.voice.reason}
               aria-disabled={!actions.voice.enabled}
               onClick={() => onAction("voice")}
@@ -5103,20 +5294,10 @@ function EditPage({
               <Ic name="trash" />
             </button>
             <span className="vsep" />
-            <button
-              className="icon-btn"
-              aria-label="设入点"
-              title="设入点 (I)"
-              onClick={onSelectRange}
-            >
+            <button className="icon-btn" aria-label="设入点" title="设入点 (I)" onClick={onMarkIn}>
               <Ic name="bracketL" />
             </button>
-            <button
-              className="icon-btn"
-              aria-label="设出点"
-              title="设出点 (O)"
-              onClick={onSelectRange}
-            >
+            <button className="icon-btn" aria-label="设出点" title="设出点 (O)" onClick={onMarkOut}>
               <Ic name="bracketR" />
             </button>
             <span className="vsep" />
@@ -5243,8 +5424,17 @@ function EditPage({
                 只重做这一段
               </button>
             ) : null}
-            {range && selected && (
-              <div className="range" style={{ left: selected.left, width: selected.width }}>
+            {range && span && clips[span.from] && clips[span.to] && (
+              <div
+                className="range"
+                style={{
+                  left: clips[Math.min(span.from, span.to)]!.left,
+                  width:
+                    clips[Math.max(span.from, span.to)]!.left +
+                    clips[Math.max(span.from, span.to)]!.width -
+                    clips[Math.min(span.from, span.to)]!.left,
+                }}
+              >
                 <span className="h l">入 {clock(start)}</span>
                 <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
               </div>

@@ -46,10 +46,11 @@ def keyframe_prompt(
     if move.strip():
         bits.append(f"运镜{move.strip()}")
     action_text = action.strip().rstrip("。")
-    if action_text and action_text != text.rstrip("。"):
+    if action_text and action_text != text.rstrip("。") and not _is_beat_list(action_text):
         bits.append(f"动作要点{action_text}")
-    if performance.strip():
-        bits.append(f"表演{performance.strip().rstrip('。')}")
+    performance_text = performance.strip().rstrip("。")
+    if performance_text and not _is_beat_list(performance_text):
+        bits.append(f"表演{performance_text}")
     joined = "。".join(bit for bit in bits if bit)
     if style and style not in joined:
         joined = f"{joined}。{style}" if joined else style
@@ -66,6 +67,10 @@ def _with_identity_lock(text: str, identity: str) -> str:
         return text
     base = text if text.endswith("。") else f"{text}。"
     return f"{base}{lock}"
+
+
+def _is_beat_list(text: str) -> bool:
+    return "时长" in text and "镜头" in text
 
 
 def video_prompt(picture: str, *, move: str = "固定", line: str = "") -> str:

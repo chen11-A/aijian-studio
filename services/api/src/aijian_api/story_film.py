@@ -134,6 +134,7 @@ class StoryFilmRequest:
     shots: tuple[StoryShot, ...] = ()
     visual_prompt: str = ""
     style_block: str = ""
+    move: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,6 +597,7 @@ class StoryFilmService:
                     narration=shot.narration,
                     subtitle=shot.subtitle or None,
                     visual_prompt=still,
+                    move=shot.move,
                     voice_id=shot.voice_id or request.voice_id,
                     regenerate=request.regenerate or shot.regenerate,
                     shots=(),
@@ -946,6 +948,7 @@ class StoryFilmService:
                 prompt=_styled(
                     video_prompt(
                         request.visual_prompt or request.scene_label,
+                        move=request.move or "固定",
                         line=_spoken_line(request.narration),
                     ),
                     request.style_block,
@@ -1479,6 +1482,13 @@ def _primary_video(streams: list[object]) -> tuple[int, int, int]:
     return chosen[1], chosen[2], chosen[3]
 
 
+def _wrap_caption(text: str, width: int = 16) -> str:
+    cleaned = text.strip()
+    if cleaned in {"", "。", "（无台词）"}:
+        return ""
+    return "\n".join(cleaned[index : index + width] for index in range(0, len(cleaned), width))
+
+
 def _spoken_line(text: str) -> str:
     """A picture description is not a line. A lone period means this shot is silent."""
 
@@ -1858,7 +1868,7 @@ def _caption_segments(
     if not captions:
         return []
     usable = [
-        (text.strip()[:28], start, end) for text, start, end in captions if text and text.strip()
+        (_wrap_caption(text), start, end) for text, start, end in captions if _wrap_caption(text)
     ]
     cues: list[dict[str, object]] = []
     cursor = 0

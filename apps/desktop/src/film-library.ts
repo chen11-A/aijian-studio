@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 
@@ -72,28 +72,60 @@ async function readIndex(root: string): Promise<SeriesEntry[]> {
 
 async function writeIndex(root: string, series: SeriesEntry[]): Promise<void> {
   await mkdir(root, { recursive: true });
-  await writeFile(join(root, "index.json"), JSON.stringify({ series }));
+  await writeAtomic(join(root, "index.json"), JSON.stringify({ series }));
 }
 
-function stripEmbedded(value: unknown): unknown {
-  if (typeof value === "string") {
-    if (value.startsWith("data:") || value.startsWith("blob:")) return "";
-    return value;
+const mediaKeys = new Set(["poster", "stillUrl", "videoUrl", "url", "assemblyUrl", "preview"]);
+
+function mediaExtension(type: string): string {
+  if (type.includes("png")) return ".png";
+  if (type.includes("jpeg") || type.includes("jpg")) return ".jpg";
+  if (type.includes("webp")) return ".webp";
+  if (type.includes("mp4")) return ".mp4";
+  if (type.includes("wav")) return ".wav";
+  if (type.includes("mpeg") || type.includes("mp3")) return ".mp3";
+  return "";
+}
+
+async function saveDataUrl(directory: string, value: string): Promise<string> {
+  const match = /^data:([^;,]+);base64,([a-z0-9+/=\s]+)$/i.exec(value);
+  if (!match) return "";
+  const ext = mediaExtension(match[1] ?? "");
+  if (!ext) return "";
+  const bytes = Buffer.from((match[2] ?? "").replace(/\s/g, ""), "base64");
+  if (bytes.byteLength <= 0 || bytes.byteLength > maxMediaBytes) return "";
+  const folder = join(directory, "media");
+  await mkdir(folder, { recursive: true });
+  const destination = join(folder, `${randomBytes(8).toString("hex")}${ext}`);
+  await writeFile(destination, bytes);
+  return destination;
+}
+
+async function materializeMedia(value: unknown, directory: string): Promise<unknown> {
+  if (Array.isArray(value)) {
+    const rows = [];
+    for (const item of value) rows.push(await materializeMedia(item, directory));
+    return rows;
   }
-  if (Array.isArray(value)) return value.map((item) => stripEmbedded(item));
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-      out[key] = stripEmbedded(item);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === "string" && mediaKeys.has(key)) {
+      if (item.startsWith("data:")) out[key] = await saveDataUrl(directory, item);
+      else if (item.startsWith("blob:")) out[key] = "";
+      else out[key] = item;
+    } else if (item && typeof item === "object") {
+      out[key] = await materializeMedia(item, directory);
+    } else {
+      out[key] = item;
     }
-    return out;
   }
-  return value;
+  return out;
 }
 
 function asFilm(value: unknown): FilmRecord {
   if (typeof value !== "object" || value === null) throw new Error("Invalid film");
-  const film = stripEmbedded(value) as FilmRecord;
+  const film = value as FilmRecord;
   assertId(film.id);
   assertId(film.seriesId);
   const raw = JSON.stringify(film);
@@ -101,9 +133,40 @@ function asFilm(value: unknown): FilmRecord {
   return film;
 }
 
+const writeTails = new Map<string, Promise<void>>();
+
+export function enqueueWrite<T>(key: string, job: () => Promise<T>): Promise<T> {
+  const previous = writeTails.get(key) ?? Promise.resolve();
+  const run = previous.then(job, job);
+  writeTails.set(
+    key,
+    run.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return run;
+}
+
 async function writeAtomic(path: string, body: string): Promise<void> {
-  const temp = `${path}.${process.pid}.tmp`;
-  await writeFile(temp, body);
+  const temp = `${path}.${randomBytes(6).toString("hex")}.tmp`;
+  const handle = await open(temp, "w");
+  try {
+    await handle.writeFile(body);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await rename(temp, path);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES") throw error;
+      await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+    }
+  }
   await rename(temp, path);
 }
 
@@ -195,9 +258,20 @@ export async function readProject(root: string, id: string): Promise<FilmRecord 
 }
 
 export async function writeProject(root: string, value: unknown): Promise<FilmRecord> {
-  const film = withoutSessionUrls(asFilm(value));
+  return enqueueWrite(`film:${root}`, () => writeProjectNow(root, value));
+}
+
+async function writeProjectNow(root: string, value: unknown): Promise<FilmRecord> {
+  const seriesId =
+    value &&
+    typeof value === "object" &&
+    typeof (value as { seriesId?: unknown }).seriesId === "string"
+      ? (value as { seriesId: string }).seriesId
+      : "";
+  const directory = seriesId ? seriesDir(root, seriesId) : root;
+  const storedMedia = await materializeMedia(value, directory);
+  const film = withoutSessionUrls(asFilm(storedMedia));
   const savedAt = new Date().toISOString();
-  const directory = seriesDir(root, film.seriesId);
   const stored: FilmRecord = { ...film, savedAt, directory };
   await mkdir(dirname(episodePath(root, film.seriesId, film.id)), { recursive: true });
   await writeAtomic(episodePath(root, film.seriesId, film.id), JSON.stringify(stored));
@@ -238,13 +312,13 @@ export async function renameSeries(root: string, seriesId: string, title: string
   assertId(seriesId);
   const directory = seriesDir(root, seriesId);
   await mkdir(directory, { recursive: true });
-  await writeFile(join(directory, "series.json"), JSON.stringify({ id: seriesId, title: name }));
+  await writeAtomic(join(directory, "series.json"), JSON.stringify({ id: seriesId, title: name }));
   for (const episode of await listEpisodes(root, seriesId)) {
     const film = await readJson<FilmRecord>(episodePath(root, seriesId, episode.id));
     if (!film) continue;
     film.seriesTitle = name;
     film.title = name;
-    await writeFile(episodePath(root, seriesId, film.id), JSON.stringify(film));
+    await writeAtomic(episodePath(root, seriesId, film.id), JSON.stringify(film));
   }
   const rows = (await readIndex(root)).map((item) =>
     item.id === seriesId ? { ...item, title: name } : item,
@@ -307,42 +381,59 @@ export async function joinClips(
   try {
     await run(["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", destination]);
     return { path: destination, reason: "" };
-  } catch {
+  } catch (error) {
     await rm(destination, { force: true });
-    throw new Error("多镜头没有接上，没有导出。");
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("没有找到安装包里的 ffmpeg")) throw error;
+    throw new Error(
+      message ? `多镜头没有接上，没有导出。${message}` : "多镜头没有接上，没有导出。",
+      {
+        cause: error,
+      },
+    );
   } finally {
     await rm(list, { force: true });
   }
 }
 
-export function bundledFfmpeg(resourcesPath: string, platform: NodeJS.Platform): string {
+export function bundledFfmpeg(
+  resourcesPath: string,
+  platform: NodeJS.Platform,
+  extra: { execPath?: string; envRoot?: string } = {},
+): string {
   const name = platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-  const path = join(resourcesPath, "media", name);
-  if (!resourcesPath || !existsSync(path)) throw new Error("没有找到安装包里的 ffmpeg。");
-  return path;
+  const candidates: string[] = [];
+  if (extra.envRoot) candidates.push(join(extra.envRoot, name));
+  if (resourcesPath) candidates.push(join(resourcesPath, "media", name));
+  if (extra.execPath) {
+    const electronDir = dirname(extra.execPath);
+    candidates.push(join(electronDir, "..", "..", "ffmpeg", "bin", name));
+    candidates.push(join(electronDir, "..", "ffmpeg", "bin", name));
+  }
+  for (const path of candidates) {
+    if (existsSync(path)) return path;
+  }
+  throw new Error("没有找到安装包里的 ffmpeg。");
 }
 
-export function musicMixArgs(
-  video: string,
-  music: string,
-  destination: string,
-  duck: boolean,
-): string[] {
-  const volume = duck ? "0.2" : "0.45";
+export function musicMixArgs(video: string, music: string, destination: string): string[] {
   return [
     "-y",
     "-i",
     video,
+    "-stream_loop",
+    "-1",
     "-i",
     music,
     "-filter_complex",
-    `[1:a]volume=${volume}[bed];[0:a][bed]amix=inputs=2:duration=first:dropout_transition=0[a]`,
+    "[0:a]asplit=2[dry][sc];[1:a][sc]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=250[bed];[dry][bed]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[a]",
     "-map",
     "0:v",
     "-map",
     "[a]",
     "-c:v",
     "copy",
+    "-shortest",
     destination,
   ];
 }
@@ -351,10 +442,10 @@ export async function mixMusic(
   video: string,
   music: string,
   run: (args: string[]) => Promise<void>,
-  duck: boolean,
+  _duck: boolean,
 ): Promise<{ path: string; reason: string }> {
   const mixed = `${video}.mix.mp4`;
-  await run(musicMixArgs(video, music, mixed, duck));
+  await run(musicMixArgs(video, music, mixed));
   await copyFile(mixed, video);
   await rm(mixed, { force: true });
   return { path: video, reason: "" };

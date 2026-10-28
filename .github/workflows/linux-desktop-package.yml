@@ -40,6 +40,11 @@ jobs:
           python3 packaging/linux/package-desktop.py \
             --cache "$RUNNER_TEMP/aivora-linux-cache" \
             --out-dir "$RUNNER_TEMP/AIVORA-Desktop-0.3.0-linux-x64"
+      - name: Join two real shots with the packaged ffmpeg
+        run: |
+          AIVORA_FFMPEG="$RUNNER_TEMP/AIVORA-Desktop-0.3.0-linux-x64/runtime/ffmpeg/bin/ffmpeg" \
+          AIVORA_FFPROBE="$RUNNER_TEMP/AIVORA-Desktop-0.3.0-linux-x64/runtime/ffmpeg/bin/ffprobe" \
+            pnpm --filter @aijian/desktop exec vitest run src/film-library-ffmpeg.test.ts
       - name: Launch under xvfb and check health
         run: |
           xvfb-run -a node scripts/e2e/linux-desktop-health.mjs \
