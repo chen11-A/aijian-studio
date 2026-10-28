@@ -94,7 +94,7 @@ def generate_script(app: Path, installer: Path, hook: Path) -> tuple[str, dict[s
         "!define MUI_ABORTWARNING",
         '!define MUI_WELCOMEPAGE_TITLE "欢迎安装 AIVORA"',
         '!define MUI_WELCOMEPAGE_TEXT "这将把 AIVORA 安装到你的电脑。$\\r$\\n$\\r$\\n'
-        "你可以选择安装目录、安装给当前用户或所有用户，以及是否创建桌面和开始菜单快捷方式。"
+        "你可以选择安装目录，以及是否创建桌面和开始菜单快捷方式。程序安装给当前用户。"
         "$\\r$\\n$\\r$\\n已经保存的登录和作品会留在原来的数据目录。安装程序不会删除它们。"
         '$\\r$\\n$\\r$\\n选择下一步继续。"',
         '!define MUI_COMPONENTSPAGE_TEXT_TOP "选择安装范围和快捷方式。程序本身始终会安装。"',
@@ -124,6 +124,8 @@ def generate_script(app: Path, installer: Path, hook: Path) -> tuple[str, dict[s
         "Var AivoraScope",
         "Var AivoraValidateSilent",
         'Section "为当前用户安装" SEC_USER',
+        "SectionEnd",
+        'Section "-all users unused" SEC_ALL',
         "SectionEnd",
         'Section "开始菜单快捷方式" SEC_START',
         "SectionEnd",

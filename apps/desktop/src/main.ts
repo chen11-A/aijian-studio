@@ -1022,20 +1022,26 @@ void startApplication().catch((error: unknown) => {
   app.quit();
 });
 
+let finishFlush: (() => void) | null = null;
+
 function flushRenderer(): Promise<void> {
   const window = mainWindow;
   if (window === null || window.isDestroyed()) return Promise.resolve();
   return new Promise((resolve) => {
     const finish = () => {
       clearTimeout(timer);
-      ipcMain.removeListener("film:flushed", finish);
+      finishFlush = null;
       resolve();
     };
     const timer = setTimeout(finish, 1500);
-    ipcMain.once("film:flushed", finish);
+    finishFlush = finish;
     window.webContents.send("aivora:flush");
   });
 }
+
+ipcMain.handle("film:flushed", () => {
+  finishFlush?.();
+});
 
 app.on("before-quit", (event) => {
   nativePreviewHost.invalidateAll();

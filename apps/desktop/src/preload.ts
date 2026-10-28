@@ -566,7 +566,7 @@ contextBridge.exposeInMainWorld("aijian", {
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   filePath: (file: File) => webUtils.getPathForFile(file),
-  flushed: () => ipcRenderer.send("film:flushed"),
+  flushed: () => ipcRenderer.invoke("film:flushed"),
   onFlush: (handler: () => void) => {
     ipcRenderer.on("aivora:flush", () => handler());
   },

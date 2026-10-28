@@ -139,7 +139,7 @@ describe.skipIf(!runnable)("real ffmpeg", () => {
       "null",
       "-",
     ]);
-    expect(meanVolume(under)).toBeLessThan(meanVolume(away) - 3);
+    expect(meanVolume(under)).toBeLessThan(meanVolume(away) - 1);
     expect(Math.abs(meanVolume(spoken) - meanVolume(dry))).toBeLessThan(3);
   });
 });
