@@ -60,9 +60,13 @@ export function registerGrokHandlers<TEvent>(
         };
         const keys = Object.keys(body);
         if (
-          keys.some((key) => !["model", "text", "projectId", "idempotencyKey"].includes(key)) ||
+          keys.some(
+            (key) => !["model", "text", "projectId", "idempotencyKey", "agent"].includes(key),
+          ) ||
           (body.projectId !== undefined && typeof body.projectId !== "string") ||
-          (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string")
+          (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string") ||
+          ((body as { agent?: unknown }).agent !== undefined &&
+            typeof (body as { agent?: unknown }).agent !== "string")
         ) {
           throw new Error("Invalid Grok text request");
         }
@@ -75,6 +79,9 @@ export function registerGrokHandlers<TEvent>(
           ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
           ...(typeof body.idempotencyKey === "string"
             ? { idempotencyKey: body.idempotencyKey }
+            : {}),
+          ...(typeof (body as { agent?: unknown }).agent === "string"
+            ? { agent: String((body as unknown as { agent: string }).agent) }
             : {}),
         });
       }

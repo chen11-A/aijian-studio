@@ -943,7 +943,7 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
   fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
   expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "已选" }));
+  fireEvent.change(screen.getByLabelText("角色声音"), { target: { value: "leo" } });
   fireEvent.change(screen.getByLabelText("旁白声音"), { target: { value: "leo" } });
   fireEvent.click(stageTab("剧本"));
   mode = "split";
@@ -1063,6 +1063,105 @@ it("asks action and performance, then writes those fields on the shot", async ()
   fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
   fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
   expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
+});
+
+it("keeps a separate review card and confirms the shots before video", async () => {
+  const { completeText } = installDesktop();
+  window.aijianGrok = {
+    ...window.aijianGrok!,
+    models: vi.fn(async () => ({
+      kind: "OK" as const,
+      models: [
+        { id: "grok-imagine-video-1.5", label: "video" },
+        { id: "grok-4.7", label: "text" },
+        { id: "leo", label: "leo", outputModalities: ["audio"] },
+        { id: "luna", label: "luna", outputModalities: ["audio"] },
+      ],
+    })),
+  } as unknown as Window["aijianGrok"];
+  completeText.mockImplementation(async ({ text }: { text: string }) => {
+    if (String(text).includes("只审文字") || String(text).includes("你是审片")) {
+      return { kind: "OK", text: JSON.stringify({ verdict: "可以拍", issues: ["雨声太满"] }) };
+    }
+    if (String(text).includes("你是影视动作指导")) {
+      return { kind: "OK", text: '{"beats":[{"text":"他抬手","feasibility":"难"}]}' };
+    }
+    return { kind: "OK", text: "好", model: "grok-4.7" };
+  });
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  fireEvent.click(screen.getByRole("button", { name: "动作指导" }));
+  fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
+  expect(await screen.findByText(/动作设计 · 镜头/)).toBeInTheDocument();
+  expect(screen.getAllByText(/高危/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/稳可以拍/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+  expect(screen.getByRole("button", { name: "已放入" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "审片" }));
+  fireEvent.click(screen.getByRole("button", { name: "请审片看看" }));
+  expect(await screen.findByText(/审片意见 · 镜头/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "放入分镜" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "知道了" }));
+  expect(screen.getByRole("button", { name: "已记下" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "按意见重做这一镜" }));
+  expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/只重做这一段/);
+  const redo = screen.queryByRole("button", { name: "只重做这一段" });
+  if (redo) {
+    fireEvent.click(redo);
+    expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/确认表/);
+  }
+  fireEvent.click(stageTab("角色与场景"));
+  fireEvent.change(screen.getByLabelText("角色声音"), { target: { value: "leo" } });
+  expect(screen.getByText(/已选：威严有力/)).toBeInTheDocument();
+  window.aijianGrok = {
+    ...window.aijianGrok!,
+    speak: vi.fn(async () => ({
+      kind: "OK",
+      audioBase64: "QQ==",
+      mime: "audio/mpeg",
+      seconds: 1,
+      timestamps: false,
+    })),
+  } as unknown as Window["aijianGrok"];
+  const RealAudio = window.Audio;
+  class PausingAudio {
+    onloadedmetadata: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onended: (() => void) | null = null;
+    pause = vi.fn();
+    play = vi.fn(async () => undefined);
+    constructor() {
+      setTimeout(() => this.onloadedmetadata?.(), 0);
+    }
+  }
+  window.Audio = PausingAudio as unknown as typeof Audio;
+  const createUrl = URL.createObjectURL;
+  URL.createObjectURL = () => "blob:phase3";
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "试听" }));
+    await screen.findByText(/正在试听|先在剧本里|没有播出来|试听/).catch(() => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "试听" }));
+  } finally {
+    window.Audio = RealAudio;
+    URL.createObjectURL = createUrl;
+  }
+  window.aijian = {
+    ...window.aijian!,
+    listFilmSeries: vi.fn(async () => [
+      { id: "film_sampleseries00001", title: "已存作品", savedAt: "", path: "/films" },
+    ]),
+    readFilmProject: vi.fn(async () => sampleFilm()),
+  } as unknown as Window["aijian"];
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(await screen.findByRole("button", { name: "已存作品" }));
+  expect(await screen.findByText(/已打开/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
+  expect(await screen.findByText(/已删除这一集/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除这部作品" }));
+  expect(await screen.findByText(/已删除这部作品|已删除这一集|还没有作品/)).toBeInTheDocument();
 });
 
 it("does not turn the writer's question into scenes", async () => {

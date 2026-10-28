@@ -72,6 +72,7 @@ export type GrokLoginBridge = {
     text: string;
     projectId?: string;
     idempotencyKey?: string;
+    agent?: string;
   }): Promise<GrokLoginTextResult>;
   /** Optional until a desktop build exposes POST /v1/tts. */
   speak?(input: {

@@ -56,6 +56,11 @@
   margin: 0;
   padding: 0;
 }
+html:has(.pro-root),
+body:has(.pro-root) {
+  height: 100%;
+  overflow: hidden;
+}
 .pro-root,
 .pro-root {
   width: 100vw;
@@ -83,6 +88,16 @@
   display: grid;
   grid-template-rows: var(--topbar) 1fr var(--status);
   height: 100vh;
+  overflow: hidden;
+}
+.pro-root .confirm-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 12px;
+  color: var(--text-2);
 }
 .pro-root .topbar {
   display: grid;

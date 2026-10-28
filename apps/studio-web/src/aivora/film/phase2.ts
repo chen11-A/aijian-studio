@@ -159,6 +159,22 @@ export function scenesEchoRequest(scenes: { text: string }[], request: string): 
   });
 }
 
+export function difficultyLabel(raw: string): "稳" | "险" | "高危" {
+  if (raw === "难" || raw === "高危") return "高危";
+  if (raw === "看运气" || raw === "险") return "险";
+  return "稳";
+}
+
+export const DIFFICULTY_LEGEND = "稳可以拍。险要碰运气。高危很难，得改拍法。";
+
+/** A shot tag of 「人物」 is not a name. Use a real character, or 空镜. */
+export function shotPerson(names: string[], picture: string, cast: string[]): string {
+  const named = names.find((name) => name.trim() && name.trim() !== "人物");
+  if (named) return named.trim();
+  const found = cast.find((name) => name.trim() && picture.includes(name.trim()));
+  return found?.trim() || "空镜";
+}
+
 export function appearanceMark(
   prompt: string,
   names: string[],

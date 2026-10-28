@@ -342,6 +342,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     text: string;
     projectId?: string;
     idempotencyKey?: string;
+    agent?: string;
   }): Promise<GrokLoginTextResult> {
     if (
       input.text.length === 0 ||
@@ -381,6 +382,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         endpoints,
       });
       dependencies.agentLog?.write({
+        agent: input.agent ?? "",
         model: input.model,
         endpoint: "responses",
         httpStatus: 200,
@@ -432,6 +434,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       if (error instanceof GrokTextFailure) {
         for (const attempt of error.attempts) {
           dependencies.agentLog?.write({
+            agent: input.agent ?? "",
             model: input.model,
             endpoint: attempt.endpoint,
             httpStatus: attempt.httpStatus,
@@ -442,6 +445,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         }
       } else {
         dependencies.agentLog?.write({
+          agent: input.agent ?? "",
           model: input.model,
           endpoint: "text",
           httpStatus: 0,
