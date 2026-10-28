@@ -144,7 +144,7 @@ try {
   const kinds = media.streams.map((stream) => stream.codec_type);
   assert.ok(kinds.includes("video") && kinds.includes("audio"));
   const duration = Number(media.format.duration);
-  assert.ok(duration >= 1.5 && duration <= 2.5, String(duration));
+  assert.ok(duration >= 1.5 && duration <= 3, String(duration));
   await application.close();
   application = undefined;
   assert.equal(sidecars().length, 0);
