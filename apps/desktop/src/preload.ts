@@ -561,8 +561,10 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("film:rename", seriesId, title),
   readFilmMedia: (path: string) =>
     ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
-  assembleFilm: (seriesId: string, sources: string[]) =>
-    ipcRenderer.invoke("film:assemble", seriesId, sources),
+  assembleFilm: (seriesId: string, sources: string[], musicPath = "", duck = false) =>
+    ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
+  importMusic: (seriesId: string, source: string) =>
+    ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   generateFilmStill: (seriesId: string, prompt: string) =>
     ipcRenderer.invoke("film:still", seriesId, prompt),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,

@@ -593,12 +593,9 @@ export function interruptStaleWork(film: FilmProject): { film: FilmProject; inte
   };
 }
 
-export function readFilm(storage: Storage): FilmProject | null {
-  const raw = storage.getItem(FILM_KEY);
-  if (!raw) return null;
+export function upgradeFilm(value: Partial<FilmProject> | null | undefined): FilmProject | null {
+  if (!value || typeof value !== "object" || !value.title) return null;
   try {
-    const value = JSON.parse(raw) as Partial<FilmProject>;
-    if (!value || typeof value !== "object" || !value.title) return null;
     const base = blankFilm();
     return {
       ...base,
@@ -645,6 +642,16 @@ export function readFilm(storage: Storage): FilmProject | null {
       narrationVoiceId: value.narrationVoiceId ?? "",
       audioClips: normalizeAudioClips(value.audioClips),
     };
+  } catch {
+    return null;
+  }
+}
+
+export function readFilm(storage: Storage): FilmProject | null {
+  const raw = storage.getItem(FILM_KEY);
+  if (!raw) return null;
+  try {
+    return upgradeFilm(JSON.parse(raw) as Partial<FilmProject>);
   } catch {
     return null;
   }

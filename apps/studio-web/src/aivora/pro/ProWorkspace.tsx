@@ -11,6 +11,8 @@ import {
   DESKTOP_REASON,
   ensureLocations,
   extractCastOffline,
+  chosenExport,
+  confirmEstimate,
   exportSummary,
   filmFileName,
   mergeCast,
@@ -116,9 +118,8 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: "edit", label: "剪辑" },
 ];
 
-const SETTINGS_NOTE = "设置页还没接上。画风在角色与场景，每镜次数在单镜工作台。";
-const USAGE_NOTE = "用量页还没接上。生成次数记在每部作品里。";
-const ROUGH_CUT_REASON = "多镜头还没接成一条，先播放这一镜。";
+const SIGN_IN_NOTE = "请打开安装好的 AIVORA 再登录。";
+const ROUGH_CUT_REASON = "多镜头没有接上，没有导出。";
 
 function settleNextJob(
   base: FilmProject,
@@ -380,6 +381,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
   const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [partialExport, setPartialExport] = useState<string[] | null>(null);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [asking, setAsking] = useState(false);
   const [range, setRange] = useState(false);
@@ -389,7 +392,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [notice, setNotice] = useState("");
   const [modelIds, setModelIds] = useState<string[]>([]);
   const [voiceChoices, setVoiceChoices] = useState<{ id: string; label: string }[]>([]);
-  const [soundOn, setSoundOn] = useState(true);
+  const [soundOn, setSoundOn] = useState(
+    () => window.localStorage.getItem("aivora.sound") !== "off",
+  );
   const [showRoles, setShowRoles] = useState(true);
   const [portraitReady, setPortraitReady] = useState<string | null>(null);
   const [portraitBusy, setPortraitBusy] = useState(false);
@@ -424,6 +429,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const committed = useRef<FilmProject | null>(null);
   const skipHistory = useRef(false);
   const pauseRef = useRef(false);
+  const stopRef = useRef(false);
+  const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
   const artDraft = useRef<FilmProject | null>(null);
@@ -474,6 +481,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!film) return;
     const generation = ++saveGeneration.current;
     const savingId = film.id;
+    const flush = () => {
+      const current = filmRef.current;
+      if (current) void saveFilm(current);
+    };
+    window.addEventListener("beforeunload", flush);
     const handle = window.setTimeout(() => {
       void saveFilm(film)
         .then((stored) => {
@@ -507,10 +519,21 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }, 500);
     }
     return () => {
+      window.removeEventListener("beforeunload", flush);
       window.clearTimeout(handle);
       if (timer) window.clearTimeout(timer);
     };
   }, [film]);
+
+  useEffect(() => {
+    window.localStorage.setItem("aivora.sound", soundOn ? "on" : "off");
+  }, [soundOn]);
+
+  useEffect(() => {
+    if (!film) return;
+    if (film.scenes.some((item) => item.id === scene)) return;
+    setScene(film.scenes[0]?.id ?? "scene-1");
+  }, [film, scene]);
 
   function rememberFilm(next: FilmProject) {
     filmRef.current = next;
@@ -603,6 +626,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("已剪掉这一段。画面和声音都往前接上。");
       return;
     }
+    const current = shownShots[shot];
+    if (current && (action === "regenerate" || action === "rewrite" || action === "voice")) {
+      setPendingBatch([current]);
+      setNotice(`只重做镜头 ${current.no}。确认表里点开始生成才会出视频。`);
+      return;
+    }
     setComparing(true);
     setNotice(
       action === "extend"
@@ -610,6 +639,38 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : "每个版本各算一次生成。视频自带的声音已关掉。",
     );
   };
+
+  async function signInGrok() {
+    const bridge = window.aijianGrok;
+    if (!bridge?.signIn) {
+      setNotice(SIGN_IN_NOTE);
+      return;
+    }
+    setMenu(null);
+    const result = await bridge.signIn();
+    window.dispatchEvent(new Event("aivora-grok-changed"));
+    setNotice(result.kind === "OK" ? "已用 Grok 会员登录。" : "登录没有完成。");
+  }
+
+  async function signInChatGPT() {
+    const bridge = window.aijianChatGPT;
+    if (!bridge?.signIn) {
+      setNotice(SIGN_IN_NOTE);
+      return;
+    }
+    setMenu(null);
+    const result = await bridge.signIn("LOCAL_PERSONAL");
+    window.dispatchEvent(new Event("aivora-grok-changed"));
+    setNotice(result.kind === "OK" ? "已用 ChatGPT 会员登录。" : "登录没有完成。");
+  }
+
+  async function signOutAccount() {
+    setMenu(null);
+    setNotice("已退出登录。");
+    await window.aijianGrok?.signOut?.();
+    await window.aijianChatGPT?.signOut?.();
+    window.dispatchEvent(new Event("aivora-grok-changed"));
+  }
 
   const storedTitle =
     film && film.seriesTitle && film.seriesTitle !== "未命名作品"
@@ -622,8 +683,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       : film?.directory && film.directory !== BROWSER_DIRECTORY
         ? film.directory
         : "";
-  const sceneShots = film?.shots.filter((item) => item.sceneId === scene) ?? [];
-  const shownShots = sceneShots.length > 0 ? sceneShots : (film?.shots ?? []);
+  const sceneIds = new Set(film?.scenes.map((item) => item.id) ?? []);
+  const shownShots = (
+    film?.shots.filter((item) => item.sceneId === scene || !sceneIds.has(item.sceneId)) ?? []
+  )
+    .slice()
+    .sort((a, b) => a.no - b.no);
   openShotRef.current = shownShots[shot]?.id ?? "";
 
   async function planDirector(asked = "") {
@@ -634,14 +699,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
     const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
     const context = `画风：${film.styleZh}\n人物：\n${names}\n剧本：\n${story}`;
-    let next = offlineShots(story, sceneId);
-    let text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
+    let next: FilmShot[] | null = null;
+    let text: string;
     const bridge = grokBridge();
     const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
     try {
-      if (connected && bridge && !billingProject) {
-        text = "这一次没有记到作品上，已用离线拆镜。点「放入分镜」才会写入。";
-      } else if (connected && bridge && billingProject) {
+      if (!connected || !bridge) {
+        next = offlineShots(story, sceneId);
+        text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
+      } else if (!billingProject) {
+        text = "这一次没有记到作品上，没有拆镜头。";
+      } else {
         const first = await completeAgent("director", context, "把这一场拆成镜头");
         let parsed = first.text
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "")
@@ -662,7 +730,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               !first.text && !again.text
                 ? again.detail || first.detail || "模型没有返回。"
                 : "模型没有按格式返回。";
-            text = `${reason} 已用离线拆镜。点「放入分镜」才会写入。`;
+            text = `${reason} 没有写入镜头。`;
           }
         } else {
           next = parsed;
@@ -670,9 +738,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         }
       }
     } catch {
-      text = "模型没有返回。 已用离线拆镜。点「放入分镜」才会写入。";
+      text = "模型没有返回。没有写入镜头。";
     } finally {
       setAsking(false);
+    }
+    if (!next) {
+      setPending(null);
+      finishTurn(turn, text);
+      return;
     }
     setPending(next);
     publishCard("director", {
@@ -1057,8 +1130,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     if (!parsed && connected) {
       const again = await completeAgent("action", context, `${text}\n只输出 JSON，不要解释。`);
       parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
-      if (!parsed)
-        note = `${again.detail || reply.detail || "模型没有按格式返回。"} 已用离线动作指导。点「放入分镜」写到这一镜。`;
+      if (!parsed) {
+        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
+        return;
+      }
     }
     if (parsed) {
       sentence = actionSentence(parsed);
@@ -1137,8 +1212,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       parsed = again.text
         ? performanceFromModel(parseLooseJson(again.text), current.characters)
         : null;
-      if (!parsed)
-        note = `${again.detail || reply.detail || "模型没有按格式返回。"} 已用离线表演指导。点「放入分镜」写到这一镜。`;
+      if (!parsed) {
+        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
+        return;
+      }
     }
     if (parsed) {
       line = parsed.includes("来自表演指导") ? parsed : `${parsed}（来自表演指导）`;
@@ -1331,9 +1408,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       `画风：${film.styleZh}`,
       `写成短剧：\n${idea}`,
     );
-    const scenes =
-      (writerReply.text ? parseWriterScenes(writerReply.text) : null) ??
-      offlineScreenplay(idea, 60);
+    const scenes = writerReply.text ? parseWriterScenes(writerReply.text) : null;
+    if (!scenes) {
+      setNotice(writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。");
+      return;
+    }
     let next = applyScenes(film, scenes);
     const story =
       next.scenes
@@ -1349,16 +1428,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const parsed = directorReply.text
       ? parseDirectorShots(directorReply.text, sceneId, story)
       : null;
-    next = applyShots(next, parsed ?? offlineShots(story, sceneId), sceneId);
+    if (!parsed) {
+      setNotice(directorReply.detail || "导演没有按格式返回，已停。没有写入离线镜头。");
+      return;
+    }
+    next = applyShots(next, parsed, sceneId);
     filmRef.current = next;
     setFilm(next);
     setStage("board");
     setPending(null);
-    setNotice(
-      parsed
-        ? "停在分镜。点继续才出视频。这一步没有生成视频。"
-        : `${directorReply.detail || "模型没有按格式返回。"} 已用离线拆镜，停在分镜。点继续才出视频。`,
-    );
+    setNotice("停在分镜。点继续才出视频。这一步没有生成视频。");
   }
 
   function applyTemplate(name: string) {
@@ -1586,6 +1665,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function submitGeneration(targets?: FilmShot[]) {
+    stopRef.current = false;
     const live = filmRef.current ?? film;
     if (!live) return;
     const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
@@ -1651,6 +1731,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         for (let index = 0; index < group.takes.length; index += 1) {
           const take = group.takes[index]!;
           const current = filmRef.current ?? next;
+          if (stopRef.current) {
+            stopRef.current = false;
+            setNotice("已取消。还没开始的镜头不再生成。");
+            return;
+          }
           if (pauseRef.current) {
             const queued = group.takes.slice(index).map((item) => item.id);
             applyLive(
@@ -1766,12 +1851,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const current = filmRef.current;
     const bridge = window.aijian;
     if (!current || paths.length === 0) return;
-    if (paths.length === 1 || !bridge?.assembleFilm) {
-      if (paths.length > 1) setNotice(ROUGH_CUT_REASON);
-      return;
-    }
+    if (paths.length < 2 || !bridge?.assembleFilm) return;
     try {
-      const result = await bridge.assembleFilm(current.seriesId, paths);
+      const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
+      const duck = current.shots.some((item) => item.line.trim().length > 0);
+      const result = await bridge.assembleFilm(
+        current.seriesId,
+        paths,
+        music?.path ?? "",
+        Boolean(music && duck),
+      );
       const url = result.path ? await clipUrl(result.path) : "";
       const latest = filmRef.current ?? current;
       applyLive({ ...latest, assemblyPath: result.path, assemblyUrl: url });
@@ -1781,7 +1870,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function startExport(directoryOverride?: string) {
+  async function startExport(directoryOverride?: string, allowPartial = false) {
     const bridge = window.aijian;
     if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
       setNotice("导出要在桌面版里选择文件夹。网页里不能写成片。");
@@ -1789,17 +1878,28 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     const current = filmRef.current;
     if (!current) return;
-    const paths = current.shots
-      .map((item) => item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath)
-      .filter((item): item is string => Boolean(item));
-    let source = current.assemblyPath;
-    if (!source && paths.length > 1) {
-      await joinedCut(paths);
+    const plan = chosenExport(current);
+    if (plan.paths.length === 0) {
+      setNotice(
+        plan.missing.length > 0
+          ? `还没生成：${plan.missing.join("、")}。`
+          : "还没有可以导出的视频。",
+      );
+      return;
+    }
+    if (plan.missing.length > 0 && !allowPartial) {
+      setPartialExport(plan.missing);
+      setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
+      return;
+    }
+    let source: string;
+    if (plan.paths.length === 1) source = plan.paths[0] ?? "";
+    else {
+      await joinedCut(plan.paths);
       source = filmRef.current?.assemblyPath ?? "";
     }
-    if (!source) source = paths[0] ?? "";
     if (!source) {
-      setNotice("还没有可以导出的视频。");
+      setNotice("没有导出成功，可以重试。");
       return;
     }
     const directory = directoryOverride || exportDir || (await bridge.pickFilmFolder()) || "";
@@ -2039,27 +2139,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </button>
                 <button
                   onClick={() => {
-                    if (!film) return;
-                    void removeFilm(film.id).then(async () => {
-                      const rows = await listFilms();
-                      const saved = rows[0] ? await readSaved(rows[0].id) : null;
-                      if (saved) applyLive(interruptStaleWork(saved).film);
-                      else setFilm(null);
-                      setMenu(null);
-                      setNotice("已删除这一集。");
-                    });
+                    deleteTarget.current = "episode";
+                    setMenu(null);
+                    setPendingDelete(true);
                   }}
                 >
                   删除这一集
                 </button>
                 <button
                   onClick={() => {
-                    if (!film) return;
-                    void removeFilm(film.seriesId).then(() => {
-                      setFilm(null);
-                      setMenu(null);
-                      setNotice("已删除这部作品。");
-                    });
+                    deleteTarget.current = "series";
+                    setMenu(null);
+                    setPendingDelete(true);
                   }}
                 >
                   删除这部作品
@@ -2068,7 +2159,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onClick={() => {
                     setMenu(null);
                     setStage("cast");
-                    setNotice(SETTINGS_NOTE);
+                    setNotice("画风在角色与场景，每镜次数在单镜工作台。");
                   }}
                 >
                   作品设置
@@ -2121,7 +2212,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           <div className="tb-right">
             <button
               className="chip"
-              onClick={() => setNotice(connected ? "Grok 会员已连接。" : "需要重新登录。")}
+              onClick={() => {
+                if (connected) setNotice("Grok 会员已连接。");
+                else void signInGrok();
+              }}
             >
               <span className="dot" style={connected ? undefined : { background: "#E8A33D" }} />
               {connected ? "Grok 会员 · 已连接" : "需要重新登录"}
@@ -2147,30 +2241,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             </button>
             {menu === "account" && (
               <div className="menu" role="menu" aria-label="账号菜单">
-                <button
-                  onClick={() => {
-                    setMenu(null);
-                    setNotice(SETTINGS_NOTE);
-                  }}
-                >
-                  设置
-                </button>
-                <button
-                  onClick={() => {
-                    setMenu(null);
-                    setNotice(USAGE_NOTE);
-                  }}
-                >
-                  用量
-                </button>
-                <button
-                  onClick={() => {
-                    setMenu(null);
-                    setNotice("已退出登录。");
-                  }}
-                >
-                  退出登录
-                </button>
+                {!connected && <button onClick={() => void signInGrok()}>用 Grok 会员登录</button>}
+                <button onClick={() => void signInChatGPT()}>用 ChatGPT 会员登录</button>
+                <button onClick={() => void signOutAccount()}>退出登录</button>
               </div>
             )}
           </div>
@@ -2183,10 +2256,20 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   <h2>写下你的故事，或者一句话的想法</h2>
                   <p>还没有作品。可以新建，也可以先打开示例看看整条流程。</p>
                   <div className="acts">
+                    {!connected && (
+                      <button className="btn primary" onClick={() => void signInGrok()}>
+                        用 Grok 会员登录
+                      </button>
+                    )}
+                    <button className="btn primary" onClick={() => void signInChatGPT()}>
+                      用 ChatGPT 会员登录
+                    </button>
                     <button
-                      className="btn primary"
+                      className="btn"
                       onClick={() => {
-                        setFilm(blankFilm());
+                        const next = blankFilm();
+                        setFilm(next);
+                        setScene(next.scenes[0]?.id ?? "scene-1");
                         setStage("script");
                         setNotice("从一句故事开始。");
                       }}
@@ -2463,9 +2546,25 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice("保留旧版。新版留在历史版本里。");
                   }}
                   onReplace={() => {
+                    const current = shownShots[shot];
+                    const newer = [...(current?.takes ?? [])]
+                      .reverse()
+                      .find(
+                        (take) => take.status === "done" && take.id !== current?.selectedTakeId,
+                      );
+                    if (film && current && newer) {
+                      setFilm({
+                        ...film,
+                        shots: film.shots.map((item) =>
+                          item.id === current.id ? { ...item, selectedTakeId: newer.id } : item,
+                        ),
+                      });
+                      setNotice("已用新版替换。旧版留在历史版本里。");
+                    } else {
+                      setNotice("还没有可以替换的新版本。");
+                    }
                     setComparing(false);
                     setRange(false);
-                    setNotice("已用新版替换。旧版留在历史版本里。");
                   }}
                   onTab={setRightTab}
                   onUndo={undoEdit}
@@ -2473,6 +2572,36 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onNotice={setNotice}
                   onPlaying={setPlaying}
                   audible={soundOn}
+                  onImportMusic={(file) => {
+                    const path = (file as File & { path?: string }).path || "";
+                    const bridge = window.aijian;
+                    if (!film || !path || !bridge?.importMusic) {
+                      setNotice("请在桌面版里选择一个 mp3 或 wav 音乐文件。");
+                      return;
+                    }
+                    void bridge.importMusic(film.seriesId, path).then((stored) => {
+                      const latest = filmRef.current ?? film;
+                      applyLive({
+                        ...latest,
+                        audioClips: [
+                          ...latest.audioClips,
+                          {
+                            id: `music-${Date.now()}`,
+                            lane: "score",
+                            shotId: "",
+                            takeId: "",
+                            label: "",
+                            startSeconds: 0,
+                            durationSeconds: 0,
+                            offsetSeconds: 0,
+                            gainDb: -22,
+                            path: stored.path,
+                          },
+                        ],
+                      });
+                      setNotice("已导入音乐。有台词时，导出会把配乐压低。");
+                    });
+                  }}
                 />
               )}
             </>
@@ -2502,37 +2631,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               <i style={{ width: `${progress}%` }} />
             </span>
           </button>
-          {pendingBatch && (
-            <>
-              <div className="confirm-sheet" data-testid="confirm-table">
-                <b>生成前确认</b>
-                {pendingBatch.map((item) => (
-                  <span key={item.id}>
-                    镜头 {item.no} · {item.seconds} 秒 · 台词 {item.line.trim() || "无"} ·{" "}
-                    {item.sound.source === "dub" ? "单独配音" : "画面自带"} · 配乐{" "}
-                    {item.sound.musicMood || "无"}
-                    {item.line.trim() ? " · 有台词时配乐让路" : ""}
-                  </span>
-                ))}
-              </div>
-              <span data-testid="batch-estimate">
-                {generationEstimate(pendingBatch.length, versions, duration)}
-              </span>
-              <button
-                className="btn sm"
-                onClick={() => {
-                  const rows = pendingBatch;
-                  setPendingBatch(null);
-                  void submitGeneration(rows);
-                }}
-              >
-                开始生成
-              </button>
-              <button className="btn sm" onClick={() => setPendingBatch(null)}>
-                先不生成
-              </button>
-            </>
-          )}
           <span className="sp" />
           <span className="where">
             {savedDirectory
@@ -2543,6 +2641,78 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             <b>{savedDirectory || film?.title || ""}</b>
           </span>
         </footer>
+        {pendingBatch && (
+          <div className="dialog-back">
+            <div
+              className="dialog"
+              role="dialog"
+              aria-label="生成前确认"
+              data-testid="confirm-table"
+            >
+              <h2>生成前确认</h2>
+              {pendingBatch.map((item) => (
+                <p key={item.id}>
+                  镜头 {item.no} · {item.seconds} 秒 · 台词 {item.line.trim() || "无"} · 单独配音 ·
+                  配乐{" "}
+                  {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
+                    ? "已导入"
+                    : "无"}
+                </p>
+              ))}
+              <p data-testid="batch-estimate">{confirmEstimate(pendingBatch, versions)}</p>
+              <div className="acts">
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    const rows = pendingBatch;
+                    setPendingBatch(null);
+                    void submitGeneration(rows);
+                  }}
+                >
+                  开始生成
+                </button>
+                <button className="btn" onClick={() => setPendingBatch(null)}>
+                  先不生成
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingDelete && (
+          <div className="dialog-back">
+            <div className="dialog" role="dialog" aria-label="确认删除">
+              <h2>确认删除？作品文件会删掉。</h2>
+              <div className="acts">
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    if (!film) return;
+                    const series = deleteTarget.current === "series";
+                    void removeFilm(series ? film.seriesId : film.id).then(async () => {
+                      if (series) {
+                        setFilm(null);
+                        setPendingDelete(false);
+                        setNotice("已删除这部作品。");
+                        return;
+                      }
+                      const rows = await listFilms();
+                      const saved = rows[0] ? await readSaved(rows[0].id) : null;
+                      if (saved) applyLive(interruptStaleWork(saved).film);
+                      else setFilm(null);
+                      setPendingDelete(false);
+                      setNotice("已删除这一集。");
+                    });
+                  }}
+                >
+                  确认删除
+                </button>
+                <button className="btn" onClick={() => setPendingDelete(false)}>
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {menu === "queue" && (
           <div
             className="menu"
@@ -2579,6 +2749,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 key={job.id}
                 onClick={() => {
                   if (!film) return;
+                  stopRef.current = true;
                   if (projectId && window.aijian?.cancelStoryFilm && job.status === "running") {
                     void window.aijian.cancelStoryFilm(projectId);
                   }
@@ -2626,7 +2797,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   className="input"
                   aria-label="导出文件夹"
                   value={exportDir}
-                  placeholder="输入文件夹路径，回车确认"
+                  placeholder="点浏览。文件夹选择会打开视频里的 AIVORA"
                   onChange={(event) => setExportDir(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter") return;
@@ -2676,7 +2847,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 >
                   播放
                 </button>
-                <button className="btn primary" onClick={() => void startExport()}>
+                {partialExport && partialExport.length > 0 && (
+                  <button className="btn" onClick={() => void startExport(exportDir, true)}>
+                    只导出已生成的
+                  </button>
+                )}
+                <button
+                  className="btn primary"
+                  disabled={exporting}
+                  onClick={() => void startExport()}
+                >
                   {exporting ? "正在导出" : "开始导出"}
                 </button>
               </div>
@@ -3124,15 +3304,6 @@ function ScriptPage({
           <span className="vsep" />
           <div className="seg">
             <button className="on">场景</button>
-            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
-              动作
-            </button>
-            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
-              角色
-            </button>
-            <button disabled title="剧本格式还没接上。这一版整场写在一起。">
-              对白
-            </button>
           </div>
           <span className="sp" />
           <button className="btn primary" onClick={onPlan} disabled={asking}>
@@ -4577,10 +4748,11 @@ function EditPage({
   onTab,
   onUndo,
   onRedo,
-  onNotice,
+  onNotice: _onNotice,
   onRangeGenerate,
   onPlaying,
   audible,
+  onImportMusic,
 }: {
   film: FilmProject;
   shot: number;
@@ -4605,6 +4777,7 @@ function EditPage({
   onRangeGenerate: () => void;
   onPlaying: (value: boolean) => void;
   audible: boolean;
+  onImportMusic: (file: File) => void;
   shots: FilmShot[];
 }) {
   const [mediaTime, setMediaTime] = useState(0);
@@ -4638,9 +4811,6 @@ function EditPage({
             <span className="sp" />
             <div className="seg">
               <button className="on">左右对比</button>
-              <button disabled title="只看新版还没接上。">
-                只看新版
-              </button>
             </div>
           </div>
           <div className="cmp">
@@ -4692,30 +4862,8 @@ function EditPage({
       ) : (
         <>
           <section className="pane">
-            <div className="mtabs">
-              <button className="on">
-                <Ic name="film" size={16} />
-                镜头
-              </button>
-              <button disabled title="配音轨还没接上。">
-                <Ic name="mic" size={16} />
-                配音
-              </button>
-              <button disabled title="音乐轨还没接上。">
-                <Ic name="music" size={16} />
-                音乐
-              </button>
-              <button disabled title="字幕轨还没接上。">
-                <Ic name="text" size={16} />
-                字幕
-              </button>
-            </div>
             <div className="ph">
               <span className="meta">{shots.length} 个镜头</span>
-              <span className="sp" />
-              <button className="icon-btn sm" aria-label="搜索" disabled title="搜索还没接上。">
-                <Ic name="search" size={14} />
-              </button>
             </div>
             <div className="pb bin">
               {shots.map((item, index) => (
@@ -4789,14 +4937,6 @@ function EditPage({
                   onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
                 >
                   <Ic name="skipf" />
-                </button>
-              </div>
-              <div className="cr">
-                <button className="icon-btn" aria-label="音量" disabled title="音量还没接上。">
-                  <Ic name="vol" />
-                </button>
-                <button className="icon-btn" aria-label="全屏" disabled title="全屏还没接上。">
-                  <Ic name="max" />
                 </button>
               </div>
             </div>
@@ -4880,10 +5020,6 @@ function EditPage({
               </div>
             </div>
             <div className="field">
-              <label>进入方式</label>
-              <div className="input">转场还没接上。</div>
-            </div>
-            <div className="field">
               <button className="btn" onClick={onSelectRange}>
                 回到分镜重新生成
               </button>
@@ -4960,14 +5096,6 @@ function EditPage({
             </button>
             <button
               className="icon-btn"
-              aria-label="分割"
-              title="分割还没接上。"
-              onClick={() => onNotice("分割还没接上。")}
-            >
-              <Ic name="split" />
-            </button>
-            <button
-              className="icon-btn"
               aria-label="删除"
               title="删除 (Del)"
               onClick={() => onAction("cut")}
@@ -4997,17 +5125,6 @@ function EditPage({
             </button>
             <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
               <Ic name="redo" />
-            </button>
-            <span className="sp" />
-            <button className="icon-btn" aria-label="自动吸附" disabled title="自动吸附还没接上。">
-              <Ic name="magnet" />
-            </button>
-            <button className="icon-btn" aria-label="缩小" disabled title="缩放还没接上。">
-              <Ic name="zout" />
-            </button>
-            <span className="zoom" />
-            <button className="icon-btn" aria-label="放大" disabled title="缩放还没接上。">
-              <Ic name="zin" />
             </button>
           </div>
         )}
@@ -5082,41 +5199,39 @@ function EditPage({
               })}
             </div>
             <div className="lane" style={{ height: "var(--ha)" }}>
-              {cues.map((cue) => {
-                const clip = clips.find((item) => item.id === cue.id);
-                const owner = shots.find((item) => item.id === cue.id);
-                if (!clip) return null;
-                return (
-                  <div
-                    key={cue.id}
-                    className="clip a"
-                    style={{ left: clip.left, width: clip.width }}
-                  >
-                    <span className="tx">{owner?.characters[0] ?? "配音"}</span>
+              {film.audioClips
+                .filter((item) => item.lane === "dialogue" && item.path)
+                .map((item) => (
+                  <div key={item.id} className="clip a" style={{ left: 1, width: 120 }}>
+                    <span className="tx">{item.label || "配音"}</span>
                   </div>
-                );
-              })}
+                ))}
             </div>
             <div className="lane" style={{ height: "var(--ha)" }}>
-              {clips.map((clip, index) => {
-                const mood = shots[index]?.sound.musicMood || "导入音乐";
-                const effect = shots[index]?.sound.sfx[0]?.text;
-                const ducked = Boolean(shots[index]?.line.trim());
-                return (
-                  <div
-                    key={clip.id}
-                    className="clip m"
-                    style={{ left: clip.left, width: clip.width }}
-                    title={ducked ? "有台词时配乐让路" : "配乐"}
-                  >
+              {film.audioClips
+                .filter((item) => item.lane === "score" && item.path)
+                .map((item) => (
+                  <div key={item.id} className="clip m" style={{ left: 1, width: 160 }}>
                     <span className="tx">
-                      {effect ? `${effect} · ` : ""}
-                      {mood}
-                      {ducked ? " · 让路" : ""}
+                      导入的音乐
+                      {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
                     </span>
                   </div>
-                );
-              })}
+                ))}
+              <label className="btn sm" style={{ position: "absolute", right: 8, top: 4 }}>
+                导入音乐
+                <input
+                  type="file"
+                  accept="audio/*,.mp3,.wav"
+                  hidden
+                  aria-label="导入音乐"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) onImportMusic(file);
+                  }}
+                />
+              </label>
             </div>
             {range && current ? (
               <button

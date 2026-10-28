@@ -297,3 +297,12 @@ def test_missing_video_model_disables_the_job() -> None:
     assert jobs[0]["enabled"] is False
     with pytest.raises(KeyError):
         prompt_version("missing")
+
+
+def test_a_picture_is_not_read_aloud() -> None:
+    from aijian_api.story_film import _silent_wav, _spoken_line
+
+    assert _spoken_line("。") == ""
+    assert _spoken_line("（无台词）") == ""
+    assert _spoken_line("雨太大。我听不清。") == "雨太大。我听不清。"
+    assert _silent_wav().startswith(b"RIFF")

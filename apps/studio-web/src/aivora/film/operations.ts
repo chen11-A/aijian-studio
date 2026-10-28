@@ -92,6 +92,7 @@ export type StoryFilmBody = {
     action?: string;
     performance?: string;
     identity?: string;
+    voice_id?: string;
   }[];
   video_model?: string;
 };
@@ -558,23 +559,70 @@ export function clock(seconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${rest.toFixed(1).padStart(4, "0")}`;
 }
 
+function clip(value: string, max: number): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+/** The line is spoken. The picture is never used as narration. */
+export function spokenLine(shot: FilmShot): string {
+  return shot.line.replace(/\s+/g, " ").trim();
+}
+
+/** Picture, the applied prompt, and the action. The line stays out of this text. */
+export function motionPrompt(shot: FilmShot): string {
+  const picture = shot.promptZh?.trim() || shot.picture.trim() || shot.action.trim() || "起始画面";
+  const extra = [shot.action.trim(), shot.performance.trim()].filter(
+    (item) => item && item !== picture,
+  );
+  return [picture, ...extra].join("。");
+}
+
+export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
+  const names = shot.characters.filter((name) => name && name !== "人物" && name !== "空镜");
+  const speaker = film.characters.find((item) => names.includes(item.name) && item.voiceId);
+  if (speaker?.voiceId) return speaker.voiceId;
+  if (film.narrationVoiceId) return film.narrationVoiceId;
+  return film.characters.find((item) => item.voiceId)?.voiceId || "eve";
+}
+
+export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
+  const paths: string[] = [];
+  const missing: string[] = [];
+  for (const shot of film.shots) {
+    const chosen = shot.selectedTakeId
+      ? shot.takes.find(
+          (take) => take.id === shot.selectedTakeId && take.status === "done" && take.videoPath,
+        )
+      : shot.takes.find((take) => take.status === "done" && take.videoPath);
+    if (chosen?.videoPath) paths.push(chosen.videoPath);
+    else missing.push(`镜头 ${shot.no}`);
+  }
+  return { paths, missing };
+}
+
+export function confirmEstimate(shots: { seconds: number }[], versions: number): string {
+  const copies = Math.max(1, versions);
+  const count = shots.length * copies;
+  const duration = Math.round(
+    shots.reduce((sum, item) => sum + Math.max(0, item.seconds), 0) * copies,
+  );
+  return `将生成 ${count} 个视频 · 约 ${duration} 秒 · 记在 Grok 会员额度里`;
+}
+
 function oneShot(shot: FilmShot, film: FilmProject) {
-  const narration = (shot.line || shot.picture || "这一镜")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-  const picture = (shot.picture || shot.action || "起始画面").replace(/\s+/g, " ").trim();
+  const line = spokenLine(shot);
   return {
-    narration: narration || "这一镜",
-    prompt: picture.slice(0, 400),
-    subtitle: shot.line.trim().slice(0, 28),
+    narration: line || "。",
+    prompt: clip(motionPrompt(shot), 2000),
+    subtitle: line.slice(0, 500),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
     size: shot.size.slice(0, 20),
     angle: (shot.angle || "平视").slice(0, 20),
     move: (shot.move || "固定").slice(0, 20),
-    action: shot.action.replace(/\s+/g, " ").trim().slice(0, 80),
-    performance: shot.performance.replace(/\s+/g, " ").trim().slice(0, 80),
+    action: clip(shot.action, 1000),
+    performance: clip(shot.performance, 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
+    voice_id: shotVoiceId(shot, film).slice(0, 64),
   };
 }
 
@@ -600,7 +648,7 @@ export function storyFilmBatches(
       subtitle: film.title.slice(0, 28),
       provider: "grok_subscription",
       confirmed: true,
-      voice_id: film.characters[0]?.voiceId || "eve",
+      voice_id: film.narrationVoiceId || film.characters[0]?.voiceId || "eve",
       style_block: (slice.length === 1 ? slice[0]?.styleNote?.trim() || film.styleZh : film.styleZh)
         .trim()
         .slice(0, 400),

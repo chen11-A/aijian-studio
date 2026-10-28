@@ -974,7 +974,13 @@ export interface AijianDesktopBridge
   deleteFilmProject?: (id: string) => Promise<{ ok: boolean }>;
   renameFilmSeries?: (seriesId: string, title: string) => Promise<{ ok: boolean }>;
   readFilmMedia?: (path: string) => Promise<Uint8Array>;
-  assembleFilm?: (seriesId: string, sources: string[]) => Promise<{ path: string; reason: string }>;
+  assembleFilm?: (
+    seriesId: string,
+    sources: string[],
+    musicPath?: string,
+    duck?: boolean,
+  ) => Promise<{ path: string; reason: string }>;
+  importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
   generateFilmStill?: (
     seriesId: string,
     prompt: string,

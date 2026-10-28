@@ -3,7 +3,9 @@ import { basename, join, resolve } from "node:path";
 import {
   assemblyPath,
   deleteProject,
+  importMusicFile,
   joinClips,
+  mixMusic,
   listEpisodes,
   listSeries,
   readMedia,
@@ -109,7 +111,11 @@ export function registerFilmLibraryHandlers<TEvent>(
 
   handle("film:assemble", async (event, ...args) => {
     guard(event);
-    if (args.length !== 2 || typeof args[0] !== "string" || !Array.isArray(args[1])) {
+    if (
+      (args.length !== 2 && args.length !== 4) ||
+      typeof args[0] !== "string" ||
+      !Array.isArray(args[1])
+    ) {
       throw new Error("Invalid film");
     }
     if (!idPattern.test(args[0])) throw new Error("Invalid film");
@@ -121,7 +127,28 @@ export function registerFilmLibraryHandlers<TEvent>(
     if (sources.some((source) => !source.toLowerCase().endsWith(".mp4"))) {
       throw new Error("Invalid film path");
     }
-    return joinClips(sources, assemblyPath(host.filmsRoot(), args[0]), host.runFfmpeg);
+    const joined = await joinClips(
+      sources,
+      assemblyPath(host.filmsRoot(), args[0]),
+      host.runFfmpeg,
+    );
+    const music = typeof args[2] === "string" ? args[2] : "";
+    if (!music) return joined;
+    const track = trustedMediaPath(roots, music);
+    try {
+      return await mixMusic(joined.path, track, host.runFfmpeg, args[3] === true);
+    } catch {
+      return { path: joined.path, reason: "视频已接上。配乐没有混进去。" };
+    }
+  });
+
+  handle("film:import-music", async (event, ...args) => {
+    guard(event);
+    if (args.length !== 2 || typeof args[0] !== "string" || typeof args[1] !== "string") {
+      throw new Error("Invalid film");
+    }
+    if (!idPattern.test(args[0])) throw new Error("Invalid film");
+    return { path: await importMusicFile(host.filmsRoot(), args[0], args[1]) };
   });
 
   handle("film:still", async (event, ...args) => {

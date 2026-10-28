@@ -10283,6 +10283,11 @@ export interface components {
              * @default
              */
             subtitle: string;
+            /**
+             * Voice Id
+             * @default
+             */
+            voice_id: string;
         };
         /** StorySourceScopeV1 */
         StorySourceScopeV1: {

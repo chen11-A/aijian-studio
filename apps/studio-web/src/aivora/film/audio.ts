@@ -36,6 +36,7 @@ export type AudioClip = {
   durationSeconds: number;
   offsetSeconds: number;
   gainDb: number;
+  path?: string;
 };
 
 export type ShotSoundSource = "native" | "dub";
@@ -124,6 +125,9 @@ export function normalizeAudioClips(value: unknown): AudioClip[] {
           typeof row.gainDb === "number" && Number.isFinite(row.gainDb)
             ? row.gainDb
             : AUDIO_LANE_GAIN_DB[lane],
+        ...(typeof row.path === "string" && row.path && !row.path.startsWith("data:")
+          ? { path: row.path }
+          : {}),
       },
     ];
   });

@@ -25,6 +25,7 @@ import { registerGrokHandlers } from "./grok-auth-ipc";
 import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerFilmLibraryHandlers } from "./film-library-ipc";
+import { bundledFfmpeg } from "./film-library";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -788,7 +789,14 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
     runFfmpeg: (args) =>
       new Promise((resolve, reject) => {
-        const child = spawn("ffmpeg", args, { stdio: "ignore" });
+        let bin: string;
+        try {
+          bin = bundledFfmpeg(process.resourcesPath ?? "", process.platform);
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error("没有找到安装包里的 ffmpeg。"));
+          return;
+        }
+        const child = spawn(bin, args, { stdio: "ignore" });
         child.on("error", reject);
         child.on("close", (code) => {
           if (code === 0) resolve();
@@ -804,9 +812,12 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     },
     pickDirectory: async () => {
       if (mainWindow === null) return null;
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
       const selected = await dialog.showOpenDialog(mainWindow, {
         title: "选择导出文件夹",
-        properties: ["openDirectory"],
+        defaultPath: videos,
+        properties: ["openDirectory", "createDirectory"],
         buttonLabel: "选择文件夹",
       });
       return selected.canceled ? null : (selected.filePaths[0] ?? null);

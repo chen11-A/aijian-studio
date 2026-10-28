@@ -67,7 +67,10 @@ describe("film library", () => {
       listFilmEpisodes: vi.fn(async () => []),
     } as unknown as Window["aijian"];
     expect(await listFilms()).toHaveLength(1);
-    expect(await readSaved(film.id)).toBe(film);
+    const loaded = await readSaved(film.id);
+    expect(loaded?.id).toBe(film.id);
+    expect(loaded?.shots).toHaveLength(film.shots.length);
+    expect(loaded?.audioClips).toEqual(film.audioClips);
     await removeFilm(film.id);
     await renameFilm(film.seriesId, "新名");
     expect(window.aijian?.deleteFilmProject).toHaveBeenCalledWith(film.id);

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 
 export const IMAGE_MODEL = "grok-imagine-image-2.0";
@@ -74,14 +75,36 @@ async function writeIndex(root: string, series: SeriesEntry[]): Promise<void> {
   await writeFile(join(root, "index.json"), JSON.stringify({ series }));
 }
 
+function stripEmbedded(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (value.startsWith("data:") || value.startsWith("blob:")) return "";
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((item) => stripEmbedded(item));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = stripEmbedded(item);
+    }
+    return out;
+  }
+  return value;
+}
+
 function asFilm(value: unknown): FilmRecord {
   if (typeof value !== "object" || value === null) throw new Error("Invalid film");
-  const film = value as FilmRecord;
+  const film = stripEmbedded(value) as FilmRecord;
   assertId(film.id);
   assertId(film.seriesId);
   const raw = JSON.stringify(film);
-  if (raw.length > 2_000_000) throw new Error("Invalid film");
+  if (raw.length > 8_000_000) throw new Error("作品太大，没法保存。");
   return film;
+}
+
+async function writeAtomic(path: string, body: string): Promise<void> {
+  const temp = `${path}.${process.pid}.tmp`;
+  await writeFile(temp, body);
+  await rename(temp, path);
 }
 
 function withoutSessionUrls(film: FilmRecord): FilmRecord {
@@ -177,8 +200,8 @@ export async function writeProject(root: string, value: unknown): Promise<FilmRe
   const directory = seriesDir(root, film.seriesId);
   const stored: FilmRecord = { ...film, savedAt, directory };
   await mkdir(dirname(episodePath(root, film.seriesId, film.id)), { recursive: true });
-  await writeFile(episodePath(root, film.seriesId, film.id), JSON.stringify(stored));
-  await writeFile(
+  await writeAtomic(episodePath(root, film.seriesId, film.id), JSON.stringify(stored));
+  await writeAtomic(
     join(directory, "series.json"),
     JSON.stringify({ id: film.seriesId, title: film.seriesTitle || film.title || "未命名作品" }),
   );
@@ -285,11 +308,83 @@ export async function joinClips(
     await run(["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", destination]);
     return { path: destination, reason: "" };
   } catch {
-    await copyFile(sources[0]!, destination);
-    return { path: destination, reason: "多镜头还没接成一条，先播放这一镜。" };
+    await rm(destination, { force: true });
+    throw new Error("多镜头没有接上，没有导出。");
   } finally {
     await rm(list, { force: true });
   }
+}
+
+export function bundledFfmpeg(resourcesPath: string, platform: NodeJS.Platform): string {
+  const name = platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  const path = join(resourcesPath, "media", name);
+  if (!resourcesPath || !existsSync(path)) throw new Error("没有找到安装包里的 ffmpeg。");
+  return path;
+}
+
+export function musicMixArgs(
+  video: string,
+  music: string,
+  destination: string,
+  duck: boolean,
+): string[] {
+  const volume = duck ? "0.2" : "0.45";
+  return [
+    "-y",
+    "-i",
+    video,
+    "-i",
+    music,
+    "-filter_complex",
+    `[1:a]volume=${volume}[bed];[0:a][bed]amix=inputs=2:duration=first:dropout_transition=0[a]`,
+    "-map",
+    "0:v",
+    "-map",
+    "[a]",
+    "-c:v",
+    "copy",
+    destination,
+  ];
+}
+
+export async function mixMusic(
+  video: string,
+  music: string,
+  run: (args: string[]) => Promise<void>,
+  duck: boolean,
+): Promise<{ path: string; reason: string }> {
+  const mixed = `${video}.mix.mp4`;
+  await run(musicMixArgs(video, music, mixed, duck));
+  await copyFile(mixed, video);
+  await rm(mixed, { force: true });
+  return { path: video, reason: "" };
+}
+
+export async function importMusicFile(
+  root: string,
+  seriesId: string,
+  source: string,
+): Promise<string> {
+  assertId(seriesId);
+  if (!source || source.includes("\0") || source.split(/[/\\]/).includes("..")) {
+    throw new Error("Invalid film path");
+  }
+  const ext = extname(source).toLowerCase();
+  if (!new Set([".mp3", ".wav"]).has(ext)) throw new Error("Invalid film path");
+  let target: string;
+  try {
+    target = realpathSync(resolve(source));
+  } catch {
+    throw new Error("Invalid film path");
+  }
+  const bytes = await readFile(target);
+  if (bytes.byteLength <= 0 || bytes.byteLength > maxMediaBytes)
+    throw new Error("Film media is too large");
+  const directory = join(seriesDir(root, seriesId), "music");
+  await mkdir(directory, { recursive: true });
+  const destination = join(directory, `bed${ext}`);
+  await writeFile(destination, bytes);
+  return destination;
 }
 
 export function assemblyPath(root: string, seriesId: string): string {

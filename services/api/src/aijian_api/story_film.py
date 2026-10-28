@@ -112,6 +112,7 @@ class StoryShot:
     action: str = ""
     performance: str = ""
     identity: str = ""
+    voice_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -595,6 +596,7 @@ class StoryFilmService:
                     narration=shot.narration,
                     subtitle=shot.subtitle or None,
                     visual_prompt=still,
+                    voice_id=shot.voice_id or request.voice_id,
                     regenerate=request.regenerate or shot.regenerate,
                     shots=(),
                 )
@@ -780,22 +782,26 @@ class StoryFilmService:
         )
         self._ensure_running(project_id)
         mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
-        try:
-            speech = client.synthesize(
-                text=request.narration,
-                voice_id=request.voice_id or "eve",
-                language="zh",
-            )
-        except XaiMediaError as error:
-            if clip is None:
+        spoken = _spoken_line(request.narration)
+        if not spoken:
+            speech = _silent_wav()
+        else:
+            try:
+                speech = client.synthesize(
+                    text=spoken,
+                    voice_id=request.voice_id or "eve",
+                    language="zh",
+                )
+            except XaiMediaError as error:
+                if clip is None:
+                    raise StoryFilmError(
+                        "MEDIA_INCOMPLETE",
+                        "画面已生成，视频和配音这一步没有成功，可以重试",
+                    ) from error
                 raise StoryFilmError(
-                    "MEDIA_INCOMPLETE",
-                    "画面已生成，视频和配音这一步没有成功，可以重试",
+                    "SPEECH_FAILED",
+                    "画面已生成，配音这一步没有成功，可以重试",
                 ) from error
-            raise StoryFilmError(
-                "SPEECH_FAILED",
-                "画面已生成，配音这一步没有成功，可以重试",
-            ) from error
         real_clip = clip is not None
         if clip is None:
             if not image.data:
@@ -938,7 +944,10 @@ class StoryFilmService:
         try:
             submitted = client.submit_video(
                 prompt=_styled(
-                    video_prompt(request.narration or request.visual_prompt),
+                    video_prompt(
+                        request.visual_prompt or request.scene_label,
+                        line=_spoken_line(request.narration),
+                    ),
                     request.style_block,
                 ),
                 image=image,
@@ -1468,6 +1477,37 @@ def _primary_video(streams: list[object]) -> tuple[int, int, int]:
     if chosen is None:
         raise StoryFilmError("PROBE_FAILED", "没有读到可以合成的画面。", ffmpeg_stage="probe_video")
     return chosen[1], chosen[2], chosen[3]
+
+
+def _spoken_line(text: str) -> str:
+    """A picture description is not a line. A lone period means this shot is silent."""
+
+    cleaned = text.strip()
+    if cleaned in {"", "。", "（无台词）"}:
+        return ""
+    return cleaned
+
+
+def _silent_wav(seconds: float = 0.2) -> bytes:
+    rate = 16_000
+    frames = max(1, int(rate * seconds))
+    data = b"\x00\x00" * frames
+    header = (
+        b"RIFF"
+        + (36 + len(data)).to_bytes(4, "little")
+        + b"WAVEfmt "
+        + (16).to_bytes(4, "little")
+        + (1).to_bytes(2, "little")
+        + (1).to_bytes(2, "little")
+        + rate.to_bytes(4, "little")
+        + (rate * 2).to_bytes(4, "little")
+        + (2).to_bytes(2, "little")
+        + (16).to_bytes(2, "little")
+        + b"data"
+        + len(data).to_bytes(4, "little")
+        + data
+    )
+    return header
 
 
 def _audio_suffix(header: bytes) -> str:

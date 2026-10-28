@@ -58,25 +58,26 @@ class StoryFilmPlanResponse(BaseModel):
 class StoryShotBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    narration: str = Field(min_length=1, max_length=80)
-    prompt: str = Field(min_length=1, max_length=400)
-    subtitle: str = Field(default="", max_length=57)
+    narration: str = Field(min_length=1, max_length=2000)
+    prompt: str = Field(min_length=1, max_length=2000)
+    subtitle: str = Field(default="", max_length=500)
     duration_seconds: int = Field(default=5, ge=1, le=15)
     regenerate: bool = False
     size: str = Field(default="", max_length=20)
     angle: str = Field(default="", max_length=20)
     move: str = Field(default="", max_length=20)
-    action: str = Field(default="", max_length=80)
-    performance: str = Field(default="", max_length=80)
+    action: str = Field(default="", max_length=1000)
+    performance: str = Field(default="", max_length=1000)
     identity: str = Field(default="", max_length=200)
+    voice_id: str = Field(default="", max_length=64)
 
 
 class CreateStoryFilmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     scene_label: str = Field(min_length=1, max_length=80)
-    narration: str = Field(min_length=1, max_length=200)
-    subtitle: str | None = Field(default=None, max_length=57)
+    narration: str = Field(min_length=1, max_length=2000)
+    subtitle: str | None = Field(default=None, max_length=500)
     provider: Literal["stub", "grok_subscription", "xai_api_key", "chatgpt"] = "stub"
     confirmed: bool = False
     image_model: str = Field(default=IMAGE_MODEL, min_length=1, max_length=200)
@@ -293,6 +294,7 @@ def create_story_film_router(
                         action=shot.action.strip(),
                         performance=shot.performance.strip(),
                         identity=shot.identity.strip(),
+                        voice_id=shot.voice_id.strip(),
                     )
                     for shot in payload.shots
                 ),

@@ -32,7 +32,8 @@ class NsisCoreTests(unittest.TestCase):
                 app, root / "syntax-only.exe", HERE / "installer.dev-core.nsh"
             )
             self.assertEqual(len(files), 2)
-            self.assertIn("RequestExecutionLevel highest", script)
+            self.assertIn("RequestExecutionLevel user", script)
+            self.assertIn("aivora.ico", script)
             self.assertIn("SetCompressor /FINAL zlib", script)
             self.assertIn('!insertmacro MUI_LANGUAGE "SimpChinese"', script)
             self.assertIn("!insertmacro MUI_PAGE_DIRECTORY", script)

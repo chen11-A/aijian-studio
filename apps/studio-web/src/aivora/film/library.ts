@@ -1,4 +1,4 @@
-import { FILM_KEY, readFilm, type FilmProject } from "./project";
+import { FILM_KEY, readFilm, upgradeFilm, type FilmProject } from "./project";
 
 export const BROWSER_DIRECTORY = "浏览器里，还没写到应用数据目录";
 const INDEX_KEY = "aivora.film.index";
@@ -131,7 +131,10 @@ export async function readSaved(
   storage: Storage = window.localStorage,
 ): Promise<FilmProject | null> {
   const desktop = bridge();
-  if (desktop?.readFilmProject) return desktop.readFilmProject(id);
+  if (desktop?.readFilmProject) {
+    const stored = await desktop.readFilmProject(id);
+    return stored ? upgradeFilm(stored) : null;
+  }
   migrateLegacy(storage);
   const direct = readBody(storage, id);
   if (direct) return direct;

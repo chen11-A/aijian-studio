@@ -4240,7 +4240,7 @@
             "type": "string"
           },
           "narration": {
-            "maxLength": 200,
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Narration",
             "type": "string"
@@ -4291,7 +4291,7 @@
           "subtitle": {
             "anyOf": [
               {
-                "maxLength": 57,
+                "maxLength": 500,
                 "type": "string"
               },
               {
@@ -23625,7 +23625,7 @@
         "properties": {
           "action": {
             "default": "",
-            "maxLength": 80,
+            "maxLength": 1000,
             "title": "Action",
             "type": "string"
           },
@@ -23655,19 +23655,19 @@
             "type": "string"
           },
           "narration": {
-            "maxLength": 80,
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Narration",
             "type": "string"
           },
           "performance": {
             "default": "",
-            "maxLength": 80,
+            "maxLength": 1000,
             "title": "Performance",
             "type": "string"
           },
           "prompt": {
-            "maxLength": 400,
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Prompt",
             "type": "string"
@@ -23685,8 +23685,14 @@
           },
           "subtitle": {
             "default": "",
-            "maxLength": 57,
+            "maxLength": 500,
             "title": "Subtitle",
+            "type": "string"
+          },
+          "voice_id": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Voice Id",
             "type": "string"
           }
         },

@@ -1,11 +1,15 @@
-import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   deleteProject,
+  bundledFfmpeg,
+  importMusicFile,
   joinClips,
+  mixMusic,
+  musicMixArgs,
   listEpisodes,
   listSeries,
   readProject,
@@ -63,7 +67,7 @@ describe("film library", () => {
     expect((await listSeries(root))[0]?.title).toBe("新名字");
   });
 
-  it("copies the first clip when ffmpeg cannot join them", async () => {
+  it("refuses to export the first shot when ffmpeg cannot join them", async () => {
     const root = mkdtempSync(join(tmpdir(), "aivora-films-"));
     const a = join(root, "a.mp4");
     const b = join(root, "b.mp4");
@@ -73,9 +77,55 @@ describe("film library", () => {
     const run = vi.fn(async () => {
       throw new Error("ffmpeg failed");
     });
+    await expect(joinClips([a, b], destination, run)).rejects.toThrow("没有导出");
+  });
+
+  it("joins every chosen shot and ducks imported music under dialogue", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aivora-films-"));
+    const a = join(root, "a.mp4");
+    const b = join(root, "b.mp4");
+    const music = join(root, "bed.mp3");
+    writeFileSync(a, Buffer.from("shot-a"));
+    writeFileSync(b, Buffer.from("shot-b"));
+    writeFileSync(music, Buffer.from("music"));
+    const destination = join(root, "out", "rough-cut.mp4");
+    const seen: string[][] = [];
+    let listBody = "";
+    const run = vi.fn(async (args: string[]) => {
+      seen.push(args);
+      const list = args.find((item) => item.endsWith(".txt"));
+      if (list) listBody = readFileSync(list, "utf8");
+      if (args.includes(destination)) writeFileSync(destination, Buffer.from("joined"));
+      const mixed = args.at(-1);
+      if (mixed && mixed.endsWith(".mix.mp4")) writeFileSync(mixed, Buffer.from("mixed-audio"));
+    });
     const joined = await joinClips([a, b], destination, run);
-    expect(joined.reason).toBe("多镜头还没接成一条，先播放这一镜。");
-    expect(await readFile(joined.path, "utf8")).toBe("first-clip");
+    expect(await readFile(joined.path, "utf8")).toBe("joined");
+    expect(listBody).toContain(a);
+    expect(listBody).toContain(b);
+    expect(seen[0]?.join(" ")).toContain("concat");
+    expect(musicMixArgs(destination, music, `${destination}.mix.mp4`, true).join(" ")).toContain(
+      "volume=0.2",
+    );
+    expect(musicMixArgs(destination, music, `${destination}.mix.mp4`, true).join(" ")).toContain(
+      music,
+    );
+    const mixed = await mixMusic(destination, music, run, true);
+    expect(mixed.path).toBe(destination);
+    expect(await readFile(destination, "utf8")).toBe("mixed-audio");
+    expect(listBody).toContain(b);
+  });
+
+  it("keeps a project that used to embed pictures", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aivora-films-"));
+    const huge = `data:image/png;base64,${"a".repeat(50_000)}`;
+    const stored = await writeProject(root, {
+      ...film(first, series, 1),
+      shots: [{ id: "shot-1", poster: huge, takes: [] }],
+    });
+    const raw = await readFile(join(root, series, "episodes", first, "project.json"), "utf8");
+    expect(raw.includes("data:image")).toBe(false);
+    expect(stored.id).toBe(first);
   });
 
   it("refuses a still when there is no login and never invents one", async () => {
@@ -117,5 +167,19 @@ describe("film library", () => {
     expect(safeExportName("巷口重逢:第1集?.mp4")).toBe("巷口重逢第1集.mp4");
     expect(safeExportName(`巷口${String.fromCharCode(0)}重逢.mp4`)).toBe("巷口重逢.mp4");
     expect(safeExportName("")).toBe("aivora-film.mp4");
+  });
+
+  it("copies an imported song into the series and only uses the bundled ffmpeg", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aivora-films-"));
+    const source = join(root, "song.mp3");
+    writeFileSync(source, Buffer.from("song"));
+    const copied = await importMusicFile(root, series, source);
+    expect(await readFile(copied, "utf8")).toBe("song");
+    const resources = mkdtempSync(join(tmpdir(), "aivora-resources-"));
+    expect(() => bundledFfmpeg(resources, "win32")).toThrow("没有找到安装包里的 ffmpeg");
+    const bin = join(resources, "media");
+    await mkdir(bin, { recursive: true });
+    writeFileSync(join(bin, "ffmpeg.exe"), Buffer.from("ffmpeg"));
+    expect(bundledFfmpeg(resources, "win32")).toBe(join(bin, "ffmpeg.exe"));
   });
 });

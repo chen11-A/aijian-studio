@@ -15,6 +15,7 @@ export type StoryFilmShotInput = {
   action?: string;
   performance?: string;
   identity?: string;
+  voice_id?: string;
 };
 
 export type StoryFilmCreateInput = {
@@ -163,12 +164,12 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
   if (typeof scene !== "string" || scene.trim().length < 1 || scene.length > 80) {
     throw new Error("Invalid story film request");
   }
-  if (typeof narration !== "string" || narration.trim().length < 1 || narration.length > 200) {
+  if (typeof narration !== "string" || narration.trim().length < 1 || narration.length > 2000) {
     throw new Error("Invalid story film request");
   }
   if (
     body.subtitle !== undefined &&
-    (typeof body.subtitle !== "string" || body.subtitle.length > 57)
+    (typeof body.subtitle !== "string" || body.subtitle.length > 500)
   ) {
     throw new Error("Invalid story film request");
   }
@@ -240,6 +241,7 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       "action",
       "performance",
       "identity",
+      "voice_id",
     ];
     if (Object.keys(shot).some((key) => !allowed.includes(key))) {
       throw new Error("Invalid story film request");
@@ -247,15 +249,15 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     const narration = shot.narration;
     const prompt = shot.prompt;
     const duration = shot.duration_seconds;
-    if (typeof narration !== "string" || narration.trim().length < 1 || narration.length > 80) {
+    if (typeof narration !== "string" || narration.trim().length < 1 || narration.length > 2000) {
       throw new Error("Invalid story film request");
     }
-    if (typeof prompt !== "string" || prompt.trim().length < 1 || prompt.length > 400) {
+    if (typeof prompt !== "string" || prompt.trim().length < 1 || prompt.length > 2000) {
       throw new Error("Invalid story film request");
     }
     if (
       shot.subtitle !== undefined &&
-      (typeof shot.subtitle !== "string" || shot.subtitle.length > 57)
+      (typeof shot.subtitle !== "string" || shot.subtitle.length > 500)
     ) {
       throw new Error("Invalid story film request");
     }
@@ -273,9 +275,10 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     const size = optionalText(shot, "size", 20);
     const angle = optionalText(shot, "angle", 20);
     const move = optionalText(shot, "move", 20);
-    const action = optionalText(shot, "action", 80);
-    const performance = optionalText(shot, "performance", 80);
+    const action = optionalText(shot, "action", 1000);
+    const performance = optionalText(shot, "performance", 1000);
     const identity = optionalText(shot, "identity", 200);
+    const voice = optionalText(shot, "voice_id", 64);
     return {
       narration: narration.trim(),
       prompt: prompt.trim(),
@@ -290,6 +293,7 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       ...(action ? { action } : {}),
       ...(performance ? { performance } : {}),
       ...(identity ? { identity } : {}),
+      ...(voice ? { voice_id: voice } : {}),
     };
   });
 }

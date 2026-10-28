@@ -26,6 +26,11 @@ import {
   PREVIEW_REASON,
   removeShot,
   splitNovel,
+  chosenExport,
+  confirmEstimate,
+  motionPrompt,
+  shotVoiceId,
+  spokenLine,
   storyFilmBatches,
   subtitleCues,
   VOICES,
@@ -267,6 +272,63 @@ describe("film operations", () => {
     expect(refused.text).toBe("");
     const broken = await extractBookText("故事.docx", encoder.encode("not a zip"));
     expect(broken.note).toContain("txt");
+  });
+
+  it("speaks the line in that character's voice and exports the chosen takes", () => {
+    const film = sampleFilm();
+    const shot = film.shots[0]!;
+    shot.picture = "雨夜里的巷口，一个人站住。";
+    shot.line = "雨太大。我听不清。";
+    shot.promptZh = "冷色，湿地面反光。";
+    shot.characters = [film.characters[0]!.name];
+    film.characters[0]!.voiceId = "rex";
+    film.narrationVoiceId = "eve";
+    expect(spokenLine(shot)).toBe("雨太大。我听不清。");
+    expect(motionPrompt(shot)).toContain("冷色，湿地面反光");
+    expect(motionPrompt(shot)).not.toContain("雨太大");
+    expect(shotVoiceId(shot, film)).toBe("rex");
+    const silent = { ...shot, line: "", characters: [] };
+    expect(spokenLine(silent)).toBe("");
+    expect(shotVoiceId(silent, film)).toBe("eve");
+    const batch = storyFilmBatches(film, [shot], false)[0]!;
+    expect(batch.shots[0]?.narration).toBe("雨太大。我听不清。");
+    expect(batch.shots[0]?.prompt).toContain("冷色");
+    expect(batch.shots[0]?.prompt).not.toBe(batch.shots[0]?.narration);
+    expect(batch.shots[0]?.voice_id).toBe("rex");
+    expect(batch.shots[0]?.subtitle).toBe("雨太大。我听不清。");
+    shot.takes = [
+      {
+        id: "take-old",
+        shotId: shot.id,
+        index: 1,
+        status: "done",
+        reason: "",
+        videoPath: "/films/old.mp4",
+        videoUrl: "",
+        stillUrl: "",
+        prompt: "",
+        createdAt: "",
+      },
+      {
+        id: "take-new",
+        shotId: shot.id,
+        index: 2,
+        status: "done",
+        reason: "",
+        videoPath: "/films/new.mp4",
+        videoUrl: "",
+        stillUrl: "",
+        prompt: "",
+        createdAt: "",
+      },
+    ];
+    shot.selectedTakeId = "take-new";
+    film.shots[1]!.takes = [];
+    const plan = chosenExport(film);
+    expect(plan.paths).toEqual(["/films/new.mp4"]);
+    expect(plan.missing.join(" ")).toContain("镜头");
+    const eight = Array.from({ length: 8 }, (_, index) => ({ seconds: 3 }));
+    expect(confirmEstimate(eight, 1)).toBe("将生成 8 个视频 · 约 24 秒 · 记在 Grok 会员额度里");
   });
 
   it("describes every voice in plain words", () => {

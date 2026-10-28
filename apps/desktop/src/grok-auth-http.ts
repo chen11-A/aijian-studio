@@ -431,6 +431,7 @@ async function postText(
       "user-agent": USER_AGENT,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(90_000),
   });
   const bytes = Buffer.from(await response.arrayBuffer());
   const raw = bytes.subarray(0, 800).toString("utf8");
@@ -548,6 +549,10 @@ export async function completeGrokText(
     { endpoint: "responses", httpStatus: responses.status, body: responses.raw },
   ];
   if (responses.status === 401) throw new GrokTextFailure("REAUTH_REQUIRED", attempts);
+  if (responses.status === 403) throw new GrokTextFailure("ENTITLEMENT_DENIED", attempts);
+  const unsupported =
+    responses.status === 400 || responses.status === 404 || responses.status === 422;
+  if (!unsupported) throw new GrokTextFailure("TEXT_FAILED", attempts);
   const chat = await postText(fetch, `${api}/chat/completions`, input.accessToken, {
     model: input.model,
     messages: [{ role: "user", content: input.text }],

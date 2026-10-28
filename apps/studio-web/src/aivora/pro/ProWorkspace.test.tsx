@@ -101,8 +101,6 @@ describe("professional workspace", () => {
         .getAllByRole("button", { name: /剪辑/ })
         .find((item) => item.className.includes("tab"))!,
     );
-    fireEvent.click(screen.getByRole("button", { name: "分割" }));
-    expect(screen.getByText("分割还没接上。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
     fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
     expect(screen.getByText(/网页里不能写成片/)).toBeInTheDocument();
@@ -184,7 +182,6 @@ describe("professional workspace", () => {
     expect(screen.getByText(/还没有读到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.click(stageTab("剪辑"));
-    fireEvent.click(screen.getByRole("button", { name: "分割" }));
     fireEvent.click(screen.getByRole("button", { name: "上一个" }));
     fireEvent.click(screen.getByRole("button", { name: "下一个" }));
     fireEvent.click(screen.getByRole("button", { name: "播放" }));
@@ -196,7 +193,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "延长" }));
     fireEvent.click(screen.getByRole("button", { name: "换配音" }));
     fireEvent.click(screen.getByRole("button", { name: "用新版替换" }));
-    expect(screen.getByText(/已用新版替换/)).toBeInTheDocument();
+    expect(screen.getByText(/还没有可以替换的新版本|已用新版替换/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "设入点" }));
     fireEvent.click(screen.getByRole("button", { name: "保留旧版" }));
     expect(screen.getByText(/保留旧版/)).toBeInTheDocument();
@@ -213,12 +210,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.click(screen.getByRole("button", { name: /需要重新登录|Grok 会员/ }));
     fireEvent.click(screen.getByRole("button", { name: "账号" }));
-    fireEvent.click(screen.getByRole("button", { name: "设置" }));
-    expect(screen.getByText(/设置页还没接上/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "账号" }));
-    fireEvent.click(screen.getByRole("button", { name: "用量" }));
-    expect(screen.getByText(/用量页还没接上/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "账号" }));
+    expect(screen.queryByRole("button", { name: "设置" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
     expect(screen.getByText("已退出登录。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
@@ -231,7 +223,7 @@ describe("professional workspace", () => {
     expect(screen.getByText(/作品保存在/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "作品设置" }));
-    expect(screen.getByText(/设置页还没接上/)).toBeInTheDocument();
+    expect(screen.getByText(/画风在角色与场景/)).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "2" });
     fireEvent.keyDown(window, { key: "i" });
     fireEvent.keyDown(window, { key: "Escape" });
@@ -411,6 +403,7 @@ describe("professional workspace", () => {
     expect(screen.getByText(/已新建作品/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
     expect(await screen.findByText(/已删除这一集/)).toBeInTheDocument();
   }, 20_000);
 
@@ -492,7 +485,7 @@ describe("professional workspace", () => {
       });
       fireEvent.keyDown(screen.getByLabelText("导出文件夹"), { key: "Enter" });
       expect(screen.getByLabelText("导出文件夹")).toHaveValue("/tmp/aivora/typed");
-      expect(await screen.findByText(/还没有可以导出的视频|已导出/)).toBeInTheDocument();
+      expect(await screen.findByText(/还没生成|已导出/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "关闭" }));
       fireEvent.click(screen.getByRole("button", { name: "设入点" }));
       expect(screen.getByText("左右对比")).toBeInTheDocument();
@@ -536,7 +529,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "让导演拆镜头" }));
     expect(await screen.findByText(/没有按格式返回/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
-    expect(await screen.findByText(/还没有认出人物和场景/)).toBeInTheDocument();
+    expect(await screen.findByText(/还没有可放入的镜头/)).toBeInTheDocument();
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("抽出人物")) {
         return {
@@ -595,7 +588,7 @@ describe("professional workspace", () => {
       text: "",
     });
     expect(await screen.findByText(/文本接口返回 404/)).toBeInTheDocument();
-    expect(screen.getByText(/已用离线拆镜/)).toBeInTheDocument();
+    expect(screen.getByText(/没有写入镜头/)).toBeInTheDocument();
 
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("一句外貌")) {
@@ -1002,7 +995,7 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
     0,
   );
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
-  expect(await screen.findByText(/已用离线拆镜，停在分镜/)).toBeInTheDocument();
+  expect(await screen.findByText(/没有写入离线/)).toBeInTheDocument();
   mode = "play";
   const RealAudio = window.Audio;
   class SilentAudio {
@@ -1020,6 +1013,8 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   URL.createObjectURL = () => "blob:phase2";
   try {
     fireEvent.click(stageTab("角色与场景"));
+    const sound = screen.getByRole("button", { name: /声音开|声音关/ });
+    if (sound.textContent?.includes("声音关")) fireEvent.click(sound);
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
     expect(await screen.findByText(/没有播出来/)).toBeInTheDocument();
   } finally {
@@ -1158,9 +1153,11 @@ it("keeps a separate review card and confirms the shots before video", async () 
   expect(await screen.findByText(/已打开/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "作品" }));
   fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
   expect(await screen.findByText(/已删除这一集/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "作品" }));
   fireEvent.click(screen.getByRole("button", { name: "删除这部作品" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
   expect(await screen.findByText(/已删除这部作品|已删除这一集|还没有作品/)).toBeInTheDocument();
 });
 
@@ -1187,6 +1184,156 @@ function stageTab(name: string) {
   if (!found) throw new Error(`missing tab ${name}`);
   return found;
 }
+
+it("shows Grok sign-in on a clean profile and signs out through the bridge", async () => {
+  window.localStorage.clear();
+  const signIn = vi.fn(async () => ({ kind: "OK" as const }));
+  const signOut = vi.fn(async () => ({ kind: "OK" as const }));
+  window.aijianGrok = {
+    status: vi.fn(async () => ({
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "NOT_CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: null,
+      lastError: null,
+    })),
+    models: vi.fn(async () => ({ kind: "OK", models: [] })),
+    signIn,
+    signOut,
+  } as unknown as Window["aijianGrok"];
+  render(<ProWorkspace />);
+  fireEvent.click(screen.getByRole("button", { name: "用 Grok 会员登录" }));
+  await waitFor(() => expect(signIn).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: "账号" }));
+  fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
+  await waitFor(() => expect(signOut).toHaveBeenCalled());
+  expect(screen.getByText("已退出登录。")).toBeInTheDocument();
+});
+
+it("asks for the selected shot again after the confirm table", async () => {
+  const createStoryFilm = vi.fn(async () => ({
+    data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/redo.mp4" },
+  }));
+  installDesktop(createStoryFilm);
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.click(screen.getAllByRole("button", { name: "未生成" })[0]!);
+  fireEvent.click(screen.getByRole("button", { name: "只重做这一段" }));
+  expect(screen.getByTestId("confirm-table")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  await waitFor(() => expect(createStoryFilm).toHaveBeenCalled());
+  const call = createStoryFilm.mock.calls[0] as unknown as
+    [string, { shots?: { narration?: string; prompt?: string }[] }] | undefined;
+  const body = call?.[1];
+  expect(body?.shots?.[0]?.narration ?? "").not.toContain("新镜头");
+  expect(body?.shots?.[0]?.prompt?.length ?? 0).toBeGreaterThan(0);
+});
+
+it("signs in with ChatGPT, imports music, and exports the finished shot", async () => {
+  const signIn = vi.fn(async () => ({ kind: "ERROR" as const, code: "CANCELLED" }));
+  window.aijianGrok = {
+    status: vi.fn(async () => ({
+      provider: "GROK_LOGIN",
+      runtime: "DESKTOP",
+      state: "NOT_CONNECTED",
+      secureStorage: "AVAILABLE",
+      accountLabel: null,
+      lastError: null,
+    })),
+    models: vi.fn(async () => ({ kind: "OK", models: [] })),
+    signIn,
+    signOut: vi.fn(async () => ({ kind: "OK" })),
+  } as unknown as Window["aijianGrok"];
+  const chatSignIn = vi.fn(async () => ({ kind: "OK" as const }));
+  window.aijianChatGPT = {
+    signIn: chatSignIn,
+    signOut: vi.fn(async () => ({ kind: "OK" })),
+  } as unknown as NonNullable<Window["aijianChatGPT"]>;
+  render(<ProWorkspace />);
+  fireEvent.click(screen.getByRole("button", { name: "用 Grok 会员登录" }));
+  expect(await screen.findByText("登录没有完成。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "用 ChatGPT 会员登录" }));
+  await waitFor(() => expect(chatSignIn).toHaveBeenCalledWith("LOCAL_PERSONAL"));
+  delete window.aijianChatGPT;
+  fireEvent.click(screen.getByRole("button", { name: "用 ChatGPT 会员登录" }));
+  expect(await screen.findByText(/请打开安装好的 AIVORA 再登录/)).toBeInTheDocument();
+  cleanup();
+  delete window.aijianChatGPT;
+
+  const createStoryFilm = vi.fn(async () => ({
+    data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+  }));
+  const desktop = installDesktop(createStoryFilm);
+  const importMusic = vi.fn(async () => ({ path: "/tmp/aivora/films/bed.mp3" }));
+  Object.assign(window.aijian ?? {}, { importMusic });
+  await openSample();
+  fireEvent.click(stageTab("剪辑"));
+  fireEvent.change(screen.getByLabelText("导入音乐"), {
+    target: { files: [new File(["song"], "bed.mp3", { type: "audio/mpeg" })] },
+  });
+  expect(await screen.findByText(/请在桌面版里选择/)).toBeInTheDocument();
+  const music = new File(["song"], "bed.mp3", { type: "audio/mpeg" });
+  Object.defineProperty(music, "path", { value: "/tmp/song.mp3" });
+  fireEvent.change(screen.getByLabelText("导入音乐"), { target: { files: [music] } });
+  expect(await screen.findByText(/已导入音乐/)).toBeInTheDocument();
+  expect(importMusic).toHaveBeenCalledWith(expect.any(String), "/tmp/song.mp3");
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "1" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  expect(await screen.findByText(/可以只导出已生成的/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "只导出已生成的" }));
+  await waitFor(() => expect(desktop.exportFilmCut).toHaveBeenCalled());
+  const exported = (desktop.exportFilmCut.mock.calls as unknown as string[][])[0]?.[0];
+  expect(exported).toBe("/tmp/aivora/shot.mp4");
+  fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+  desktop.assembleFilm.mockImplementation(async () => ({
+    path: "/tmp/aivora/rough.mp4",
+    reason: "视频已接上。配乐没有混进去。",
+  }));
+  fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
+  fireEvent.click(stageTab("剪辑"));
+  expect(await screen.findByText(/配乐没有混进去/)).toBeInTheDocument();
+  let clip = 0;
+  createStoryFilm.mockImplementation(async () => ({
+    data: {
+      status: "SUCCEEDED",
+      message: clip === 0 ? "第二版接上了。" : "第三版空路径。",
+      output_path: `/tmp/aivora/extra-${clip++}.mp4`,
+    },
+  }));
+  desktop.assembleFilm.mockRejectedValueOnce(new Error("ffmpeg"));
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  expect(await screen.findByText("第二版接上了。")).toBeInTheDocument();
+  fireEvent.click(stageTab("剪辑"));
+  expect(await screen.findByText(/没有接上，没有导出/)).toBeInTheDocument();
+  desktop.assembleFilm.mockResolvedValue({ path: "", reason: "" });
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+  expect(await screen.findByText("第三版空路径。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  expect(await screen.findByText("没有导出成功，可以重试。")).toBeInTheDocument();
+}, 20_000);
+
+it("names the shots that are not ready instead of exporting an empty cut", async () => {
+  const desktop = installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  fireEvent.click(screen.getByRole("button", { name: "开始导出" }));
+  expect(await screen.findByText(/还没生成：镜头/)).toBeInTheDocument();
+  expect(desktop.exportFilmCut).not.toHaveBeenCalled();
+});
 
 function installDesktop(createStoryFilm: ReturnType<typeof vi.fn> = vi.fn()) {
   const episode = sampleFilm();
