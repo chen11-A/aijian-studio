@@ -5,6 +5,9 @@ import type {
   AssistantChatScope,
 } from "@aijian/contracts/official-text";
 import { assistantChatReferences, type AssistantSelectionPublication } from "./assistantSelection";
+import { dispatchGrokLoginText } from "./grok-auth/dispatch";
+import { grokBridge } from "./grok-auth/transport";
+import { assistantPrompt, readFilm } from "./film/project";
 
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 type ActivePreview = Extract<AssistantChatPreviewResult, { kind: "READY" }> & {
@@ -18,11 +21,13 @@ export type AssistantChatInputs = {
   modelVerified: boolean;
   publication: AssistantSelectionPublication;
   included: boolean;
+  grokModel?: string | null;
 };
 
 /** A renderer-only conversation. Main owns actual history and the exact outbound preview. */
 export function useAssistantChatConversation(inputs: AssistantChatInputs) {
-  const { bridge, scope, profileId, model, modelVerified, publication, included } = inputs;
+  const { bridge, scope, profileId, model, modelVerified, publication, included, grokModel } =
+    inputs;
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [preview, setPreview] = useState<ActivePreview | null>(null);
@@ -59,8 +64,14 @@ export function useAssistantChatConversation(inputs: AssistantChatInputs) {
   const currentPage = useRef(scope.page);
   currentPage.current = scope.page;
   const previousConversationIdentity = useRef(conversationIdentity);
-  const selectedModelReady = !!bridge && !!profileId && !!model && modelVerified;
-  const blocked = pendingState !== "ready" || pendingIds.length > 0;
+  const chatgptReady = !!bridge && !!profileId && !!model && modelVerified;
+  const grokReady = !!grokModel;
+  const selectedModelReady = chatgptReady || grokReady;
+  const blocked = chatgptReady
+    ? pendingState !== "ready" || pendingIds.length > 0
+    : grokReady
+      ? false
+      : pendingState !== "ready" || pendingIds.length > 0;
   const canPreview =
     selectedModelReady && !blocked && !busy && !!text.trim() && text.length <= 8000;
 
@@ -129,7 +140,42 @@ export function useAssistantChatConversation(inputs: AssistantChatInputs) {
     };
   }, [bridge, profileId, modelVerified, scope.projectId, scope.episodeId, scope.page]);
 
+  async function sendGrok() {
+    if (!grokModel || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setNotice("");
+    const submitted = text.trim();
+    try {
+      const result = await dispatchGrokLoginText(grokBridge(), {
+        model: grokModel,
+        text: assistantPrompt(submitted, readFilm(window.localStorage)),
+        projectId: scope.projectId,
+      });
+      if (!mounted.current) return;
+      if (result.kind === "OK") {
+        setMessages((old) => [
+          ...old,
+          { role: "user", text: submitted },
+          { role: "assistant", text: result.text },
+        ]);
+        setText("");
+        setNotice("已收到 Grok 的回复。作品尚未修改。");
+      } else setNotice(result.message);
+    } catch {
+      if (mounted.current) setNotice("Grok 这次没有返回，可以再试一次。");
+    } finally {
+      busyRef.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+
   async function requestPreview() {
+    if (grokReady && !chatgptReady) {
+      if (!canPreview || busyRef.current) return;
+      await sendGrok();
+      return;
+    }
     if (!canPreview || busyRef.current || !bridge || !profileId) return;
     busyRef.current = true;
     setBusy(true);
@@ -327,6 +373,7 @@ export function useAssistantChatConversation(inputs: AssistantChatInputs) {
     notice,
     canPreview,
     selectedModelReady,
+    sendsDirectly: grokReady && !chatgptReady,
     requestPreview,
     sendPreview,
     inspectPending,

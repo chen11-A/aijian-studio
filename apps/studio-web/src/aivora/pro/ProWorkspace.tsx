@@ -1,0 +1,5710 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  actionBeats,
+  adaptToShortDrama,
+  addShot,
+  applyScenes,
+  clipLayout,
+  clock,
+  continuityPrompt,
+  CONTINUITY_REASON,
+  DESKTOP_REASON,
+  ensureLocations,
+  extractCastOffline,
+  chosenExport,
+  confirmEstimate,
+  exportSummary,
+  filmFileName,
+  mergeCast,
+  parseCastReply,
+  extractBookText,
+  LOUDNESS_NOTE,
+  offlineScreenplay,
+  parseWriterScenes,
+  performanceLine,
+  moveShot,
+  planVideoJobs,
+  portraitPrompts,
+  shotProgress,
+  PREVIEW_REASON,
+  voiceLabel,
+  removeShot,
+  splitNovel,
+  generationEstimate,
+  keyframeVariants,
+  storyFilmBatches,
+  spokenLine,
+  shotVoiceId,
+  subtitleCues,
+  updateShot,
+} from "../film/operations";
+import {
+  activeFilmId,
+  BROWSER_DIRECTORY,
+  filmDiskReady,
+  listEpisodes,
+  listFilms,
+  mediaUrl,
+  readSaved,
+  removeFilm,
+  renameFilm,
+  saveFilm,
+  type EpisodeEntry,
+  type FilmIndexEntry,
+} from "../film/library";
+import {
+  applyShots,
+  agentRequest,
+  blankFilm,
+  keyframePrompt,
+  interruptStaleWork,
+  newEpisode,
+  parseDirectorShots,
+  sampleFilm,
+  offlineShots,
+  textModel,
+  STYLE_PRESETS,
+  type FilmPortrait,
+  type FilmProject,
+  type FilmScene,
+  type FilmShot,
+  type FilmTake,
+} from "../film/project";
+import {
+  actionFromModel,
+  actionSentence,
+  appearanceMark,
+  artFromModel,
+  classifyShotSize,
+  DIFFICULTY_LEGEND,
+  difficultyLabel,
+  durationFromSpeech,
+  FILM_TEMPLATES,
+  gazeHandoff,
+  missingIdentityLocks,
+  parseLooseJson,
+  performanceFromModel,
+  prompterFromModel,
+  qcFromModel,
+  scenesEchoRequest,
+  SHOT_SIZES,
+  shotPerson,
+  speechSeconds,
+  splitSpokenLine,
+  withIdentityLocks,
+} from "../film/phase2";
+import { grokBridge } from "../grok-auth/transport";
+import { useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
+import { videoActions, GENERATE_MODEL, VIDEO_DRAFT_MODEL, type VideoAction } from "./capabilities";
+import { Ic } from "./icons";
+import "./pro.css";
+
+type Stage = "script" | "cast" | "board" | "edit";
+type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
+
+type RoleCard = {
+  title: string;
+  rows: { id: string; mark: string; text: string; tail: string }[];
+  notes: string[];
+  applied: boolean;
+  mode: "scenes" | "shots" | "art" | "qc";
+  scenes?: FilmScene[];
+  shots?: FilmShot[];
+};
+type FixAction = VideoAction;
+
+const STAGES: { id: Stage; label: string }[] = [
+  { id: "script", label: "剧本" },
+  { id: "cast", label: "角色与场景" },
+  { id: "board", label: "分镜" },
+  { id: "edit", label: "剪辑" },
+];
+
+const SIGN_IN_NOTE = "请打开安装好的 AIVORA 再登录。";
+const ROUGH_CUT_REASON = "多镜头没有接上，没有导出。";
+
+function settleNextJob(
+  base: FilmProject,
+  shotId: string,
+  status: "done" | "failed" | "queued",
+): FilmProject {
+  let marked = false;
+  return {
+    ...base,
+    jobs: base.jobs.map((job) => {
+      if (
+        marked ||
+        job.shotId !== shotId ||
+        (job.status !== "running" && job.status !== "queued")
+      ) {
+        return job;
+      }
+      marked = true;
+      return { ...job, status };
+    }),
+  };
+}
+
+function fileMediaUrl(path: string | undefined): string {
+  if (!path) return "";
+  if (
+    path.startsWith("aivora-media:") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:") ||
+    path.startsWith("http")
+  )
+    return path;
+  if (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)) {
+    return `aivora-media://local/?path=${encodeURIComponent(path)}`;
+  }
+  return "";
+}
+
+async function hydrateFilm(film: FilmProject): Promise<FilmProject> {
+  const shots = film.shots.map((shot) => ({
+    ...shot,
+    poster: shot.poster,
+    takes: shot.takes.map((take) => {
+      if (take.videoUrl || take.status !== "done") return take;
+      const videoUrl = fileMediaUrl(take.videoPath);
+      return videoUrl ? { ...take, videoUrl } : take;
+    }),
+  }));
+  return { ...film, shots };
+}
+
+function filmSignature(value: FilmProject): string {
+  return JSON.stringify({
+    ...value,
+    savedAt: "",
+    directory: "",
+    assemblyUrl: "",
+    shots: value.shots.map((shot) => ({
+      ...shot,
+      takes: shot.takes.map((take) => ({ ...take, videoUrl: "" })),
+    })),
+  });
+}
+
+const ROLE_COPY: Record<Role, string> = {
+  writer: "编剧：把想法或小说收成一场一场的剧本。确认前不会改你写过的字。",
+  director: "导演：把剧本拆成镜头，定好景别、时长和节奏。",
+  action: "动作指导：把打斗拆成一拍一拍的动作，标出力度、方向和慢镜。",
+  performance: "表演指导：给每个镜头写情绪、眼神和语气。两人以上要写视线交接。",
+  art: "美术：定画风，给每个角色一句固定外貌，并写下场景和道具。",
+  prompter: "提示词工程师：把这一镜写成中文提示词。英文放在高级里。",
+  qc: "审片：只会给出对文字的意见，版本仍由你选。",
+};
+
+async function requestStill(
+  seriesId: string,
+  prompt: string,
+): Promise<{ url: string; reason: string }> {
+  const bridge = window.aijian;
+  if (!seriesId || !bridge?.generateFilmStill) {
+    return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
+  }
+  try {
+    const result = await bridge.generateFilmStill(seriesId, prompt);
+    if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
+    const url = fileMediaUrl(result.path);
+    return { url: url || result.path, reason: "画面已生成。" };
+  } catch {
+    return { url: "", reason: "出图没有成功，可以重试。" };
+  }
+}
+
+function fieldHost(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Node) return target.parentElement;
+  return null;
+}
+
+function insideField(target: EventTarget | null): boolean {
+  const element = fieldHost(target);
+  if (!element) return false;
+  if (element instanceof HTMLElement && element.isContentEditable) return true;
+  const tag = element.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return Boolean(element.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+function typingInField(event: KeyboardEvent): boolean {
+  if (event.isComposing || event.keyCode === 229) return true;
+  if (insideField(event.target) || insideField(document.activeElement)) return true;
+  const selection = document.getSelection();
+  if (selection && !selection.isCollapsed && insideField(selection.anchorNode)) return true;
+  return false;
+}
+
+function togglePlayback(setPlaying: (value: boolean | ((value: boolean) => boolean)) => void) {
+  const videos = Array.from(document.querySelectorAll<HTMLVideoElement>("video.frame"));
+  const live = videos.find((video) => !video.paused && !video.ended);
+  if (live) {
+    live.pause();
+    setPlaying(false);
+    return;
+  }
+  setPlaying((value) => !value);
+}
+
+function shotFrame(shot: FilmShot | undefined): string {
+  if (!shot) return "";
+  const poster = fileMediaUrl(shot.poster);
+  if (poster) return poster;
+  const take =
+    shot.takes.find((item) => item.id === shot.selectedTakeId) ??
+    shot.takes.find((item) => item.status === "done");
+  return fileMediaUrl(take?.stillUrl);
+}
+
+function PreviewVideo({
+  src,
+  playing,
+  audible,
+  onPlaying,
+  onTime,
+}: {
+  src: string;
+  playing: boolean;
+  audible: boolean;
+  onPlaying: (value: boolean) => void;
+  onTime: (seconds: number) => void;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const onPlayingRef = useRef(onPlaying);
+  const onTimeRef = useRef(onTime);
+  onPlayingRef.current = onPlaying;
+  onTimeRef.current = onTime;
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    let frame = 0;
+    let cancelled = false;
+    const stop = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    const tick = () => {
+      onTimeRef.current(video.currentTime || 0);
+      frame = requestAnimationFrame(tick);
+    };
+    if (!playing) {
+      video.pause();
+      stop();
+      return () => {
+        cancelled = true;
+        stop();
+      };
+    }
+    const start = async () => {
+      if (typeof video.play !== "function") return;
+      document.querySelectorAll<HTMLVideoElement>("video.frame").forEach((other) => {
+        if (other !== video) other.pause();
+      });
+      video.muted = !audible;
+      if (!audible) {
+        try {
+          await video.play();
+        } catch (error) {
+          if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+          if (!video.paused) return;
+          onPlayingRef.current(false);
+        }
+        if (!cancelled && !video.paused) frame = requestAnimationFrame(tick);
+        return;
+      }
+      try {
+        await video.play();
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+        video.muted = true;
+        try {
+          await video.play();
+        } catch (again) {
+          if (cancelled || (again instanceof DOMException && again.name === "AbortError")) return;
+          if (!video.paused) return;
+          onPlayingRef.current(false);
+          return;
+        }
+      }
+      if (!cancelled && !video.paused) tick();
+    };
+    void start();
+    return () => {
+      cancelled = true;
+      video.pause();
+      stop();
+    };
+  }, [audible, playing, src]);
+  return (
+    <video
+      ref={ref}
+      className="frame"
+      src={src}
+      playsInline
+      preload="auto"
+      onTimeUpdate={() => onTimeRef.current(ref.current?.currentTime ?? 0)}
+      onEnded={() => {
+        onTimeRef.current(ref.current?.currentTime ?? 0);
+        onPlayingRef.current(false);
+      }}
+      onError={() => onPlayingRef.current(false)}
+    />
+  );
+}
+
+function Thumb({
+  src,
+  position,
+  rain = false,
+}: {
+  src?: string;
+  position?: string;
+  rain?: boolean;
+}) {
+  const shown = fileMediaUrl(src);
+  const style = shown
+    ? { backgroundImage: `url(${shown})`, backgroundPosition: position ?? "50% 50%" }
+    : undefined;
+  return <div className={rain || !src ? "thumb rain" : "thumb"} style={style} />;
+}
+
+function displayableImage(url: string | undefined): string {
+  return fileMediaUrl(url);
+}
+
+function takeVideo(shot: FilmShot | undefined): string {
+  if (!shot) return "";
+  const take =
+    shot.takes.find((item) => item.id === shot.selectedTakeId && item.videoUrl) ??
+    shot.takes.find((item) => item.status === "done" && item.videoUrl);
+  return fileMediaUrl(take?.videoUrl || take?.videoPath);
+}
+
+function FrameThumb({ shot }: { shot?: FilmShot }) {
+  const frame = shotFrame(shot);
+  const video = frame ? "" : takeVideo(shot);
+  if (video) {
+    return (
+      <div className="thumb">
+        <video src={video} muted playsInline preload="metadata" />
+      </div>
+    );
+  }
+  return <Thumb src={frame || undefined} position={shot?.posterPosition} rain={!frame} />;
+}
+
+export function ProWorkspace({ projectId = null }: { projectId?: string | null }) {
+  const connected = useGrokConnected();
+  const membershipDenied = useGrokDenied();
+  const [film, setFilm] = useState<FilmProject | null>(null);
+  const [stage, setStage] = useState<Stage>("script");
+  const [scene, setScene] = useState("02");
+  const [role, setRole] = useState<Role>("director");
+  const [shot, setShot] = useState(0);
+  const [pending, setPending] = useState<FilmShot[] | null>(null);
+  const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
+  const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [partialExport, setPartialExport] = useState<string[] | null>(null);
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [pendingRetry, setPendingRetry] = useState<{
+    role: Role;
+    context: string;
+    instruction: string;
+  } | null>(null);
+  const [confirmSignIn, setConfirmSignIn] = useState(false);
+  const [oneClickReady, setOneClickReady] = useState(false);
+  const [range, setRange] = useState(false);
+  const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [fixAction, setFixAction] = useState<FixAction>("rewrite");
+  const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
+  const [notice, setNoticeState] = useState("");
+  const noticeEpoch = useRef(0);
+  const setNotice = (next: string | ((current: string) => string)) => {
+    noticeEpoch.current += 1;
+    setNoticeState(next);
+  };
+  const [modelIds, setModelIds] = useState<string[]>([]);
+  const [voiceChoices, setVoiceChoices] = useState<{ id: string; label: string }[]>([]);
+  const [soundOn, setSoundOn] = useState(
+    () => window.localStorage.getItem("aivora.sound") !== "off",
+  );
+  const [showRoles, setShowRoles] = useState(true);
+  const [portraitReady, setPortraitReady] = useState<string | null>(null);
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [structured, setStructured] = useState<string[]>([]);
+  const [turns, setTurns] = useState<
+    { id: string; role: Role; who: "user" | "agent"; text: string }[]
+  >([]);
+  const [assistPulse, setAssistPulse] = useState(0);
+  const [hearing, setHearing] = useState(false);
+  const previewAudio = useRef<HTMLAudioElement | null>(null);
+  const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
+  const [stillArmed, setStillArmed] = useState("");
+  const [versions, setVersions] = useState(1);
+  const [signingIn, setSigningIn] = useState(false);
+  const [duration, setDuration] = useState(3);
+  const [playing, setPlaying] = useState(false);
+  const [chat, setChat] = useState("");
+  const [bench, setBench] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [episodes, setEpisodes] = useState<EpisodeEntry[]>([]);
+  const [seriesList, setSeriesList] = useState<FilmIndexEntry[]>([]);
+  const [diskPath, setDiskPath] = useState("");
+  const [diskFilmId, setDiskFilmId] = useState("");
+  const [diskError, setDiskError] = useState("");
+  const [pendingBatch, setPendingBatch] = useState<FilmShot[] | null>(null);
+  const [exportDir, setExportDir] = useState("");
+  const [exportFile, setExportFile] = useState("");
+  const [rename, setRename] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const filmRef = useRef<FilmProject | null>(null);
+  const pastRef = useRef<FilmProject[]>([]);
+  const futureRef = useRef<FilmProject[]>([]);
+  const committed = useRef<FilmProject | null>(null);
+  const skipHistory = useRef(false);
+  const pauseRef = useRef(false);
+  const stopRef = useRef(false);
+  const runToken = useRef(0);
+  const deleteTarget = useRef<"episode" | "series">("episode");
+  const assembledKey = useRef("");
+  const openShotRef = useRef("");
+  const artDraft = useRef<FilmProject | null>(null);
+  const [historyTick, setHistoryTick] = useState(0);
+  const actions = videoActions(modelIds);
+
+  useEffect(() => {
+    const bridge = grokBridge();
+    if (!connected || !bridge) return;
+    let live = true;
+    void bridge.models().then((listed) => {
+      if (!live || listed.kind !== "OK") return;
+      setModelIds(listed.models.map((model) => model.id));
+      setVoiceChoices(
+        listed.models
+          .filter((model) => model.outputModalities?.includes("audio"))
+          .map((model) => ({ id: model.id, label: voiceLabel(model.id, model.label) })),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [connected]);
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const rows = await listFilms();
+      const id = activeFilmId() || rows[0]?.id || "";
+      const stored = id ? await readSaved(id) : null;
+      if (!live || !stored || filmRef.current) return;
+      const settled = interruptStaleWork(await hydrateFilm(stored));
+      filmRef.current = settled.film;
+      committed.current = settled.film;
+      setFilm(settled.film);
+      if (settled.interrupted) setNotice("上次有生成没做完，已标成已中断。可以重试。");
+      const first = stored.scenes[0]?.id;
+      if (first) setScene(first);
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const saveGeneration = useRef(0);
+  useEffect(() => {
+    filmRef.current = film;
+    if (!film) return;
+    const generation = ++saveGeneration.current;
+    const savingId = film.id;
+    const flush = () => {
+      const current = filmRef.current;
+      if (current) void saveFilm(current);
+    };
+    window.addEventListener("beforeunload", flush);
+    const handle = window.setTimeout(() => {
+      void saveFilm(film)
+        .then((stored) => {
+          if (generation !== saveGeneration.current) return;
+          if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
+            setDiskFilmId(savingId);
+            setDiskPath(stored.directory);
+            setDiskError("");
+          }
+        })
+        .catch(() => {
+          if (generation === saveGeneration.current)
+            setDiskError("没有写到应用数据目录，可以重试。");
+        });
+    }, 400);
+    let timer = 0;
+    if (skipHistory.current) {
+      skipHistory.current = false;
+      committed.current = film;
+    } else if (!committed.current) {
+      committed.current = film;
+    } else {
+      timer = window.setTimeout(() => {
+        const previous = committed.current;
+        if (previous && filmSignature(previous) !== filmSignature(film)) {
+          pastRef.current = [...pastRef.current, previous].slice(-50);
+          futureRef.current = [];
+          setHistoryTick((value) => value + 1);
+        }
+        committed.current = film;
+      }, 500);
+    }
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.clearTimeout(handle);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [film]);
+
+  useEffect(() => {
+    window.aijian?.onFlush?.(() => {
+      const current = filmRef.current;
+      const done = current ? saveFilm(current) : Promise.resolve(null);
+      void done.finally(() => window.aijian?.flushed?.());
+    });
+  }, []);
+
+  useEffect(() => {
+    setPending(null);
+  }, [role]);
+
+  useEffect(() => {
+    const bridge = window.aijianGrok as
+      | (NonNullable<Window["aijianGrok"]> & {
+          onTextProgress?: (cb: (update: { chars: number; shots: number }) => void) => () => void;
+        })
+      | undefined;
+    return bridge?.onTextProgress?.((update) => {
+      if (update.shots > 0) setNotice(`导演正在写第 ${update.shots} 个镜头…`);
+      else if (update.chars > 0) setNotice(`正在写，已收到 ${update.chars} 字…`);
+    });
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("aivora.sound", soundOn ? "on" : "off");
+  }, [soundOn]);
+
+  useEffect(() => {
+    if (!film) return;
+    if (film.scenes.some((item) => item.id === scene)) return;
+    setScene(film.scenes[0]?.id ?? "scene-1");
+  }, [film, scene]);
+
+  function rememberFilm(next: FilmProject) {
+    filmRef.current = next;
+    setFilm(next);
+  }
+
+  function undoEdit() {
+    const current = filmRef.current;
+    const baseline = committed.current;
+    if (current && baseline && filmSignature(current) !== filmSignature(baseline)) {
+      skipHistory.current = true;
+      rememberFilm(baseline);
+      return;
+    }
+    const previous = pastRef.current.pop();
+    if (!previous || !current) return;
+    futureRef.current.push(current);
+    skipHistory.current = true;
+    setHistoryTick((value) => value + 1);
+    rememberFilm(previous);
+  }
+
+  function redoEdit() {
+    const current = filmRef.current;
+    const next = futureRef.current.pop();
+    if (!next || !current) return;
+    pastRef.current.push(current);
+    skipHistory.current = true;
+    setHistoryTick((value) => value + 1);
+    rememberFilm(next);
+  }
+
+  const open = film !== null;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (typingInField(event)) return;
+      if (event.key >= "1" && event.key <= String(STAGES.length)) {
+        const next = STAGES[Number(event.key) - 1];
+        if (next) setStage(next.id);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redoEdit();
+        else undoEdit();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redoEdit();
+      }
+      if (event.key === "i" || event.key === "I") {
+        setRange(true);
+        setStage("edit");
+        setRightTab("fix");
+      }
+      if (event.key === "o" || event.key === "O") {
+        setRange(true);
+        setStage("edit");
+        setRightTab("fix");
+      }
+      if (event.key === " " && stage === "edit") {
+        event.preventDefault();
+        togglePlayback(setPlaying);
+      }
+      if (event.key === "Escape") {
+        setMenu(null);
+        setExportOpen(false);
+        setRange(false);
+        setComparing(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stage, historyTick]);
+
+  async function revoiceShot(current: FilmShot) {
+    const line = spokenLine(current);
+    if (!line) {
+      setNotice("这一镜没有台词，不用配音。");
+      return;
+    }
+    const live = filmRef.current;
+    const bridge = grokBridge();
+    const billingProject = live ? await ensureBillingProject() : "";
+    if (!bridge?.speak || !billingProject || !live) {
+      setNotice("配音需要 Grok 会员。画面不会重新生成。");
+      return;
+    }
+    setNotice("正在重配这一句，画面不动。");
+    const spoken = await bridge.speak({
+      voiceId: shotVoiceId(current, live),
+      text: line,
+      projectId: billingProject,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    if (spoken.kind !== "OK") {
+      setNotice(spoken.detail || "配音没有生成，画面没有动。");
+      return;
+    }
+    const latest = filmRef.current ?? live;
+    applyLive({
+      ...latest,
+      audioClips: [
+        ...latest.audioClips.filter((clip) => clip.id !== `voice-${current.id}`),
+        {
+          id: `voice-${current.id}`,
+          lane: "dialogue",
+          shotId: current.id,
+          takeId: current.selectedTakeId,
+          label: "配音",
+          startSeconds: 0,
+          durationSeconds: current.seconds,
+          offsetSeconds: 0,
+          gainDb: 0,
+          path: "",
+        },
+      ],
+    });
+    setNotice("这一句已重配，画面没有重新生成。");
+  }
+
+  const runAction = (action: FixAction) => {
+    setFixAction(action);
+    setRightTab("fix");
+    const gate = actions[action];
+    if (!gate.enabled) {
+      setNotice(gate.reason);
+      return;
+    }
+    if (action === "cut") {
+      const current = shownShots[shot];
+      if (film && current) setFilm(removeShot(film, current.id));
+      setRange(false);
+      setComparing(false);
+      setShot(0);
+      setNotice("已剪掉这一段。画面和声音都往前接上。");
+      return;
+    }
+    const current = shownShots[shot];
+    if (current && action === "voice") {
+      void revoiceShot(current);
+      return;
+    }
+    if (current && (action === "regenerate" || action === "rewrite")) {
+      setPendingBatch([current]);
+      setNotice(`只重做镜头 ${current.no}。确认表里点开始生成才会出视频。`);
+      return;
+    }
+    setComparing(true);
+    setNotice(
+      action === "extend"
+        ? "延长会从最后一帧往后接，每个版本各算一次。"
+        : "每个版本各算一次生成。视频自带的声音已关掉。",
+    );
+  };
+
+  function signInGrok() {
+    const bridge = window.aijianGrok;
+    if (!bridge?.signIn) {
+      setNotice(SIGN_IN_NOTE);
+      return;
+    }
+    setMenu(null);
+    setConfirmSignIn(true);
+  }
+
+  async function beginSignIn() {
+    const bridge = window.aijianGrok;
+    if (!bridge?.signIn) return;
+    setConfirmSignIn(false);
+    setSigningIn(true);
+    setNotice("正在打开浏览器。页面上写的是 Grok Build，点 Allow 即可。");
+    try {
+      const result = await bridge.signIn();
+      window.dispatchEvent(new Event("aivora-grok-changed"));
+      const status = await bridge.status?.();
+      if (status?.state === "ENTITLEMENT_DENIED" || status?.lastError === "ENTITLEMENT_DENIED") {
+        setNotice("这个会员不能用生成功能。");
+      } else if (result.kind === "OK") {
+        setNotice("已登录，浏览器那页可以关掉，不用输入代码");
+      } else if (result.kind === "CANCELLED") setNotice("登录已取消。");
+      else setNotice("登录没有完成。可以再试一次。");
+    } catch {
+      setNotice("登录没有完成。可以再试一次。");
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  async function signOutAccount() {
+    setMenu(null);
+    try {
+      await window.aijianGrok?.signOut?.();
+      window.dispatchEvent(new Event("aivora-grok-changed"));
+      setNotice("已退出登录。");
+    } catch {
+      setNotice("退出没有完成。可以再试一次。");
+    }
+  }
+
+  const storedTitle =
+    film && film.seriesTitle && film.seriesTitle !== "未命名作品"
+      ? film.seriesTitle
+      : (film?.title ?? "未命名作品");
+  const title = menu === "project" && rename.trim() ? rename.trim() : storedTitle;
+  const savedDirectory =
+    diskFilmId === film?.id && diskPath && diskPath !== BROWSER_DIRECTORY
+      ? diskPath
+      : film?.directory && film.directory !== BROWSER_DIRECTORY
+        ? film.directory
+        : "";
+  const sceneIds = new Set(film?.scenes.map((item) => item.id) ?? []);
+  const shownShots = (
+    film?.shots.filter((item) => item.sceneId === scene || !sceneIds.has(item.sceneId)) ?? []
+  )
+    .slice()
+    .sort((a, b) => a.no - b.no);
+  openShotRef.current = shownShots[shot]?.id ?? "";
+
+  async function planDirector(asked = "") {
+    if (!film) return;
+    const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
+    const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
+    const sceneId = current?.id ?? "scene-1";
+    const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
+    const names = film.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
+    const context = `画风：${film.styleZh}\n人物：\n${names}\n剧本：\n${story}`;
+    let next: FilmShot[] | null = null;
+    let text: string;
+    const bridge = grokBridge();
+    try {
+      if (!connected || !bridge) {
+        next = offlineShots(story, sceneId);
+        text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
+      } else {
+        const first = await completeAgent("director", context, "把这一场拆成镜头");
+        let parsed = first.text
+          ? parseDirectorShots(first.text, sceneId, current?.text ?? "")
+          : null;
+        if (!parsed) {
+          setPendingRetry({
+            role: "director",
+            context,
+            instruction:
+              '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
+          });
+          const reason = first.detail || "导演这次没有给出能用的镜头。";
+          text = `${reason} 可以点「再用普通对话问一次」。没有写入镜头。`;
+        } else {
+          next = parsed;
+          text = "导演拆好了。点「放入分镜」才会写入。";
+        }
+      }
+    } catch {
+      text = "模型没有返回。没有写入镜头。";
+    } finally {
+      setAsking(false);
+    }
+    if (!next) {
+      setPending(null);
+      finishTurn(turn, text);
+      return;
+    }
+    setPending(next);
+    publishCard("director", {
+      title: `建议拆成 ${next.length} 个镜头`,
+      rows: next.map((shot) => ({
+        id: shot.id,
+        mark: shot.size,
+        text: shot.picture,
+        tail: `${shot.seconds}s`,
+      })),
+      notes: [],
+      applied: false,
+      mode: "shots",
+      shots: next,
+    });
+    finishTurn(turn, text);
+    noteAgent("director", text.includes("导演拆好了") ? "shots" : "offline", text);
+  }
+
+  async function retryPending() {
+    const job = pendingRetry;
+    if (!job) return;
+    setPendingRetry(null);
+    const turn = pushTurn(job.role, "再用普通对话问一次");
+    const reply = await completeAgent(job.role, job.context, job.instruction);
+    if (job.role === "director" && film) {
+      const sceneId =
+        film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
+      const parsed = reply.text
+        ? parseDirectorShots(
+            reply.text,
+            sceneId,
+            film.scenes.find((item) => item.id === sceneId)?.text ?? "",
+          )
+        : null;
+      if (parsed) {
+        setPending(parsed);
+        finishTurn(turn, "导演拆好了。点「放入分镜」才会写入。");
+        setNotice("导演拆好了。点「放入分镜」才会写入。");
+        return;
+      }
+    }
+    const failed = reply.detail || reply.text || "模型没有返回。";
+    finishTurn(turn, `${failed} 没有写入镜头。`);
+    setNotice(`${failed} 没有写入镜头。`);
+  }
+
+  function applyPending() {
+    const card = roleCards[role];
+    if (card?.applied) {
+      setNotice("这一步已经放入。");
+      return;
+    }
+    if (card?.mode === "scenes" && card.scenes && film) {
+      const next = applyScenes(film, card.scenes);
+      setFilm(next);
+      void fillCast(next);
+      const first = next.scenes[0]?.id;
+      if (first) setScene(first);
+      markApplied(role);
+      setNotice("已放入剧本。你改过的场没有被盖掉。");
+      return;
+    }
+    if (artDraft.current && (role === "art" || card?.mode === "art")) {
+      setFilm(artDraft.current);
+      artDraft.current = null;
+      markApplied("art");
+      setNotice("已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。");
+      return;
+    }
+    const incoming = card?.shots ?? pending;
+    if (!film || !incoming) {
+      setNotice("还没有可放入的镜头。");
+      return;
+    }
+    const only = incoming.length === 1 ? incoming[0] : undefined;
+    if (only && (only.source === "agent:action" || only.source === "agent:performance")) {
+      const existing = film.shots.find((item) => item.id === only.id);
+      if (
+        existing &&
+        (existing.userFields.includes("action") || existing.userFields.includes("performance"))
+      ) {
+        setNotice("这一镜是你改过的，没有盖掉。");
+        return;
+      }
+      setFilm(
+        updateShot(film, only.id, {
+          action: only.action,
+          performance: only.performance,
+          source: only.source,
+        }),
+      );
+      markApplied(role);
+      setNotice("已写入这一镜。你改过的字没有被盖掉。");
+      return;
+    }
+    const sceneId =
+      film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
+    const placed = applyShots(film, incoming, sceneId);
+    setFilm(placed);
+    setShot(0);
+    void fillCast(placed);
+    markApplied(role);
+    setNotice("已放入分镜。你改过的镜头没有被盖掉。");
+  }
+
+  const billingPromises = useRef(new Map<string, Promise<string>>());
+  const propFilmId = useRef("");
+
+  async function ensureBillingProject(): Promise<string> {
+    const live = filmRef.current;
+    const filmId = live?.id ?? "";
+    const stored = live?.backendProjectId ?? "";
+    if (/^prj_[0-9a-f]{32}$/.test(stored)) return stored;
+    if (
+      /^prj_[0-9a-f]{32}$/.test(projectId ?? "") &&
+      filmId &&
+      (!propFilmId.current || propFilmId.current === filmId)
+    ) {
+      propFilmId.current = filmId;
+      if (live && !stored) applyLive({ ...live, backendProjectId: projectId ?? "" });
+      return projectId ?? "";
+    }
+    const api = window.aijian;
+    if (!api?.createProject || !filmId) return "";
+    let pending = billingPromises.current.get(filmId);
+    if (!pending) {
+      const name = (live?.seriesTitle || live?.title || "未命名作品").slice(0, 80) || "未命名作品";
+      pending = api
+        .createProject({
+          name,
+          aspect_ratio: "9:16",
+          source_language: "zh-CN",
+          target_duration_seconds: 90,
+        })
+        .then((response) => {
+          const id = response.data?.id ?? "";
+          if (!/^prj_[0-9a-f]{32}$/.test(id)) throw new Error("bad project");
+          const current = filmRef.current;
+          if (current?.id === filmId) applyLive({ ...current, backendProjectId: id });
+          return id;
+        })
+        .catch((error: unknown) => {
+          billingPromises.current.delete(filmId);
+          throw error;
+        });
+      billingPromises.current.set(filmId, pending);
+    }
+    try {
+      return await pending;
+    } catch {
+      return "";
+    }
+  }
+
+  async function completeAgent(
+    agent: Role,
+    context: string,
+    user: string,
+  ): Promise<{ text: string | null; detail: string }> {
+    const bridge = grokBridge();
+    if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
+    const billingProject = await ensureBillingProject();
+    if (!billingProject) return { text: null, detail: "这一次没有记到作品上。" };
+    let ids = modelIds;
+    let model = textModel(ids);
+    if (!model) {
+      try {
+        const listed = await bridge.models();
+        if (listed.kind === "OK") {
+          ids = listed.models.map((item) => item.id);
+          setModelIds(ids);
+          model = textModel(ids);
+        }
+      } catch {
+        return { text: null, detail: "模型列表没有读到。" };
+      }
+    }
+    if (!model) return { text: null, detail: "模型列表里没有能写字的模型。" };
+    const result = await bridge.completeText({
+      model,
+      text: agentRequest(agent, context, user),
+      projectId: billingProject,
+      idempotencyKey: crypto.randomUUID(),
+      agent,
+    });
+    if (result.kind === "OK") return { text: result.text, detail: "" };
+    const detail =
+      "detail" in result && typeof result.detail === "string" && result.detail
+        ? result.detail
+        : result.code === "ENTITLEMENT_DENIED"
+          ? "当前账号不能用这个文本模型。"
+          : result.code === "REAUTH_REQUIRED"
+            ? "需要重新登录。"
+            : "模型没有返回。";
+    return { text: null, detail };
+  }
+
+  const turnsRef = useRef<{ id: string; role: Role; who: "user" | "agent"; text: string }[]>([]);
+
+  function pushTurn(nextRole: Role, userText: string): string {
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const asked = userText.trim() || "请按你的职责处理当前内容。";
+    const next = [
+      ...turnsRef.current.slice(-16),
+      { id: `${id}-u`, role: nextRole, who: "user" as const, text: asked },
+      { id: `${id}-a`, role: nextRole, who: "agent" as const, text: "正在问模型。" },
+    ];
+    turnsRef.current = next;
+    setTurns(next);
+    setStructured([]);
+    setAsking(true);
+    setAssistPulse((value) => value + 1);
+    return id;
+  }
+
+  function finishTurn(id: string, text: string) {
+    const next = turnsRef.current.map((item) => (item.id === `${id}-a` ? { ...item, text } : item));
+    turnsRef.current = next;
+    setTurns(next);
+    setAsking(false);
+  }
+
+  function noteAgent(agent: Role, parsed: string, detail: string) {
+    void grokBridge()?.recordAgent?.({
+      agent,
+      model: textModel(modelIds),
+      status: parsed === "rejected" || parsed === "error" ? "error" : "ok",
+      parsed,
+      detail,
+    });
+  }
+
+  function chooseRole(next: Role) {
+    setRole(next);
+    setStructured([]);
+  }
+
+  function publishCard(nextRole: Role, card: RoleCard) {
+    setRoleCards((prev) => ({ ...prev, [nextRole]: card }));
+  }
+
+  function markApplied(nextRole: Role) {
+    setRoleCards((prev) => {
+      const card = prev[nextRole];
+      if (!card) return prev;
+      return { ...prev, [nextRole]: { ...card, applied: true } };
+    });
+  }
+
+  async function fillCast(base: FilmProject) {
+    if (base.characters.length > 0 && base.locations.length > 0) return;
+    const story = base.scenes
+      .map((item) => item.text)
+      .filter(Boolean)
+      .join("\n");
+    if (!story.trim()) return;
+    const epoch = noticeEpoch.current;
+    let extracted = connected ? null : extractCastOffline(story);
+    if (connected) {
+      const reply = await completeAgent(
+        "writer",
+        story,
+        '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":""}],"locations":[{"name":"","prompt":""}]}',
+      );
+      const parsed = reply.text ? parseCastReply(reply.text) : null;
+      if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0))
+        extracted = parsed;
+      else {
+        if (noticeEpoch.current === epoch)
+          setNotice(reply.detail || "没有认出人物和场景，没有写入猜测。");
+        return;
+      }
+    }
+    if (!extracted) return;
+    const merged = mergeCast(filmRef.current ?? base, extracted);
+    if (merged === (filmRef.current ?? base)) {
+      if (base.characters.length === 0 && base.locations.length === 0) {
+        setNotice("这一场还没有认出人物和场景。");
+      }
+      return;
+    }
+    applyLive(merged);
+    const names = merged.characters.map((item) => item.name).filter(Boolean);
+    if (names.length > 0) setNotice(`已记下人物：${names.join("、")}。`);
+  }
+
+  async function makePortraits(characterId: string) {
+    const current = filmRef.current;
+    const character = current?.characters.find((item) => item.id === characterId);
+    if (!current || !character) return;
+    let identity = character.identity.trim();
+    if (!identity) {
+      setNotice("正在从剧本里看这个人的外貌。");
+      const story =
+        current.scenes
+          .map((item) => item.text)
+          .filter(Boolean)
+          .join("\n") || current.title;
+      const reply = await completeAgent(
+        "writer",
+        story,
+        `只写「${character.name}」的一句外貌，必须写明性别和大致年龄。看不出来就只写：性别未写明。`,
+      );
+      const line = (reply.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+      if (!line || line.includes("性别未写明")) {
+        setPortraitReady(null);
+        setNotice("先写下外貌，再出定妆照。");
+        return;
+      }
+      const latest = filmRef.current ?? current;
+      applyLive({
+        ...latest,
+        characters: latest.characters.map((item) =>
+          item.id === character.id ? { ...item, identity: line } : item,
+        ),
+      });
+      identity = line;
+    }
+    setPortraitReady(character.id);
+    setNotice(`将按这句话出图：${identity} 可以改外貌。点「确认出图」才生成。`);
+  }
+
+  async function confirmPortraits(characterId: string) {
+    if (portraitBusy) return;
+    const current = filmRef.current;
+    const character = current?.characters.find((item) => item.id === characterId);
+    if (!current || !character) return;
+    const identity = character.identity.trim();
+    if (!identity) {
+      setNotice("先写下外貌，再出定妆照。");
+      return;
+    }
+    if (!window.aijian?.generateFilmStill) {
+      setNotice("请打开安装好的 AIVORA 再出图。");
+      return;
+    }
+    setPortraitBusy(true);
+    const prompts = portraitPrompts(character.name, identity, current.styleZh);
+    setNotice(`正在出定妆照。将按这句话出图：${identity}`);
+    const portraits: FilmPortrait[] = [];
+    try {
+      for (const item of prompts) {
+        const made = await requestStill(current.seriesId, item.prompt);
+        portraits.push({ view: item.view, prompt: item.prompt, url: made.url });
+        if (!made.url) {
+          setNotice(made.reason);
+          return;
+        }
+      }
+      const latest = filmRef.current ?? current;
+      applyLive({
+        ...latest,
+        characters: latest.characters.map((item) =>
+          item.id === character.id ? { ...item, portraits } : item,
+        ),
+      });
+      setPortraitReady(null);
+      setNotice("定妆照已生成。");
+    } finally {
+      setPortraitBusy(false);
+    }
+  }
+
+  async function planWriter(kind: "write" | "adapt") {
+    if (!film) return;
+    const story =
+      film.scenes
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join("\n") || film.title;
+    const idea = chat.trim() || story;
+    const asked =
+      chat.trim() || (kind === "adapt" ? "把现有内容改成短剧" : "按地点和时间把现有剧本分成几场");
+    const turn = pushTurn("writer", asked);
+    setPendingScenes(null);
+    let scenes: FilmScene[] | null = null;
+    let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+    if (!connected) {
+      scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
+      text = kind === "adapt" ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。" : text;
+    }
+    const reply = await completeAgent(
+      "writer",
+      `画风：${film.styleZh}\n目标大约 60 秒。\n剧本：\n${story}`,
+      kind === "adapt" ? `把这些内容改成短剧：\n${idea}` : `写成短剧：\n${idea}`,
+    );
+    if (reply.text) {
+      const parsed = parseWriterScenes(reply.text);
+      const echo = parsed ? scenesEchoRequest(parsed, asked) : false;
+      if (parsed && !echo) {
+        scenes = parsed;
+        text = "编剧写好了。点「放入剧本」才会写入。";
+      } else if (connected) {
+        scenes = null;
+        text = echo
+          ? "模型把请求原文当成了结果，这次没有改剧本。"
+          : "模型没有按格式返回，这次没有改剧本。";
+      }
+    } else if (connected) {
+      scenes = null;
+      text = `${reply.detail} 这次没有改剧本。`;
+    }
+    setPendingScenes(scenes);
+    if (scenes) {
+      publishCard("writer", {
+        title: `建议写成 ${scenes.length} 场`,
+        rows: scenes.map((item) => ({ id: item.id, mark: "场", text: item.text, tail: "" })),
+        notes: [],
+        applied: false,
+        mode: "scenes",
+        scenes,
+      });
+    }
+    finishTurn(turn, text);
+    noteAgent("writer", scenes && connected ? "scenes" : connected ? "rejected" : "offline", text);
+  }
+
+  function applyPendingScenes() {
+    if (!film || !pendingScenes) {
+      setNotice("还没有可放入的场次。");
+      return;
+    }
+    const next = applyScenes(film, pendingScenes);
+    setFilm(next);
+    void fillCast(next);
+    const first = next.scenes[0]?.id;
+    if (first) setScene(first);
+    markApplied("writer");
+    setNotice("已放入剧本。你改过的场没有被盖掉。");
+  }
+
+  async function importBook(file: File) {
+    const book = await extractBookText(file.name, new Uint8Array(await file.arrayBuffer()));
+    if (!book.text.trim()) {
+      setNotice(book.note);
+      return;
+    }
+    const split = splitNovel(book.text);
+    if (split.scenes.length === 0) {
+      setNotice(split.note || "没有读到场次。");
+      return;
+    }
+    setPendingScenes(split.scenes);
+    if (filmRef.current) {
+      const withSource = { ...filmRef.current, sourceText: book.text };
+      filmRef.current = withSource;
+      setFilm(withSource);
+    }
+    setRole("writer");
+    setNotice(`${book.note}${split.note} 读到 ${split.scenes.length} 场。点「放入剧本」才会写入。`);
+  }
+
+  async function planAction() {
+    if (!film) return;
+    const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
+    const current = shownShots[shot];
+    const text = current?.picture || current?.action || film.title;
+    let sentence = actionBeats(text)
+      .map(
+        (beat) =>
+          `${beat.text}（${beat.feasibility}${beat.workaround ? `，${beat.workaround}` : ""}，来自动作指导）`,
+      )
+      .join("");
+    let note = "没有登录，已用离线动作指导。点「放入分镜」写到这一镜。";
+    const context = `人物：${film.characters.map((item) => item.name).join("、")}`;
+    const reply = await completeAgent("action", context, text);
+    let parsed = reply.text ? actionFromModel(parseLooseJson(reply.text)) : null;
+    if (!parsed && connected) {
+      const again = await completeAgent("action", context, `${text}\n只输出 JSON，不要解释。`);
+      parsed = again.text ? actionFromModel(parseLooseJson(again.text)) : null;
+      if (!parsed) {
+        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
+        return;
+      }
+    }
+    if (parsed) {
+      sentence = actionSentence(parsed);
+      note = "动作指导写好了。点「放入分镜」写到这一镜。";
+    }
+    if (!current) {
+      finishTurn(turn, "先拆出镜头，再请动作指导。");
+      noteAgent("action", "rejected", "先拆出镜头，再请动作指导。");
+      return;
+    }
+    const cues = parsed
+      ? parsed.filter((row) => row.text).map((row) => ({ atSeconds: row.at, text: row.text }))
+      : current.sound.sfx;
+    setPending([
+      {
+        ...current,
+        action: sentence,
+        sound: { ...current.sound, sfx: cues },
+        source: "agent:action",
+        userFields: current.userFields.filter((field) => field !== "action"),
+      },
+    ]);
+    const actionNotes = parsed
+      ? parsed.map((row) => `难度：${difficultyLabel(row.feasibility)} · ${row.text}`)
+      : sentence
+        ? [sentence]
+        : [];
+    setStructured([]);
+    const actionShot = {
+      ...current,
+      action: sentence,
+      sound: { ...current.sound, sfx: cues },
+      source: "agent:action",
+      userFields: current.userFields.filter((field) => field !== "action"),
+    };
+    setPending([actionShot]);
+    publishCard("action", {
+      title: `动作设计 · 镜头 ${current.no}`,
+      rows: actionNotes.map((line, index) => ({
+        id: `${current.id}-beat-${index}`,
+        mark: "难度",
+        text: line,
+        tail: "",
+      })),
+      notes: [DIFFICULTY_LEGEND],
+      applied: false,
+      mode: "shots",
+      shots: [actionShot],
+    });
+    finishTurn(turn, note);
+    noteAgent("action", parsed ? "beats" : "offline", note);
+  }
+
+  async function planPerformance() {
+    if (!film) return;
+    const turn = pushTurn("performance", chat.trim() || "请写这一镜的表演，两人以上要写视线。");
+    const current = shownShots[shot];
+    if (!current) {
+      finishTurn(turn, "先拆出镜头，再请表演指导。");
+      noteAgent("performance", "rejected", "先拆出镜头，再请表演指导。");
+      return;
+    }
+    const gaze = gazeHandoff(current.characters);
+    let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
+    let note = "没有登录，已用离线表演指导。点「放入分镜」写到这一镜。";
+    const reply = await completeAgent("performance", current.picture, "写这一镜的表演");
+    let parsed = reply.text
+      ? performanceFromModel(parseLooseJson(reply.text), current.characters)
+      : null;
+    if (!parsed && connected) {
+      const again = await completeAgent(
+        "performance",
+        current.picture,
+        "写这一镜的表演。只输出 JSON，不要解释。",
+      );
+      parsed = again.text
+        ? performanceFromModel(parseLooseJson(again.text), current.characters)
+        : null;
+      if (!parsed) {
+        finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
+        return;
+      }
+    }
+    if (parsed) {
+      line = parsed.includes("来自表演指导") ? parsed : `${parsed}（来自表演指导）`;
+      note = "表演指导写好了。点「放入分镜」写到这一镜。";
+    }
+    setPending([
+      {
+        ...current,
+        performance: line,
+        source: "agent:performance",
+        userFields: current.userFields.filter((field) => field !== "performance"),
+      },
+    ]);
+    setStructured(line ? [line] : []);
+    const performanceShot = {
+      ...current,
+      performance: line,
+      source: "agent:performance",
+      userFields: current.userFields.filter((field) => field !== "performance"),
+    };
+    setPending([performanceShot]);
+    publishCard("performance", {
+      title: `表演 · 镜头 ${current.no}`,
+      rows: line ? [{ id: current.id, mark: "表演", text: line, tail: "" }] : [],
+      notes: [],
+      applied: false,
+      mode: "shots",
+      shots: [performanceShot],
+    });
+    finishTurn(turn, note);
+    noteAgent("performance", parsed ? "performance" : "offline", note);
+  }
+
+  async function planArt() {
+    if (!film) return;
+    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
+    const reply = await completeAgent(
+      "art",
+      `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
+      "写出画风、每人一句固定外貌、场景和道具。只输出 JSON。",
+    );
+    const parsed = reply.text ? artFromModel(parseLooseJson(reply.text)) : null;
+    if (!parsed) {
+      setStructured([]);
+      const failed = reply.text
+        ? "美术没有按格式返回，这次没有改作品。"
+        : `${reply.detail} 这次没有改作品。`;
+      finishTurn(turn, failed);
+      noteAgent("art", "rejected", failed);
+      return;
+    }
+    setStructured(parsed.lines);
+    publishCard("art", {
+      title: "美术 · 画风和外貌",
+      rows: parsed.lines.map((line, index) => ({
+        id: `art-${index}`,
+        mark: "",
+        text: line,
+        tail: "",
+      })),
+      notes: [],
+      applied: false,
+      mode: "art",
+    });
+    finishTurn(turn, "美术写好了。点「放入分镜」才会写入外貌、场景和道具。");
+    noteAgent("art", "art", "美术写好了。点「放入分镜」才会写入外貌、场景和道具。");
+    const next = { ...film };
+    if (parsed.styleZh) next.styleZh = parsed.styleZh;
+    next.characters = next.characters.map((person) => {
+      if (person.userFields.includes("identity")) return person;
+      const found = parsed.identities.find((item) => item.name === person.name);
+      return found ? { ...person, identity: found.identity } : person;
+    });
+    const places = [...next.locations];
+    for (const place of parsed.places) {
+      if (places.some((item) => item.name === place.name)) continue;
+      places.push({
+        id: `loc-${places.length + 1}`,
+        name: place.name,
+        prompt: place.prompt,
+        ambience: place.ambience,
+      });
+    }
+    next.locations = places;
+    const props = [...next.props];
+    for (const prop of parsed.props) {
+      if (props.some((item) => item.name === prop.name)) continue;
+      props.push({ id: `prop-${props.length + 1}`, name: prop.name, note: prop.note });
+    }
+    next.props = props;
+    artDraft.current = next;
+    setPending(null);
+  }
+
+  async function planPrompter() {
+    if (!film) return;
+    const current = shownShots[shot] ?? film.shots[shot] ?? film.shots[0];
+    const turn = pushTurn("prompter", chat.trim() || `写镜头 ${current?.no ?? shot + 1} 的提示词`);
+    if (!current) {
+      finishTurn(turn, "先拆出镜头，再请提示词工程师。");
+      noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
+      return;
+    }
+    const locked = withIdentityLocks(
+      keyframePrompt(current, film),
+      film.characters,
+      current.characters,
+    );
+    const reply = await completeAgent(
+      "prompter",
+      locked.prompt,
+      "写成这一镜的提示词。只输出 JSON。",
+    );
+    const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
+    if (!parsed) {
+      const failed = reply.text ? "提示词没有按格式返回。" : reply.detail;
+      finishTurn(turn, failed);
+      noteAgent("prompter", "rejected", failed);
+      return;
+    }
+    const zh = withIdentityLocks(parsed.zh || locked.prompt, film.characters, current.characters);
+    setFilm(
+      updateShot(film, current.id, {
+        promptZh: zh.prompt,
+        promptEn: parsed.en,
+      }),
+    );
+    setStructured([zh.prompt, parsed.en ? `英文：${parsed.en}` : "英文还没写。"].filter(Boolean));
+    const missed = zh.missing.length > 0 ? `已补上${zh.missing.join("、")}的外貌描述。` : "";
+    publishCard("prompter", {
+      title: `提示词 · 镜头 ${current.no}`,
+      rows: [{ id: current.id, mark: "中文", text: zh.prompt, tail: "" }],
+      notes: parsed.en ? [`英文：${parsed.en}`] : [],
+      applied: true,
+      mode: "shots",
+    });
+    finishTurn(turn, `已写到镜头 ${current.no}。提示词写好了。${missed}`);
+    noteAgent("prompter", "prompt", `镜头 ${current.no}`);
+  }
+
+  async function planQc() {
+    if (!film) return;
+    const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
+    const current = shownShots[shot];
+    if (!current) {
+      finishTurn(turn, "先拆出镜头，再请审片。");
+      noteAgent("qc", "rejected", "先拆出镜头，再请审片。");
+      return;
+    }
+    const reply = await completeAgent(
+      "qc",
+      current.picture,
+      "只审文字。你看不到画面。只输出 JSON。",
+    );
+    const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
+    if (!parsed) {
+      setStructured([]);
+      const failed = `${reply.detail || "审片没有按格式返回。"} 还不能看画面，版本仍由你选。`;
+      finishTurn(turn, failed);
+      noteAgent("qc", "rejected", failed);
+      return;
+    }
+    setStructured(parsed.lines);
+    publishCard("qc", {
+      title: `审片意见 · 镜头 ${current.no}`,
+      rows: parsed.lines.map((line, index) => ({
+        id: `qc-${index}`,
+        mark: "意见",
+        text: line,
+        tail: "",
+      })),
+      notes: ["这是对文字的意见，没有看画面，版本仍由你选。"],
+      applied: false,
+      mode: "qc",
+    });
+    finishTurn(turn, "这是对文字的意见，没有看画面，版本仍由你选。");
+    noteAgent("qc", "qc", "文字意见");
+  }
+
+  async function oneClickFilm() {
+    if (!film) return;
+    setAsking(true);
+    setOneClickReady(false);
+    setNotice("正在让编剧和导演写到分镜。还不会出视频。");
+    const idea =
+      film.scenes
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join("\n") || film.title;
+    const writerReply = await completeAgent(
+      "writer",
+      `画风：${film.styleZh}`,
+      `写成短剧：\n${idea}`,
+    );
+    const scenes = writerReply.text ? parseWriterScenes(writerReply.text) : null;
+    if (!scenes) {
+      setAsking(false);
+      setOneClickReady(true);
+      setNotice(
+        writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。",
+      );
+      return;
+    }
+    let next = applyScenes(film, scenes);
+    const story =
+      next.scenes
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join("\n") || next.title;
+    const sceneId = next.scenes[0]?.id ?? "scene-1";
+    const directorReply = await completeAgent(
+      "director",
+      `画风：${next.styleZh}\n剧本：\n${story}`,
+      "把这一场拆成镜头",
+    );
+    const parsed = directorReply.text
+      ? parseDirectorShots(directorReply.text, sceneId, story)
+      : null;
+    if (!parsed) {
+      setAsking(false);
+      setOneClickReady(true);
+      setNotice(
+        directorReply.detail || "导演没有按格式返回，已停。没有写入离线镜头。点「继续」再试。",
+      );
+      return;
+    }
+    next = applyShots(next, parsed, sceneId);
+    filmRef.current = next;
+    setFilm(next);
+    setStage("board");
+    setPending(null);
+    setAsking(false);
+    setOneClickReady(true);
+    setNotice("停在分镜。点继续才出视频。这一步没有生成视频。");
+  }
+
+  function applyTemplate(name: string) {
+    if (!film) return;
+    const template = FILM_TEMPLATES.find((item) => item.name === name);
+    if (!template) return;
+    const scene = {
+      ...film.scenes[0]!,
+      id: film.scenes[0]?.id ?? "scene-1",
+      text: template.text,
+      title: template.name,
+      source: "template",
+      userFields: [],
+    };
+    const unnamed = !film.seriesTitle.trim() || film.seriesTitle === "未命名作品";
+    setFilm({
+      ...film,
+      title: unnamed ? template.name : film.title,
+      seriesTitle: unnamed ? template.name : film.seriesTitle,
+      scenes: [scene, ...film.scenes.slice(1)],
+    });
+    setNotice(`已放入模板「${template.name}」。这是模板原文，还没让模型改。`);
+  }
+
+  async function previewVoice(voiceId: string, line: string) {
+    if (!soundOn) {
+      if (previewAudio.current) {
+        try {
+          previewAudio.current.pause();
+        } catch {
+          /* a test player may not pause */
+        }
+        previewAudio.current = null;
+        setHearing(false);
+      }
+      setNotice("声音关着。打开顶栏的声音再试听。");
+      return;
+    }
+    if (hearing) {
+      try {
+        previewAudio.current?.pause();
+      } catch {
+        /* a test player may not pause */
+      }
+      previewAudio.current = null;
+      setHearing(false);
+      const cancel = (window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined)
+        ?.cancelText;
+      void cancel?.();
+      setNotice("已停止试听。");
+      return;
+    }
+    const spoken = line.trim();
+    if (!spoken) {
+      setNotice("先在剧本里给 TA 写一句台词。");
+      return;
+    }
+    const bridge = grokBridge();
+    const billingProject = await ensureBillingProject();
+    if (!bridge?.speak || !billingProject) {
+      setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
+      return;
+    }
+    setHearing(true);
+    const result = await bridge.speak({
+      voiceId,
+      text: spoken,
+      projectId: billingProject,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    if (result.kind !== "OK") {
+      setHearing(false);
+      setNotice(result.detail || "配音没有成功。");
+      return;
+    }
+    const binary = atob(result.audioBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const url = URL.createObjectURL(new Blob([bytes], { type: result.mime || "audio/mpeg" }));
+    const audio = new Audio(url);
+    previewAudio.current = audio;
+    const seconds = await new Promise<number>((resolve) => {
+      audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
+      audio.onerror = () => resolve(0);
+    });
+    const heard = result.seconds ?? (seconds > 0 ? seconds : null);
+    try {
+      await audio.play();
+      setHearing(true);
+      audio.onended = () => setHearing(false);
+    } catch {
+      setHearing(false);
+      setNotice("配音文件到了，这一页没有播出来。");
+      return;
+    }
+    const timing = result.timestamps ? "带回了每个字的时间。" : "这一次没有返回每个字的时间。";
+    setNotice(`正在试听。${timing}${heard ? `大约 ${heard.toFixed(1)} 秒。` : ""}`);
+    return heard;
+  }
+
+  async function timeShotFromLine(shotId: string) {
+    const current = filmRef.current;
+    const shot = current?.shots.find((item) => item.id === shotId);
+    if (!current || !shot) return;
+    if (shot.userFields.includes("seconds")) {
+      setNotice("这一镜的时长是你改过的，没有覆盖。");
+      return;
+    }
+    const line = shot.line.trim();
+    if (!line) {
+      setNotice("这一镜没有台词。时长保持导演的选择。");
+      return;
+    }
+    const measured = await previewVoice(
+      shot.characters.length > 0
+        ? current.characters.find((item) => item.name === shot.characters[0])?.voiceId ||
+            current.narrationVoiceId
+        : current.narrationVoiceId,
+      line,
+    );
+    const plan = durationFromSpeech(speechSeconds(line, measured ?? null), shot.seconds);
+    if (!plan.fits) {
+      const parts = splitSpokenLine(line);
+      if (!parts) {
+        setNotice(plan.note);
+        return;
+      }
+      const first = durationFromSpeech(speechSeconds(parts[0], null), 2);
+      const second = durationFromSpeech(speechSeconds(parts[1], null), 2);
+      const splitShots = [
+        {
+          ...shot,
+          line: parts[0],
+          picture: parts[0],
+          seconds: first.seconds,
+          sound: { ...shot.sound, source: "dub" as const },
+        },
+        {
+          ...shot,
+          id: `${shot.id}-b`,
+          no: shot.no + 1,
+          line: parts[1],
+          picture: parts[1],
+          seconds: second.seconds,
+          sound: { ...shot.sound, source: "dub" as const },
+        },
+      ];
+      setPending(splitShots);
+      publishCard("director", {
+        title: `建议拆成 ${splitShots.length} 个镜头`,
+        rows: splitShots.map((item) => ({
+          id: item.id,
+          mark: item.size,
+          text: item.line,
+          tail: `${item.seconds}s`,
+        })),
+        notes: [],
+        applied: false,
+        mode: "shots",
+        shots: splitShots,
+      });
+      setNotice("这句话超过 15 秒，拆成两镜。点「放入分镜」才会写入。");
+      return;
+    }
+    setFilm(
+      updateShot(current, shot.id, {
+        seconds: plan.seconds,
+        sound: { ...shot.sound, source: "dub" },
+      }),
+    );
+    setNotice(
+      measured === null || measured === undefined
+        ? `${plan.note} 配音没有播出来，时长按字数估算。`
+        : plan.note,
+    );
+  }
+
+  function sendChat() {
+    const asked = chat.trim();
+    if (role === "writer") void planWriter("write");
+    else if (role === "action") void planAction();
+    else if (role === "performance") void planPerformance();
+    else if (role === "art") void planArt();
+    else if (role === "prompter") void planPrompter();
+    else if (role === "qc") void planQc();
+    else void planDirector(asked);
+    setChat("");
+  }
+
+  function applyLive(next: FilmProject) {
+    const current = filmRef.current;
+    const kept =
+      current &&
+      current.id === next.id &&
+      /^prj_[0-9a-f]{32}$/.test(current.backendProjectId) &&
+      !/^prj_[0-9a-f]{32}$/.test(next.backendProjectId)
+        ? { ...next, backendProjectId: current.backendProjectId }
+        : next;
+    filmRef.current = kept;
+    setFilm(kept);
+  }
+
+  function replaceTakes(
+    base: FilmProject,
+    shotId: string,
+    takes: FilmTake[],
+    selected = "",
+  ): FilmProject {
+    return {
+      ...base,
+      shots: base.shots.map((item) =>
+        item.id === shotId
+          ? { ...item, takes, selectedTakeId: selected || item.selectedTakeId }
+          : item,
+      ),
+    };
+  }
+
+  async function makeStill(prompt: string): Promise<{ url: string; reason: string }> {
+    const current = filmRef.current;
+    if (!current) return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
+    return requestStill(current.seriesId, prompt);
+  }
+
+  async function clipUrl(path: string): Promise<string> {
+    return fileMediaUrl(path);
+  }
+
+  async function submitGeneration(targets?: FilmShot[]) {
+    const mine = ++runToken.current;
+    stopRef.current = false;
+    let live = filmRef.current ?? film;
+    if (!live) return;
+    const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
+      (item): item is FilmShot => Boolean(item),
+    );
+    if (selected.length === 0) {
+      setNotice("先在剧本里拆镜头。");
+      return;
+    }
+    setNotice(generationEstimate(selected.length, versions, duration));
+    if (live.draft && modelIds.length > 0 && !modelIds.includes(VIDEO_DRAFT_MODEL)) {
+      setNotice(`模型列表里没有 ${VIDEO_DRAFT_MODEL}，不能先出草稿。`);
+      return;
+    }
+    const gate = actions.regenerate;
+    const bridge = window.aijian;
+    const billingProject = await ensureBillingProject();
+    live = filmRef.current ?? live;
+    const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
+    const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
+    const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
+    if (!canSubmit) {
+      applyLive({
+        ...live,
+        jobs: [
+          ...live.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
+          ...jobs,
+        ],
+      });
+      setNotice(blocked);
+      return;
+    }
+    let next = live;
+    const groups = selected.map((item) => {
+      const fresh: FilmTake[] = Array.from({ length: versions }, (_, index) => ({
+        id: crypto.randomUUID(),
+        shotId: item.id,
+        index: item.takes.length + index + 1,
+        status: "running",
+        stillUrl: "",
+        videoPath: "",
+        videoUrl: "",
+        prompt: item.picture,
+        createdAt: new Date().toISOString(),
+        reason: "",
+      }));
+      next = replaceTakes(
+        next,
+        item.id,
+        [...item.takes, ...fresh],
+        item.selectedTakeId || fresh[0]?.id || "",
+      );
+      return { shot: item, takes: fresh, hadTakes: item.takes.length > 0 };
+    });
+    next = {
+      ...next,
+      jobs: [
+        ...next.jobs.filter((job) => !selected.some((item) => item.id === job.shotId)),
+        ...jobs.map((job) => ({ ...job, status: "running" as const })),
+      ],
+    };
+    applyLive(next);
+    try {
+      for (const group of groups) {
+        for (let index = 0; index < group.takes.length; index += 1) {
+          const take = group.takes[index]!;
+          const current = filmRef.current ?? next;
+          if (stopRef.current || runToken.current !== mine) {
+            const latest = filmRef.current ?? current;
+            const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+              (item) =>
+                item.status === "running"
+                  ? { ...item, status: "failed" as const, reason: "已取消" }
+                  : item,
+            );
+            applyLive(
+              replaceTakes(
+                latest,
+                group.shot.id,
+                takes,
+                latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
+              ),
+            );
+            setNotice("已取消。还没开始的镜头不再生成。");
+            return;
+          }
+          if (pauseRef.current) {
+            const queued = group.takes.slice(index).map((item) => item.id);
+            applyLive(
+              replaceTakes(
+                current,
+                group.shot.id,
+                (current.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+                  (item) =>
+                    queued.includes(item.id)
+                      ? { ...item, status: "queued", reason: "已暂停。点继续再生成剩下的。" }
+                      : item,
+                ),
+              ),
+            );
+            setNotice("已暂停。点继续再生成剩下的。");
+            return;
+          }
+          const shotNow = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
+          const body = storyFilmBatches(current, [shotNow], current.draft)[0];
+          const response = await bridge!.createStoryFilm!(billingProject, {
+            ...body!,
+            regenerate: index > 0 || group.hadTakes,
+          });
+          const data = response.data ?? {};
+          const message = typeof data.message === "string" ? data.message : "";
+          const output = typeof data.output_path === "string" ? data.output_path : "";
+          const preview = typeof data.preview_image === "string" ? data.preview_image : "";
+          const reportedRaw = data.duration_seconds;
+          const reported =
+            typeof reportedRaw === "number"
+              ? reportedRaw
+              : typeof reportedRaw === "string"
+                ? Number(reportedRaw)
+                : 0;
+          const ok = data.status === "SUCCEEDED";
+          const videoUrl = ok ? await clipUrl(output) : "";
+          const done = ok && Boolean(videoUrl || preview || output);
+          const latest = filmRef.current ?? current;
+          const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+            (item) =>
+              item.id === take.id
+                ? {
+                    ...item,
+                    status: done ? ("done" as const) : ("failed" as const),
+                    videoPath: output,
+                    videoUrl,
+                    stillUrl: preview,
+                    reason: message,
+                  }
+                : item,
+          );
+          const frame =
+            preview.startsWith("data:") || preview.startsWith("blob:") || preview.startsWith("http")
+              ? preview
+              : "";
+          let saved = replaceTakes(
+            latest,
+            group.shot.id,
+            takes,
+            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ||
+              (done ? take.id : ""),
+          );
+          if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
+          if (done && output && group.shot.line.trim()) {
+            saved = {
+              ...saved,
+              shots: saved.shots.map((item) =>
+                item.id === group.shot.id
+                  ? { ...item, sound: { ...item.sound, source: "dub" } }
+                  : item,
+              ),
+              audioClips: [
+                ...saved.audioClips.filter(
+                  (clip) => !(clip.lane === "dialogue" && clip.shotId === group.shot.id),
+                ),
+                {
+                  id: `voice-${group.shot.id}`,
+                  lane: "dialogue",
+                  shotId: group.shot.id,
+                  takeId: take.id,
+                  label: "配音",
+                  startSeconds: 0,
+                  durationSeconds: group.shot.seconds,
+                  offsetSeconds: 0,
+                  gainDb: 0,
+                  path: output,
+                },
+              ],
+            };
+          }
+          if (done && Number.isFinite(reported) && reported > 0.4) {
+            const shown = Math.max(1, Math.min(15, Math.round(reported)));
+            const chosen = saved.shots.find((item) => item.id === group.shot.id)?.seconds ?? 0;
+            if (Math.abs(shown - chosen) >= 1) {
+              saved = updateShot(saved, group.shot.id, { seconds: shown });
+            }
+          }
+          saved = settleNextJob(saved, group.shot.id, done ? "done" : "failed");
+          applyLive(saved);
+          if (done && group.shot.id === openShotRef.current) setPlaying(true);
+          setNotice((current) =>
+            current.startsWith("已暂停")
+              ? current
+              : message || (done ? "这一版已经生成。" : "没有生成成功，可以重试。"),
+          );
+        }
+      }
+    } catch {
+      const latest = filmRef.current ?? next;
+      let failed = latest;
+      for (const group of groups) {
+        failed = replaceTakes(
+          failed,
+          group.shot.id,
+          (failed.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map((item) =>
+            item.status === "running"
+              ? { ...item, status: "failed", reason: "没有生成成功，可以重试。" }
+              : item,
+          ),
+        );
+      }
+      applyLive({
+        ...failed,
+        jobs: failed.jobs.map((job) =>
+          job.status === "running" || job.status === "queued"
+            ? { ...job, status: "failed" as const }
+            : job,
+        ),
+      });
+      setNotice("没有生成成功，可以重试。");
+    }
+  }
+
+  function askBatch() {
+    const rows = shownShots.length > 0 ? shownShots : (film?.shots ?? []);
+    if (rows.length === 0) {
+      setNotice("先在剧本里拆镜头。");
+      return;
+    }
+    setPendingBatch(rows);
+    setNotice(generationEstimate(rows.length, versions, duration));
+  }
+
+  async function joinedCut(paths: string[]) {
+    const current = filmRef.current;
+    const bridge = window.aijian;
+    if (!current || paths.length === 0) return;
+    if (paths.length < 2 || !bridge?.assembleFilm) return;
+    try {
+      const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
+      const duck = current.shots.some((item) => item.line.trim().length > 0);
+      const result = await bridge.assembleFilm(
+        current.seriesId,
+        paths,
+        music?.path ?? "",
+        Boolean(music && duck),
+      );
+      const url = result.path ? await clipUrl(result.path) : "";
+      const latest = filmRef.current ?? current;
+      applyLive({ ...latest, assemblyPath: result.path, assemblyUrl: url });
+      if (result.reason) setNotice(result.reason);
+    } catch {
+      setNotice(ROUGH_CUT_REASON);
+    }
+  }
+
+  async function startExport(directoryOverride?: string, allowPartial = false) {
+    const bridge = window.aijian;
+    if (!bridge?.exportFilmCut || !bridge.pickFilmFolder) {
+      setNotice("导出要在桌面版里选择文件夹。网页里不能写成片。");
+      return;
+    }
+    const current = filmRef.current;
+    if (!current) return;
+    const plan = chosenExport(current);
+    if (plan.paths.length === 0) {
+      setNotice(
+        plan.missing.length > 0
+          ? `还没生成：${plan.missing.join("、")}。`
+          : "还没有可以导出的视频。",
+      );
+      return;
+    }
+    if (plan.missing.length > 0 && !allowPartial) {
+      setPartialExport(plan.missing);
+      setNotice(`还没生成：${plan.missing.join("、")}。可以只导出已生成的。`);
+      return;
+    }
+    const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
+    let source: string;
+    if (plan.paths.length === 1 && music?.path && bridge.assembleFilm) {
+      const mixed = await bridge.assembleFilm(
+        current.seriesId,
+        plan.paths,
+        music.path,
+        music.gainDb,
+      );
+      source = mixed.path || plan.paths[0] || "";
+    } else if (plan.paths.length === 1) source = plan.paths[0] ?? "";
+    else {
+      await joinedCut(plan.paths);
+      source = filmRef.current?.assemblyPath ?? "";
+    }
+    if (!source) {
+      setNotice("没有导出成功，可以重试。");
+      return;
+    }
+    const directory = directoryOverride || exportDir || (await bridge.pickFilmFolder()) || "";
+    if (!directory) {
+      setNotice("没有选择文件夹。");
+      return;
+    }
+    setExportDir(directory);
+    setExporting(true);
+    setNotice("正在导出。");
+    try {
+      const name = filmFileName(
+        current.seriesTitle || current.title,
+        current.episodeTitle || "第1集",
+      );
+      const result = await bridge.exportFilmCut(source, directory, name);
+      setExportFile(result.path);
+      applyLive({ ...(filmRef.current ?? current), exportPath: result.path });
+      setNotice(`已导出到 ${result.path}`);
+    } catch {
+      setNotice("没有导出成功，可以重试。");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const wsClass =
+    stage === "edit" && (range || comparing)
+      ? "ws fix"
+      : bench && stage === "board"
+        ? "ws gen"
+        : `ws ${stage === "board" ? "board" : stage}`;
+
+  useEffect(() => {
+    if (stage !== "edit" || !film) return;
+    const paths = film.shots
+      .map(
+        (item) =>
+          item.takes.find((take) => take.id === item.selectedTakeId && take.videoPath)?.videoPath ||
+          item.takes.find((take) => take.status === "done" && take.videoPath)?.videoPath ||
+          "",
+      )
+      .filter((item) => item);
+    if (paths.length < 2) return;
+    const key = paths.join("|");
+    if (assembledKey.current === key) return;
+    assembledKey.current = key;
+    void joinedCut(paths);
+  }, [stage, film]);
+
+  const liveSignature = useMemo(() => (film ? filmSignature(film) : ""), [film]);
+  const dirty =
+    film !== null &&
+    committed.current !== null &&
+    liveSignature !== filmSignature(committed.current);
+  const canUndo = historyTick >= 0 && (pastRef.current.length > 0 || dirty);
+  const canRedo = futureRef.current.length > 0;
+  const tracked =
+    film?.jobs.filter(
+      (job) =>
+        job.status === "queued" ||
+        job.status === "running" ||
+        job.status === "done" ||
+        job.status === "failed",
+    ) ?? [];
+  const finished = tracked.filter((job) => job.status === "done" || job.status === "failed").length;
+  const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
+
+  return (
+    <div
+      className="pro-root"
+      data-stage={stage}
+      data-sample={open ? "open" : "empty"}
+      data-generate={actions.regenerate.enabled ? "on" : "off"}
+    >
+      <div className="app">
+        <header className="topbar">
+          <div className="tb-left">
+            <div className="logo">
+              <div className="logo-mark">A</div>
+              AIVORA
+            </div>
+            <span className="vsep" />
+            <button
+              className="proj"
+              aria-label="作品"
+              onClick={() => {
+                const opening = menu !== "project";
+                setMenu(opening ? "project" : null);
+                if (opening && film) {
+                  setRename(film.seriesTitle || film.title);
+                  void listFilms().then(setSeriesList);
+                  void listEpisodes(film.seriesId).then(setEpisodes);
+                }
+              }}
+            >
+              {title}
+              {film ? (
+                <span className="ep">/ {film.episodeTitle || `第 ${film.episodeNo} 集`}</span>
+              ) : null}
+              <Ic name="chev" size={14} />
+            </button>
+            <button
+              className="icon-btn"
+              aria-label="撤销"
+              title="撤销"
+              disabled={!canUndo}
+              onClick={undoEdit}
+            >
+              <Ic name="undo" />
+            </button>
+            <button
+              className="icon-btn"
+              aria-label="重做"
+              title="重做"
+              disabled={!canRedo}
+              onClick={redoEdit}
+            >
+              <Ic name="redo" />
+            </button>
+            {menu === "project" && (
+              <div className="menu" role="menu" aria-label="作品菜单">
+                <button
+                  onClick={() => {
+                    const next = blankFilm();
+                    applyLive(next);
+                    setPending(null);
+                    setShot(0);
+                    setRange(false);
+                    setComparing(false);
+                    setBench(false);
+                    setStage("script");
+                    setMenu(null);
+                    setNotice("已新建作品。写下故事，或打开示例。");
+                  }}
+                >
+                  新建作品
+                </button>
+                <button
+                  onClick={() => {
+                    applyLive(sampleFilm());
+                    setScene("02");
+                    setBench(false);
+                    setStage("script");
+                    setMenu(null);
+                    setNotice("已打开示例「雨夜巷战」。");
+                  }}
+                >
+                  打开示例
+                </button>
+                {seriesList.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      void readSaved(item.id).then((saved) => {
+                        if (!saved) {
+                          setNotice("没有打开这部作品。");
+                          return;
+                        }
+                        const settled = interruptStaleWork(saved);
+                        applyLive(settled.film);
+                        setScene(settled.film.scenes[0]?.id ?? "scene-1");
+                        setShot(0);
+                        setPlaying(false);
+                        setMenu(null);
+                        setNotice(
+                          settled.interrupted
+                            ? "上次有生成没做完，已标成已中断。可以重试。"
+                            : `已打开${saved.seriesTitle || saved.title}。`,
+                        );
+                      });
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    if (!film) return;
+                    const next = newEpisode(film);
+                    applyLive(next);
+                    setScene(next.scenes[0]?.id ?? "scene-1");
+                    setBench(false);
+                    setStage("script");
+                    setMenu(null);
+                    setNotice(`已新建${next.episodeTitle}。`);
+                  }}
+                >
+                  新建一集
+                </button>
+                {episodes.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      void readSaved(item.id).then((saved) => {
+                        if (!saved) return;
+                        const settled = interruptStaleWork(saved);
+                        applyLive(settled.film);
+                        setScene(settled.film.scenes[0]?.id ?? scene);
+                        setPlaying(false);
+                        setMenu(null);
+                        setNotice(
+                          settled.interrupted
+                            ? "上次有生成没做完，已标成已中断。可以重试。"
+                            : `已打开${saved.episodeTitle}。`,
+                        );
+                      });
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+                <input
+                  aria-label="作品名"
+                  value={rename}
+                  onChange={(event) => setRename(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    const name = event.currentTarget.value.trim();
+                    if (!film || !name) return;
+                    void renameFilm(film.seriesId, name);
+                    applyLive({ ...film, title: name, seriesTitle: name });
+                    setMenu(null);
+                    setNotice("已改作品名。");
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (!film || !rename.trim()) return;
+                    void renameFilm(film.seriesId, rename.trim());
+                    applyLive({ ...film, title: rename.trim(), seriesTitle: rename.trim() });
+                    setMenu(null);
+                    setNotice("已改作品名。");
+                  }}
+                >
+                  保存名字
+                </button>
+                <button
+                  onClick={() => {
+                    deleteTarget.current = "episode";
+                    setMenu(null);
+                    setPendingDelete(true);
+                  }}
+                >
+                  删除这一集
+                </button>
+                <button
+                  onClick={() => {
+                    deleteTarget.current = "series";
+                    setMenu(null);
+                    setPendingDelete(true);
+                  }}
+                >
+                  删除这部作品
+                </button>
+                <button
+                  onClick={() => {
+                    setMenu(null);
+                    setStage("cast");
+                    setNotice("画风在角色与场景，每镜次数在单镜工作台。");
+                  }}
+                >
+                  作品设置
+                </button>
+              </div>
+            )}
+          </div>
+          <nav className="tabs" aria-label="创作阶段">
+            {STAGES.map((item, index) => {
+              const done = open && index < STAGES.findIndex((stageItem) => stageItem.id === stage);
+              const on = item.id === stage;
+              return (
+                <button
+                  key={item.id}
+                  className={`tab${done ? " done" : ""}${on ? " on" : ""}`}
+                  aria-current={on ? "page" : undefined}
+                  onClick={() => {
+                    setStage(item.id);
+                    setMenu(null);
+                    if (item.id === "board") {
+                      const current = filmRef.current;
+                      const rows =
+                        current?.shots.filter((shotItem) => shotItem.sceneId === scene) ?? [];
+                      const list = rows.length > 0 ? rows : (current?.shots ?? []);
+                      const next = list.findIndex(
+                        (shotItem) => !shotItem.takes.some((take) => take.status === "done"),
+                      );
+                      setShot(next >= 0 ? next : 0);
+                    }
+                    if (item.id !== "cast") return;
+                    const current = filmRef.current;
+                    if (
+                      current &&
+                      current.characters.length === 0 &&
+                      current.locations.length === 0 &&
+                      current.scenes.some((sceneItem) => sceneItem.text.trim())
+                    ) {
+                      void fillCast(current);
+                    }
+                  }}
+                >
+                  <span className="n">
+                    {done && !on ? <Ic name="check" size={10} /> : index + 1}
+                  </span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="tb-right">
+            <button
+              className="chip"
+              onClick={() => {
+                if (membershipDenied) setNotice("这个会员不能用这里的模型。");
+                else if (connected) setNotice("Grok 会员已连接。");
+                else void signInGrok();
+              }}
+            >
+              <span
+                className="dot"
+                style={connected && !membershipDenied ? undefined : { background: "#E8A33D" }}
+              />
+              {membershipDenied
+                ? "会员不能用这个功能"
+                : connected
+                  ? "Grok 会员 · 已连接"
+                  : signingIn
+                    ? "正在等浏览器"
+                    : "需要重新登录"}
+            </button>
+            <button
+              className="btn"
+              type="button"
+              aria-pressed={soundOn}
+              onClick={() => setSoundOn((value) => !value)}
+            >
+              {soundOn ? "声音开" : "声音关"}
+            </button>
+            <button
+              className="btn primary"
+              onClick={() => {
+                setExportOpen(true);
+                if (!exportDir) {
+                  void window.aijian?.defaultFilmFolder?.().then((dir) => {
+                    if (dir) setExportDir(dir);
+                  });
+                }
+              }}
+            >
+              <Ic name="upload" size={15} />
+              导出成片
+            </button>
+            <button
+              className="avatar"
+              aria-label="账号"
+              onClick={() => setMenu(menu === "account" ? null : "account")}
+            >
+              C
+            </button>
+            {menu === "account" && (
+              <div className="menu" role="menu" aria-label="账号菜单">
+                {signingIn && (
+                  <button
+                    onClick={() => {
+                      void window.aijianGrok?.cancel?.();
+                      setSigningIn(false);
+                      setNotice("登录已取消。");
+                    }}
+                  >
+                    取消登录
+                  </button>
+                )}
+                {!connected && <button onClick={() => void signInGrok()}>用 Grok 会员登录</button>}
+                <button onClick={() => void signOutAccount()}>退出登录</button>
+              </div>
+            )}
+          </div>
+        </header>
+        <main className={wsClass}>
+          {!open || !film ? (
+            <section className="pane" style={{ gridColumn: "1 / -1" }}>
+              <div className="empty-center">
+                <div>
+                  <h2>写下你的故事，或者一句话的想法</h2>
+                  <p>还没有作品。可以新建，也可以先打开示例看看整条流程。</p>
+                  <div className="acts">
+                    {!connected && (
+                      <button className="btn primary" onClick={() => void signInGrok()}>
+                        用 Grok 会员登录
+                      </button>
+                    )}
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        const next = blankFilm();
+                        setFilm(next);
+                        setScene(next.scenes[0]?.id ?? "scene-1");
+                        setStage("script");
+                        setNotice("从一句故事开始。");
+                      }}
+                    >
+                      新建作品
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setFilm(sampleFilm());
+                        setScene("02");
+                        setNotice("已打开示例「雨夜巷战」。");
+                      }}
+                    >
+                      打开示例
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <>
+              {stage === "script" && (
+                <ScriptPage
+                  film={film}
+                  scene={scene}
+                  onScene={setScene}
+                  onFilm={setFilm}
+                  asking={asking}
+                  onPlan={() => void planDirector()}
+                  onWrite={() => void planWriter("write")}
+                  onAdapt={() => void planWriter("adapt")}
+                  onImport={() => fileRef.current?.click()}
+                  onAction={() => void planAction()}
+                  onPerformance={() => void planPerformance()}
+                  onArt={() => void planArt()}
+                  onPrompter={() => void planPrompter()}
+                  onQc={() => void planQc()}
+                  pending={pending}
+                  pendingScenes={pendingScenes}
+                  onApply={applyPending}
+                  onApplyScenes={applyPendingScenes}
+                  role={role}
+                  onRole={chooseRole}
+                  chat={chat}
+                  onChat={setChat}
+                  onSend={sendChat}
+                  onUndo={undoEdit}
+                  onRedo={redoEdit}
+                  showRoles={showRoles}
+                  onToggleRoles={() => setShowRoles((value) => !value)}
+                  structured={structured}
+                  turns={turns}
+                  card={roleCards[role] ?? null}
+                  onRedoRange={() => {
+                    setStage("edit");
+                    setRange(true);
+                    setNotice("已选中这一镜。在时间线上点「只重做这一段」。");
+                  }}
+                  onDismiss={() => {
+                    markApplied("qc");
+                    setNotice("已记下审片意见。版本仍由你选。");
+                  }}
+                  onOneClick={() => void oneClickFilm()}
+                  onTemplate={applyTemplate}
+                />
+              )}
+              {stage === "cast" && (
+                <CastPage
+                  film={film}
+                  onFilm={setFilm}
+                  role={role}
+                  onRole={chooseRole}
+                  onNotice={setNotice}
+                  onPortraits={(id) => void makePortraits(id)}
+                  onConfirmPortraits={(id) => void confirmPortraits(id)}
+                  portraitReady={portraitReady}
+                  voices={voiceChoices}
+                  onPreview={(voiceId, line) => void previewVoice(voiceId, line)}
+                  hearing={hearing}
+                  chat={chat}
+                  onChat={setChat}
+                  onSend={sendChat}
+                />
+              )}
+              {stage === "board" && !bench && (
+                <BoardPage
+                  film={film}
+                  shots={shownShots}
+                  shot={shot}
+                  onShot={setShot}
+                  onFilm={setFilm}
+                  onNotice={setNotice}
+                  onGenerate={() => setBench(true)}
+                  onBatch={askBatch}
+                  stills={[]}
+                  fourArmed={stillArmed}
+                  onFour={() => {
+                    const current = shownShots[shot];
+                    if (!current || !window.aijian?.generateFilmStill) {
+                      setNotice("请打开安装好的 AIVORA 再出图。");
+                      return;
+                    }
+                    if (stillArmed !== current.id) {
+                      setStillArmed(current.id);
+                      setNotice("将出 4 张候选起始画面。点「确认这 4 张」才出图。");
+                      return;
+                    }
+                    setStillArmed("");
+                    const prompts = keyframeVariants(current, filmRef.current ?? film);
+                    void (async () => {
+                      const latest = filmRef.current;
+                      if (!latest) return;
+                      const stills = [...current.stills];
+                      for (const prompt of prompts) {
+                        const made = await requestStill(
+                          latest.seriesId,
+                          withIdentityLocks(prompt, latest.characters, current.characters).prompt,
+                        );
+                        if (!made.url) {
+                          setNotice(made.reason);
+                          return;
+                        }
+                        stills.push({ id: crypto.randomUUID(), prompt, url: made.url });
+                      }
+                      const live = filmRef.current;
+                      if (!live) return;
+                      setFilm(
+                        updateShot(live, current.id, { stills, poster: stills.at(-1)?.url ?? "" }),
+                      );
+                      setNotice("4 张候选画面已生成。点一张作为这一镜的画面。");
+                    })();
+                  }}
+                  onStills={() => {
+                    const current = shownShots[shot];
+                    if (!current || !window.aijian?.generateFilmStill) {
+                      setNotice("请打开安装好的 AIVORA 再出图。");
+                      return;
+                    }
+                    setNotice("正在出这一镜的画面。");
+                    void makeStill(keyframePrompt(current, film)).then((made) => {
+                      if (!made.url) {
+                        setNotice(made.reason);
+                        return;
+                      }
+                      const latest = filmRef.current;
+                      if (!latest) return;
+                      setFilm(
+                        updateShot(latest, current.id, {
+                          poster: made.url,
+                          stills: [
+                            ...current.stills,
+                            { id: crypto.randomUUID(), prompt: current.picture, url: made.url },
+                          ],
+                        }),
+                      );
+                      setNotice(made.reason);
+                    });
+                  }}
+                  onPickStill={(picture) => {
+                    const current = shownShots[shot];
+                    if (!current) return;
+                    setFilm(
+                      updateShot(film, current.id, {
+                        picture,
+                        action: picture,
+                        source: "user",
+                        userFields: [...new Set([...current.userFields, "picture"])],
+                      }),
+                    );
+                    setNotice("已换成这一条构图。");
+                  }}
+                  role={role}
+                  onRole={chooseRole}
+                  pending={pending}
+                  onApply={applyPending}
+                  onAction={() => void planAction()}
+                  onPerformance={() => void planPerformance()}
+                  onArt={() => void planArt()}
+                  onPrompter={() => void planPrompter()}
+                  onQc={() => void planQc()}
+                  onTimeLine={(id) => void timeShotFromLine(id)}
+                  chat={chat}
+                  onChat={setChat}
+                  onSend={sendChat}
+                  turns={turns}
+                  assistPulse={assistPulse}
+                  structured={structured}
+                  card={roleCards[role] ?? null}
+                  onRedoRange={() => {
+                    setStage("edit");
+                    setRange(true);
+                    setNotice("已选中这一镜。在时间线上点「只重做这一段」。");
+                  }}
+                  onDismiss={() => {
+                    markApplied("qc");
+                    setNotice("已记下审片意见。版本仍由你选。");
+                  }}
+                />
+              )}
+              {stage === "board" && bench && (
+                <GeneratePage
+                  onBack={() => setBench(false)}
+                  film={film}
+                  shots={shownShots}
+                  shot={shot}
+                  onShot={setShot}
+                  onFilm={setFilm}
+                  versions={versions}
+                  onVersions={(count) => {
+                    setVersions(count);
+                    setFilm({ ...film, takesPerShot: count });
+                  }}
+                  duration={duration}
+                  onDuration={(seconds) => {
+                    setDuration(seconds);
+                    const current = shownShots[shot];
+                    if (!current) return;
+                    setFilm({
+                      ...film,
+                      shots: film.shots.map((item) =>
+                        item.id === current.id
+                          ? {
+                              ...item,
+                              seconds,
+                              userFields: [...new Set([...item.userFields, "seconds"])],
+                            }
+                          : item,
+                      ),
+                    });
+                  }}
+                  onCreate={() => {
+                    const current = shownShots[shot];
+                    if (!current) return;
+                    setPendingBatch([current]);
+                  }}
+                  playing={playing}
+                  onPlaying={setPlaying}
+                  audible={soundOn}
+                />
+              )}
+              {stage === "edit" && (
+                <EditPage
+                  film={film}
+                  shot={shot}
+                  onShot={setShot}
+                  shots={shownShots}
+                  range={range}
+                  comparing={comparing}
+                  fixAction={fixAction}
+                  rightTab={rightTab}
+                  playing={playing}
+                  actions={actions}
+                  onTogglePlay={() => togglePlayback(setPlaying)}
+                  onSelectRange={() => {
+                    setSpan({ from: shot, to: shot });
+                    setRange(true);
+                    setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  onMarkIn={() => {
+                    setSpan({ from: shot, to: span?.to ?? shot });
+                    setRange(true);
+                    setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  onMarkOut={() => {
+                    const from = span?.from ?? shot;
+                    setSpan({ from: Math.min(from, shot), to: Math.max(from, shot) });
+                    setRange(true);
+                    setComparing(true);
+                    setRightTab("fix");
+                  }}
+                  span={span}
+                  onLane={(lane, gainDb) => {
+                    const live = filmRef.current;
+                    if (!live) return;
+                    applyLive({
+                      ...live,
+                      audioClips: live.audioClips.map((clip) =>
+                        clip.lane === lane ? { ...clip, gainDb } : clip,
+                      ),
+                    });
+                    setNotice(gainDb <= -40 ? "这一路已静音。" : "音量已记下，导出时用这个音量。");
+                  }}
+                  onRewrite={(picture) => {
+                    const current = shownShots[shot];
+                    if (!film || !current) return;
+                    setFilm(
+                      updateShot(film, current.id, {
+                        picture,
+                        promptZh: "",
+                        source: "user",
+                        userFields: [...new Set([...current.userFields, "picture"])],
+                      }),
+                    );
+                  }}
+                  onPickClip={() => {
+                    setRange(true);
+                    setRightTab("fix");
+                  }}
+                  onRangeGenerate={() => {
+                    const from = span?.from ?? shot;
+                    const to = span?.to ?? shot;
+                    const rows = shownShots.slice(Math.min(from, to), Math.max(from, to) + 1);
+                    if (rows.length === 0) return;
+                    setPendingBatch(rows);
+                    setNotice(
+                      `只重做镜头 ${rows.map((item) => item.no).join("、")}。确认表里点开始生成才会出视频。`,
+                    );
+                  }}
+                  onClearRange={() => {
+                    setRange(false);
+                    setComparing(false);
+                    setRightTab("props");
+                  }}
+                  onAction={runAction}
+                  onKeep={() => {
+                    setComparing(false);
+                    setNotice("保留旧版。新版留在历史版本里。");
+                  }}
+                  onReplace={() => {
+                    const current = shownShots[shot];
+                    const newer = [...(current?.takes ?? [])]
+                      .reverse()
+                      .find(
+                        (take) => take.status === "done" && take.id !== current?.selectedTakeId,
+                      );
+                    if (film && current && newer) {
+                      setFilm({
+                        ...film,
+                        shots: film.shots.map((item) =>
+                          item.id === current.id ? { ...item, selectedTakeId: newer.id } : item,
+                        ),
+                      });
+                      setNotice("已用新版替换。旧版留在历史版本里。");
+                    } else {
+                      setNotice("还没有可以替换的新版本。");
+                    }
+                    setComparing(false);
+                    setRange(false);
+                  }}
+                  onTab={setRightTab}
+                  onUndo={undoEdit}
+                  onRedo={redoEdit}
+                  onNotice={setNotice}
+                  onPlaying={setPlaying}
+                  audible={soundOn}
+                  onImportMusic={(file) => {
+                    const path = window.aijian?.filePath?.(file) || "";
+                    const bridge = window.aijian;
+                    if (!film || !path || !bridge?.importMusic) {
+                      setNotice("请在桌面版里选择一个 mp3 或 wav 音乐文件。");
+                      return;
+                    }
+                    void bridge.importMusic(film.seriesId, path).then((stored) => {
+                      const latest = filmRef.current ?? film;
+                      applyLive({
+                        ...latest,
+                        audioClips: [
+                          ...latest.audioClips,
+                          {
+                            id: `music-${Date.now()}`,
+                            lane: "score",
+                            shotId: "",
+                            takeId: "",
+                            label: "",
+                            startSeconds: 0,
+                            durationSeconds: 0,
+                            offsetSeconds: 0,
+                            gainDb: -22,
+                            path: stored.path,
+                          },
+                        ],
+                      });
+                      setNotice("已导入音乐。有台词时，导出会把配乐压低。");
+                    });
+                  }}
+                />
+              )}
+            </>
+          )}
+        </main>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".txt,.md,.docx,.epub,text/plain"
+          aria-label="导入小说"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void importBook(file);
+          }}
+        />
+        <footer className="statusbar">
+          {confirmSignIn && (
+            <span>
+              接下来会打开浏览器，进入 Grok Build 授权页。点允许后回到这里。
+              <button type="button" onClick={() => void beginSignIn()}>
+                去浏览器授权
+              </button>
+              <button type="button" onClick={() => setConfirmSignIn(false)}>
+                先不登录
+              </button>
+            </span>
+          )}
+          {pendingRetry && (
+            <button type="button" onClick={() => void retryPending()}>
+              再用普通对话问一次
+            </button>
+          )}
+          {oneClickReady && (
+            <button
+              type="button"
+              onClick={() => {
+                const live = filmRef.current;
+                if (!live || live.shots.length === 0) {
+                  void oneClickFilm();
+                  return;
+                }
+                setPendingBatch(live.shots);
+                setOneClickReady(false);
+              }}
+            >
+              继续
+            </button>
+          )}
+          {asking && (
+            <button
+              type="button"
+              onClick={() => {
+                void (
+                  window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
+                )?.cancelText?.();
+                setAsking(false);
+                setNotice("已取消。");
+              }}
+            >
+              取消
+            </button>
+          )}
+          <span>{notice}</span>
+          <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
+            <Ic name="loader" size={12} />
+            后台生成：
+            {film && film.jobs.some((job) => job.status === "running" || job.status === "queued")
+              ? `视频 ${film.jobs.filter((job) => job.status === "queued" || job.status === "running").length} 个排队`
+              : "没有正在生成的内容"}
+            <span className="bar">
+              <i style={{ width: `${progress}%` }} />
+            </span>
+          </button>
+          <span className="sp" />
+          <span className="where">
+            {savedDirectory
+              ? "作品保存在"
+              : filmDiskReady()
+                ? diskError || "正在写入应用数据目录"
+                : BROWSER_DIRECTORY}{" "}
+            <b>{savedDirectory || film?.title || ""}</b>
+          </span>
+        </footer>
+        {pendingBatch && (
+          <div className="dialog-back">
+            <div
+              className="dialog"
+              role="dialog"
+              aria-label="生成前确认"
+              data-testid="confirm-table"
+            >
+              <h2>生成前确认</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>镜头</th>
+                    <th>秒数</th>
+                    <th>台词</th>
+                    <th>声音来源</th>
+                    <th>配乐</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingBatch.map((item) => (
+                    <tr key={item.id}>
+                      <td>镜头 {item.no}</td>
+                      <td>{item.seconds}</td>
+                      <td>{item.line.trim() || "无"}</td>
+                      <td>{item.line.trim() ? "单独配音" : "无台词"}</td>
+                      <td>
+                        {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
+                          ? "已导入"
+                          : "无"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p data-testid="batch-estimate">{confirmEstimate(pendingBatch, versions)}</p>
+              <div className="acts">
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    const rows = pendingBatch;
+                    setPendingBatch(null);
+                    void submitGeneration(rows);
+                  }}
+                >
+                  开始生成
+                </button>
+                <button className="btn" onClick={() => setPendingBatch(null)}>
+                  先不生成
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingDelete && (
+          <div className="dialog-back">
+            <div className="dialog" role="dialog" aria-label="确认删除">
+              <h2>
+                {deleteTarget.current === "series"
+                  ? `确认删除作品「${film?.seriesTitle || film?.title || "这部作品"}」？文件会删掉。`
+                  : `确认删除「${film?.title || "这一集"}」？文件会删掉。`}
+              </h2>
+              <div className="acts">
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    if (!film) return;
+                    const series = deleteTarget.current === "series";
+                    void removeFilm(series ? film.seriesId : film.id).then(async () => {
+                      if (series) {
+                        setFilm(null);
+                        setPendingDelete(false);
+                        setNotice("已删除这部作品。");
+                        return;
+                      }
+                      const rows = await listFilms();
+                      const saved = rows[0] ? await readSaved(rows[0].id) : null;
+                      if (saved) applyLive(interruptStaleWork(saved).film);
+                      else setFilm(null);
+                      setPendingDelete(false);
+                      setNotice("已删除这一集。");
+                    });
+                  }}
+                >
+                  确认删除
+                </button>
+                <button className="btn" onClick={() => setPendingDelete(false)}>
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {menu === "queue" && (
+          <div
+            className="menu"
+            style={{ left: 220, bottom: 28, top: "auto" }}
+            role="dialog"
+            aria-label="生成队列"
+          >
+            <button
+              onClick={() => {
+                pauseRef.current = !paused;
+                setPaused((value) => !value);
+                setNotice(paused ? "继续排队。" : "已暂停。已经发出的请求不一定能停。");
+              }}
+            >
+              {paused ? "继续排队" : "暂停排队"}
+            </button>
+            <button
+              onClick={() => {
+                const failed = (film?.shots ?? []).filter((item) =>
+                  item.takes.some((take) => take.status === "failed"),
+                );
+                if (failed.length === 0) {
+                  setNotice("没有失败的生成。");
+                  return;
+                }
+                void submitGeneration(failed);
+              }}
+            >
+              重试失败的
+            </button>
+            {(film?.jobs ?? []).length === 0 && <button>没有正在生成的内容</button>}
+            {(film?.jobs ?? []).map((job) => (
+              <button
+                key={job.id}
+                onClick={() => {
+                  if (!film) return;
+                  runToken.current += 1;
+                  stopRef.current = true;
+                  const billed = film.backendProjectId || projectId;
+                  if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
+                    void window.aijian.cancelStoryFilm(billed);
+                  }
+                  setFilm({
+                    ...film,
+                    jobs: film.jobs.map((item) =>
+                      item.id === job.id ? { ...item, status: "cancelled" } : item,
+                    ),
+                  });
+                  setNotice("已取消这一次。已经发出的请求不一定能停。");
+                }}
+              >
+                {job.kind === "video" ? "视频" : "画面"} · 版本 {job.take} ·{" "}
+                {job.status === "blocked"
+                  ? job.reason
+                  : job.status === "done"
+                    ? "好了"
+                    : job.status === "failed"
+                      ? job.reason === "已中断"
+                        ? "已中断"
+                        : "没有成功"
+                      : job.status === "cancelled"
+                        ? "已取消"
+                        : "点此取消"}
+              </button>
+            ))}
+          </div>
+        )}
+        {exportOpen && (
+          <div className="dialog-back">
+            <div className="dialog" role="dialog" aria-label="导出成片">
+              <h2>导出成片</h2>
+              <div className="field">
+                <label>文件名</label>
+                <div className="input">
+                  {film
+                    ? filmFileName(film.seriesTitle || film.title, film.episodeTitle || "第1集")
+                    : "未命名"}
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="export-dir">保存到</label>
+                <input
+                  id="export-dir"
+                  className="input"
+                  aria-label="导出文件夹"
+                  value={exportDir}
+                  placeholder="点浏览。文件夹选择会打开视频里的 AIVORA"
+                  onChange={(event) => setExportDir(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    const path = event.currentTarget.value.trim();
+                    if (!path) return;
+                    setExportDir(path);
+                    void startExport(path);
+                  }}
+                />
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => {
+                    void window.aijian?.pickFilmFolder?.().then((dir) => {
+                      if (dir) setExportDir(dir);
+                    });
+                  }}
+                >
+                  浏览
+                </button>
+              </div>
+              <p className="role-desc" data-testid="export-summary">
+                {film ? exportSummary(film) : "还没有作品。"}
+              </p>
+              {film && chosenExport(film).missing.length > 0 && (
+                <p className="role-desc">
+                  还没生成：{chosenExport(film).missing.join("、")}。可以只导出已生成的。
+                </p>
+              )}
+              <div className="acts">
+                <button className="btn" onClick={() => setExportOpen(false)}>
+                  关闭
+                </button>
+                <button
+                  className="btn"
+                  disabled={!exportFile}
+                  title={exportFile ? "打开导出的文件夹" : "还没有导出的文件"}
+                  onClick={() => {
+                    if (exportFile) void window.aijian?.revealFilmPath?.(exportFile);
+                  }}
+                >
+                  打开文件夹
+                </button>
+                <button
+                  className="btn"
+                  disabled={!exportFile}
+                  title={exportFile ? "播放导出的文件" : "还没有导出的文件"}
+                  onClick={() => {
+                    if (exportFile) void window.aijian?.openFilmPath?.(exportFile);
+                  }}
+                >
+                  播放
+                </button>
+                {partialExport && partialExport.length > 0 && (
+                  <button className="btn" onClick={() => void startExport(exportDir, true)}>
+                    只导出已生成的
+                  </button>
+                )}
+                <button
+                  className="btn primary"
+                  disabled={exporting}
+                  onClick={() => void startExport()}
+                >
+                  {exporting ? "正在导出" : "开始导出"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Assistant({
+  role,
+  onRole,
+  pending,
+  pendingScenes,
+  onApply,
+  onApplyScenes,
+  shots,
+  chat,
+  onChat,
+  onSend,
+  onQuick,
+  showRoles = true,
+  onToggleRoles,
+  structured = [],
+  turns = [],
+  card = null,
+  onRedoRange,
+  onDismiss,
+}: {
+  role: Role;
+  onRole: (role: Role) => void;
+  pending: FilmShot[] | null;
+  pendingScenes?: FilmScene[] | null;
+  onApply: () => void;
+  onApplyScenes?: () => void;
+  shots: FilmShot[];
+  chat: string;
+  onChat: (value: string) => void;
+  onSend: () => void;
+  onQuick?: (label: string) => void;
+  showRoles?: boolean;
+  onToggleRoles?: () => void;
+  structured?: string[];
+  turns?: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  card?: RoleCard | null;
+  onRedoRange?: () => void;
+  onDismiss?: () => void;
+}) {
+  const scenes = role === "writer" ? pendingScenes : null;
+  const list = pending ?? shots;
+  const chips =
+    role === "writer"
+      ? ["让编剧写", "改成短剧", "导入小说"]
+      : role === "action"
+        ? ["请动作指导看看"]
+        : role === "performance"
+          ? ["请表演指导看看"]
+          : role === "art"
+            ? ["请美术定画风"]
+            : role === "prompter"
+              ? ["写这一镜的提示词"]
+              : role === "qc"
+                ? ["请审片看看"]
+                : ["节奏再快些", "加一个特写", "请动作指导看看"];
+  return (
+    <>
+      {showRoles ? (
+        <div className="roles">
+          <button
+            className={role === "writer" ? "role on" : "role"}
+            onClick={() => onRole("writer")}
+          >
+            <span className="ri">
+              <Ic name="text" size={15} />
+            </span>
+            编剧
+          </button>
+          <button
+            className={role === "director" ? "role on" : "role"}
+            onClick={() => onRole("director")}
+          >
+            <span className="ri">
+              <Ic name="clap" size={15} />
+            </span>
+            导演
+          </button>
+          <button
+            className={role === "action" ? "role on" : "role"}
+            onClick={() => onRole("action")}
+          >
+            <span className="ri">
+              <Ic name="sword" size={15} />
+            </span>
+            动作指导
+          </button>
+          <button
+            className={role === "performance" ? "role on" : "role"}
+            onClick={() => onRole("performance")}
+          >
+            <span className="ri">
+              <Ic name="heart" size={15} />
+            </span>
+            表演指导
+          </button>
+          <button className={role === "art" ? "role on" : "role"} onClick={() => onRole("art")}>
+            <span className="ri">
+              <Ic name="spark" size={15} />
+            </span>
+            美术
+          </button>
+          <button
+            className={role === "prompter" ? "role on" : "role"}
+            onClick={() => onRole("prompter")}
+          >
+            <span className="ri">
+              <Ic name="text" size={15} />
+            </span>
+            提示词
+          </button>
+          <button className={role === "qc" ? "role on" : "role"} onClick={() => onRole("qc")}>
+            <span className="ri">
+              <Ic name="eye" size={15} />
+            </span>
+            审片
+          </button>
+        </div>
+      ) : (
+        <div className="role-desc">新手只看这一位助手。</div>
+      )}
+      <div className="role-desc">
+        {ROLE_COPY[role]}
+        {onToggleRoles ? (
+          <button
+            className="btn sm"
+            type="button"
+            onClick={onToggleRoles}
+            style={{ marginLeft: 8 }}
+          >
+            {showRoles ? "新手" : "切换角色"}
+          </button>
+        ) : null}
+      </div>
+      <div className="pb chat">
+        {(turns.length > 0
+          ? turns.slice(-8)
+          : [
+              {
+                id: "hint",
+                role,
+                who: "user" as const,
+                text: "跟这位助手说说你的想法。确认之前不会改你写过的字。",
+              },
+            ]
+        ).map((item) => (
+          <div key={item.id} className={item.who === "user" ? "msg-u" : "msg-a"}>
+            {item.text}
+          </div>
+        ))}
+        <div className="msg-a">
+          <span className="ri">
+            <Ic name="clap" size={13} />
+          </span>
+          <div className="bubble">
+            <div className="h">
+              {card
+                ? card.title
+                : scenes
+                  ? `建议写成 ${scenes.length} 场`
+                  : pending
+                    ? `建议拆成 ${pending.length} 个镜头`
+                    : "当前镜头"}{" "}
+              <span>
+                {card
+                  ? card.rows.length || card.notes.length
+                  : scenes
+                    ? scenes.length
+                    : list.length}{" "}
+                条
+              </span>
+            </div>
+            {role === "action" && card ? <p className="role-desc">{DIFFICULTY_LEGEND}</p> : null}
+            <div className="shotlist">
+              {card
+                ? card.rows.map((item) => (
+                    <div key={item.id}>
+                      <span>{item.mark}</span>
+                      <span />
+                      <span>{item.text}</span>
+                      <span>{item.tail}</span>
+                    </div>
+                  ))
+                : scenes
+                  ? scenes.map((item) => (
+                      <div key={item.id}>
+                        <span>{item.no}</span>
+                        <span>场</span>
+                        <span>{item.text}</span>
+                        <span />
+                      </div>
+                    ))
+                  : list.map((item, index) => (
+                      <div key={item.id}>
+                        <span>{index + 1}</span>
+                        <span>{shotPerson(item.characters, item.picture, [])}</span>
+                        <span>{item.picture}</span>
+                        <span>{item.seconds}s</span>
+                      </div>
+                    ))}
+            </div>
+            {structured.length > 0 && (
+              <div className="shotlist">
+                {structured.map((line) => (
+                  <div key={line}>
+                    <span />
+                    <span />
+                    <span>{line}</span>
+                    <span />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="acts">
+              {card?.mode === "qc" ? (
+                <>
+                  <button className="btn primary sm" type="button" onClick={onRedoRange}>
+                    按意见重做这一镜
+                  </button>
+                  <button
+                    className="btn sm"
+                    type="button"
+                    disabled={card.applied}
+                    onClick={onDismiss}
+                  >
+                    {card.applied ? "已记下" : "知道了"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn primary sm"
+                  type="button"
+                  disabled={card?.applied}
+                  onClick={
+                    card?.mode === "scenes" && onApplyScenes
+                      ? onApplyScenes
+                      : card
+                        ? onApply
+                        : scenes && onApplyScenes
+                          ? onApplyScenes
+                          : onApply
+                  }
+                >
+                  {card?.applied
+                    ? "已放入"
+                    : card?.mode === "scenes" || scenes
+                      ? "放入剧本"
+                      : "放入分镜"}
+                </button>
+              )}
+              <button className="btn sm" type="button" onClick={onSend}>
+                再改改
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="quick">
+        {chips.map((label) => (
+          <button key={label} type="button" onClick={() => onQuick?.(label)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="composer">
+        <textarea
+          className="ph-t"
+          aria-label="跟助手说"
+          value={chat}
+          placeholder={`跟${
+            role === "writer"
+              ? "编剧"
+              : role === "action"
+                ? "动作指导"
+                : role === "performance"
+                  ? "表演指导"
+                  : "导演"
+          }说说你的想法… 回车发送，换行用 Shift+回车`}
+          onChange={(event) => onChat(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            onSend();
+          }}
+        />
+        <button className="send" aria-label="发送" type="button" onClick={onSend}>
+          <Ic name="send" size={15} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+function ScriptPage({
+  film,
+  scene,
+  onScene,
+  onFilm,
+  asking,
+  onPlan,
+  onWrite,
+  onAdapt,
+  onImport,
+  onAction,
+  onPerformance,
+  onArt,
+  onPrompter,
+  onQc,
+  pending,
+  pendingScenes,
+  onApply,
+  onApplyScenes,
+  role,
+  onRole,
+  chat,
+  onChat,
+  onSend,
+  onUndo,
+  onRedo,
+  showRoles,
+  onToggleRoles,
+  structured,
+  turns,
+  card,
+  onRedoRange,
+  onDismiss,
+  onOneClick,
+  onTemplate,
+}: {
+  film: FilmProject;
+  scene: string;
+  onScene: (id: string) => void;
+  onFilm: (film: FilmProject) => void;
+  asking: boolean;
+  onPlan: () => void;
+  onWrite: () => void;
+  onAdapt: () => void;
+  onImport: () => void;
+  onAction: () => void;
+  onPerformance: () => void;
+  onArt: () => void;
+  onPrompter: () => void;
+  onQc: () => void;
+  pending: FilmShot[] | null;
+  pendingScenes: FilmScene[] | null;
+  onApply: () => void;
+  onApplyScenes: () => void;
+  role: Role;
+  onRole: (role: Role) => void;
+  chat: string;
+  onChat: (value: string) => void;
+  onSend: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  showRoles: boolean;
+  onToggleRoles: () => void;
+  structured: string[];
+  turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  card: RoleCard | null;
+  onRedoRange: () => void;
+  onDismiss: () => void;
+  onOneClick: () => void;
+  onTemplate: (name: string) => void;
+}) {
+  const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
+  const words = film.scenes.reduce((sum, item) => sum + item.text.length, 0);
+  return (
+    <>
+      <section className="pane">
+        <div className="ph">
+          <h3>场次</h3>
+          <span className="meta">{film.scenes.length} 场</span>
+          <span className="sp" />
+          <button
+            className="icon-btn sm"
+            aria-label="加一场"
+            onClick={() => {
+              const id = `scene-${film.scenes.length + 1}`;
+              onFilm({
+                ...film,
+                scenes: [
+                  ...film.scenes,
+                  {
+                    id,
+                    no: film.scenes.length + 1,
+                    title: `第 ${film.scenes.length + 1} 场`,
+                    where: "",
+                    text: "",
+                    ambience: "",
+                    source: "user",
+                    userFields: ["text"],
+                  },
+                ],
+              });
+              onScene(id);
+            }}
+          >
+            <Ic name="plus" size={15} />
+          </button>
+        </div>
+        <div className="pb scenes">
+          {film.scenes.map((item) => (
+            <button
+              key={item.id}
+              className={item.id === scene ? "scene on" : "scene"}
+              onClick={() => onScene(item.id)}
+            >
+              <span className="no">{String(item.no).padStart(2, "0")}</span>
+              <span className="t">
+                {item.title}
+                <small>{item.where}</small>
+              </span>
+              <span className="c" />
+            </button>
+          ))}
+        </div>
+        <div className="pfoot">
+          <span>
+            全片约 <b>{film.shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
+          </span>
+          <span>
+            <b>{words}</b> 字
+          </span>
+        </div>
+      </section>
+      <section className="pane">
+        <div className="tool">
+          <h3>{current ? `${current.no}. ${current.title}` : "这一场"}</h3>
+          <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
+            <Ic name="undo" />
+          </button>
+          <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
+            <Ic name="redo" />
+          </button>
+          <span className="vsep" />
+          <div className="seg">
+            <button className="on">场景</button>
+          </div>
+          <span className="sp" />
+          <button className="btn primary" onClick={onPlan} disabled={asking}>
+            <Ic name="clap" size={15} />
+            {asking ? "正在问模型" : "让导演拆镜头"}
+          </button>
+          <button className="btn" type="button" onClick={onOneClick} disabled={asking}>
+            一键成片
+          </button>
+          <select
+            className="input"
+            aria-label="从模板开始"
+            defaultValue=""
+            onChange={(event) => {
+              if (event.target.value) onTemplate(event.target.value);
+              event.target.value = "";
+            }}
+          >
+            <option value="">从模板开始</option>
+            {FILM_TEMPLATES.map((item) => (
+              <option key={item.id} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="pb doc">
+          <div className="page">
+            <div className="sh">{current?.where || "地点还没写"}</div>
+            <label className="ac" htmlFor="scene-text">
+              这一场
+            </label>
+            <textarea
+              id="scene-text"
+              className="area"
+              aria-label="这一场"
+              value={current?.text ?? ""}
+              onChange={(event) => {
+                if (!current) return;
+                onFilm({
+                  ...film,
+                  scenes: film.scenes.map((item) =>
+                    item.id === current.id
+                      ? {
+                          ...item,
+                          text: event.target.value,
+                          source: "user",
+                          userFields: [...new Set([...item.userFields, "text"])],
+                        }
+                      : item,
+                  ),
+                });
+              }}
+            />
+          </div>
+        </div>
+      </section>
+      <section className="pane ai">
+        <div className="ph">
+          <Ic name="spark" size={16} />
+          <h3>AI 助手</h3>
+          <span className="sp" />
+          <button className="icon-btn sm" aria-label="更多">
+            <Ic name="more" size={16} />
+          </button>
+        </div>
+        <Assistant
+          role={role}
+          onRole={onRole}
+          pending={pending}
+          pendingScenes={pendingScenes}
+          onApply={onApply}
+          onApplyScenes={onApplyScenes}
+          shots={film.shots}
+          chat={chat}
+          onChat={onChat}
+          onSend={onSend}
+          onQuick={(label) => {
+            if (label === "让编剧写" || label === "节奏再快些") onWrite();
+            else if (label === "改成短剧" || label === "加一个特写") onAdapt();
+            else if (label === "导入小说") onImport();
+            else if (label.includes("动作")) onAction();
+            else if (label.includes("表演")) onPerformance();
+            else if (label.includes("美术")) onArt();
+            else if (label.includes("提示词")) onPrompter();
+            else if (label.includes("审片")) onQc();
+            else onSend();
+          }}
+          showRoles={showRoles}
+          onToggleRoles={onToggleRoles}
+          structured={structured}
+          turns={turns}
+          card={card}
+          onRedoRange={onRedoRange}
+          onDismiss={onDismiss}
+        />
+        {film.sourceText ? (
+          <details className="role-desc">
+            <summary>原文</summary>
+            <p>{film.sourceText.slice(0, 4000)}</p>
+          </details>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+function CastPage({
+  film,
+  onFilm,
+  role,
+  onRole,
+  onNotice: _onNotice,
+  onPortraits,
+  onConfirmPortraits,
+  portraitReady,
+  voices,
+  onPreview,
+  hearing,
+  chat,
+  onChat,
+  onSend,
+}: {
+  film: FilmProject;
+  onFilm: (film: FilmProject) => void;
+  role: Role;
+  onRole: (role: Role) => void;
+  onNotice: (text: string) => void;
+  onPortraits: (id: string) => void;
+  onConfirmPortraits: (id: string) => void;
+  portraitReady: string | null;
+  voices: { id: string; label: string }[];
+  onPreview: (voiceId: string, line: string) => void;
+  hearing: boolean;
+  chat: string;
+  onChat: (value: string) => void;
+  onSend: () => void;
+}) {
+  const [who, setWho] = useState(0);
+  const [place, setPlace] = useState(0);
+  const [side, setSide] = useState<"people" | "places" | "props">("people");
+  const character = film.characters[who];
+  return (
+    <>
+      <section className="pane">
+        <div className="ph">
+          <div className="seg">
+            <button className={side === "people" ? "on" : ""} onClick={() => setSide("people")}>
+              角色
+            </button>
+            <button
+              className={side === "places" ? "on" : ""}
+              onClick={() => {
+                setSide("places");
+                onFilm(ensureLocations(film));
+              }}
+            >
+              场景
+            </button>
+            <button className={side === "props" ? "on" : ""} onClick={() => setSide("props")}>
+              道具
+            </button>
+          </div>
+        </div>
+        <div className="pb scenes">
+          {side === "places" &&
+            film.locations.map((item, index) => (
+              <button
+                key={item.id}
+                className={index === place ? "scene place on" : "scene place"}
+                title={item.name}
+                onClick={() => setPlace(index)}
+              >
+                <span className="t">
+                  {item.name}
+                  <small>空镜</small>
+                </span>
+              </button>
+            ))}
+          {side === "props" &&
+            film.props.map((item) => (
+              <div key={item.id} className="scene place" title={item.name}>
+                <span className="t">
+                  {item.name}
+                  <small>{item.note || "道具"}</small>
+                </span>
+              </div>
+            ))}
+          {side === "props" && film.props.length === 0 && (
+            <p className="role-desc">还没有道具。让美术写，或在下面加上名字。</p>
+          )}
+          {side === "props" && (
+            <div className="field">
+              <label htmlFor="prop-name">道具名字</label>
+              <input
+                id="prop-name"
+                className="input"
+                aria-label="道具名字"
+                placeholder="加上道具，回车写入"
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                  const name = event.currentTarget.value.trim();
+                  if (!name) return;
+                  onFilm({
+                    ...film,
+                    props: [...film.props, { id: `prop-${film.props.length + 1}`, name, note: "" }],
+                  });
+                  event.currentTarget.value = "";
+                }}
+              />
+            </div>
+          )}
+          {side === "people" &&
+            film.characters.map((item, index) => (
+              <button
+                key={item.id}
+                className={index === who ? "scene on" : "scene"}
+                onClick={() => setWho(index)}
+              >
+                <span className="no">{String(index + 1).padStart(2, "0")}</span>
+                <span className="t">
+                  {item.name}
+                  <small>人物</small>
+                </span>
+              </button>
+            ))}
+          {film.characters.length === 0 && (
+            <p className="role-desc">
+              {film.scenes.some((item) => item.text.trim())
+                ? "这一场还没有认出人物和场景。"
+                : "还没有人物。写下名字，生成时会写进每一镜。"}
+            </p>
+          )}
+        </div>
+      </section>
+      <section className="pane">
+        <div className="ph">
+          <h3>{character?.name ?? "人物"}</h3>
+          <span className="meta">同一张脸，同一套衣服</span>
+        </div>
+        <div className="pb sheet">
+          <div className="field" style={{ padding: 0 }}>
+            <label htmlFor="cast-name">名字</label>
+            <input
+              id="cast-name"
+              className="input"
+              aria-label="人物名字"
+              value={character?.name ?? ""}
+              onChange={(event) => {
+                const name = event.target.value;
+                if (!character) {
+                  onFilm({
+                    ...film,
+                    characters: [
+                      {
+                        id: "char-1",
+                        name,
+                        identity: name,
+                        voiceId: "leo",
+                        source: "user",
+                        userFields: ["name"],
+                        portraits: [],
+                      },
+                    ],
+                  });
+                  return;
+                }
+                onFilm({
+                  ...film,
+                  characters: film.characters.map((item) =>
+                    item.id === character.id
+                      ? {
+                          ...item,
+                          name,
+                          source: "user",
+                          userFields: [...new Set([...item.userFields, "name"])],
+                        }
+                      : item,
+                  ),
+                  shots: film.shots.map((item) => ({
+                    ...item,
+                    characters: item.characters.map((person) =>
+                      person === character.name ? name : person,
+                    ),
+                  })),
+                });
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="cast-id">外貌</label>
+            <textarea
+              id="cast-id"
+              className="area"
+              aria-label="外貌"
+              value={character?.identity ?? ""}
+              onChange={(event) => {
+                if (!character) return;
+                onFilm({
+                  ...film,
+                  characters: film.characters.map((item) =>
+                    item.id === character.id
+                      ? {
+                          ...item,
+                          identity: event.target.value,
+                          source: "user",
+                          userFields: [...new Set([...item.userFields, "identity"])],
+                        }
+                      : item,
+                  ),
+                });
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="style-preset">画风</label>
+            <select
+              id="style-preset"
+              className="input"
+              aria-label="画风"
+              value={film.stylePreset}
+              onChange={(event) => {
+                const preset =
+                  STYLE_PRESETS.find((item) => item.name === event.target.value) ??
+                  STYLE_PRESETS[0]!;
+                onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
+              }}
+            >
+              {STYLE_PRESETS.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sec-t" style={{ marginTop: 12 }}>
+            参考图
+          </div>
+          <div className="refs4">
+            {(character
+              ? portraitPrompts(character.name, character.identity, film.styleZh)
+              : []
+            ).map((item) => (
+              <div key={item.view}>
+                <Thumb
+                  src={character?.portraits.find((portrait) => portrait.view === item.view)?.url}
+                  rain={!character?.portraits.find((portrait) => portrait.view === item.view)?.url}
+                />
+                <p>{item.view}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            className="btn sm"
+            type="button"
+            onClick={() => {
+              if (!character) return;
+              onPortraits(character.id);
+            }}
+          >
+            生成定妆照
+          </button>
+          {portraitReady === character?.id && (
+            <button
+              className="btn primary sm"
+              type="button"
+              onClick={() => {
+                if (!character) return;
+                onConfirmPortraits(character.id);
+              }}
+            >
+              确认出图
+            </button>
+          )}
+          <div className="sec-t" style={{ marginTop: 12 }}>
+            声音
+          </div>
+          <p className="role-desc">
+            {character?.voiceId ? `已选：${voiceLabel(character.voiceId)}` : "还没有选定声音。"}
+          </p>
+          {voices.length === 0 ? (
+            <p className="role-desc">还没有读到声音名单。登录后会从接口读取。</p>
+          ) : (
+            <div className="row2">
+              <select
+                className="input"
+                aria-label="角色声音"
+                value={character?.voiceId ?? ""}
+                onChange={(event) => {
+                  if (!character) return;
+                  const voiceId = event.target.value;
+                  onFilm({
+                    ...film,
+                    characters: film.characters.map((item) =>
+                      item.id === character.id ? { ...item, voiceId } : item,
+                    ),
+                  });
+                }}
+              >
+                <option value="">还没有选定</option>
+                <optgroup label="旁白感">
+                  {voices
+                    .filter((voice) => /温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
+                    .map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.label}
+                      </option>
+                    ))}
+                </optgroup>
+                <optgroup label="角色">
+                  {voices
+                    .filter((voice) => !/温和|平静|清楚|温暖|沉稳|耐心|安心/.test(voice.label))
+                    .map((voice) => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.label}
+                      </option>
+                    ))}
+                </optgroup>
+              </select>
+              <button
+                className="btn sm"
+                type="button"
+                aria-label="试听"
+                onClick={() => {
+                  if (!character) return;
+                  const line =
+                    film.shots.find(
+                      (item) => item.line.trim() && item.characters.includes(character.name),
+                    )?.line ?? "";
+                  onPreview(character.voiceId, line);
+                }}
+              >
+                {hearing ? "停止" : "试听"}
+              </button>
+            </div>
+          )}
+          {voices.length === 0 ? (
+            <button
+              className="btn sm"
+              type="button"
+              aria-label="试听"
+              onClick={() => {
+                if (!character) return;
+                const line =
+                  film.shots.find(
+                    (item) => item.line.trim() && item.characters.includes(character.name),
+                  )?.line ?? "";
+                onPreview(character.voiceId, line);
+              }}
+            >
+              {hearing ? "停止" : "试听"}
+            </button>
+          ) : null}
+          <label htmlFor="narration-voice">旁白</label>
+          <select
+            id="narration-voice"
+            className="input"
+            aria-label="旁白声音"
+            value={film.narrationVoiceId}
+            onChange={(event) => onFilm({ ...film, narrationVoiceId: event.target.value })}
+          >
+            <option value="">还没有选旁白</option>
+            {voices.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.label}
+              </option>
+            ))}
+            {film.narrationVoiceId &&
+            !voices.some((voice) => voice.id === film.narrationVoiceId) ? (
+              <option value={film.narrationVoiceId}>{voiceLabel(film.narrationVoiceId)}</option>
+            ) : null}
+          </select>
+          <button
+            className="btn sm"
+            type="button"
+            aria-label="试听旁白"
+            onClick={() =>
+              onPreview(
+                film.narrationVoiceId,
+                film.shots.find((item) => item.line.trim())?.line ?? "",
+              )
+            }
+          >
+            {hearing ? "停止" : "试听旁白"}
+          </button>
+          {side === "places" && film.locations[place] && (
+            <div className="field">
+              <label htmlFor="place-ambience">环境音</label>
+              <textarea
+                id="place-ambience"
+                className="area"
+                aria-label="环境音"
+                value={film.locations[place]?.ambience ?? ""}
+                onChange={(event) => {
+                  const ambience = event.target.value;
+                  onFilm({
+                    ...film,
+                    locations: film.locations.map((item, index) =>
+                      index === place ? { ...item, ambience } : item,
+                    ),
+                  });
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+      <section className="pane ai">
+        <div className="ph">
+          <Ic name="spark" size={16} />
+          <h3>AI 助手</h3>
+        </div>
+        <Assistant
+          role={role}
+          onRole={onRole}
+          pending={null}
+          onApply={() => undefined}
+          shots={film.shots}
+          chat={chat}
+          onChat={onChat}
+          onSend={onSend}
+        />
+      </section>
+    </>
+  );
+}
+
+function BoardPage({
+  film,
+  shots,
+  shot,
+  onShot,
+  onFilm,
+  onNotice,
+  onGenerate,
+  onBatch,
+  stills,
+  onStills,
+  onFour,
+  fourArmed,
+  onPickStill,
+  role,
+  onRole,
+  pending,
+  onApply,
+  onAction,
+  onPerformance,
+  onArt,
+  onPrompter,
+  onQc,
+  onTimeLine,
+  chat,
+  onChat,
+  onSend,
+  turns,
+  assistPulse,
+  structured,
+  card,
+  onRedoRange,
+  onDismiss,
+}: {
+  film: FilmProject;
+  shots: FilmShot[];
+  shot: number;
+  onShot: (index: number) => void;
+  onFilm: (film: FilmProject) => void;
+  onNotice: (text: string) => void;
+  onGenerate: () => void;
+  onBatch: () => void;
+  stills: string[];
+  onStills: () => void;
+  onFour: () => void;
+  fourArmed: string;
+  onPickStill: (picture: string) => void;
+  role: Role;
+  onRole: (role: Role) => void;
+  pending: FilmShot[] | null;
+  onApply: () => void;
+  onAction: () => void;
+  onPerformance: () => void;
+  onArt: () => void;
+  onPrompter: () => void;
+  onQc: () => void;
+  onTimeLine: (shotId: string) => void;
+  chat: string;
+  onChat: (value: string) => void;
+  onSend: () => void;
+  turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  assistPulse: number;
+  structured: string[];
+  card: RoleCard | null;
+  onRedoRange: () => void;
+  onDismiss: () => void;
+}) {
+  const [tab, setTab] = useState<"props" | "ai">("props");
+  const [showEnglish, setShowEnglish] = useState(false);
+  const seenAssist = useRef(assistPulse);
+  useEffect(() => {
+    if (seenAssist.current === assistPulse) return;
+    seenAssist.current = assistPulse;
+    setTab("ai");
+  }, [assistPulse]);
+  const current = shots[shot];
+  const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
+  const focused = shots[shot];
+  const focusedPrompt = focused?.promptZh || (focused ? keyframePrompt(focused, film) : "");
+  const missingLocks = focused
+    ? missingIdentityLocks(
+        [{ id: focused.id, prompt: focusedPrompt, names: focused.characters }],
+        film.characters,
+      ).map((item) => item.name)
+    : [];
+  return (
+    <>
+      <section className="pane">
+        <div className="ph">
+          <h3>场次</h3>
+          <span className="meta">{film.shots.length} 个镜头</span>
+          <span className="sp" />
+          <button
+            className="icon-btn sm"
+            aria-label="加一场"
+            onClick={() => {
+              const sceneId = current?.sceneId ?? film.scenes[0]?.id ?? "scene-1";
+              onFilm(addShot(film, sceneId));
+              onNotice("已加一个镜头。");
+            }}
+          >
+            <Ic name="plus" size={15} />
+          </button>
+        </div>
+        <div className="pb scenes">
+          {film.scenes.map((item) => (
+            <div key={item.id} className={item.id === current?.sceneId ? "scene on" : "scene"}>
+              <span className="no">{String(item.no).padStart(2, "0")}</span>
+              <span className="t">
+                {item.title}
+                <small>{item.where}</small>
+              </span>
+              <span className="c">
+                {film.shots.filter((shotItem) => shotItem.sceneId === item.id).length} 镜
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="pfoot">
+          <span>
+            画面 <b>{film.shots.filter((item) => shotProgress(item) !== "未生成").length}</b> /{" "}
+            {film.shots.length}
+            {" · "}
+            视频 <b>
+              {film.shots.filter((item) => shotProgress(item) === "视频已出").length}
+            </b> / {film.shots.length}
+          </span>
+          <span>
+            约 <b>{seconds} 秒</b>
+          </span>
+        </div>
+      </section>
+      <section className="pane">
+        <div className="tool">
+          <h3>{film.scenes.find((item) => item.id === current?.sceneId)?.title ?? "镜头"}</h3>
+          <span className="meta">
+            {shots.length} 个镜头 · {seconds} 秒
+          </span>
+          <span className="sp" />
+          <button
+            className="btn"
+            onClick={() => {
+              const sceneId = current?.sceneId ?? film.scenes[0]?.id ?? "scene-1";
+              onFilm(addShot(film, sceneId));
+              onNotice("已加一个镜头。");
+            }}
+          >
+            加镜头
+          </button>
+          <button className="btn" onClick={onGenerate}>
+            单镜
+          </button>
+          <button className="btn primary" onClick={onBatch}>
+            <Ic name="spark" size={14} />
+            生成这一场
+          </button>
+        </div>
+        <div className="pb grid">
+          {shots.map((item, index) => (
+            <button
+              key={item.id}
+              className={index === shot ? "card sel" : "card"}
+              onClick={() => onShot(index)}
+            >
+              <div style={{ position: "relative" }}>
+                <FrameThumb shot={item} />
+                <span className={shotProgress(item) === "未生成" ? "badge none" : "badge ok"}>
+                  {shotProgress(item) === "视频已出"
+                    ? `版本 ${item.takes.find((take) => take.id === item.selectedTakeId)?.index ?? item.takes.filter((take) => take.status === "done").length}/${item.takes.length}`
+                    : shotProgress(item)}
+                </span>
+                <span className="dur">{item.seconds}s</span>
+              </div>
+              <div className="cb">
+                <div className="ct">
+                  镜头 {item.no} <span>{item.size}</span>
+                </div>
+                <p>{item.picture}</p>
+                <span className="tag">
+                  {shotPerson(
+                    item.characters,
+                    item.picture,
+                    film.characters.map((person) => person.name),
+                  )}
+                </span>
+                {appearanceMark(
+                  item.promptZh || keyframePrompt(item, film),
+                  item.characters,
+                  film.characters,
+                ) ? (
+                  <span className="tag">
+                    {appearanceMark(
+                      item.promptZh || keyframePrompt(item, film),
+                      item.characters,
+                      film.characters,
+                    )}
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="pane">
+        <div className="ptabs">
+          <button
+            className={tab === "props" ? "on" : ""}
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setTab("props");
+            }}
+            onClick={() => setTab("props")}
+          >
+            属性
+          </button>
+          <button
+            className={tab === "ai" ? "on" : ""}
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+              setTab("ai");
+            }}
+            onClick={() => setTab("ai")}
+          >
+            AI 助手
+          </button>
+        </div>
+        {tab === "ai" ? (
+          <Assistant
+            role={role}
+            onRole={onRole}
+            pending={pending}
+            onApply={onApply}
+            shots={shots}
+            chat={chat}
+            onChat={onChat}
+            onSend={onSend}
+            onQuick={(label) => {
+              if (label.includes("动作")) onAction();
+              else if (label.includes("表演")) onPerformance();
+              else if (label.includes("美术")) onArt();
+              else if (label.includes("提示词")) onPrompter();
+              else if (label.includes("审片")) onQc();
+              else onSend();
+            }}
+            turns={turns}
+            structured={structured}
+            card={card}
+            onRedoRange={onRedoRange}
+            onDismiss={onDismiss}
+          />
+        ) : current ? (
+          <>
+            <div className="shot-h">
+              镜头 {current.no} <span>{shotProgress(current)}</span>
+            </div>
+            <div className="pb">
+              <div className="field">
+                <div className="row2">
+                  <div>
+                    <label>景别</label>
+                    <select
+                      className="input"
+                      aria-label="景别"
+                      value={
+                        SHOT_SIZES.includes(current.size as (typeof SHOT_SIZES)[number])
+                          ? current.size
+                          : classifyShotSize(current.size).size
+                      }
+                      onChange={(event) =>
+                        onFilm(
+                          updateShot(film, current.id, {
+                            size: event.target.value,
+                            userFields: [...new Set([...current.userFields, "size"])],
+                          }),
+                        )
+                      }
+                    >
+                      {SHOT_SIZES.map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>镜头怎么动</label>
+                    <select
+                      className="input"
+                      aria-label="运镜"
+                      value={
+                        ["固定", "跟拍", "推", "拉", "摇", "慢镜"].includes(current.move)
+                          ? current.move
+                          : "固定"
+                      }
+                      onChange={(event) =>
+                        onFilm(updateShot(film, current.id, { move: event.target.value }))
+                      }
+                    >
+                      {["固定", "跟拍", "推", "拉", "摇", "慢镜"].map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="field">
+                <div className="row2">
+                  <div>
+                    <label htmlFor="shot-seconds">时长</label>
+                    <div className="seg" aria-label="时长">
+                      {[2, 3, 5, 8].map((seconds) => (
+                        <button
+                          key={seconds}
+                          type="button"
+                          className={current.seconds === seconds ? "on" : ""}
+                          onClick={() =>
+                            onFilm(
+                              updateShot(film, current.id, {
+                                seconds,
+                                userFields: [...new Set([...current.userFields, "seconds"])],
+                              }),
+                            )
+                          }
+                        >
+                          {seconds} 秒
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      id="shot-seconds"
+                      className="input"
+                      type="number"
+                      min={1}
+                      max={15}
+                      aria-label="时长秒数"
+                      value={current.seconds}
+                      onChange={(event) => {
+                        const seconds = Number(event.target.value);
+                        if (!Number.isFinite(seconds)) return;
+                        onFilm(
+                          updateShot(film, current.id, {
+                            seconds: Math.max(1, Math.min(15, seconds)),
+                            userFields: [...new Set([...current.userFields, "seconds"])],
+                          }),
+                        );
+                      }}
+                    />
+                    <span>{current.seconds} 秒</span>
+                  </div>
+                  <div>
+                    <label>角度</label>
+                    <div className="input">{current.angle || "平视"}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="shot-style">画风</label>
+                <select
+                  id="shot-style"
+                  className="input"
+                  aria-label="画风"
+                  value={film.stylePreset}
+                  onChange={(event) => {
+                    const preset =
+                      STYLE_PRESETS.find((item) => item.name === event.target.value) ??
+                      STYLE_PRESETS[0]!;
+                    onFilm({ ...film, stylePreset: preset.name, styleZh: preset.zh });
+                  }}
+                >
+                  {STYLE_PRESETS.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className="area"
+                  aria-label="这一镜的画风"
+                  style={{ marginTop: 8 }}
+                  placeholder="不写就用整部作品的画风"
+                  value={current.styleNote ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { styleNote: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="field">
+                <label>画面描述</label>
+                <textarea
+                  className="area"
+                  aria-label="分镜画面"
+                  value={current.picture}
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        picture: event.target.value,
+                        promptZh: "",
+                        source: "user",
+                        userFields: [...new Set([...current.userFields, "picture"])],
+                      }),
+                    )
+                  }
+                />
+                <button
+                  className="btn sm"
+                  type="button"
+                  onClick={() => setShowEnglish((value) => !value)}
+                >
+                  高级
+                </button>
+                {showEnglish ? (
+                  <p className="role-desc">
+                    {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
+                  </p>
+                ) : null}
+              </div>
+              <div className="field">
+                <label htmlFor="shot-blocking">站位</label>
+                <textarea
+                  id="shot-blocking"
+                  className="area"
+                  aria-label="站位"
+                  placeholder="谁在画左，谁在画右"
+                  value={current.blocking ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { blocking: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="shot-facing">朝向</label>
+                <input
+                  id="shot-facing"
+                  className="input"
+                  aria-label="朝向"
+                  placeholder="看向画左或画右"
+                  value={current.facing ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { facing: event.target.value }))
+                  }
+                />
+              </div>
+              {current.tag ? <p className="role-desc">镜头类型：{current.tag}</p> : null}
+              {missingLocks.length > 0 && (
+                <p className="role-desc">这一镜的提示词漏了{missingLocks.join("、")}的外貌描述。</p>
+              )}
+              <div className="field">
+                <label>声音计划</label>
+                <p className="role-desc">台词：{current.line || "这一镜没有台词"}</p>
+                <select
+                  className="input"
+                  aria-label="声音来源"
+                  value={current.sound.source}
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        sound: {
+                          ...current.sound,
+                          source: event.target.value === "dub" ? "dub" : "native",
+                        },
+                      }),
+                    )
+                  }
+                >
+                  <option value="native">画面自带</option>
+                  <option value="dub">单独配音</option>
+                </select>
+                <textarea
+                  className="area"
+                  aria-label="这一镜的环境音"
+                  value={current.sound.ambience}
+                  placeholder="环境音"
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        sound: { ...current.sound, ambience: event.target.value },
+                      }),
+                    )
+                  }
+                />
+                <input
+                  className="input"
+                  aria-label="配乐情绪"
+                  value={current.sound.musicMood}
+                  placeholder="配乐情绪"
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        sound: { ...current.sound, musicMood: event.target.value },
+                      }),
+                    )
+                  }
+                />
+                <button className="btn sm" type="button" onClick={() => onTimeLine(current.id)}>
+                  按台词定时长
+                </button>
+              </div>
+              <div className="field">
+                <label>出场角色</label>
+                <div className="tagrow">
+                  <span className="tag">
+                    {shotPerson(
+                      current.characters,
+                      current.picture,
+                      film.characters.map((person) => person.name),
+                    )}
+                  </span>
+                </div>
+              </div>
+              <div className="field">
+                <label>
+                  动作要点
+                  {current.source === "agent:action" && !current.userFields.includes("action") ? (
+                    <span className="from role-a">来自动作指导</span>
+                  ) : null}
+                </label>
+                <textarea
+                  className="area"
+                  aria-label="动作要点"
+                  placeholder="没有就留空"
+                  value={current.action}
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        action: event.target.value,
+                        userFields: [...new Set([...current.userFields, "action"])],
+                      }),
+                    )
+                  }
+                />
+              </div>
+              <div className="field">
+                <label>
+                  表演
+                  {current.source === "agent:performance" &&
+                  !current.userFields.includes("performance") ? (
+                    <span className="from role-e">来自表演指导</span>
+                  ) : null}
+                </label>
+                <textarea
+                  className="area"
+                  aria-label="表演"
+                  value={current.performance}
+                  placeholder="还没有表演提示。"
+                  onChange={(event) =>
+                    onFilm(
+                      updateShot(film, current.id, {
+                        performance: event.target.value,
+                        userFields: [...new Set([...current.userFields, "performance"])],
+                      }),
+                    )
+                  }
+                />
+                {stills.length > 0 && (
+                  <div className="shotlist">
+                    {stills.map((item) => (
+                      <button key={item} type="button" onClick={() => onPickStill(item)}>
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="pfoot2">
+              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, -1))}>
+                前移
+              </button>
+              <button className="btn" onClick={() => onFilm(moveShot(film, current.id, 1))}>
+                后移
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  onFilm(removeShot(film, current.id));
+                  onNotice("已删除这一镜。");
+                }}
+              >
+                删除
+              </button>
+              <button className="btn" onClick={onStills}>
+                生成画面
+              </button>
+              <button className="btn" type="button" onClick={onFour}>
+                {fourArmed && current && fourArmed === current.id ? "确认这 4 张" : "出 4 张候选"}
+              </button>
+              <button className="btn primary" onClick={onGenerate}>
+                生成视频
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="role-desc">先在剧本里让导演拆镜头。</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+function GeneratePage({
+  film,
+  shots,
+  shot,
+  onShot,
+  onFilm,
+  versions,
+  onVersions,
+  duration,
+  onDuration,
+  onCreate,
+  onBack,
+  playing,
+  onPlaying,
+  audible,
+}: {
+  film: FilmProject;
+  shots: FilmShot[];
+  shot: number;
+  onShot: (index: number) => void;
+  onFilm: (film: FilmProject) => void;
+  versions: number;
+  onVersions: (count: number) => void;
+  duration: number;
+  onDuration: (seconds: number) => void;
+  onCreate: () => void;
+  onBack: () => void;
+  playing: boolean;
+  onPlaying: (value: boolean) => void;
+  audible: boolean;
+}) {
+  const current = shots[shot];
+  const prompt = current ? keyframePrompt(current, film) : "先在剧本里拆镜头。";
+  const takes = current?.takes ?? [];
+  const picked =
+    takes.find((item) => item.id === current?.selectedTakeId) ??
+    takes.find((item) => item.status === "done");
+  function choose(takeId: string) {
+    if (!current) return;
+    onFilm({
+      ...film,
+      shots: film.shots.map((item) =>
+        item.id === current.id ? { ...item, selectedTakeId: takeId } : item,
+      ),
+    });
+    onPlaying(true);
+  }
+  return (
+    <>
+      <section className="pane">
+        <div className="ph">
+          <h3>镜头</h3>
+          <span className="meta">{shots.length} 个</span>
+        </div>
+        <div className="pb" style={{ padding: 6 }}>
+          {shots.map((item, index) => (
+            <button
+              key={item.id}
+              className={index === shot ? "shotrow on" : "shotrow"}
+              onClick={() => onShot(index)}
+            >
+              <FrameThumb shot={item} />
+              <div>
+                <b>
+                  镜头 {item.no} · {item.size}
+                </b>
+                <small className={shotProgress(item) === "未生成" ? "st-none" : "st-ok"}>
+                  {shotProgress(item) === "视频已出"
+                    ? `已完成 ${item.takes.filter((take) => take.status === "done").length}`
+                    : shotProgress(item)}
+                </small>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="pfoot">
+          <span>
+            已完成{" "}
+            <b>
+              {shots.filter((item) => item.takes.some((take) => take.status === "done")).length}
+            </b>{" "}
+            / {shots.length}
+          </span>
+          <span>
+            约 <b>{shots.reduce((sum, item) => sum + item.seconds, 0)} 秒</b>
+          </span>
+        </div>
+      </section>
+      <section className="pane">
+        <div className="ph">
+          <h3>{current ? `镜头 ${current.no}` : "镜头"} · 版本</h3>
+          <span className="meta">选一个最好的，会放进剪辑</span>
+          <span className="sp" />
+          <button className="btn sm" onClick={onBack}>
+            返回分镜
+          </button>
+        </div>
+        <div className="cand-wrap">
+          <div className="bigprev">
+            {picked?.videoUrl ? (
+              <PreviewVideo
+                key={picked.id}
+                src={picked.videoUrl}
+                playing={playing}
+                audible={audible}
+                onPlaying={onPlaying}
+                onTime={() => undefined}
+              />
+            ) : (
+              <div className="frame rain">
+                <span className="badge none">
+                  {takes.length === 0 ? "还没有版本" : picked?.reason || "这一版还没有画面"}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="cands">
+            {takes.length === 0 && <p className="role-desc">还没有版本。点下面生成。</p>}
+            {takes.map((item) => (
+              <button
+                key={item.id}
+                className={item.id === current?.selectedTakeId ? "cand pick" : "cand"}
+                onClick={() => choose(item.id)}
+              >
+                <div
+                  className={
+                    displayableImage(item.stillUrl) || item.videoUrl ? "thumb" : "thumb rain"
+                  }
+                >
+                  {displayableImage(item.stillUrl) ? (
+                    <div
+                      className="still"
+                      style={{ backgroundImage: `url(${displayableImage(item.stillUrl)})` }}
+                    />
+                  ) : item.videoUrl ? (
+                    <video src={item.videoUrl} muted playsInline preload="metadata" />
+                  ) : null}
+                  <span className="dur">
+                    {item.status === "done"
+                      ? `${current?.seconds ?? 0}s`
+                      : item.status === "running"
+                        ? "生成中"
+                        : item.status === "queued"
+                          ? "排队"
+                          : "失败"}
+                  </span>
+                </div>
+                <div className="cl">
+                  <span>
+                    第{item.index}版/{takes.length}
+                  </span>
+                  <span>
+                    {item.id === current?.selectedTakeId
+                      ? "当前版本"
+                      : item.status === "done"
+                        ? "用这一版"
+                        : item.reason || item.status}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="pane">
+        <div className="ph">
+          <h3>生成视频</h3>
+          <span className="meta">{current ? `镜头 ${current.no}` : "还没有镜头"}</span>
+        </div>
+        <div className="pb" style={{ padding: "12px 14px" }}>
+          <div className="sec-t">
+            起始画面<span className="from role-d">这一镜自己的画面</span>
+            <span className="sp" />
+            <span>不是定妆照</span>
+          </div>
+          <div className="startf">
+            <FrameThumb shot={current} />
+            <div>
+              <b>{current ? `镜头 ${current.no} · ${current.size}` : "还没有镜头"}</b>
+              先出这一镜的图，再让它动起来
+            </div>
+          </div>
+          <div className="sec-t" style={{ marginTop: 12 }}>
+            角色定妆照
+            <span className="sp" />
+            <span>外貌写进提示词</span>
+          </div>
+          <div className="refs">
+            {film.characters.map((item) => (
+              <div className="ref" key={item.id}>
+                <Thumb src={item.portraits.find((portrait) => portrait.url)?.url} />
+                <p>{item.name}</p>
+              </div>
+            ))}
+          </div>
+          <div className="sec-t" style={{ marginTop: 12 }}>
+            画面描述
+            <span className="sp" />
+            <span className="from role-a">含这一镜和外貌</span>
+          </div>
+          <textarea
+            className="area"
+            aria-label="画面描述"
+            style={{ height: 74 }}
+            value={current?.picture ?? ""}
+            onChange={(event) => {
+              if (!current) return;
+              onFilm({
+                ...film,
+                shots: film.shots.map((item) =>
+                  item.id === current.id
+                    ? {
+                        ...item,
+                        picture: event.target.value,
+                        action: event.target.value,
+                        promptZh: "",
+                        source: "user",
+                        userFields: [...new Set([...item.userFields, "picture"])],
+                      }
+                    : item,
+                ),
+              });
+            }}
+          />
+          <p className="role-desc" data-testid="keyframe-prompt">
+            {current ? continuityPrompt(shots[shot - 1], current, film) : prompt}
+          </p>
+          <p className="role-desc">{CONTINUITY_REASON}</p>
+          <div className="row2" style={{ marginTop: 12 }}>
+            <div>
+              <div className="sec-t">时长</div>
+              <div className="seg">
+                {[2, 3, 5, 8].map((seconds) => (
+                  <button
+                    key={seconds}
+                    className={(current?.seconds ?? duration) === seconds ? "on" : ""}
+                    onClick={() => onDuration(seconds)}
+                  >
+                    {seconds} 秒
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="row2" style={{ marginTop: 10 }}>
+            <div>
+              <div className="sec-t">清晰度</div>
+              <div className="seg">
+                <button
+                  className={film.draft ? "on" : ""}
+                  onClick={() => onFilm({ ...film, draft: true })}
+                >
+                  较快的一版
+                </button>
+                <button
+                  className={film.draft ? "" : "on"}
+                  onClick={() => onFilm({ ...film, draft: false })}
+                >
+                  直接出成片
+                </button>
+              </div>
+            </div>
+            <div>
+              <div className="sec-t">一次出几个</div>
+              <div className="seg">
+                {[1, 2, 4].map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={versions === count ? "on" : ""}
+                    onClick={() => onVersions(count)}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="genbar">
+          <div className="model">
+            <Ic name="spark" size={14} />
+            <span>Grok 会员</span>
+            <small title={GENERATE_MODEL}>成片</small>
+            <span className="sp" />
+            <small>不另外收费</small>
+          </div>
+          <button className="btn primary block" onClick={onCreate}>
+            <Ic name="video" size={16} />
+            生成 {versions} 个版本
+          </button>
+          <div className="note" data-testid="generation-estimate">
+            {generationEstimate(1, versions, duration)}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function EditPage({
+  film,
+  shot,
+  onShot,
+  shots,
+  range,
+  comparing,
+  fixAction,
+  rightTab,
+  playing,
+  actions,
+  onTogglePlay,
+  onSelectRange,
+  onPickClip,
+  onClearRange,
+  onAction,
+  onKeep,
+  onReplace,
+  onTab,
+  onUndo,
+  onRedo,
+  onNotice: _onNotice,
+  onRangeGenerate,
+  onPlaying,
+  audible,
+  onImportMusic,
+  onRewrite,
+  onMarkIn,
+  onMarkOut,
+  span,
+  onLane,
+}: {
+  film: FilmProject;
+  shot: number;
+  onShot: (index: number) => void;
+  range: boolean;
+  comparing: boolean;
+  fixAction: FixAction;
+  rightTab: "props" | "fix" | "ai";
+  playing: boolean;
+  actions: ReturnType<typeof videoActions>;
+  onTogglePlay: () => void;
+  onSelectRange: () => void;
+  onPickClip: () => void;
+  onClearRange: () => void;
+  onAction: (action: FixAction) => void;
+  onKeep: () => void;
+  onReplace: () => void;
+  onTab: (tab: "props" | "fix" | "ai") => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onNotice: (text: string) => void;
+  onRangeGenerate: () => void;
+  onPlaying: (value: boolean) => void;
+  audible: boolean;
+  onImportMusic: (file: File) => void;
+  onRewrite: (picture: string) => void;
+  onMarkIn: () => void;
+  onMarkOut: () => void;
+  span: { from: number; to: number } | null;
+  shots: FilmShot[];
+  onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
+}) {
+  const [mediaTime, setMediaTime] = useState(0);
+  const clips = clipLayout(shots);
+  const cues = subtitleCues(shots);
+  const current = shots[shot] ?? shots[0];
+  const chosenTake =
+    current?.takes.find((item) => item.id === current.selectedTakeId) ??
+    current?.takes.find((item) => item.status === "done");
+  const previewSrc =
+    film.assemblyUrl || fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
+  useEffect(() => {
+    setMediaTime(0);
+  }, [shot, previewSrc]);
+  const start = shots.slice(0, shot).reduce((sum, item) => sum + item.seconds, 0);
+  const selected = clips[shot];
+  const tiles: { id: FixAction; icon: string; label: string }[] = [
+    { id: "regenerate", icon: "refresh", label: "重新生成" },
+    { id: "rewrite", icon: "edit", label: "改描述再生成" },
+    { id: "voice", icon: "mic", label: "换配音字幕" },
+    { id: "cut", icon: "cut", label: "剪掉这段" },
+  ];
+  return (
+    <>
+      {comparing ? (
+        <section className="pane">
+          <div className="ph">
+            <h3>对比</h3>
+            <span className="meta">镜头 {current?.no ?? shot + 1} · 选中的一段</span>
+            <span className="sp" />
+            <div className="seg">
+              <button className="on">左右对比</button>
+            </div>
+          </div>
+          <div className="cmp">
+            {(current?.takes ?? []).map((item) => (
+              <div className="side" key={item.id}>
+                <div className="lbl">
+                  <span>
+                    第{item.index}版/{current?.takes.length ?? 0}
+                  </span>
+                  <span>
+                    {item.id === current?.selectedTakeId ? "当前版本" : item.reason || item.status}
+                  </span>
+                </div>
+                {item.videoUrl ? (
+                  <video className="frame" src={item.videoUrl} />
+                ) : (
+                  <div className="frame rain" />
+                )}
+              </div>
+            ))}
+            {(current?.takes.length ?? 0) < 2 && (
+              <p className="role-desc">还没有两个版本可以对比。</p>
+            )}
+          </div>
+          <div className="cmpbar">
+            <button
+              className="icon-btn"
+              aria-label={playing ? "暂停" : "播放"}
+              onClick={onTogglePlay}
+            >
+              <Ic name={playing ? "pause" : "play"} />
+            </button>
+            <span className="tc">
+              {clock(start)} – {clock(start + (current?.seconds ?? 0))}
+            </span>
+            <span className="sp" />
+            <span className="meta">
+              {current?.takes.filter((item) => item.status === "done").length ?? 0} 个版本
+            </span>
+            <button className="btn" onClick={onKeep}>
+              保留旧版
+            </button>
+            <button className="btn primary" onClick={onReplace}>
+              <Ic name="swap" size={14} />
+              用新版替换
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="pane">
+            <div className="ph">
+              <span className="meta">{shots.length} 个镜头</span>
+            </div>
+            <div className="pb bin">
+              {shots.map((item, index) => (
+                <button
+                  key={item.id}
+                  className="it"
+                  onClick={() => {
+                    onShot(index);
+                    onSelectRange();
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <FrameThumb shot={item} />
+                    <span className="dur">{item.seconds}s</span>
+                  </div>
+                  <p>
+                    镜头 {item.no} · {item.size}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="pane monitor">
+            <div className="ph">
+              <h3>预览</h3>
+              <span className="meta">{film.title}</span>
+              <span className="sp" />
+            </div>
+            <div className="screen">
+              {previewSrc ? (
+                <PreviewVideo
+                  src={previewSrc}
+                  playing={playing}
+                  audible={audible}
+                  onPlaying={onPlaying}
+                  onTime={setMediaTime}
+                />
+              ) : (
+                <div className="frame rain">
+                  <span className="subt">
+                    {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
+                      ? ROUGH_CUT_REASON
+                      : "还没有可以播放的视频。"}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="ctrl">
+              <span className="tc">
+                <b>{clock(film.assemblyUrl ? mediaTime : start + mediaTime)}</b> /{" "}
+                {clock(shots.reduce((sum, item) => sum + item.seconds, 0))}
+              </span>
+              <div className="pc">
+                <button
+                  className="icon-btn"
+                  aria-label="上一个"
+                  onClick={() => onShot(Math.max(0, shot - 1))}
+                >
+                  <Ic name="skipb" />
+                </button>
+                <button
+                  className="playb"
+                  aria-label={playing ? "暂停" : "播放"}
+                  onClick={onTogglePlay}
+                >
+                  <Ic name={playing ? "pause" : "play"} size={16} />
+                </button>
+                <button
+                  className="icon-btn"
+                  aria-label="下一个"
+                  onClick={() => onShot(Math.min(shots.length - 1, shot + 1))}
+                >
+                  <Ic name="skipf" />
+                </button>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+      <section className="pane">
+        <div className="ptabs">
+          <button className={rightTab === "props" ? "on" : ""} onClick={() => onTab("props")}>
+            属性
+          </button>
+          <button className={rightTab === "fix" ? "on" : ""} onClick={() => onTab("fix")}>
+            修改这一段
+          </button>
+          <button className={rightTab === "ai" ? "on" : ""} onClick={() => onTab("ai")}>
+            AI 助手
+          </button>
+        </div>
+        {rightTab === "fix" ? (
+          <>
+            <div className="selinfo">
+              <b>
+                镜头 {current?.no ?? ""} · {current?.move || "固定"}
+              </b>
+              <small>
+                {clock(start)} – {clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
+                秒
+              </small>
+            </div>
+            <div className="pb">
+              <div className="tiles">
+                {tiles.map((tile) => (
+                  <button
+                    key={tile.id}
+                    className={`tile${fixAction === tile.id ? " on" : ""}${tile.id === "cut" ? " danger" : ""}`}
+                    aria-disabled={!actions[tile.id].enabled}
+                    title={actions[tile.id].reason}
+                    onClick={() => onAction(tile.id)}
+                  >
+                    <Ic name={tile.icon === "cut" ? "trash" : tile.icon} size={15} />
+                    {tile.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ padding: "12px 12px 0" }}>
+                <div className="sec-t">这一镜的描述</div>
+                <textarea
+                  className="area"
+                  aria-label="改这一镜的描述"
+                  style={{ height: 62 }}
+                  value={current?.picture ?? ""}
+                  onChange={(event) => onRewrite(event.target.value)}
+                />
+                <div className="row2" style={{ marginTop: 8 }}>
+                  <div className="input">一次出 {film.takesPerShot || 1} 个</div>
+                  <button className="btn primary" onClick={() => onAction(fixAction)}>
+                    <Ic name="spark" size={14} />
+                    生成新版本
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="pb">
+            <div className="field">
+              <label>
+                镜头 {current?.no ?? ""} · {current?.size || "中景"} · {current?.seconds ?? 0} 秒
+              </label>
+            </div>
+            <div className="field">
+              <div className="row3">
+                <div>
+                  <label>开始</label>
+                  <div className="input">{clock(start)}</div>
+                </div>
+                <div>
+                  <label>结束</label>
+                  <div className="input">{clock(start + (current?.seconds ?? 0))}</div>
+                </div>
+                <div>
+                  <label>镜头怎么动</label>
+                  <div className="input">{current?.move || "固定"}</div>
+                </div>
+              </div>
+            </div>
+            <div className="field">
+              <button className="btn" onClick={onSelectRange}>
+                回到分镜重新生成
+              </button>
+            </div>
+            <p className="role-desc">{LOUDNESS_NOTE}</p>
+          </div>
+        )}
+      </section>
+      <section className="pane timeline">
+        {range ? (
+          <div className="selbar">
+            <span className="lab">
+              已选 {clock(start)}–{clock(start + (current?.seconds ?? 0))} · {current?.seconds ?? 0}{" "}
+              秒
+            </span>
+            <button
+              className="btn primary"
+              title={actions.regenerate.reason}
+              aria-disabled={!actions.regenerate.enabled}
+              onClick={() => onAction("regenerate")}
+            >
+              <Ic name="refresh" size={13} />
+              重新生成
+            </button>
+            <button
+              className="btn"
+              title={actions.rewrite.reason}
+              aria-disabled={!actions.rewrite.enabled}
+              onClick={() => onAction("rewrite")}
+            >
+              <Ic name="edit" size={13} />
+              改描述
+            </button>
+            <button
+              className="btn"
+              title={actions.voice.reason}
+              aria-disabled={!actions.voice.enabled}
+              onClick={() => onAction("voice")}
+            >
+              <Ic name="mic" size={13} />
+              换配音
+            </button>
+            <button className="btn" title={actions.cut.reason} onClick={() => onAction("cut")}>
+              <Ic name="trash" size={13} />
+              剪掉
+            </button>
+            <span className="sp" />
+            <button className="icon-btn sm" aria-label="取消选择" onClick={onClearRange}>
+              <Ic name="x" size={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="ttool">
+            <button className="icon-btn on" aria-label="选择" title="选择 (V)">
+              <Ic name="cursor" />
+            </button>
+            <button
+              className="icon-btn"
+              aria-label="删除"
+              title="删除 (Del)"
+              onClick={() => onAction("cut")}
+            >
+              <Ic name="trash" />
+            </button>
+            <span className="vsep" />
+            <button className="icon-btn" aria-label="设入点" title="设入点 (I)" onClick={onMarkIn}>
+              <Ic name="bracketL" />
+            </button>
+            <button className="icon-btn" aria-label="设出点" title="设出点 (O)" onClick={onMarkOut}>
+              <Ic name="bracketR" />
+            </button>
+            <span className="vsep" />
+            <button className="icon-btn" aria-label="撤销" title="撤销" onClick={onUndo}>
+              <Ic name="undo" />
+            </button>
+            <button className="icon-btn" aria-label="重做" title="重做" onClick={onRedo}>
+              <Ic name="redo" />
+            </button>
+          </div>
+        )}
+        <div className="tbody">
+          <div className="theads">
+            <div className="ruler-h" />
+            <div className="th" style={{ height: "var(--hs)" }}>
+              <span className="sw" style={{ background: "var(--t-sub)" }} />
+              <Ic name="text" size={13} />
+              字幕
+            </div>
+            <div className="th" style={{ height: "var(--hv)" }}>
+              <span className="sw" style={{ background: "var(--t-video)" }} />
+              <Ic name="film" size={13} />
+              视频
+            </div>
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-voice)" }} />
+              <Ic name="mic" size={13} />
+              配音
+              <button type="button" aria-label="静音配音" onClick={() => onLane?.("dialogue", -80)}>
+                静音
+              </button>
+              <button type="button" aria-label="单听配音" onClick={() => onLane?.("score", -80)}>
+                单听
+              </button>
+            </div>
+            <div className="th" style={{ height: "var(--ha)" }}>
+              <span className="sw" style={{ background: "var(--t-music)" }} />
+              <Ic name="music" size={13} />
+              音乐
+              <button type="button" aria-label="静音音乐" onClick={() => onLane?.("score", -80)}>
+                静音
+              </button>
+              <input
+                aria-label="音乐音量"
+                type="range"
+                min={-40}
+                max={0}
+                defaultValue={-14}
+                onChange={(event) => onLane?.("score", Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <div className="tracks">
+            <div className="ruler">
+              {[0, 0.5, 1].map((part, index) => {
+                const total = shots.reduce((sum, item) => sum + item.seconds, 0);
+                return (
+                  <span key={part} style={{ left: index * 160 }}>
+                    {clock(total * part)}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="lane" style={{ height: "var(--hs)" }}>
+              {cues.map((cue) => {
+                const clip = clips.find((item) => item.id === cue.id);
+                if (!clip) return null;
+                return (
+                  <div
+                    key={cue.id}
+                    className="clip s"
+                    style={{ left: clip.left, width: clip.width }}
+                  >
+                    <span className="tx">{cue.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="lane" style={{ height: "var(--hv)" }}>
+              {clips.map((clip, index) => {
+                const ready = shots[index]?.takes.some((take) => take.status === "done");
+                return (
+                  <button
+                    key={clip.id}
+                    className={ready ? "clip v" : "clip v empty"}
+                    style={{ left: clip.left, width: clip.width }}
+                    onClick={() => {
+                      onShot(index);
+                      onPickClip();
+                    }}
+                  >
+                    <span className="lb">
+                      {ready ? `镜头 ${shots[index]?.no ?? index + 1}` : "未生成"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="lane" style={{ height: "var(--ha)" }}>
+              {film.audioClips
+                .filter((item) => item.lane === "dialogue" && item.path)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="clip a"
+                    style={{
+                      left: 1,
+                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 16)),
+                    }}
+                  >
+                    <span className="tx">{item.label || "配音"}</span>
+                  </div>
+                ))}
+            </div>
+            <div className="lane" style={{ height: "var(--ha)" }}>
+              {film.audioClips
+                .filter((item) => item.lane === "score" && item.path)
+                .map((item) => (
+                  <div key={item.id} className="clip m" style={{ left: 1, width: 160 }}>
+                    <span className="tx">
+                      导入的音乐
+                      {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}
+                    </span>
+                  </div>
+                ))}
+              <label className="btn sm" style={{ position: "absolute", right: 8, top: 4 }}>
+                导入音乐
+                <input
+                  type="file"
+                  accept="audio/*,.mp3,.wav"
+                  hidden
+                  aria-label="导入音乐"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) onImportMusic(file);
+                  }}
+                />
+              </label>
+            </div>
+            {range && current ? (
+              <button
+                className="btn sm"
+                type="button"
+                style={{ position: "absolute", right: 8, bottom: 8 }}
+                onClick={onRangeGenerate}
+              >
+                只重做这一段
+              </button>
+            ) : null}
+            {range && span && clips[span.from] && clips[span.to] && (
+              <div
+                className="range"
+                style={{
+                  left: clips[Math.min(span.from, span.to)]!.left,
+                  width:
+                    clips[Math.max(span.from, span.to)]!.left +
+                    clips[Math.max(span.from, span.to)]!.width -
+                    clips[Math.min(span.from, span.to)]!.left,
+                }}
+              >
+                <span className="h l">入 {clock(start)}</span>
+                <span className="h r">出 {clock(start + (current?.seconds ?? 0))}</span>
+              </div>
+            )}
+            <div
+              className="playhead"
+              style={{
+                left:
+                  (selected?.left ?? 1) +
+                  (current && current.seconds > 0
+                    ? Math.min(1, mediaTime / current.seconds) * (selected?.width ?? 0)
+                    : 0),
+              }}
+            />
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}

@@ -59,6 +59,7 @@ from aijian_api.sub2api_source_extract_contracts import (
 )
 from aijian_api.sub2api_source_extract_store import Sub2APISourceExtractScopeDraft
 from aijian_api.task_ledger import LocalTaskLedger, QueuedTask
+from aijian_api.task_ledger_models import utc_now
 
 SOURCE_ANALYST_SUB2API_REF = DefinitionRefV1(
     definition_id="writer.source-analyst-sub2api", version="1.0.0"
@@ -260,7 +261,12 @@ class Sub2APISourceExtractRunFactory:
         )
         agent_run_id = _stable_id("agr", {**identity_seed, "kind": "agent"})
         skill_run_id = _stable_id("skr", {**identity_seed, "kind": "skill"})
-        store = AgentRunStore(self._repository.database_path)
+        # available_at is this bundle's created_at. Share the factory clock so a
+        # frozen claim clock cannot fall behind a slow wall-clock insert.
+        store = AgentRunStore(
+            self._repository.database_path,
+            clock=self._clock or utc_now,
+        )
         try:
             existing = store.get_with_intent(project_id, agent_run_id)
         except ProposalRunNotFoundError:

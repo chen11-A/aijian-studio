@@ -423,6 +423,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record */
+        post: operations["record_api_v1_projects__project_id__desktop_subscription_dispatches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/desktop-subscription-dispatches/{dispatch_id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish */
+        post: operations["finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/development-exports": {
         parameters: {
             query?: never;
@@ -1871,6 +1905,74 @@ export interface paths {
         };
         /** Get Story Bible Version */
         get: operations["getStoryBibleVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-film": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Film */
+        post: operations["createStoryFilm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-film/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Film */
+        post: operations["cancelStoryFilm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-film/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["getStoryFilmPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/story-film/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Progress */
+        get: operations["getStoryFilmProgress"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3648,6 +3750,12 @@ export interface components {
          * @description Queue only; a separate trusted authorization must precede dispatch.
          */
         CreateRemoteSourceExtractRunRequest: {
+            /**
+             * Billing Account Kind
+             * @default gpt_login
+             * @enum {string}
+             */
+            billing_account_kind: "gpt_login" | "grok_login";
             selection: components["schemas"]["RemoteSourceExtractSelectionData"];
             source: components["schemas"]["CreateProposalRunRequest"];
         };
@@ -3660,6 +3768,67 @@ export interface components {
             parent_version_id?: string | null;
             /** Source Spans */
             source_spans: components["schemas"]["StorySourceSpanDraftV1"][];
+        };
+        /** CreateStoryFilmBody */
+        CreateStoryFilmBody: {
+            /** Amount Micro */
+            amount_micro?: number | null;
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            /**
+             * Connection Revision
+             * @default unspecified
+             */
+            connection_revision: string;
+            /** Currency */
+            currency?: string | null;
+            /**
+             * Image Model
+             * @default grok-imagine-image-2.0
+             */
+            image_model: string;
+            /** Narration */
+            narration: string;
+            /**
+             * Provider
+             * @default stub
+             * @enum {string}
+             */
+            provider: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
+            /**
+             * Regenerate
+             * @default false
+             */
+            regenerate: boolean;
+            /** Scene Label */
+            scene_label: string;
+            /** Shots */
+            shots?: components["schemas"]["StoryShotBody"][];
+            /**
+             * Speech Model
+             * @default grok-tts
+             */
+            speech_model: string;
+            /**
+             * Style Block
+             * @default
+             */
+            style_block: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /**
+             * Video Model
+             * @default grok-imagine-video-1.5
+             */
+            video_model: string;
+            /**
+             * Voice Id
+             * @default eve
+             */
+            voice_id: string;
         };
         /**
          * CreateSub2APICallApprovalRequest
@@ -5421,6 +5590,13 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+        };
+        /** FinishDesktopSubscriptionDispatch */
+        FinishDesktopSubscriptionDispatch: {
+            /** Failure Code */
+            failure_code?: string | null;
+            /** Outcome */
+            outcome: string;
         };
         FixtureRef: string;
         /** HTTPValidationError */
@@ -8018,6 +8194,23 @@ export interface components {
             /** Recheck Id */
             recheck_id: string;
         };
+        /** RecordDesktopSubscriptionDispatch */
+        RecordDesktopSubscriptionDispatch: {
+            /** Account Kind */
+            account_kind: string;
+            /** Connected */
+            connected?: boolean | null;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Model Id */
+            model_id: string;
+            /** Quota Available */
+            quota_available?: boolean | null;
+            /** Rate Available */
+            rate_available?: boolean | null;
+            /** Request Sha256 */
+            request_sha256: string;
+        };
         /** ReferenceDeclarationV1 */
         ReferenceDeclarationV1: {
             /** Description */
@@ -9834,6 +10027,151 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** StoryFilmCancelData */
+        StoryFilmCancelData: {
+            /**
+             * Cancel Requested
+             * @default true
+             */
+            cancel_requested: boolean;
+        };
+        /** StoryFilmCancelResponse */
+        StoryFilmCancelResponse: {
+            data: components["schemas"]["StoryFilmCancelData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryFilmData */
+        StoryFilmData: {
+            /** Artifact Version Id */
+            artifact_version_id?: string | null;
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Billing Label */
+            billing_label: string;
+            /**
+             * Draft
+             * @default true
+             */
+            draft: boolean;
+            /** Duration Seconds */
+            duration_seconds?: string | null;
+            /** Fix */
+            fix?: string | null;
+            /**
+             * Has Audio
+             * @default false
+             */
+            has_audio: boolean;
+            /**
+             * Has Video
+             * @default false
+             */
+            has_video: boolean;
+            /**
+             * Live Call
+             * @default false
+             */
+            live_call: boolean;
+            /** Message */
+            message: string;
+            /** Output Path */
+            output_path?: string | null;
+            /** Output Sha256 */
+            output_sha256?: string | null;
+            /** Preview Image */
+            preview_image?: string | null;
+            /** Provider Label */
+            provider_label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "SUCCEEDED" | "BLOCKED" | "FAILED";
+            /** Suggested Provider */
+            suggested_provider?: ("stub" | "grok_subscription") | null;
+            /** Task Id */
+            task_id?: string | null;
+        };
+        /** StoryFilmPlanData */
+        StoryFilmPlanData: {
+            /**
+             * Default Provider
+             * @default stub
+             * @constant
+             */
+            default_provider: "stub";
+            /** Live Media Enabled */
+            live_media_enabled: boolean;
+            /** Providers */
+            providers: components["schemas"]["StoryFilmProviderChoice"][];
+        };
+        /** StoryFilmPlanResponse */
+        StoryFilmPlanResponse: {
+            data: components["schemas"]["StoryFilmPlanData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryFilmProgressData */
+        StoryFilmProgressData: {
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Image Saved */
+            image_saved: boolean;
+            /** Label */
+            label: string;
+            /** Message */
+            message: string;
+            /** Preview Image */
+            preview_image?: string | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "idle" | "image" | "video" | "speech" | "assemble" | "done" | "failed";
+        };
+        /** StoryFilmProgressResponse */
+        StoryFilmProgressResponse: {
+            data: components["schemas"]["StoryFilmProgressData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** StoryFilmProviderChoice */
+        StoryFilmProviderChoice: {
+            /** Available */
+            available: boolean;
+            /** Billing Label */
+            billing_label: string;
+            /** Fix */
+            fix?: string | null;
+            /**
+             * Id
+             * @enum {string}
+             */
+            id: "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
+            /** Label */
+            label: string;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
+        };
+        /** StoryFilmResponse */
+        StoryFilmResponse: {
+            data: components["schemas"]["StoryFilmData"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /** StoryQuestionDraftV1 */
         StoryQuestionDraftV1: {
             /** Blocking */
@@ -9893,6 +10231,63 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "resolved";
+        };
+        /** StoryShotBody */
+        StoryShotBody: {
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Angle
+             * @default
+             */
+            angle: string;
+            /**
+             * Duration Seconds
+             * @default 5
+             */
+            duration_seconds: number;
+            /**
+             * Identity
+             * @default
+             */
+            identity: string;
+            /**
+             * Move
+             * @default
+             */
+            move: string;
+            /** Narration */
+            narration: string;
+            /**
+             * Performance
+             * @default
+             */
+            performance: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Regenerate
+             * @default false
+             */
+            regenerate: boolean;
+            /**
+             * Size
+             * @default
+             */
+            size: string;
+            /**
+             * Subtitle
+             * @default
+             */
+            subtitle: string;
+            /**
+             * Voice Id
+             * @default
+             */
+            voice_id: string;
         };
         /** StorySourceScopeV1 */
         StorySourceScopeV1: {
@@ -13641,6 +14036,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    record_api_v1_projects__project_id__desktop_subscription_dispatches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordDesktopSubscriptionDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_api_v1_projects__project_id__desktop_subscription_dispatches__dispatch_id__outcome_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                dispatch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishDesktopSubscriptionDispatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -19248,6 +19714,208 @@ export interface operations {
             };
         };
     };
+    createStoryFilm: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStoryFilmBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelStoryFilm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmCancelResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryFilmPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmPlanResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getStoryFilmProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFilmProgressResponse"];
+                };
+            };
+            /** @description Sidecar authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Sidecar request boundary rejected */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     createSub2APISourceExtractRun: {
         parameters: {
             query?: never;
@@ -19319,6 +19987,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19330,15 +20007,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19405,6 +20073,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19416,15 +20093,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19497,6 +20165,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19508,15 +20185,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19583,6 +20251,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Sub2API dispatch retired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Request validation failed */
             422: {
                 headers: {
@@ -19594,15 +20271,6 @@ export interface operations {
             };
             /** @description Idempotency-Key required */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Sub2API execution unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };

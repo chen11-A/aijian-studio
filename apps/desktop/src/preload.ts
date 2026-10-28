@@ -67,6 +67,8 @@ import type {
 import type { OfficialTextBridge } from "@aijian/contracts/official-text";
 import type { AssistantChatBridge } from "@aijian/contracts/official-text";
 import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
+import type { GrokLoginBridge } from "@aijian/contracts/grok-auth";
+import type { StoryFilmCreateInput } from "./story-film-client";
 import type {
   DraftExportPreviewResult,
   DraftExportRevealResult,
@@ -144,7 +146,7 @@ import type {
   SourceProposalAcceptanceResult,
 } from "./api-client";
 import type { SourceManifestReviewOperationResult } from "./source-manifest-review";
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   InvalidationOperationPageQuery,
   InvalidationOperationPageResponse,
@@ -264,6 +266,24 @@ contextBridge.exposeInMainWorld("aijianChatGPT", {
   models: () => ipcRenderer.invoke("chatgpt-auth:models"),
   openHelp: (topic) => ipcRenderer.invoke("chatgpt-auth:help", topic),
 } satisfies ChatGPTBridge);
+
+contextBridge.exposeInMainWorld("aijianGrok", {
+  status: () => ipcRenderer.invoke("grok-auth:status"),
+  signIn: () => ipcRenderer.invoke("grok-auth:sign-in"),
+  cancel: () => ipcRenderer.invoke("grok-auth:cancel"),
+  signOut: () => ipcRenderer.invoke("grok-auth:sign-out"),
+  models: () => ipcRenderer.invoke("grok-auth:models"),
+  completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
+  speak: (input) => ipcRenderer.invoke("grok-auth:speech", input),
+  recordAgent: (input) => ipcRenderer.invoke("grok-auth:agent-log", input),
+  cancelText: () => ipcRenderer.invoke("grok-auth:cancel-text"),
+  onTextProgress: (callback: (update: { chars: number; shots: number }) => void) => {
+    const listener = (_event: unknown, update: { chars: number; shots: number }) =>
+      callback(update);
+    ipcRenderer.on("grok-auth:text-progress", listener);
+    return () => ipcRenderer.removeListener("grok-auth:text-progress", listener);
+  },
+} satisfies GrokLoginBridge);
 
 contextBridge.exposeInMainWorld("aijianAssistantChat", {
   preview: (request) => ipcRenderer.invoke("assistant-chat:preview", request),
@@ -528,6 +548,47 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("projects:list") as Promise<ProjectListResponse>,
   createProject: (input: CreateProjectInput): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:create", input) as Promise<ProjectResponse>,
+  getStoryFilmPlan: (projectId: string) => ipcRenderer.invoke("story-film:plan", projectId),
+  createStoryFilm: (projectId: string, input: StoryFilmCreateInput) =>
+    ipcRenderer.invoke("story-film:create", projectId, input),
+  getStoryFilmProgress: (projectId: string) => ipcRenderer.invoke("story-film:progress", projectId),
+  cancelStoryFilm: (projectId: string) => ipcRenderer.invoke("story-film:cancel", projectId),
+  readStoryFilmMedia: (path: string) =>
+    ipcRenderer.invoke("story-film:read", path) as Promise<Uint8Array>,
+  revealStoryFilm: (path: string) =>
+    ipcRenderer.invoke("story-film:reveal", path) as Promise<{ ok: boolean }>,
+  exportStoryFilm: (path: string) =>
+    ipcRenderer.invoke("story-film:export", path) as Promise<{ ok: boolean; cancelled?: boolean }>,
+  listFilmSeries: () => ipcRenderer.invoke("film:list-series"),
+  listFilmEpisodes: (seriesId: string) => ipcRenderer.invoke("film:list-episodes", seriesId),
+  readFilmProject: (id: string) => ipcRenderer.invoke("film:read", id),
+  writeFilmProject: (film: unknown) => ipcRenderer.invoke("film:write", film),
+  deleteFilmProject: (id: string) => ipcRenderer.invoke("film:delete", id),
+  renameFilmSeries: (seriesId: string, title: string) =>
+    ipcRenderer.invoke("film:rename", seriesId, title),
+  readFilmMedia: (path: string) =>
+    ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
+  assembleFilm: (
+    seriesId: string,
+    sources: string[],
+    musicPath = "",
+    duck: boolean | number = false,
+  ) => ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
+  importMusic: (seriesId: string, source: string) =>
+    ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
+  filePath: (file: File) => webUtils.getPathForFile(file),
+  flushed: () => ipcRenderer.invoke("film:flushed"),
+  onFlush: (handler: () => void) => {
+    ipcRenderer.on("aivora:flush", () => handler());
+  },
+  generateFilmStill: (seriesId: string, prompt: string) =>
+    ipcRenderer.invoke("film:still", seriesId, prompt),
+  pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
+  defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
+  exportFilmCut: (source: string, directory: string, name?: string) =>
+    ipcRenderer.invoke("film:export", source, directory, name),
+  revealFilmPath: (path: string) => ipcRenderer.invoke("film:reveal", path),
+  openFilmPath: (path: string) => ipcRenderer.invoke("film:open", path),
   getProject: (projectId: string): Promise<ProjectResponse> =>
     ipcRenderer.invoke("projects:get", projectId) as Promise<ProjectResponse>,
   getProjectSettings: ((projectId) =>

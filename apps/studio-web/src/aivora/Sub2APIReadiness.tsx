@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ProviderConnectionListResponse, Sub2APIReadinessResult } from "../api/studio";
+import { getModelCenterSnapshot, subscribeModelCenter } from "./account/model-center";
 import { Button } from "./Common";
 
 type Connection = ProviderConnectionListResponse["data"][number];
@@ -8,7 +9,7 @@ const reasonLabels: Record<string, string> = {
   NOT_SUB2API: "此连接不是 Sub2API",
   CONNECTION_DISABLED: "连接已停用，请启用并保存",
   ORIGIN_INVALID: "已保存地址或本机路由不符合安全要求",
-  TEXT_MODEL_NOT_CONFIGURED: "请登记本次使用的 TEXT 模型",
+  TEXT_MODEL_NOT_CONFIGURED: "请登记本次使用的文本模型",
   CREDENTIAL_MISSING: "尚未保存业务密钥",
   CREDENTIAL_UNAVAILABLE: "系统凭据库不可用",
   RUNTIME_UNAVAILABLE: "本地 AI 任务执行器尚未就绪，请重启桌面并重新核对",
@@ -23,7 +24,20 @@ export function Sub2APIReadiness({
   read?: Reader;
   disabled?: boolean;
 }) {
-  const [modelId, setModelId] = useState(connection.models[0]?.model_id ?? "");
+  const center = useSyncExternalStore(
+    subscribeModelCenter,
+    getModelCenterSnapshot,
+    getModelCenterSnapshot,
+  );
+  const textModels = connection.models.filter(
+    (model) => model.capabilities.length === 1 && model.capabilities[0] === "TEXT",
+  );
+  const centered = center.choices.TEXT;
+  const onlyTextModel = textModels.length === 1 ? textModels[0] : undefined;
+  const modelId =
+    onlyTextModel?.model_id ??
+    textModels.find((model) => model.model_id === centered?.modelId)?.model_id ??
+    "";
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const epoch = useRef(0);
@@ -85,24 +99,10 @@ export function Sub2APIReadiness({
         {connection.origin_mode === "LOCAL_LOOPBACK_HTTP" ? "本机 loopback" : "公网 HTTPS"} · 修订{" "}
         {connection.revision}
       </p>
-      <label>
-        核对 TEXT 模型
-        <select
-          value={modelId}
-          onChange={(event) => {
-            setModelId(event.target.value);
-            setNotice("");
-          }}
-        >
-          {connection.models
-            .filter((model) => model.capabilities.length === 1 && model.capabilities[0] === "TEXT")
-            .map((model) => (
-              <option key={model.model_id} value={model.model_id}>
-                {model.model_id}
-              </option>
-            ))}
-        </select>
-      </label>
+      <p>
+        核对文本模型：
+        {modelId || "请先在模型中心选择此连接已登记的文本模型"}
+      </p>
       <Button
         disabled={!read || disabled || !modelId || busy || !knownMode}
         onClick={() => void readCurrent()}

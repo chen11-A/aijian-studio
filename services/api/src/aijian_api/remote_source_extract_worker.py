@@ -203,6 +203,19 @@ class RemoteSourceExtractWorker:
                 or not snapshot.provider_connection_id
             ):
                 raise RemoteWorkerBlocked("task attempt is detached from remote source.extract")
+            if (
+                self._authorizations.desktop_subscription_account_kind(running.attempt_id)
+                == "grok_login"
+            ):
+                # The token lives in the desktop secure store. Close before consume
+                # so this is not quarantined as a possible provider call.
+                self._authorizations.fail_remote_before_dispatch(claim=running)
+                return RemoteSourceExtractResult(
+                    "FAILED",
+                    claim.task_id,
+                    claim.attempt_id,
+                    code="DESKTOP_TRANSPORT_REQUIRED",
+                )
 
             permit = self._authorizations.begin_remote_dispatch(
                 claim=running,
@@ -248,6 +261,10 @@ class RemoteSourceExtractWorker:
                 or dispatch.approved_model_id not in {model.model_id for model in connection.models}
             ):
                 raise RemoteWorkerBlocked("approved provider connection changed")
+            if dispatch.scope.get("billing_account_kind") == "grok_login":
+                raise RemoteWorkerBlocked(
+                    "grok_login DESKTOP_TRANSPORT_REQUIRED: this worker must not open a socket"
+                )
             token = self._credentials.get(connection.credential_ref)
             if token is None:
                 raise RemoteWorkerBlocked("provider credential is unavailable")

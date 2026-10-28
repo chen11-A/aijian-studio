@@ -441,7 +441,7 @@ export function EpisodeStoryboardPanel({
                   locked={locked}
                   edit={state.edit}
                 />
-                <small className="storyboard-stable-id">镜头身份 {shot.shot_id}</small>
+                <small className="storyboard-stable-id">镜头已编号，保存后仍是这一镜。</small>
               </>
             )}
             <StoryboardTextPreview content={content} />
@@ -457,11 +457,7 @@ export function EpisodeStoryboardPanel({
         <footer className="storyboard-save-footer">
           <div>
             <strong>{stateLabel}</strong>
-            <span>
-              {version
-                ? `已保存版本 ${version.version_id.slice(-8)} · 回读校验通过`
-                : "保存后可关闭、重开并继续编辑本集"}
-            </span>
+            <span>{version ? "已保存，回读校验通过" : "保存后可关闭、重开并继续编辑本集"}</span>
           </div>
           <Button
             primary

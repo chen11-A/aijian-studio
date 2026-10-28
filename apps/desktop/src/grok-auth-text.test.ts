@@ -1,0 +1,230 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { createAgentLog, redactSecrets } from "./agent-log";
+import { completeGrokText, GrokTextFailure, type Fetch } from "./grok-auth-http";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import type { GrokSession, GrokStore } from "./grok-auth-storage";
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+describe("Grok text calls", () => {
+  it("reads a nested reply that includes a newline", async () => {
+    const fetch = vi.fn(async (url: string) => {
+      expect(String(url)).toContain("/responses");
+      return jsonResponse(200, {
+        output: [{ content: [{ type: "output_text", text: '{\n"shots":[]\n}' }] }],
+      });
+    });
+    const text = await completeGrokText(fetch as unknown as Fetch, {
+      accessToken: "token",
+      model: "grok-4",
+      text: "拆镜头",
+    });
+    expect(text).toContain("shots");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a plain chat completion before giving up", async () => {
+    const fetch = vi.fn(async (url: string) => {
+      if (String(url).endsWith("/responses")) {
+        return jsonResponse(404, { error: "missing", access_token: "secret-token" });
+      }
+      return jsonResponse(200, { choices: [{ message: { content: "plain reply" } }] });
+    });
+    const text = await completeGrokText(fetch as unknown as Fetch, {
+      accessToken: "token",
+      model: "grok-4",
+      text: "拆镜头",
+    });
+    expect(text).toBe("plain reply");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("logs both failures without the token", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "aivora-agents-"));
+    const log = createAgentLog(join(directory, "logs", "agents.log"));
+    const session: GrokSession = {
+      version: 1,
+      accessToken: "access-token-value",
+      refreshToken: "refresh-token-value",
+      expiresAt: Date.now() + 3_600_000,
+      scopes: ["openid"],
+      subject: "person",
+      email: null,
+      name: null,
+      inferenceDenied: false,
+    };
+    const store: GrokStore = {
+      available: () => true,
+      read: async () => session,
+      write: async () => undefined,
+      clear: async () => undefined,
+    };
+    const fetch = vi.fn(async (url: string) =>
+      jsonResponse(String(url).endsWith("/responses") ? 404 : 400, {
+        error: "no text",
+        access_token: "secret-token",
+        authorization: "bearer access-token-value",
+      }),
+    );
+    const runtime = createGrokRuntime({
+      store,
+      fetch: fetch as unknown as Fetch,
+      openBrowser: async () => undefined,
+      confirmSignIn: async () => true,
+      agentLog: log,
+    });
+    const result = await runtime.completeText({ model: "grok-4", text: "ping" });
+    expect(result).toMatchObject({
+      kind: "ERROR",
+      code: "TEXT_FAILED",
+      httpStatus: 400,
+    });
+    if (result.kind === "ERROR") expect(result.detail).toContain("已改用普通对话再试过");
+    await vi.waitFor(async () => {
+      const written = await readFile(join(directory, "logs", "agents.log"), "utf8");
+      expect(written).toContain("responses");
+      expect(written).toContain("chat");
+      expect(written).not.toContain("secret-token");
+      expect(written).not.toContain("access-token-value");
+    });
+  });
+
+  it("logs a successful text call", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "aivora-agents-ok-"));
+    const log = createAgentLog(join(directory, "logs", "agents.log"));
+    const session: GrokSession = {
+      version: 1,
+      accessToken: "access-token-value",
+      refreshToken: "refresh-token-value",
+      expiresAt: Date.now() + 3_600_000,
+      scopes: ["openid"],
+      subject: "person",
+      email: null,
+      name: null,
+      inferenceDenied: false,
+    };
+    const store: GrokStore = {
+      available: () => true,
+      read: async () => session,
+      write: async () => undefined,
+      clear: async () => undefined,
+    };
+    const fetch = vi.fn(async () =>
+      jsonResponse(200, {
+        output: [{ content: [{ type: "output_text", text: "导演拆好了" }] }],
+        access_token: "secret-token",
+      }),
+    );
+    const runtime = createGrokRuntime({
+      store,
+      fetch: fetch as unknown as Fetch,
+      openBrowser: async () => undefined,
+      confirmSignIn: async () => true,
+      agentLog: log,
+    });
+    const result = await runtime.completeText({
+      model: "grok-4.7",
+      text: "把这一场拆成镜头",
+      projectId: `prj_${"a".repeat(32)}`,
+      idempotencyKey: "once",
+    });
+    expect(result.kind).toBe("OK");
+    runtime.recordAgent?.({
+      agent: "director",
+      model: "grok-4.7",
+      status: "ok",
+      parsed: "shots",
+      detail: "导演拆好了",
+    });
+    await vi.waitFor(async () => {
+      const written = await readFile(join(directory, "logs", "agents.log"), "utf8");
+      expect(written).toContain("responses");
+      expect(written).toContain("director");
+      expect(written).toContain("shots");
+      expect(written).not.toContain("secret-token");
+      expect(written).not.toContain("access-token-value");
+    });
+  });
+
+  it("accepts a stream that keeps sending for 100 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const encoder = new TextEncoder();
+      const fetch = vi.fn(async () => {
+        const stream = new ReadableStream({
+          async start(controller) {
+            for (let index = 0; index < 10; index += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 10_000));
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"type":"response.output_text.delta","delta":"镜头${index}"}\n\n`,
+                ),
+              );
+            }
+            controller.close();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      });
+      const pending = completeGrokText(fetch as unknown as Fetch, {
+        accessToken: "token",
+        model: "grok-4",
+        text: "拆镜头",
+        limits: { idleMs: 60_000, totalMs: 5 * 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(100_000);
+      await expect(pending).resolves.toContain("镜头9");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops when a stream stays silent for 60 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = vi.fn(async () => {
+        const stream = new ReadableStream({
+          start() {
+            /* no bytes and no close */
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      });
+      const pending = completeGrokText(fetch as unknown as Fetch, {
+        accessToken: "token",
+        model: "grok-4",
+        text: "拆镜头",
+        limits: { idleMs: 60_000, totalMs: 5 * 60_000 },
+      });
+      const failed = pending.then(
+        () => null,
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      const error = await failed;
+      expect(error).toBeInstanceOf(GrokTextFailure);
+      expect((error as GrokTextFailure).attempts[0]?.body).toContain("很久没有新的字");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("redacts a bearer token and keeps a short status", () => {
+    expect(redactSecrets("bearer abc.def model missing")).toBe("[redacted] model missing");
+    expect(GrokTextFailure).toBeTruthy();
+  });
+});

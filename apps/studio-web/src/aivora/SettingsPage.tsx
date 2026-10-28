@@ -1,6 +1,7 @@
 import { ProjectSettingsEditor } from "./ProjectSettingsEditor";
 import { isProjectAspectRatio } from "@aijian/contracts/project-aspect";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { createStudioTransport } from "../api/studio";
 import type { ProjectData } from "../api/studio";
 import { useDemo } from "./model";
@@ -17,10 +18,11 @@ import {
   updateManagedProject,
 } from "./adapters/projectManagement";
 import type { ProjectJournalState } from "./adapters/projectManagement";
+import { Select } from "./Select";
 
-export function SettingsPage() {
+export function SettingsPage({ tools }: { tools?: ReactNode } = {}) {
   const d = useDemo();
-  if (!d.isFixture && d.page === "settings") return <PersistedUserSettings />;
+  if (!d.isFixture && d.page === "settings") return <PersistedUserSettings tools={tools} />;
   if (!d.isFixture && d.page === "projectSettings")
     return (
       <NativeProjectSettings key={d.backendProjectId ?? "none"} projectId={d.backendProjectId} />
@@ -116,11 +118,11 @@ function FixtureSettingsPage() {
     <label key={key}>
       {label}
       {options ? (
-        <select value={field(key)} onChange={(e) => change(key, e.target.value)}>
+        <Select value={field(key)} onChange={(e) => change(key, e.target.value)}>
           {options.map((v) => (
             <option key={v}>{v}</option>
           ))}
-        </select>
+        </Select>
       ) : (
         <input
           value={field(key)}
@@ -699,7 +701,7 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
               <input readOnly value="未提供项目持久设置" />
             </label>
             <Button disabled title="项目说明尚无持久保存接口">
-              编辑项目说明 · 待接入
+              项目说明还不能在这里修改
             </Button>
           </div>
         </section>
@@ -797,7 +799,7 @@ function PersistedProjectSettings({ projectId }: { projectId: string | null }) {
 
 type PreferenceDraft = { user_name: string; display_bio: string };
 
-function PersistedUserSettings() {
+function PersistedUserSettings({ tools }: { tools?: ReactNode }) {
   const d = useDemo();
   const live = useRef(d);
   live.current = d;
@@ -973,6 +975,7 @@ function PersistedUserSettings() {
               {label}
             </Button>
           ))}
+          {tools}
         </aside>
         <section className="v2-utility-card v2-profile">
           <h2>
@@ -1026,8 +1029,9 @@ function PersistedUserSettings() {
         </section>
       </form>
       <FlowFooter
-        secondaryLabel="取消"
-        secondaryAction={cancel}
+        secondaryLabel={dirty ? "取消" : undefined}
+        secondaryAction={dirty ? cancel : undefined}
+        hideSecondary={!dirty}
         label="保存用户设置"
         action={() => form.current?.requestSubmit()}
         disabled={!current || !gateway || !dirty || loading || readError || saveUnknown}

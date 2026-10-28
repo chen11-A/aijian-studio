@@ -38,7 +38,7 @@ const core = {
   candidate_head: env.GITHUB_SHA,
   packaged: true,
   electron: "43.2.0",
-  user_data_directory: "/runner/appdata/AIVORA Dev Core",
+  user_data_directory: "/runner/appdata/AIVORA",
   resource_directory: "/runner/temp/install/resources",
   renderer_errors: [],
   verified: ["fresh process exact readback", "full process shutdown", "no orphan sidecar"],

@@ -29,6 +29,7 @@ import {
 } from "./adapters/manualMediaCandidate";
 import type { MediaInputLeave } from "./MediaInputLeave";
 import { Button } from "./Common";
+import { Select } from "./Select";
 const SESSION_INTENTS = new Map<string, ManualMediaCandidateCommand>();
 type Gateway = Partial<ManualMediaCandidateGateway & MediaPreparationGateway> & {
   assetLibrary?: AssetLibraryGateway;
@@ -306,7 +307,7 @@ export function ManualMediaCandidatePanel({
   }
   return (
     <section className="manual-media-candidate-panel" aria-label="手工本地媒体候选">
-      <h2>手工本地媒体候选 · DRAFT</h2>
+      <h2>手工本地媒体候选 · 草稿</h2>
       <p>
         关联已导入的精确素材；LOCAL_IMPORT／手工关联／费用UNKNOWN。此操作不代表模型生成、镜头完成或正式批准。
       </p>
@@ -331,7 +332,7 @@ export function ManualMediaCandidatePanel({
           </p>
           <label>
             精确本地素材版本
-            <select
+            <Select
               value={input.asset_id ? `${input.asset_id}/${input.asset_version_id}` : ""}
               onChange={(event) => {
                 const c = choices.find((v) => v.key === event.target.value);
@@ -359,7 +360,7 @@ export function ManualMediaCandidatePanel({
                     {c.version.availability}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <label>
             完整手工关联说明

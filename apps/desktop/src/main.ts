@@ -14,6 +14,18 @@ import { createAssistantReceiptStore, type AssistantReceiptStore } from "./assis
 import { createChatGPTRuntime } from "./chatgpt-auth-runtime";
 import { createProtectedStore } from "./chatgpt-auth-storage";
 import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
+import { createGrokRuntime } from "./grok-auth-runtime";
+import { liveMediaSidecarEnv } from "./live-media-env";
+import { createAgentLog } from "./agent-log";
+import { createGrokLoginLog } from "./grok-login-log";
+import { createSubscriptionLedger } from "./desktop-subscription-ledger";
+import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
+import { createFileKeyEncryption, selectGrokEncryption } from "./grok-linux-storage";
+import { registerGrokHandlers } from "./grok-auth-ipc";
+import { revealInFolder } from "./reveal-in-folder";
+import { registerStoryFilmHandlers } from "./story-film-ipc";
+import { registerFilmLibraryHandlers } from "./film-library-ipc";
+import { bundledFfmpeg, trustedMediaPath } from "./film-library";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -24,8 +36,19 @@ import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
 import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
-import { lstatSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { spawn } from "node:child_process";
+import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { developmentPythonLaunch } from "./development-python";
 
 import {
@@ -33,6 +56,8 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  net,
+  protocol,
   safeStorage,
   nativeImage,
   shell,
@@ -112,6 +137,32 @@ let sidecar: SidecarHandle | null = null;
 let quitting = false;
 let nativePreviewDocumentEpoch = 0;
 
+function pinPackagedUserData(): void {
+  // New installs use AIVORA. The first launch copies an existing
+  // "AIVORA Dev Core" folder and leaves the old one in place.
+  if (!app.isPackaged) return;
+  const legacy = join(app.getPath("appData"), "AIVORA Dev Core");
+  const next = join(app.getPath("appData"), "AIVORA");
+  if (!existsSync(next) && existsSync(legacy)) {
+    try {
+      cpSync(legacy, next, { recursive: true, dereference: false });
+    } catch {
+      app.setPath("userData", legacy);
+      return;
+    }
+  }
+  app.setPath("userData", next);
+}
+
+function revealSavedFile(path: string): void {
+  revealInFolder(path, {
+    platform: process.platform,
+    showItemInFolder: (item) => {
+      shell.showItemInFolder(item);
+    },
+  });
+}
+
 function configureDevelopmentUserData(): boolean {
   const requested = process.env.AIJIAN_E2E_USER_DATA_DIR;
   if (requested === undefined) return false;
@@ -139,6 +190,8 @@ function developmentSidecarOptions(): StartSidecarOptions {
       ...python.env,
       AIJIAN_DATA_DIR: join(app.getPath("userData"), "workspace"),
       AIJIAN_ENABLE_FAKE_TIMELINE_RUNTIME: "0",
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       ...(process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT && process.env.AIJIAN_DRAFT_MEDIA_TOOLCHAIN_LOCK
         ? {
             AIJIAN_DRAFT_MEDIA_TOOL_ROOT: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
@@ -205,6 +258,8 @@ function packagedSidecarOptions(): StartSidecarOptions {
     env: {
       AIJIAN_DATA_DIR: workspaceDirectory,
       AIJIAN_RESOURCE_ROOT: resourceRoot,
+      ...liveMediaSidecarEnv(),
+      AIVORA_GROK_LOGIN_LOG: join(app.getPath("userData"), "logs", "grok-login.log"),
       TEMP: extraction.directory,
       TMP: extraction.directory,
     },
@@ -221,12 +276,47 @@ function packagedRendererIndex(): string {
   return index;
 }
 
+function windowStatePath(): string {
+  return join(app.getPath("userData"), "window-state.json");
+}
+
+function readWindowState(): {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  maximized?: boolean;
+} | null {
+  try {
+    const value = JSON.parse(readFileSync(windowStatePath(), "utf8")) as {
+      width?: unknown;
+      height?: unknown;
+      x?: unknown;
+      y?: unknown;
+      maximized?: unknown;
+    };
+    if (typeof value.width !== "number" || typeof value.height !== "number") return null;
+    return {
+      width: value.width,
+      height: value.height,
+      ...(typeof value.x === "number" ? { x: value.x } : {}),
+      ...(typeof value.y === "number" ? { y: value.y } : {}),
+      maximized: value.maximized === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function createMainWindow(): BrowserWindow {
+  const saved = readWindowState();
   const window = new BrowserWindow({
-    width: 1440,
-    height: 920,
-    minWidth: 980,
-    minHeight: 680,
+    width: saved?.width ?? 1440,
+    height: saved?.height ?? 920,
+    ...(typeof saved?.x === "number" ? { x: saved.x } : {}),
+    ...(typeof saved?.y === "number" ? { y: saved.y } : {}),
+    minWidth: 1280,
+    minHeight: 800,
     show: false,
     backgroundColor: "#0d0e0c",
     autoHideMenuBar: true,
@@ -248,7 +338,23 @@ function createMainWindow(): BrowserWindow {
     }
   });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
-  window.once("ready-to-show", () => window.show());
+  window.once("ready-to-show", () => {
+    if (!saved || saved.maximized) window.maximize();
+    else {
+      const bounds = window.getBounds();
+      if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
+    }
+    window.show();
+  });
+  const remember = () => {
+    if (window.isDestroyed()) return;
+    const bounds = window.getBounds();
+    writeFileSync(
+      windowStatePath(),
+      JSON.stringify({ ...bounds, maximized: window.isMaximized() }),
+    );
+  };
+  window.on("close", remember);
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
@@ -277,8 +383,16 @@ function getAssistantReceiptStore(): AssistantReceiptStore {
   );
   return assistantReceiptStore;
 }
+function subscriptionLedger() {
+  if (!sidecar) throw new Error("BILLING_UNAVAILABLE");
+  return createSubscriptionLedger(globalThis.fetch, sidecar.session);
+}
 function getChatGPTRuntime() {
   chatgptRuntime ??= createChatGPTRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
     store: createProtectedStore(join(app.getPath("userData"), "chatgpt-official"), safeStorage),
     fetch: globalThis.fetch,
     openBrowser: (url) => shell.openExternal(url),
@@ -319,6 +433,59 @@ function getChatGPTRuntime() {
   });
   return chatgptRuntime;
 }
+let grokRuntime: ReturnType<typeof createGrokRuntime> | null = null;
+let grokEncryption: GrokEncryption | null = null;
+function useGrokEncryption(): GrokEncryption {
+  if (grokEncryption) return grokEncryption;
+  const directory = join(app.getPath("userData"), "grok-official");
+  const choice = selectGrokEncryption(
+    process.platform,
+    safeStorage,
+    createFileKeyEncryption(directory),
+  );
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const record = join(directory, "storage-backend.txt");
+  writeFileSync(record, `${choice.backend}\n`, { mode: 0o600 });
+  chmodSync(record, 0o600);
+  grokEncryption = choice.encryption;
+  const log = createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log"));
+  void log.event("storage", { code: choice.backend }).catch(() => undefined);
+  return grokEncryption;
+}
+function getGrokRuntime() {
+  grokRuntime ??= createGrokRuntime({
+    ledger: {
+      record: (input) => subscriptionLedger().record(input),
+      finish: (input) => subscriptionLedger().finish(input),
+    },
+    store: createGrokStore(join(app.getPath("userData"), "grok-official"), useGrokEncryption()),
+    fetch: globalThis.fetch,
+    openBrowser: (url) => shell.openExternal(url),
+    onBrowserReturned: () => {
+      const window = mainWindow;
+      if (!window || window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.moveTop();
+      window.focus();
+    },
+    log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
+    agentLog: createAgentLog(join(app.getPath("userData"), "logs", "agents.log")),
+    // The labeled button is the confirmation. One click opens the system browser.
+    confirmSignIn: async () => true,
+  });
+  return grokRuntime;
+}
+registerGrokHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => getGrokRuntime(),
+);
+
 registerChatGPTHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
@@ -502,7 +669,7 @@ registerDraftExportOutputHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   clientFor,
   (event) => mainWindow !== null && event.senderFrame === mainWindow.webContents.mainFrame,
-  (trustedPath) => shell.showItemInFolder(trustedPath),
+  (trustedPath) => revealSavedFile(trustedPath),
 );
 registerDraftReviewHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
@@ -630,6 +797,106 @@ ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
 ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
   clientFor(event).createProject(input),
+);
+registerStoryFilmHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    sidecar !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  () => {
+    if (!sidecar) throw new Error("Local API is not available");
+    return sidecar.session;
+  },
+  async () => {
+    try {
+      return await getGrokRuntime().mediaAccessToken();
+    } catch {
+      return null;
+    }
+  },
+  globalThis.fetch,
+  {
+    workspace: () => join(app.getPath("userData"), "workspace"),
+    byteLength: async (path) => {
+      const info = await stat(path);
+      if (!info.isFile()) throw new Error("Story film media is unavailable");
+      return info.size;
+    },
+    read: async (path) => new Uint8Array(await readFile(path)),
+    reveal: (path) => {
+      revealSavedFile(path);
+    },
+    chooseExport: async (suggestedName) => {
+      if (mainWindow === null) return null;
+      const selected = await dialog.showSaveDialog(mainWindow, {
+        title: "导出成片",
+        defaultPath: suggestedName,
+        filters: [{ name: "MP4", extensions: ["mp4"] }],
+        buttonLabel: "导出",
+      });
+      return selected.canceled ? null : (selected.filePath ?? null);
+    },
+    copy: (source, destination) => copyFile(source, destination),
+  },
+);
+registerFilmLibraryHandlers<IpcMainInvokeEvent>(
+  (channel, listener) => ipcMain.handle(channel, listener),
+  (event) =>
+    mainWindow !== null &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame,
+  {
+    filmsRoot: () => join(app.getPath("userData"), "films"),
+    storyFilmsRoot: () => join(app.getPath("userData"), "workspace", "story-films"),
+    runFfmpeg: (args) =>
+      new Promise((resolve, reject) => {
+        let bin: string;
+        try {
+          bin = bundledFfmpeg(process.resourcesPath ?? "", process.platform, {
+            execPath: process.execPath,
+            envRoot: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+          });
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error("没有找到安装包里的 ffmpeg。"));
+          return;
+        }
+        const child = spawn(bin, args, { stdio: "ignore" });
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error("ffmpeg failed"));
+        });
+      }),
+    mediaToken: async () => {
+      try {
+        return await getGrokRuntime().mediaAccessToken();
+      } catch {
+        return null;
+      }
+    },
+    defaultDirectory: async () => {
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
+      return videos;
+    },
+    pickDirectory: async () => {
+      if (mainWindow === null) return null;
+      const videos = join(app.getPath("videos"), "AIVORA");
+      mkdirSync(videos, { recursive: true });
+      const selected = await dialog.showOpenDialog(mainWindow, {
+        title: "选择导出文件夹",
+        defaultPath: videos,
+        properties: ["openDirectory", "createDirectory"],
+        buttonLabel: "选择文件夹",
+      });
+      return selected.canceled ? null : (selected.filePaths[0] ?? null);
+    },
+    copyFile: (source, destination) => copyFile(source, destination),
+    reveal: (path) => revealSavedFile(path),
+    open: (path) => shell.openPath(path),
+  },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>
   clientFor(event).getProject(projectId),
@@ -774,8 +1041,37 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 );
 
 async function startApplication(): Promise<void> {
+  pinPackagedUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: "aivora-media",
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        bypassCSP: true,
+      },
+    },
+  ]);
   await app.whenReady();
+  protocol.handle("aivora-media", (request) => {
+    try {
+      const filePath = new URL(request.url).searchParams.get("path") ?? "";
+      const trusted = trustedMediaPath(
+        [
+          join(app.getPath("userData"), "films"),
+          join(app.getPath("userData"), "workspace", "story-films"),
+        ],
+        filePath,
+      );
+      return net.fetch(pathToFileURL(trusted).href);
+    } catch {
+      return new Response("forbidden", { status: 403 });
+    }
+  });
+  useGrokEncryption();
   if (app.isPackaged) packagedRendererIndex();
   sidecar = await startSidecar(
     app.isPackaged ? packagedSidecarOptions() : developmentSidecarOptions(),
@@ -812,6 +1108,27 @@ void startApplication().catch((error: unknown) => {
   app.quit();
 });
 
+let finishFlush: (() => void) | null = null;
+
+function flushRenderer(): Promise<void> {
+  const window = mainWindow;
+  if (window === null || window.isDestroyed()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      finishFlush = null;
+      resolve();
+    };
+    const timer = setTimeout(finish, 1500);
+    finishFlush = finish;
+    window.webContents.send("aivora:flush");
+  });
+}
+
+ipcMain.handle("film:flushed", () => {
+  finishFlush?.();
+});
+
 app.on("before-quit", (event) => {
   nativePreviewHost.invalidateAll();
   void chatgptRuntime?.cancel();
@@ -821,8 +1138,9 @@ app.on("before-quit", (event) => {
   const stoppedSidecar = sidecar;
   // Preserve the private channel until supervisor-owned stop attempts settle.
   // Sidecar EOF then performs its own Job/reader cleanup before workspace release.
-  void nativePreviewHost
-    .shutdown()
+  void flushRenderer()
+    .catch(() => undefined)
+    .then(() => nativePreviewHost.shutdown())
     .catch(() => undefined)
     .then(() => stoppedSidecar?.stop())
     .catch(() => undefined)
