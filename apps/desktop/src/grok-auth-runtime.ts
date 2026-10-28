@@ -80,6 +80,7 @@ export type GrokRuntime = GrokLoginBridge & {
   restore(): Promise<void>;
   /** Main-process only. Never send this value across IPC. */
   mediaAccessToken(): Promise<string | null>;
+  cancelWork(): void;
 };
 
 export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
@@ -293,9 +294,22 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
+  let work: AbortController | null = null;
+
+  function beginWork(): AbortSignal {
+    work?.abort();
+    work = new AbortController();
+    return work.signal;
+  }
+
   async function cancel(): Promise<GrokLoginActionResult> {
     attempt?.abort(new GrokAuthError("AUTH_CANCELLED"));
+    work?.abort();
     return { kind: "CANCELLED", status: status() };
+  }
+
+  function cancelWork(): void {
+    work?.abort();
   }
 
   async function signOut(): Promise<GrokLoginActionResult> {
@@ -343,6 +357,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     projectId?: string;
     idempotencyKey?: string;
     agent?: string;
+    onProgress?: (update: { chars: number; shots: number }) => void;
   }): Promise<GrokLoginTextResult> {
     if (
       input.text.length === 0 ||
@@ -380,6 +395,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         model: input.model,
         text: input.text,
         endpoints,
+        signal: beginWork(),
+        onProgress: (partial) =>
+          input.onProgress?.({
+            chars: partial.length,
+            shots: (partial.match(/"picture"/g) ?? []).length,
+          }),
       });
       dependencies.agentLog?.write({
         agent: input.agent ?? "",
@@ -462,12 +483,19 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       }
       if (safe === "TEXT_FAILED" && error instanceof GrokTextFailure) {
         const last = error.attempts[error.attempts.length - 1];
-        const status = last?.httpStatus
-          ? `文本接口返回 ${last.httpStatus}`
-          : "文本接口没有返回正文";
-        const tried = error.attempts.some((item) => item.endpoint === "chat")
-          ? "。已改用普通对话再试过"
-          : "";
+        const waited =
+          last?.body.startsWith("很久") ||
+          last?.body.startsWith("这次") ||
+          last?.body.startsWith("已取消");
+        const status = waited
+          ? (last?.body ?? "文本接口没有返回正文")
+          : last?.httpStatus
+            ? `文本接口返回 ${last.httpStatus}`
+            : "文本接口没有返回正文";
+        const tried =
+          !waited && error.attempts.some((item) => item.endpoint === "chat")
+            ? "。已改用普通对话再试过"
+            : "";
         return {
           kind: "ERROR",
           code: safe,
@@ -497,6 +525,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
     const ledger = dependencies.ledger;
     let dispatchId: string | null = null;
+    let timedOut = false;
     try {
       await restore();
       await ensureFresh();
@@ -520,12 +549,23 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         });
         dispatchId = recorded.dispatchId;
       }
-      const audio = await speakGrokLine(dependencies.fetch, {
-        accessToken: session.accessToken,
-        voiceId: input.voiceId.trim(),
-        text: line,
-        endpoints,
-      });
+      const signal = beginWork();
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        work?.abort();
+      }, 5 * 60_000);
+      let audio: Awaited<ReturnType<typeof speakGrokLine>>;
+      try {
+        audio = await speakGrokLine(dependencies.fetch, {
+          accessToken: session.accessToken,
+          voiceId: input.voiceId.trim(),
+          text: line,
+          endpoints,
+          signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (ledger && dispatchId && input.projectId) {
         await ledger.finish({ projectId: input.projectId, dispatchId, outcome: "COMPLETED" });
       }
@@ -540,14 +580,18 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           failureCode: code,
         });
       }
-      const detail =
-        code === "ENTITLEMENT_DENIED"
-          ? "当前账号不能用配音。"
-          : code === "REAUTH_REQUIRED"
-            ? "需要重新登录。"
-            : code === "NOT_CONNECTED"
-              ? "没有登录。"
-              : "配音没有成功。";
+      const aborted = work?.signal.aborted === true;
+      const detail = timedOut
+        ? "配音等太久，已停止。"
+        : aborted
+          ? "已取消配音。"
+          : code === "ENTITLEMENT_DENIED"
+            ? "当前账号不能用配音。"
+            : code === "REAUTH_REQUIRED"
+              ? "需要重新登录。"
+              : code === "NOT_CONNECTED"
+                ? "没有登录。"
+                : "配音没有成功。配音等太久时会自己停。";
       return { kind: "ERROR", code, detail, billingAccountKind: "grok_login" };
     }
   }
@@ -577,6 +621,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     status: async () => (await restore(), status()),
     signIn,
     cancel,
+    cancelWork,
     signOut,
     models,
     completeText,

@@ -73,7 +73,13 @@ export function registerGrokHandlers<TEvent>(
         if (screenshotGrokCatalog()) {
           return { kind: "ERROR", code: "SCREENSHOT_ONLY", billingAccountKind: "grok_login" };
         }
-        return runtime.completeText({
+        const sender = event as { sender?: { send?: (channel: string, payload: unknown) => void } };
+        const complete = runtime.completeText as (
+          input: Parameters<GrokLoginBridge["completeText"]>[0] & {
+            onProgress?: (update: { chars: number; shots: number }) => void;
+          },
+        ) => ReturnType<GrokLoginBridge["completeText"]>;
+        return complete({
           model: body.model,
           text: body.text,
           ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
@@ -83,6 +89,7 @@ export function registerGrokHandlers<TEvent>(
           ...(typeof (body as { agent?: unknown }).agent === "string"
             ? { agent: String((body as unknown as { agent: string }).agent) }
             : {}),
+          onProgress: (update) => sender.sender?.send?.("grok-auth:text-progress", update),
         });
       }
       if (action === "speech") {
@@ -169,4 +176,9 @@ export function registerGrokHandlers<TEvent>(
       return runtime.models();
     });
   }
+  handle("grok-auth:cancel-text", async (event) => {
+    if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
+    (runtimeFor() as GrokLoginBridge & { cancelWork?: () => void }).cancelWork?.();
+    return { kind: "OK" };
+  });
 }

@@ -33,6 +33,8 @@ import {
   generationEstimate,
   keyframeVariants,
   storyFilmBatches,
+  spokenLine,
+  shotVoiceId,
   subtitleCues,
   updateShot,
 } from "../film/operations";
@@ -143,26 +145,31 @@ function settleNextJob(
   };
 }
 
-async function hydrateFilm(film: FilmProject): Promise<FilmProject> {
-  const bridge = window.aijian;
-  if (!bridge?.readFilmMedia) return film;
-  const shots = [];
-  for (const shot of film.shots) {
-    const takes = [];
-    for (const take of shot.takes) {
-      if (!take.videoPath || take.videoUrl || take.status !== "done") {
-        takes.push(take);
-        continue;
-      }
-      try {
-        const bytes = await bridge.readFilmMedia(take.videoPath);
-        takes.push(bytes ? { ...take, videoUrl: mediaUrl(bytes, "video/mp4") } : take);
-      } catch {
-        takes.push(take);
-      }
-    }
-    shots.push({ ...shot, takes });
+function fileMediaUrl(path: string | undefined): string {
+  if (!path) return "";
+  if (
+    path.startsWith("aivora-media:") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:") ||
+    path.startsWith("http")
+  )
+    return path;
+  if (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)) {
+    return `aivora-media://local/?path=${encodeURIComponent(path)}`;
   }
+  return "";
+}
+
+async function hydrateFilm(film: FilmProject): Promise<FilmProject> {
+  const shots = film.shots.map((shot) => ({
+    ...shot,
+    poster: shot.poster,
+    takes: shot.takes.map((take) => {
+      if (take.videoUrl || take.status !== "done") return take;
+      const videoUrl = fileMediaUrl(take.videoPath);
+      return videoUrl ? { ...take, videoUrl } : take;
+    }),
+  }));
   return { ...film, shots };
 }
 
@@ -200,11 +207,8 @@ async function requestStill(
   try {
     const result = await bridge.generateFilmStill(seriesId, prompt);
     if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
-    const bytes = bridge.readFilmMedia ? await bridge.readFilmMedia(result.path) : null;
-    return {
-      url: bytes ? mediaUrl(bytes, "image/png") : "",
-      reason: bytes ? "画面已生成。" : "画面已保存，这一页还打不开。",
-    };
+    const url = fileMediaUrl(result.path);
+    return { url: url || result.path, reason: "画面已生成。" };
   } catch {
     return { url: "", reason: "出图没有成功，可以重试。" };
   }
@@ -246,13 +250,12 @@ function togglePlayback(setPlaying: (value: boolean | ((value: boolean) => boole
 
 function shotFrame(shot: FilmShot | undefined): string {
   if (!shot) return "";
-  if (shot.poster) return shot.poster;
+  const poster = fileMediaUrl(shot.poster);
+  if (poster) return poster;
   const take =
     shot.takes.find((item) => item.id === shot.selectedTakeId) ??
     shot.takes.find((item) => item.status === "done");
-  const url = take?.stillUrl ?? "";
-  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http")) return url;
-  return "";
+  return fileMediaUrl(take?.stillUrl);
 }
 
 function PreviewVideo({
@@ -360,16 +363,15 @@ function Thumb({
   position?: string;
   rain?: boolean;
 }) {
-  const style = src
-    ? { backgroundImage: `url(${src})`, backgroundPosition: position ?? "50% 50%" }
+  const shown = fileMediaUrl(src);
+  const style = shown
+    ? { backgroundImage: `url(${shown})`, backgroundPosition: position ?? "50% 50%" }
     : undefined;
   return <div className={rain || !src ? "thumb rain" : "thumb"} style={style} />;
 }
 
 function displayableImage(url: string | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http")) return url;
-  return "";
+  return fileMediaUrl(url);
 }
 
 function takeVideo(shot: FilmShot | undefined): string {
@@ -377,7 +379,7 @@ function takeVideo(shot: FilmShot | undefined): string {
   const take =
     shot.takes.find((item) => item.id === shot.selectedTakeId && item.videoUrl) ??
     shot.takes.find((item) => item.status === "done" && item.videoUrl);
-  return take?.videoUrl ?? "";
+  return fileMediaUrl(take?.videoUrl || take?.videoPath);
 }
 
 function FrameThumb({ shot }: { shot?: FilmShot }) {
@@ -409,12 +411,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [pendingDelete, setPendingDelete] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [pendingRetry, setPendingRetry] = useState<{
+    role: Role;
+    context: string;
+    instruction: string;
+  } | null>(null);
+  const [confirmSignIn, setConfirmSignIn] = useState(false);
+  const [oneClickReady, setOneClickReady] = useState(false);
   const [range, setRange] = useState(false);
   const [span, setSpan] = useState<{ from: number; to: number } | null>(null);
   const [comparing, setComparing] = useState(false);
   const [fixAction, setFixAction] = useState<FixAction>("rewrite");
   const [rightTab, setRightTab] = useState<"props" | "fix" | "ai">("props");
-  const [notice, setNotice] = useState("");
+  const [notice, setNoticeState] = useState("");
+  const noticeEpoch = useRef(0);
+  const setNotice = (next: string | ((current: string) => string)) => {
+    noticeEpoch.current += 1;
+    setNoticeState(next);
+  };
   const [modelIds, setModelIds] = useState<string[]>([]);
   const [voiceChoices, setVoiceChoices] = useState<{ id: string; label: string }[]>([]);
   const [soundOn, setSoundOn] = useState(
@@ -456,6 +470,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const skipHistory = useRef(false);
   const pauseRef = useRef(false);
   const stopRef = useRef(false);
+  const runToken = useRef(0);
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
@@ -560,6 +575,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }, []);
 
   useEffect(() => {
+    setPending(null);
+  }, [role]);
+
+  useEffect(() => {
+    const bridge = window.aijianGrok as
+      | (NonNullable<Window["aijianGrok"]> & {
+          onTextProgress?: (cb: (update: { chars: number; shots: number }) => void) => () => void;
+        })
+      | undefined;
+    return bridge?.onTextProgress?.((update) => {
+      if (update.shots > 0) setNotice(`导演正在写第 ${update.shots} 个镜头…`);
+      else if (update.chars > 0) setNotice(`正在写，已收到 ${update.chars} 字…`);
+    });
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem("aivora.sound", soundOn ? "on" : "off");
   }, [soundOn]);
 
@@ -643,6 +674,52 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     return () => window.removeEventListener("keydown", onKey);
   }, [stage, historyTick]);
 
+  async function revoiceShot(current: FilmShot) {
+    const line = spokenLine(current);
+    if (!line) {
+      setNotice("这一镜没有台词，不用配音。");
+      return;
+    }
+    const live = filmRef.current;
+    const bridge = grokBridge();
+    const billingProject = live ? await ensureBillingProject() : "";
+    if (!bridge?.speak || !billingProject || !live) {
+      setNotice("配音需要 Grok 会员。画面不会重新生成。");
+      return;
+    }
+    setNotice("正在重配这一句，画面不动。");
+    const spoken = await bridge.speak({
+      voiceId: shotVoiceId(current, live),
+      text: line,
+      projectId: billingProject,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    if (spoken.kind !== "OK") {
+      setNotice(spoken.detail || "配音没有生成，画面没有动。");
+      return;
+    }
+    const latest = filmRef.current ?? live;
+    applyLive({
+      ...latest,
+      audioClips: [
+        ...latest.audioClips.filter((clip) => clip.id !== `voice-${current.id}`),
+        {
+          id: `voice-${current.id}`,
+          lane: "dialogue",
+          shotId: current.id,
+          takeId: current.selectedTakeId,
+          label: "配音",
+          startSeconds: 0,
+          durationSeconds: current.seconds,
+          offsetSeconds: 0,
+          gainDb: 0,
+          path: "",
+        },
+      ],
+    });
+    setNotice("这一句已重配，画面没有重新生成。");
+  }
+
   const runAction = (action: FixAction) => {
     setFixAction(action);
     setRightTab("fix");
@@ -661,7 +738,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const current = shownShots[shot];
-    if (current && (action === "regenerate" || action === "rewrite" || action === "voice")) {
+    if (current && action === "voice") {
+      void revoiceShot(current);
+      return;
+    }
+    if (current && (action === "regenerate" || action === "rewrite")) {
       setPendingBatch([current]);
       setNotice(`只重做镜头 ${current.no}。确认表里点开始生成才会出视频。`);
       return;
@@ -674,22 +755,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
   };
 
-  async function signInGrok() {
+  function signInGrok() {
     const bridge = window.aijianGrok;
     if (!bridge?.signIn) {
       setNotice(SIGN_IN_NOTE);
       return;
     }
     setMenu(null);
+    setConfirmSignIn(true);
+  }
+
+  async function beginSignIn() {
+    const bridge = window.aijianGrok;
+    if (!bridge?.signIn) return;
+    setConfirmSignIn(false);
     setSigningIn(true);
-    setNotice(
-      "浏览器会打开 xAI 官方授权页，页面上写的是 Grok Build，这是 Grok 官方登录方式，点 Allow 即可。",
-    );
+    setNotice("正在打开浏览器。页面上写的是 Grok Build，点 Allow 即可。");
     try {
       const result = await bridge.signIn();
       window.dispatchEvent(new Event("aivora-grok-changed"));
-      if (result.kind === "OK") setNotice("已用 Grok 会员登录。");
-      else if (result.kind === "CANCELLED") setNotice("登录已取消。");
+      const status = await bridge.status?.();
+      if (status?.state === "ENTITLEMENT_DENIED" || status?.lastError === "ENTITLEMENT_DENIED") {
+        setNotice("这个会员不能用生成功能。");
+      } else if (result.kind === "OK") {
+        setNotice("已登录，浏览器那页可以关掉，不用输入代码");
+      } else if (result.kind === "CANCELLED") setNotice("登录已取消。");
       else setNotice("登录没有完成。可以再试一次。");
     } catch {
       setNotice("登录没有完成。可以再试一次。");
@@ -749,23 +839,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "")
           : null;
         if (!parsed) {
-          setNotice("再用普通对话问一次。");
-          const again = await completeAgent(
-            "director",
+          setPendingRetry({
+            role: "director",
             context,
-            '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
-          );
-          parsed = again.text ? parseDirectorShots(again.text, sceneId, current?.text ?? "") : null;
-          if (parsed) {
-            next = parsed;
-            text = "导演拆好了。点「放入分镜」才会写入。";
-          } else {
-            const reason =
-              !first.text && !again.text
-                ? again.detail || first.detail || "模型没有返回。"
-                : "模型没有按格式返回。";
-            text = `${reason} 没有写入镜头。`;
-          }
+            instruction:
+              '只返回 JSON，不要解释。格式：{"shots":[{"picture":"","size":"全景","seconds":5}]}',
+          });
+          const reason = first.detail || "导演这次没有给出能用的镜头。";
+          text = `${reason} 可以点「再用普通对话问一次」。没有写入镜头。`;
         } else {
           next = parsed;
           text = "导演拆好了。点「放入分镜」才会写入。";
@@ -797,6 +878,34 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     });
     finishTurn(turn, text);
     noteAgent("director", text.includes("导演拆好了") ? "shots" : "offline", text);
+  }
+
+  async function retryPending() {
+    const job = pendingRetry;
+    if (!job) return;
+    setPendingRetry(null);
+    const turn = pushTurn(job.role, "再用普通对话问一次");
+    const reply = await completeAgent(job.role, job.context, job.instruction);
+    if (job.role === "director" && film) {
+      const sceneId =
+        film.scenes.find((item) => item.id === scene)?.id ?? film.scenes[0]?.id ?? "scene-1";
+      const parsed = reply.text
+        ? parseDirectorShots(
+            reply.text,
+            sceneId,
+            film.scenes.find((item) => item.id === sceneId)?.text ?? "",
+          )
+        : null;
+      if (parsed) {
+        setPending(parsed);
+        finishTurn(turn, "导演拆好了。点「放入分镜」才会写入。");
+        setNotice("导演拆好了。点「放入分镜」才会写入。");
+        return;
+      }
+    }
+    const failed = reply.detail || reply.text || "模型没有返回。";
+    finishTurn(turn, `${failed} 没有写入镜头。`);
+    setNotice(`${failed} 没有写入镜头。`);
   }
 
   function applyPending() {
@@ -858,21 +967,29 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setNotice("已放入分镜。你改过的镜头没有被盖掉。");
   }
 
-  const billingPromise = useRef<Promise<string> | null>(null);
+  const billingPromises = useRef(new Map<string, Promise<string>>());
+  const propFilmId = useRef("");
 
   async function ensureBillingProject(): Promise<string> {
     const live = filmRef.current;
+    const filmId = live?.id ?? "";
     const stored = live?.backendProjectId ?? "";
     if (/^prj_[0-9a-f]{32}$/.test(stored)) return stored;
-    if (/^prj_[0-9a-f]{32}$/.test(projectId ?? "")) {
-      if (live) applyLive({ ...live, backendProjectId: projectId ?? "" });
+    if (
+      /^prj_[0-9a-f]{32}$/.test(projectId ?? "") &&
+      filmId &&
+      (!propFilmId.current || propFilmId.current === filmId)
+    ) {
+      propFilmId.current = filmId;
+      if (live && !stored) applyLive({ ...live, backendProjectId: projectId ?? "" });
       return projectId ?? "";
     }
     const api = window.aijian;
-    if (!api?.createProject) return "";
-    if (!billingPromise.current) {
+    if (!api?.createProject || !filmId) return "";
+    let pending = billingPromises.current.get(filmId);
+    if (!pending) {
       const name = (live?.seriesTitle || live?.title || "未命名作品").slice(0, 80) || "未命名作品";
-      billingPromise.current = api
+      pending = api
         .createProject({
           name,
           aspect_ratio: "9:16",
@@ -883,16 +1000,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           const id = response.data?.id ?? "";
           if (!/^prj_[0-9a-f]{32}$/.test(id)) throw new Error("bad project");
           const current = filmRef.current;
-          if (current) applyLive({ ...current, backendProjectId: id });
+          if (current?.id === filmId) applyLive({ ...current, backendProjectId: id });
           return id;
         })
         .catch((error: unknown) => {
-          billingPromise.current = null;
+          billingPromises.current.delete(filmId);
           throw error;
         });
+      billingPromises.current.set(filmId, pending);
     }
     try {
-      return await billingPromise.current;
+      return await pending;
     } catch {
       return "";
     }
@@ -1000,14 +1118,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       .filter(Boolean)
       .join("\n");
     if (!story.trim()) return;
-    let extracted = extractCastOffline(story);
-    const reply = await completeAgent(
-      "writer",
-      story,
-      '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":""}],"locations":[{"name":"","prompt":""}]}',
-    );
-    const parsed = reply.text ? parseCastReply(reply.text) : null;
-    if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0)) extracted = parsed;
+    const epoch = noticeEpoch.current;
+    let extracted = connected ? null : extractCastOffline(story);
+    if (connected) {
+      const reply = await completeAgent(
+        "writer",
+        story,
+        '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":""}],"locations":[{"name":"","prompt":""}]}',
+      );
+      const parsed = reply.text ? parseCastReply(reply.text) : null;
+      if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0))
+        extracted = parsed;
+      else {
+        if (noticeEpoch.current === epoch)
+          setNotice(reply.detail || "没有认出人物和场景，没有写入猜测。");
+        return;
+      }
+    }
+    if (!extracted) return;
     const merged = mergeCast(filmRef.current ?? base, extracted);
     if (merged === (filmRef.current ?? base)) {
       if (base.characters.length === 0 && base.locations.length === 0) {
@@ -1471,6 +1599,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function oneClickFilm() {
     if (!film) return;
+    setAsking(true);
+    setOneClickReady(false);
     setNotice("正在让编剧和导演写到分镜。还不会出视频。");
     const idea =
       film.scenes
@@ -1484,7 +1614,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const scenes = writerReply.text ? parseWriterScenes(writerReply.text) : null;
     if (!scenes) {
-      setNotice(writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。");
+      setAsking(false);
+      setOneClickReady(true);
+      setNotice(
+        writerReply.detail || "编剧没有按格式返回，已停。没有写入离线剧本。点「继续」再试。",
+      );
       return;
     }
     let next = applyScenes(film, scenes);
@@ -1503,7 +1637,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       ? parseDirectorShots(directorReply.text, sceneId, story)
       : null;
     if (!parsed) {
-      setNotice(directorReply.detail || "导演没有按格式返回，已停。没有写入离线镜头。");
+      setAsking(false);
+      setOneClickReady(true);
+      setNotice(
+        directorReply.detail || "导演没有按格式返回，已停。没有写入离线镜头。点「继续」再试。",
+      );
       return;
     }
     next = applyShots(next, parsed, sceneId);
@@ -1511,6 +1649,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(next);
     setStage("board");
     setPending(null);
+    setAsking(false);
+    setOneClickReady(true);
     setNotice("停在分镜。点继续才出视频。这一步没有生成视频。");
   }
 
@@ -1550,14 +1690,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("声音关着。打开顶栏的声音再试听。");
       return;
     }
-    if (hearing && previewAudio.current) {
+    if (hearing) {
       try {
-        previewAudio.current.pause();
+        previewAudio.current?.pause();
       } catch {
         /* a test player may not pause */
       }
       previewAudio.current = null;
       setHearing(false);
+      const cancel = (window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined)
+        ?.cancelText;
+      void cancel?.();
       setNotice("已停止试听。");
       return;
     }
@@ -1569,9 +1712,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const bridge = grokBridge();
     const billingProject = await ensureBillingProject();
     if (!bridge?.speak || !billingProject) {
-      setNotice(PREVIEW_REASON);
+      setNotice(connected ? PREVIEW_REASON : "配音需要 Grok 会员。");
       return;
     }
+    setHearing(true);
     const result = await bridge.speak({
       voiceId,
       text: spoken,
@@ -1579,7 +1723,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       idempotencyKey: crypto.randomUUID(),
     });
     if (result.kind !== "OK") {
-      setNotice(result.detail);
+      setHearing(false);
+      setNotice(result.detail || "配音没有成功。");
       return;
     }
     const binary = atob(result.audioBase64);
@@ -1697,8 +1842,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function applyLive(next: FilmProject) {
-    filmRef.current = next;
-    setFilm(next);
+    const current = filmRef.current;
+    const kept =
+      current &&
+      current.id === next.id &&
+      /^prj_[0-9a-f]{32}$/.test(current.backendProjectId) &&
+      !/^prj_[0-9a-f]{32}$/.test(next.backendProjectId)
+        ? { ...next, backendProjectId: current.backendProjectId }
+        : next;
+    filmRef.current = kept;
+    setFilm(kept);
   }
 
   function replaceTakes(
@@ -1724,23 +1877,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function clipUrl(path: string): Promise<string> {
-    const bridge = window.aijian;
-    if (!path || !bridge) return "";
-    try {
-      const bytes = bridge.readFilmMedia
-        ? await bridge.readFilmMedia(path)
-        : bridge.readStoryFilmMedia
-          ? await bridge.readStoryFilmMedia(path)
-          : null;
-      return bytes ? mediaUrl(bytes, "video/mp4") : "";
-    } catch {
-      return "";
-    }
+    return fileMediaUrl(path);
   }
 
   async function submitGeneration(targets?: FilmShot[]) {
+    const mine = ++runToken.current;
     stopRef.current = false;
-    const live = filmRef.current ?? film;
+    let live = filmRef.current ?? film;
     if (!live) return;
     const selected = (targets ?? [shownShots[shot] ?? live.shots[0]]).filter(
       (item): item is FilmShot => Boolean(item),
@@ -1757,6 +1900,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const gate = actions.regenerate;
     const bridge = window.aijian;
     const billingProject = await ensureBillingProject();
+    live = filmRef.current ?? live;
     const canSubmit = gate.enabled && Boolean(billingProject && bridge?.createStoryFilm);
     const blocked = !gate.enabled ? gate.reason : DESKTOP_REASON;
     const jobs = selected.flatMap((item) => planVideoJobs(item, versions, canSubmit, blocked));
@@ -1806,8 +1950,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         for (let index = 0; index < group.takes.length; index += 1) {
           const take = group.takes[index]!;
           const current = filmRef.current ?? next;
-          if (stopRef.current) {
-            stopRef.current = false;
+          if (stopRef.current || runToken.current !== mine) {
+            const latest = filmRef.current ?? current;
+            const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+              (item) =>
+                item.status === "running"
+                  ? { ...item, status: "failed" as const, reason: "已取消" }
+                  : item,
+            );
+            applyLive(
+              replaceTakes(
+                latest,
+                group.shot.id,
+                takes,
+                latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
+              ),
+            );
             setNotice("已取消。还没开始的镜头不再生成。");
             return;
           }
@@ -2002,7 +2160,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
     let source: string;
     if (plan.paths.length === 1 && music?.path && bridge.assembleFilm) {
-      const mixed = await bridge.assembleFilm(current.seriesId, plan.paths, music.path, true);
+      const mixed = await bridge.assembleFilm(
+        current.seriesId,
+        plan.paths,
+        music.path,
+        music.gainDb,
+      );
       source = mixed.path || plan.paths[0] || "";
     } else if (plan.paths.length === 1) source = plan.paths[0] ?? "";
     else {
@@ -2683,6 +2846,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setRightTab("fix");
                   }}
                   span={span}
+                  onLane={(lane, gainDb) => {
+                    const live = filmRef.current;
+                    if (!live) return;
+                    applyLive({
+                      ...live,
+                      audioClips: live.audioClips.map((clip) =>
+                        clip.lane === lane ? { ...clip, gainDb } : clip,
+                      ),
+                    });
+                    setNotice(gainDb <= -40 ? "这一路已静音。" : "音量已记下，导出时用这个音量。");
+                  }}
                   onRewrite={(picture) => {
                     const current = shownShots[shot];
                     if (!film || !current) return;
@@ -2794,13 +2968,59 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           }}
         />
         <footer className="statusbar">
+          {confirmSignIn && (
+            <span>
+              接下来会打开浏览器，进入 Grok Build 授权页。点允许后回到这里。
+              <button type="button" onClick={() => void beginSignIn()}>
+                去浏览器授权
+              </button>
+              <button type="button" onClick={() => setConfirmSignIn(false)}>
+                先不登录
+              </button>
+            </span>
+          )}
+          {pendingRetry && (
+            <button type="button" onClick={() => void retryPending()}>
+              再用普通对话问一次
+            </button>
+          )}
+          {oneClickReady && (
+            <button
+              type="button"
+              onClick={() => {
+                const live = filmRef.current;
+                if (!live || live.shots.length === 0) {
+                  void oneClickFilm();
+                  return;
+                }
+                setPendingBatch(live.shots);
+                setOneClickReady(false);
+              }}
+            >
+              继续
+            </button>
+          )}
+          {asking && (
+            <button
+              type="button"
+              onClick={() => {
+                void (
+                  window.aijianGrok as { cancelText?: () => Promise<unknown> } | undefined
+                )?.cancelText?.();
+                setAsking(false);
+                setNotice("已取消。");
+              }}
+            >
+              取消
+            </button>
+          )}
           <span>{notice}</span>
           <button className="task" onClick={() => setMenu(menu === "queue" ? null : "queue")}>
             <Ic name="loader" size={12} />
             后台生成：
             {film && film.jobs.some((job) => job.status === "running" || job.status === "queued")
               ? `视频 ${film.jobs.filter((job) => job.status === "queued" || job.status === "running").length} 个排队`
-              : "没有排队"}
+              : "没有正在生成的内容"}
             <span className="bar">
               <i style={{ width: `${progress}%` }} />
             </span>
@@ -2840,7 +3060,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       <td>镜头 {item.no}</td>
                       <td>{item.seconds}</td>
                       <td>{item.line.trim() || "无"}</td>
-                      <td>单独配音</td>
+                      <td>{item.line.trim() ? "单独配音" : "无台词"}</td>
                       <td>
                         {film?.audioClips.some((clip) => clip.lane === "score" && clip.path)
                           ? "已导入"
@@ -2872,7 +3092,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         {pendingDelete && (
           <div className="dialog-back">
             <div className="dialog" role="dialog" aria-label="确认删除">
-              <h2>确认删除？作品文件会删掉。</h2>
+              <h2>
+                {deleteTarget.current === "series"
+                  ? `确认删除作品「${film?.seriesTitle || film?.title || "这部作品"}」？文件会删掉。`
+                  : `确认删除「${film?.title || "这一集"}」？文件会删掉。`}
+              </h2>
               <div className="acts">
                 <button
                   className="btn primary"
@@ -2934,15 +3158,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             >
               重试失败的
             </button>
-            {(film?.jobs ?? []).length === 0 && <button>没有排队的生成</button>}
+            {(film?.jobs ?? []).length === 0 && <button>没有正在生成的内容</button>}
             {(film?.jobs ?? []).map((job) => (
               <button
                 key={job.id}
                 onClick={() => {
                   if (!film) return;
+                  runToken.current += 1;
                   stopRef.current = true;
-                  if (projectId && window.aijian?.cancelStoryFilm && job.status === "running") {
-                    void window.aijian.cancelStoryFilm(projectId);
+                  const billed = film.backendProjectId || projectId;
+                  if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
+                    void window.aijian.cancelStoryFilm(billed);
                   }
                   setFilm({
                     ...film,
@@ -4956,6 +5182,7 @@ function EditPage({
   onMarkIn,
   onMarkOut,
   span,
+  onLane,
 }: {
   film: FilmProject;
   shot: number;
@@ -4986,15 +5213,17 @@ function EditPage({
   onMarkOut: () => void;
   span: { from: number; to: number } | null;
   shots: FilmShot[];
+  onLane?: (lane: "dialogue" | "score", gainDb: number) => void;
 }) {
   const [mediaTime, setMediaTime] = useState(0);
   const clips = clipLayout(shots);
   const cues = subtitleCues(shots);
   const current = shots[shot] ?? shots[0];
+  const chosenTake =
+    current?.takes.find((item) => item.id === current.selectedTakeId) ??
+    current?.takes.find((item) => item.status === "done");
   const previewSrc =
-    film.assemblyUrl ||
-    current?.takes.find((item) => item.id === current.selectedTakeId)?.videoUrl ||
-    "";
+    film.assemblyUrl || fileMediaUrl(chosenTake?.videoUrl || chosenTake?.videoPath);
   useEffect(() => {
     setMediaTime(0);
   }, [shot, previewSrc]);
@@ -5019,7 +5248,7 @@ function EditPage({
             </div>
           </div>
           <div className="cmp">
-            {(current?.takes ?? []).slice(0, 2).map((item) => (
+            {(current?.takes ?? []).map((item) => (
               <div className="side" key={item.id}>
                 <div className="lbl">
                   <span>
@@ -5326,11 +5555,28 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
               配音
+              <button type="button" aria-label="静音配音" onClick={() => onLane?.("dialogue", -80)}>
+                静音
+              </button>
+              <button type="button" aria-label="单听配音" onClick={() => onLane?.("score", -80)}>
+                单听
+              </button>
             </div>
             <div className="th" style={{ height: "var(--ha)" }}>
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
               音乐
+              <button type="button" aria-label="静音音乐" onClick={() => onLane?.("score", -80)}>
+                静音
+              </button>
+              <input
+                aria-label="音乐音量"
+                type="range"
+                min={-40}
+                max={0}
+                defaultValue={-14}
+                onChange={(event) => onLane?.("score", Number(event.target.value))}
+              />
             </div>
           </div>
           <div className="tracks">
@@ -5383,7 +5629,14 @@ function EditPage({
               {film.audioClips
                 .filter((item) => item.lane === "dialogue" && item.path)
                 .map((item) => (
-                  <div key={item.id} className="clip a" style={{ left: 1, width: 120 }}>
+                  <div
+                    key={item.id}
+                    className="clip a"
+                    style={{
+                      left: 1,
+                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 16)),
+                    }}
+                  >
                     <span className="tx">{item.label || "配音"}</span>
                   </div>
                 ))}

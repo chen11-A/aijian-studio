@@ -22,10 +22,14 @@ describe("Grok login IPC", () => {
     expect(runtime.status).not.toHaveBeenCalled();
     await expect(handlers.get("grok-auth:sign-in")?.(true, "extra")).rejects.toThrow("Unexpected");
     await handlers.get("grok-auth:text")?.(true, { model: "grok-4", text: "hello" });
-    expect(runtime.completeText).toHaveBeenCalledExactlyOnceWith({
-      model: "grok-4",
-      text: "hello",
-    });
+    expect(runtime.completeText).toHaveBeenCalledOnce();
+    const sent = (
+      runtime.completeText as unknown as {
+        mock: { calls: { model: string; text: string; onProgress?: unknown }[][] };
+      }
+    ).mock.calls[0]?.[0];
+    expect(sent).toMatchObject({ model: "grok-4", text: "hello" });
+    expect(typeof sent?.onProgress).toBe("function");
     await expect(handlers.get("grok-auth:text")?.(true, { model: "grok-4" })).rejects.toThrow(
       "Invalid",
     );

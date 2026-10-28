@@ -416,7 +416,13 @@ export function bundledFfmpeg(
   throw new Error("没有找到安装包里的 ffmpeg。");
 }
 
-export function musicMixArgs(video: string, music: string, destination: string): string[] {
+export function musicMixArgs(
+  video: string,
+  music: string,
+  destination: string,
+  gainDb = -14,
+): string[] {
+  const gain = Math.max(0.02, Math.min(1, 10 ** (gainDb / 20)));
   return [
     "-y",
     "-i",
@@ -426,7 +432,10 @@ export function musicMixArgs(video: string, music: string, destination: string):
     "-i",
     music,
     "-filter_complex",
-    "[0:a]asplit=2[dry][sc];[1:a][sc]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=250[bed];[dry][bed]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[a]",
+    `[1:a]volume=${gain.toFixed(4)},afade=t=in:st=0:d=0.2[pre];` +
+      "[0:a]asplit=2[dry][sc];" +
+      "[pre][sc]sidechaincompress=threshold=0.03:ratio=12:attack=5:release=120[bed];" +
+      "[dry][bed]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[a]",
     "-map",
     "0:v",
     "-map",
@@ -442,10 +451,11 @@ export async function mixMusic(
   video: string,
   music: string,
   run: (args: string[]) => Promise<void>,
-  _duck: boolean,
+  gain: boolean | number = -14,
 ): Promise<{ path: string; reason: string }> {
+  const gainDb = typeof gain === "number" ? gain : -14;
   const mixed = `${video}.mix.mp4`;
-  await run(musicMixArgs(video, music, mixed));
+  await run(musicMixArgs(video, music, mixed, gainDb));
   await copyFile(mixed, video);
   await rm(mixed, { force: true });
   return { path: video, reason: "" };

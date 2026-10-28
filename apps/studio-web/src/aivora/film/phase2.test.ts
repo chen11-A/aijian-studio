@@ -215,7 +215,11 @@ describe("phase 2 shot language", () => {
       [{ line: "", characters: ["林骁"], picture: "刀疤开口" }],
       script,
     );
-    expect(shots[0]).toMatchObject({ line: "东西交出来", characters: ["林骁", "刀疤"] });
+    expect(shots[0]).toMatchObject({
+      line: "东西交出来",
+      characters: ["林骁", "刀疤"],
+      speaker: "刀疤",
+    });
     expect(
       scenesEchoRequest(
         [{ text: "请把现有剧本分成。" }, { text: "请把现有剧本分成。还没完。" }],

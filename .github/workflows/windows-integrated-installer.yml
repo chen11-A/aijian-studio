@@ -68,8 +68,9 @@ jobs:
       - name: Join two real shots with the bundled ffmpeg
         shell: pwsh
         run: |
-          $env:AIVORA_FFMPEG = "$env:RUNNER_TEMP\aivora-stage\resources\media\ffmpeg.exe"
-          $env:AIVORA_FFPROBE = "$env:RUNNER_TEMP\aivora-stage\resources\media\ffprobe.exe"
+          $env:AIVORA_FFMPEG = "$env:RUNNER_TEMP\aivora-stage\installer-output\win-unpacked\resources\media\ffmpeg.exe"
+          $env:AIVORA_FFPROBE = "$env:RUNNER_TEMP\aivora-stage\installer-output\win-unpacked\resources\media\ffprobe.exe"
+          if (-not (Test-Path $env:AIVORA_FFMPEG)) { throw "bundled ffmpeg is missing at $env:AIVORA_FFMPEG" }
           node packaging/windows/build-toolchain/node_modules/pnpm/bin/pnpm.cjs --filter @aijian/desktop exec vitest run src/film-library-ffmpeg.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compose a Chinese subtitle with the bundled font
@@ -77,6 +78,31 @@ jobs:
         run: |
           uv run --frozen python packaging/windows/smoke-subtitle-compose.py --stage "$env:RUNNER_TEMP\aivora-stage"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install without admin into the current user
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "$env:RUNNER_TEMP\aivora-stage\installer-output\AIVORA-Setup-*-win-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "installer exe is missing" }
+          $installed = Join-Path $env:LOCALAPPDATA "Programs\AIVORA\AIVORA.exe"
+          $uninstaller = Join-Path $env:LOCALAPPDATA "Programs\AIVORA\Uninstall.exe"
+          if (Test-Path $installed) { throw "a per-user install is already present" }
+          $task = "AivoraPerUserInstall"
+          schtasks /Create /TN $task /TR "`"$($installer.FullName)`" /S" /SC ONCE /ST 00:00 /RL LIMITED /F
+          if ($LASTEXITCODE -ne 0) { throw "could not schedule an unelevated install" }
+          schtasks /Run /TN $task
+          if ($LASTEXITCODE -ne 0) { throw "could not start the unelevated install" }
+          $deadline = (Get-Date).AddMinutes(3)
+          do {
+            Start-Sleep -Seconds 2
+            if (Test-Path $installed) { break }
+          } while ((Get-Date) -lt $deadline)
+          if (-not (Test-Path $installed)) { throw "unelevated install did not land under LOCALAPPDATA" }
+          $hkcu = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA" -ErrorAction SilentlyContinue
+          if (-not $hkcu -or -not $hkcu.InstallLocation) { throw "HKCU uninstall key was not written" }
+          if ($hkcu.InstallLocation -notlike "$env:LOCALAPPDATA*") { throw "install dir is not under LOCALAPPDATA: $($hkcu.InstallLocation)" }
+          if (Test-Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA") { throw "installer wrote HKLM" }
+          if (Test-Path $uninstaller) { & $uninstaller /S }
+          schtasks /Delete /TN $task /F | Out-Null
       - name: Silent install, health check, screenshot, and uninstall
         shell: pwsh
         run: |

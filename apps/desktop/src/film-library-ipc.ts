@@ -137,7 +137,12 @@ export function registerFilmLibraryHandlers<TEvent>(
     if (!music) return joined;
     const track = trustedMediaPath(roots, music);
     try {
-      return await mixMusic(joined.path, track, host.runFfmpeg, args[3] === true);
+      return await mixMusic(
+        joined.path,
+        track,
+        host.runFfmpeg,
+        typeof args[3] === "number" && Number.isFinite(args[3]) ? args[3] : -14,
+      );
     } catch {
       return { path: joined.path, reason: "视频已接上。配乐没有混进去。" };
     }

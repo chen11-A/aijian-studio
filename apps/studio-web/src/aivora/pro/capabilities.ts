@@ -45,8 +45,8 @@ export function videoActions(modelIds: readonly string[]): Record<VideoAction, A
     edit: { enabled: hasEditModel, reason: editReason || "只用文字说明改细节，没有画笔。" },
     extend: { enabled: hasEditModel, reason: extendReason || "从最后一帧往后接一段。" },
     voice: {
-      enabled: hasGenerate,
-      reason: generateReason || "重做这一段的旁白。视频自带的声音默认关掉。",
+      enabled: true,
+      reason: "只重配这一句，不重新出画面。配音需要 Grok 会员。",
     },
     cut: { enabled: true, reason: "只在本地剪掉，不请求生成。" },
   };

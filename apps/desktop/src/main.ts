@@ -25,7 +25,7 @@ import { registerGrokHandlers } from "./grok-auth-ipc";
 import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerFilmLibraryHandlers } from "./film-library-ipc";
-import { bundledFfmpeg } from "./film-library";
+import { bundledFfmpeg, trustedMediaPath } from "./film-library";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -36,10 +36,19 @@ import { registerNativePreviewPlanHandler } from "./media-preview-plan-ipc";
 import { registerMediaPreviewSessionHandlers } from "./media-preview-session-ipc";
 import { createManagedMediaPreviewHost } from "./media-preview-supervisor";
 import { createInstalledMltNativeRuntime } from "./media-preview-sidecar-runtime";
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { spawn } from "node:child_process";
 import { copyFile, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { developmentPythonLaunch } from "./development-python";
 
 import {
@@ -47,6 +56,8 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  net,
+  protocol,
   safeStorage,
   nativeImage,
   shell,
@@ -265,10 +276,45 @@ function packagedRendererIndex(): string {
   return index;
 }
 
+function windowStatePath(): string {
+  return join(app.getPath("userData"), "window-state.json");
+}
+
+function readWindowState(): {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  maximized?: boolean;
+} | null {
+  try {
+    const value = JSON.parse(readFileSync(windowStatePath(), "utf8")) as {
+      width?: unknown;
+      height?: unknown;
+      x?: unknown;
+      y?: unknown;
+      maximized?: unknown;
+    };
+    if (typeof value.width !== "number" || typeof value.height !== "number") return null;
+    return {
+      width: value.width,
+      height: value.height,
+      ...(typeof value.x === "number" ? { x: value.x } : {}),
+      ...(typeof value.y === "number" ? { y: value.y } : {}),
+      maximized: value.maximized === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function createMainWindow(): BrowserWindow {
+  const saved = readWindowState();
   const window = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    width: saved?.width ?? 1440,
+    height: saved?.height ?? 920,
+    ...(typeof saved?.x === "number" ? { x: saved.x } : {}),
+    ...(typeof saved?.y === "number" ? { y: saved.y } : {}),
     minWidth: 1280,
     minHeight: 800,
     show: false,
@@ -293,10 +339,22 @@ function createMainWindow(): BrowserWindow {
   });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.once("ready-to-show", () => {
-    const bounds = window.getBounds();
-    if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
+    if (!saved || saved.maximized) window.maximize();
+    else {
+      const bounds = window.getBounds();
+      if (bounds.width < 1280 || bounds.height < 800) window.setSize(1440, 920);
+    }
     window.show();
   });
+  const remember = () => {
+    if (window.isDestroyed()) return;
+    const bounds = window.getBounds();
+    writeFileSync(
+      windowStatePath(),
+      JSON.stringify({ ...bounds, maximized: window.isMaximized() }),
+    );
+  };
+  window.on("close", remember);
   window.on("closed", () => {
     nativePreviewDocumentEpoch += 1;
     nativePreviewHost.invalidateAll();
@@ -409,6 +467,7 @@ function getGrokRuntime() {
       if (!window || window.isDestroyed()) return;
       if (window.isMinimized()) window.restore();
       window.show();
+      window.moveTop();
       window.focus();
     },
     log: createGrokLoginLog(join(app.getPath("userData"), "logs", "grok-login.log")),
@@ -984,7 +1043,34 @@ ipcMain.handle("providers:delete", (event, connectionId: string) =>
 async function startApplication(): Promise<void> {
   pinPackagedUserData();
   const hasIsolatedE2EUserDataProfile = configureDevelopmentUserData();
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: "aivora-media",
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+        bypassCSP: true,
+      },
+    },
+  ]);
   await app.whenReady();
+  protocol.handle("aivora-media", (request) => {
+    try {
+      const filePath = new URL(request.url).searchParams.get("path") ?? "";
+      const trusted = trustedMediaPath(
+        [
+          join(app.getPath("userData"), "films"),
+          join(app.getPath("userData"), "workspace", "story-films"),
+        ],
+        filePath,
+      );
+      return net.fetch(pathToFileURL(trusted).href);
+    } catch {
+      return new Response("forbidden", { status: 403 });
+    }
+  });
   useGrokEncryption();
   if (app.isPackaged) packagedRendererIndex();
   sidecar = await startSidecar(

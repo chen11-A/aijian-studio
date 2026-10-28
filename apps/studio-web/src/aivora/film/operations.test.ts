@@ -287,7 +287,11 @@ describe("film operations", () => {
     expect(motionPrompt(shot)).toContain("冷色，湿地面反光");
     expect(motionPrompt(shot)).not.toContain("雨太大");
     expect(shotVoiceId(shot, film)).toBe("rex");
-    const silent = { ...shot, line: "", characters: [] };
+    shot.characters = [film.characters[0]!.name, film.characters[1]!.name];
+    shot.speaker = film.characters[1]!.name;
+    film.narrationVoiceId = "eve";
+    expect(shotVoiceId(shot, film)).toBe(film.characters[1]!.voiceId);
+    const silent = { ...shot, line: "", characters: [], speaker: "" };
     expect(spokenLine(silent)).toBe("");
     expect(shotVoiceId(silent, film)).toBe("eve");
     const batch = storyFilmBatches(film, [shot], false)[0]!;

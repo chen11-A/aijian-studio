@@ -6,10 +6,12 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { joinClips, mixMusic } from "./film-library";
 
-const ffmpeg = process.env.AIVORA_FFMPEG || "/usr/bin/ffmpeg";
+const requested = process.env.AIVORA_FFMPEG ?? "";
+const ffmpeg = requested || "/usr/bin/ffmpeg";
 const ffprobe = process.env.AIVORA_FFPROBE || join(dirname(ffmpeg), "ffprobe");
 const probeBin = existsSync(ffprobe) ? ffprobe : "ffprobe";
 const runnable = existsSync(ffmpeg);
+const required = requested.length > 0;
 const fixtures = join(__dirname, "../fixtures");
 
 function run(bin: string, args: string[]): Promise<string> {
@@ -55,7 +57,11 @@ function meanVolume(log: string): number {
   return Number(match[1]);
 }
 
-describe.skipIf(!runnable)("real ffmpeg", () => {
+describe.skipIf(!runnable && !required)("real ffmpeg", () => {
+  it("uses the ffmpeg CI configured", () => {
+    if (required && !runnable) throw new Error(`AIVORA_FFMPEG is set but missing: ${requested}`);
+    expect(runnable).toBe(true);
+  });
   it("joins two generated shots on a path with Chinese and spaces", async () => {
     const root = mkdtempSync(join(tmpdir(), "aivora-中文 路径-"));
     const shotA = join(root, "镜头 1.mp4");
@@ -111,21 +117,36 @@ describe.skipIf(!runnable)("real ffmpeg", () => {
       "null",
       "-",
     ]);
-    await mixMusic(video, music, (args) => run(ffmpeg, args).then(() => undefined), true);
-    const under = await run(ffmpeg, [
+    const original = join(root, "dry.mp4");
+    copyFileSync(video, original);
+    await mixMusic(video, music, (args) => run(ffmpeg, args).then(() => undefined), -14);
+    const bed = join(root, "bed.wav");
+    await run(ffmpeg, [
+      "-y",
       "-i",
       video,
+      "-i",
+      original,
+      "-filter_complex",
+      "[1:a]volume=-1[inv];[0:a][inv]amix=inputs=2:normalize=0:duration=shortest[a]",
+      "-map",
+      "[a]",
+      bed,
+    ]);
+    const under = await run(ffmpeg, [
+      "-i",
+      bed,
       "-af",
-      "atrim=0:1,highpass=f=3000,lowpass=f=5000,volumedetect",
+      "atrim=0.35:0.9,highpass=f=3000,lowpass=f=5000,volumedetect",
       "-f",
       "null",
       "-",
     ]);
     const away = await run(ffmpeg, [
       "-i",
-      video,
+      bed,
       "-af",
-      "atrim=1:2,highpass=f=3000,lowpass=f=5000,volumedetect",
+      "atrim=1.2:1.9,highpass=f=3000,lowpass=f=5000,volumedetect",
       "-f",
       "null",
       "-",
@@ -139,7 +160,7 @@ describe.skipIf(!runnable)("real ffmpeg", () => {
       "null",
       "-",
     ]);
-    expect(meanVolume(under)).toBeLessThan(meanVolume(away) - 1);
+    expect(meanVolume(under)).toBeLessThan(meanVolume(away) - 6);
     expect(Math.abs(meanVolume(spoken) - meanVolume(dry))).toBeLessThan(3);
   });
 });

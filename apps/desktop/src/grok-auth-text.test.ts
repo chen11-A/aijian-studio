@@ -154,6 +154,75 @@ describe("Grok text calls", () => {
     });
   });
 
+  it("accepts a stream that keeps sending for 100 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const encoder = new TextEncoder();
+      const fetch = vi.fn(async () => {
+        const stream = new ReadableStream({
+          async start(controller) {
+            for (let index = 0; index < 10; index += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 10_000));
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"type":"response.output_text.delta","delta":"镜头${index}"}\n\n`,
+                ),
+              );
+            }
+            controller.close();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      });
+      const pending = completeGrokText(fetch as unknown as Fetch, {
+        accessToken: "token",
+        model: "grok-4",
+        text: "拆镜头",
+        limits: { idleMs: 60_000, totalMs: 5 * 60_000 },
+      });
+      await vi.advanceTimersByTimeAsync(100_000);
+      await expect(pending).resolves.toContain("镜头9");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops when a stream stays silent for 60 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = vi.fn(async () => {
+        const stream = new ReadableStream({
+          start() {
+            /* no bytes and no close */
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      });
+      const pending = completeGrokText(fetch as unknown as Fetch, {
+        accessToken: "token",
+        model: "grok-4",
+        text: "拆镜头",
+        limits: { idleMs: 60_000, totalMs: 5 * 60_000 },
+      });
+      const failed = pending.then(
+        () => null,
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      const error = await failed;
+      expect(error).toBeInstanceOf(GrokTextFailure);
+      expect((error as GrokTextFailure).attempts[0]?.body).toContain("很久没有新的字");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("redacts a bearer token and keeps a short status", () => {
     expect(redactSecrets("bearer abc.def model missing")).toBe("[redacted] model missing");
     expect(GrokTextFailure).toBeTruthy();

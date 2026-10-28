@@ -454,7 +454,7 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
       expect(await screen.findByText("出图没有成功，可以重试。")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
-      expect(await screen.findByText("画面已保存，这一页还打不开。")).toBeInTheDocument();
+      expect(await screen.findByText("画面已生成。")).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
       fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
       expect(await screen.findByText(/将按这句话出图/)).toBeInTheDocument();
@@ -466,7 +466,9 @@ describe("professional workspace", () => {
       fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
       fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
       expect(await screen.findByText("这一版已经生成。")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain("没有排队");
+      expect(screen.getByRole("button", { name: /后台生成/ }).textContent).toContain(
+        "没有正在生成的内容",
+      );
       const preview = document.querySelector("video.frame");
       if (preview) {
         fireEvent.timeUpdate(preview);
@@ -577,7 +579,9 @@ describe("professional workspace", () => {
       detail: "文本接口返回 404。已改用普通对话再试过。",
       text: "",
     });
-    expect(await screen.findByText(/再用普通对话问一次/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "再用普通对话问一次" })).toBeInTheDocument();
+    expect(completeText).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "再用普通对话问一次" }));
     await waitFor(() => expect(replies).toHaveLength(2));
     replies[1]?.({
       kind: "ERROR",
@@ -586,8 +590,8 @@ describe("professional workspace", () => {
       detail: "文本接口返回 404。已改用普通对话再试过。",
       text: "",
     });
-    expect(await screen.findByText(/文本接口返回 404/)).toBeInTheDocument();
-    expect(screen.getByText(/没有写入镜头/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/文本接口返回 404/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/没有写入镜头/)).length).toBeGreaterThan(0);
 
     completeText.mockImplementation(async ({ text }: { text: string }) => {
       if (text.includes("一句外貌")) {
@@ -645,7 +649,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(await screen.findByRole("button", { name: "第 2 集" }));
     expect(await screen.findByText(/已标成已中断/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent("没有排队");
+    expect(screen.getByRole("button", { name: /后台生成/ })).toHaveTextContent(
+      "没有正在生成的内容",
+    );
     fireEvent.click(screen.getByRole("button", { name: /后台生成/ }));
     expect(screen.getByRole("button", { name: /已中断/ })).toBeInTheDocument();
   }, 20_000);
@@ -947,7 +953,9 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "按台词定时长" }));
-  expect(await screen.findByText(/拆成两镜/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(document.querySelector(".statusbar")?.textContent ?? "").toMatch(/拆成两镜/),
+  );
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
   fireEvent.click(screen.getByRole("button", { name: "美术" }));
@@ -1204,7 +1212,9 @@ it("shows Grok sign-in on a clean profile and signs out through the bridge", asy
   } as unknown as Window["aijianGrok"];
   render(<ProWorkspace />);
   fireEvent.click(screen.getByRole("button", { name: "用 Grok 会员登录" }));
+  fireEvent.click(screen.getByRole("button", { name: "去浏览器授权" }));
   await waitFor(() => expect(signIn).toHaveBeenCalled());
+  expect(await screen.findByText(/浏览器那页可以关掉/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "账号" }));
   fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
   await waitFor(() => expect(signOut).toHaveBeenCalled());
@@ -1264,6 +1274,7 @@ it("reloads a saved video and can cancel a login that is still waiting", async (
       reason: "",
     },
   ];
+  film.shots[0]!.sceneId = film.scenes[0]!.id;
   film.shots[0]!.selectedTakeId = "take-1";
   const readFilmMedia = vi.fn(async () => new Uint8Array([1, 2, 3, 4]));
   window.aijian = {
@@ -1275,7 +1286,14 @@ it("reloads a saved video and can cancel a login that is still waiting", async (
     readFilmMedia,
   } as unknown as Window["aijian"];
   render(<ProWorkspace />);
-  await waitFor(() => expect(readFilmMedia).toHaveBeenCalled());
+  await screen.findAllByText(film.title);
+  fireEvent.click(stageTab("剪辑"));
+  await waitFor(() =>
+    expect(document.querySelector("video.frame")?.getAttribute("src") ?? "").toContain(
+      "aivora-media:",
+    ),
+  );
+  expect(readFilmMedia).not.toHaveBeenCalled();
   cleanup();
   let release: (value: { kind: string }) => void = () => undefined;
   window.aijianGrok = {
@@ -1299,6 +1317,7 @@ it("reloads a saved video and can cancel a login that is still waiting", async (
   render(<ProWorkspace />);
   fireEvent.click(screen.getByRole("button", { name: "用 Grok 会员登录" }));
   expect(await screen.findByText(/Grok Build/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "去浏览器授权" }));
   fireEvent.click(screen.getByRole("button", { name: "账号" }));
   fireEvent.click(screen.getByRole("button", { name: "取消登录" }));
   expect(screen.getByText("登录已取消。")).toBeInTheDocument();
@@ -1423,6 +1442,8 @@ it("signs in with ChatGPT, imports music, and exports the finished shot", async 
   render(<ProWorkspace />);
   fireEvent.click(screen.getByRole("button", { name: "用 Grok 会员登录" }));
   expect(await screen.findByText(/Grok Build/)).toBeInTheDocument();
+  expect(signIn).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "去浏览器授权" }));
   expect(await screen.findByText(/登录没有完成/)).toBeInTheDocument();
   cleanup();
   delete window.aijianChatGPT;

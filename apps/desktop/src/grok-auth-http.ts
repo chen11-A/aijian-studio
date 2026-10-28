@@ -416,34 +416,132 @@ function chatText(value: unknown): string {
   return parts.join("").slice(0, 100_000);
 }
 
+export const TEXT_IDLE_MS = 60_000;
+export const TEXT_TOTAL_MS = 5 * 60_000;
+
+export class TextWait extends Error {
+  constructor(readonly reason: "IDLE" | "TOTAL" | "CANCELLED") {
+    super(reason);
+  }
+}
+
+function waitMessage(reason: TextWait["reason"]): string {
+  if (reason === "IDLE") return "很久没有新的字，已停止。可以再问一次。";
+  if (reason === "TOTAL") return "这次写得太久，已停止。可以再问一次。";
+  return "已取消。";
+}
+
+function pullDeltas(buffer: string): { text: string; rest: string } {
+  const parts = buffer.split("\n\n");
+  const rest = parts.pop() ?? "";
+  let text = "";
+  for (const block of parts) {
+    const raw = block
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trim())
+      .join("");
+    if (!raw || raw === "[DONE]") continue;
+    try {
+      const event = JSON.parse(raw) as { delta?: unknown; text?: unknown; type?: unknown };
+      if (typeof event.delta === "string") text += event.delta;
+      else if (typeof event.text === "string" && String(event.type ?? "").includes("output_text"))
+        text += event.text;
+    } catch {
+      /* a later chunk completes the event */
+    }
+  }
+  return { text, rest };
+}
+
+async function readLimited(
+  response: Response,
+  limits: { idleMs: number; totalMs: number },
+  signal?: AbortSignal,
+  onText?: (text: string) => void,
+): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const bytes = Buffer.from(await response.arrayBuffer());
+    return bytes.toString("utf8");
+  }
+  const decoder = new TextDecoder();
+  const started = Date.now();
+  let raw = "";
+  let streamed = "";
+  let pending = "";
+  try {
+    while (true) {
+      if (signal?.aborted) throw new TextWait("CANCELLED");
+      if (Date.now() - started > limits.totalMs) throw new TextWait("TOTAL");
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const idle = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new TextWait("IDLE")), limits.idleMs);
+      });
+      let next: Awaited<ReturnType<typeof reader.read>>;
+      try {
+        next = await Promise.race([reader.read(), idle]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (next.done) break;
+      const piece = decoder.decode(next.value, { stream: true });
+      raw += piece;
+      pending += piece;
+      const pulled = pullDeltas(pending);
+      pending = pulled.rest;
+      if (pulled.text) {
+        streamed += pulled.text;
+        onText?.(streamed);
+      }
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    if (error instanceof TextWait) throw error;
+    if (signal?.aborted) throw new TextWait("CANCELLED");
+    throw error;
+  }
+  return streamed.trim() ? streamed : raw;
+}
+
 async function postText(
   fetch: Fetch,
   url: string,
   token: string,
   body: Record<string, unknown>,
+  options: {
+    signal?: AbortSignal;
+    idleMs?: number;
+    totalMs?: number;
+    onText?: (text: string) => void;
+  } = {},
 ): Promise<{ status: number; json: unknown | null; raw: string }> {
   const response = await fetch(url, {
     method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
-      accept: "application/json",
+      accept: "text/event-stream, application/json",
       "user-agent": USER_AGENT,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(90_000),
+    signal: options.signal,
   });
-  const bytes = Buffer.from(await response.arrayBuffer());
-  const raw = bytes.subarray(0, 800).toString("utf8");
+  const text = await readLimited(
+    response,
+    { idleMs: options.idleMs ?? TEXT_IDLE_MS, totalMs: options.totalMs ?? TEXT_TOTAL_MS },
+    options.signal,
+    options.onText,
+  );
   let json: unknown | null = null;
-  if (bytes.length > 0 && bytes.length <= MAX_JSON) {
+  if (text.length > 0 && text.length <= MAX_JSON) {
     try {
-      json = JSON.parse(bytes.toString("utf8")) as unknown;
+      json = JSON.parse(text) as unknown;
     } catch {
       json = null;
     }
   }
-  return { status: response.status, json, raw };
+  return { status: response.status, json, raw: json ? text.slice(0, 800) : text };
 }
 
 export type GrokSpeechAudio = {
@@ -483,7 +581,13 @@ function speechPayload(value: unknown): string {
 /** POST /v1/tts. One line, Chinese, with timestamps when the account returns them. */
 export async function speakGrokLine(
   fetch: Fetch,
-  input: { accessToken: string; voiceId: string; text: string; endpoints?: GrokEndpoints },
+  input: {
+    accessToken: string;
+    voiceId: string;
+    text: string;
+    endpoints?: GrokEndpoints;
+    signal?: AbortSignal;
+  },
 ): Promise<GrokSpeechAudio> {
   const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
   const response = await fetch(`${api}/tts`, {
@@ -500,6 +604,7 @@ export async function speakGrokLine(
       language: "zh",
       with_timestamps: true,
     }),
+    signal: input.signal,
   });
   const bytes = Buffer.from(await response.arrayBuffer());
   if (response.status === 401) throw new GrokAuthError("REAUTH_REQUIRED", { httpStatus: 401 });
@@ -535,15 +640,42 @@ export async function speakGrokLine(
 
 export async function completeGrokText(
   fetch: Fetch,
-  input: { accessToken: string; model: string; text: string; endpoints?: GrokEndpoints },
+  input: {
+    accessToken: string;
+    model: string;
+    text: string;
+    endpoints?: GrokEndpoints;
+    signal?: AbortSignal;
+    onProgress?: (text: string) => void;
+    limits?: { idleMs: number; totalMs: number };
+  },
 ): Promise<string> {
   const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
-  const responses = await postText(fetch, `${api}/responses`, input.accessToken, {
-    model: input.model,
-    input: input.text,
-    store: false,
-  });
-  const first = responseText(responses.json);
+  const options = {
+    signal: input.signal,
+    onText: input.onProgress,
+    idleMs: input.limits?.idleMs,
+    totalMs: input.limits?.totalMs,
+  };
+  let responses: { status: number; json: unknown | null; raw: string };
+  try {
+    responses = await postText(
+      fetch,
+      `${api}/responses`,
+      input.accessToken,
+      { model: input.model, input: input.text, store: false, stream: true },
+      options,
+    );
+  } catch (error) {
+    if (error instanceof TextWait) {
+      throw new GrokTextFailure("TEXT_FAILED", [
+        { endpoint: "responses", httpStatus: 0, body: waitMessage(error.reason) },
+      ]);
+    }
+    throw error;
+  }
+  const first =
+    responseText(responses.json) || (responses.status === 200 ? modelText(responses.raw) : "");
   if (responses.status === 200 && first) return first;
   const attempts: TextAttempt[] = [
     { endpoint: "responses", httpStatus: responses.status, body: responses.raw },
@@ -553,11 +685,26 @@ export async function completeGrokText(
   const unsupported =
     responses.status === 400 || responses.status === 404 || responses.status === 422;
   if (!unsupported) throw new GrokTextFailure("TEXT_FAILED", attempts);
-  const chat = await postText(fetch, `${api}/chat/completions`, input.accessToken, {
-    model: input.model,
-    messages: [{ role: "user", content: input.text }],
-    stream: false,
-  });
+  let chat: { status: number; json: unknown | null; raw: string };
+  try {
+    chat = await postText(
+      fetch,
+      `${api}/chat/completions`,
+      input.accessToken,
+      {
+        model: input.model,
+        messages: [{ role: "user", content: input.text }],
+        stream: false,
+      },
+      options,
+    );
+  } catch (error) {
+    if (error instanceof TextWait) {
+      attempts.push({ endpoint: "chat", httpStatus: 0, body: waitMessage(error.reason) });
+      throw new GrokTextFailure("TEXT_FAILED", attempts);
+    }
+    throw error;
+  }
   const second = chatText(chat.json);
   if (chat.status === 200 && second) return second;
   attempts.push({ endpoint: "chat", httpStatus: chat.status, body: chat.raw });

@@ -978,7 +978,7 @@ export interface AijianDesktopBridge
     seriesId: string,
     sources: string[],
     musicPath?: string,
-    duck?: boolean,
+    duck?: boolean | number,
   ) => Promise<{ path: string; reason: string }>;
   importMusic?: (seriesId: string, source: string) => Promise<{ path: string }>;
   filePath?: (file: File) => string;

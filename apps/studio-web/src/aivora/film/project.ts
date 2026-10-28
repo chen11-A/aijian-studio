@@ -527,6 +527,7 @@ export function parseDirectorShots(
         ? record.characters.filter((item): item is string => typeof item === "string")
         : [],
       line: lineInScript(sceneText, proposed),
+      speaker: typeof record.speaker === "string" ? record.speaker.trim() : "",
       blocking: typeof record.blocking === "string" ? record.blocking : "",
       facing: typeof record.facing === "string" ? record.facing : "",
       sound: soundFromDirector(record, ""),

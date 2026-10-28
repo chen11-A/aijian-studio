@@ -276,6 +276,13 @@ contextBridge.exposeInMainWorld("aijianGrok", {
   completeText: (input) => ipcRenderer.invoke("grok-auth:text", input),
   speak: (input) => ipcRenderer.invoke("grok-auth:speech", input),
   recordAgent: (input) => ipcRenderer.invoke("grok-auth:agent-log", input),
+  cancelText: () => ipcRenderer.invoke("grok-auth:cancel-text"),
+  onTextProgress: (callback: (update: { chars: number; shots: number }) => void) => {
+    const listener = (_event: unknown, update: { chars: number; shots: number }) =>
+      callback(update);
+    ipcRenderer.on("grok-auth:text-progress", listener);
+    return () => ipcRenderer.removeListener("grok-auth:text-progress", listener);
+  },
 } satisfies GrokLoginBridge);
 
 contextBridge.exposeInMainWorld("aijianAssistantChat", {
@@ -561,8 +568,12 @@ contextBridge.exposeInMainWorld("aijian", {
     ipcRenderer.invoke("film:rename", seriesId, title),
   readFilmMedia: (path: string) =>
     ipcRenderer.invoke("film:read-media", path) as Promise<Uint8Array>,
-  assembleFilm: (seriesId: string, sources: string[], musicPath = "", duck = false) =>
-    ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
+  assembleFilm: (
+    seriesId: string,
+    sources: string[],
+    musicPath = "",
+    duck: boolean | number = false,
+  ) => ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   filePath: (file: File) => webUtils.getPathForFile(file),

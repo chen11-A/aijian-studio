@@ -128,7 +128,7 @@ export function scriptDialogue(sceneText: string): { speaker: string; line: stri
 }
 
 export function attachScriptLines<
-  T extends { line: string; characters: string[]; picture: string },
+  T extends { line: string; characters: string[]; picture: string; speaker?: string },
 >(shots: T[], sceneText: string): T[] {
   const next = shots.map((shot) => ({ ...shot, characters: [...shot.characters] }));
   for (const spoken of scriptDialogue(sceneText)) {
@@ -143,6 +143,7 @@ export function attachScriptLines<
       ) ?? next.find((shot) => !shot.line.trim());
     if (!host) continue;
     host.line = spoken.line;
+    if (spoken.speaker) host.speaker = spoken.speaker;
     if (spoken.speaker && !host.characters.includes(spoken.speaker))
       host.characters.push(spoken.speaker);
   }

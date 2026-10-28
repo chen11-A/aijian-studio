@@ -57,6 +57,19 @@ def main() -> None:
     executable = install / "AIVORA.exe"
     if not executable.is_file() or executable.parent != install:
         raise ValueError("Silent /D install did not produce AIVORA.exe in the requested directory")
+    import winreg
+
+    uninstall_key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA"
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, uninstall_key) as key:
+        location, _kind = winreg.QueryValueEx(key, "InstallLocation")
+    if Path(location) != install:
+        raise ValueError(f"HKCU install location is {location}, not the per-user directory")
+    try:
+        winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, uninstall_key)
+    except FileNotFoundError:
+        pass
+    else:
+        raise ValueError("Installer wrote an HKLM uninstall key")
     report = args.evidence / "INTEGRATED-SMOKE.json"
     subprocess.run(
         [
