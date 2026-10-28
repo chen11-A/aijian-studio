@@ -353,6 +353,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
     const ledger = dependencies.ledger;
     let dispatchId: string | null = null;
+    const started = Date.now();
     try {
       await restore();
       await ensureFresh();
@@ -378,6 +379,14 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         model: input.model,
         text: input.text,
         endpoints,
+      });
+      dependencies.agentLog?.write({
+        model: input.model,
+        endpoint: "responses",
+        httpStatus: 200,
+        durationMs: Date.now() - started,
+        parsed: "text",
+        body: text,
       });
       if (ledger && dispatchId && input.projectId) {
         await ledger.finish({
@@ -426,9 +435,20 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
             model: input.model,
             endpoint: attempt.endpoint,
             httpStatus: attempt.httpStatus,
+            durationMs: Date.now() - started,
+            parsed: "error",
             body: attempt.body,
           });
         }
+      } else {
+        dependencies.agentLog?.write({
+          model: input.model,
+          endpoint: "text",
+          httpStatus: 0,
+          durationMs: Date.now() - started,
+          parsed: "error",
+          body: safe,
+        });
       }
       if (safe === "ENTITLEMENT_DENIED" && session) {
         await persist({ ...session, inferenceDenied: true });
@@ -557,6 +577,22 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     models,
     completeText,
     speak,
+    async recordAgent(input: {
+      agent: string;
+      model: string;
+      status: string;
+      parsed: string;
+      detail: string;
+    }) {
+      dependencies.agentLog?.write({
+        agent: input.agent,
+        model: input.model,
+        endpoint: "parse",
+        httpStatus: input.status === "ok" ? 200 : 0,
+        parsed: input.parsed,
+        body: input.detail,
+      });
+    },
     mediaAccessToken,
   };
 }

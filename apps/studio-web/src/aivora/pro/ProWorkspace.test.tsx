@@ -142,9 +142,9 @@ describe("professional workspace", () => {
     expect(await screen.findByText(/只读取 txt/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "再短一点" } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
-    expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "再改改" }));
-    expect(await screen.findByText(/编剧写好了/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/编剧写好了/)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "动作指导" }));
     fireEvent.click(screen.getByRole("button", { name: "请动作指导看看" }));
     expect(await screen.findByText(/动作指导写好了/)).toBeInTheDocument();
@@ -998,7 +998,9 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   await waitFor(() =>
     expect(completeText.mock.calls.length).toBeGreaterThanOrEqual(beforeSend + 7),
   );
-  expect(await screen.findByText(/还不能看画面|没有按格式返回|离线/)).toBeInTheDocument();
+  expect((await screen.findAllByText(/还不能看画面|没有按格式返回|离线/)).length).toBeGreaterThan(
+    0,
+  );
   fireEvent.click(screen.getByRole("button", { name: "一键成片" }));
   expect(await screen.findByText(/已用离线拆镜，停在分镜/)).toBeInTheDocument();
   mode = "play";
@@ -1025,6 +1027,59 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
     URL.createObjectURL = createUrl;
   }
 }, 20_000);
+
+it("asks action and performance, then writes those fields on the shot", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "给这一镜设计动作" } });
+  fireEvent.click(screen.getByRole("button", { name: "动作指导" }));
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  expect(await screen.findByText("给这一镜设计动作")).toBeInTheDocument();
+  expect((await screen.findAllByText(/动作指导写好了/)).length).toBeGreaterThan(0);
+  expect(screen.getByText(/稳 · 他抬手/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "属性" }));
+  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toContain(
+    "来自动作指导",
+  );
+  expect((screen.getByLabelText("动作要点") as HTMLTextAreaElement).value).toContain("稳");
+  fireEvent.change(screen.getByLabelText("站位"), { target: { value: "林骁在画左" } });
+  fireEvent.change(screen.getByLabelText("朝向"), { target: { value: "看向画右" } });
+  expect(screen.getByLabelText("站位")).toHaveValue("林骁在画左");
+  expect(screen.getByLabelText("朝向")).toHaveValue("看向画右");
+  expect(screen.getAllByText("外貌已锁").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "写这一镜的表演" } });
+  fireEvent.click(screen.getByRole("button", { name: "表演指导" }));
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  expect(await screen.findByText("写这一镜的表演")).toBeInTheDocument();
+  expect((await screen.findAllByText(/表演指导写好了/)).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "放入分镜" }));
+  fireEvent.click(screen.getByRole("button", { name: "属性" }));
+  expect((screen.getByLabelText("表演") as HTMLTextAreaElement).value).toContain("来自表演指导");
+  fireEvent.click(screen.getByRole("button", { name: "作品" }));
+  fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
+  fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
+  expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
+});
+
+it("does not turn the writer's question into scenes", async () => {
+  const { completeText } = installDesktop();
+  completeText.mockResolvedValue({
+    kind: "OK",
+    text: "请把现有剧本分成。还没完。",
+    model: "grok-4.7",
+  });
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "编剧" }));
+  fireEvent.change(screen.getByLabelText("跟助手说"), { target: { value: "请把现有剧本分成" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  expect(await screen.findByText("请把现有剧本分成")).toBeInTheDocument();
+  expect((await screen.findAllByText(/没有改剧本/)).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/还没完/)).not.toBeInTheDocument();
+});
 
 function stageTab(name: string) {
   const found = screen

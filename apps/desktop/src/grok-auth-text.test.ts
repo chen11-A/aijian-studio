@@ -97,6 +97,63 @@ describe("Grok text calls", () => {
     });
   });
 
+  it("logs a successful text call", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "aivora-agents-ok-"));
+    const log = createAgentLog(join(directory, "logs", "agents.log"));
+    const session: GrokSession = {
+      version: 1,
+      accessToken: "access-token-value",
+      refreshToken: "refresh-token-value",
+      expiresAt: Date.now() + 3_600_000,
+      scopes: ["openid"],
+      subject: "person",
+      email: null,
+      name: null,
+      inferenceDenied: false,
+    };
+    const store: GrokStore = {
+      available: () => true,
+      read: async () => session,
+      write: async () => undefined,
+      clear: async () => undefined,
+    };
+    const fetch = vi.fn(async () =>
+      jsonResponse(200, {
+        output: [{ content: [{ type: "output_text", text: "导演拆好了" }] }],
+        access_token: "secret-token",
+      }),
+    );
+    const runtime = createGrokRuntime({
+      store,
+      fetch: fetch as unknown as Fetch,
+      openBrowser: async () => undefined,
+      confirmSignIn: async () => true,
+      agentLog: log,
+    });
+    const result = await runtime.completeText({
+      model: "grok-4.7",
+      text: "把这一场拆成镜头",
+      projectId: `prj_${"a".repeat(32)}`,
+      idempotencyKey: "once",
+    });
+    expect(result.kind).toBe("OK");
+    runtime.recordAgent?.({
+      agent: "director",
+      model: "grok-4.7",
+      status: "ok",
+      parsed: "shots",
+      detail: "导演拆好了",
+    });
+    await vi.waitFor(async () => {
+      const written = await readFile(join(directory, "logs", "agents.log"), "utf8");
+      expect(written).toContain("responses");
+      expect(written).toContain("director");
+      expect(written).toContain("shots");
+      expect(written).not.toContain("secret-token");
+      expect(written).not.toContain("access-token-value");
+    });
+  });
+
   it("redacts a bearer token and keeps a short status", () => {
     expect(redactSecrets("bearer abc.def model missing")).toBe("[redacted] model missing");
     expect(GrokTextFailure).toBeTruthy();

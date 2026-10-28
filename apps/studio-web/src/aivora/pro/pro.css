@@ -15,6 +15,11 @@
   inset: 0;
   z-index: 30;
 }
+.pro-root textarea::placeholder,
+.pro-root input::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
 /* AIVORA layout mockup — design tokens */
 .pro-root {
   --bg: #0e1014; /* window background / gutters */

@@ -69,6 +69,7 @@ import {
 import {
   actionFromModel,
   actionSentence,
+  appearanceMark,
   artFromModel,
   classifyShotSize,
   durationFromSpeech,
@@ -79,6 +80,7 @@ import {
   performanceFromModel,
   prompterFromModel,
   qcFromModel,
+  scenesEchoRequest,
   SHOT_SIZES,
   speechSeconds,
   splitSpokenLine,
@@ -147,7 +149,7 @@ const ROLE_COPY: Record<Role, string> = {
   performance: "表演指导：给每个镜头写情绪、眼神和语气。两人以上要写视线交接。",
   art: "美术：定画风，给每个角色一句固定外貌，并写下场景和道具。",
   prompter: "提示词工程师：把这一镜写成中文提示词。英文放在高级里。",
-  qc: "审片：还不能看画面。只会给出对文字的意见，版本仍由你选。",
+  qc: "审片：只会给出对文字的意见，版本仍由你选。",
 };
 
 async function requestStill(
@@ -379,6 +381,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [portraitReady, setPortraitReady] = useState<string | null>(null);
   const [portraitBusy, setPortraitBusy] = useState(false);
   const [structured, setStructured] = useState<string[]>([]);
+  const [turns, setTurns] = useState<
+    { id: string; role: Role; who: "user" | "agent"; text: string }[]
+  >([]);
+  const [assistPulse, setAssistPulse] = useState(0);
   const [stillArmed, setStillArmed] = useState("");
   const [versions, setVersions] = useState(2);
   const [duration, setDuration] = useState(3);
@@ -432,7 +438,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       const rows = await listFilms();
       const id = activeFilmId() || rows[0]?.id || "";
       const stored = id ? await readSaved(id) : null;
-      if (!live || !stored) return;
+      if (!live || !stored || filmRef.current) return;
       const settled = interruptStaleWork(stored);
       filmRef.current = settled.film;
       committed.current = settled.film;
@@ -446,23 +452,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     };
   }, []);
 
+  const saveGeneration = useRef(0);
   useEffect(() => {
     filmRef.current = film;
     if (!film) return;
+    const generation = ++saveGeneration.current;
     const savingId = film.id;
-    let cancelled = false;
-    void saveFilm(film)
-      .then((stored) => {
-        if (cancelled) return;
-        if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
-          setDiskFilmId(savingId);
-          setDiskPath(stored.directory);
-          setDiskError("");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setDiskError("没有写到应用数据目录，可以重试。");
-      });
+    const handle = window.setTimeout(() => {
+      void saveFilm(film)
+        .then((stored) => {
+          if (generation !== saveGeneration.current) return;
+          if (stored.directory && stored.directory !== BROWSER_DIRECTORY) {
+            setDiskFilmId(savingId);
+            setDiskPath(stored.directory);
+            setDiskError("");
+          }
+        })
+        .catch(() => {
+          if (generation === saveGeneration.current)
+            setDiskError("没有写到应用数据目录，可以重试。");
+        });
+    }, 400);
     let timer = 0;
     if (skipHistory.current) {
       skipHistory.current = false;
@@ -481,7 +491,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       }, 500);
     }
     return () => {
-      cancelled = true;
+      window.clearTimeout(handle);
       if (timer) window.clearTimeout(timer);
     };
   }, [film]);
@@ -585,7 +595,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
   };
 
-  const title = film?.title ?? "未命名作品";
+  const storedTitle =
+    film && film.seriesTitle && film.seriesTitle !== "未命名作品"
+      ? film.seriesTitle
+      : (film?.title ?? "未命名作品");
+  const title = menu === "project" && rename.trim() ? rename.trim() : storedTitle;
   const savedDirectory =
     diskFilmId === film?.id && diskPath && diskPath !== BROWSER_DIRECTORY
       ? diskPath
@@ -598,6 +612,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planDirector(asked = "") {
     if (!film) return;
+    const turn = pushTurn("director", asked.trim() || "把这一场拆成镜头");
     const current = film.scenes.find((item) => item.id === scene) ?? film.scenes[0];
     const sceneId = current?.id ?? "scene-1";
     const story = [current?.text.trim() || film.title, asked.trim()].filter(Boolean).join("\n");
@@ -607,8 +622,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     let text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
     const bridge = grokBridge();
     const billingProject = /^prj_[0-9a-f]{32}$/.test(projectId ?? "") ? projectId : "";
-    setAsking(true);
-    setNotice("正在问模型。");
     try {
       if (connected && bridge && !billingProject) {
         text = "这一次没有记到作品上，已用离线拆镜。点「放入分镜」才会写入。";
@@ -618,11 +631,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "")
           : null;
         if (!parsed) {
-          setNotice(
-            first.text
-              ? "模型没有按格式返回，再用普通对话问一次。"
-              : `${first.detail} 再用普通对话问一次。`,
-          );
+          setNotice("再用普通对话问一次。");
           const again = await completeAgent(
             "director",
             context,
@@ -650,8 +659,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setAsking(false);
     }
     setPending(next);
-    setRole("director");
-    setNotice(text);
+    finishTurn(turn, text);
+    noteAgent("director", text.includes("导演拆好了") ? "shots" : "offline", text);
   }
 
   function applyPending() {
@@ -734,6 +743,46 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             ? "需要重新登录。"
             : "模型没有返回。";
     return { text: null, detail };
+  }
+
+  const turnsRef = useRef<{ id: string; role: Role; who: "user" | "agent"; text: string }[]>([]);
+
+  function pushTurn(nextRole: Role, userText: string): string {
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const asked = userText.trim() || "请按你的职责处理当前内容。";
+    const next = [
+      ...turnsRef.current.slice(-16),
+      { id: `${id}-u`, role: nextRole, who: "user" as const, text: asked },
+      { id: `${id}-a`, role: nextRole, who: "agent" as const, text: "正在问模型。" },
+    ];
+    turnsRef.current = next;
+    setTurns(next);
+    setStructured([]);
+    setAsking(true);
+    setAssistPulse((value) => value + 1);
+    return id;
+  }
+
+  function finishTurn(id: string, text: string) {
+    const next = turnsRef.current.map((item) => (item.id === `${id}-a` ? { ...item, text } : item));
+    turnsRef.current = next;
+    setTurns(next);
+    setAsking(false);
+  }
+
+  function noteAgent(agent: Role, parsed: string, detail: string) {
+    void grokBridge()?.recordAgent?.({
+      agent,
+      model: textModel(modelIds),
+      status: parsed === "rejected" || parsed === "error" ? "error" : "ok",
+      parsed,
+      detail,
+    });
+  }
+
+  function chooseRole(next: Role) {
+    setRole(next);
+    setStructured([]);
   }
 
   async function fillCast(base: FilmProject) {
@@ -848,30 +897,40 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         .filter(Boolean)
         .join("\n") || film.title;
     const idea = chat.trim() || story;
-    let scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
-    let text =
-      kind === "adapt"
-        ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。"
-        : "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+    const asked =
+      chat.trim() || (kind === "adapt" ? "把现有内容改成短剧" : "按地点和时间把现有剧本分成几场");
+    const turn = pushTurn("writer", asked);
+    setPendingScenes(null);
+    let scenes: FilmScene[] | null = null;
+    let text = "没有登录，已用离线编剧。点「放入剧本」才会写入。";
+    if (!connected) {
+      scenes = kind === "adapt" ? adaptToShortDrama(idea, 60) : offlineScreenplay(idea, 60);
+      text = kind === "adapt" ? "没有登录，已按大约 60 秒收成短剧。点「放入剧本」才会写入。" : text;
+    }
     const reply = await completeAgent(
       "writer",
-      `画风：${film.styleZh}\n目标大约 60 秒。`,
+      `画风：${film.styleZh}\n目标大约 60 秒。\n剧本：\n${story}`,
       kind === "adapt" ? `把这些内容改成短剧：\n${idea}` : `写成短剧：\n${idea}`,
     );
     if (reply.text) {
       const parsed = parseWriterScenes(reply.text);
-      if (parsed) {
+      const echo = parsed ? scenesEchoRequest(parsed, asked) : false;
+      if (parsed && !echo) {
         scenes = parsed;
         text = "编剧写好了。点「放入剧本」才会写入。";
-      } else {
-        text = "模型没有按格式返回，已用离线编剧。点「放入剧本」才会写入。";
+      } else if (connected) {
+        scenes = null;
+        text = echo
+          ? "模型把请求原文当成了结果，这次没有改剧本。"
+          : "模型没有按格式返回，这次没有改剧本。";
       }
     } else if (connected) {
-      text = `${reply.detail} 已用离线编剧。点「放入剧本」才会写入。`;
+      scenes = null;
+      text = `${reply.detail} 这次没有改剧本。`;
     }
     setPendingScenes(scenes);
-    setRole("writer");
-    setNotice(text);
+    finishTurn(turn, text);
+    noteAgent("writer", scenes && connected ? "scenes" : connected ? "rejected" : "offline", text);
   }
 
   function applyPendingScenes() {
@@ -910,6 +969,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planAction() {
     if (!film) return;
+    const turn = pushTurn("action", chat.trim() || "请给这一镜设计动作，标出难度。");
     const current = shownShots[shot];
     const text = current?.picture || current?.action || film.title;
     let sentence = actionBeats(text)
@@ -933,7 +993,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       note = "动作指导写好了。点「放入分镜」写到这一镜。";
     }
     if (!current) {
-      setNotice("先拆出镜头，再请动作指导。");
+      finishTurn(turn, "先拆出镜头，再请动作指导。");
+      noteAgent("action", "rejected", "先拆出镜头，再请动作指导。");
       return;
     }
     const cues = parsed
@@ -948,16 +1009,18 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         userFields: current.userFields.filter((field) => field !== "action"),
       },
     ]);
-    setRole("action");
     setStructured(parsed ? parsed.map((row) => `${row.feasibility} · ${row.text}`) : []);
-    setNotice(note);
+    finishTurn(turn, note);
+    noteAgent("action", parsed ? "beats" : "offline", note);
   }
 
   async function planPerformance() {
     if (!film) return;
+    const turn = pushTurn("performance", chat.trim() || "请写这一镜的表演，两人以上要写视线。");
     const current = shownShots[shot];
     if (!current) {
-      setNotice("先拆出镜头，再请表演指导。");
+      finishTurn(turn, "先拆出镜头，再请表演指导。");
+      noteAgent("performance", "rejected", "先拆出镜头，再请表演指导。");
       return;
     }
     const gaze = gazeHandoff(current.characters);
@@ -991,13 +1054,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         userFields: current.userFields.filter((field) => field !== "performance"),
       },
     ]);
-    setRole("performance");
     setStructured(line ? [line] : []);
-    setNotice(note);
+    finishTurn(turn, note);
+    noteAgent("performance", parsed ? "performance" : "offline", note);
   }
 
   async function planArt() {
     if (!film) return;
+    const turn = pushTurn("art", chat.trim() || "请定画风，并给每个人一句固定外貌。");
     const reply = await completeAgent(
       "art",
       `画风：${film.styleZh}\n人物：${film.characters.map((item) => item.name).join("、")}`,
@@ -1006,15 +1070,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const parsed = reply.text ? artFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed) {
       setStructured([]);
-      setNotice(
-        reply.text ? "美术没有按格式返回，这次没有改作品。" : `${reply.detail} 这次没有改作品。`,
-      );
-      setRole("art");
+      const failed = reply.text
+        ? "美术没有按格式返回，这次没有改作品。"
+        : `${reply.detail} 这次没有改作品。`;
+      finishTurn(turn, failed);
+      noteAgent("art", "rejected", failed);
       return;
     }
     setStructured(parsed.lines);
-    setRole("art");
-    setNotice("美术写好了。点「放入分镜」才会写入外貌、场景和道具。");
+    finishTurn(turn, "美术写好了。点「放入分镜」才会写入外貌、场景和道具。");
+    noteAgent("art", "art", "美术写好了。点「放入分镜」才会写入外貌、场景和道具。");
     const next = { ...film };
     if (parsed.styleZh) next.styleZh = parsed.styleZh;
     next.characters = next.characters.map((person) => {
@@ -1045,9 +1110,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planPrompter() {
     if (!film) return;
-    const current = shownShots[shot];
+    const current = shownShots[shot] ?? film.shots[shot] ?? film.shots[0];
+    const turn = pushTurn("prompter", chat.trim() || `写镜头 ${current?.no ?? shot + 1} 的提示词`);
     if (!current) {
-      setNotice("先拆出镜头，再请提示词工程师。");
+      finishTurn(turn, "先拆出镜头，再请提示词工程师。");
+      noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
       return;
     }
     const locked = withIdentityLocks(
@@ -1062,7 +1129,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
     if (!parsed) {
-      setNotice(reply.text ? "提示词没有按格式返回。" : reply.detail);
+      const failed = reply.text ? "提示词没有按格式返回。" : reply.detail;
+      finishTurn(turn, failed);
+      noteAgent("prompter", "rejected", failed);
       return;
     }
     const zh = withIdentityLocks(parsed.zh || locked.prompt, film.characters, current.characters);
@@ -1074,15 +1143,17 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     );
     setStructured([zh.prompt, parsed.en ? `英文：${parsed.en}` : "英文还没写。"].filter(Boolean));
     const missed = zh.missing.length > 0 ? `已补上${zh.missing.join("、")}的外貌原句。` : "";
-    setNotice(`提示词写好了。${missed}`);
-    setRole("prompter");
+    finishTurn(turn, `已写到镜头 ${current.no}。提示词写好了。${missed}`);
+    noteAgent("prompter", "prompt", `镜头 ${current.no}`);
   }
 
   async function planQc() {
     if (!film) return;
+    const turn = pushTurn("qc", chat.trim() || "请审这一镜的文字。你看不到画面。");
     const current = shownShots[shot];
     if (!current) {
-      setNotice("先拆出镜头，再请审片。");
+      finishTurn(turn, "先拆出镜头，再请审片。");
+      noteAgent("qc", "rejected", "先拆出镜头，再请审片。");
       return;
     }
     const reply = await completeAgent(
@@ -1091,14 +1162,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       "只审文字。你看不到画面。只输出 JSON。",
     );
     const parsed = reply.text ? qcFromModel(parseLooseJson(reply.text)) : null;
-    setRole("qc");
     if (!parsed) {
       setStructured([]);
-      setNotice(`${reply.detail || "审片没有按格式返回。"} 还不能看画面，版本仍由你选。`);
+      const failed = `${reply.detail || "审片没有按格式返回。"} 还不能看画面，版本仍由你选。`;
+      finishTurn(turn, failed);
+      noteAgent("qc", "rejected", failed);
       return;
     }
     setStructured(parsed.lines);
-    setNotice("这是对文字的意见，没有看画面，版本仍由你选。");
+    finishTurn(turn, "这是对文字的意见，没有看画面，版本仍由你选。");
+    noteAgent("qc", "qc", "文字意见");
   }
 
   async function oneClickFilm() {
@@ -1156,9 +1229,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       source: "template",
       userFields: [],
     };
+    const unnamed = !film.seriesTitle.trim() || film.seriesTitle === "未命名作品";
     setFilm({
       ...film,
-      title: film.title || template.name,
+      title: unnamed ? template.name : film.title,
+      seriesTitle: unnamed ? template.name : film.seriesTitle,
       scenes: [scene, ...film.scenes.slice(1)],
     });
     setNotice(`已放入模板「${template.name}」。这是模板原文，还没让模型改。`);
@@ -1758,6 +1833,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   aria-label="作品名"
                   value={rename}
                   onChange={(event) => setRename(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    const name = event.currentTarget.value.trim();
+                    if (!film || !name) return;
+                    void renameFilm(film.seriesId, name);
+                    applyLive({ ...film, title: name, seriesTitle: name });
+                    setMenu(null);
+                    setNotice("已改作品名。");
+                  }}
                 />
                 <button
                   onClick={() => {
@@ -1963,7 +2048,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onApply={applyPending}
                   onApplyScenes={applyPendingScenes}
                   role={role}
-                  onRole={setRole}
+                  onRole={chooseRole}
                   chat={chat}
                   onChat={setChat}
                   onSend={sendChat}
@@ -1972,6 +2057,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   showRoles={showRoles}
                   onToggleRoles={() => setShowRoles((value) => !value)}
                   structured={structured}
+                  turns={turns}
                   onOneClick={() => void oneClickFilm()}
                   onTemplate={applyTemplate}
                 />
@@ -1981,7 +2067,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   film={film}
                   onFilm={setFilm}
                   role={role}
-                  onRole={setRole}
+                  onRole={chooseRole}
                   onNotice={setNotice}
                   onPortraits={(id) => void makePortraits(id)}
                   onConfirmPortraits={(id) => void confirmPortraits(id)}
@@ -2081,7 +2167,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     setNotice("已换成这一条构图。");
                   }}
                   role={role}
-                  onRole={setRole}
+                  onRole={chooseRole}
                   pending={pending}
                   onApply={applyPending}
                   onAction={() => void planAction()}
@@ -2093,6 +2179,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   chat={chat}
                   onChat={setChat}
                   onSend={sendChat}
+                  turns={turns}
+                  assistPulse={assistPulse}
+                  structured={structured}
                 />
               )}
               {stage === "board" && bench && (
@@ -2394,6 +2483,7 @@ function Assistant({
   showRoles = true,
   onToggleRoles,
   structured = [],
+  turns = [],
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -2409,6 +2499,7 @@ function Assistant({
   showRoles?: boolean;
   onToggleRoles?: () => void;
   structured?: string[];
+  turns?: { id: string; role: Role; who: "user" | "agent"; text: string }[];
 }) {
   const scenes = role === "writer" ? pendingScenes : null;
   const list = pending ?? shots;
@@ -2505,7 +2596,21 @@ function Assistant({
         ) : null}
       </div>
       <div className="pb chat">
-        <div className="msg-u">把这一场拆成镜头。确认之前不要改我写过的字。</div>
+        {(turns.length > 0
+          ? turns.slice(-8)
+          : [
+              {
+                id: "hint",
+                role,
+                who: "user" as const,
+                text: "跟这位助手说说你的想法。确认之前不会改你写过的字。",
+              },
+            ]
+        ).map((item) => (
+          <div key={item.id} className={item.who === "user" ? "msg-u" : "msg-a"}>
+            {item.text}
+          </div>
+        ))}
         <div className="msg-a">
           <span className="ri">
             <Ic name="clap" size={13} />
@@ -2624,6 +2729,7 @@ function ScriptPage({
   showRoles,
   onToggleRoles,
   structured,
+  turns,
   onOneClick,
   onTemplate,
 }: {
@@ -2655,6 +2761,7 @@ function ScriptPage({
   showRoles: boolean;
   onToggleRoles: () => void;
   structured: string[];
+  turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
   onOneClick: () => void;
   onTemplate: (name: string) => void;
 }) {
@@ -2831,6 +2938,7 @@ function ScriptPage({
           showRoles={showRoles}
           onToggleRoles={onToggleRoles}
           structured={structured}
+          turns={turns}
         />
         {film.sourceText ? (
           <details className="role-desc">
@@ -3256,6 +3364,9 @@ function BoardPage({
   chat,
   onChat,
   onSend,
+  turns,
+  assistPulse,
+  structured,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -3283,9 +3394,18 @@ function BoardPage({
   chat: string;
   onChat: (value: string) => void;
   onSend: () => void;
+  turns: { id: string; role: Role; who: "user" | "agent"; text: string }[];
+  assistPulse: number;
+  structured: string[];
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
+  const seenAssist = useRef(assistPulse);
+  useEffect(() => {
+    if (seenAssist.current === assistPulse) return;
+    seenAssist.current = assistPulse;
+    setTab("ai");
+  }, [assistPulse]);
   const current = shots[shot];
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
   const focused = shots[shot];
@@ -3390,6 +3510,19 @@ function BoardPage({
                 </div>
                 <p>{item.picture}</p>
                 <span className="tag">{item.characters[0] ?? "人物"}</span>
+                {appearanceMark(
+                  item.promptZh || keyframePrompt(item, film),
+                  item.characters,
+                  film.characters,
+                ) ? (
+                  <span className="tag">
+                    {appearanceMark(
+                      item.promptZh || keyframePrompt(item, film),
+                      item.characters,
+                      film.characters,
+                    )}
+                  </span>
+                ) : null}
               </div>
             </button>
           ))}
@@ -3422,6 +3555,8 @@ function BoardPage({
               else if (label.includes("审片")) onQc();
               else onSend();
             }}
+            turns={turns}
+            structured={structured}
           />
         ) : current ? (
           <>
@@ -3585,6 +3720,32 @@ function BoardPage({
                     {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
                   </p>
                 ) : null}
+              </div>
+              <div className="field">
+                <label htmlFor="shot-blocking">站位</label>
+                <textarea
+                  id="shot-blocking"
+                  className="area"
+                  aria-label="站位"
+                  placeholder="谁在画左，谁在画右"
+                  value={current.blocking ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { blocking: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="shot-facing">朝向</label>
+                <input
+                  id="shot-facing"
+                  className="input"
+                  aria-label="朝向"
+                  placeholder="看向画左或画右"
+                  value={current.facing ?? ""}
+                  onChange={(event) =>
+                    onFilm(updateShot(film, current.id, { facing: event.target.value }))
+                  }
+                />
               </div>
               {current.tag ? <p className="role-desc">镜头类型：{current.tag}</p> : null}
               {missingLocks.length > 0 && (

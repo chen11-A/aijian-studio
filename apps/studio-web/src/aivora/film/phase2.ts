@@ -103,6 +103,75 @@ export function lineInScript(sceneText: string, proposed: string): string {
   return line;
 }
 
+/** Spoken lines already written in the scene. The shot copies the same characters. */
+export function scriptDialogue(sceneText: string): { speaker: string; line: string }[] {
+  const found: { speaker: string; line: string }[] = [];
+  const seen = new Set<string>();
+  const add = (speaker: string, raw: string) => {
+    const line = raw
+      .replace(/\s+/g, "")
+      .replace(/^[「“"']+/, "")
+      .replace(/[」”"'。！？…]+$/, "");
+    if (line.length < 2 || line.length > 40 || seen.has(line) || !sceneText.includes(line)) return;
+    seen.add(line);
+    found.push({ speaker: speaker.trim(), line });
+  };
+  for (const match of sceneText.matchAll(
+    /([\u4e00-\u9fffA-Za-z]{1,12})(?:说|道|问|喊|叫)?[：:]\s*[「“"']?([^「」“”"'\n。！？]{1,40})/g,
+  )) {
+    const speaker = (match[1] ?? "").replace(/(?:说|道|问|喊|叫)$/, "");
+    add(speaker, match[2] ?? "");
+  }
+  for (const match of sceneText.matchAll(/[「“"]([^「」“”"]{1,40})[」”"]/g))
+    add("", match[1] ?? "");
+  return found;
+}
+
+export function attachScriptLines<
+  T extends { line: string; characters: string[]; picture: string },
+>(shots: T[], sceneText: string): T[] {
+  const next = shots.map((shot) => ({ ...shot, characters: [...shot.characters] }));
+  for (const spoken of scriptDialogue(sceneText)) {
+    if (next.some((shot) => shot.line.includes(spoken.line))) continue;
+    const host =
+      next.find(
+        (shot) =>
+          !shot.line.trim() &&
+          (!spoken.speaker ||
+            shot.characters.includes(spoken.speaker) ||
+            shot.picture.includes(spoken.speaker)),
+      ) ?? next.find((shot) => !shot.line.trim());
+    if (!host) continue;
+    host.line = spoken.line;
+    if (spoken.speaker && !host.characters.includes(spoken.speaker))
+      host.characters.push(spoken.speaker);
+  }
+  return next;
+}
+
+/** True when every scene is just a slice of the question, not a screenplay. */
+export function scenesEchoRequest(scenes: { text: string }[], request: string): boolean {
+  const asked = request.replace(/\s+/g, "");
+  if (!asked || scenes.length === 0) return false;
+  return scenes.every((scene) => {
+    const body = scene.text.replace(/\s+/g, "").replace(/还没完。?$/, "");
+    return body.length > 0 && (asked.includes(body) || body.includes(asked));
+  });
+}
+
+export function appearanceMark(
+  prompt: string,
+  names: string[],
+  people: { name: string; identity: string }[],
+): "" | "外貌已锁" | "缺外貌" {
+  const relevant = people.filter(
+    (person) => person.identity.trim() && (names.length === 0 || names.includes(person.name)),
+  );
+  if (relevant.length === 0) return "";
+  const missing = missingIdentityLocks([{ id: "shot", prompt, names }], relevant);
+  return missing.length > 0 ? "缺外貌" : "外貌已锁";
+}
+
 export function parseLooseJson(text: string): unknown | null {
   const raw = text
     .trim()

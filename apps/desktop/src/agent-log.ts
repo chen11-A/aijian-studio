@@ -3,9 +3,12 @@ import { mkdir, open } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export type AgentLogLine = {
+  agent?: string;
   model: string;
   endpoint: string;
   httpStatus: number;
+  durationMs?: number;
+  parsed?: string;
   body: string;
 };
 
@@ -34,9 +37,12 @@ export function createAgentLog(filePath: string): AgentLog {
     write(line) {
       const row = JSON.stringify({
         t: new Date().toISOString(),
+        agent: (line.agent ?? "").slice(0, 40),
         model: line.model.slice(0, 80),
         endpoint: line.endpoint.slice(0, 40),
         httpStatus: line.httpStatus,
+        durationMs: line.durationMs ?? 0,
+        parsed: (line.parsed ?? "").slice(0, 40),
         body: redactSecrets(line.body),
       });
       void mkdir(dirname(filePath), { recursive: true, mode: 0o700 })

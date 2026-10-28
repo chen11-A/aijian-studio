@@ -8,9 +8,13 @@ import {
   durationFromSpeech,
   FILM_TEMPLATES,
   gazeHandoff,
+  appearanceMark,
+  attachScriptLines,
   identityLock,
   lineInScript,
   missingIdentityLocks,
+  scenesEchoRequest,
+  scriptDialogue,
   parseLooseJson,
   performanceFromModel,
   prompterFromModel,
@@ -202,5 +206,34 @@ describe("phase 2 shot language", () => {
     });
     expect(speechSeconds("", 0)).toBe(0);
     expect(lineInScript("原文", "  ")).toBe("");
+  });
+
+  it("copies a spoken line onto a shot and rejects a question echoed as scenes", () => {
+    const script = "雨夜巷口。刀疤说：东西交出来。";
+    expect(scriptDialogue(script)).toEqual([{ speaker: "刀疤", line: "东西交出来" }]);
+    const shots = attachScriptLines(
+      [{ line: "", characters: ["林骁"], picture: "刀疤开口" }],
+      script,
+    );
+    expect(shots[0]).toMatchObject({ line: "东西交出来", characters: ["林骁", "刀疤"] });
+    expect(
+      scenesEchoRequest(
+        [{ text: "请把现有剧本分成。" }, { text: "请把现有剧本分成。还没完。" }],
+        "请把现有剧本分成",
+      ),
+    ).toBe(true);
+    expect(scenesEchoRequest([{ text: "雨夜巷口，刀疤拦住林骁。" }], "请把现有剧本分成")).toBe(
+      false,
+    );
+    expect(
+      appearanceMark(
+        "年轻女性，二十多岁。",
+        ["林雨"],
+        [{ name: "林雨", identity: "年轻女性，二十多岁" }],
+      ),
+    ).toBe("外貌已锁");
+    expect(
+      appearanceMark("雨夜巷口。", ["林雨"], [{ name: "林雨", identity: "年轻女性，二十多岁" }]),
+    ).toBe("缺外貌");
   });
 });

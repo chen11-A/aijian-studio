@@ -36,6 +36,7 @@ export function registerGrokHandlers<TEvent>(
     "models",
     "text",
     "speech",
+    "agent-log",
   ] as const) {
     handle(`grok-auth:${action}`, async (event, ...args) => {
       if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
@@ -126,6 +127,26 @@ export function registerGrokHandlers<TEvent>(
             ? { idempotencyKey: body.idempotencyKey }
             : {}),
         });
+      }
+      if (action === "agent-log") {
+        const input = args[0];
+        if (args.length !== 1 || typeof input !== "object" || input === null) {
+          throw new Error("Invalid agent log");
+        }
+        const body = input as Record<string, unknown>;
+        const fields = ["agent", "model", "status", "parsed", "detail"] as const;
+        if (Object.keys(body).some((key) => !fields.includes(key as (typeof fields)[number]))) {
+          throw new Error("Invalid agent log");
+        }
+        const note = {
+          agent: typeof body.agent === "string" ? body.agent.slice(0, 40) : "",
+          model: typeof body.model === "string" ? body.model.slice(0, 80) : "",
+          status: typeof body.status === "string" ? body.status.slice(0, 20) : "",
+          parsed: typeof body.parsed === "string" ? body.parsed.slice(0, 40) : "",
+          detail: typeof body.detail === "string" ? body.detail.slice(0, 500) : "",
+        };
+        runtime.recordAgent?.(note);
+        return { kind: "OK" };
       }
       if (args.length !== 0) throw new Error("Unexpected Grok IPC arguments");
       const preview = screenshotGrokCatalog();

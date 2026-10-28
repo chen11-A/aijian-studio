@@ -8,6 +8,7 @@ import writer from "../../../../../services/api/src/aijian_api/agents/prompts/wr
 import { offlineRotation } from "../shot-plan";
 import { IMAGE_MODEL, TEXT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import {
+  attachScriptLines,
   classifyShotSize,
   gazeHandoff,
   identityLock,
@@ -434,7 +435,7 @@ export function videoPrompt(shot: FilmShot): string {
 }
 
 export function offlineShots(story: string, sceneId: string): FilmShot[] {
-  return offlineRotation(story).map((item) => ({
+  const rows = offlineRotation(story).map((item) => ({
     id: `${sceneId}-shot-${item.index}`,
     sceneId,
     no: item.index,
@@ -456,6 +457,7 @@ export function offlineShots(story: string, sceneId: string): FilmShot[] {
     stills: [],
     selectedTakeId: "",
   }));
+  return attachScriptLines(rows, story);
 }
 
 export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: string): FilmProject {
@@ -532,7 +534,7 @@ export function parseDirectorShots(
       selectedTakeId: "",
     });
   });
-  return shots.length > 0 ? shots : null;
+  return shots.length > 0 ? attachScriptLines(shots, sceneText) : null;
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

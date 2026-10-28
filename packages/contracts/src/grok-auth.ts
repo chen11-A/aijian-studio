@@ -80,4 +80,12 @@ export type GrokLoginBridge = {
     projectId?: string;
     idempotencyKey?: string;
   }): Promise<GrokSpeechResult>;
+  /** Writes one line to the app-data agent log. Never sends a token. */
+  recordAgent?(input: {
+    agent: string;
+    model: string;
+    status: string;
+    parsed: string;
+    detail: string;
+  }): Promise<void>;
 };
