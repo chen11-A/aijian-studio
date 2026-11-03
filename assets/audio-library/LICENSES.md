@@ -1,6 +1,6 @@
 # 音频来源与许可
 
-所有收录文件的许可证均为 CC0-1.0。每条 manifest.source 都链接到固定提交的原始文件，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
+所有收录文件的许可证均为 CC0-1.0。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
 
 ## 配乐
 
@@ -21,8 +21,17 @@
 
 ## 处理说明
 
-转为 48kHz Ogg Vorbis，音效单声道、配乐双声道；仅裁去首尾低于 -55dB 的静音，按实测积分响度调整增益后再测量编码输出。没有声明无缝循环，loop 均为 false。情绪标签是本项目编辑建议，不是原作者的分类。
+转为 48kHz Ogg Vorbis，音效单声道、配乐双声道；仅裁去首尾低于 -55dB 的静音，按实测积分响度调整增益后再测量编码输出。本轮雨风交叉淡化版另设 loop/loopable 为 true，客观检查与限制见 LOOPS.md。情绪标签是本项目编辑建议，不是原作者的分类。
 
 CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 
 五种地面共 15 条脚步素材为原单次脚步加工的四连步：每隔 0.85 秒重复一次，总计四步；随后仅裁剪首尾静音、归一响度。清单 `processing` 与中文名均有说明。其他文件未人为循环，未把同一音频的重复拷贝当作不同原作。
+
+## 本轮新增
+
+- 自制心跳、电话铃、低频冲击各三条：自制，CC0；[生成脚本原始页面](https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py)，完整声明见 generated/LICENSES.md。
+- Wyzowl 手机震动：[原作者固定提交许可页面](https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md)，原作者声明全部是代码合成且 CC0。三条成品源自两条原始音效，加工重复方式见 manifest.processing。
+- Kenney 汽车、摩托引擎：[原作者固定提交许可页面](https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/README.md)。代码 MIT 与音效 CC0 分开，不以代码授权替代素材授权。
+- Dechode 引擎：[原作者固定提交许可页面](https://github.com/Dechode/Godot-Simple-Vehicle/blob/f448b000f896053319938e4f67ddd230623da853/README.md)，明确 enginesound 生成的音频本身 CC0。
+
+原始页面副本及 Wyzowl CC0 原文保存在 additions/phone-vehicle/licenses/。每条 source 指向具体原始文件，originalLicenseUrl 指向其发布者许可页面。新雨风循环版从原有素材派生，来源、许可与处理历史一并保留。

@@ -1,0 +1,29 @@
+{
+  "input_sha256": "b03ca5be0382545fd2f474bda48eecb2e0186b25e48cec677a82edd7109b812d",
+  "output_sha256": "330332d768f513f38fbc5abf6a8c619c2ee25d0584df6df4f5f2aaad69b041e6",
+  "duration": 5.256520833333333,
+  "sample_rate": 48000,
+  "channels": 1,
+  "crossfade_seconds": 0.5,
+  "constant_gain_db": 0.7300000000000004,
+  "soft_peak_limiting_applied": true,
+  "integrated_lufs": -20.11,
+  "true_peak_dbtp": -3.43,
+  "seam": {
+    "boundary_sample_jump": 0.031131289899349213,
+    "adjacent_difference_p95": 0.03819736838340759,
+    "adjacent_difference_p99": 0.059500038623809814,
+    "boundary_difference_percentile": 90.50936935223058,
+    "boundary_to_p99_ratio": 0.5232146166522247,
+    "seam_window_ms_each_side": 20.0,
+    "seam_rms": 0.04306133006192271,
+    "nearby_rms": 0.048041075824442774,
+    "seam_to_nearby_rms_ratio": 0.8963439998571717,
+    "left_to_right_rms_ratio": 0.7818648267829658,
+    "passed": true,
+    "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+  },
+  "passed": true,
+  "subjective_listening_completed": false,
+  "processing": "解码48kHz单声道；保留中段，将尾段和首段做等功率重叠交叉淡化，不将首尾淡到零；施加固定增益；预测峰值偏高时使用无状态tanh柔性限幅并重新校准增益，再Vorbis编码；对最终解码样本测量响度、峰值、循环边界跳变及短窗RMS。"
+}
