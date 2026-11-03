@@ -3774,6 +3774,12 @@ export interface components {
             /** Amount Micro */
             amount_micro?: number | null;
             /**
+             * Aspect Ratio
+             * @default 9:16
+             * @enum {string}
+             */
+            aspect_ratio: "9:16" | "16:9";
+            /**
              * Confirmed
              * @default false
              */

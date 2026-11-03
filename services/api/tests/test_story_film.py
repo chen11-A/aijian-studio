@@ -20,6 +20,7 @@ from aijian_api.story_film import (
     directed_speech,
     live_media_enabled,
     reference_image_url,
+    references_for_model,
 )
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
@@ -1045,6 +1046,10 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     loaded = _local_image(str(picture))
     assert loaded is not None
     assert loaded.data.startswith(b"\x89PNG")
+    assert references_for_model("grok-imagine-video-1.5-lite", ("data:image/png;base64,aa",)) == ()
+    assert references_for_model("grok-imagine-video-1.5", ("https://cdn.example/a.png",)) == (
+        "https://cdn.example/a.png",
+    )
     assert reference_image_url("https://cdn.example/face.png") == "https://cdn.example/face.png"
     assert reference_image_url("") is None
     encoded = reference_image_url(str(picture))

@@ -160,10 +160,11 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:still", async (event, ...args) => {
     guard(event);
     if (
-      args.length !== 2 ||
+      (args.length !== 2 && args.length !== 3) ||
       typeof args[0] !== "string" ||
       typeof args[1] !== "string" ||
-      !idPattern.test(args[0])
+      !idPattern.test(args[0]) ||
+      (args.length === 3 && args[2] !== "9:16" && args[2] !== "16:9")
     ) {
       throw new Error("Invalid film");
     }
@@ -173,6 +174,7 @@ export function registerFilmLibraryHandlers<TEvent>(
       token,
       fetcher: host.fetcher ?? globalThis.fetch,
       destination: stillPath(host.filmsRoot(), args[0]),
+      ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
   });
 

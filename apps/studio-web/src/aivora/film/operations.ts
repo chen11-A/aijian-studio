@@ -83,6 +83,7 @@ export type StoryFilmBody = {
   confirmed: boolean;
   voice_id: string;
   style_block?: string;
+  aspect_ratio?: "9:16" | "16:9";
   shots: {
     narration: string;
     prompt: string;
@@ -641,13 +642,18 @@ function shotReference(
     .filter((person) => shot.characters.includes(person.name) || person.name === shot.speaker)
     .flatMap((person) => person.portraits)
     .map((item) => item.url)
-    .filter((url) => url && !url.startsWith("blob:"))
-    .slice(0, 8);
+    .filter((url) => url && !url.startsWith("blob:"));
   const localPortrait = portraits.find((url) => !url.startsWith("https://")) ?? "";
+  const references = [...portraits];
+  if (chosen && !references.includes(chosen)) references.unshift(chosen);
   return {
     still: (chosen || localPortrait).slice(0, 500),
-    references: portraits.map((url) => url.slice(0, 500)),
+    references: references.slice(0, 14).map((url) => url.slice(0, 500)),
   };
+}
+
+export function draftFaceWarning(draft: boolean): string {
+  return draft ? "草稿用的是较快的模型，不能带定妆照，脸可能会变。" : "";
 }
 
 export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
@@ -721,6 +727,7 @@ export function storyFilmBatches(
       style_block: (slice.length === 1 ? slice[0]?.styleNote?.trim() || film.styleZh : film.styleZh)
         .trim()
         .slice(0, 400),
+      aspect_ratio: film.aspectRatio === "16:9" ? "16:9" : "9:16",
       shots: (slice.length > 0 ? slice : rows).slice(0, 10).map((shot) => oneShot(shot, film)),
       ...(draft ? { video_model: VIDEO_DRAFT_MODEL } : { video_model: VIDEO_MODEL }),
     });

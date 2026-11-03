@@ -32,6 +32,7 @@ export type StoryFilmCreateInput = {
   video_model?: string;
   regenerate?: boolean;
   style_block?: string;
+  aspect_ratio?: "9:16" | "16:9";
   shots?: StoryFilmShotInput[];
 };
 
@@ -137,6 +138,7 @@ export function createStoryFilmClient(
           ...(input.video_model ? { video_model: input.video_model } : {}),
           ...(input.regenerate ? { regenerate: true } : {}),
           ...(input.style_block ? { style_block: input.style_block } : {}),
+          ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
           ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
         }),
       }).then(read);
@@ -157,6 +159,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     "video_model",
     "regenerate",
     "style_block",
+    "aspect_ratio",
     "shots",
   ];
   if (Object.keys(body).some((key) => !allowed.includes(key))) {
@@ -196,6 +199,10 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     throw new Error("Invalid story film request");
   }
   const styleBlock = optionalText(body, "style_block", 400);
+  const aspect = body.aspect_ratio;
+  if (aspect !== undefined && aspect !== "9:16" && aspect !== "16:9") {
+    throw new Error("Invalid story film request");
+  }
   const shots = parseShots(body.shots);
   return {
     scene_label: scene.trim(),
@@ -209,6 +216,7 @@ export function parseStoryFilmCreate(value: unknown): StoryFilmCreateInput {
     ...(typeof videoModel === "string" ? { video_model: videoModel } : {}),
     ...(body.regenerate === true ? { regenerate: true } : {}),
     ...(styleBlock ? { style_block: styleBlock } : {}),
+    ...(aspect === "9:16" || aspect === "16:9" ? { aspect_ratio: aspect } : {}),
     ...(shots.length > 0 ? { shots } : {}),
   };
 }

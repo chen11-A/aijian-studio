@@ -476,7 +476,7 @@ describe("professional workspace", () => {
         expect(play).toHaveBeenCalled();
       }
       fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
-      expect(screen.getByText("4 秒")).toBeInTheDocument();
+      expect(screen.getAllByText("4 秒").length).toBeGreaterThan(0);
       fireEvent.click(stageTab("剪辑"));
       expect(screen.getAllByText("未生成").length).toBeGreaterThan(0);
       fireEvent.click(screen.getByRole("button", { name: "导出成片" }));

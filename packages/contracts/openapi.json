@@ -4208,6 +4208,15 @@
             ],
             "title": "Amount Micro"
           },
+          "aspect_ratio": {
+            "default": "9:16",
+            "enum": [
+              "9:16",
+              "16:9"
+            ],
+            "title": "Aspect Ratio",
+            "type": "string"
+          },
           "confirmed": {
             "default": false,
             "title": "Confirmed",

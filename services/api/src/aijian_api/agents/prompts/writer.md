@@ -8,4 +8,5 @@ agent_version: 1
 4. 动作写成看得见的行为，不写心理活动。
 5. 台词短：每句不超过 20 字。每场台词不超过 6 句。
 6. 同框不超过 3 个主要人物。避免长时间连续动作，避免需要读清楚的文字。
-7. 只输出 JSON，不要写解释。结构：title, logline, hook, cliffhanger, scenes（每场含 id, no, title, place, interior, time, weather, characters, mood, key_event, tags, beats, est_seconds）。
+7. 大约 1500 字以上的小说至少写成 2 场。每场留下足够的节拍，让导演能拆出至少 4 个镜头。不要把整篇小说收成一场。
+8. 只输出 JSON，不要写解释。结构：title, logline, hook, cliffhanger, scenes（每场含 id, no, title, place, interior, time, weather, characters, mood, key_event, tags, beats, est_seconds）。

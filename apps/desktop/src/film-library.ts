@@ -530,6 +530,7 @@ export async function requestStill(options: {
   fetcher: typeof fetch;
   destination: string;
   model?: string;
+  aspectRatio?: "9:16" | "16:9";
 }): Promise<{ path: string; reason: string }> {
   const prompt = options.prompt.trim().slice(0, 2000);
   if (!options.token) return { path: "", reason: "需要重新登录后再出图。" };
@@ -548,6 +549,7 @@ export async function requestStill(options: {
         n: 1,
         response_format: "b64_json",
         quality: "medium",
+        ...(options.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
       }),
     });
   } catch {

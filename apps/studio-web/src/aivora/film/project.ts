@@ -189,6 +189,8 @@ export type FilmProject = {
   audioClips: AudioClip[];
   /** Backend ledger id. Empty until the desktop creates a project for this film. */
   backendProjectId: string;
+  /** Frame shape for stills and video. Chosen when the film is created. */
+  aspectRatio: "9:16" | "16:9";
 };
 
 export function newFilmId(): string {
@@ -240,6 +242,7 @@ export function blankFilm(): FilmProject {
     narrationVoiceId: "",
     audioClips: [],
     backendProjectId: "",
+    aspectRatio: "9:16",
   };
 }
 
@@ -254,6 +257,7 @@ export function newEpisode(current: FilmProject): FilmProject {
   next.styleZh = current.styleZh;
   next.narrationVoiceId = current.narrationVoiceId;
   next.backendProjectId = current.backendProjectId;
+  next.aspectRatio = current.aspectRatio === "16:9" ? "16:9" : "9:16";
   next.characters = current.characters.map((item) => ({
     ...item,
     portraits: item.portraits.map((portrait) => ({ ...portrait })),
@@ -554,7 +558,14 @@ export function parseDirectorShots(
       selectedTakeId: "",
     });
   });
-  return shots.length > 0 ? attachScriptLines(shots, sceneText) : null;
+  const varied =
+    shots.length > 0 && shots.every((shot) => shot.seconds === 8)
+      ? shots.map((shot, index) => ({
+          ...shot,
+          seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
+        }))
+      : shots;
+  return varied.length > 0 ? attachScriptLines(varied, sceneText) : null;
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {
@@ -662,6 +673,7 @@ export function upgradeFilm(value: Partial<FilmProject> | null | undefined): Fil
       narrationVoiceId: value.narrationVoiceId ?? "",
       audioClips: normalizeAudioClips(value.audioClips),
       backendProjectId: typeof value.backendProjectId === "string" ? value.backendProjectId : "",
+      aspectRatio: value.aspectRatio === "16:9" ? "16:9" : "9:16",
     };
   } catch {
     return null;

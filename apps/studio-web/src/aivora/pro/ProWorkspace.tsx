@@ -35,6 +35,7 @@ import {
   storyFilmBatches,
   spokenLine,
   shotVoiceId,
+  draftFaceWarning,
   fitShotToLine,
   subtitleCues,
   updateShot,
@@ -212,13 +213,14 @@ const ROLE_COPY: Record<Role, string> = {
 async function requestStill(
   seriesId: string,
   prompt: string,
+  aspectRatio: "9:16" | "16:9" = "9:16",
 ): Promise<{ url: string; reason: string }> {
   const bridge = window.aijian;
   if (!seriesId || !bridge?.generateFilmStill) {
     return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
   }
   try {
-    const result = await bridge.generateFilmStill(seriesId, prompt);
+    const result = await bridge.generateFilmStill(seriesId, prompt, aspectRatio);
     if (!result.path) return { url: "", reason: result.reason || "出图没有成功，可以重试。" };
     const url = fileMediaUrl(result.path);
     return { url: url || result.path, reason: "画面已生成。" };
@@ -1353,7 +1355,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const portraits: FilmPortrait[] = [];
     try {
       for (const item of prompts) {
-        const made = await requestStill(current.seriesId, item.prompt);
+        const made = await requestStill(
+          current.seriesId,
+          item.prompt,
+          current.aspectRatio === "16:9" ? "16:9" : "9:16",
+        );
         portraits.push({ view: item.view, prompt: item.prompt, url: made.url });
         if (!made.url) {
           setNotice(made.reason);
@@ -2050,7 +2056,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   async function makeStill(prompt: string): Promise<{ url: string; reason: string }> {
     const current = filmRef.current;
     if (!current) return { url: "", reason: "请打开安装好的 AIVORA 再出图。" };
-    return requestStill(current.seriesId, prompt);
+    return requestStill(current.seriesId, prompt, current.aspectRatio === "16:9" ? "16:9" : "9:16");
   }
 
   async function clipUrl(path: string): Promise<string> {
@@ -2547,6 +2553,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </button>
                 <button
                   onClick={() => {
+                    const next = blankFilm();
+                    next.aspectRatio = "16:9";
+                    applyLive(next);
+                    setPending(null);
+                    setPendingRole(null);
+                    setShot(0);
+                    setRange(false);
+                    setComparing(false);
+                    setBench(false);
+                    setStage("script");
+                    setMenu(null);
+                    setNotice("已新建横屏作品。写下故事，或打开示例。");
+                  }}
+                >
+                  新建横屏
+                </button>
+                <button
+                  onClick={() => {
                     applyLive(sampleFilm());
                     setScene("02");
                     setBench(false);
@@ -2820,6 +2844,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     <button
                       className="btn"
                       onClick={() => {
+                        const next = blankFilm();
+                        next.aspectRatio = "16:9";
+                        setFilm(next);
+                        setScene(next.scenes[0]?.id ?? "scene-1");
+                        setStage("script");
+                        setNotice("已新建横屏作品。");
+                      }}
+                    >
+                      新建横屏
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => {
                         setFilm(sampleFilm());
                         setScene("02");
                         setNotice("已打开示例「雨夜巷战」。");
@@ -2932,6 +2969,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                         const made = await requestStill(
                           latest.seriesId,
                           withIdentityLocks(prompt, latest.characters, current.characters).prompt,
+                          latest.aspectRatio === "16:9" ? "16:9" : "9:16",
                         );
                         if (!made.url) {
                           setNotice(made.reason);
@@ -3344,6 +3382,9 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 </tbody>
               </table>
               <p data-testid="batch-estimate">{confirmEstimate(pendingBatch, versions)}</p>
+              {draftFaceWarning(Boolean(film?.draft)) ? (
+                <p>{draftFaceWarning(Boolean(film?.draft))}</p>
+              ) : null}
               {pendingBatch.some((item) => fitShotToLine(item).warning) ? (
                 <p>
                   {pendingBatch
@@ -4863,7 +4904,7 @@ function BoardPage({
                   <div>
                     <label htmlFor="shot-seconds">时长</label>
                     <div className="seg" aria-label="时长">
-                      {[2, 3, 5, 8].map((seconds) => (
+                      {[2, 3, 4, 5, 6, 10].map((seconds) => (
                         <button
                           key={seconds}
                           type="button"
@@ -5400,7 +5441,7 @@ function GeneratePage({
             <div>
               <div className="sec-t">时长</div>
               <div className="seg">
-                {[2, 3, 5, 8].map((seconds) => (
+                {[2, 3, 4, 5, 6, 10].map((seconds) => (
                   <button
                     key={seconds}
                     className={(current?.seconds ?? duration) === seconds ? "on" : ""}

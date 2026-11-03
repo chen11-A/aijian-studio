@@ -17,6 +17,7 @@ import { registerChatGPTHandlers } from "./chatgpt-auth-ipc";
 import { createGrokRuntime } from "./grok-auth-runtime";
 import { liveMediaSidecarEnv } from "./live-media-env";
 import { createAgentLog } from "./agent-log";
+import { runCapabilityProbe } from "./capability-probe";
 import { createGrokLoginLog } from "./grok-login-log";
 import { createSubscriptionLedger } from "./desktop-subscription-ledger";
 import { createGrokStore, type GrokEncryption } from "./grok-auth-storage";
@@ -1099,6 +1100,26 @@ async function startApplication(): Promise<void> {
   );
   sourceManifestReviewController = createSourceManifestReviewController(apiClient);
   mainWindow = createMainWindow();
+  if (process.env.AIVORA_CAPABILITY_PROBE === "1") {
+    const probeLog = createAgentLog(join(app.getPath("userData"), "logs", "agents.log"));
+    void getGrokRuntime()
+      .mediaAccessToken()
+      .then((token) => {
+        if (!token) {
+          probeLog.write({
+            agent: "probe",
+            model: "",
+            endpoint: "probe",
+            httpStatus: 0,
+            parsed: "no-token",
+            body: "没有登录，探测没有发出。",
+          });
+          return;
+        }
+        return runCapabilityProbe({ fetch: globalThis.fetch, token, log: probeLog });
+      })
+      .catch(() => undefined);
+  }
 
   app.on("activate", () => {
     if (mainWindow === null) {

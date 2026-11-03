@@ -987,6 +987,7 @@ export interface AijianDesktopBridge
   generateFilmStill?: (
     seriesId: string,
     prompt: string,
+    aspectRatio?: "9:16" | "16:9",
   ) => Promise<{ path: string; reason: string }>;
   pickFilmFolder?: () => Promise<string | null>;
   defaultFilmFolder?: () => Promise<string>;

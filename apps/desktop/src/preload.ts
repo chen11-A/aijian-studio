@@ -582,8 +582,8 @@ contextBridge.exposeInMainWorld("aijian", {
   onFlush: (handler: () => void) => {
     ipcRenderer.on("aivora:flush", () => handler());
   },
-  generateFilmStill: (seriesId: string, prompt: string) =>
-    ipcRenderer.invoke("film:still", seriesId, prompt),
+  generateFilmStill: (seriesId: string, prompt: string, aspectRatio?: "9:16" | "16:9") =>
+    ipcRenderer.invoke("film:still", seriesId, prompt, aspectRatio),
   pickFilmFolder: () => ipcRenderer.invoke("film:pick-folder") as Promise<string | null>,
   defaultFilmFolder: () => ipcRenderer.invoke("film:default-folder") as Promise<string>,
   exportFilmCut: (source: string, directory: string, name?: string) =>

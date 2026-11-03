@@ -104,16 +104,25 @@ class XaiMediaClient:
         self._origin = origin.rstrip("/")
         self._log = log
 
-    def generate_image(self, *, prompt: str, model: str = IMAGE_MODEL) -> XaiImage:
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        model: str = IMAGE_MODEL,
+        aspect_ratio: str | None = None,
+    ) -> XaiImage:
+        body: dict[str, object] = {
+            "model": model,
+            "prompt": prompt,
+            "n": 1,
+            "response_format": "url",
+            "quality": "medium",
+        }
+        if aspect_ratio in {"9:16", "16:9", "1:1"}:
+            body["aspect_ratio"] = aspect_ratio
         payload = self._post_json(
             IMAGE_GENERATION_PATH,
-            {
-                "model": model,
-                "prompt": prompt,
-                "n": 1,
-                "response_format": "url",
-                "quality": "medium",
-            },
+            body,
             "image",
         )
         rows = payload.get("data")
@@ -136,8 +145,11 @@ class XaiMediaClient:
         resolution: str | None = None,
         reference_images: tuple[str, ...] = (),
         last_frame_url: str | None = None,
+        aspect_ratio: str | None = None,
     ) -> XaiVideoSubmit:
         body: dict[str, object] = {"model": model, "prompt": prompt, "duration": duration}
+        if aspect_ratio in {"9:16", "16:9", "1:1"}:
+            body["aspect_ratio"] = aspect_ratio
         reference = _image_reference(image) if image is not None else None
         if reference is None and isinstance(image_url, str) and image_url.startswith("https://"):
             reference = {"url": image_url}

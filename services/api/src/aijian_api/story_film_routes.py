@@ -95,6 +95,7 @@ class CreateStoryFilmBody(BaseModel):
     amount_micro: int | None = Field(default=None, ge=0)
     regenerate: bool = False
     style_block: str = Field(default="", max_length=400)
+    aspect_ratio: Literal["9:16", "16:9"] = "9:16"
     shots: list[StoryShotBody] = Field(default_factory=list, max_length=10)
 
 
@@ -288,6 +289,7 @@ def create_story_film_router(
                 idempotency_key=idempotency_key,
                 regenerate=payload.regenerate,
                 style_block=payload.style_block.strip(),
+                aspect_ratio=payload.aspect_ratio,
                 shots=tuple(
                     StoryShot(
                         narration=shot.narration.strip(),

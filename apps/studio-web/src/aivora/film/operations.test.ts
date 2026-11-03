@@ -28,6 +28,7 @@ import {
   splitNovel,
   chosenExport,
   confirmEstimate,
+  draftFaceWarning,
   fitShotToLine,
   motionPrompt,
   shotVoiceId,
@@ -343,6 +344,10 @@ describe("film operations", () => {
     const batch = storyFilmBatches(film, [shot], false)[0]!;
     expect(batch.shots[0]?.still).toBe("/tmp/still.png");
     expect(batch.shots[0]?.references).toContain("https://cdn.example/face.png");
+    expect(batch.shots[0]?.references).toContain("/tmp/still.png");
+    expect(batch.aspect_ratio).toBe("9:16");
+    expect(draftFaceWarning(true)).toContain("脸可能会变");
+    expect(draftFaceWarning(false)).toBe("");
     shot.poster = "";
     shot.stills = [];
     film.characters[0]!.portraits = [{ view: "正面", prompt: "定妆", url: "/tmp/face.png" }];

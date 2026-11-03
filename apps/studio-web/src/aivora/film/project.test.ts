@@ -128,6 +128,12 @@ describe("film project", () => {
       "02",
     );
     expect(parsed?.[0]?.seconds).toBe(15);
+    const flat = parseDirectorShots(
+      '{"shots":[{"picture":"甲","seconds":8},{"picture":"乙","seconds":8}]}',
+      "02",
+    );
+    expect(flat?.map((shot) => shot.seconds)).toEqual([3, 4]);
+    expect(blankFilm().aspectRatio).toBe("9:16");
     expect(parsed?.[0]?.performance).toBe("皱眉");
     expect(parsed?.[0]?.size).toBe("近景");
     expect(parsed?.[0]?.sound.source).toBe("native");

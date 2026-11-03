@@ -141,6 +141,7 @@ class StoryFilmRequest:
     style_block: str = ""
     move: str = ""
     delivery: str = ""
+    aspect_ratio: str = "9:16"
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +191,14 @@ def reference_image_url(source: str) -> str | None:
     if image is None:
         return None
     return _image_reference(image)["url"]
+
+
+def references_for_model(model: str, urls: tuple[str, ...]) -> tuple[str, ...]:
+    """1.5-lite cannot take reference images or pinned frames."""
+
+    if "lite" in model:
+        return ()
+    return urls[:14]
 
 
 def directed_speech(line: str, delivery: str) -> tuple[str, float]:
@@ -664,13 +673,13 @@ class StoryFilmService:
                         url
                         for url in (
                             reference_image_url(item)
-                            for item in (*shot.references, shot.reference)
+                            for item in (*shot.references, shot.reference, shot.still)
                             if item
                         )
                         if url
                     ]
-                    if shot.still.startswith("https://"):
-                        linked.append(shot.still)
+                    model = request.video_model or VIDEO_MODEL
+                    linked = list(references_for_model(model, tuple(dict.fromkeys(linked))))
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
@@ -678,7 +687,7 @@ class StoryFilmService:
                         duration=max(1, min(int(shot.duration_seconds), 15)),
                         prepared_image=prepared,
                         shot_label=label,
-                        reference_images=tuple(dict.fromkeys(linked)),
+                        reference_images=tuple(linked),
                     )
                 else:
                     image, clip, speech = self._placeholder_media(child)
@@ -825,6 +834,7 @@ class StoryFilmService:
             image = client.generate_image(
                 prompt=_styled(request.visual_prompt or request.scene_label, request.style_block),
                 model=request.image_model or IMAGE_MODEL,
+                aspect_ratio=request.aspect_ratio or "9:16",
             )
             if image.data:
                 self._persist_image(project_id, request, image.data)
@@ -1033,6 +1043,8 @@ class StoryFilmService:
                 duration=max(1, min(duration, 15)),
                 generate_audio=False,
                 reference_images=reference_images,
+                aspect_ratio=request.aspect_ratio or "9:16",
+                resolution="720p" if reference_images else None,
             )
         except XaiMediaError:
             return None, "画面已生成，视频这一步没有成功，可以重试"
