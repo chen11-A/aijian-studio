@@ -15,6 +15,7 @@ from aijian_api.story_film import (
     StoryFilmRequest,
     StoryFilmService,
     _fit_clip_length,
+    _local_image,
     _media_duration,
     live_media_enabled,
 )
@@ -1015,3 +1016,29 @@ def test_a_chosen_length_is_not_stretched_to_the_narration(tmp_path):
     )
     _normalize_film_media(tools.ffmpeg_path, tools.ffprobe_path, clip, voice, 2)
     assert _media_duration(tools.ffprobe_path, clip) <= 2.35
+
+
+def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
+    assert _local_image("") is None
+    assert _local_image("   ") is None
+    assert _local_image("https://cdn.example/a.png") is None
+    assert _local_image("http://cdn.example/a.png") is None
+    assert _local_image("data:image/png;base64,aa") is None
+    assert _local_image("blob:http://local/1") is None
+    assert _local_image("aivora-media://local/?path=a") is None
+    assert _local_image("face.png") is None
+    assert _local_image(str(tmp_path / "missing.png")) is None
+    note = tmp_path / "note.txt"
+    note.write_text("nope", encoding="utf-8")
+    assert _local_image(str(note)) is None
+    empty = tmp_path / "empty.png"
+    empty.write_bytes(b"")
+    assert _local_image(str(empty)) is None
+    huge = tmp_path / "huge.png"
+    huge.write_bytes(b"\x89PNG" + b"a" * 12_000_000)
+    assert _local_image(str(huge)) is None
+    picture = tmp_path / "face.png"
+    picture.write_bytes(b"\x89PNG\r\n\x1a\n" + b"rgba")
+    loaded = _local_image(str(picture))
+    assert loaded is not None
+    assert loaded.data.startswith(b"\x89PNG")
