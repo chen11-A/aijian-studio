@@ -327,7 +327,7 @@ describe("film operations", () => {
       userFields: [],
       line: "啊".repeat(90),
     });
-    expect(over.fits ?? over.warning).toContain("截断");
+    expect(over.warning).toContain("截断");
     expect(over.shot.seconds).toBe(3);
     const kept = fitShotToLine({
       ...shot,
