@@ -95,14 +95,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "could not schedule an unelevated install" }
           schtasks /Run /TN $task
           if ($LASTEXITCODE -ne 0) { throw "could not start the unelevated install" }
-          $deadline = (Get-Date).AddMinutes(3)
+          $deadline = (Get-Date).AddMinutes(4)
+          $hkcu = $null
           do {
-            Start-Sleep -Seconds 2
-            if (Test-Path $installed) { break }
+            Start-Sleep -Seconds 3
+            $hkcu = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA" -ErrorAction SilentlyContinue
+            if ((Test-Path $installed) -and $hkcu -and $hkcu.InstallLocation) { break }
           } while ((Get-Date) -lt $deadline)
-          if (-not (Test-Path $installed)) { throw "unelevated install did not land under LOCALAPPDATA" }
-          $hkcu = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA" -ErrorAction SilentlyContinue
-          if (-not $hkcu -or -not $hkcu.InstallLocation) { throw "HKCU uninstall key was not written" }
+          if (-not (Test-Path $installed)) {
+            schtasks /Query /TN $task /V /FO LIST
+            throw "unelevated install did not land under LOCALAPPDATA"
+          }
+          if (-not $hkcu -or -not $hkcu.InstallLocation) {
+            schtasks /Query /TN $task /V /FO LIST
+            throw "HKCU uninstall key was not written"
+          }
           if ($hkcu.InstallLocation -notlike "$env:LOCALAPPDATA*") { throw "install dir is not under LOCALAPPDATA: $($hkcu.InstallLocation)" }
           if (Test-Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AIVORA") { throw "installer wrote HKLM" }
           if (Test-Path $uninstaller) { & $uninstaller /S }

@@ -44,7 +44,6 @@ import {
   filmDiskReady,
   listEpisodes,
   listFilms,
-  mediaUrl,
   readSaved,
   removeFilm,
   renameFilm,
@@ -841,7 +840,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text = "没有登录，已用离线拆镜。点「放入分镜」才会写入。";
       } else {
         const first = await completeAgent("director", context, "把这一场拆成镜头");
-        let parsed = first.text
+        const parsed = first.text
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "")
           : null;
         if (!parsed) {
