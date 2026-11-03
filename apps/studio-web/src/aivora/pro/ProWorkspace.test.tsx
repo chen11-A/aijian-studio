@@ -347,7 +347,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
-    expect(screen.getByText("草稿用的是较快的模型，不能带定妆照，脸可能会变。")).toBeInTheDocument();
+    expect(
+      screen.getByText("草稿用的是较快的模型，不能带定妆照，脸可能会变。"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/不能先出草稿/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
