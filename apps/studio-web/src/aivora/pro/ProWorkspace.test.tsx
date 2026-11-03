@@ -1999,10 +1999,12 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
       },
     ],
   };
-  const createStoryFilm = vi.fn(async (_projectId: string, body: { shots?: { references?: string[] }[] }) => ({
-    data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
-    body,
-  }));
+  const createStoryFilm = vi.fn(
+    async (_projectId: string, body: { shots?: { references?: string[] }[] }) => ({
+      data: { status: "SUCCEEDED", message: "", output_path: "/tmp/aivora/shot.mp4" },
+      body,
+    }),
+  );
   const { completeText } = installDesktop(createStoryFilm);
   Object.assign(window.aijian ?? {}, {
     generateFilmStill: vi.fn(async () => ({ path: "/tmp/aivora/films/still.png", reason: "" })),
