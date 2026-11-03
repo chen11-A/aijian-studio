@@ -15,3 +15,5 @@ const result = pickAudio({ emotions: ['紧张'], description: '雨夜街道', du
 该模块只验证清单与文件边界，不能仅凭许可证字符串证明实际授权，也不解码音频。真实格式、声道、采样率、响度、素材数量及总大小请另外运行 `assets/audio-library/check.py`；来源授权证据见素材库 `LICENSES.md`。所有检查均为本地处理，不访问来源网址。
 
 测试使用独立临时素材清单与文件，涵盖成功读取、错误类型、缺失字段、非法许可证、越界和损坏清单，不依赖素材下载进度。上级目录运行 `npm test -- audio-library`。
+
+短于400毫秒的单次音效可用 `loudness: null`，必须附 `loudnessNote` 说明无法实测积分响度；采样峰值与真峰值仍由 Python 检查器验证，不因此豁免。

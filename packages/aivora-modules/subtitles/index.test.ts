@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { burnSubtitleArgs, generateAss, generateSrt, wrapText } from './index.js';
+import { burnSubtitleArgs, defaultFontsDirectory, generateAss, generateSrt, wrapText } from './index.js';
 const line = { speaker: '小明', text: '今天的天空很蓝，我们一起去散步吧。', start: 1.234, end: 3.5 };
 describe('字幕', () => {
   it('按时间生成 SRT 并处理小时进位', () => {
@@ -19,8 +19,38 @@ describe('字幕', () => {
     expect(wrapText(' hello world\r\n\r你好 ')).toEqual(['hello world', '你好']);
     expect(wrapText('')).toEqual([]);
     expect(wrapText('abcdefghijklmnop abc')).toEqual(['abcdefghijklmnop', 'abc']);
-    expect(() => wrapText('abcdefghijklmnopq')).toThrow('单个词');
-    expect(() => wrapText('abcdefghijklm', true)).toThrow('12');
+    expect(wrapText('abcdefghijklmnopq')).toEqual(['abcdefghijklmnop', 'q']);
+    expect(wrapText('abcdefghijklm', true)).toEqual(['abcdefghijkl', 'm']);
+    expect(wrapText('1234567890123456789012345', true)).toEqual(['123456789012', '345678901234', '5']);
+  });
+  it.each([false, true])('避免自动断行后的行首闭标点与行尾开标点，竖屏=%s', portrait => {
+    const limit = portrait ? 12 : 16;
+    for (const punctuation of ['，', '。', '！', '？', '、', '）', '》', '”']) {
+      const text = '甲'.repeat(limit) + punctuation + '乙丙';
+      const lines = wrapText(text, portrait);
+      expect(lines.join('')).toBe(text);
+      expect(lines.every(part => Array.from(part).length <= limit && !part.startsWith(punctuation))).toBe(true);
+    }
+    for (const punctuation of ['“', '（', '《']) {
+      const text = '甲'.repeat(limit - 1) + punctuation + '乙丙丁';
+      const lines = wrapText(text, portrait);
+      expect(lines.join('')).toBe(text);
+      expect(lines.every(part => Array.from(part).length <= limit && !part.endsWith(punctuation))).toBe(true);
+    }
+  });
+  it('词边界与标点冲突时优先避头尾，极端冲突保留文字与长度上限', () => {
+    expect(wrapText('abcdefghijklmnop，甲')).toEqual(['abcdefghijklmno', 'p，甲']);
+    expect(wrapText('，'.repeat(33)).map(part => part.length)).toEqual([16, 16, 1]);
+    expect(wrapText('甲'.repeat(15) + '  ，乙').join('')).toBe('甲'.repeat(15) + '  ，乙');
+    expect(wrapText(' '.repeat(40))).toEqual([]);
+    expect(wrapText('，人工换行\n《')).toEqual(['，人工换行', '《']);
+  });
+  it('默认字体路径独立于工作目录，允许明确覆盖且拒绝空目录', () => {
+    expect(path.isAbsolute(defaultFontsDirectory)).toBe(true);
+    expect(existsSync(path.join(defaultFontsDirectory, 'NotoSansCJKsc-Regular.otf'))).toBe(true);
+    const input = { ffmpegPath: '/工具/ffmpeg', videoPath: 'in', subtitlePath: '字幕.ass', outputPath: 'out' };
+    expect(burnSubtitleArgs(input).args[5]).toContain(defaultFontsDirectory);
+    expect(() => burnSubtitleArgs({ ...input, fontsDirectory: ' ' })).toThrow('字体目录不能为空');
   });
   it.each(['short-drama', 'cinema', 'comic'] as const)('生成 %s 样式', preset => {
     const result = generateAss([line], { preset });
@@ -69,18 +99,21 @@ describe('字幕', () => {
 });
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-it('真实烧录包含中文、空格、引号和过滤器特殊字符的路径', () => {
+it('禁用系统字体，默认仓库字体真实烧录中文和空格特殊字符路径', () => {
   const ffmpeg = process.env.FFMPEG_PATH ?? '/usr/bin/ffmpeg';
   const dir = mkdtempSync(path.join(tmpdir(), '字幕 测试 '));
   try {
     const subtitle = path.join(dir, "台词 '逗号,方括号[甲];.ass");
     writeFileSync(subtitle, generateAss([{ speaker: '甲', text: '你好', start: 0, end: 1 }]));
-    const command = burnSubtitleArgs({ ffmpegPath: ffmpeg, videoPath: 'unused', subtitlePath: subtitle, outputPath: 'unused', fontsDirectory: path.resolve('../../apps/studio-web/src/aivora/assets/v2') });
-    const result = spawnSync(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=320x180:d=0.1', '-vf', command.args[5], '-f', 'null', '-'], { encoding: 'utf8', env: { ...process.env, XDG_CACHE_HOME: dir } });
-    expect(result.stderr).toBe('');
+    const command = burnSubtitleArgs({ ffmpegPath: ffmpeg, videoPath: 'unused', subtitlePath: subtitle, outputPath: 'unused' });
+    const fontConfig = path.join(dir, '无系统字体.conf');
+    writeFileSync(fontConfig, `<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd"><fontconfig><cachedir>${dir}</cachedir></fontconfig>`);
+    const result = spawnSync(ffmpeg, ['-v', 'info', '-f', 'lavfi', '-i', 'color=c=blue:s=320x180:d=0.1', '-vf', command.args[5], '-f', 'null', '-'], { encoding: 'utf8', cwd: dir, env: { ...process.env, XDG_CACHE_HOME: dir, FONTCONFIG_FILE: fontConfig, FONTCONFIG_PATH: dir } });
+    expect(result.stderr).toMatch(/fontselect:.*NotoSansCJKsc/);
+    expect(result.stderr).not.toMatch(/Glyph .*not found|failed to find|Error opening memory font .*NotoSans|Unable to open/);
     expect(result.status).toBe(0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

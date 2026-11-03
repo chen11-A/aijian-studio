@@ -95,3 +95,9 @@ describe('素材库读取', () => {
     } finally { await rm(external, { recursive: true, force: true }); }
   });
 });
+
+it('短于400毫秒的单次音效可明确标记无法测量积分响度',async()=>{
+ const short={...asset,duration:.2,loudness:null,loudnessNote:'不足400毫秒，无法测量积分响度'};
+ await save([short]);expect((await loadAudioLibrary(root))[0].loudness).toBeNull();
+ for(const bad of [{...short,duration:.4},{...short,loudnessNote:''},{...short,loudnessNote:undefined},{...short,type:'music'}]){await save([bad]);await expect(loadAudioLibrary(root)).rejects.toThrow('响度');}
+});

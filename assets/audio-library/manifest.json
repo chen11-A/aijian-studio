@@ -11,10 +11,16 @@
     "scene": "适合紧张情绪的过场或蒙太奇。",
     "duration": 90.9465,
     "loop": false,
-    "loudness": -20.32,
+    "loudness": -22.43,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
     "license": "CC0-1.0",
-    "sha256": "cdb58446c04e2e3be967519182cab86fedb5c7267f9caa7cd90451b16531ec54"
+    "sha256": "954f7a1596c489766962dad2b030606d0f9af0a20af4d5426442770827246122",
+    "truePeak": -2.01,
+    "samplePeak": -2.43884,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.0200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-23bc02ff82e2",
@@ -28,10 +34,16 @@
     "scene": "适合搞笑情绪的过场或蒙太奇。",
     "duration": 90.9455,
     "loop": false,
-    "loudness": -20.05,
+    "loudness": -21.56,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Bubbles.mp3",
     "license": "CC0-1.0",
-    "sha256": "d8407c7b73d45f2624213eab5b755fbb1fc1b3bc074f034a7940428b724a27ad"
+    "sha256": "ec4da0d940c37dfcf627a93ccf456daa4df4992726bc0ea9e113cbed02204554",
+    "truePeak": -1.68,
+    "samplePeak": -1.677036,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.4900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-e94185587d78",
@@ -48,7 +60,12 @@
     "loudness": -20.08,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Cinemato.mp3",
     "license": "CC0-1.0",
-    "sha256": "2d26c26bb3b93220255bf66ac3c61ba7111dd736c239a721f719411a4e2f9731"
+    "sha256": "2d26c26bb3b93220255bf66ac3c61ba7111dd736c239a721f719411a4e2f9731",
+    "truePeak": -3.63,
+    "samplePeak": -3.698966,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-6230c9ba9eef",
@@ -65,7 +82,12 @@
     "loudness": -20.11,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Dubstepper.mp3",
     "license": "CC0-1.0",
-    "sha256": "ed2c89dac1ead5b0c6519e9940e1d6d4b3d262780af93edc67fbf92b0b95bf5e"
+    "sha256": "ed2c89dac1ead5b0c6519e9940e1d6d4b3d262780af93edc67fbf92b0b95bf5e",
+    "truePeak": -1.24,
+    "samplePeak": -1.309443,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-6fe261a4eb25",
@@ -82,7 +104,12 @@
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Fury.mp3",
     "license": "CC0-1.0",
-    "sha256": "8a71b10a350b52ee4fb132444494bc5b86684349f6f010eec2258e1f0c1913a7"
+    "sha256": "8a71b10a350b52ee4fb132444494bc5b86684349f6f010eec2258e1f0c1913a7",
+    "truePeak": -2.85,
+    "samplePeak": -2.886313,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-0274474ab7c4",
@@ -96,10 +123,16 @@
     "scene": "适合搞笑情绪的过场或蒙太奇。",
     "duration": 80.2939,
     "loop": false,
-    "loudness": -20.1,
+    "loudness": -21.75,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Gamer%20Guy.mp3",
     "license": "CC0-1.0",
-    "sha256": "b7417e13c425130732db8204a64d9fce4e118b4b90b01d9b20f07f60305fecbb"
+    "sha256": "45549e3d65e4b45df983463f87dacb91285bc31257496f808b619d8a3884f70f",
+    "truePeak": -1.65,
+    "samplePeak": -1.80176,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.6800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-360f3c163ed6",
@@ -113,10 +146,16 @@
     "scene": "适合温暖情绪的过场或蒙太奇。",
     "duration": 90.6959,
     "loop": false,
-    "loudness": -20.02,
+    "loudness": -23.54,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
     "license": "CC0-1.0",
-    "sha256": "8951284046e3f64c3e5617f5db11081604c9a48f1349f9eca25350ae63988fa9"
+    "sha256": "246c6ce3bd3bee1444a440d3253fc5e75ff44a451802aa767fc85500bf849e22",
+    "truePeak": -1.76,
+    "samplePeak": -1.837608,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.5500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-9935a373414d",
@@ -133,7 +172,12 @@
     "loudness": -20.05,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Illusionist.mp3",
     "license": "CC0-1.0",
-    "sha256": "35b7cc63cff553a4cdd63140370a0ad23cb65935391f94a8e6460f3e6569e40d"
+    "sha256": "35b7cc63cff553a4cdd63140370a0ad23cb65935391f94a8e6460f3e6569e40d",
+    "truePeak": -1.6,
+    "samplePeak": -1.684104,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-444401af8dc7",
@@ -147,10 +191,16 @@
     "scene": "适合温暖情绪的过场或蒙太奇。",
     "duration": 90.5855,
     "loop": false,
-    "loudness": -20.14,
+    "loudness": -22.33,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/My%20Inventions.mp3",
     "license": "CC0-1.0",
-    "sha256": "57a55c52252a41ee146c92e60f69892af3ed91d3489fb74d97111c48f150adc0"
+    "sha256": "272a8e6f72c43e92fca9a1df9f18c4643910bb0656e0c3f4067be338b87464db",
+    "truePeak": -1.49,
+    "samplePeak": -1.531044,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1202 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-0a80523107eb",
@@ -167,7 +217,12 @@
     "loudness": -20.0,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Mysterious.mp3",
     "license": "CC0-1.0",
-    "sha256": "d9155eedf47767e78adabc92393336733834641d1098bec1558ddb4fa9812680"
+    "sha256": "d9155eedf47767e78adabc92393336733834641d1098bec1558ddb4fa9812680",
+    "truePeak": -3.77,
+    "samplePeak": -3.791986,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-9d2fa11d09bf",
@@ -184,7 +239,12 @@
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Newness.mp3",
     "license": "CC0-1.0",
-    "sha256": "d4496830ba88b55a3f27804afae2ebf7ac6ed2588fdd10e13c8728790f4d3289"
+    "sha256": "d4496830ba88b55a3f27804afae2ebf7ac6ed2588fdd10e13c8728790f4d3289",
+    "truePeak": -3.15,
+    "samplePeak": -3.157593,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-01a63f6d5d85",
@@ -198,10 +258,16 @@
     "scene": "适合悲伤情绪的过场或蒙太奇。",
     "duration": 90.9471,
     "loop": false,
-    "loudness": -20.07,
+    "loudness": -22.65,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
     "license": "CC0-1.0",
-    "sha256": "9d019aa7c634474013a1542a18874e83466e3993f6cbf7806afd14e2b54e7353"
+    "sha256": "66204a91083a3545f38c144aa1995bd60724f958f6e1ccd12c0dfd9ce87f4e25",
+    "truePeak": -1.77,
+    "samplePeak": -1.812482,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.5600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-b83f90a21759",
@@ -218,7 +284,12 @@
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Party%20Time.mp3",
     "license": "CC0-1.0",
-    "sha256": "bbb8ac730cbf2d50799527ba17b88fbbb83214ef183f9ce2e14b9e934c15bf31"
+    "sha256": "bbb8ac730cbf2d50799527ba17b88fbbb83214ef183f9ce2e14b9e934c15bf31",
+    "truePeak": -2.38,
+    "samplePeak": -2.399089,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-c8cdb7affbe1",
@@ -235,7 +306,12 @@
     "loudness": -19.96,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Planning.mp3",
     "license": "CC0-1.0",
-    "sha256": "cf6738efdca32a7dd6eb90c8709d97f54c96783e3c59218f446841b18ef7a2f9"
+    "sha256": "cf6738efdca32a7dd6eb90c8709d97f54c96783e3c59218f446841b18ef7a2f9",
+    "truePeak": -1.39,
+    "samplePeak": -1.494942,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-dd0e66d1c872",
@@ -252,7 +328,12 @@
     "loudness": -20.05,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Science%20Fiction.mp3",
     "license": "CC0-1.0",
-    "sha256": "926f4896dbf6b9511a4f451d4b9bc1663d96dc216c323e91b2f475c8fddfb44c"
+    "sha256": "926f4896dbf6b9511a4f451d4b9bc1663d96dc216c323e91b2f475c8fddfb44c",
+    "truePeak": -1.35,
+    "samplePeak": -1.42897,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-9a5a5f04056f",
@@ -269,7 +350,12 @@
     "loudness": -20.06,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sports%20Spirit.mp3",
     "license": "CC0-1.0",
-    "sha256": "1fd28f8bbc25d6253503d179f7f4b070ec2b2a0bc8354eb65b6e9ea030ed98db"
+    "sha256": "1fd28f8bbc25d6253503d179f7f4b070ec2b2a0bc8354eb65b6e9ea030ed98db",
+    "truePeak": -3.39,
+    "samplePeak": -3.392272,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-cc2f5e437e63",
@@ -283,10 +369,16 @@
     "scene": "适合温暖情绪的过场或蒙太奇。",
     "duration": 90.9471,
     "loop": false,
-    "loudness": -20.07,
+    "loudness": -21.29,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Starter.mp3",
     "license": "CC0-1.0",
-    "sha256": "4efa7fad956da5259e9c98245b9917180dd92473ee93a566e2928e246636d00a"
+    "sha256": "e55860f9982467960ab2f504ae1131cc74f164e3199dddabd6745e49cf5ca572",
+    "truePeak": -2.35,
+    "samplePeak": -2.351059,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-197b91134859",
@@ -303,7 +395,12 @@
     "loudness": -20.03,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sudden%20Tour.mp3",
     "license": "CC0-1.0",
-    "sha256": "ed3cbe5c8e4d6338c56cdcfca161c31553f27e2ab9d96d54c566ff7b0085fa77"
+    "sha256": "ed3cbe5c8e4d6338c56cdcfca161c31553f27e2ab9d96d54c566ff7b0085fa77",
+    "truePeak": -4.99,
+    "samplePeak": -5.268817,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": false
   },
   {
     "id": "music-012b71c5161d",
@@ -317,10 +414,16 @@
     "scene": "适合搞笑情绪的过场或蒙太奇。",
     "duration": 90.9271,
     "loop": false,
-    "loudness": -20.05,
+    "loudness": -20.79,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/THE%20CLOWN.mp3",
     "license": "CC0-1.0",
-    "sha256": "c461f1a74b32c9e1939c84abc7bb24aa6014f8afc2a3ad907840dc9085f9222a"
+    "sha256": "743b4da9dce65356ed2b89363b7043da74b29f45440bd8385993f8d530471f36",
+    "truePeak": -1.59,
+    "samplePeak": -1.745839,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.7900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "music-be6017f6ca71",
@@ -334,10 +437,16 @@
     "scene": "适合平静情绪的过场或蒙太奇。",
     "duration": 101.6477,
     "loop": false,
-    "loudness": -20.17,
+    "loudness": -21.61,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/slow%20down.mp3",
     "license": "CC0-1.0",
-    "sha256": "4151ca088b0002c6f4462a9bf2e15b3a9cd96f4d3896263534bbd37b07003f24"
+    "sha256": "ca9e6999ee34d7029175299731ebb608552364e58a7bf62589d803b36a8eba82",
+    "truePeak": -1.57,
+    "samplePeak": -1.569515,
+    "author": "effacestudios",
+    "targetLufs": -20,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.3114 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-12e512a0f2df",
@@ -353,11 +462,17 @@
     "scene": "适合草地脚步2的镜头细节或环境铺底。",
     "duration": 3.1939,
     "loop": false,
-    "loudness": -18.03,
+    "loudness": -29.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "7161271df26b7f245e8ff5c424898dfe365e3e620384ee5bbeae747bd38d1a9f",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "68cc2d50c85e71cbc093eb2405138178d3b5d83e0c11286e4b8e5e42098f368e",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.66,
+    "samplePeak": -1.705292,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -11.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-021c2e635561",
@@ -371,10 +486,16 @@
     "scene": "适合开门1的镜头细节或环境铺底。",
     "duration": 0.8991,
     "loop": false,
-    "loudness": -18.15,
+    "loudness": -20.67,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_1.ogg",
     "license": "CC0-1.0",
-    "sha256": "1124e3fe7bf8961edb31dfb046d2749e42f686f29b58d0db7e2ec2fabea4a1c4"
+    "sha256": "3aa053a0b43cf39c577042b71231d487995f9d752cec88f6822a3f1379945818",
+    "truePeak": -1.77,
+    "samplePeak": -1.857088,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-22c2f5697f1a",
@@ -388,10 +509,16 @@
     "scene": "适合开门2的镜头细节或环境铺底。",
     "duration": 1.3862,
     "loop": false,
-    "loudness": -18.22,
+    "loudness": -21.02,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_2.ogg",
     "license": "CC0-1.0",
-    "sha256": "ce3f6bb8039ecfda700f61c87a42290fa993604cacb53f7bb42942c587e51077"
+    "sha256": "b27e60405ac0f4231ce16fd66d55e64275c0daad2ec11ab4ce94db630d4ad6c2",
+    "truePeak": -2.1,
+    "samplePeak": -2.320534,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.6000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-d93e440b2aa4",
@@ -408,7 +535,12 @@
     "loudness": -18.52,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_1.ogg",
     "license": "CC0-1.0",
-    "sha256": "02ad641907a8a9659ab8b4c34a9a952a51bf2dae6b2c0c45392fdc5683915071"
+    "sha256": "02ad641907a8a9659ab8b4c34a9a952a51bf2dae6b2c0c45392fdc5683915071",
+    "truePeak": -1.78,
+    "samplePeak": -1.990055,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-54b6a6e1f762",
@@ -425,7 +557,12 @@
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_2.ogg",
     "license": "CC0-1.0",
-    "sha256": "8855a7685f57a68a9f31c9189eb986822e1d156fe2eae0598d46f658d817f512"
+    "sha256": "8855a7685f57a68a9f31c9189eb986822e1d156fe2eae0598d46f658d817f512",
+    "truePeak": -1.73,
+    "samplePeak": -1.731736,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-cc6515f70c70",
@@ -439,10 +576,16 @@
     "scene": "适合关门4的镜头细节或环境铺底。",
     "duration": 0.5825,
     "loop": false,
-    "loudness": -18.03,
+    "loudness": -19.93,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_4.ogg",
     "license": "CC0-1.0",
-    "sha256": "b793d075cfd33580804cdcc78def88c5600c26e1ed1b379ef866c9e9786b0cec"
+    "sha256": "c975b8e7b9c6ab211bd22a0557944d059b439101c30e3af6555983e98886d3a3",
+    "truePeak": -1.63,
+    "samplePeak": -1.637235,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-4729d1a9a20d",
@@ -458,10 +601,16 @@
     "scene": "适合衣服摩擦1的镜头细节或环境铺底。",
     "duration": 0.5287,
     "loop": false,
-    "loudness": -18.25,
+    "loudness": -24.4,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth1.ogg",
     "license": "CC0-1.0",
-    "sha256": "a35434d18af154c58fa11ff4c8e6601f0b57e038bf0664cf890b086db7702358"
+    "sha256": "3804ef7eac232c533128f53ada6b2035e37def0f1a0fe0ec19fda5176209c2e7",
+    "truePeak": -2.01,
+    "samplePeak": -2.010695,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.0344 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-a91bbbc2b480",
@@ -477,10 +626,16 @@
     "scene": "适合衣服摩擦3的镜头细节或环境铺底。",
     "duration": 0.451,
     "loop": false,
-    "loudness": -18.05,
+    "loudness": -21.65,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth3.ogg",
     "license": "CC0-1.0",
-    "sha256": "eb9cc80a590c3d2f086ebf45329d414989d3d1f6cbe42f47be4231981dbc5148"
+    "sha256": "07e5f003073682f1f52c0681291a74ea774f0f025ac63137341154b0886526f7",
+    "truePeak": -2.3,
+    "samplePeak": -2.299954,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-12dee896057b",
@@ -494,10 +649,16 @@
     "scene": "适合翻书1的镜头细节或环境铺底。",
     "duration": 0.6137,
     "loop": false,
-    "loudness": -18.21,
+    "loudness": -31.0,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/bookFlip1.ogg",
     "license": "CC0-1.0",
-    "sha256": "b52f389c8195c6e055794b83e686fc402481c97a850cca3a8b0f42873283f678"
+    "sha256": "31148bea78d1f3aeebe4b93084f1688690febc33ebd6fe105bee290c695e026d",
+    "truePeak": -1.96,
+    "samplePeak": -2.055378,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -10.9300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-3bf9d7a22a53",
@@ -514,7 +675,12 @@
     "loudness": -18.17,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot1.ogg",
     "license": "CC0-1.0",
-    "sha256": "de4b7e391be1e7f822d06a5c7c48339cdba0e0e15e3a5e333444d92de50cc3ff"
+    "sha256": "de4b7e391be1e7f822d06a5c7c48339cdba0e0e15e3a5e333444d92de50cc3ff",
+    "truePeak": -2.34,
+    "samplePeak": -2.339713,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-ba55b94aa69b",
@@ -531,7 +697,12 @@
     "loudness": -18.44,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot2.ogg",
     "license": "CC0-1.0",
-    "sha256": "e0e2556dba11f90002ad1f161db0c03b9a05f35c5c5b2bd77011b9b500f971ad"
+    "sha256": "e0e2556dba11f90002ad1f161db0c03b9a05f35c5c5b2bd77011b9b500f971ad",
+    "truePeak": -7.43,
+    "samplePeak": -7.526123,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-9e826c868f2e",
@@ -548,7 +719,12 @@
     "loudness": -18.22,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot3.ogg",
     "license": "CC0-1.0",
-    "sha256": "3bd8cc7052b1d60713084da9be8dbd36892e15ab7ce77c61afc6b629ecdc7e8b"
+    "sha256": "3bd8cc7052b1d60713084da9be8dbd36892e15ab7ce77c61afc6b629ecdc7e8b",
+    "truePeak": -6.56,
+    "samplePeak": -6.672462,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-528edef154d1",
@@ -563,10 +739,16 @@
     "scene": "适合刀刃刮擦1的镜头细节或环境铺底。",
     "duration": 1.4768,
     "loop": false,
-    "loudness": -18.06,
+    "loudness": -22.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%201.wav",
     "license": "CC0-1.0",
-    "sha256": "6ffbee720410b98a7d7397c42039669651e1abadd4881be6404ed2389f623105"
+    "sha256": "64c7749ad47d1624619f3a3434586cfc450c4353bc7b58cd6a1344f1fcce0098",
+    "truePeak": -1.91,
+    "samplePeak": -2.139288,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.4300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-f5ab3071c93d",
@@ -584,7 +766,12 @@
     "loudness": -18.09,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%202.wav",
     "license": "CC0-1.0",
-    "sha256": "d73d759779e900246ebc14eeb8155a3d56141e3bcc61b876a783ba9a6fd0f103"
+    "sha256": "d73d759779e900246ebc14eeb8155a3d56141e3bcc61b876a783ba9a6fd0f103",
+    "truePeak": -2.3,
+    "samplePeak": -2.29774,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-a37ee051f018",
@@ -602,7 +789,12 @@
     "loudness": -18.13,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%203.wav",
     "license": "CC0-1.0",
-    "sha256": "7aa6fbf9ee5e65b5e5880497f151fd0e67746fd332883e3fff745dfdb91e5162"
+    "sha256": "7aa6fbf9ee5e65b5e5880497f151fd0e67746fd332883e3fff745dfdb91e5162",
+    "truePeak": -2.36,
+    "samplePeak": -2.359813,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-9dcf180a63dd",
@@ -619,10 +811,16 @@
     "scene": "适合纸页翻动1的镜头细节或环境铺底。",
     "duration": 7.5121,
     "loop": false,
-    "loudness": -18.03,
+    "loudness": -35.24,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%201.wav",
     "license": "CC0-1.0",
-    "sha256": "8a4241a795acf3060a5de77fc1f0b36d4ae4fbfef4962fdf2e7a8bbec6f24fa4"
+    "sha256": "c47045d6ae8da1de3369930cdb5dfd5d8643301484d1e8270e84d80922ce1875",
+    "truePeak": -2.14,
+    "samplePeak": -2.242779,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -17.2100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-57f0db65990a",
@@ -639,10 +837,16 @@
     "scene": "适合纸页翻动2的镜头细节或环境铺底。",
     "duration": 0.8419,
     "loop": false,
-    "loudness": -18.15,
+    "loudness": -31.54,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%202.wav",
     "license": "CC0-1.0",
-    "sha256": "e9f0ecb62097c3af436f4361224e2edaf329326468c44167709be8a5d8475952"
+    "sha256": "689d618951de46050689f6a5b2de0e5029cae10b5768d3916d67f038a102d4cb",
+    "truePeak": -1.64,
+    "samplePeak": -1.638264,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.1500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-6496901c0404",
@@ -659,10 +863,16 @@
     "scene": "适合纸页翻动3的镜头细节或环境铺底。",
     "duration": 1.5348,
     "loop": false,
-    "loudness": -17.98,
+    "loudness": -27.45,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%203.wav",
     "license": "CC0-1.0",
-    "sha256": "61a85e1a8e04d0995de07c7c70fec8b6f67a1fb1eae1636ed5902275e678b08f"
+    "sha256": "309308de856d0da69d80137d8043964bc1864179c2f56fb849c7935437e58381",
+    "truePeak": -1.92,
+    "samplePeak": -1.918938,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -9.3700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-071cf6baccc0",
@@ -681,7 +891,12 @@
     "loudness": -18.12,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Air%20Vent.wav",
     "license": "CC0-1.0",
-    "sha256": "55ef3b1dcec784530f2e87adf4b3aaefa2d401e7c96ae521b8e4f06a4bcbb1d0"
+    "sha256": "55ef3b1dcec784530f2e87adf4b3aaefa2d401e7c96ae521b8e4f06a4bcbb1d0",
+    "truePeak": -2.79,
+    "samplePeak": -2.800323,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-510e5353e830",
@@ -700,7 +915,12 @@
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Bathroom%20Fan.wav",
     "license": "CC0-1.0",
-    "sha256": "463def073b0dcd3f25277ac288b0388194a86e95798b03ef508cf060900f1b64"
+    "sha256": "463def073b0dcd3f25277ac288b0388194a86e95798b03ef508cf060900f1b64",
+    "truePeak": -4.29,
+    "samplePeak": -4.295601,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-843c79cf1eec",
@@ -719,7 +939,12 @@
     "loudness": -18.01,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Computer%20Fan.wav",
     "license": "CC0-1.0",
-    "sha256": "cddea3738fbf722652a50097a1cd43ab452fcf558deee47f8631e88ee0f9ec76"
+    "sha256": "cddea3738fbf722652a50097a1cd43ab452fcf558deee47f8631e88ee0f9ec76",
+    "truePeak": -5.1,
+    "samplePeak": -5.106496,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-0fee82de42e3",
@@ -737,7 +962,12 @@
     "loudness": -18.03,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Dehumidifier.wav",
     "license": "CC0-1.0",
-    "sha256": "a46ade631e5b722c888d894ec80e85cff598de12cd9b0d0b2ccb706bae2a0d42"
+    "sha256": "a46ade631e5b722c888d894ec80e85cff598de12cd9b0d0b2ccb706bae2a0d42",
+    "truePeak": -3.66,
+    "samplePeak": -3.662305,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-98719b6dd48c",
@@ -756,7 +986,12 @@
     "loudness": -18.09,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Furnace%20Fan.wav",
     "license": "CC0-1.0",
-    "sha256": "ec091f89a9cc375f473e0a0c5426bbbf3417f88e773649a8a5c5510a8609d130"
+    "sha256": "ec091f89a9cc375f473e0a0c5426bbbf3417f88e773649a8a5c5510a8609d130",
+    "truePeak": -4.19,
+    "samplePeak": -4.194264,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-e0ccb6598627",
@@ -772,10 +1007,16 @@
     "scene": "适合大风扇的镜头细节或环境铺底。",
     "duration": 67.19,
     "loop": false,
-    "loudness": -18.08,
+    "loudness": -19.79,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Large%20Fan.wav",
     "license": "CC0-1.0",
-    "sha256": "f3c02ccb4abf02f779e4dbd8838ef5083c913ca8fbcf44923ae20b41d4fbdcfa"
+    "sha256": "26bbe8da5c57dfd9fe5c4bfd28ab4905361a73ae7bd396f2b8fb7a690865007f",
+    "truePeak": -1.72,
+    "samplePeak": -1.719017,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.6300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-cd7e525287e0",
@@ -793,7 +1034,12 @@
     "loudness": -18.0,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Microwave.wav",
     "license": "CC0-1.0",
-    "sha256": "4db4b12130dc66eb35d478f369b4fed7059b6eb6662f8baff72b843f740b1b25"
+    "sha256": "4db4b12130dc66eb35d478f369b4fed7059b6eb6662f8baff72b843f740b1b25",
+    "truePeak": -6.55,
+    "samplePeak": -6.552416,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-57aaf3ed3677",
@@ -811,7 +1057,12 @@
     "loudness": -17.99,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outdoor%20AC%20Unit.wav",
     "license": "CC0-1.0",
-    "sha256": "7f62ed4ce1136ff194f526cd86b627b0cea73bfc82503b4dbdb3fd154e71be0e"
+    "sha256": "7f62ed4ce1136ff194f526cd86b627b0cea73bfc82503b4dbdb3fd154e71be0e",
+    "truePeak": -7.4,
+    "samplePeak": -7.404468,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-5f709f72838f",
@@ -826,10 +1077,16 @@
     "scene": "适合室外底噪的镜头细节或环境铺底。",
     "duration": 53.1139,
     "loop": false,
-    "loudness": -18.19,
+    "loudness": -23.13,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
     "license": "CC0-1.0",
-    "sha256": "af3a056f01629341656ca3aa91b19edca5ab6701f543ce60555770f5f91ee0b9"
+    "sha256": "fda4383aef6ab43713bb7d0f475e568d516ed6ec1de99006ef24ba6574b17d01",
+    "truePeak": -1.89,
+    "samplePeak": -1.888518,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-609fbbb2cc63",
@@ -847,7 +1104,12 @@
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Refridgerator.wav",
     "license": "CC0-1.0",
-    "sha256": "812d20d07f4b56fc609d4879ba6d8f9c8f48a9e3012f6b0c14747a6c1635e2cf"
+    "sha256": "812d20d07f4b56fc609d4879ba6d8f9c8f48a9e3012f6b0c14747a6c1635e2cf",
+    "truePeak": -2.63,
+    "samplePeak": -2.62981,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-da48e26760ac",
@@ -865,10 +1127,16 @@
     "scene": "适合水槽龙头的镜头细节或环境铺底。",
     "duration": 61.0001,
     "loop": false,
-    "loudness": -18.32,
+    "loudness": -25.03,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
     "license": "CC0-1.0",
-    "sha256": "187480baf53c21b43cde7deb91b55dfad3db96d66aae400a400baf5f3da2e363"
+    "sha256": "4e753a0105218c2af70b19054d436a502153d66ae08ec46aa067fe36e0d831b1",
+    "truePeak": -2.07,
+    "samplePeak": -2.065438,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.5300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-e2b5a3ce0637",
@@ -887,66 +1155,12 @@
     "loudness": -18.18,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Small%20Fan.wav",
     "license": "CC0-1.0",
-    "sha256": "a70195e7b1bcc0f339254d684f485e3394bae92aad9315b1a0319d607c6cc5f0"
-  },
-  {
-    "id": "sfx-689299c71246",
-    "path": "sfx/sfx-689299c71246.ogg",
-    "type": "sfx",
-    "category": "环境",
-    "name": "风声采样",
-    "tags": [
-      "刮风",
-      "风",
-      "风声",
-      "风声采样"
-    ],
-    "scene": "适合风声采样的镜头细节或环境铺底。",
-    "duration": 2.1085,
-    "loop": false,
-    "loudness": -17.96,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-12-22%20Snow%20Day%20-%20Windy.wav",
-    "license": "CC0-1.0",
-    "sha256": "a152f424a1702394b85fb66c3de3bc54b8f466e4dd1cb146e8f10104416ad0bf"
-  },
-  {
-    "id": "sfx-2cfe172eb41f",
-    "path": "sfx/sfx-2cfe172eb41f.ogg",
-    "type": "sfx",
-    "category": "环境",
-    "name": "雨声采样",
-    "tags": [
-      "下雨",
-      "雨",
-      "雨声",
-      "雨声采样"
-    ],
-    "scene": "适合雨声采样的镜头细节或环境铺底。",
-    "duration": 5.7565,
-    "loop": false,
-    "loudness": -18.12,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-07-23%20Music%20for%20Four%20Dimensions%20-%20Rain.wav",
-    "license": "CC0-1.0",
-    "sha256": "b03ca5be0382545fd2f474bda48eecb2e0186b25e48cec677a82edd7109b812d"
-  },
-  {
-    "id": "sfx-72721afc39ef",
-    "path": "sfx/sfx-72721afc39ef.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "沉重喘息",
-    "tags": [
-      "喘息",
-      "喘气",
-      "沉重喘息"
-    ],
-    "scene": "适合沉重喘息的镜头细节或环境铺底。",
-    "duration": 0.5589,
-    "loop": false,
-    "loudness": -18.38,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-04-16%20Triple-C%20THICCC%20-%20Heavy%20Breathing.wav",
-    "license": "CC0-1.0",
-    "sha256": "8f2ee612f6cbc3560bd1f2c213ec69ba6921db2eab420f2642b2ac63dec9df53"
+    "sha256": "a70195e7b1bcc0f339254d684f485e3394bae92aad9315b1a0319d607c6cc5f0",
+    "truePeak": -1.61,
+    "samplePeak": -1.74944,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-400bbc61b44b",
@@ -963,10 +1177,16 @@
     "scene": "适合拟音雷声1的镜头细节或环境铺底。",
     "duration": 11.587,
     "loop": false,
-    "loudness": -18.01,
+    "loudness": -21.74,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%201.wav",
     "license": "CC0-1.0",
-    "sha256": "71e8e3aee81b0aa3ad865181e63cdfe7a9208918674844595b2b6b4bafb98160"
+    "sha256": "460210674977070f86cae3ee80e39ecc51037ac3037dad3e992d76779d3358e9",
+    "truePeak": -1.78,
+    "samplePeak": -1.783196,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.7300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-5b3c0f1e70aa",
@@ -986,7 +1206,12 @@
     "loudness": -17.98,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%202.wav",
     "license": "CC0-1.0",
-    "sha256": "f6e3e679122c7dab0474c291f3318d72acff3aab86d8b7d048ff91cacb043e6d"
+    "sha256": "f6e3e679122c7dab0474c291f3318d72acff3aab86d8b7d048ff91cacb043e6d",
+    "truePeak": -1.05,
+    "samplePeak": -1.052554,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-4b7ae48f1514",
@@ -1001,10 +1226,16 @@
     "scene": "适合旋转嗖声1的镜头细节或环境铺底。",
     "duration": 1.9591,
     "loop": false,
-    "loudness": -18.16,
+    "loudness": -22.64,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%201.wav",
     "license": "CC0-1.0",
-    "sha256": "7d7a7de66152cfaa5fc0fde8293ca603487098855831f244f23b93ac58816051"
+    "sha256": "1376c57107685c8beb7c835495cbe3a7d5111cc019746a24ba81c9f29e90cac8",
+    "truePeak": -1.86,
+    "samplePeak": -1.8797,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-dd062ef50014",
@@ -1019,10 +1250,16 @@
     "scene": "适合旋转嗖声2的镜头细节或环境铺底。",
     "duration": 1.2071,
     "loop": false,
-    "loudness": -18.21,
+    "loudness": -20.55,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%202.wav",
     "license": "CC0-1.0",
-    "sha256": "93d6c87c8429588ba73ae8b018137639cda917446e8b208601d0347d5a7207bb"
+    "sha256": "bd930adc73cc9d9dad6fa0efeff4fc664e27e4ed067aa1597c82aee078e0d9db",
+    "truePeak": -2.0,
+    "samplePeak": -1.998847,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.2049 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-c8408f0b4f3c",
@@ -1037,10 +1274,16 @@
     "scene": "适合旋转嗖声3的镜头细节或环境铺底。",
     "duration": 1.3621,
     "loop": false,
-    "loudness": -18.16,
+    "loudness": -20.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%203.wav",
     "license": "CC0-1.0",
-    "sha256": "ba3810a56c0a4700d3a6bc6de512fdd51cdfa990d57e8be93cc0c10a5e751d7d"
+    "sha256": "190b2a14c1eab5d21361666874d701abb4dca7f1475477a6212398bca8856da2",
+    "truePeak": -1.62,
+    "samplePeak": -1.666024,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.9700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-61cd75357c07",
@@ -1055,10 +1298,16 @@
     "scene": "适合旋转嗖声4的镜头细节或环境铺底。",
     "duration": 2.2524,
     "loop": false,
-    "loudness": -18.13,
+    "loudness": -21.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%204.wav",
     "license": "CC0-1.0",
-    "sha256": "e6be1744c6602549b509be94058df51e0e23dd19057566fffa49dc6f613e7448"
+    "sha256": "d521348373927cc62a1cbcf0d96ba8e810c53f252ad849948f3c2a0644e2aaaf",
+    "truePeak": -1.84,
+    "samplePeak": -1.839796,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-1538a6137773",
@@ -1073,10 +1322,16 @@
     "scene": "适合短旋转嗖声1的镜头细节或环境铺底。",
     "duration": 0.5066,
     "loop": false,
-    "loudness": -18.25,
+    "loudness": -21.7,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%201.wav",
     "license": "CC0-1.0",
-    "sha256": "6a57ddd19808a67cd177d8fa32b0dd6e3e06f31946295df2b76d028aa2a879e3"
+    "sha256": "86cc966fcfe6938fffcc61190ca53af9174cc43665fb9a9f52c808a3a868a7a5",
+    "truePeak": -1.82,
+    "samplePeak": -1.815734,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3540 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-2f505f35e02e",
@@ -1091,10 +1346,16 @@
     "scene": "适合短旋转嗖声2的镜头细节或环境铺底。",
     "duration": 0.677,
     "loop": false,
-    "loudness": -18.22,
+    "loudness": -19.34,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%202.wav",
     "license": "CC0-1.0",
-    "sha256": "033d20629c49dee36f2266e7143ea4d1413ea3407e11841ce0af5db596351b72"
+    "sha256": "48356bea5a6d772dccc6d553699df380ea157dc26d130b287635b1560a713d42",
+    "truePeak": -1.97,
+    "samplePeak": -2.037912,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-aa12ed90f8da",
@@ -1109,10 +1370,16 @@
     "scene": "适合短旋转嗖声3的镜头细节或环境铺底。",
     "duration": 1.1096,
     "loop": false,
-    "loudness": -18.07,
+    "loudness": -19.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%203.wav",
     "license": "CC0-1.0",
-    "sha256": "4c7c8ee675b9bb4dc201d162a260a98afaed5c689df05b94d4398fe5222711c0"
+    "sha256": "1f455e4907d854ddf579ad468a75c90ac043af8021c025614b8a0727412cfe28",
+    "truePeak": -1.81,
+    "samplePeak": -1.862904,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.5200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-1fc97e200590",
@@ -1127,10 +1394,16 @@
     "scene": "适合短旋转嗖声4的镜头细节或环境铺底。",
     "duration": 1.0644,
     "loop": false,
-    "loudness": -18.11,
+    "loudness": -19.94,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%204.wav",
     "license": "CC0-1.0",
-    "sha256": "3f8f4a83c79044fbf4504962331a58f718b5a6cd1a660841b7df29e48df2b319"
+    "sha256": "fed4fbc4773afcc4c6f4422df0ce026bf6d23f16292d6d42f72cd7ff00fcd280",
+    "truePeak": -1.6,
+    "samplePeak": -1.641581,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.8100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-5713b6175e2d",
@@ -1145,10 +1418,16 @@
     "scene": "适合短旋转嗖声5的镜头细节或环境铺底。",
     "duration": 1.3215,
     "loop": false,
-    "loudness": -18.14,
+    "loudness": -20.41,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%205.wav",
     "license": "CC0-1.0",
-    "sha256": "016b009e12ad312fbad305856debb8abbb39fbe2d9d921d7585a52494b5be334"
+    "sha256": "aab687b71713a295b4a8fb97b585e41586c6892c6e0b86715b2c8f981f78ef27",
+    "truePeak": -1.72,
+    "samplePeak": -1.76341,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-542b57ac2f91",
@@ -1163,10 +1442,16 @@
     "scene": "适合短旋转嗖声6的镜头细节或环境铺底。",
     "duration": 1.3857,
     "loop": false,
-    "loudness": -18.13,
+    "loudness": -18.99,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%206.wav",
     "license": "CC0-1.0",
-    "sha256": "8708ad79072c8223bbd2dd342e363a480603501aff5bc0b556a9339504280867"
+    "sha256": "5e345cab609c9aee68b867998a167dcd0ff4345a139ab0ef4d595e92624e52e7",
+    "truePeak": -2.07,
+    "samplePeak": -2.132441,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.8700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-ce40ad51976c",
@@ -1181,10 +1466,16 @@
     "scene": "适合连续挥动1的镜头细节或环境铺底。",
     "duration": 0.6009,
     "loop": false,
-    "loudness": -17.97,
+    "loudness": -22.4,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%201.wav",
     "license": "CC0-1.0",
-    "sha256": "055e7806ca94cc9c44562c5e8f214105381bdb817942191811b087f4e976dd3d"
+    "sha256": "2e2fbb5e495e2bb2a9bddf06e9fd0e125a59f0163904c25fd7ab0f5bc5d482dd",
+    "truePeak": -2.1,
+    "samplePeak": -2.117697,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.0700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-745b785ba632",
@@ -1199,10 +1490,16 @@
     "scene": "适合连续挥动2的镜头细节或环境铺底。",
     "duration": 0.9199,
     "loop": false,
-    "loudness": -18.14,
+    "loudness": -24.44,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%202.wav",
     "license": "CC0-1.0",
-    "sha256": "668de25c2a53756804095745d197daddc941c8eee593ff69cd8c021c31001980"
+    "sha256": "fbeb698cf9fe43c913cfcab189bce64381d9269fdf81ad62743d946bb37b6938",
+    "truePeak": -1.71,
+    "samplePeak": -1.778923,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-bfb3175cd7f4",
@@ -1217,10 +1514,16 @@
     "scene": "适合连续挥动3的镜头细节或环境铺底。",
     "duration": 1.529,
     "loop": false,
-    "loudness": -18.34,
+    "loudness": -24.1,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%203.wav",
     "license": "CC0-1.0",
-    "sha256": "7c17a60b7b02ade963ee1af505b7099e94b6e730659a6f120128a26bf67b7d3e"
+    "sha256": "4d208f4c57b0315e569bc411e0e5780b5acae0fe37227a41074ddf07db979832",
+    "truePeak": -1.65,
+    "samplePeak": -1.654149,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -5.2900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-05168a0aa856",
@@ -1235,172 +1538,16 @@
     "scene": "适合连续挥动4的镜头细节或环境铺底。",
     "duration": 0.6715,
     "loop": false,
-    "loudness": -18.18,
+    "loudness": -21.49,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%204.wav",
     "license": "CC0-1.0",
-    "sha256": "dcfead389215d1d531d183b3fcf25c7e0ff8e2e3f1e3cf87f3072c75548913d8"
-  },
-  {
-    "id": "sfx-821112262ef3",
-    "path": "sfx/sfx-821112262ef3.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦1",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦1的镜头细节或环境铺底。",
-    "duration": 0.7246,
-    "loop": false,
-    "loudness": -18.05,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%201.wav",
-    "license": "CC0-1.0",
-    "sha256": "2fe0b5c378ef7881046e51ada85462a82d60acb6b506754f4a75dc8857f7b3e5"
-  },
-  {
-    "id": "sfx-df3377a3de24",
-    "path": "sfx/sfx-df3377a3de24.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦2",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦2的镜头细节或环境铺底。",
-    "duration": 0.6031,
-    "loop": false,
-    "loudness": -18.29,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%202.wav",
-    "license": "CC0-1.0",
-    "sha256": "7e0ef009e17dd373c1d2a4ed8f0ba13e569250374b3a86ed637200918a74a831"
-  },
-  {
-    "id": "sfx-d8d150ce2346",
-    "path": "sfx/sfx-d8d150ce2346.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦3",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦3的镜头细节或环境铺底。",
-    "duration": 1.0309,
-    "loop": false,
-    "loudness": -18.08,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%203.wav",
-    "license": "CC0-1.0",
-    "sha256": "5dc8067a1aa02b9bf527a93fea2ce27bc2e2704691ec486525ad98315bd71018"
-  },
-  {
-    "id": "sfx-01d6eb26ca00",
-    "path": "sfx/sfx-01d6eb26ca00.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦4",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦4的镜头细节或环境铺底。",
-    "duration": 1.0235,
-    "loop": false,
-    "loudness": -18.21,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%204.wav",
-    "license": "CC0-1.0",
-    "sha256": "0bcbe9a3e315ddbbb1c9a95ffe663062aa62f9845d85244f0da3d992a6cae60d"
-  },
-  {
-    "id": "sfx-5ea35dd11f89",
-    "path": "sfx/sfx-5ea35dd11f89.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦5",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦5的镜头细节或环境铺底。",
-    "duration": 1.0869,
-    "loop": false,
-    "loudness": -18.26,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%205.wav",
-    "license": "CC0-1.0",
-    "sha256": "3eedb65cb566e48586255aaab4929ce5700f58a1b43f1d54bc6b64377947d5d6"
-  },
-  {
-    "id": "sfx-b6f9170c0ddf",
-    "path": "sfx/sfx-b6f9170c0ddf.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦6",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦6的镜头细节或环境铺底。",
-    "duration": 0.7534,
-    "loop": false,
-    "loudness": -18.1,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%206.wav",
-    "license": "CC0-1.0",
-    "sha256": "e2a37632ae2f49ab342a9c096f32dafdf4484e03ce045bbb2ad3a6338fe04235"
-  },
-  {
-    "id": "sfx-f3c3289ea8a0",
-    "path": "sfx/sfx-f3c3289ea8a0.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦7",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦7的镜头细节或环境铺底。",
-    "duration": 0.8336,
-    "loop": false,
-    "loudness": -18.17,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%207.wav",
-    "license": "CC0-1.0",
-    "sha256": "261ba59d879e98676d8c3009f6a3ece54bf14339fc0154fad63e7b6137ec2fd5"
-  },
-  {
-    "id": "sfx-0f5c035600b2",
-    "path": "sfx/sfx-0f5c035600b2.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦8",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦8的镜头细节或环境铺底。",
-    "duration": 1.3616,
-    "loop": false,
-    "loudness": -18.18,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%208.wav",
-    "license": "CC0-1.0",
-    "sha256": "31611bfe43d5b6f8a86551aefdee5559fd81a9dc88cec748cacf1e987d23978a"
-  },
-  {
-    "id": "sfx-5707164b78b6",
-    "path": "sfx/sfx-5707164b78b6.ogg",
-    "type": "sfx",
-    "category": "动作",
-    "name": "大刀刮擦9",
-    "tags": [
-      "刀剑",
-      "打斗"
-    ],
-    "scene": "适合大刀刮擦9的镜头细节或环境铺底。",
-    "duration": 1.2877,
-    "loop": false,
-    "loudness": -18.17,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%209.wav",
-    "license": "CC0-1.0",
-    "sha256": "3ea02851ad843680aa06451c8acf30e28076f9f43b826a0ac406b535c36836f2"
+    "sha256": "eb3aa11914d547eaf0c3fe4fad9c7e27c312bd8007c4889e7a74af988c39a3db",
+    "truePeak": -1.76,
+    "samplePeak": -1.79174,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-9e3959a42c70",
@@ -1415,10 +1562,16 @@
     "scene": "适合大刀出鞘1的镜头细节或环境铺底。",
     "duration": 1.5249,
     "loop": false,
-    "loudness": -18.33,
+    "loudness": -24.77,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%201.wav",
     "license": "CC0-1.0",
-    "sha256": "05d0359b19dfca2d66289d9d1d9c0f5bccc438570e56237086c7aa7e50f231d2"
+    "sha256": "73bb5fda01c0b536f64a792d7d5d5d49bec87391cf881c6a437667f9ec8e1062",
+    "truePeak": -4.19,
+    "samplePeak": -4.18995,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.1518 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-c809f0eb7e33",
@@ -1436,7 +1589,12 @@
     "loudness": -18.34,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%202.wav",
     "license": "CC0-1.0",
-    "sha256": "53df3f31a5896b22bbfd215801b74a6cfcc239e1e31d57ea5ddece3205b4df56"
+    "sha256": "53df3f31a5896b22bbfd215801b74a6cfcc239e1e31d57ea5ddece3205b4df56",
+    "truePeak": -2.59,
+    "samplePeak": -2.778801,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": false
   },
   {
     "id": "sfx-5408170ced24",
@@ -1451,10 +1609,16 @@
     "scene": "适合大刀入鞘1的镜头细节或环境铺底。",
     "duration": 1.2401,
     "loop": false,
-    "loudness": -18.25,
+    "loudness": -23.2,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%201.wav",
     "license": "CC0-1.0",
-    "sha256": "176d7ae2f1d69eeb0849b72e9dcd5d9db606f26a5998db18e4429bf7ae0ba3c6"
+    "sha256": "857bac6cf1319c8dc559d9a312720423d4c5f51b9826cdc3116274eb57ed9c0a",
+    "truePeak": -1.94,
+    "samplePeak": -2.353259,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -5.0000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-e4ecdce1c649",
@@ -1469,10 +1633,16 @@
     "scene": "适合大刀入鞘2的镜头细节或环境铺底。",
     "duration": 1.2125,
     "loop": false,
-    "loudness": -18.22,
+    "loudness": -30.74,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%202.wav",
     "license": "CC0-1.0",
-    "sha256": "923f29be3b9f6bd1f3decfcbdb10d7684c19b5ee077eebce1c3bce2cd5b21dbb"
+    "sha256": "6caafd2eb2272faee48c1a7d8db1f8dd197e5f7048eca7e63f423d702a42361f",
+    "truePeak": -2.12,
+    "samplePeak": -2.118758,
+    "author": "Benjamin Burnes（包内协作者见许可证原文）",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.3335 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-b74c1393e17c",
@@ -1490,10 +1660,16 @@
     "scene": "适合重拳1的镜头细节或环境铺底。",
     "duration": 0.4849,
     "loop": false,
-    "loudness": -18.05,
+    "loudness": -19.25,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "9489d657da05281fd7cefc06b8187ca3d21e0078c0322f84ea8a8ccdef3dff0f"
+    "sha256": "e92a027b9d6429f185590ff385148ffa800aaf102f3326d40b3aa5076eeda06c",
+    "truePeak": -1.66,
+    "samplePeak": -1.6642,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-b3847cc4bfeb",
@@ -1511,10 +1687,16 @@
     "scene": "适合重拳2的镜头细节或环境铺底。",
     "duration": 0.4034,
     "loop": false,
-    "loudness": -18.05,
+    "loudness": -18.75,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "8a281216e18338b3d15d59d593dc97d52ffe8aab1ef9230eb09e9ec64b9e041c"
+    "sha256": "36e8ed4653239612322786e86b7b02ffcbf122fbd23ff779087137cb4065c56d",
+    "truePeak": -1.77,
+    "samplePeak": -1.771519,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.7209 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-8dad161c6a8c",
@@ -1532,10 +1714,16 @@
     "scene": "适合重拳5的镜头细节或环境铺底。",
     "duration": 0.4046,
     "loop": false,
-    "loudness": -18.05,
+    "loudness": -19.05,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_004.ogg",
     "license": "CC0-1.0",
-    "sha256": "03c5197925eb85ada03cc1b3312c6f8f6a72b12aca9ae6672290fba10623d9cf"
+    "sha256": "e41bd2635605a0432b07977a9b8517c35c720389bc71c280d91e68b57a2f30ab",
+    "truePeak": -1.75,
+    "samplePeak": -1.747542,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0940 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-1cfa32c9392e",
@@ -1550,10 +1738,16 @@
     "scene": "适合软物重落1的镜头细节或环境铺底。",
     "duration": 0.4947,
     "loop": false,
-    "loudness": -17.95,
+    "loudness": -19.95,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "eb78101c9de1707737ccf530cec9730c7234855aa9ff823113bce30b566e7283"
+    "sha256": "e8792d09a5949f69c2770995d6abc84416d6a39a1804e99bb40c4dbff0a72a62",
+    "truePeak": -1.57,
+    "samplePeak": -1.569869,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1330 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-7a3e0edcc209",
@@ -1568,10 +1762,16 @@
     "scene": "适合软物重落2的镜头细节或环境铺底。",
     "duration": 0.5591,
     "loop": false,
-    "loudness": -17.89,
+    "loudness": -22.49,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "4f5f1730cf20a6b35e5aa19ce8ec1f931d6035484eb109fc65b34d63a54f5b68"
+    "sha256": "2a00b4e4effb12ff32998d15447ff9c1c8f1ebafffeaa990040c74eec405710b",
+    "truePeak": -1.58,
+    "samplePeak": -1.584497,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.5923 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-7b302c8ca4c4",
@@ -1586,10 +1786,16 @@
     "scene": "适合软物重落3的镜头细节或环境铺底。",
     "duration": 0.5594,
     "loop": false,
-    "loudness": -17.98,
+    "loudness": -22.28,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "d38292625fd67a812f990715ca75e9f505d3b9ee8596d114c9e47406e36d36b7"
+    "sha256": "3eb2c5c375e5c3a8daad0d7c580094d2e9d486515721e69f570dbcbfb0a3ab66",
+    "truePeak": -1.6,
+    "samplePeak": -1.603496,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.3337 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-b3e38126d804",
@@ -1604,10 +1810,16 @@
     "scene": "适合软物重落4的镜头细节或环境铺底。",
     "duration": 0.5312,
     "loop": false,
-    "loudness": -17.93,
+    "loudness": -22.43,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_003.ogg",
     "license": "CC0-1.0",
-    "sha256": "efb01b6945599f93e8b8e345df16b2771bbadf2123a0c20379c79e764d1d61ad"
+    "sha256": "6c59666924c7518dc339cd1483d2ca13538db77bbdb056c0f3b4d677be3a4a6a",
+    "truePeak": -1.63,
+    "samplePeak": -1.627922,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.5206 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-12480f744dbc",
@@ -1622,10 +1834,16 @@
     "scene": "适合软物重落5的镜头细节或环境铺底。",
     "duration": 0.488,
     "loop": false,
-    "loudness": -17.95,
+    "loudness": -19.75,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_004.ogg",
     "license": "CC0-1.0",
-    "sha256": "4c938fb34dc900507d0c9aee376b96ed1d8a314733b4bd72481d17c5799287d9"
+    "sha256": "ebf1b94e58545d88befb4f6f4b406382978b2b599cb14dc112c2470646656949",
+    "truePeak": -1.64,
+    "samplePeak": -1.642012,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.8536 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-0e2d7911beb9",
@@ -1640,10 +1858,16 @@
     "scene": "适合重敲钟1的镜头细节或环境铺底。",
     "duration": 1.164,
     "loop": false,
-    "loudness": -17.95,
+    "loudness": -22.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "8c7b1877246db0cd71c0f2a3ea1b117fd438b4cb36273d2e121049cdd8ea4cfd"
+    "sha256": "b3d3b6273c4ae82034906b025fad820802cb45e0fb9702e492eadf18de5c46d4",
+    "truePeak": -1.95,
+    "samplePeak": -1.956935,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-0d2638583567",
@@ -1658,10 +1882,16 @@
     "scene": "适合重敲钟2的镜头细节或环境铺底。",
     "duration": 1.4124,
     "loop": false,
-    "loudness": -17.97,
+    "loudness": -22.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "001247c6d75305676235017f06b55d256266f0ace9f6eb44ee96d05a78aa9521"
+    "sha256": "c2fd36bf9e3dd097c1a1c4c622b9c6770a790f3090cff1cab840ddbdf86eda9e",
+    "truePeak": -1.84,
+    "samplePeak": -1.840172,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6924 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-5b30df9e1703",
@@ -1676,100 +1906,16 @@
     "scene": "适合重敲钟3的镜头细节或环境铺底。",
     "duration": 0.6873,
     "loop": false,
-    "loudness": -17.97,
+    "loudness": -22.68,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "67ff97ea26decc4add344acd1d7691d17059a6443ca2cc10a280d3d54a89c124"
-  },
-  {
-    "id": "sfx-1b99af348390",
-    "path": "sfx/sfx-1b99af348390.ogg",
-    "type": "sfx",
-    "category": "道具",
-    "name": "玻璃碰撞1",
-    "tags": [
-      "杯子",
-      "玻璃"
-    ],
-    "scene": "适合玻璃碰撞1的镜头细节或环境铺底。",
-    "duration": 0.5304,
-    "loop": false,
-    "loudness": -17.95,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_000.ogg",
-    "license": "CC0-1.0",
-    "sha256": "856f2d031e6381ebf1c0236360f781351d503316f7239ce5aa24abc53846f9d3"
-  },
-  {
-    "id": "sfx-c5fce2d03092",
-    "path": "sfx/sfx-c5fce2d03092.ogg",
-    "type": "sfx",
-    "category": "道具",
-    "name": "玻璃碰撞2",
-    "tags": [
-      "杯子",
-      "玻璃"
-    ],
-    "scene": "适合玻璃碰撞2的镜头细节或环境铺底。",
-    "duration": 0.5304,
-    "loop": false,
-    "loudness": -18.05,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_001.ogg",
-    "license": "CC0-1.0",
-    "sha256": "2b5e17c444c9fc889a479a1d808b9106318f1a1b26802c5aadb4f4790595f14e"
-  },
-  {
-    "id": "sfx-36967e97e3af",
-    "path": "sfx/sfx-36967e97e3af.ogg",
-    "type": "sfx",
-    "category": "道具",
-    "name": "玻璃碰撞3",
-    "tags": [
-      "杯子",
-      "玻璃"
-    ],
-    "scene": "适合玻璃碰撞3的镜头细节或环境铺底。",
-    "duration": 0.5304,
-    "loop": false,
-    "loudness": -17.92,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_002.ogg",
-    "license": "CC0-1.0",
-    "sha256": "1b62b26b3a5e34411973bb2a5887e4c7a2621d369de0b2d59473959d642eb5fd"
-  },
-  {
-    "id": "sfx-71b977f6090a",
-    "path": "sfx/sfx-71b977f6090a.ogg",
-    "type": "sfx",
-    "category": "道具",
-    "name": "玻璃碰撞4",
-    "tags": [
-      "杯子",
-      "玻璃"
-    ],
-    "scene": "适合玻璃碰撞4的镜头细节或环境铺底。",
-    "duration": 0.5304,
-    "loop": false,
-    "loudness": -18.15,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_003.ogg",
-    "license": "CC0-1.0",
-    "sha256": "3eb80366594e874d13807de68ac93e0318159f550d2bd5f2de08ededc26ab8a3"
-  },
-  {
-    "id": "sfx-bfc0ad7c2ec1",
-    "path": "sfx/sfx-bfc0ad7c2ec1.ogg",
-    "type": "sfx",
-    "category": "道具",
-    "name": "玻璃碰撞5",
-    "tags": [
-      "杯子",
-      "玻璃"
-    ],
-    "scene": "适合玻璃碰撞5的镜头细节或环境铺底。",
-    "duration": 0.5304,
-    "loop": false,
-    "loudness": -17.95,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_004.ogg",
-    "license": "CC0-1.0",
-    "sha256": "706a10797fd3bfa02eafd0b0223f90e71f411d5c4d95064d9468d995a34b8e51"
+    "sha256": "f8e5b3a17b9aac737ac92335a632aa3b9d3e9e1586223101865f5f3d6a9dc303",
+    "truePeak": -1.65,
+    "samplePeak": -1.655284,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.7722 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-ec453cc5bb80",
@@ -1785,11 +1931,17 @@
     "scene": "适合木地板脚步1的镜头细节或环境铺底。",
     "duration": 2.7895,
     "loop": false,
-    "loudness": -17.93,
+    "loudness": -26.8,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "042975a69db453aa328f475507a7dfdfd98a75f7c326165a5ec6f0c04b9dfaba",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "89213e643aefa396c447eb0e1d6b7c2cf2f4817f0221f43032698fc089c589db",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.59,
+    "samplePeak": -1.594386,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.9100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-6041eb530d25",
@@ -1805,11 +1957,17 @@
     "scene": "适合木地板脚步2的镜头细节或环境铺底。",
     "duration": 2.7868,
     "loop": false,
-    "loudness": -17.93,
+    "loudness": -25.71,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "6e66500ffe22e429022f323fdf82889f0ae4ad8c4a6a13c00548946bd76b3ffa",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "c7cd0a86f9f8bfa19715a699bd405c76ff0b1080890407f9cc57c312af61fd0d",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.66,
+    "samplePeak": -1.66435,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.7825 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-5e6f44ffbfed",
@@ -1825,11 +1983,17 @@
     "scene": "适合木地板脚步3的镜头细节或环境铺底。",
     "duration": 2.7871,
     "loop": false,
-    "loudness": -18.02,
+    "loudness": -25.43,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "0770e890068b4f768544ea7891b1106d7761d24965a42d561d1df9b29c5b80d1",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "807ea6dd0241a4d93a6179401cf5a8ad98ec845b3d976949210cbd3514de8880",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.64,
+    "samplePeak": -1.638252,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-a1c06f7a5401",
@@ -1845,11 +2009,17 @@
     "scene": "适合雪地脚步1的镜头细节或环境铺底。",
     "duration": 2.7084,
     "loop": false,
-    "loudness": -18.19,
+    "loudness": -25.71,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "a5102c632b6d93794dbd65d463bad617cff2ec57c22fd64701eacc3eba1ff143",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "92c9f4e34d5e3206b2e8876811e4abc89be20414d3820128de4c0be61160a28d",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.81,
+    "samplePeak": -1.819492,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.4400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-4b928b5dfa43",
@@ -1865,11 +2035,17 @@
     "scene": "适合雪地脚步2的镜头细节或环境铺底。",
     "duration": 2.7177,
     "loop": false,
-    "loudness": -18.07,
+    "loudness": -22.52,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "f15e01c41d5a1c50ad16e31a91d967666d66a22484b6de017aa817704a877193",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "b6c1cd182cb4a449d944326d8f1c211d79c6a52e457c1e92742c7a7b81cead3d",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.68,
+    "samplePeak": -1.679588,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.3500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-d49cbb6e2df8",
@@ -1885,11 +2061,17 @@
     "scene": "适合雪地脚步3的镜头细节或环境铺底。",
     "duration": 2.8947,
     "loop": false,
-    "loudness": -18.01,
+    "loudness": -22.71,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "7ea47d4eac0dc24915a822bc226488d00a0b463c69709e5e0bd8b4a07c03b674",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "a170c45e684a381c74e08a2ee012d749b628fa6b9877b19bafb60796383c89bc",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.83,
+    "samplePeak": -1.831916,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-d5e473984400",
@@ -1905,11 +2087,17 @@
     "scene": "适合草地脚步1的镜头细节或环境铺底。",
     "duration": 2.6936,
     "loop": false,
-    "loudness": -17.95,
+    "loudness": -30.3,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "669d94e4f63f1a42c47fff904c30e4fec8238050a18e05691b6e858f68dba670",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "a0c4cb0a5e62746448c37433a5fa6a6090e3e6773cfe8a9eada0371aced4a5d6",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.73,
+    "samplePeak": -1.732594,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-27ddaad7d384",
@@ -1925,11 +2113,17 @@
     "scene": "适合草地脚步3的镜头细节或环境铺底。",
     "duration": 2.6875,
     "loop": false,
-    "loudness": -18.06,
+    "loudness": -29.93,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "b0e584e7e502652570121aac569555d5c359013bd005dfb8dc74ce5d5287e046",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "27dc9d47ead439a1145e29451fbc392dc9de354f1b9400ee4a3dfe9e30c32d81",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.77,
+    "samplePeak": -1.766301,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -11.8400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-44043937fae8",
@@ -1945,11 +2139,17 @@
     "scene": "适合水泥地脚步1的镜头细节或环境铺底。",
     "duration": 2.6425,
     "loop": false,
-    "loudness": -17.88,
+    "loudness": -30.02,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "ce0801c0a53fb6708b782a115d7c560444de22bf42a6b889c193f1916aa13b92",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "b125a81d26cb94b60a47b145c8488e80faf8bac314575442d852b536fe659d47",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.62,
+    "samplePeak": -1.627099,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.2500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-741277a378b6",
@@ -1965,11 +2165,17 @@
     "scene": "适合水泥地脚步2的镜头细节或环境铺底。",
     "duration": 2.6442,
     "loop": false,
-    "loudness": -17.97,
+    "loudness": -31.42,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "48377139d7688480ad33de0dd1c7d5102130aa50ab452debc0557c977a3bc9f8",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "06ab4f558f36d546548b7c7cb1482c4b93680ec8666f4445744da759cf069711",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.69,
+    "samplePeak": -1.709282,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.4600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-82d4b284b701",
@@ -1985,11 +2191,17 @@
     "scene": "适合水泥地脚步3的镜头细节或环境铺底。",
     "duration": 2.6492,
     "loop": false,
-    "loudness": -17.98,
+    "loudness": -31.49,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "2f724745259964b84dbce931ac12d54d9f74e959754c2c1311854b71730ba080",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "492f62d4505971cb0de7d5768d5e88299e05629e15ac115a37c0ad4b01ab4d2c",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.81,
+    "samplePeak": -1.817463,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-1c77daadc225",
@@ -2005,11 +2217,17 @@
     "scene": "适合地毯脚步1的镜头细节或环境铺底。",
     "duration": 2.6802,
     "loop": false,
-    "loudness": -18.0,
+    "loudness": -30.2,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "12dfa5c6b0a72960584093e0191e3ff1d17f5829ff116eda71e7d13c2758b5be",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "71f1495ec48372528a98874ada785b011fa3fa8de22071d13a487ba31c205d52",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.69,
+    "samplePeak": -1.686816,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.1931 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-6cca5747fcd3",
@@ -2025,11 +2243,17 @@
     "scene": "适合地毯脚步2的镜头细节或环境铺底。",
     "duration": 2.6804,
     "loop": false,
-    "loudness": -18.06,
+    "loudness": -26.31,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "4b7ccdb2fddc743c7bc746c8a958c2bc471e950133263bd910f0fb3cdc40411e",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "a2bb1f0fa2ceb1f7d4aef6ea68cbf242375e3a4df8969a4404b4477d7e45132d",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.93,
+    "samplePeak": -1.933927,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-c6f19759f812",
@@ -2045,11 +2269,17 @@
     "scene": "适合地毯脚步3的镜头细节或环境铺底。",
     "duration": 2.6804,
     "loop": false,
-    "loudness": -18.06,
+    "loudness": -26.31,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "393a720d4e0fb0f5f75a117f97591c056205aba1eb9d67235ce23ca20666c06e",
-    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+    "sha256": "c1b30465fd76b610bce0075f9e6bbd5987b5b6a116cd93f4624b411a648e9bc1",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
+    "truePeak": -1.93,
+    "samplePeak": -1.933927,
+    "author": "Kenney Vleugels",
+    "targetLufs": -18,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "self-heartbeat-01",
@@ -2074,7 +2304,10 @@
     "sha256": "9b35ecbb2aca2a61cec0efe21a57b580115bc733caf8c9133bce86f9e287fc87",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -1.817015,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-heartbeat-02",
@@ -2099,7 +2332,10 @@
     "sha256": "1ad7e6b276c161b8d60db4c02d04022049e6f63eecd64f9952552298ee07b313",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -1.820917,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-heartbeat-03",
@@ -2124,7 +2360,10 @@
     "sha256": "f87d03b89349897c01f860056dd11f6eaff187a9fe16515c9a9590cf4a6a2443",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.621504,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-01",
@@ -2149,7 +2388,10 @@
     "sha256": "784514294eff332ba6d1dc1892a02a0407c5295c74b69efd32c07fa44f7647ff",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.123341,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-02",
@@ -2174,7 +2416,10 @@
     "sha256": "707787757a4e1bd5dc9199cd266ed9150dc12281df311ee984ae24259cc7020d",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.916841,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-03",
@@ -2199,7 +2444,10 @@
     "sha256": "cc7d99095e0ef0200a54146772a22895481a5c6f3d0c86eb40d8ee3bdef7b7a9",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.189621,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-01",
@@ -2223,7 +2471,10 @@
     "sha256": "1c01c89d0f3990ae06aa9eba12d955ee610f87f01ca7e0167150fe5f4ee69147",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -12.415295,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-02",
@@ -2247,7 +2498,10 @@
     "sha256": "491daad4c6823fd4087fa1ab214360d3322901a47ad731b5fdaa4b5f30a2f96c",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -11.167319,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-03",
@@ -2271,57 +2525,10 @@
     "sha256": "498b0917a9c200eb63f177155c135921cc5d9618184eb26e477101bf08bd145a",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
-  },
-  {
-    "id": "ambience-rain-crossfade",
-    "path": "loops/rain-crossfade.ogg",
-    "type": "sfx",
-    "category": "环境",
-    "name": "雨声交叉淡化循环",
-    "tags": [
-      "下雨",
-      "雨",
-      "雨声",
-      "雨声采样"
-    ],
-    "scene": "适合雨声采样的镜头细节或环境铺底。",
-    "duration": 5.256520833333333,
-    "loop": true,
-    "loudness": -20.11,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-07-23%20Music%20for%20Four%20Dimensions%20-%20Rain.wav",
-    "license": "CC0-1.0",
-    "sha256": "330332d768f513f38fbc5abf6a8c619c2ee25d0584df6df4f5f2aaad69b041e6",
-    "loopable": true,
-    "targetLufs": -20,
-    "processing": "解码48kHz单声道；保留中段，将尾段和首段做等功率重叠交叉淡化，不将首尾淡到零；施加固定增益；预测峰值偏高时使用无状态tanh柔性限幅并重新校准增益，再Vorbis编码；对最终解码样本测量响度、峰值、循环边界跳变及短窗RMS。",
-    "originalId": "sfx-2cfe172eb41f",
-    "seamReport": "loops/rain-crossfade.json"
-  },
-  {
-    "id": "ambience-wind-crossfade",
-    "path": "loops/wind-crossfade.ogg",
-    "type": "sfx",
-    "category": "环境",
-    "name": "风声交叉淡化循环",
-    "tags": [
-      "刮风",
-      "风",
-      "风声",
-      "风声采样"
-    ],
-    "scene": "适合风声采样的镜头细节或环境铺底。",
-    "duration": 1.6085,
-    "loop": true,
-    "loudness": -20.0,
-    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-12-22%20Snow%20Day%20-%20Windy.wav",
-    "license": "CC0-1.0",
-    "sha256": "178b474ddd8111bf4ba90adc313246d9f1c64b0185c294ecb6ba0d88421c3e97",
-    "loopable": true,
-    "targetLufs": -20,
-    "processing": "解码48kHz单声道；保留中段，将尾段和首段做等功率重叠交叉淡化，不将首尾淡到零；施加固定增益；预测峰值偏高时使用无状态tanh柔性限幅并重新校准增益，再Vorbis编码；对最终解码样本测量响度、峰值、循环边界跳变及短窗RMS。",
-    "originalId": "sfx-689299c71246",
-    "seamReport": "loops/wind-crossfade.json"
+    "loopable": false,
+    "samplePeak": -11.03896,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "sfx-phone-hand-double",
@@ -2343,9 +2550,12 @@
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
     "originalLicenseUrl": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md",
-    "author": "wyzowl",
+    "author": "Wyzowl",
     "processing": "第三方代码合成；手持震动原片重复两次，中间间隔0.15秒。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "46ea8c380c91e8a6721511dc9327ff124a666ba32c982025d4660e389ecb8acb"
+    "sha256": "46ea8c380c91e8a6721511dc9327ff124a666ba32c982025d4660e389ecb8acb",
+    "truePeak": -8.15,
+    "samplePeak": -8.153308,
+    "peakLimited": false
   },
   {
     "id": "sfx-phone-table",
@@ -2361,15 +2571,19 @@
     "duration": 1.104042,
     "loop": false,
     "loopable": false,
-    "loudness": -20.47,
+    "loudness": -21.57,
     "targetLufs": -20,
     "source": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/sounds/phone/phone-vibrate-table.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
     "originalLicenseUrl": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md",
-    "author": "wyzowl",
+    "author": "Wyzowl",
     "processing": "第三方代码合成；保留原桌面双震动节奏。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "1c1ae65b9a5eb48d94a5648cc59268f59cf1b2c214477eb5734638ff7090dd88"
+    "sha256": "29361d3cc28cc1836cdab844859c98b313bc53e7dd703526b0d4e1353675541e",
+    "truePeak": -1.93,
+    "samplePeak": -1.929267,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-phone-table-repeat",
@@ -2385,15 +2599,19 @@
     "duration": 4.3,
     "loop": false,
     "loopable": false,
-    "loudness": -20.02,
+    "loudness": -21.12,
     "targetLufs": -20,
     "source": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/sounds/phone/phone-vibrate-table.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
     "originalLicenseUrl": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md",
-    "author": "wyzowl",
+    "author": "Wyzowl",
     "processing": "第三方代码合成素材的加工变体；原桌面双震动重复三次，每次间隔0.45秒，不是独立录音。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "e66c9194417908161a1637d9f4cb93aa3ce20ffb867814d7b0c9764ba1aa2174"
+    "sha256": "02f3923f30d5c2dc696f14bdc11299563712462e644a543a2a7f809a95e1cac1",
+    "truePeak": -1.93,
+    "samplePeak": -1.93147,
+    "peakLimited": true,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
   },
   {
     "id": "sfx-car-engine",
@@ -2415,9 +2633,12 @@
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/kenney-README.md",
     "originalLicenseUrl": "https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/README.md",
-    "author": "KenneyNL",
+    "author": "Kenney Vleugels",
     "processing": "原作者发布的汽车引擎素材；去首尾静音并统一响度。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "91d9d4bb202c1235721a48c38be44af81c5bd7aa1ab34f5fe28397ccef053c3e"
+    "sha256": "91d9d4bb202c1235721a48c38be44af81c5bd7aa1ab34f5fe28397ccef053c3e",
+    "truePeak": -5.62,
+    "samplePeak": -5.638437,
+    "peakLimited": false
   },
   {
     "id": "sfx-motorcycle-engine",
@@ -2439,9 +2660,12 @@
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/kenney-README.md",
     "originalLicenseUrl": "https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/README.md",
-    "author": "KenneyNL",
+    "author": "Kenney Vleugels",
     "processing": "原作者发布的摩托车引擎素材；去首尾静音并统一响度。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "a1214bb5e1dfc1da7ad289123cb156d78f9b819518a280b98622ef8ad479b34d"
+    "sha256": "a1214bb5e1dfc1da7ad289123cb156d78f9b819518a280b98622ef8ad479b34d",
+    "truePeak": -5.44,
+    "samplePeak": -5.444784,
+    "peakLimited": false
   },
   {
     "id": "sfx-engine-synth",
@@ -2465,6 +2689,778 @@
     "originalLicenseUrl": "https://github.com/Dechode/Godot-Simple-Vehicle/blob/f448b000f896053319938e4f67ddd230623da853/README.md",
     "author": "Dechode",
     "processing": "第三方作者使用enginesound合成的车辆引擎声音，不是真实录音；去首尾静音并统一响度。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "df1045bafc2c8ed2149aabe2eb84c8883fa6da9f7ee06c248edbe9bdd46d521a"
+    "sha256": "df1045bafc2c8ed2149aabe2eb84c8883fa6da9f7ee06c248edbe9bdd46d521a",
+    "truePeak": -3.81,
+    "samplePeak": -3.814055,
+    "peakLimited": false
+  },
+  {
+    "id": "r2-metal-can-01",
+    "path": "round2/r2-metal-can-01.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "压扁金属罐碰撞1",
+    "tags": [
+      "金属撞击",
+      "金属罐",
+      "金属击打"
+    ],
+    "scene": "适合压扁金属罐碰撞1的动作细节；按实际镜头试听。",
+    "duration": 0.812938,
+    "loop": false,
+    "loudness": -22.28,
+    "truePeakDbtp": -2.16,
+    "samplePeakDbfs": -2.1589,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter.wav",
+    "license": "CC0-1.0",
+    "author": "Benjamin Burnes",
+    "licenseEvidence": "round2/licenses/ben-small-can.txt",
+    "sha256": "f752e333e96a963860563ec177488a046153192fb41faa4674daf127a04c051f",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "3e30f34a78f60250a41e5391005ae3005cdf947b6a24fb116a61421a43aa0d93",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-metal-can-02",
+    "path": "round2/r2-metal-can-02.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "压扁金属罐碰撞2",
+    "tags": [
+      "金属撞击",
+      "金属罐",
+      "金属击打"
+    ],
+    "scene": "适合压扁金属罐碰撞2的动作细节；按实际镜头试听。",
+    "duration": 1.728021,
+    "loop": false,
+    "loudness": -22.59,
+    "truePeakDbtp": -1.8,
+    "samplePeakDbfs": -1.8007,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter%202.wav",
+    "license": "CC0-1.0",
+    "author": "Benjamin Burnes",
+    "licenseEvidence": "round2/licenses/ben-small-can.txt",
+    "sha256": "c3a3377115355d919c5d9db48fc2f4fbaa99f5dc7b454870976ca488633a9f8b",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "97326aa9e0e9f11fd6cc19f00c6b893de2a6ed0e51ea6e4086c3662061c0235b",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-metal-can-03",
+    "path": "round2/r2-metal-can-03.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "压扁金属罐碰撞3",
+    "tags": [
+      "金属撞击",
+      "金属罐",
+      "金属击打"
+    ],
+    "scene": "适合压扁金属罐碰撞3的动作细节；按实际镜头试听。",
+    "duration": 0.926708,
+    "loop": false,
+    "loudness": -24.2,
+    "truePeakDbtp": -1.73,
+    "samplePeakDbfs": -1.9496,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter%203.wav",
+    "license": "CC0-1.0",
+    "author": "Benjamin Burnes",
+    "licenseEvidence": "round2/licenses/ben-small-can.txt",
+    "sha256": "cbd0a2d0c5afcb52040bd7f0700c8f55bb9bfe18b7fd489f5cf95fb5b897f4e6",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "7951ccec5de5663d7b34045c8ba9d6363d324afb52f4c028387a85a5acde7ed3",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-metal-can-drag",
+    "path": "round2/r2-metal-can-drag.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "金属罐在瓷砖上拖动",
+    "tags": [
+      "金属拖动",
+      "金属罐",
+      "瓷砖"
+    ],
+    "scene": "适合金属罐在瓷砖上拖动的动作细节；按实际镜头试听。",
+    "duration": 1.262083,
+    "loop": false,
+    "loudness": -32.99,
+    "truePeakDbtp": -2.14,
+    "samplePeakDbfs": -2.6851,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Can%20-%20Drag%20on%20Tile.wav",
+    "license": "CC0-1.0",
+    "author": "Benjamin Burnes",
+    "licenseEvidence": "round2/licenses/ben-small-can.txt",
+    "sha256": "99d5313b4b5fa48660ee49e06c24cb0f0a23aca8e2412c233a96c894e97e0378",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "1f0f0edc5b12637815389e349051420d537154dccd8275b5b19f877e68a062a1",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-knife-slice-01",
+    "path": "round2/r2-knife-slice-01.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "刀切划拟音1",
+    "tags": [
+      "刀切划",
+      "刀挥砍",
+      "刀",
+      "刀划伤"
+    ],
+    "scene": "适合刀切划、挥砍或划伤动作的拟音；不是人体受伤实录。",
+    "duration": 0.599542,
+    "loop": false,
+    "loudness": -18.25,
+    "truePeakDbtp": -4.11,
+    "samplePeakDbfs": -4.5371,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/knifeSlice.ogg",
+    "license": "CC0-1.0",
+    "author": "Kenney Vleugels",
+    "licenseEvidence": "round2/licenses/kenney-rpg.txt",
+    "sha256": "27255d4ea076d0f51784fe61b83807a4b2c3eb3d92e31e4310eb4608cee12f53",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "4cd96dc630bed9840c15f1dd2306da2cc56a4da26a5d3f1a03c5a7265ac5e54f",
+    "origin": "foley"
+  },
+  {
+    "id": "r2-knife-slice-02",
+    "path": "round2/r2-knife-slice-02.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "刀切划拟音2",
+    "tags": [
+      "刀切划",
+      "刀挥砍",
+      "刀",
+      "刀划伤"
+    ],
+    "scene": "适合刀切划、挥砍或划伤动作的拟音；不是人体受伤实录。",
+    "duration": 0.568792,
+    "loop": false,
+    "loudness": -18.43,
+    "truePeakDbtp": -2.64,
+    "samplePeakDbfs": -2.7694,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/knifeSlice2.ogg",
+    "license": "CC0-1.0",
+    "author": "Kenney Vleugels",
+    "licenseEvidence": "round2/licenses/kenney-rpg.txt",
+    "sha256": "9112f3d64e185cb2a92ae4309fcbe182935624d8c73045bc1fb7b475382ad5e3",
+    "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
+    "sourceSha256": "6c2064d0ef988d1ec3d56868e823ea8823a5cac00f2742560052633529407def",
+    "origin": "foley"
+  },
+  {
+    "id": "r2-concrete-run-01",
+    "path": "round2/r2-concrete-run-01.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地快步节奏1",
+    "tags": [
+      "水泥地奔跑",
+      "硬地面脚步",
+      "水泥",
+      "奔跑",
+      "脚步"
+    ],
+    "scene": "适合水泥地快步节奏1的动作细节；按实际镜头试听。",
+    "duration": 2.24,
+    "loop": false,
+    "loudness": -27.97,
+    "truePeakDbtp": -1.93,
+    "samplePeakDbfs": -1.9329,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_000.ogg",
+    "license": "CC0-1.0",
+    "author": "Kenney Vleugels",
+    "licenseEvidence": "round2/licenses/kenney-impact.txt",
+    "sha256": "562bde0e6d807ecc3b29958f1ed2f2b9267bdc905e6ef3936444d07c7abb5ddd",
+    "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
+    "sourceSha256": "d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-concrete-run-02",
+    "path": "round2/r2-concrete-run-02.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地快步节奏2",
+    "tags": [
+      "水泥地奔跑",
+      "硬地面脚步",
+      "水泥",
+      "奔跑",
+      "脚步"
+    ],
+    "scene": "适合水泥地快步节奏2的动作细节；按实际镜头试听。",
+    "duration": 2.24,
+    "loop": false,
+    "loudness": -29.53,
+    "truePeakDbtp": -2.06,
+    "samplePeakDbfs": -2.065,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_001.ogg",
+    "license": "CC0-1.0",
+    "author": "Kenney Vleugels",
+    "licenseEvidence": "round2/licenses/kenney-impact.txt",
+    "sha256": "0d6c7a88264e22f8310e59fddc35fd05811c17e843658250754328ab7f507829",
+    "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
+    "sourceSha256": "507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-concrete-run-03",
+    "path": "round2/r2-concrete-run-03.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地快步节奏3",
+    "tags": [
+      "水泥地奔跑",
+      "硬地面脚步",
+      "水泥",
+      "奔跑",
+      "脚步"
+    ],
+    "scene": "适合水泥地快步节奏3的动作细节；按实际镜头试听。",
+    "duration": 2.24,
+    "loop": false,
+    "loudness": -29.53,
+    "truePeakDbtp": -2.02,
+    "samplePeakDbfs": -2.0318,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_002.ogg",
+    "license": "CC0-1.0",
+    "author": "Kenney Vleugels",
+    "licenseEvidence": "round2/licenses/kenney-impact.txt",
+    "sha256": "a77aee60caeb5085a53309a958e6b79a102f4ac94e6abe9c8e367ad2a4753f4c",
+    "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
+    "sourceSha256": "b21fa546d74941196b25da8a20b7010abd8c05c4fcf93545d1f344e66a664e13",
+    "origin": "foley",
+    "targetLufs": -18,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-music-6d424149d4a2",
+    "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+    "type": "music",
+    "category": "紧张",
+    "name": "电子节奏（长循环）",
+    "tags": [
+      "紧张"
+    ],
+    "scene": "适合紧张情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -22.08,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
+    "license": "CC0-1.0",
+    "sha256": "040860c5f935f246ff62be90ffcb09ce6f9adccf8abddd406287b47967e31b8c",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.55,
+    "samplePeak": -2.2879508837034823,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-6d424149d4a2.json",
+    "derivedFrom": "music-6d424149d4a2",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-music-23bc02ff82e2",
+    "path": "round2-loops/r2-loop-music-23bc02ff82e2.ogg",
+    "type": "music",
+    "category": "搞笑",
+    "name": "气泡舞曲（长循环）",
+    "tags": [
+      "搞笑"
+    ],
+    "scene": "适合搞笑情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -21.1,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Bubbles.mp3",
+    "license": "CC0-1.0",
+    "sha256": "20056de7e4ce39b8340871aed31a409299dcce98feb4f7af6c305a50517cb3ea",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.94,
+    "samplePeak": -1.9440879477977246,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-23bc02ff82e2.json",
+    "derivedFrom": "music-23bc02ff82e2",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-music-e94185587d78",
+    "path": "round2-loops/r2-loop-music-e94185587d78.ogg",
+    "type": "music",
+    "category": "史诗",
+    "name": "电影时刻（长循环）",
+    "tags": [
+      "史诗"
+    ],
+    "scene": "适合史诗情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -20.21,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Cinemato.mp3",
+    "license": "CC0-1.0",
+    "sha256": "eed6d51e8a2cd9d4c896b4b61a066723ba79b4d1f870274e531c207ac9eab665",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -4.15,
+    "samplePeak": -4.166114007255375,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-e94185587d78.json",
+    "derivedFrom": "music-e94185587d78",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-music-6230c9ba9eef",
+    "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+    "type": "music",
+    "category": "打斗",
+    "name": "重拍推进（长循环）",
+    "tags": [
+      "打斗"
+    ],
+    "scene": "适合打斗情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -20.14,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Dubstepper.mp3",
+    "license": "CC0-1.0",
+    "sha256": "df5758d7161e27bd2a57dd47d8d3f975518dded7a6daa311449baa5a0705dc5e",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.89,
+    "samplePeak": -1.9565013624651415,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-6230c9ba9eef.json",
+    "derivedFrom": "music-6230c9ba9eef",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-music-360f3c163ed6",
+    "path": "round2-loops/r2-loop-music-360f3c163ed6.ogg",
+    "type": "music",
+    "category": "温暖",
+    "name": "快乐生活（长循环）",
+    "tags": [
+      "温暖"
+    ],
+    "scene": "适合温暖情绪的过场或蒙太奇。",
+    "duration": 42.24,
+    "loop": true,
+    "loudness": -22.77,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
+    "license": "CC0-1.0",
+    "sha256": "4a75e2ec5c458f215ccdbe1630ac610f4ad4d1f384a2da87d5de43981ef3289a",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.6,
+    "samplePeak": -1.596912302850852,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-360f3c163ed6.json",
+    "derivedFrom": "music-360f3c163ed6",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-music-9935a373414d",
+    "path": "round2-loops/r2-loop-music-9935a373414d.ogg",
+    "type": "music",
+    "category": "悬疑",
+    "name": "幻术师（长循环）",
+    "tags": [
+      "悬疑"
+    ],
+    "scene": "适合悬疑情绪的过场或蒙太奇。",
+    "duration": 42.88,
+    "loop": true,
+    "loudness": -20.24,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Illusionist.mp3",
+    "license": "CC0-1.0",
+    "sha256": "269f3bc3019a66e0e121639a8d9402b220b9895f92d25fc7d685c250a95ddd05",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -2.49,
+    "samplePeak": -2.505220313215037,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-9935a373414d.json",
+    "derivedFrom": "music-9935a373414d",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-music-9d2fa11d09bf",
+    "path": "round2-loops/r2-loop-music-9d2fa11d09bf.ogg",
+    "type": "music",
+    "category": "甜蜜",
+    "name": "新鲜时光（长循环）",
+    "tags": [
+      "甜蜜"
+    ],
+    "scene": "适合甜蜜情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -20.21,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Newness.mp3",
+    "license": "CC0-1.0",
+    "sha256": "5e95c4d5bb0f4032f6038c98922d0d41071edf9bc891a94f78b0d3f930313be7",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -3.47,
+    "samplePeak": -3.5031326017117648,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-9d2fa11d09bf.json",
+    "derivedFrom": "music-9d2fa11d09bf",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-music-01a63f6d5d85",
+    "path": "round2-loops/r2-loop-music-01a63f6d5d85.ogg",
+    "type": "music",
+    "category": "悲伤",
+    "name": "局外人（长循环）",
+    "tags": [
+      "悲伤"
+    ],
+    "scene": "适合悲伤情绪的过场或蒙太奇。",
+    "duration": 40.32,
+    "loop": true,
+    "loudness": -22.76,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
+    "license": "CC0-1.0",
+    "sha256": "84053b811ea94b9610835ba1a6779bb535c3b3255129045c445c9e1e12d62b02",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.78,
+    "samplePeak": -1.8558498380576263,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-01a63f6d5d85.json",
+    "derivedFrom": "music-01a63f6d5d85",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-music-197b91134859",
+    "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+    "type": "music",
+    "category": "平静",
+    "name": "突然旅行（长循环）",
+    "tags": [
+      "平静"
+    ],
+    "scene": "适合平静情绪的过场或蒙太奇。",
+    "duration": 45.44,
+    "loop": true,
+    "loudness": -19.97,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sudden%20Tour.mp3",
+    "license": "CC0-1.0",
+    "sha256": "b374e4ef2369eb003981501d764df59a956f44d47cf8dcb42bff459a783a1658",
+    "author": "effacestudios",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -5.17,
+    "samplePeak": -5.184899059411833,
+    "origin": "derived",
+    "channels": 2,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-music-197b91134859.json",
+    "derivedFrom": "music-197b91134859",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-071cf6baccc0",
+    "path": "round2-loops/r2-loop-sfx-071cf6baccc0.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "通风口（长循环）",
+    "tags": [
+      "室内",
+      "通风",
+      "通风口"
+    ],
+    "scene": "适合通风口的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -20.08,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Air%20Vent.wav",
+    "license": "CC0-1.0",
+    "sha256": "bbcebc00d9d7fc03319f6a6600f5a7ce3ff3f0d3c8a3c52edb8c58a5a7244bca",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -4.77,
+    "samplePeak": -4.775277572197333,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-071cf6baccc0.json",
+    "derivedFrom": "sfx-071cf6baccc0",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-510e5353e830",
+    "path": "round2-loops/r2-loop-sfx-510e5353e830.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "浴室风扇（长循环）",
+    "tags": [
+      "室内",
+      "浴室风扇",
+      "风扇"
+    ],
+    "scene": "适合浴室风扇的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -20.07,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Bathroom%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "75916151ab02dd0ae39c3f8a1aace4be9fafbd73b10ad7ad25c9dece583908a8",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -6.66,
+    "samplePeak": -6.669811354016404,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-510e5353e830.json",
+    "derivedFrom": "sfx-510e5353e830",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-843c79cf1eec",
+    "path": "round2-loops/r2-loop-sfx-843c79cf1eec.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "电脑风扇（长循环）",
+    "tags": [
+      "室内",
+      "电脑风扇",
+      "风扇"
+    ],
+    "scene": "适合电脑风扇的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -19.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Computer%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "25f6b32020da75d8be89d9c18e40dce31ac6c6ea6a6f095f3f3708b4ee82f21e",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -7.47,
+    "samplePeak": -7.468267598022513,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-843c79cf1eec.json",
+    "derivedFrom": "sfx-843c79cf1eec",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-0fee82de42e3",
+    "path": "round2-loops/r2-loop-sfx-0fee82de42e3.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "除湿机（长循环）",
+    "tags": [
+      "室内",
+      "除湿机"
+    ],
+    "scene": "适合除湿机的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -20.0,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Dehumidifier.wav",
+    "license": "CC0-1.0",
+    "sha256": "02b151f53493277c00fbb03c30f1d017e11dce5899e946badb47ec350ac521a2",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -5.8,
+    "samplePeak": -5.798027934333119,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-0fee82de42e3.json",
+    "derivedFrom": "sfx-0fee82de42e3",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-cd7e525287e0",
+    "path": "round2-loops/r2-loop-sfx-cd7e525287e0.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "微波炉（长循环）",
+    "tags": [
+      "室内",
+      "微波炉"
+    ],
+    "scene": "适合微波炉的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -20.02,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Microwave.wav",
+    "license": "CC0-1.0",
+    "sha256": "b8863b4c1f8fa735ba8330735e6ccf7d6b2ae8768cf8c48739af96f40220f0b8",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -8.74,
+    "samplePeak": -8.738995740921547,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-cd7e525287e0.json",
+    "derivedFrom": "sfx-cd7e525287e0",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-57aaf3ed3677",
+    "path": "round2-loops/r2-loop-sfx-57aaf3ed3677.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "室外空调（长循环）",
+    "tags": [
+      "室内",
+      "室外空调"
+    ],
+    "scene": "适合室外空调的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -19.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outdoor%20AC%20Unit.wav",
+    "license": "CC0-1.0",
+    "sha256": "108b2c3ab0a2567c1bdd193d94c2b0710f1ca1eb265cb399e4298bc9ae44c1d0",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -8.96,
+    "samplePeak": -8.968178340849773,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-57aaf3ed3677.json",
+    "derivedFrom": "sfx-57aaf3ed3677",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": false
+  },
+  {
+    "id": "r2-loop-sfx-5f709f72838f",
+    "path": "round2-loops/r2-loop-sfx-5f709f72838f.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "室外底噪（长循环）",
+    "tags": [
+      "室外",
+      "室外底噪"
+    ],
+    "scene": "适合室外底噪的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -22.55,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
+    "license": "CC0-1.0",
+    "sha256": "2e1537e5f06febb39cded6533a0c606befeb18f9f77398fa8a6760b99fcba116",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -1.95,
+    "samplePeak": -1.9519221140986731,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-5f709f72838f.json",
+    "derivedFrom": "sfx-5f709f72838f",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
+  },
+  {
+    "id": "r2-loop-sfx-da48e26760ac",
+    "path": "round2-loops/r2-loop-sfx-da48e26760ac.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "水槽龙头（长循环）",
+    "tags": [
+      "室内",
+      "水",
+      "水槽",
+      "水槽龙头",
+      "水龙头"
+    ],
+    "scene": "适合水槽龙头的镜头细节或环境铺底。",
+    "duration": 40.0,
+    "loop": true,
+    "loudness": -24.85,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
+    "license": "CC0-1.0",
+    "sha256": "5eddd77eaa472a3b3fb338755b70bfb026004e3a28cffbfa33af797beb0a7dff",
+    "author": "Benjamin Burnes",
+    "loopable": true,
+    "targetLufs": -20,
+    "truePeak": -2.38,
+    "samplePeak": -2.3841138366264367,
+    "origin": "derived",
+    "channels": 1,
+    "sampleRate": 48000,
+    "loopReport": "round2-loops/r2-loop-sfx-da48e26760ac.json",
+    "derivedFrom": "sfx-da48e26760ac",
+    "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
+    "peakSafetyPrioritized": true,
+    "peakLimited": true
   }
 ]

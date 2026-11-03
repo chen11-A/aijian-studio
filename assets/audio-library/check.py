@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """本地素材检查；必须显式提供 ffmpeg 和 ffprobe 的绝对路径。"""
 import argparse
+from array import array
 import json
 import math
 import hashlib
@@ -28,19 +29,62 @@ def measured_loudness(path, ffmpeg):
     return float(json.loads(blocks[-1])['input_i'])
 
 
-STRICT_CATEGORIES = ('虫鸣', '街道', '人群', '海浪', '森林', '手机震动', '电话铃', '雨伞', '钥匙', '车辆', '心跳', '低频冲击')
-LOOP_CATEGORIES = ('雨', '风', '街道', '人群', '海浪', '森林', '虫鸣')
+def measured_levels(file, ffmpeg):
+    spec = importlib.util.spec_from_file_location('aivora_peak_safety', Path(__file__).with_name('peak_safety.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.measure_levels(file, ffmpeg)
 
 
-def validate_loop_seam(file, ffmpeg):
-    # 按本文件位置导入，避免调用者工作目录影响工具加载。
+def validate_levels(item, levels, target):
+    if not all(math.isfinite(levels[key]) for key in ('truePeak', 'samplePeak')):
+        raise ValueError('响度和峰值测量须为有效数值。')
+    if levels['truePeak'] > -1:
+        raise ValueError(f"真峰值超标：{levels['truePeak']:.2f} dBTP，须不高于 -1 dBTP。")
+    if levels['samplePeak'] > -1:
+        raise ValueError(f"采样峰值超标：{levels['samplePeak']:.2f} dBFS，须不高于 -1 dBFS。")
+    short_unmeasurable = (levels['loudness'] is None and item['loudness'] is None
+                          and item.get('duration', 1) < .4 and bool(item.get('loudnessNote')))
+    if not short_unmeasurable and (levels['loudness'] is None or item['loudness'] is None):
+        raise ValueError('只有不足 400 毫秒且附有说明的音效可以没有积分响度。')
+    if not short_unmeasurable and abs(levels['loudness'] - item['loudness']) > .3:
+        raise ValueError('实测响度与清单不一致。')
+    limited = item.get('peakLimited', False)
+    if not isinstance(limited, bool):
+        raise ValueError('峰值优先标记必须是布尔值。')
+    if not short_unmeasurable and (levels['loudness'] > target + 1 or (levels['loudness'] < target - 1 and not limited)):
+        raise ValueError('实测响度不符合目标；为峰值安全而降低响度须明确记录 peakLimited。')
+    for key in ('truePeak', 'samplePeak'):
+        if key in item and (isinstance(item[key], bool) or not isinstance(item[key], (float, int))
+                            or not math.isfinite(item[key]) or abs(item[key] - levels[key]) > .1):
+            raise ValueError('实测峰值与清单不一致。')
+
+
+STRICT_CATEGORIES = ('手机震动', '电话铃', '雨伞', '心跳', '低频冲击', '街道',
+    '湿地面脚步', '水泥地奔跑', '钢管击打', '钢管拖地', '金属撞击', '刀挥砍', '刀划伤',
+    '人体倒地', '心电监护仪', '医院底噪', '人群低语', '车辆驶过')
+LOOP_CATEGORIES = ('雨', '风', '街道', '医院底噪')
+MUSIC_EMOTIONS = ('紧张', '甜蜜', '悲伤', '温暖', '悬疑', '打斗', '搞笑', '史诗', '平静')
+
+
+def validate_loop_seam(file, ffmpeg, channels=1):
+    # 验证每一声道，不能把相反相位或单声道缺陷通过混音掩盖。
     spec = importlib.util.spec_from_file_location('aivora_loop_tools', Path(__file__).with_name('loop_tools.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    metrics = module.seam_metrics(module.decode(ffmpeg, file))
-    if not metrics['passed']:
-        raise ValueError('循环接缝检查未通过：请修复首尾跳变和音量变化后再标记可循环。')
-    return metrics
+    try:
+        result = subprocess.run([str(ffmpeg), '-v','error','-nostdin','-i',str(file),
+            '-vn','-ar','48000','-ac',str(channels),'-f','f32le','-'], capture_output=True,check=True,timeout=180)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError('循环音频解码失败。') from exc
+    samples = array('f'); samples.frombytes(result.stdout)
+    if sys.byteorder != 'little':
+        samples.byteswap()
+    metrics = [module.seam_metrics(samples[channel::channels]) for channel in range(channels)]
+    passed = all(x['passed'] for x in metrics)
+    if not passed:
+        raise ValueError('循环接缝检查未通过：请修复每声道首尾跳变和音量变化后再标记可循环。')
+    return {'channels': metrics, 'passed': passed}
 
 
 def target_lufs(item):
@@ -62,22 +106,47 @@ def loopable(item):
 def strict_requirements(entries):
     counts = dict.fromkeys(STRICT_CATEGORIES, 0)
     loops = dict.fromkeys(LOOP_CATEGORIES, 0)
+    music = dict.fromkeys(MUSIC_EMOTIONS, 0)
+    environments = set()
+    sad_sources = set()
+    recording_counts = dict.fromkeys(('雨', '风', '雨打伞', '雨打窗', '喘息'), 0)
     for item in entries:
-        if item['type'] != 'sfx':
-            continue
         labels = set(item['tags']) | {item['category']}
+        source = item.get('originalSource', item['source'])
+        if item['type'] == 'music':
+            if '悲伤' in labels:
+                sad_sources.add(source)
+            if loopable(item):
+                for emotion in music:
+                    if emotion in labels:
+                        music[emotion] += 1
+            continue
         for category in counts:
             if category in labels:
                 counts[category] += 1
-        if loopable(item):
+        if loopable(item) and 30 <= item['duration'] <= 60:
+            if item['category'] == '环境':
+                environments.add(source)
             for category in loops:
                 if category in labels:
                     loops[category] += 1
+        # “真实录音”须在元数据中明确通过来源证据核实，不能把合成/音乐采样只改标签。
+        if item.get('recordingVerified') is True:
+            for label in recording_counts:
+                if label in labels and (label not in ('雨','风') or (loopable(item) and item['duration'] >= 30)):
+                    recording_counts[label] += 1
     errors = [f'严格验收：{category}不足 3 个（实有 {count} 个）。'
               for category, count in counts.items() if count < 3]
-    errors += [f'严格验收：{category}缺少通过接缝检查的可循环环境音。'
-               for category, count in loops.items() if count == 0]
-    return errors, {'指定类别数量': counts, '可循环环境音数量': loops}
+    if len(environments) < 8:
+        errors.append(f'严格验收：30–60秒可循环环境音不足 8 条不同来源（实有 {len(environments)} 条）。')
+    errors += [f'严格验收：{emotion}缺少可循环配乐。' for emotion, count in music.items() if not count]
+    if len(sad_sources) < 3:
+        errors.append(f'严格验收：悲伤配乐不足 3 首不同来源（实有 {len(sad_sources)} 首）。')
+    errors += [f'严格验收：{label}缺少已核实真实录音' + ('且至少30秒可循环的版本。' if label in ('雨','风') else '。')
+               for label, count in recording_counts.items() if not count]
+    return errors, {'指定类别数量': counts, '可循环环境音数量': loops,
+        '30至60秒不同来源环境循环数':len(environments), '可循环配乐情绪数量':music,
+        '悲伤配乐独立来源数':len(sad_sources), '真实录音数量':recording_counts}
 
 
 def validate(root, ffmpeg, ffprobe, strict_request=False):
@@ -95,17 +164,20 @@ def validate(root, ffmpeg, ffprobe, strict_request=False):
     total = 0
     counts = {'sfx': 0, 'music': 0}
     valid_entries = []
+    measured = []
     for item in entries:
         label = item.get('id', '未命名素材') if isinstance(item, dict) else '未命名素材'
         try:
             required = ('id', 'path', 'type', 'category', 'name', 'tags', 'scene',
-                        'duration', 'loop', 'loudness', 'source', 'license')
+                        'duration', 'loop', 'loudness', 'source', 'license', 'author')
             if not isinstance(item, dict) or any(k not in item for k in required):
                 raise ValueError('清单字段不完整。')
-            if any(not isinstance(item[key], str) or not item[key].strip() for key in ('id', 'path', 'category', 'name', 'scene')):
+            if any(not isinstance(item[key], str) or not item[key].strip() for key in ('id', 'path', 'category', 'name', 'scene', 'author')):
                 raise ValueError('编号、路径、分类、中文名和场景须为非空文字。')
-            if any(isinstance(item[key], bool) or not isinstance(item[key], (int, float)) or not math.isfinite(item[key]) for key in ('duration', 'loudness')) or item['duration'] <= 0:
-                raise ValueError('时长和响度须为有效数值，时长须大于零。')
+            if isinstance(item['duration'], bool) or not isinstance(item['duration'], (int,float)) or not math.isfinite(item['duration']) or item['duration'] <= 0:
+                raise ValueError('时长须为有效数值，且须大于零。')
+            if item['loudness'] is not None and (isinstance(item['loudness'], bool) or not isinstance(item['loudness'], (int,float)) or not math.isfinite(item['loudness'])):
+                raise ValueError('响度须为有效数值。')
             if item['id'] in ids or item['path'] in paths:
                 raise ValueError('素材编号或路径重复。')
             ids.add(item['id']); paths.add(item['path'])
@@ -137,11 +209,11 @@ def validate(root, ffmpeg, ffprobe, strict_request=False):
                 raise ValueError('清单时长不准确。')
             if item['type'] == 'music' and not 30 <= duration <= 180:
                 raise ValueError('音乐时长须为 30 到 180 秒。')
-            loudness = measured_loudness(file, ffmpeg)
-            if not math.isfinite(loudness) or abs(loudness - target) > 1 or abs(loudness-item['loudness']) > .3:
-                raise ValueError('实测响度不符合目标或清单。')
+            levels = measured_levels(file, ffmpeg)
+            measured.append({'id': item['id'], **levels})
+            validate_levels({**item, 'duration': duration}, levels, target)
             if can_loop:
-                validate_loop_seam(file, ffmpeg)
+                validate_loop_seam(file, ffmpeg, channels=channels)
             valid_entries.append(item)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             errors.append(f'{label}：{exc}')
@@ -156,6 +228,10 @@ def validate(root, ffmpeg, ffprobe, strict_request=False):
     if total > 150 * 1024 * 1024:
         errors.append('音频总大小超过 150MB。')
     report = {'音效': counts['sfx'], '配乐': counts['music'], '字节': total}
+    report['峰值检查'] = {'已测文件': len(measured), '最大真峰值dBTP': max((x['truePeak'] for x in measured), default=None),
+                        '最大采样峰值dBFS': max((x['samplePeak'] for x in measured), default=None),
+                        '真峰值超标数': sum(x['truePeak'] > -1 for x in measured),
+                        '采样峰值超标数': sum(x['samplePeak'] > -1 for x in measured)}
     if strict_request:
         strict_errors, strict_report = strict_requirements(valid_entries)
         errors.extend(strict_errors)
@@ -168,7 +244,7 @@ def main():
     parser.add_argument('--ffmpeg', required=True, type=Path, help='ffmpeg 绝对路径')
     parser.add_argument('--ffprobe', required=True, type=Path, help='ffprobe 绝对路径')
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parent)
-    parser.add_argument('--strict-request', action='store_true', help='额外检查指定十二类别数量与七类可循环环境音')
+    parser.add_argument('--strict-request', action='store_true', help='额外检查第二轮类别、环境循环、情绪配乐与真实录音要求')
     args = parser.parse_args()
     errors, report = validate(args.root, args.ffmpeg, args.ffprobe, strict_request=args.strict_request)
     print(json.dumps({'统计': report, '问题': errors}, ensure_ascii=False, indent=2))

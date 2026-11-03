@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-da48e26760ac",
+  "sourceId": "sfx-da48e26760ac",
+  "sourceSha256": "4e753a0105218c2af70b19054d436a502153d66ae08ec46aa067fe36e0d831b1",
+  "outputSha256": "5eddd77eaa472a3b3fb338755b70bfb026004e3a28cffbfa33af797beb0a7dff",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -24.85,
+  "truePeak": -2.38,
+  "samplePeak": -2.3841138366264367,
+  "targetLufs": -20,
+  "constantGainDb": 0.46999999999999975,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 61.000125,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 2.36775,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.006548874080181122,
+        "adjacentDifferenceP99": 0.07116025686264038,
+        "leftRightRmsRatio": 1.0114574339026636,
+        "seamNearbyRmsRatio": 1.0125688098823171,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
-import { isAbsolute, win32 } from 'node:path';
+import { isAbsolute, win32, resolve } from 'node:path';
 
 export interface AudioClip { path: string; start: number; end: number; sourceStart?: number; /** 原音频中最后一个台词字的结束时间 */ speechEnd?: number; speechStart?: number }
 export interface Shot { path: string; start: number; end: number; sourceStart?: number; voices?: AudioClip[]; music?: AudioClip[] }
 export interface Timeline { shots: Shot[]; duration?: number }
-export interface CheckOptions { ffmpegPath: string; ffprobePath: string; /** 连续无声阈值，默认 2 秒 */ silenceSeconds?: number }
+export interface CheckOptions { ffmpegPath: string; ffprobePath: string; /** 连续无声阈值，默认 2 秒 */ silenceSeconds?: number; /** 是否混入视频第一音轨，默认 true；同文件显式音频片段优先 */ includeOriginalAudio?: boolean }
 export interface Issue { shot: number; time: number; code: string; message: string; suggestion: string }
 export interface Report { ok: boolean; issues: Issue[]; text: string }
 interface Probe { streams: { codec_type: string; width?: number; height?: number; sample_aspect_ratio?: string; duration?: string }[]; format: { duration?: string } }
@@ -30,6 +30,20 @@ export function detectIntervals(log: string, kind: 'black' | 'freeze' | 'silence
   }
   for (const start of starts) result.push([start, duration]);
   return result;
+}
+/** 从静帧区间扣除黑屏区间，保留仍需单独报告的非黑画面。 */
+export function subtractBlackIntervals(interval: [number, number], black: [number, number][]): [number, number][] {
+  let remaining: [number, number][] = [interval];
+  for (const [blackStart, blackEnd] of black) {
+    remaining = remaining.flatMap(([start, end]): [number, number][] => {
+      if (blackEnd <= start || blackStart >= end) return [[start, end]];
+      const result: [number, number][] = [];
+      if (start < blackStart) result.push([start, blackStart]);
+      if (end > blackEnd) result.push([blackEnd, end]);
+      return result;
+    });
+  }
+  return remaining;
 }
 export async function checkExport(timeline: Timeline, options: CheckOptions): Promise<Report> {
   const { ffmpegPath, ffprobePath } = options;
@@ -56,11 +70,16 @@ export async function checkExport(timeline: Timeline, options: CheckOptions): Pr
     if (shot.start < end - .05) add(number, shot.start, 'overlap', '画面时间线有重叠', '检查镜头起止时间');
     end = Math.max(end, shot.end);
     const length = shot.end - shot.start;
+    const explicitAudio = [...(shot.voices ?? []), ...(shot.music ?? [])];
     const info = await probe(shot.path, number, shot.start);
     if (info) {
       const video = info.streams.find(s => s.codec_type === 'video');
       if (!video) add(number, shot.start, 'video', '素材没有画面', '选择包含画面的视频');
       else {
+        if (options.includeOriginalAudio !== false && info.streams.some(stream => stream.codec_type === 'audio')
+          && !explicitAudio.some(clip => resolve(clip.path) === resolve(shot.path))) {
+          audio.push({ path: shot.path, start: shot.start, end: shot.end, sourceStart: source });
+        }
         const size = `${video.width}x${video.height}:${video.sample_aspect_ratio ?? '1:1'}`;
         if (reference && size !== reference) add(number, shot.start, 'size', '分辨率或宽高比不一致', '统一分辨率和像素宽高比后导出');
         reference ||= size;
@@ -71,12 +90,17 @@ export async function checkExport(timeline: Timeline, options: CheckOptions): Pr
         const scanned = await runProgram(ffmpegPath, ['-hide_banner', '-nostdin', '-ss', String(source), '-i', shot.path, '-t', String(length), '-an', '-vf', 'blackdetect=d=2:pix_th=0.10,freezedetect=n=-60dB:d=2', '-f', 'null', '-']);
         scanLog = scanned.stderr;
         } catch { add(number, shot.start, 'scan', '画面检测失败', '检查本机 ffmpeg 是否包含黑屏和静帧检测滤镜'); }
-        for (const kind of ['black', 'freeze'] as const) for (const [start, finish] of detectIntervals(scanLog, kind, length)) {
-          if (finish - start > 2) add(number, shot.start + start, kind, kind === 'black' ? '黑屏超过 2 秒' : '静帧超过 2 秒', '检查该段画面，替换异常素材或确认这是有意停留');
+        const black = detectIntervals(scanLog, 'black', length);
+        for (const [start, finish] of black) if (finish - start > 2) {
+          add(number, shot.start + start, 'black', '黑屏超过 2 秒', '检查该段画面，替换异常素材或确认这是有意停留');
+        }
+        const freezes = detectIntervals(scanLog, 'freeze', length).flatMap(interval => subtractBlackIntervals(interval, black));
+        for (const [start, finish] of freezes) if (finish - start > 2) {
+          add(number, shot.start + start, 'freeze', '静帧超过 2 秒', '检查该段画面，替换异常素材或确认这是有意停留');
         }
       }
     }
-    for (const clip of [...(shot.voices ?? []), ...(shot.music ?? [])]) {
+    for (const clip of explicitAudio) {
       const sourceStart = clip.sourceStart ?? 0;
       if (!valid(clip.start, clip.end, sourceStart)) { add(number, shot.start, 'audio-time', '声音时间无效', '设置有效的声音起止时间'); continue; }
       if (clip.start < shot.start || clip.end > shot.end) add(number, clip.start, 'sync', '画面和声音时间对不上', '调整声音起止时间或延长画面');
@@ -105,9 +129,9 @@ export async function checkExport(timeline: Timeline, options: CheckOptions): Pr
     else {
       const args = ['-hide_banner', '-nostdin'];
       for (const clip of audio) args.push('-i', clip.path);
-      const filters = audio.map((clip, i) => `[${i}:a:0]atrim=start=${clip.sourceStart ?? 0}:duration=${clip.end - clip.start},asetpts=PTS-STARTPTS,adelay=${Math.round(clip.start * 1000)}:all=1[a${i}]`);
-      filters.push(audio.map((_, i) => `[a${i}]`).join('') + `amix=inputs=${audio.length}:normalize=0,apad,atrim=duration=${duration},silencedetect=n=-50dB:d=${threshold}[out]`);
-      const scanned = await runProgram(ffmpegPath, [...args, '-filter_complex', filters.join(';'), '-map', '[out]', '-f', 'null', '-']);
+      const filters = audio.map((clip, i) => `[${i}:a:0]atrim=start=${clip.sourceStart ?? 0}:end=${(clip.sourceStart ?? 0) + clip.end - clip.start},asetpts=N/SR/TB,adelay=${Math.round(clip.start * 1000)}:all=1[a${i}]`);
+      filters.push(audio.map((_, i) => `[a${i}]`).join('') + `amix=inputs=${audio.length}:normalize=0,asetpts=N/SR/TB,apad=whole_dur=${duration},atrim=duration=${duration},silencedetect=n=-50dB:d=${threshold}[out]`);
+      const scanned = await runProgram(ffmpegPath, [...args, '-filter_complex', filters.join(';'), '-map', '[out]', '-t', String(duration), '-f', 'null', '-']);
       intervals = detectIntervals(scanned.stderr, 'silence', duration);
     }
     for (const [start, finish] of intervals) if (finish - start > threshold) {

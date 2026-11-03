@@ -42,14 +42,20 @@ class LoopTests(unittest.TestCase):
         entries = json.loads((directory / 'loop_entries.json').read_text())
         self.assertEqual(len(entries), 2)
         for entry in entries:
-            report = json.loads((directory / entry['seamReport']).read_text())
-            self.assertTrue(entry['loop'] and entry['loopable'] and report['passed'])
-            self.assertLessEqual(report['true_peak_dbtp'], -1)
-            self.assertLessEqual(abs(report['integrated_lufs'] + 20), .5)
-            self.assertFalse(report['subjective_listening_completed'])
+            report = json.loads((directory / entry['loopReport']).read_text())
+            self.assertTrue(entry['loop'] and entry['loopable'] and report['seam']['passed'])
+            self.assertEqual(report['channels'], 1)
+            self.assertGreaterEqual(report['duration'], 30)
+            self.assertLessEqual(report['duration'], 60)
+            self.assertLessEqual(report['truePeak'], -1)
+            self.assertLessEqual(report['samplePeak'], -1)
+            self.assertLessEqual(abs(report['loudness'] + 20), 1)
+            self.assertFalse(report['subjectiveListeningCompleted'])
             audio = directory / entry['path']
             self.assertEqual(hashlib.sha256(audio.read_bytes()).hexdigest(), entry['sha256'])
+            self.assertEqual(report['outputSha256'], entry['sha256'])
             self.assertTrue(seam_metrics(decode(os.environ.get('FFMPEG_PATH', '/usr/bin/ffmpeg'), audio))['passed'])
+
 
 
 if __name__ == '__main__':

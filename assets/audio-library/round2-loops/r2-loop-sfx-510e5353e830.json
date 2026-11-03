@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-510e5353e830",
+  "sourceId": "sfx-510e5353e830",
+  "sourceSha256": "463def073b0dcd3f25277ac288b0388194a86e95798b03ef508cf060900f1b64",
+  "outputSha256": "75916151ab02dd0ae39c3f8a1aace4be9fafbd73b10ad7ad25c9dece583908a8",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Bathroom%20Fan.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.07,
+  "truePeak": -6.66,
+  "samplePeak": -6.669811354016404,
+  "targetLufs": -20,
+  "constantGainDb": -1.7899999999999991,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 64.90391666666666,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 3.417104166666667,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0002977997064590454,
+        "adjacentDifferenceP99": 0.03694823384284973,
+        "leftRightRmsRatio": 1.049866964139371,
+        "seamNearbyRmsRatio": 0.9989167931601557,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

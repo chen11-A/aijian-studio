@@ -35,3 +35,9 @@ CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 - Dechode 引擎：[原作者固定提交许可页面](https://github.com/Dechode/Godot-Simple-Vehicle/blob/f448b000f896053319938e4f67ddd230623da853/README.md)，明确 enginesound 生成的音频本身 CC0。
 
 原始页面副本及 Wyzowl CC0 原文保存在 additions/phone-vehicle/licenses/。每条 source 指向具体原始文件，originalLicenseUrl 指向其发布者许可页面。新雨风循环版从原有素材派生，来源、许可与处理历史一并保留。
+
+## 第二轮修复与长循环
+
+所有当前清单条目已补原作者 author，固定衰减/转码不改变来源许可。第二轮9条拟音的逐包原作者声明保存在 round2/licenses/，具体来源见 round2/entries.json。8个设备环境循环沿用 Benjamin Burnes Fans and Drones 的独立录音与随包CC0声明；9个音乐循环分别沿用 effacestudios 对应原曲的CC0声明。循环派生版没有被计成新的原曲。
+
+原雨/风/喘息短采样、其两条短循环及重复刮擦/玻璃声已撤下；前文保留历史来源说明，是否在当前库以 manifest.json 为准。完整删除清单在 ROUND2_CHANGES.json。没有将缺失原作者许可的包按合集根授权收录。

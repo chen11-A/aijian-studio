@@ -1,0 +1,15 @@
+{
+  "node": "v24.19.0",
+  "platform": "linux",
+  "fileSize": 1074790400,
+  "archiveBytes": 1074790943,
+  "packSeconds": 17.418274097,
+  "importSeconds": 1.929853078,
+  "totalSeconds": 21.809259229,
+  "baselineRss": 60575744,
+  "peakRss": 141754368,
+  "peakRssIncrease": 81178624,
+  "sha256": "3fd5c5c14869322a05a7ca0243805a90151e726dfd5a1633eb37db8dda8398ef",
+  "compressionMethod": "STORE",
+  "result": "通过"
+}

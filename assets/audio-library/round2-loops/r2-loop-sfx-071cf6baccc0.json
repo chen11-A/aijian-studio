@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-071cf6baccc0",
+  "sourceId": "sfx-071cf6baccc0",
+  "sourceSha256": "55ef3b1dcec784530f2e87adf4b3aaefa2d401e7c96ae521b8e4f06a4bcbb1d0",
+  "outputSha256": "bbcebc00d9d7fc03319f6a6600f5a7ce3ff3f0d3c8a3c52edb8c58a5a7244bca",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Air%20Vent.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -20.08,
+  "truePeak": -4.77,
+  "samplePeak": -4.775277572197333,
+  "targetLufs": -20,
+  "constantGainDb": -2.0100000000000016,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 56.0289375,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 0.7962291666666667,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.00770212709903717,
+        "adjacentDifferenceP99": 0.018562443554401398,
+        "leftRightRmsRatio": 1.089807774242899,
+        "seamNearbyRmsRatio": 1.321954210979631,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

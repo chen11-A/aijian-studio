@@ -1,0 +1,2205 @@
+{
+  "method": "只对最终解码峰值高于 -1 的素材固定衰减，留 -1.7dB 余量；Vorbis 再编码后重新测量，不提升其它素材，不强制压缩瞬态。",
+  "samplePeakMethod": "ffmpeg astats 对解码浮点样本取绝对最大值并换算dBFS（不经整数PCM截断）。",
+  "files": 129,
+  "modified": 80,
+  "beforeAbove0dBFS": 62,
+  "beforeMaxSamplePeak": 15.332722,
+  "afterMaxSamplePeak": -1.052554,
+  "afterMaxTruePeak": -1.05,
+  "items": [
+    {
+      "id": "music-6d424149d4a2",
+      "name": "电子节奏",
+      "path": "music/music-6d424149d4a2.ogg",
+      "before": {
+        "loudness": -20.32,
+        "truePeak": 0.32,
+        "samplePeak": -0.172399
+      },
+      "after": {
+        "loudness": -22.43,
+        "truePeak": -2.01,
+        "samplePeak": -2.43884
+      },
+      "gainDb": -2.02,
+      "modified": true
+    },
+    {
+      "id": "music-23bc02ff82e2",
+      "name": "气泡舞曲",
+      "path": "music/music-23bc02ff82e2.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -0.21,
+        "samplePeak": -0.216367
+      },
+      "after": {
+        "loudness": -21.56,
+        "truePeak": -1.68,
+        "samplePeak": -1.677036
+      },
+      "gainDb": -1.49,
+      "modified": true
+    },
+    {
+      "id": "music-e94185587d78",
+      "name": "电影时刻",
+      "path": "music/music-e94185587d78.ogg",
+      "before": {
+        "loudness": -20.08,
+        "truePeak": -3.63,
+        "samplePeak": -3.698966
+      },
+      "after": {
+        "loudness": -20.08,
+        "truePeak": -3.63,
+        "samplePeak": -3.698966
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-6230c9ba9eef",
+      "name": "重拍推进",
+      "path": "music/music-6230c9ba9eef.ogg",
+      "before": {
+        "loudness": -20.11,
+        "truePeak": -1.24,
+        "samplePeak": -1.309443
+      },
+      "after": {
+        "loudness": -20.11,
+        "truePeak": -1.24,
+        "samplePeak": -1.309443
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-6fe261a4eb25",
+      "name": "怒意",
+      "path": "music/music-6fe261a4eb25.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -2.85,
+        "samplePeak": -2.886313
+      },
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -2.85,
+        "samplePeak": -2.886313
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-0274474ab7c4",
+      "name": "游戏少年",
+      "path": "music/music-0274474ab7c4.ogg",
+      "before": {
+        "loudness": -20.1,
+        "truePeak": -0.02,
+        "samplePeak": -0.020962
+      },
+      "after": {
+        "loudness": -21.75,
+        "truePeak": -1.65,
+        "samplePeak": -1.80176
+      },
+      "gainDb": -1.68,
+      "modified": true
+    },
+    {
+      "id": "music-360f3c163ed6",
+      "name": "快乐生活",
+      "path": "music/music-360f3c163ed6.ogg",
+      "before": {
+        "loudness": -20.02,
+        "truePeak": 1.85,
+        "samplePeak": 1.844747
+      },
+      "after": {
+        "loudness": -23.54,
+        "truePeak": -1.76,
+        "samplePeak": -1.837608
+      },
+      "gainDb": -3.55,
+      "modified": true
+    },
+    {
+      "id": "music-9935a373414d",
+      "name": "幻术师",
+      "path": "music/music-9935a373414d.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -1.6,
+        "samplePeak": -1.684104
+      },
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -1.6,
+        "samplePeak": -1.684104
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-444401af8dc7",
+      "name": "我的发明",
+      "path": "music/music-444401af8dc7.ogg",
+      "before": {
+        "loudness": -20.14,
+        "truePeak": 0.42,
+        "samplePeak": 0.420202
+      },
+      "after": {
+        "loudness": -22.33,
+        "truePeak": -1.49,
+        "samplePeak": -1.531044
+      },
+      "gainDb": -2.120202,
+      "modified": true
+    },
+    {
+      "id": "music-0a80523107eb",
+      "name": "神秘线索",
+      "path": "music/music-0a80523107eb.ogg",
+      "before": {
+        "loudness": -20.0,
+        "truePeak": -3.77,
+        "samplePeak": -3.791986
+      },
+      "after": {
+        "loudness": -20.0,
+        "truePeak": -3.77,
+        "samplePeak": -3.791986
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-9d2fa11d09bf",
+      "name": "新鲜时光",
+      "path": "music/music-9d2fa11d09bf.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -3.15,
+        "samplePeak": -3.157593
+      },
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -3.15,
+        "samplePeak": -3.157593
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-01a63f6d5d85",
+      "name": "局外人",
+      "path": "music/music-01a63f6d5d85.ogg",
+      "before": {
+        "loudness": -20.07,
+        "truePeak": 0.86,
+        "samplePeak": 0.731445
+      },
+      "after": {
+        "loudness": -22.65,
+        "truePeak": -1.77,
+        "samplePeak": -1.812482
+      },
+      "gainDb": -2.56,
+      "modified": true
+    },
+    {
+      "id": "music-b83f90a21759",
+      "name": "派对时刻",
+      "path": "music/music-b83f90a21759.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -2.38,
+        "samplePeak": -2.399089
+      },
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -2.38,
+        "samplePeak": -2.399089
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-c8cdb7affbe1",
+      "name": "计划",
+      "path": "music/music-c8cdb7affbe1.ogg",
+      "before": {
+        "loudness": -19.96,
+        "truePeak": -1.39,
+        "samplePeak": -1.494942
+      },
+      "after": {
+        "loudness": -19.96,
+        "truePeak": -1.39,
+        "samplePeak": -1.494942
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-dd0e66d1c872",
+      "name": "科幻空间",
+      "path": "music/music-dd0e66d1c872.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -1.35,
+        "samplePeak": -1.42897
+      },
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -1.35,
+        "samplePeak": -1.42897
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-9a5a5f04056f",
+      "name": "运动精神",
+      "path": "music/music-9a5a5f04056f.ogg",
+      "before": {
+        "loudness": -20.06,
+        "truePeak": -3.39,
+        "samplePeak": -3.392272
+      },
+      "after": {
+        "loudness": -20.06,
+        "truePeak": -3.39,
+        "samplePeak": -3.392272
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-cc2f5e437e63",
+      "name": "启程",
+      "path": "music/music-cc2f5e437e63.ogg",
+      "before": {
+        "loudness": -20.07,
+        "truePeak": -0.52,
+        "samplePeak": -0.52245
+      },
+      "after": {
+        "loudness": -21.29,
+        "truePeak": -2.35,
+        "samplePeak": -2.351059
+      },
+      "gainDb": -1.18,
+      "modified": true
+    },
+    {
+      "id": "music-197b91134859",
+      "name": "突然旅行",
+      "path": "music/music-197b91134859.ogg",
+      "before": {
+        "loudness": -20.03,
+        "truePeak": -4.99,
+        "samplePeak": -5.268817
+      },
+      "after": {
+        "loudness": -20.03,
+        "truePeak": -4.99,
+        "samplePeak": -5.268817
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "music-012b71c5161d",
+      "name": "小丑",
+      "path": "music/music-012b71c5161d.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -0.91,
+        "samplePeak": -0.957933
+      },
+      "after": {
+        "loudness": -20.79,
+        "truePeak": -1.59,
+        "samplePeak": -1.745839
+      },
+      "gainDb": -0.79,
+      "modified": true
+    },
+    {
+      "id": "music-be6017f6ca71",
+      "name": "慢下来",
+      "path": "music/music-be6017f6ca71.ogg",
+      "before": {
+        "loudness": -20.17,
+        "truePeak": -0.39,
+        "samplePeak": -0.388607
+      },
+      "after": {
+        "loudness": -21.61,
+        "truePeak": -1.57,
+        "samplePeak": -1.569515
+      },
+      "gainDb": -1.311393,
+      "modified": true
+    },
+    {
+      "id": "sfx-12e512a0f2df",
+      "name": "草地脚步2四连步",
+      "path": "sfx/sfx-12e512a0f2df.ogg",
+      "before": {
+        "loudness": -18.03,
+        "truePeak": 9.34,
+        "samplePeak": 9.287
+      },
+      "after": {
+        "loudness": -29.14,
+        "truePeak": -1.66,
+        "samplePeak": -1.705292
+      },
+      "gainDb": -11.04,
+      "modified": true
+    },
+    {
+      "id": "sfx-021c2e635561",
+      "name": "开门1",
+      "path": "sfx/sfx-021c2e635561.ogg",
+      "before": {
+        "loudness": -18.15,
+        "truePeak": 0.61,
+        "samplePeak": 0.515081
+      },
+      "after": {
+        "loudness": -20.67,
+        "truePeak": -1.77,
+        "samplePeak": -1.857088
+      },
+      "gainDb": -2.31,
+      "modified": true
+    },
+    {
+      "id": "sfx-22c2f5697f1a",
+      "name": "开门2",
+      "path": "sfx/sfx-22c2f5697f1a.ogg",
+      "before": {
+        "loudness": -18.22,
+        "truePeak": 0.9,
+        "samplePeak": 0.649251
+      },
+      "after": {
+        "loudness": -21.02,
+        "truePeak": -2.1,
+        "samplePeak": -2.320534
+      },
+      "gainDb": -2.6,
+      "modified": true
+    },
+    {
+      "id": "sfx-d93e440b2aa4",
+      "name": "关门1",
+      "path": "sfx/sfx-d93e440b2aa4.ogg",
+      "before": {
+        "loudness": -18.52,
+        "truePeak": -1.78,
+        "samplePeak": -1.990055
+      },
+      "after": {
+        "loudness": -18.52,
+        "truePeak": -1.78,
+        "samplePeak": -1.990055
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-54b6a6e1f762",
+      "name": "关门2",
+      "path": "sfx/sfx-54b6a6e1f762.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -1.73,
+        "samplePeak": -1.731736
+      },
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -1.73,
+        "samplePeak": -1.731736
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-cc6515f70c70",
+      "name": "关门4",
+      "path": "sfx/sfx-cc6515f70c70.ogg",
+      "before": {
+        "loudness": -18.03,
+        "truePeak": 0.08,
+        "samplePeak": 0.068818
+      },
+      "after": {
+        "loudness": -19.93,
+        "truePeak": -1.63,
+        "samplePeak": -1.637235
+      },
+      "gainDb": -1.78,
+      "modified": true
+    },
+    {
+      "id": "sfx-4729d1a9a20d",
+      "name": "衣服摩擦1",
+      "path": "sfx/sfx-4729d1a9a20d.ogg",
+      "before": {
+        "loudness": -18.25,
+        "truePeak": 4.33,
+        "samplePeak": 4.334374
+      },
+      "after": {
+        "loudness": -24.4,
+        "truePeak": -2.01,
+        "samplePeak": -2.010695
+      },
+      "gainDb": -6.034374,
+      "modified": true
+    },
+    {
+      "id": "sfx-a91bbbc2b480",
+      "name": "衣服摩擦3",
+      "path": "sfx/sfx-a91bbbc2b480.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": 1.69,
+        "samplePeak": 1.688542
+      },
+      "after": {
+        "loudness": -21.65,
+        "truePeak": -2.3,
+        "samplePeak": -2.299954
+      },
+      "gainDb": -3.39,
+      "modified": true
+    },
+    {
+      "id": "sfx-12dee896057b",
+      "name": "翻书1",
+      "path": "sfx/sfx-12dee896057b.ogg",
+      "before": {
+        "loudness": -18.21,
+        "truePeak": 9.23,
+        "samplePeak": 9.047038
+      },
+      "after": {
+        "loudness": -31.0,
+        "truePeak": -1.96,
+        "samplePeak": -2.055378
+      },
+      "gainDb": -10.93,
+      "modified": true
+    },
+    {
+      "id": "sfx-3bf9d7a22a53",
+      "name": "金属锅碰撞1",
+      "path": "sfx/sfx-3bf9d7a22a53.ogg",
+      "before": {
+        "loudness": -18.17,
+        "truePeak": -2.34,
+        "samplePeak": -2.339713
+      },
+      "after": {
+        "loudness": -18.17,
+        "truePeak": -2.34,
+        "samplePeak": -2.339713
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-ba55b94aa69b",
+      "name": "金属锅碰撞2",
+      "path": "sfx/sfx-ba55b94aa69b.ogg",
+      "before": {
+        "loudness": -18.44,
+        "truePeak": -7.43,
+        "samplePeak": -7.526123
+      },
+      "after": {
+        "loudness": -18.44,
+        "truePeak": -7.43,
+        "samplePeak": -7.526123
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-9e826c868f2e",
+      "name": "金属锅碰撞3",
+      "path": "sfx/sfx-9e826c868f2e.ogg",
+      "before": {
+        "loudness": -18.22,
+        "truePeak": -6.56,
+        "samplePeak": -6.672462
+      },
+      "after": {
+        "loudness": -18.22,
+        "truePeak": -6.56,
+        "samplePeak": -6.672462
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-528edef154d1",
+      "name": "刀刃刮擦1",
+      "path": "sfx/sfx-528edef154d1.ogg",
+      "before": {
+        "loudness": -18.06,
+        "truePeak": 2.73,
+        "samplePeak": 2.726686
+      },
+      "after": {
+        "loudness": -22.6,
+        "truePeak": -1.91,
+        "samplePeak": -2.139288
+      },
+      "gainDb": -4.43,
+      "modified": true
+    },
+    {
+      "id": "sfx-f5ab3071c93d",
+      "name": "刀刃刮擦2",
+      "path": "sfx/sfx-f5ab3071c93d.ogg",
+      "before": {
+        "loudness": -18.09,
+        "truePeak": -2.3,
+        "samplePeak": -2.29774
+      },
+      "after": {
+        "loudness": -18.09,
+        "truePeak": -2.3,
+        "samplePeak": -2.29774
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-a37ee051f018",
+      "name": "刀刃刮擦3",
+      "path": "sfx/sfx-a37ee051f018.ogg",
+      "before": {
+        "loudness": -18.13,
+        "truePeak": -2.36,
+        "samplePeak": -2.359813
+      },
+      "after": {
+        "loudness": -18.13,
+        "truePeak": -2.36,
+        "samplePeak": -2.359813
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-9dcf180a63dd",
+      "name": "纸页翻动1",
+      "path": "sfx/sfx-9dcf180a63dd.ogg",
+      "before": {
+        "loudness": -18.03,
+        "truePeak": 15.51,
+        "samplePeak": 15.332722
+      },
+      "after": {
+        "loudness": -35.24,
+        "truePeak": -2.14,
+        "samplePeak": -2.242779
+      },
+      "gainDb": -17.21,
+      "modified": true
+    },
+    {
+      "id": "sfx-57f0db65990a",
+      "name": "纸页翻动2",
+      "path": "sfx/sfx-57f0db65990a.ogg",
+      "before": {
+        "loudness": -18.15,
+        "truePeak": 11.45,
+        "samplePeak": 11.447548
+      },
+      "after": {
+        "loudness": -31.54,
+        "truePeak": -1.64,
+        "samplePeak": -1.638264
+      },
+      "gainDb": -13.15,
+      "modified": true
+    },
+    {
+      "id": "sfx-6496901c0404",
+      "name": "纸页翻动3",
+      "path": "sfx/sfx-6496901c0404.ogg",
+      "before": {
+        "loudness": -17.98,
+        "truePeak": 7.67,
+        "samplePeak": 7.667729
+      },
+      "after": {
+        "loudness": -27.45,
+        "truePeak": -1.92,
+        "samplePeak": -1.918938
+      },
+      "gainDb": -9.37,
+      "modified": true
+    },
+    {
+      "id": "sfx-071cf6baccc0",
+      "name": "通风口",
+      "path": "sfx/sfx-071cf6baccc0.ogg",
+      "before": {
+        "loudness": -18.12,
+        "truePeak": -2.79,
+        "samplePeak": -2.800323
+      },
+      "after": {
+        "loudness": -18.12,
+        "truePeak": -2.79,
+        "samplePeak": -2.800323
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-510e5353e830",
+      "name": "浴室风扇",
+      "path": "sfx/sfx-510e5353e830.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -4.29,
+        "samplePeak": -4.295601
+      },
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -4.29,
+        "samplePeak": -4.295601
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-843c79cf1eec",
+      "name": "电脑风扇",
+      "path": "sfx/sfx-843c79cf1eec.ogg",
+      "before": {
+        "loudness": -18.01,
+        "truePeak": -5.1,
+        "samplePeak": -5.106496
+      },
+      "after": {
+        "loudness": -18.01,
+        "truePeak": -5.1,
+        "samplePeak": -5.106496
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-0fee82de42e3",
+      "name": "除湿机",
+      "path": "sfx/sfx-0fee82de42e3.ogg",
+      "before": {
+        "loudness": -18.03,
+        "truePeak": -3.66,
+        "samplePeak": -3.662305
+      },
+      "after": {
+        "loudness": -18.03,
+        "truePeak": -3.66,
+        "samplePeak": -3.662305
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-98719b6dd48c",
+      "name": "暖炉风扇",
+      "path": "sfx/sfx-98719b6dd48c.ogg",
+      "before": {
+        "loudness": -18.09,
+        "truePeak": -4.19,
+        "samplePeak": -4.194264
+      },
+      "after": {
+        "loudness": -18.09,
+        "truePeak": -4.19,
+        "samplePeak": -4.194264
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-e0ccb6598627",
+      "name": "大风扇",
+      "path": "sfx/sfx-e0ccb6598627.ogg",
+      "before": {
+        "loudness": -18.08,
+        "truePeak": -0.07,
+        "samplePeak": -0.073016
+      },
+      "after": {
+        "loudness": -19.79,
+        "truePeak": -1.72,
+        "samplePeak": -1.719017
+      },
+      "gainDb": -1.63,
+      "modified": true
+    },
+    {
+      "id": "sfx-cd7e525287e0",
+      "name": "微波炉",
+      "path": "sfx/sfx-cd7e525287e0.ogg",
+      "before": {
+        "loudness": -18.0,
+        "truePeak": -6.55,
+        "samplePeak": -6.552416
+      },
+      "after": {
+        "loudness": -18.0,
+        "truePeak": -6.55,
+        "samplePeak": -6.552416
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-57aaf3ed3677",
+      "name": "室外空调",
+      "path": "sfx/sfx-57aaf3ed3677.ogg",
+      "before": {
+        "loudness": -17.99,
+        "truePeak": -7.4,
+        "samplePeak": -7.404468
+      },
+      "after": {
+        "loudness": -17.99,
+        "truePeak": -7.4,
+        "samplePeak": -7.404468
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-5f709f72838f",
+      "name": "室外底噪",
+      "path": "sfx/sfx-5f709f72838f.ogg",
+      "before": {
+        "loudness": -18.19,
+        "truePeak": 3.08,
+        "samplePeak": 3.078679
+      },
+      "after": {
+        "loudness": -23.13,
+        "truePeak": -1.89,
+        "samplePeak": -1.888518
+      },
+      "gainDb": -4.78,
+      "modified": true
+    },
+    {
+      "id": "sfx-609fbbb2cc63",
+      "name": "冰箱",
+      "path": "sfx/sfx-609fbbb2cc63.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -2.63,
+        "samplePeak": -2.62981
+      },
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -2.63,
+        "samplePeak": -2.62981
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-da48e26760ac",
+      "name": "水槽龙头",
+      "path": "sfx/sfx-da48e26760ac.ogg",
+      "before": {
+        "loudness": -18.32,
+        "truePeak": 4.83,
+        "samplePeak": 4.829582
+      },
+      "after": {
+        "loudness": -25.03,
+        "truePeak": -2.07,
+        "samplePeak": -2.065438
+      },
+      "gainDb": -6.53,
+      "modified": true
+    },
+    {
+      "id": "sfx-e2b5a3ce0637",
+      "name": "小风扇",
+      "path": "sfx/sfx-e2b5a3ce0637.ogg",
+      "before": {
+        "loudness": -18.18,
+        "truePeak": -1.61,
+        "samplePeak": -1.74944
+      },
+      "after": {
+        "loudness": -18.18,
+        "truePeak": -1.61,
+        "samplePeak": -1.74944
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-689299c71246",
+      "name": "风声采样",
+      "path": "sfx/sfx-689299c71246.ogg",
+      "before": {
+        "loudness": -17.96,
+        "truePeak": 1.55,
+        "samplePeak": 1.545438
+      },
+      "after": {
+        "loudness": -20.98,
+        "truePeak": -1.78,
+        "samplePeak": -1.779315
+      },
+      "gainDb": -3.25,
+      "modified": true
+    },
+    {
+      "id": "sfx-2cfe172eb41f",
+      "name": "雨声采样",
+      "path": "sfx/sfx-2cfe172eb41f.ogg",
+      "before": {
+        "loudness": -18.12,
+        "truePeak": 2.61,
+        "samplePeak": 2.588843
+      },
+      "after": {
+        "loudness": -22.5,
+        "truePeak": -1.59,
+        "samplePeak": -1.593248
+      },
+      "gainDb": -4.31,
+      "modified": true
+    },
+    {
+      "id": "sfx-72721afc39ef",
+      "name": "沉重喘息",
+      "path": "sfx/sfx-72721afc39ef.ogg",
+      "before": {
+        "loudness": -18.38,
+        "truePeak": -4.25,
+        "samplePeak": -4.245056
+      },
+      "after": {
+        "loudness": -18.38,
+        "truePeak": -4.25,
+        "samplePeak": -4.245056
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-400bbc61b44b",
+      "name": "拟音雷声1",
+      "path": "sfx/sfx-400bbc61b44b.ogg",
+      "before": {
+        "loudness": -18.01,
+        "truePeak": 2.03,
+        "samplePeak": 2.026006
+      },
+      "after": {
+        "loudness": -21.74,
+        "truePeak": -1.78,
+        "samplePeak": -1.783196
+      },
+      "gainDb": -3.73,
+      "modified": true
+    },
+    {
+      "id": "sfx-5b3c0f1e70aa",
+      "name": "拟音雷声2",
+      "path": "sfx/sfx-5b3c0f1e70aa.ogg",
+      "before": {
+        "loudness": -17.98,
+        "truePeak": -1.05,
+        "samplePeak": -1.052554
+      },
+      "after": {
+        "loudness": -17.98,
+        "truePeak": -1.05,
+        "samplePeak": -1.052554
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-4b7ae48f1514",
+      "name": "旋转嗖声1",
+      "path": "sfx/sfx-4b7ae48f1514.ogg",
+      "before": {
+        "loudness": -18.16,
+        "truePeak": 2.95,
+        "samplePeak": 2.936093
+      },
+      "after": {
+        "loudness": -22.64,
+        "truePeak": -1.86,
+        "samplePeak": -1.8797
+      },
+      "gainDb": -4.65,
+      "modified": true
+    },
+    {
+      "id": "sfx-dd062ef50014",
+      "name": "旋转嗖声2",
+      "path": "sfx/sfx-dd062ef50014.ogg",
+      "before": {
+        "loudness": -18.21,
+        "truePeak": 0.5,
+        "samplePeak": 0.50489
+      },
+      "after": {
+        "loudness": -20.55,
+        "truePeak": -2.0,
+        "samplePeak": -1.998847
+      },
+      "gainDb": -2.20489,
+      "modified": true
+    },
+    {
+      "id": "sfx-c8408f0b4f3c",
+      "name": "旋转嗖声3",
+      "path": "sfx/sfx-c8408f0b4f3c.ogg",
+      "before": {
+        "loudness": -18.16,
+        "truePeak": 0.27,
+        "samplePeak": 0.229714
+      },
+      "after": {
+        "loudness": -20.14,
+        "truePeak": -1.62,
+        "samplePeak": -1.666024
+      },
+      "gainDb": -1.97,
+      "modified": true
+    },
+    {
+      "id": "sfx-61cd75357c07",
+      "name": "旋转嗖声4",
+      "path": "sfx/sfx-61cd75357c07.ogg",
+      "before": {
+        "loudness": -18.13,
+        "truePeak": 1.69,
+        "samplePeak": 1.686014
+      },
+      "after": {
+        "loudness": -21.6,
+        "truePeak": -1.84,
+        "samplePeak": -1.839796
+      },
+      "gainDb": -3.39,
+      "modified": true
+    },
+    {
+      "id": "sfx-1538a6137773",
+      "name": "短旋转嗖声1",
+      "path": "sfx/sfx-1538a6137773.ogg",
+      "before": {
+        "loudness": -18.25,
+        "truePeak": 1.65,
+        "samplePeak": 1.653969
+      },
+      "after": {
+        "loudness": -21.7,
+        "truePeak": -1.82,
+        "samplePeak": -1.815734
+      },
+      "gainDb": -3.353969,
+      "modified": true
+    },
+    {
+      "id": "sfx-2f505f35e02e",
+      "name": "短旋转嗖声2",
+      "path": "sfx/sfx-2f505f35e02e.ogg",
+      "before": {
+        "loudness": -18.22,
+        "truePeak": -0.59,
+        "samplePeak": -0.593257
+      },
+      "after": {
+        "loudness": -19.34,
+        "truePeak": -1.97,
+        "samplePeak": -2.037912
+      },
+      "gainDb": -1.11,
+      "modified": true
+    },
+    {
+      "id": "sfx-aa12ed90f8da",
+      "name": "短旋转嗖声3",
+      "path": "sfx/sfx-aa12ed90f8da.ogg",
+      "before": {
+        "loudness": -18.07,
+        "truePeak": -0.18,
+        "samplePeak": -0.180396
+      },
+      "after": {
+        "loudness": -19.6,
+        "truePeak": -1.81,
+        "samplePeak": -1.862904
+      },
+      "gainDb": -1.52,
+      "modified": true
+    },
+    {
+      "id": "sfx-1fc97e200590",
+      "name": "短旋转嗖声4",
+      "path": "sfx/sfx-1fc97e200590.ogg",
+      "before": {
+        "loudness": -18.11,
+        "truePeak": 0.11,
+        "samplePeak": 0.075499
+      },
+      "after": {
+        "loudness": -19.94,
+        "truePeak": -1.6,
+        "samplePeak": -1.641581
+      },
+      "gainDb": -1.81,
+      "modified": true
+    },
+    {
+      "id": "sfx-5713b6175e2d",
+      "name": "短旋转嗖声5",
+      "path": "sfx/sfx-5713b6175e2d.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": 0.48,
+        "samplePeak": 0.433911
+      },
+      "after": {
+        "loudness": -20.41,
+        "truePeak": -1.72,
+        "samplePeak": -1.76341
+      },
+      "gainDb": -2.18,
+      "modified": true
+    },
+    {
+      "id": "sfx-542b57ac2f91",
+      "name": "短旋转嗖声6",
+      "path": "sfx/sfx-542b57ac2f91.ogg",
+      "before": {
+        "loudness": -18.13,
+        "truePeak": -0.83,
+        "samplePeak": -0.872585
+      },
+      "after": {
+        "loudness": -18.99,
+        "truePeak": -2.07,
+        "samplePeak": -2.132441
+      },
+      "gainDb": -0.87,
+      "modified": true
+    },
+    {
+      "id": "sfx-ce40ad51976c",
+      "name": "连续挥动1",
+      "path": "sfx/sfx-ce40ad51976c.ogg",
+      "before": {
+        "loudness": -17.97,
+        "truePeak": 2.37,
+        "samplePeak": 2.336159
+      },
+      "after": {
+        "loudness": -22.4,
+        "truePeak": -2.1,
+        "samplePeak": -2.117697
+      },
+      "gainDb": -4.07,
+      "modified": true
+    },
+    {
+      "id": "sfx-745b785ba632",
+      "name": "连续挥动2",
+      "path": "sfx/sfx-745b785ba632.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": 4.34,
+        "samplePeak": 4.320401
+      },
+      "after": {
+        "loudness": -24.44,
+        "truePeak": -1.71,
+        "samplePeak": -1.778923
+      },
+      "gainDb": -6.04,
+      "modified": true
+    },
+    {
+      "id": "sfx-bfb3175cd7f4",
+      "name": "连续挥动3",
+      "path": "sfx/sfx-bfb3175cd7f4.ogg",
+      "before": {
+        "loudness": -18.34,
+        "truePeak": 3.59,
+        "samplePeak": 3.589508
+      },
+      "after": {
+        "loudness": -24.1,
+        "truePeak": -1.65,
+        "samplePeak": -1.654149
+      },
+      "gainDb": -5.29,
+      "modified": true
+    },
+    {
+      "id": "sfx-05168a0aa856",
+      "name": "连续挥动4",
+      "path": "sfx/sfx-05168a0aa856.ogg",
+      "before": {
+        "loudness": -18.18,
+        "truePeak": 1.49,
+        "samplePeak": 1.46621
+      },
+      "after": {
+        "loudness": -21.49,
+        "truePeak": -1.76,
+        "samplePeak": -1.79174
+      },
+      "gainDb": -3.19,
+      "modified": true
+    },
+    {
+      "id": "sfx-821112262ef3",
+      "name": "大刀刮擦1",
+      "path": "sfx/sfx-821112262ef3.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": -0.77,
+        "samplePeak": -0.963981
+      },
+      "after": {
+        "loudness": -19.02,
+        "truePeak": -1.86,
+        "samplePeak": -2.0237
+      },
+      "gainDb": -0.93,
+      "modified": true
+    },
+    {
+      "id": "sfx-df3377a3de24",
+      "name": "大刀刮擦2",
+      "path": "sfx/sfx-df3377a3de24.ogg",
+      "before": {
+        "loudness": -18.29,
+        "truePeak": 0.08,
+        "samplePeak": -0.539206
+      },
+      "after": {
+        "loudness": -20.57,
+        "truePeak": -2.96,
+        "samplePeak": -3.533684
+      },
+      "gainDb": -1.78,
+      "modified": true
+    },
+    {
+      "id": "sfx-d8d150ce2346",
+      "name": "大刀刮擦3",
+      "path": "sfx/sfx-d8d150ce2346.ogg",
+      "before": {
+        "loudness": -18.08,
+        "truePeak": -5.07,
+        "samplePeak": -5.616765
+      },
+      "after": {
+        "loudness": -18.08,
+        "truePeak": -5.07,
+        "samplePeak": -5.616765
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-01d6eb26ca00",
+      "name": "大刀刮擦4",
+      "path": "sfx/sfx-01d6eb26ca00.ogg",
+      "before": {
+        "loudness": -18.21,
+        "truePeak": -4.46,
+        "samplePeak": -5.016509
+      },
+      "after": {
+        "loudness": -18.21,
+        "truePeak": -4.46,
+        "samplePeak": -5.016509
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-5ea35dd11f89",
+      "name": "大刀刮擦5",
+      "path": "sfx/sfx-5ea35dd11f89.ogg",
+      "before": {
+        "loudness": -18.26,
+        "truePeak": -2.88,
+        "samplePeak": -3.127227
+      },
+      "after": {
+        "loudness": -18.26,
+        "truePeak": -2.88,
+        "samplePeak": -3.127227
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-b6f9170c0ddf",
+      "name": "大刀刮擦6",
+      "path": "sfx/sfx-b6f9170c0ddf.ogg",
+      "before": {
+        "loudness": -18.1,
+        "truePeak": 4.75,
+        "samplePeak": 4.618535
+      },
+      "after": {
+        "loudness": -24.91,
+        "truePeak": -2.7,
+        "samplePeak": -2.861281
+      },
+      "gainDb": -6.45,
+      "modified": true
+    },
+    {
+      "id": "sfx-f3c3289ea8a0",
+      "name": "大刀刮擦7",
+      "path": "sfx/sfx-f3c3289ea8a0.ogg",
+      "before": {
+        "loudness": -18.17,
+        "truePeak": 2.38,
+        "samplePeak": 2.064385
+      },
+      "after": {
+        "loudness": -22.5,
+        "truePeak": -2.21,
+        "samplePeak": -2.66864
+      },
+      "gainDb": -4.08,
+      "modified": true
+    },
+    {
+      "id": "sfx-0f5c035600b2",
+      "name": "大刀刮擦8",
+      "path": "sfx/sfx-0f5c035600b2.ogg",
+      "before": {
+        "loudness": -18.18,
+        "truePeak": 1.05,
+        "samplePeak": 0.838078
+      },
+      "after": {
+        "loudness": -21.65,
+        "truePeak": -3.38,
+        "samplePeak": -3.376762
+      },
+      "gainDb": -2.75,
+      "modified": true
+    },
+    {
+      "id": "sfx-5707164b78b6",
+      "name": "大刀刮擦9",
+      "path": "sfx/sfx-5707164b78b6.ogg",
+      "before": {
+        "loudness": -18.17,
+        "truePeak": -3.51,
+        "samplePeak": -3.757457
+      },
+      "after": {
+        "loudness": -18.17,
+        "truePeak": -3.51,
+        "samplePeak": -3.757457
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-9e3959a42c70",
+      "name": "大刀出鞘1",
+      "path": "sfx/sfx-9e3959a42c70.ogg",
+      "before": {
+        "loudness": -18.33,
+        "truePeak": 4.45,
+        "samplePeak": 4.451804
+      },
+      "after": {
+        "loudness": -24.77,
+        "truePeak": -4.19,
+        "samplePeak": -4.18995
+      },
+      "gainDb": -6.151804,
+      "modified": true
+    },
+    {
+      "id": "sfx-c809f0eb7e33",
+      "name": "大刀出鞘2",
+      "path": "sfx/sfx-c809f0eb7e33.ogg",
+      "before": {
+        "loudness": -18.34,
+        "truePeak": -2.59,
+        "samplePeak": -2.778801
+      },
+      "after": {
+        "loudness": -18.34,
+        "truePeak": -2.59,
+        "samplePeak": -2.778801
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-5408170ced24",
+      "name": "大刀入鞘1",
+      "path": "sfx/sfx-5408170ced24.ogg",
+      "before": {
+        "loudness": -18.25,
+        "truePeak": 3.3,
+        "samplePeak": 2.897076
+      },
+      "after": {
+        "loudness": -23.2,
+        "truePeak": -1.94,
+        "samplePeak": -2.353259
+      },
+      "gainDb": -5.0,
+      "modified": true
+    },
+    {
+      "id": "sfx-e4ecdce1c649",
+      "name": "大刀入鞘2",
+      "path": "sfx/sfx-e4ecdce1c649.ogg",
+      "before": {
+        "loudness": -18.22,
+        "truePeak": 10.63,
+        "samplePeak": 10.633499
+      },
+      "after": {
+        "loudness": -30.74,
+        "truePeak": -2.12,
+        "samplePeak": -2.118758
+      },
+      "gainDb": -12.333499,
+      "modified": true
+    },
+    {
+      "id": "sfx-b74c1393e17c",
+      "name": "重拳1",
+      "path": "sfx/sfx-b74c1393e17c.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": -0.51,
+        "samplePeak": -0.515275
+      },
+      "after": {
+        "loudness": -19.25,
+        "truePeak": -1.66,
+        "samplePeak": -1.6642
+      },
+      "gainDb": -1.19,
+      "modified": true
+    },
+    {
+      "id": "sfx-b3847cc4bfeb",
+      "name": "重拳2",
+      "path": "sfx/sfx-b3847cc4bfeb.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": -0.98,
+        "samplePeak": -0.979127
+      },
+      "after": {
+        "loudness": -18.75,
+        "truePeak": -1.77,
+        "samplePeak": -1.771519
+      },
+      "gainDb": -0.720873,
+      "modified": true
+    },
+    {
+      "id": "sfx-8dad161c6a8c",
+      "name": "重拳5",
+      "path": "sfx/sfx-8dad161c6a8c.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": -0.61,
+        "samplePeak": -0.606041
+      },
+      "after": {
+        "loudness": -19.05,
+        "truePeak": -1.75,
+        "samplePeak": -1.747542
+      },
+      "gainDb": -1.093959,
+      "modified": true
+    },
+    {
+      "id": "sfx-1cfa32c9392e",
+      "name": "软物重落1",
+      "path": "sfx/sfx-1cfa32c9392e.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": 0.43,
+        "samplePeak": 0.433033
+      },
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -1.57,
+        "samplePeak": -1.569869
+      },
+      "gainDb": -2.133033,
+      "modified": true
+    },
+    {
+      "id": "sfx-7a3e0edcc209",
+      "name": "软物重落2",
+      "path": "sfx/sfx-7a3e0edcc209.ogg",
+      "before": {
+        "loudness": -17.89,
+        "truePeak": 2.89,
+        "samplePeak": 2.892277
+      },
+      "after": {
+        "loudness": -22.49,
+        "truePeak": -1.58,
+        "samplePeak": -1.584497
+      },
+      "gainDb": -4.592277,
+      "modified": true
+    },
+    {
+      "id": "sfx-7b302c8ca4c4",
+      "name": "软物重落3",
+      "path": "sfx/sfx-7b302c8ca4c4.ogg",
+      "before": {
+        "loudness": -17.98,
+        "truePeak": 2.63,
+        "samplePeak": 2.633745
+      },
+      "after": {
+        "loudness": -22.28,
+        "truePeak": -1.6,
+        "samplePeak": -1.603496
+      },
+      "gainDb": -4.333745,
+      "modified": true
+    },
+    {
+      "id": "sfx-b3e38126d804",
+      "name": "软物重落4",
+      "path": "sfx/sfx-b3e38126d804.ogg",
+      "before": {
+        "loudness": -17.93,
+        "truePeak": 2.82,
+        "samplePeak": 2.820588
+      },
+      "after": {
+        "loudness": -22.43,
+        "truePeak": -1.63,
+        "samplePeak": -1.627922
+      },
+      "gainDb": -4.520588,
+      "modified": true
+    },
+    {
+      "id": "sfx-12480f744dbc",
+      "name": "软物重落5",
+      "path": "sfx/sfx-12480f744dbc.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": 0.15,
+        "samplePeak": 0.153566
+      },
+      "after": {
+        "loudness": -19.75,
+        "truePeak": -1.64,
+        "samplePeak": -1.642012
+      },
+      "gainDb": -1.853566,
+      "modified": true
+    },
+    {
+      "id": "sfx-0e2d7911beb9",
+      "name": "重敲钟1",
+      "path": "sfx/sfx-0e2d7911beb9.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": 2.95,
+        "samplePeak": 2.944945
+      },
+      "after": {
+        "loudness": -22.6,
+        "truePeak": -1.95,
+        "samplePeak": -1.956935
+      },
+      "gainDb": -4.65,
+      "modified": true
+    },
+    {
+      "id": "sfx-0d2638583567",
+      "name": "重敲钟2",
+      "path": "sfx/sfx-0d2638583567.ogg",
+      "before": {
+        "loudness": -17.97,
+        "truePeak": 2.99,
+        "samplePeak": 2.992432
+      },
+      "after": {
+        "loudness": -22.6,
+        "truePeak": -1.84,
+        "samplePeak": -1.840172
+      },
+      "gainDb": -4.692432,
+      "modified": true
+    },
+    {
+      "id": "sfx-5b30df9e1703",
+      "name": "重敲钟3",
+      "path": "sfx/sfx-5b30df9e1703.ogg",
+      "before": {
+        "loudness": -17.97,
+        "truePeak": 3.07,
+        "samplePeak": 3.072178
+      },
+      "after": {
+        "loudness": -22.68,
+        "truePeak": -1.65,
+        "samplePeak": -1.655284
+      },
+      "gainDb": -4.772178,
+      "modified": true
+    },
+    {
+      "id": "sfx-1b99af348390",
+      "name": "玻璃碰撞1",
+      "path": "sfx/sfx-1b99af348390.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": 0.76,
+        "samplePeak": 0.757272
+      },
+      "after": {
+        "loudness": -20.45,
+        "truePeak": -1.87,
+        "samplePeak": -1.870622
+      },
+      "gainDb": -2.46,
+      "modified": true
+    },
+    {
+      "id": "sfx-c5fce2d03092",
+      "name": "玻璃碰撞2",
+      "path": "sfx/sfx-c5fce2d03092.ogg",
+      "before": {
+        "loudness": -18.05,
+        "truePeak": 2.07,
+        "samplePeak": 2.01581
+      },
+      "after": {
+        "loudness": -21.85,
+        "truePeak": -1.79,
+        "samplePeak": -1.843177
+      },
+      "gainDb": -3.77,
+      "modified": true
+    },
+    {
+      "id": "sfx-36967e97e3af",
+      "name": "玻璃碰撞3",
+      "path": "sfx/sfx-36967e97e3af.ogg",
+      "before": {
+        "loudness": -17.92,
+        "truePeak": 2.32,
+        "samplePeak": 2.315002
+      },
+      "after": {
+        "loudness": -22.02,
+        "truePeak": -1.7,
+        "samplePeak": -1.71441
+      },
+      "gainDb": -4.02,
+      "modified": true
+    },
+    {
+      "id": "sfx-71b977f6090a",
+      "name": "玻璃碰撞4",
+      "path": "sfx/sfx-71b977f6090a.ogg",
+      "before": {
+        "loudness": -18.15,
+        "truePeak": 0.13,
+        "samplePeak": 0.126465
+      },
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -1.55,
+        "samplePeak": -1.567923
+      },
+      "gainDb": -1.83,
+      "modified": true
+    },
+    {
+      "id": "sfx-bfc0ad7c2ec1",
+      "name": "玻璃碰撞5",
+      "path": "sfx/sfx-bfc0ad7c2ec1.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": -0.13,
+        "samplePeak": -0.130821
+      },
+      "after": {
+        "loudness": -22.43,
+        "truePeak": -1.77,
+        "samplePeak": -1.766925
+      },
+      "gainDb": -1.57,
+      "modified": true
+    },
+    {
+      "id": "sfx-ec453cc5bb80",
+      "name": "木地板脚步1四连步",
+      "path": "sfx/sfx-ec453cc5bb80.ogg",
+      "before": {
+        "loudness": -17.93,
+        "truePeak": 7.21,
+        "samplePeak": 7.209257
+      },
+      "after": {
+        "loudness": -26.8,
+        "truePeak": -1.59,
+        "samplePeak": -1.594386
+      },
+      "gainDb": -8.91,
+      "modified": true
+    },
+    {
+      "id": "sfx-6041eb530d25",
+      "name": "木地板脚步2四连步",
+      "path": "sfx/sfx-6041eb530d25.ogg",
+      "before": {
+        "loudness": -17.93,
+        "truePeak": 6.08,
+        "samplePeak": 6.082485
+      },
+      "after": {
+        "loudness": -25.71,
+        "truePeak": -1.66,
+        "samplePeak": -1.66435
+      },
+      "gainDb": -7.782485,
+      "modified": true
+    },
+    {
+      "id": "sfx-5e6f44ffbfed",
+      "name": "木地板脚步3四连步",
+      "path": "sfx/sfx-5e6f44ffbfed.ogg",
+      "before": {
+        "loudness": -18.02,
+        "truePeak": 5.77,
+        "samplePeak": 5.764792
+      },
+      "after": {
+        "loudness": -25.43,
+        "truePeak": -1.64,
+        "samplePeak": -1.638252
+      },
+      "gainDb": -7.47,
+      "modified": true
+    },
+    {
+      "id": "sfx-a1c06f7a5401",
+      "name": "雪地脚步1四连步",
+      "path": "sfx/sfx-a1c06f7a5401.ogg",
+      "before": {
+        "loudness": -18.19,
+        "truePeak": 5.74,
+        "samplePeak": 5.738688
+      },
+      "after": {
+        "loudness": -25.71,
+        "truePeak": -1.81,
+        "samplePeak": -1.819492
+      },
+      "gainDb": -7.44,
+      "modified": true
+    },
+    {
+      "id": "sfx-4b928b5dfa43",
+      "name": "雪地脚步2四连步",
+      "path": "sfx/sfx-4b928b5dfa43.ogg",
+      "before": {
+        "loudness": -18.07,
+        "truePeak": 2.65,
+        "samplePeak": 2.63962
+      },
+      "after": {
+        "loudness": -22.52,
+        "truePeak": -1.68,
+        "samplePeak": -1.679588
+      },
+      "gainDb": -4.35,
+      "modified": true
+    },
+    {
+      "id": "sfx-d49cbb6e2df8",
+      "name": "雪地脚步3四连步",
+      "path": "sfx/sfx-d49cbb6e2df8.ogg",
+      "before": {
+        "loudness": -18.01,
+        "truePeak": 2.97,
+        "samplePeak": 2.963545
+      },
+      "after": {
+        "loudness": -22.71,
+        "truePeak": -1.83,
+        "samplePeak": -1.831916
+      },
+      "gainDb": -4.67,
+      "modified": true
+    },
+    {
+      "id": "sfx-d5e473984400",
+      "name": "草地脚步1四连步",
+      "path": "sfx/sfx-d5e473984400.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": 10.61,
+        "samplePeak": 10.603139
+      },
+      "after": {
+        "loudness": -30.3,
+        "truePeak": -1.73,
+        "samplePeak": -1.732594
+      },
+      "gainDb": -12.31,
+      "modified": true
+    },
+    {
+      "id": "sfx-27ddaad7d384",
+      "name": "草地脚步3四连步",
+      "path": "sfx/sfx-27ddaad7d384.ogg",
+      "before": {
+        "loudness": -18.06,
+        "truePeak": 10.14,
+        "samplePeak": 10.132861
+      },
+      "after": {
+        "loudness": -29.93,
+        "truePeak": -1.77,
+        "samplePeak": -1.766301
+      },
+      "gainDb": -11.84,
+      "modified": true
+    },
+    {
+      "id": "sfx-44043937fae8",
+      "name": "水泥地脚步1四连步",
+      "path": "sfx/sfx-44043937fae8.ogg",
+      "before": {
+        "loudness": -17.88,
+        "truePeak": 10.55,
+        "samplePeak": 10.545845
+      },
+      "after": {
+        "loudness": -30.02,
+        "truePeak": -1.62,
+        "samplePeak": -1.627099
+      },
+      "gainDb": -12.25,
+      "modified": true
+    },
+    {
+      "id": "sfx-741277a378b6",
+      "name": "水泥地脚步2四连步",
+      "path": "sfx/sfx-741277a378b6.ogg",
+      "before": {
+        "loudness": -17.97,
+        "truePeak": 11.76,
+        "samplePeak": 11.757179
+      },
+      "after": {
+        "loudness": -31.42,
+        "truePeak": -1.69,
+        "samplePeak": -1.709282
+      },
+      "gainDb": -13.46,
+      "modified": true
+    },
+    {
+      "id": "sfx-82d4b284b701",
+      "name": "水泥地脚步3四连步",
+      "path": "sfx/sfx-82d4b284b701.ogg",
+      "before": {
+        "loudness": -17.98,
+        "truePeak": 11.77,
+        "samplePeak": 11.769517
+      },
+      "after": {
+        "loudness": -31.49,
+        "truePeak": -1.81,
+        "samplePeak": -1.817463
+      },
+      "gainDb": -13.47,
+      "modified": true
+    },
+    {
+      "id": "sfx-1c77daadc225",
+      "name": "地毯脚步1四连步",
+      "path": "sfx/sfx-1c77daadc225.ogg",
+      "before": {
+        "loudness": -18.0,
+        "truePeak": 10.49,
+        "samplePeak": 10.493115
+      },
+      "after": {
+        "loudness": -30.2,
+        "truePeak": -1.69,
+        "samplePeak": -1.686816
+      },
+      "gainDb": -12.193115,
+      "modified": true
+    },
+    {
+      "id": "sfx-6cca5747fcd3",
+      "name": "地毯脚步2四连步",
+      "path": "sfx/sfx-6cca5747fcd3.ogg",
+      "before": {
+        "loudness": -18.06,
+        "truePeak": 6.49,
+        "samplePeak": 6.491672
+      },
+      "after": {
+        "loudness": -26.31,
+        "truePeak": -1.93,
+        "samplePeak": -1.933927
+      },
+      "gainDb": -8.191672,
+      "modified": true
+    },
+    {
+      "id": "sfx-c6f19759f812",
+      "name": "地毯脚步3四连步",
+      "path": "sfx/sfx-c6f19759f812.ogg",
+      "before": {
+        "loudness": -18.06,
+        "truePeak": 6.49,
+        "samplePeak": 6.491672
+      },
+      "after": {
+        "loudness": -26.31,
+        "truePeak": -1.93,
+        "samplePeak": -1.933927
+      },
+      "gainDb": -8.191672,
+      "modified": true
+    },
+    {
+      "id": "self-heartbeat-01",
+      "name": "自制舒缓双拍心跳",
+      "path": "generated/self-heartbeat-01.ogg",
+      "before": {
+        "loudness": -20.16,
+        "truePeak": -1.82,
+        "samplePeak": -1.817015
+      },
+      "after": {
+        "loudness": -20.16,
+        "truePeak": -1.82,
+        "samplePeak": -1.817015
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-heartbeat-02",
+      "name": "自制紧张加速心跳",
+      "path": "generated/self-heartbeat-02.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -1.82,
+        "samplePeak": -1.820917
+      },
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -1.82,
+        "samplePeak": -1.820917
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-heartbeat-03",
+      "name": "自制急促惊慌心跳",
+      "path": "generated/self-heartbeat-03.ogg",
+      "before": {
+        "loudness": -19.97,
+        "truePeak": -2.62,
+        "samplePeak": -2.621504
+      },
+      "after": {
+        "loudness": -19.97,
+        "truePeak": -2.62,
+        "samplePeak": -2.621504
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-impact-01",
+      "name": "自制短促低频冲击",
+      "path": "generated/self-impact-01.ogg",
+      "before": {
+        "loudness": -20.75,
+        "truePeak": -2.12,
+        "samplePeak": -2.123341
+      },
+      "after": {
+        "loudness": -20.75,
+        "truePeak": -2.12,
+        "samplePeak": -2.123341
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-impact-02",
+      "name": "自制深沉低频轰鸣",
+      "path": "generated/self-impact-02.ogg",
+      "before": {
+        "loudness": -19.96,
+        "truePeak": -2.87,
+        "samplePeak": -2.916841
+      },
+      "after": {
+        "loudness": -19.96,
+        "truePeak": -2.87,
+        "samplePeak": -2.916841
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-impact-03",
+      "name": "自制下坠低频冲击",
+      "path": "generated/self-impact-03.ogg",
+      "before": {
+        "loudness": -20.01,
+        "truePeak": -2.18,
+        "samplePeak": -2.189621
+      },
+      "after": {
+        "loudness": -20.01,
+        "truePeak": -2.18,
+        "samplePeak": -2.189621
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-phone-01",
+      "name": "自制双频电话铃",
+      "path": "generated/self-phone-01.ogg",
+      "before": {
+        "loudness": -19.91,
+        "truePeak": -12.42,
+        "samplePeak": -12.415295
+      },
+      "after": {
+        "loudness": -19.91,
+        "truePeak": -12.42,
+        "samplePeak": -12.415295
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-phone-02",
+      "name": "自制双短音电子电话铃",
+      "path": "generated/self-phone-02.ogg",
+      "before": {
+        "loudness": -19.94,
+        "truePeak": -11.17,
+        "samplePeak": -11.167319
+      },
+      "after": {
+        "loudness": -19.94,
+        "truePeak": -11.17,
+        "samplePeak": -11.167319
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "self-phone-03",
+      "name": "自制金属电话铃",
+      "path": "generated/self-phone-03.ogg",
+      "before": {
+        "loudness": -19.98,
+        "truePeak": -11.01,
+        "samplePeak": -11.03896
+      },
+      "after": {
+        "loudness": -19.98,
+        "truePeak": -11.01,
+        "samplePeak": -11.03896
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "ambience-rain-crossfade",
+      "name": "雨声交叉淡化循环",
+      "path": "loops/rain-crossfade.ogg",
+      "before": {
+        "loudness": -20.11,
+        "truePeak": -3.43,
+        "samplePeak": -3.4366
+      },
+      "after": {
+        "loudness": -20.11,
+        "truePeak": -3.43,
+        "samplePeak": -3.4366
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "ambience-wind-crossfade",
+      "name": "风声交叉淡化循环",
+      "path": "loops/wind-crossfade.ogg",
+      "before": {
+        "loudness": -20.0,
+        "truePeak": -1.67,
+        "samplePeak": -1.673749
+      },
+      "after": {
+        "loudness": -20.0,
+        "truePeak": -1.67,
+        "samplePeak": -1.673749
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-phone-hand-double",
+      "name": "手持手机双震动",
+      "path": "additions/phone-vehicle/phone-hand-double.ogg",
+      "before": {
+        "loudness": -20.14,
+        "truePeak": -8.15,
+        "samplePeak": -8.153308
+      },
+      "after": {
+        "loudness": -20.14,
+        "truePeak": -8.15,
+        "samplePeak": -8.153308
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-phone-table",
+      "name": "桌面手机双震动",
+      "path": "additions/phone-vehicle/phone-table.ogg",
+      "before": {
+        "loudness": -20.47,
+        "truePeak": -0.67,
+        "samplePeak": -0.67191
+      },
+      "after": {
+        "loudness": -21.57,
+        "truePeak": -1.93,
+        "samplePeak": -1.929267
+      },
+      "gainDb": -1.03,
+      "modified": true
+    },
+    {
+      "id": "sfx-phone-table-repeat",
+      "name": "桌面手机连续来电震动",
+      "path": "additions/phone-vehicle/phone-table-repeat.ogg",
+      "before": {
+        "loudness": -20.02,
+        "truePeak": -0.66,
+        "samplePeak": -0.664192
+      },
+      "after": {
+        "loudness": -21.12,
+        "truePeak": -1.93,
+        "samplePeak": -1.93147
+      },
+      "gainDb": -1.04,
+      "modified": true
+    },
+    {
+      "id": "sfx-car-engine",
+      "name": "汽车引擎",
+      "path": "additions/phone-vehicle/car-engine.ogg",
+      "before": {
+        "loudness": -20.18,
+        "truePeak": -5.62,
+        "samplePeak": -5.638437
+      },
+      "after": {
+        "loudness": -20.18,
+        "truePeak": -5.62,
+        "samplePeak": -5.638437
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-motorcycle-engine",
+      "name": "摩托车引擎",
+      "path": "additions/phone-vehicle/motorcycle-engine.ogg",
+      "before": {
+        "loudness": -20.19,
+        "truePeak": -5.44,
+        "samplePeak": -5.444784
+      },
+      "after": {
+        "loudness": -20.19,
+        "truePeak": -5.44,
+        "samplePeak": -5.444784
+      },
+      "gainDb": 0.0,
+      "modified": false
+    },
+    {
+      "id": "sfx-engine-synth",
+      "name": "车辆发动机合成声",
+      "path": "additions/phone-vehicle/engine-synth.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -3.81,
+        "samplePeak": -3.814055
+      },
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -3.81,
+        "samplePeak": -3.814055
+      },
+      "gainDb": 0.0,
+      "modified": false
+    }
+  ]
+}

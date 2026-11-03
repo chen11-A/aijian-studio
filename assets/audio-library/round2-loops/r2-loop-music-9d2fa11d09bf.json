@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-9d2fa11d09bf",
+  "sourceId": "music-9d2fa11d09bf",
+  "sourceSha256": "d4496830ba88b55a3f27804afae2ebf7ac6ed2588fdd10e13c8728790f4d3289",
+  "outputSha256": "5e95c4d5bb0f4032f6038c98922d0d41071edf9bc891a94f78b0d3f930313be7",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Newness.mp3",
+  "duration": 40.32,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -20.21,
+  "truePeak": -3.47,
+  "samplePeak": -3.5031326017117648,
+  "targetLufs": -20,
+  "constantGainDb": -0.26000000000000156,
+  "peakSafetyPrioritized": false,
+  "originalDuration": 90.94670833333333,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 3.273458333333333,
+  "estimatedBpm": 95.23809523809524,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0004963483661413193,
+        "adjacentDifferenceP99": 0.05483025312423706,
+        "leftRightRmsRatio": 1.591535591725028,
+        "seamNearbyRmsRatio": 0.6943266023532841,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0008275359869003296,
+        "adjacentDifferenceP99": 0.055512286722660065,
+        "leftRightRmsRatio": 0.9230991007632178,
+        "seamNearbyRmsRatio": 0.9353265116595054,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.047334833739814064
+}

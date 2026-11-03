@@ -1,0 +1,46 @@
+{
+  "id": "r2-loop-music-360f3c163ed6",
+  "sourceId": "music-360f3c163ed6",
+  "sourceSha256": "246c6ce3bd3bee1444a440d3253fc5e75ff44a451802aa767fc85500bf849e22",
+  "outputSha256": "4a75e2ec5c458f215ccdbe1630ac610f4ad4d1f384a2da87d5de43981ef3289a",
+  "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
+  "duration": 42.24,
+  "channels": 2,
+  "sampleRate": 48000,
+  "loudness": -22.77,
+  "truePeak": -1.6,
+  "samplePeak": -1.596912302850852,
+  "targetLufs": -20,
+  "constantGainDb": 0.3599999999999999,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 90.69585416666666,
+  "originalSliceStart": 4,
+  "crossfadeSeconds": 0.25,
+  "boundaryRotationSeconds": 2.279333333333333,
+  "estimatedBpm": 90.9090909090909,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.00041637569665908813,
+        "adjacentDifferenceP99": 0.039472274482250214,
+        "leftRightRmsRatio": 0.9267582763045998,
+        "seamNearbyRmsRatio": 0.7764345515497025,
+        "passed": true
+      },
+      {
+        "channel": 2,
+        "boundarySampleJump": 0.0005038422532379627,
+        "adjacentDifferenceP99": 0.03912507742643356,
+        "leftRightRmsRatio": 0.922418600189558,
+        "seamNearbyRmsRatio": 0.77929881453248,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "音乐使用包络自相关估拍和整拍长度候选；仍须人工验证节奏及和声接缝。",
+  "stereoDifferenceRms": 0.027470409411345806
+}

@@ -1,4 +1,8 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** 始终相对于模块文件定位仓库字体，不依赖当前工作目录或系统字体。 */
+export const defaultFontsDirectory = fileURLToPath(new URL('../../../apps/studio-web/src/aivora/assets/v2/', import.meta.url));
 
 export interface Dialogue { speaker: string; text: string; start: number; end: number }
 export type SubtitlePreset = 'short-drama' | 'cinema' | 'comic';
@@ -12,21 +16,51 @@ function validate(lines: Dialogue[]): void {
   }
 }
 
-/** 使用本地中文分词；超长单词报错，避免悄悄在词中间断行。 */
+/** 优先词边界和中文避头尾规则；无法同时满足时，以字符数上限和保留原文为先。 */
 export function wrapText(text: string, portrait = false): string[] {
   const limit = portrait ? 12 : 16;
   const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
+  const closing = new Set(Array.from('，。！？、；：）》】〕〉」』”’…,.!?;:%％)]}'));
+  const opening = new Set(Array.from('（《【〔〈「『“‘([{'));
   const result: string[] = [];
   for (const paragraph of text.replace(/\r\n?/g, '\n').split('\n')) {
-    let current = '';
-    for (const { segment } of segmenter.segment(paragraph)) {
-      if (Array.from(segment).length > limit) throw new Error(`单个词超过每行${limit}字，请缩短该词`);
-      if (Array.from(current + segment).length > limit) {
-        if (current.trim()) result.push(current.trim());
-        current = segment.trimStart();
-      } else current += segment;
+    const clean = paragraph.trim();
+    const characters = Array.from(clean);
+    const boundaries = new Set<number>();
+    let offset = 0;
+    for (const { segment } of segmenter.segment(clean)) {
+      const length = Array.from(segment).length;
+      // 超长英文、数字等词可按字符断开，避免超过上限或让整段字幕失败。
+      if (length > limit) for (let i = 1; i < length; i++) boundaries.add(offset + i);
+      offset += length;
+      boundaries.add(offset);
     }
-    if (current.trim()) result.push(current.trim());
+    let start = 0;
+    while (start < characters.length) {
+      const maximum = Math.min(start + limit, characters.length);
+      const legal = (end: number): boolean => {
+        let last = end - 1;
+        let next = end;
+        while (last >= start && /\s/.test(characters[last])) last--;
+        while (next < characters.length && /\s/.test(characters[next])) next++;
+        return !opening.has(characters[last]) && !closing.has(characters[next]);
+      };
+      let cut = maximum;
+      if (maximum < characters.length) {
+        while (cut > start && (!boundaries.has(cut) || !legal(cut))) cut--;
+        // 极端标点与完整词冲突时，优先找可避头尾的字符边界。
+        if (cut === start) {
+          cut = maximum;
+          while (cut > start && !legal(cut)) cut--;
+        }
+        // 连续超过一行的闭标点无法避头，仍保留文字且不超长。
+        if (cut === start) cut = maximum;
+      }
+      const line = characters.slice(start, cut).join('').trim();
+      if (line) result.push(line);
+      start = cut;
+      while (start < characters.length && /\s/.test(characters[start])) start++;
+    }
   }
   return result;
 }
@@ -82,6 +116,8 @@ function filterValue(value: string): string {
 export function burnSubtitleArgs(input: { ffmpegPath: string; videoPath: string; subtitlePath: string; outputPath: string; fontsDirectory?: string }): { executable: string; args: string[] } {
   if (!path.isAbsolute(input.ffmpegPath) && !path.win32.isAbsolute(input.ffmpegPath)) throw new Error('请传入 ffmpeg 的完整路径');
   if (!input.videoPath || !input.subtitlePath || !input.outputPath) throw new Error('视频、字幕和输出路径不能为空');
-  const filter = `subtitles=filename=${filterValue(input.subtitlePath)}${input.fontsDirectory ? `:fontsdir=${filterValue(input.fontsDirectory)}` : ''}`;
+  const fontsDirectory = input.fontsDirectory ?? defaultFontsDirectory;
+  if (!fontsDirectory.trim()) throw new Error('字体目录不能为空');
+  const filter = `subtitles=filename=${filterValue(input.subtitlePath)}:fontsdir=${filterValue(fontsDirectory)}`;
   return { executable: input.ffmpegPath, args: ['-nostdin', '-y', '-i', input.videoPath, '-vf', filter, '-c:v', 'libx264', '-c:a', 'copy', input.outputPath] };
 }

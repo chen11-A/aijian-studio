@@ -22,7 +22,10 @@
     "sha256": "9b35ecbb2aca2a61cec0efe21a57b580115bc733caf8c9133bce86f9e287fc87",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -1.817015,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-heartbeat-02",
@@ -47,7 +50,10 @@
     "sha256": "1ad7e6b276c161b8d60db4c02d04022049e6f63eecd64f9952552298ee07b313",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -1.820917,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-heartbeat-03",
@@ -72,7 +78,10 @@
     "sha256": "f87d03b89349897c01f860056dd11f6eaff187a9fe16515c9a9590cf4a6a2443",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.621504,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-01",
@@ -97,7 +106,10 @@
     "sha256": "784514294eff332ba6d1dc1892a02a0407c5295c74b69efd32c07fa44f7647ff",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.123341,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-02",
@@ -122,7 +134,10 @@
     "sha256": "707787757a4e1bd5dc9199cd266ed9150dc12281df311ee984ae24259cc7020d",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.916841,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-impact-03",
@@ -147,7 +162,10 @@
     "sha256": "cc7d99095e0ef0200a54146772a22895481a5c6f3d0c86eb40d8ee3bdef7b7a9",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -2.189621,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-01",
@@ -171,7 +189,10 @@
     "sha256": "1c01c89d0f3990ae06aa9eba12d955ee610f87f01ca7e0167150fe5f4ee69147",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -12.415295,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-02",
@@ -195,7 +216,10 @@
     "sha256": "491daad4c6823fd4087fa1ab214360d3322901a47ad731b5fdaa4b5f30a2f96c",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -11.167319,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   },
   {
     "id": "self-phone-03",
@@ -219,6 +243,9 @@
     "sha256": "498b0917a9c200eb63f177155c135921cc5d9618184eb26e477101bf08bd145a",
     "sampleRate": 48000,
     "channels": 1,
-    "loopable": false
+    "loopable": false,
+    "samplePeak": -11.03896,
+    "author": "AIVORA 项目自制（程序合成）",
+    "peakLimited": false
   }
 ]

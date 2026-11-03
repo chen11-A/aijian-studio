@@ -26,8 +26,36 @@ describe('作品备份',()=>{
  it('解压写入失败清理不完整作品',async()=>{await mutate((e,m)=>{const f=m.files[0];const old=f.path;f.path='x';e.x=e[old];delete e[old];const f2=m.files[1];const old2=f2.path;f2.path='x/y';e['x/y']=e[old2];delete e[old2];});await expect(importProject(archive,dest)).rejects.toThrow('导入失败');expect(await fs.readdir(dest)).toEqual([]);});
 });
 describe('备份结构验证',()=>{
- it('拒绝本地头与中央目录大小不一致',async()=>{await packProject(src,archive);const b=await fs.readFile(archive);b.writeUInt32LE(0x70000000,22);await fs.writeFile(archive,b);await expect(importProject(archive,dest)).rejects.toThrow('大小不一致');});
+ it('拒绝本地头与中央目录大小不一致',async()=>{await packProject(src,archive);const b=Buffer.from(zipSync(unzipSync(await fs.readFile(archive))));b.writeUInt32LE(0x70000000,22);await fs.writeFile(archive,b);await expect(importProject(archive,dest)).rejects.toThrow('大小不一致');});
  it('打包时拒绝大小写冲突并计算目录数量',async()=>{await fs.writeFile(path.join(src,'A'),'a');await fs.writeFile(path.join(src,'a'),'b');await expect(packProject(src,archive)).rejects.toThrow('文件名');await fs.unlink(path.join(src,'a'));await expect(packProject(src,archive,{maxFiles:2})).rejects.toThrow('文件数量');});
  it('清单目录不能重复或逃出目标',async()=>{await mutate((_e,m)=>{m.directories=['../逃逸'];});await expect(importProject(archive,dest)).rejects.toThrow('文件夹路径');});
  it('错误数据报告中文',async()=>{await expect(importProject(path.join(dir,'不存在'),dest)).rejects.toThrow('文件或文件夹不存在');await fs.writeFile(archive,zipSync({'__aivora_manifest.json':new TextEncoder().encode('bad json')}));await expect(importProject(archive,dest)).rejects.toThrow('备份数据损坏');});
+});
+describe('流式归档边界',()=>{
+ it('图片与Ogg不重新压缩，文本保持压缩',async()=>{
+  await fs.writeFile(path.join(src,'图片.PNG'),Buffer.alloc(10000,7));await fs.writeFile(path.join(src,'音乐.ogg'),Buffer.alloc(10000,8));
+  await packProject(src,archive);const yauzl=await import('yauzl');
+  const methods=await new Promise<Record<string,number>>((resolve,reject)=>yauzl.open(archive,{lazyEntries:true},(error,zip)=>{if(error){reject(error);return;}const out:Record<string,number>={};zip!.on('error',reject);zip!.on('entry',(e)=>{out[e.fileName]=e.compressionMethod;zip!.readEntry();});zip!.on('end',()=>resolve(out));zip!.readEntry();}));
+  expect(methods['图片.PNG']).toBe(0);expect(methods['音乐.ogg']).toBe(0);expect(methods['剧本.txt']).toBe(8);
+ });
+ it.each(['变大','变小','删除'])('检测扫描后文件%s并清理半成品',async mode=>{
+  const {vi}=await import('vitest');const realOpen=fs.open.bind(fs);
+  const spy=vi.spyOn(fs,'open').mockImplementation(async (file,...args)=>{
+   if(String(file)===path.join(src,'剧本.txt')){if(mode==='删除')await fs.unlink(String(file));else await fs.writeFile(String(file),mode==='变大'?'更长的文件'.repeat(100):'');}
+   return realOpen(file,...args);
+  });
+  try { await expect(packProject(src,archive)).rejects.toThrow('打包失败');expect(await fs.stat(archive).catch(()=>null)).toBeNull(); }
+  finally {spy.mockRestore();}
+ });
+ it.each(['符号链接','加密','不支持压缩','本地头错误','本地名错误'])('拒绝%s',async mode=>{
+  await packProject(src,archive);const b=Buffer.from(zipSync(unzipSync(await fs.readFile(archive))));
+  const central=b.indexOf(Buffer.from([0x50,0x4b,0x01,0x02]));
+  if(mode==='符号链接')b.writeUInt32LE(0xa1ff0000,central+38);
+  if(mode==='加密')b.writeUInt16LE(1,central+8);
+  if(mode==='不支持压缩')b.writeUInt16LE(99,central+10);
+  if(mode==='本地头错误')b.writeUInt32LE(0,0);
+  if(mode==='本地名错误')b[30]=0x78;
+  await fs.writeFile(archive,b);await expect(importProject(archive,dest)).rejects.toThrow('导入失败');
+ });
+ it('空作品正常往返',async()=>{await fs.rm(src,{recursive:true});await fs.mkdir(src);const m=await packProject(src,archive);expect(m.files).toEqual([]);const out=await importProject(archive,dest);expect(await fs.readdir(out)).toEqual([]);});
 });

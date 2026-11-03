@@ -34,7 +34,7 @@ export async function loadAudioLibrary(root: string): Promise<AudioAsset[]> {
     if (!Array.isArray(item.tags) || item.tags.some((tag: unknown) => typeof tag !== 'string' || !tag.trim())) fail('情绪标签必须是文字数组');
     if (typeof item.loop !== 'boolean') fail('循环标记必须是布尔值');
     if (typeof item.duration !== 'number' || !Number.isFinite(item.duration) || item.duration <= 0) fail('时长必须为正数');
-    if (typeof item.loudness !== 'number' || !Number.isFinite(item.loudness)) fail('响度必须为有限数值');
+    if (!(item.loudness === null && item.type === 'sfx' && item.duration < 0.4 && typeof item.loudnessNote === 'string' && item.loudnessNote.trim()) && (typeof item.loudness !== 'number' || !Number.isFinite(item.loudness))) fail('响度必须为有限数值；不足400毫秒的音效可标记为无法测量');
     if (!['CC0', 'CC0-1.0', 'Public Domain', '公有领域'].includes(item.license)) fail('许可证必须是 CC0 或公有领域');
     try {
       const source = new URL(item.source);

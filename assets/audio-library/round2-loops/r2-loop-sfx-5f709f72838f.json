@@ -1,0 +1,38 @@
+{
+  "id": "r2-loop-sfx-5f709f72838f",
+  "sourceId": "sfx-5f709f72838f",
+  "sourceSha256": "fda4383aef6ab43713bb7d0f475e568d516ed6ec1de99006ef24ba6574b17d01",
+  "outputSha256": "2e1537e5f06febb39cded6533a0c606befeb18f9f77398fa8a6760b99fcba116",
+  "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
+  "duration": 40.0,
+  "channels": 1,
+  "sampleRate": 48000,
+  "loudness": -22.55,
+  "truePeak": -1.95,
+  "samplePeak": -1.9519221140986731,
+  "targetLufs": -20,
+  "constantGainDb": 0.2899999999999998,
+  "peakSafetyPrioritized": true,
+  "originalDuration": 53.1139375,
+  "originalSliceStart": 1,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 3.9091458333333335,
+  "estimatedBpm": null,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0019309855997562408,
+        "adjacentDifferenceP99": 0.02013489231467247,
+        "leftRightRmsRatio": 1.0786504231157195,
+        "seamNearbyRmsRatio": 0.8512974375956499,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false,
+  "note": "来自独立真实设备环境录音，未用短片段重复凑足时长。",
+  "stereoDifferenceRms": null
+}

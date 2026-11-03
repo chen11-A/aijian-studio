@@ -1,24 +1,22 @@
 # 配乐和音效挑选器
 
-纯本地确定性规则，不调用模型或网络。输入 `Scene` 与素材清单 `AudioAsset[]`，输出 `Selection`。
-
-输入场景含 `emotions` 情绪标签、`description` 场景描述、`duration` 秒数、`previousMusicId` 上一场配乐 ID，以及镜头 `shots`。镜头有 `duration`、`hasDialogue`、可选 `description`，动作节点为 `{ time, label? }`。镜头总时长必须等于场景时长（允许 0.01 秒误差）。
-
-输出 `music` 为配乐方案或 `null`：素材 ID、路径、整场进入和退出秒数、素材起点、淡入淡出时间、是否循环，以及台词镜头压低 12 分贝的 `ducking` 区间。`shots` 按镜头返回环境音 `ambience` 与动作音效 `effects`，时间相对该镜头，`end` 为停止时间。所有数值为秒或分贝。
+`pickAudio(scene, library)` 输入本地清单、情绪、场景描述、时长与镜头/动作节点，返回配乐计划、台词压低区间、环境音、动作音效和中文缺项警告。纯规则与中文同义词，不联网、不调用模型。
 
 ```ts
 import { pickAudio } from './index.js';
-import manifest from '../../../assets/audio-library/manifest.json';
-const result = pickAudio({
-  emotions: ['紧张'], description: '雨中的打斗', duration: 5,
-  previousMusicId: '上一场音乐',
-  shots: [{ duration: 5, hasDialogue: true, actions: [{ time: 2, label: '拳脚' }] }],
-}, manifest);
-console.log(result.music, result.shots);
+const plan = pickAudio({
+  emotions: ['温暖'], description: '温暖场景', duration: 130,
+  shots: [{ duration: 130, hasDialogue: false, actions: [] }],
+}, library);
+console.log(plan.music?.segments, plan.warnings);
 ```
 
-素材字段：`id/path/type/category/name/tags/scene/duration/loop/loudness/source/license`，类型为 `music` 或 `sfx`。只选择 CC0 或公有领域素材。中文情绪、名字、分类和标签作字面关键词匹配，相同得分按 ID 排序。
+时间单位为秒。配乐时间相对整场，镜头音效相对镜头。`segments` 是必须执行的播放计划：包含素材、入点、起止、淡入淡出。渲染方需叠加重叠片段的音量包络，再应用 `gainDb`、配乐总淡入淡出和 `ducking`。不能只播放顶层 `assetId` 一次而忽略 segments。
 
-安静、沉默、克制、独白且非紧张/打斗/史诗时保留留白；无匹配时也不配乐。相邻场去重由调用者传入上一场 ID。不可循环配乐必须覆盖整场。环境音仅播放一段，最长至素材末尾；动作音效精确从动作节点触发并在镜头末尾截断。本模块生成时间安排，实际混音、循环和音量包络由调用者执行，不能从台词布尔值推断句内停顿。
+已验证可循环素材连续重复铺满，无间隙；短非循环素材使用最长半秒交叉淡化。同情绪配乐可接第二首，没有第二首也生成交叉淡化重复计划，不因素材短而直接无配乐。非循环曲的自动交叉淡化仍需试听，不等同已认证的音乐乐句循环。上一场配乐通过 `previousMusicId` 排除，连同同一原始来源的派生循环版一并排除。安静情绪仍可留白。
 
-在上级目录运行 `npx vitest run audio-picker`。
+`synonyms.ts` 记录钢管/铁棍/拳头/匕首/倒地/医院等同义词。动作节点优先具体标签，钢管拖地不会选金属击打，刀划伤不选厨刀刮擦。雨天地面优先湿脚步，医院/走廊/街道使用硬地面，缺硬地面不会使用草地。场景中的手机震动和心电监护仪可在没有动作节点时安排；明确指定过的同类动作不再重复添加。
+
+同义词只用于寻找正确素材，不创造不存在的素材。没有医院底噪、真实雨声、人体倒地时返回 `warnings`；不会将设备声、音乐采样或软物落地改名冒充。部分素材是明确标注的拟音，仍须根据画面判断材质与动作是否相符。
+
+四个指定场景的真实输入和输出在 `SCENARIO_RESULTS.json`，可用 `scenarios.ts` 的 `runScenarios(library)` 复现。真实素材回归测试同时检查“能选对的内容”和“缺素材时不误选”；测试通过不代表四场景的素材要求都完成。目前130秒温暖配乐完整铺满；另三场景仍有雨声、倒地、医院底噪/监护仪等缺项。

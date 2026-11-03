@@ -1,48 +1,44 @@
-# 免费音效和配乐素材库
+# AIVORA 本地 CC0 音频素材库
 
-输入：本目录的 `manifest.json`，以及调用方显式传入的 ffmpeg、ffprobe 绝对路径。
-输出：本地 Ogg 音频、中文素材元数据，以及 `check.py` 的中文检查报告。运行时不联网。
+当前清单 **107 个音效、29 个配乐文件**，其中配乐是 **20 首独立作品＋9 个循环派生版**，不能把派生版计为新增曲目。每条 `manifest.json` 都记录 `author`、具体 `source`、许可证、用途、时长、实测响度、真峰值、采样峰值及 SHA-256。所有处理在本地运行。
 
-当前收录 **109 个音效、20 首配乐**。其中本轮新增 15 个音效及 2 个雨风循环版；包含明确标注的自制 CC0 音效、第三方 CC0 合成音效和原有第三方素材。来源见每条 `source`，新增第三方原始许可页见 `originalLicenseUrl`，授权原文见 `LICENSES.md`。
-
-```sh
-python3 assets/audio-library/check.py --ffmpeg "/opt/音频 工具/ffmpeg" --ffprobe "/opt/音频 工具/ffprobe"
-```
-
-Windows 示例：`python check.py --ffmpeg "C:\音频 工具\ffmpeg.exe" --ffprobe "C:\音频 工具\ffprobe.exe"`。使用参数数组启动工具，不经 shell，不从 PATH 搜索。
-
-每条清单字段：`id` 唯一编号，`path` 相对此目录路径，`type` 为 `sfx` 或 `music`，`category` 分类，`name` 中文名，`tags` 情绪或动作标签，`scene` 场景建议，`duration` 秒数，`loop` 是否已确认无缝循环，`loudness` 编码后实测 LUFS，`source` 原文件来源，`license` 许可证，`sha256` 交付文件校验值。四连步音效另有 `processing` 说明。
-
-例如，读取 `manifest.json`，筛选 `type === 'music' && tags.includes('紧张')`，然后以本目录为根解析 `path` 即可本地播放。配乐的九种情绪标签全部有收录，标签为编辑建议；最终选曲应按实际镜头试听。
-
-音频统一为 48kHz Ogg Vorbis；音效单声道约 -18 LUFS，配乐双声道约 -20 LUFS，容差 ±1 LU。配乐约 79–103 秒。本轮雨、风派生版 `loop` 和 `loopable` 为 true，已完成交叉淡化及最终 Ogg 客观接缝检查；其余为 false（旧条目缺少 loopable 时按 loop 读取）。五种地面的单次脚步过短，无法获得有效的标准积分 LUFS，故加工为每隔 0.85 秒一步的四连步并明确命名；未靠给短素材填充静音伪造响度。
-
-`check.py` 验证文件路径、唯一性、存在性、SHA-256、实测采样率/声道/编码/时长/响度、许可证白名单、素材数量和整个目录的 150MiB 上限，并拒绝未列入清单的 Ogg。它只验证保存的许可证字段和声明，无法自动证明版权归属；许可核实记录在 LICENSES.md。执行检查需要 Python 3.9+ 及带 Vorbis/loudnorm 支持的 ffmpeg。
-
-## 本轮补充结果与未完成项
-
-| 要求类别 | 本轮新增 | 说明 |
-| --- | ---: | --- |
-| 手机震动 | 3 | Wyzowl 原作者 CC0 合成音，2 个源文件，连续来电为明确加工变体，并非 3 份独立录音 |
-| 车辆 | 3 | Kenney 汽车、摩托引擎与 Dechode 原作者 CC0 合成引擎 |
-| 电话铃 | 3 | 自制，CC0；可重复生成 |
-| 心跳 | 3 | 自制，CC0；可重复生成 |
-| 低频冲击 | 3 | 自制，CC0；可重复生成 |
-| 虫鸣、街道、人群、海浪、森林、雨伞、钥匙 | 各 0 | 原始授权未完成核验或没有合格内容，不以近似声音凑数 |
-
-新增雨声、风声循环版各 1 个，约 5.26 秒与 1.61 秒；街道、人群、海浪、森林、虫鸣循环版尚未完成。雨风沿用既有原作者随包 CC0 声明及来源，不声称重新获得原站录音。短循环可能听出重复，播放器须连续重复解码样本而不插空隙。
-
-本轮新增文件全部 48kHz 单声道 Ogg，目标约 -20 LUFS；旧文件保留原目标。`targetLufs` 明确本轮目标，兼容旧条目。最终编码文件实际检查时长、采样率、声道、响度、SHA-256；两个循环另有样本跳变/相邻差分百分位和接缝 RMS 检查，见 [LOOPS.md](LOOPS.md) 和 `loops/*.json`。没有完成主观试听，不把客观检查声称为人工听感验收；合成内容由生成算法与原作者说明确认，第三方内容尚需在实际镜头中试听。
-
-生成与加工脚本均纯本地，并要求显式 ffmpeg 路径：`generated/generate.py`、`additions/phone-vehicle/prepare.py`、`loop_tools.py`。自制音效声明见 `generated/LICENSES.md`；新增第三方许可证据在 `additions/phone-vehicle/licenses/`。
-
-默认 `check.py` 验收现有文件质量；加 `--strict-request` 会额外检查本轮十二类各三条及七类环境循环版，因上述缺项应返回失败，不能把默认通过解释为任务全部完成。
+## 使用和验收
 
 ```sh
+python3 assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe
 python3 assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe --strict-request
 python3 -m unittest discover -s assets/audio-library -p 'test_*.py'
 ```
 
-原站访问限制与排除的候选详见 [SOURCE_RESEARCH.md](SOURCE_RESEARCH.md)。没有用 CC-BY 或 Pixabay，也没有绕过网络限制。Windows 实机测试按用户最新要求暂不执行；没有修改其他目录的测试报告。
+FFmpeg/ffprobe 必须使用完整路径；可含中文和空格。默认检查验证现有文件的采样率、声道、时长、许可证字段、作者、校验值、响度和两个峰值，可循环条目还逐声道实测接缝。`--strict-request` 额外检查第二轮的类别数量、真实雨风、环境与音乐循环等；仍有素材缺项时返回非零，不能把常规通过当作全部需求已满足。
 
-本轮验收：默认检查退出码 0，严格需求检查退出码 1（仅上述缺项），37 项 Python 测试通过；记录见 [VALIDATION.json](VALIDATION.json)。音频本体 38,071,256 字节，整个目录约 38.3MB，低于 150MB。
+## 峰值优先
+
+全部 48kHz Ogg Vorbis；音效单声道、配乐双声道。短音效不强行追到 -18 LUFS。修复通过固定衰减保留瞬态，不以大幅压缩/削波换响度；最终编码后重新解码测量，要求真峰值 ≤ -1 dBTP、采样峰值 ≤ -1 dBFS。响度可以低于目标，`peakLimited` 与 `processing` 说明原因，`loudness` 保存实际值。极短音效不足 400 毫秒、无法得到有效积分响度时，可用 `loudness:null` 和中文 `loudnessNote`，峰值检查仍必须通过。
+
+基线129个文件实测62个采样峰值超过0dBFS，最高+15.332722dBFS；80个超过-1阈值的文件重新衰减编码。这些历史处理逐条记在 `PEAK_REPAIR.json`；其中部分文件后来按用户要求删除，最终库峰值以最新 `VALIDATION.json` 为准。方法见 [PEAK_SAFETY.md](PEAK_SAFETY.md)。
+
+## 第二轮新增和删除
+
+新增26个文件：3个金属罐撞击、1个金属罐拖动、2个刀切划拟音、3个水泥脚步快跑节奏拟音、8个独立设备环境循环、9个不同情绪的配乐循环派生版。刀声不是人体受伤实录，金属罐不冒充钢管，节奏构建的奔跑不冒充现场录音。
+
+删除19个文件：9个重复厨刀刮擦、5个相似玻璃碰撞、原雨声/风声/喘息三个音乐包短采样，以及两个基于这些短采样的雨风循环版。原来的真实手机震动等补充仍保留。完整逐条清单见 `ROUND2_CHANGES.json`。
+
+## 循环
+
+8个环境循环来自Benjamin Burnes不同的设备实录：通风口、浴室风扇、电脑风扇、除湿机、微波炉、室外空调、室外底噪、水槽龙头；每条40秒，不靠重复一秒片段凑长度。它们不是医院/雨夜街道等指定场景的替代品。
+
+九种情绪各有一个音乐循环，保留双声道，约40–46秒。`loop`/`loopable` 均为 true，尾首交叉淡化，最终Ogg逐声道接缝测量见 `round2-loops/*.json`。客观边界连续不等于音乐乐句/和声已完成人工验收；本次未完成主观试听，长时间铺底仍需听感确认。细节见 [LOOPS.md](LOOPS.md)。
+
+## 仍未满足
+
+- 真实雨声和风声≥30秒循环、真实喘息、雨打伞、雨打窗仍缺；已撤下不适合的短采样，没有用假标签代替。
+- 雨伞开合、街道/小巷夜晚、湿地脚步、钢管击打/拖地、人体摔在水泥地、医院监护仪/走廊底噪、人群低语、车辆驶过尚未补齐。
+- 刀切划只有2条，未达到3条；悲伤只有1首独立作品（及其循环版），还缺2首。
+- 手机震动、电话铃、心跳、低频冲击各3条沿用上一轮；水泥奔跑拟音和金属撞击本轮各3条。引擎声不计为车辆驶过，普通金属罐不计为钢管。
+
+用户指定的部分lavender子包未找到包内原作者许可，OpenGameArt页面查询遭不可重试的访问限制；未拿合集根许可证代替原作者许可，未绕过限制。已有随包原作者CC0声明的素材正常收录。证据与未收录候选见 `LICENSES.md`、`SOURCE_RESEARCH.md` 和 `round2/README.md`。
+
+所有新素材及派生版可由同目录脚本复现；`round2-loops/build_loops.py` 需额外安装 NumPy，其余工具依各自说明。脚本不联网或自动安装。Windows实机测试按用户要求暂缓。对应 TypeScript 加载器、调度器及详细交付报告在 `packages/aivora-modules/`，各模块覆盖率不代表 Python 检查器覆盖率。
+
+最终136条普通实测通过：最大真峰值-1.05dBTP、最大采样峰值-1.052554dBFS、超标均0；目录约47.8MB。42项Python测试通过。原样输出见 `CHECK_OUTPUT.json`；严格18项缺口见 `STRICT_CHECK_OUTPUT.json`。
