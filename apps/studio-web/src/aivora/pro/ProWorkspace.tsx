@@ -145,6 +145,10 @@ function settleNextJob(
   };
 }
 
+function dialogueMuted(film: FilmProject): boolean {
+  return film.audioClips.some((clip) => clip.lane === "dialogue" && clip.gainDb <= -40);
+}
+
 function fileMediaUrl(path: string | undefined): string {
   if (!path) return "";
   if (
@@ -404,6 +408,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const [role, setRole] = useState<Role>("director");
   const [shot, setShot] = useState(0);
   const [pending, setPending] = useState<FilmShot[] | null>(null);
+  const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [pendingScenes, setPendingScenes] = useState<FilmScene[] | null>(null);
   const [menu, setMenu] = useState<"project" | "account" | "queue" | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -471,6 +476,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const pauseRef = useRef(false);
   const stopRef = useRef(false);
   const runToken = useRef(0);
+  const cancelledJobs = useRef(new Set<string>());
   const deleteTarget = useRef<"episode" | "series">("episode");
   const assembledKey = useRef("");
   const openShotRef = useRef("");
@@ -859,10 +865,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
     if (!next) {
       setPending(null);
+      setPendingRole(null);
       finishTurn(turn, text);
       return;
     }
     setPending(next);
+    setPendingRole("director");
     publishCard("director", {
       title: `建议拆成 ${next.length} 个镜头`,
       rows: next.map((shot) => ({
@@ -898,6 +906,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         : null;
       if (parsed) {
         setPending(parsed);
+        setPendingRole("director");
         finishTurn(turn, "导演拆好了。点「放入分镜」才会写入。");
         setNotice("导演拆好了。点「放入分镜」才会写入。");
         return;
@@ -931,7 +940,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice("已写入画风、外貌、场景和道具。你改过的外貌没有被盖掉。");
       return;
     }
-    const incoming = card?.shots ?? pending;
+    const incoming = card?.shots ?? (pendingRole === role ? pending : null);
     if (!film || !incoming) {
       setNotice("还没有可放入的镜头。");
       return;
@@ -1095,6 +1104,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function chooseRole(next: Role) {
+    if (next !== role) {
+      setPending(null);
+      setPendingRole(null);
+    }
     setRole(next);
     setStructured([]);
   }
@@ -1372,6 +1385,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       userFields: current.userFields.filter((field) => field !== "action"),
     };
     setPending([actionShot]);
+    setPendingRole("action");
     publishCard("action", {
       title: `动作设计 · 镜头 ${current.no}`,
       rows: actionNotes.map((line, index) => ({
@@ -1439,6 +1453,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       userFields: current.userFields.filter((field) => field !== "performance"),
     };
     setPending([performanceShot]);
+    setPendingRole("performance");
     publishCard("performance", {
       title: `表演 · 镜头 ${current.no}`,
       rows: line ? [{ id: current.id, mark: "表演", text: line, tail: "" }] : [],
@@ -1510,6 +1525,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     next.props = props;
     artDraft.current = next;
     setPending(null);
+    setPendingRole(null);
   }
 
   async function planPrompter() {
@@ -1649,6 +1665,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(next);
     setStage("board");
     setPending(null);
+    setPendingRole(null);
     setAsking(false);
     setOneClickReady(true);
     setNotice("停在分镜。点继续才出视频。这一步没有生成视频。");
@@ -1800,6 +1817,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         },
       ];
       setPending(splitShots);
+      setPendingRole("director");
       publishCard("director", {
         title: `建议拆成 ${splitShots.length} 个镜头`,
         rows: splitShots.map((item) => ({
@@ -1949,7 +1967,26 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       for (const group of groups) {
         for (let index = 0; index < group.takes.length; index += 1) {
           const take = group.takes[index]!;
+          const jobId = `${group.shot.id}-video-${index + 1}`;
           const current = filmRef.current ?? next;
+          if (cancelledJobs.current.has(jobId)) {
+            const latest = filmRef.current ?? current;
+            const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
+              (item) =>
+                item.id === take.id
+                  ? { ...item, status: "failed" as const, reason: "已取消" }
+                  : item,
+            );
+            applyLive(
+              replaceTakes(
+                latest,
+                group.shot.id,
+                takes,
+                latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
+              ),
+            );
+            continue;
+          }
           if (stopRef.current || runToken.current !== mine) {
             const latest = filmRef.current ?? current;
             const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
@@ -1992,6 +2029,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
             ...body!,
             regenerate: index > 0 || group.hadTakes,
           });
+          if (cancelledJobs.current.has(jobId)) {
+            const after = filmRef.current ?? current;
+            const dropped = (
+              after.shots.find((item) => item.id === group.shot.id)?.takes ?? []
+            ).map((item) =>
+              item.id === take.id ? { ...item, status: "failed" as const, reason: "已取消" } : item,
+            );
+            applyLive(
+              replaceTakes(
+                after,
+                group.shot.id,
+                dropped,
+                after.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "",
+              ),
+            );
+            continue;
+          }
           const data = response.data ?? {};
           const message = typeof data.message === "string" ? data.message : "";
           const output = typeof data.output_path === "string" ? data.output_path : "";
@@ -2301,6 +2355,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     const next = blankFilm();
                     applyLive(next);
                     setPending(null);
+                    setPendingRole(null);
                     setShot(0);
                     setRange(false);
                     setComparing(false);
@@ -2610,7 +2665,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   onArt={() => void planArt()}
                   onPrompter={() => void planPrompter()}
                   onQc={() => void planQc()}
-                  pending={pending}
+                  pending={pendingRole === role ? pending : null}
                   pendingScenes={pendingScenes}
                   onApply={applyPending}
                   onApplyScenes={applyPendingScenes}
@@ -2746,7 +2801,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   }}
                   role={role}
                   onRole={chooseRole}
-                  pending={pending}
+                  pending={pendingRole === role ? pending : null}
                   onApply={applyPending}
                   onAction={() => void planAction()}
                   onPerformance={() => void planPerformance()}
@@ -3164,8 +3219,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 key={job.id}
                 onClick={() => {
                   if (!film) return;
-                  runToken.current += 1;
-                  stopRef.current = true;
+                  cancelledJobs.current.add(job.id);
                   const billed = film.backendProjectId || projectId;
                   if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
                     void window.aijian.cancelStoryFilm(billed);
@@ -3733,7 +3787,7 @@ function ScriptPage({
             {asking ? "正在问模型" : "让导演拆镜头"}
           </button>
           <button className="btn" type="button" onClick={onOneClick} disabled={asking}>
-            一键成片
+            {asking ? "正在做" : "一键成片"}
           </button>
           <select
             className="input"
@@ -4806,6 +4860,22 @@ function BoardPage({
                     )
                   }
                 />
+                {current.stills.some((item) => item.url) && (
+                  <div className="shotlist">
+                    {current.stills
+                      .filter((item) => item.url)
+                      .map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          aria-label={`候选画面 ${item.prompt.slice(0, 12)}`}
+                          onClick={() => onFilm(updateShot(film, current.id, { poster: item.url }))}
+                        >
+                          <Thumb src={item.url} />
+                        </button>
+                      ))}
+                  </div>
+                )}
                 {stills.length > 0 && (
                   <div className="shotlist">
                     {stills.map((item) => (
@@ -4956,7 +5026,7 @@ function GeneratePage({
                 key={picked.id}
                 src={picked.videoUrl}
                 playing={playing}
-                audible={audible}
+                audible={audible && !dialogueMuted(film)}
                 onPlaying={onPlaying}
                 onTime={() => undefined}
               />
@@ -5331,7 +5401,7 @@ function EditPage({
                 <PreviewVideo
                   src={previewSrc}
                   playing={playing}
-                  audible={audible}
+                  audible={audible && !dialogueMuted(film)}
                   onPlaying={onPlaying}
                   onTime={setMediaTime}
                 />
@@ -5555,7 +5625,16 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-voice)" }} />
               <Ic name="mic" size={13} />
               配音
-              <button type="button" aria-label="静音配音" onClick={() => onLane?.("dialogue", -80)}>
+              <button
+                type="button"
+                aria-label="静音配音"
+                onClick={() => {
+                  const muted = film.audioClips.some(
+                    (clip) => clip.lane === "dialogue" && clip.gainDb <= -40,
+                  );
+                  onLane?.("dialogue", muted ? 0 : -80);
+                }}
+              >
                 静音
               </button>
               <button type="button" aria-label="单听配音" onClick={() => onLane?.("score", -80)}>
@@ -5566,8 +5645,20 @@ function EditPage({
               <span className="sw" style={{ background: "var(--t-music)" }} />
               <Ic name="music" size={13} />
               音乐
-              <button type="button" aria-label="静音音乐" onClick={() => onLane?.("score", -80)}>
+              <button
+                type="button"
+                aria-label="静音音乐"
+                onClick={() => {
+                  const muted = film.audioClips.some(
+                    (clip) => clip.lane === "score" && clip.gainDb <= -40,
+                  );
+                  onLane?.("score", muted ? -14 : -80);
+                }}
+              >
                 静音
+              </button>
+              <button type="button" aria-label="单听音乐" onClick={() => onLane?.("dialogue", -80)}>
+                单听
               </button>
               <input
                 aria-label="音乐音量"
@@ -5633,8 +5724,8 @@ function EditPage({
                     key={item.id}
                     className="clip a"
                     style={{
-                      left: 1,
-                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 16)),
+                      left: clips.find((clip) => clip.id === item.shotId)?.left ?? 1,
+                      width: Math.max(48, Math.round((item.durationSeconds || 2) * 52) - 2),
                     }}
                   >
                     <span className="tx">{item.label || "配音"}</span>
@@ -5645,7 +5736,17 @@ function EditPage({
               {film.audioClips
                 .filter((item) => item.lane === "score" && item.path)
                 .map((item) => (
-                  <div key={item.id} className="clip m" style={{ left: 1, width: 160 }}>
+                  <div
+                    key={item.id}
+                    className="clip m"
+                    style={{
+                      left: 1,
+                      width: Math.max(
+                        48,
+                        clips.reduce((sum, clip) => sum + clip.width, 0),
+                      ),
+                    }}
+                  >
                     <span className="tx">
                       导入的音乐
                       {shots.some((shotItem) => shotItem.line.trim()) ? " · 导出时让路" : ""}

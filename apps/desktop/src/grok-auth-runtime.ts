@@ -109,7 +109,21 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     return restored;
   }
 
+  function slowTextFixture(): boolean {
+    return process.env.AIVORA_SLOW_TEXT_FIXTURE === "1";
+  }
+
   function status(): GrokLoginStatus {
+    if (slowTextFixture()) {
+      return {
+        provider: "GROK_LOGIN",
+        runtime: "DESKTOP",
+        state: "CONNECTED",
+        secureStorage: "AVAILABLE",
+        accountLabel: "fixture",
+        lastError: null,
+      };
+    }
     const storage = dependencies.store.available() ? "AVAILABLE" : "UNAVAILABLE";
     return {
       provider: "GROK_LOGIN",
@@ -327,6 +341,16 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     | { kind: "OK"; models: GrokLoginModel[]; notices?: GrokCatalogNotice[] }
     | { kind: "ERROR"; code: string }
   > {
+    if (slowTextFixture()) {
+      return {
+        kind: "OK",
+        models: [
+          { id: "grok-4.7", label: "grok-4.7" },
+          { id: "grok-imagine-video-1.5", label: "grok-imagine-video-1.5" },
+          { id: "grok-imagine-image-2.0", label: "grok-imagine-image-2.0" },
+        ],
+      };
+    }
     try {
       await restore();
       await ensureFresh();
@@ -359,6 +383,43 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     agent?: string;
     onProgress?: (update: { chars: number; shots: number }) => void;
   }): Promise<GrokLoginTextResult> {
+    if (slowTextFixture()) {
+      const reply =
+        '{"shots":[{"picture":"雨夜巷口她停下脚步","size":"近景","seconds":3,"line":"雨太大"}]}';
+      const encoder = new TextEncoder();
+      const fetch = async () => {
+        const stream = new ReadableStream({
+          async start(controller) {
+            const size = Math.ceil(reply.length / 10);
+            for (let step = 0; step < 10; step += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 10_000));
+              const delta = reply.slice(step * size, (step + 1) * size);
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "response.output_text.delta", delta })}\n\n`,
+                ),
+              );
+            }
+            controller.close();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      };
+      const text = await completeGrokText(fetch, {
+        accessToken: "fixture",
+        model: input.model || "grok-4.7",
+        text: input.text || "拆镜头",
+        onProgress: (partial) =>
+          input.onProgress?.({
+            chars: partial.length,
+            shots: (partial.match(/"picture"/g) ?? []).length,
+          }),
+      });
+      return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
+    }
     if (
       input.text.length === 0 ||
       input.text.length > 8000 ||

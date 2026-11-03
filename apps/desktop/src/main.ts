@@ -795,9 +795,12 @@ registerSourceProposalAcceptanceHandler<IpcMainInvokeEvent>(
 
 ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
-ipcMain.handle("projects:create", (event, input: CreateProjectInput) =>
-  clientFor(event).createProject(input),
-);
+ipcMain.handle("projects:create", (event, input: CreateProjectInput) => {
+  if (process.env.AIVORA_SLOW_TEXT_FIXTURE === "1") {
+    return { data: { id: `prj_${"a".repeat(32)}` }, request_id: "fixture" };
+  }
+  return clientFor(event).createProject(input);
+});
 registerStoryFilmHandlers<IpcMainInvokeEvent>(
   (channel, listener) => ipcMain.handle(channel, listener),
   (event) =>
