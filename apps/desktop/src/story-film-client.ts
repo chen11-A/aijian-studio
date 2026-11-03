@@ -237,13 +237,15 @@ function optionalText(
 
 function parseReferences(value: unknown): string[] | undefined {
   if (value === undefined) return undefined;
-  if (!Array.isArray(value) || value.length > 8) throw new Error("Invalid story film request");
-  const references = value.map((item) => {
-    if (typeof item !== "string" || item.length > 500)
-      throw new Error("Invalid story film request");
-    return item.trim();
-  });
-  const kept = references.filter(Boolean);
+  if (!Array.isArray(value)) throw new Error("Invalid story film request");
+  const kept: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") throw new Error("Invalid story film request");
+    const trimmed = item.trim().slice(0, 500);
+    if (!trimmed) continue;
+    kept.push(trimmed);
+    if (kept.length === 14) break;
+  }
   return kept.length > 0 ? kept : undefined;
 }
 

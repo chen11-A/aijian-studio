@@ -1,11 +1,14 @@
 import { realpathSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
+  applyDialogue,
   assemblyPath,
   deleteProject,
   importMusicFile,
   joinClips,
+  mediaUrlPath,
   mixMusic,
+  prepareVoiceFile,
   listEpisodes,
   listSeries,
   readMedia,
@@ -24,6 +27,7 @@ export type FilmLibraryHost = {
   filmsRoot: () => string;
   storyFilmsRoot: () => string;
   runFfmpeg: (args: string[]) => Promise<void>;
+  probeDuration?: (path: string) => Promise<number>;
   mediaToken: () => Promise<string | null>;
   fetcher?: typeof fetch;
   pickDirectory: () => Promise<string | null>;
@@ -113,7 +117,7 @@ export function registerFilmLibraryHandlers<TEvent>(
   handle("film:assemble", async (event, ...args) => {
     guard(event);
     if (
-      (args.length !== 2 && args.length !== 4) ||
+      (args.length !== 2 && args.length !== 4 && args.length !== 5) ||
       typeof args[0] !== "string" ||
       !Array.isArray(args[1])
     ) {
@@ -128,11 +132,35 @@ export function registerFilmLibraryHandlers<TEvent>(
     if (sources.some((source) => !source.toLowerCase().endsWith(".mp4"))) {
       throw new Error("Invalid film path");
     }
-    const joined = await joinClips(
-      sources,
-      assemblyPath(host.filmsRoot(), args[0]),
-      host.runFfmpeg,
-    );
+    const destination = assemblyPath(host.filmsRoot(), args[0]);
+    const dialogue = Array.isArray(args[4]) ? args[4] : [];
+    const voiced: string[] = [];
+    for (let index = 0; index < sources.length; index += 1) {
+      const source = sources[index]!;
+      const mark = typeof dialogue[index] === "string" ? dialogue[index] : "";
+      if (!mark) {
+        voiced.push(source);
+        continue;
+      }
+      let voice = "mute";
+      if (mark !== "mute") {
+        const decoded = mediaUrlPath(mark);
+        const stored = decoded.startsWith("data:")
+          ? await prepareVoiceFile(dirname(destination), decoded)
+          : decoded;
+        voice = trustedMediaPath(roots, stored);
+      }
+      voiced.push(
+        await applyDialogue(
+          source,
+          voice,
+          join(dirname(destination), `dub-${index}.mp4`),
+          host.runFfmpeg,
+          host.probeDuration,
+        ),
+      );
+    }
+    const joined = await joinClips(voiced, destination, host.runFfmpeg);
     const music = typeof args[2] === "string" ? args[2] : "";
     if (!music) return joined;
     const track = trustedMediaPath(roots, music);
@@ -142,6 +170,7 @@ export function registerFilmLibraryHandlers<TEvent>(
         track,
         host.runFfmpeg,
         typeof args[3] === "number" && Number.isFinite(args[3]) ? args[3] : -14,
+        host.probeDuration,
       );
     } catch {
       return { path: joined.path, reason: "视频已接上。配乐没有混进去。" };

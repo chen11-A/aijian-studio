@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyDialogue,
   deleteProject,
   bundledFfmpeg,
   importMusicFile,
@@ -111,6 +112,15 @@ describe("film library", () => {
     const mixed = await mixMusic(destination, music, run, true);
     expect(mixed.path).toBe(destination);
     expect(await readFile(destination, "utf8")).toBe("mixed-audio");
+    const probed = vi.fn(async () => 2);
+    await mixMusic(destination, music, run, -14, probed);
+    expect(probed).toHaveBeenCalledWith(destination);
+    expect(seen.at(-1)?.join(" ")).toContain("afade=t=out:st=1.600");
+    const dubbed = join(root, "dub.mp4");
+    await applyDialogue(destination, "mute", dubbed, run, async () => 2);
+    expect(seen.at(-1)?.join(" ")).toContain("anullsrc");
+    await applyDialogue(destination, music, dubbed, run, async () => 2);
+    expect(seen.at(-1)?.join(" ")).toContain(music);
     expect(listBody).toContain(b);
   });
 

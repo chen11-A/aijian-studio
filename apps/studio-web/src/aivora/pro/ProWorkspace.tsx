@@ -36,6 +36,8 @@ import {
   spokenLine,
   shotVoiceId,
   draftFaceWarning,
+  dialogueTracks,
+  previewMix,
   fitShotToLine,
   subtitleCues,
   updateShot,
@@ -2362,6 +2364,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         paths,
         music?.path ?? "",
         music ? music.gainDb : -14,
+        dialogueTracks(current),
       );
       const url = result.path ? await clipUrl(result.path) : "";
       const latest = filmRef.current ?? current;
@@ -2395,13 +2398,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     const music = current.audioClips.find((clip) => clip.lane === "score" && clip.path);
+    const voices = dialogueTracks(current);
     let source: string;
-    if (plan.paths.length === 1 && music?.path && bridge.assembleFilm) {
+    if (plan.paths.length === 1 && bridge.assembleFilm && (music?.path || voices.some(Boolean))) {
       const mixed = await bridge.assembleFilm(
         current.seriesId,
         plan.paths,
-        music.path,
-        music.gainDb,
+        music?.path ?? "",
+        music ? music.gainDb : -14,
+        voices,
       );
       source = mixed.path || plan.paths[0] || "";
     } else if (plan.paths.length === 1) source = plan.paths[0] ?? "";
@@ -2455,7 +2460,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       )
       .filter((item) => item);
     if (paths.length < 2) return;
-    const key = paths.join("|");
+    const music = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
+    const key = [
+      paths.join("|"),
+      dialogueTracks(film).join("|"),
+      music?.path ?? "",
+      music?.gainDb ?? "",
+    ].join("\n");
     if (assembledKey.current === key) return;
     assembledKey.current = key;
     void joinedCut(paths);
@@ -5593,13 +5604,16 @@ function EditPage({
   );
   const scoreClip = film.audioClips.find((clip) => clip.lane === "score" && clip.path);
   const musicGain = scoreClip?.gainDb ?? -14;
-  const voiceSrc = hearLane === "score" || dialogueMuted(film) ? "" : fileMediaUrl(voiceClip?.path);
-  const musicSrc =
-    !scoreClip || hearLane === "dialogue"
-      ? ""
-      : hearLane === "score" || scoreClip.gainDb > -40
-        ? fileMediaUrl(scoreClip.path)
-        : "";
+  const mix = previewMix({
+    joined: Boolean(film.assemblyUrl),
+    voice: fileMediaUrl(voiceClip?.path),
+    music: fileMediaUrl(scoreClip?.path),
+    dialogueMuted: dialogueMuted(film),
+    solo: hearLane,
+    musicHeard: Boolean(scoreClip) && (hearLane === "score" || (scoreClip?.gainDb ?? -14) > -40),
+  });
+  const voiceSrc = mix.voice;
+  const musicSrc = mix.music;
   useEffect(() => {
     setMediaTime(0);
   }, [shot, previewSrc]);
@@ -5709,7 +5723,7 @@ function EditPage({
                   voice={voiceSrc}
                   music={musicSrc}
                   playing={playing}
-                  audible={audible && !dialogueMuted(film) && hearLane !== "score" && !voiceSrc}
+                  audible={audible && mix.hearVideo}
                   sound={audible}
                   onPlaying={onPlaying}
                   onTime={setMediaTime}

@@ -203,6 +203,25 @@ describe("story film client", () => {
     });
   });
 
+  it("keeps fourteen references and does not fail when more arrive", () => {
+    const references = Array.from({ length: 16 }, (_, index) => `/tmp/face-${index}.png`);
+    const parsed = parseStoryFilmCreate({
+      scene_label: "雨夜",
+      narration: "一句旁白",
+      provider: "stub",
+      confirmed: true,
+      shots: [
+        {
+          narration: "一句旁白",
+          prompt: "全景",
+          duration_seconds: 3,
+          references,
+        },
+      ],
+    });
+    expect(parsed.shots?.[0]?.references).toEqual(references.slice(0, 14));
+  });
+
   it("rejects a request that tries to carry a token field", () => {
     expect(() =>
       parseStoryFilmCreate({

@@ -28,8 +28,10 @@ import {
   splitNovel,
   chosenExport,
   confirmEstimate,
+  dialogueTracks,
   draftFaceWarning,
   fitShotToLine,
+  previewMix,
   motionPrompt,
   shotVoiceId,
   spokenLine,
@@ -237,6 +239,22 @@ describe("film operations", () => {
     const merged = mergeCast(film, found);
     expect(merged.characters.find((item) => item.name === "林雨")?.identity).toBe("我写的");
     expect(merged.characters.map((item) => item.name)).toEqual(["林雨", "阿哲"]);
+    expect(merged.characters[0]?.voiceId).toBeTruthy();
+    expect(merged.characters[1]?.voiceId).toBeTruthy();
+    expect(merged.characters[0]?.voiceId).not.toBe(merged.characters[1]?.voiceId);
+    const voiced = mergeCast(blankFilm(), {
+      characters: [
+        { name: "林雨", identity: "年轻女子" },
+        { name: "阿哲", identity: "中年男人" },
+        { name: "小满", identity: "七岁女孩" },
+      ],
+      locations: [],
+    });
+    const ids = voiced.characters.map((item) => item.voiceId);
+    expect(new Set(ids).size).toBe(3);
+    expect(["iris", "sirius", "cosmo", "helix"]).toContain(ids[0]);
+    expect(["leo", "rex", "orion", "atlas", "perseus", "zagan", "sal", "lux"]).toContain(ids[1]);
+    expect(["iris", "sirius", "cosmo", "lumen"]).toContain(ids[2]);
     expect(merged.scenes[0]?.where).toBe("雨夜巷口");
     expect(mergeCast(merged, found)).toBe(merged);
   });
@@ -337,6 +355,7 @@ describe("film operations", () => {
       line: "啊".repeat(40),
     });
     expect(kept.shot.seconds).toBe(4);
+    expect(kept.warning).toContain("截断");
     shot.poster = "/tmp/still.png";
     film.characters[0]!.portraits = [
       { view: "正面", prompt: "定妆", url: "https://cdn.example/face.png" },
@@ -344,7 +363,10 @@ describe("film operations", () => {
     const batch = storyFilmBatches(film, [shot], false)[0]!;
     expect(batch.shots[0]?.still).toBe("/tmp/still.png");
     expect(batch.shots[0]?.references).toContain("https://cdn.example/face.png");
-    expect(batch.shots[0]?.references).toContain("/tmp/still.png");
+    expect(batch.shots[0]?.references).not.toContain("/tmp/still.png");
+    expect(batch.shots[0]?.prompt).toContain("<IMAGE_0>");
+    expect(batch.shots[0]?.prompt).toContain("<IMAGE_1>");
+    expect(batch.shots[0]?.prompt).toContain("定妆照");
     expect(batch.aspect_ratio).toBe("9:16");
     expect(storyFilmBatches({ ...film, aspectRatio: "16:9" }, [shot], false)[0]?.aspect_ratio).toBe(
       "16:9",
@@ -355,8 +377,10 @@ describe("film operations", () => {
     shot.stills = [];
     film.characters[0]!.portraits = [{ view: "正面", prompt: "定妆", url: "/tmp/face.png" }];
     const local = storyFilmBatches(film, [shot], false)[0]!;
-    expect(local.shots[0]?.still).toBe("/tmp/face.png");
-    expect(local.shots[0]?.references).toContain("/tmp/face.png");
+    expect(local.shots[0]?.still).toBeUndefined();
+    expect(local.shots[0]?.references).toEqual(["/tmp/face.png"]);
+    expect(local.shots[0]?.prompt).toContain("<IMAGE_1>");
+    expect(local.shots[0]?.prompt).not.toContain("<IMAGE_0> 是林");
     expect(batch.shots[0]?.narration).toBe("雨太大。我听不清。");
     expect(batch.shots[0]?.prompt).toContain("冷色");
     expect(batch.shots[0]?.prompt).not.toBe(batch.shots[0]?.narration);
@@ -390,6 +414,43 @@ describe("film operations", () => {
     ];
     shot.selectedTakeId = "take-new";
     film.shots[1]!.takes = [];
+    film.audioClips = [
+      {
+        id: "voice-1",
+        lane: "dialogue",
+        shotId: shot.id,
+        takeId: "",
+        label: "配音",
+        startSeconds: 0,
+        durationSeconds: 2,
+        offsetSeconds: 0,
+        gainDb: 0,
+        path: "/films/line.wav",
+      },
+    ];
+    expect(dialogueTracks(film)).toEqual(["/films/line.wav"]);
+    film.audioClips[0]!.gainDb = -80;
+    expect(dialogueTracks(film)).toEqual(["mute"]);
+    expect(
+      previewMix({
+        joined: true,
+        voice: "/films/line.wav",
+        music: "/films/bed.mp3",
+        dialogueMuted: false,
+        solo: "",
+        musicHeard: true,
+      }),
+    ).toEqual({ voice: "", music: "", hearVideo: true });
+    expect(
+      previewMix({
+        joined: false,
+        voice: "/films/line.wav",
+        music: "/films/bed.mp3",
+        dialogueMuted: false,
+        solo: "",
+        musicHeard: true,
+      }).hearVideo,
+    ).toBe(false);
     const plan = chosenExport(film);
     expect(plan.paths).toEqual(["/films/new.mp4"]);
     expect(plan.missing.join(" ")).toContain("镜头");

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from aijian_api.contracts import ErrorResponse
 from aijian_api.episode_contracts import PROJECT_ID_PATTERN
@@ -72,10 +72,29 @@ class StoryShotBody(BaseModel):
     voice_id: str = Field(default="", max_length=64)
     still: str = Field(default="", max_length=500)
     reference: str = Field(default="", max_length=500)
-    references: list[Annotated[str, Field(max_length=500)]] = Field(
-        default_factory=list, max_length=8
-    )
+    references: list[str] = Field(default_factory=list, max_length=14)
     delivery: str = Field(default="", max_length=400)
+
+    @field_validator("references", mode="before")
+    @classmethod
+    def _keep_relevant_references(cls, value: object) -> list[str]:
+        """1.5 accepts 14. Extra images are dropped here instead of failing the shot."""
+
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("references")
+        kept: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            text = item.strip()
+            if not text:
+                continue
+            kept.append(text[:500])
+            if len(kept) == 14:
+                break
+        return kept
 
 
 class CreateStoryFilmBody(BaseModel):
@@ -306,11 +325,7 @@ def create_story_film_router(
                         voice_id=shot.voice_id.strip(),
                         still=shot.still.strip(),
                         reference=shot.reference.strip(),
-                        references=tuple(
-                            item.strip()
-                            for item in shot.references
-                            if item.strip() and len(item.strip()) <= 500
-                        )[:8],
+                        references=tuple(shot.references),
                         delivery=shot.delivery.strip(),
                     )
                     for shot in payload.shots

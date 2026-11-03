@@ -20,6 +20,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -166,13 +167,70 @@ class StoryFilmResult:
     voice_path: str | None = None
 
 
+def user_data_root() -> Path | None:
+    """The desktop userData directory. Packaged data lives in its workspace folder."""
+
+    configured = os.environ.get("AIJIAN_DATA_DIR", "").strip()
+    if not configured:
+        return None
+    data = Path(configured)
+    if not data.is_absolute() or ".." in data.parts:
+        return None
+    try:
+        resolved = data.resolve(strict=False)
+    except OSError:
+        return None
+    if resolved.name == "workspace":
+        parent = resolved.parent
+        return None if parent == resolved else parent
+    return resolved
+
+
+def _inside_directory(root: Path, target: Path) -> bool:
+    try:
+        root_real = root.resolve(strict=True)
+        file_real = target.resolve(strict=True)
+    except OSError:
+        return False
+    if not file_real.is_file():
+        return False
+    try:
+        file_real.relative_to(root_real)
+    except ValueError:
+        return False
+    return True
+
+
+def _media_file(source: str) -> Path | None:
+    """Turn an aivora-media URL into a file, and only when it stays inside userData."""
+
+    parsed = urllib.parse.urlparse(source.strip())
+    if parsed.scheme != "aivora-media" or parsed.netloc != "local" or parsed.path not in {"", "/"}:
+        return None
+    raw = urllib.parse.parse_qs(parsed.query, keep_blank_values=False).get("path", [""])[0]
+    if not raw or "\x00" in raw or ".." in Path(raw).parts:
+        return None
+    path = Path(raw)
+    if not path.is_absolute():
+        return None
+    root = user_data_root()
+    if root is None or not _inside_directory(root, path):
+        return None
+    return path.resolve(strict=True)
+
+
 def _local_image(source: str) -> XaiImage | None:
     text = source.strip()
-    if not text or text.startswith(("https://", "http://", "data:", "blob:", "aivora-media:")):
+    if not text or text.startswith(("https://", "http://", "data:", "blob:")):
         return None
-    path = Path(text)
-    if not path.is_absolute() or not path.is_file():
-        return None
+    if text.startswith("aivora-media:"):
+        path = _media_file(text)
+        if path is None:
+            return None
+    else:
+        path = Path(text)
+        if not path.is_absolute() or not path.is_file():
+            return None
     if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
         return None
     size = path.stat().st_size
@@ -193,12 +251,21 @@ def reference_image_url(source: str) -> str | None:
     return _image_reference(image)["url"]
 
 
-def references_for_model(model: str, urls: tuple[str, ...]) -> tuple[str, ...]:
-    """1.5-lite cannot take reference images or pinned frames."""
+def reference_cap(model: str) -> int:
+    """grok-imagine-video-1.5 takes 14 reference images. The classic model takes 7."""
 
-    if "lite" in model:
-        return ()
-    return urls[:14]
+    name = model.lower()
+    if "lite" in name:
+        return 0
+    if "1.5" in name:
+        return 14
+    return 7
+
+
+def references_for_model(model: str, urls: tuple[str, ...]) -> tuple[str, ...]:
+    """Keep the most relevant prefix. A longer list is trimmed, never rejected."""
+
+    return urls[: reference_cap(model)]
 
 
 def directed_speech(line: str, delivery: str) -> tuple[str, float]:
@@ -673,8 +740,8 @@ class StoryFilmService:
                         url
                         for url in (
                             reference_image_url(item)
-                            for item in (*shot.references, shot.reference, shot.still)
-                            if item
+                            for item in (*shot.references, shot.reference)
+                            if item and item != shot.still
                         )
                         if url
                     ]

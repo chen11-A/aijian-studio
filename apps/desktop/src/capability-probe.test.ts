@@ -19,6 +19,9 @@ describe("capability probe", () => {
       log,
       api: "https://api.x.ai/v1",
     });
+    const urls = fetch.mock.calls.map((call) => (call as unknown as [string])[0]);
+    expect(urls[0]).toBe("https://api.x.ai/v1/videos/generations");
+    expect(urls.some((url) => url.includes("/v1/v1/"))).toBe(false);
     expect(lines.map((line) => line.endpoint)).toEqual([
       "reference-images",
       "first-last-frame",

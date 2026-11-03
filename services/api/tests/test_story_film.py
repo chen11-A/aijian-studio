@@ -1047,9 +1047,9 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     assert loaded is not None
     assert loaded.data.startswith(b"\x89PNG")
     assert references_for_model("grok-imagine-video-1.5-lite", ("data:image/png;base64,aa",)) == ()
-    assert references_for_model("grok-imagine-video-1.5", ("https://cdn.example/a.png",)) == (
-        "https://cdn.example/a.png",
-    )
+    many = tuple(f"https://cdn.example/{index}.png" for index in range(16))
+    assert references_for_model("grok-imagine-video-1.5", many) == many[:14]
+    assert references_for_model("grok-imagine-video", many) == many[:7]
     assert reference_image_url("https://cdn.example/face.png") == "https://cdn.example/face.png"
     assert reference_image_url("") is None
     encoded = reference_image_url(str(picture))
@@ -1061,3 +1061,103 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     fast, fast_speed = directed_speech("一起上。", "语速快，轻声")
     assert fast_speed == 1.2
     assert fast.startswith("<whisper>") and fast.endswith("</whisper>")
+
+
+def test_reference_list_keeps_the_first_fourteen():
+    from aijian_api.story_film_routes import StoryShotBody
+
+    urls = [f"https://cdn.example/{index}.png" for index in range(20)]
+    body = StoryShotBody(narration="一句。", prompt="全景。", references=[*urls, 3, ""])
+    assert body.references == urls[:14]
+
+
+def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
+    """A portrait and a chosen still, stored the way the desktop stores them, are the request."""
+
+    import urllib.parse
+
+    from aijian_api.story_film import StoryShot, user_data_root
+
+    user_data = tmp_path / "AIVORA"
+    films = user_data / "films" / "film_series0000000001" / "media"
+    films.mkdir(parents=True)
+    (user_data / "workspace").mkdir()
+    portrait = films / "portrait.png"
+    still = films / "still.png"
+    portrait.write_bytes(b"\x89PNG\r\n\x1a\nface")
+    still.write_bytes(b"\x89PNG\r\n\x1a\nstill")
+    outside = tmp_path / "outside.png"
+    outside.write_bytes(b"\x89PNG\r\n\x1a\nnope")
+    escaped = films / "escape.png"
+    escaped.symlink_to(outside)
+    monkeypatch.setenv("AIJIAN_DATA_DIR", "relative/workspace")
+    assert user_data_root() is None
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(plain))
+    assert user_data_root() == plain
+    monkeypatch.setenv("AIJIAN_DATA_DIR", str(user_data / "workspace"))
+    assert user_data_root() == user_data
+    remote = "aivora-media://remote/?path=" + urllib.parse.quote(str(portrait))
+    assert reference_image_url(remote) is None
+
+    def media(path: Path) -> str:
+        return "aivora-media://local/?path=" + urllib.parse.quote(str(path))
+
+    assert reference_image_url(media(outside)) is None
+    assert reference_image_url(media(escaped)) is None
+    assert reference_image_url("aivora-media://local/?path=face.png") is None
+    assert reference_image_url(media(portrait)) == "data:image/png;base64," + base64.b64encode(
+        portrait.read_bytes()
+    ).decode("ascii")
+    repository, project_id = _project(tmp_path)
+    _allow_live(monkeypatch, tmp_path / "grok-login.log")
+    clip, voice = _media_bytes(tmp_path)
+    transport = _ScriptedTransport(
+        [
+            XaiHttpResponse(200, json.dumps({"request_id": "req-ref"}).encode()),
+            XaiHttpResponse(200, json.dumps({"status": "pending"}).encode()),
+            XaiHttpResponse(
+                200,
+                json.dumps(
+                    {"status": "done", "video": {"url": "https://vidgen.x.ai/live.mp4"}}
+                ).encode(),
+            ),
+            XaiHttpResponse(200, clip, "video/mp4"),
+            XaiHttpResponse(200, voice, "audio/wav"),
+        ]
+    )
+    service = StoryFilmService(repository, toolchain, transport=transport)
+    service._sleep = lambda _seconds: None
+    shot = StoryShot(
+        "林夏说了一句。",
+        "<IMAGE_0> 是这一镜的起始画面。<IMAGE_1> 是林夏的定妆照。雨夜巷口。",
+        2,
+        "林夏说了一句",
+        still=media(still),
+        references=(media(portrait), media(still)),
+    )
+    result = service.produce(
+        project_id,
+        _request(
+            narration="林夏说了一句。",
+            subtitle=None,
+            shots=(shot,),
+            provider="grok_subscription",
+        ),
+        media_token="grok-subscription-token",
+    )
+    assert result.status == "SUCCEEDED", result.message
+    video = next(
+        json.loads(item.body or b"{}")
+        for item in transport.requests
+        if (item.body or b"").startswith(b"{") and b"duration" in (item.body or b"")
+    )
+    assert video["image"]["url"] == "data:image/png;base64," + base64.b64encode(
+        still.read_bytes()
+    ).decode("ascii")
+    assert video["reference_images"] == [
+        {"url": "data:image/png;base64," + base64.b64encode(portrait.read_bytes()).decode("ascii")}
+    ]
+    assert "<IMAGE_0>" in video["prompt"] and "<IMAGE_1>" in video["prompt"]
+    assert "林夏的定妆照" in video["prompt"]

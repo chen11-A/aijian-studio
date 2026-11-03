@@ -163,4 +163,71 @@ describe.skipIf(!runnable && !required)("real ffmpeg", () => {
     expect(meanVolume(under)).toBeLessThan(meanVolume(away) - 6);
     expect(Math.abs(meanVolume(spoken) - meanVolume(dry))).toBeLessThan(3);
   });
+
+  it("fades the music out when the runner returns no log", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aivora-fade-"));
+    const video = join(root, "dialogue.mp4");
+    const music = join(root, "bed.wav");
+    await run(ffmpeg, [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=1000:duration=4,volume=0:enable='gte(t,1)'",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black:s=320x180:r=24:d=4",
+      "-shortest",
+      "-c:v",
+      "libx264",
+      "-c:a",
+      "aac",
+      video,
+    ]);
+    await run(ffmpeg, [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=4000:duration=4",
+      "-ac",
+      "2",
+      music,
+    ]);
+    let fade = "";
+    const silent = (args: string[]) => {
+      const text = args.join(" ");
+      if (text.includes("afade=t=out")) fade = text;
+      return new Promise<void>((resolve, reject) => {
+        const child = spawn(ffmpeg, args, { stdio: "ignore" });
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error("ffmpeg failed"));
+        });
+      });
+    };
+    await mixMusic(video, music, silent, -8, (path) => duration(path));
+    expect(fade).toContain("afade=t=out:st=3.600");
+    const tail = await run(ffmpeg, [
+      "-i",
+      video,
+      "-af",
+      "atrim=3.90:3.97,highpass=f=3000,lowpass=f=5000,volumedetect",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const middle = await run(ffmpeg, [
+      "-i",
+      video,
+      "-af",
+      "atrim=2.2:2.8,highpass=f=3000,lowpass=f=5000,volumedetect",
+      "-f",
+      "null",
+      "-",
+    ]);
+    expect(meanVolume(tail)).toBeLessThan(meanVolume(middle) - 6);
+  });
 });

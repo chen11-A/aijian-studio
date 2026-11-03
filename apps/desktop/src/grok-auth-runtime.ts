@@ -313,11 +313,14 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   const textJobs = new Set<AbortController>();
   const speechJobs = new Set<AbortController>();
 
-  function beginJob(jobs: Set<AbortController>): AbortSignal {
+  function beginJob(jobs: Set<AbortController>): { signal: AbortSignal; finish: () => void } {
     const controller = new AbortController();
     jobs.add(controller);
-    controller.signal.addEventListener("abort", () => jobs.delete(controller), { once: true });
-    return controller.signal;
+    const finish = () => {
+      jobs.delete(controller);
+    };
+    controller.signal.addEventListener("abort", finish, { once: true });
+    return { signal: controller.signal, finish };
   }
 
   function abortJobs(jobs: Set<AbortController>): void {
@@ -332,7 +335,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   }
 
   function cancelWork(): void {
-    abortJobs(textJobs);
+    [...textJobs].at(-1)?.abort();
   }
 
   async function cancelSpeech(): Promise<{ kind: string }> {
@@ -465,37 +468,42 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           throw new GrokAuthError("DISPATCH_ALREADY_FINISHED");
         }
       }
-      const text = await completeGrokText(dependencies.fetch, {
-        accessToken: session.accessToken,
-        model: input.model,
-        text: input.text,
-        endpoints,
-        signal: beginJob(textJobs),
-        onProgress: (partial) =>
-          input.onProgress?.({
-            chars: partial.length,
-            shots: (partial.match(/"picture"/g) ?? []).length,
-          }),
-      });
-      dependencies.agentLog?.write({
-        agent: input.agent ?? "",
-        model: input.model,
-        endpoint: "responses",
-        httpStatus: 200,
-        durationMs: Date.now() - started,
-        parsed: "text",
-        body: text,
-      });
-      if (ledger && dispatchId && input.projectId) {
-        await ledger.finish({
-          projectId: input.projectId,
-          dispatchId,
-          outcome: "COMPLETED",
+      const job = beginJob(textJobs);
+      try {
+        const text = await completeGrokText(dependencies.fetch, {
+          accessToken: session.accessToken,
+          model: input.model,
+          text: input.text,
+          endpoints,
+          signal: job.signal,
+          onProgress: (partial) =>
+            input.onProgress?.({
+              chars: partial.length,
+              shots: (partial.match(/"picture"/g) ?? []).length,
+            }),
         });
+        dependencies.agentLog?.write({
+          agent: input.agent ?? "",
+          model: input.model,
+          endpoint: "responses",
+          httpStatus: 200,
+          durationMs: Date.now() - started,
+          parsed: "text",
+          body: text,
+        });
+        if (ledger && dispatchId && input.projectId) {
+          await ledger.finish({
+            projectId: input.projectId,
+            dispatchId,
+            outcome: "COMPLETED",
+          });
+        }
+        if (session.inferenceDenied) await persist({ ...session, inferenceDenied: false });
+        lastError = null;
+        return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
+      } finally {
+        job.finish();
       }
-      if (session.inferenceDenied) await persist({ ...session, inferenceDenied: false });
-      lastError = null;
-      return { kind: "OK", text, billingAccountKind: "grok_login", model: input.model };
     } catch (error) {
       const code =
         error instanceof GrokAuthError

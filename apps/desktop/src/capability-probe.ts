@@ -124,7 +124,7 @@ export async function runCapabilityProbe(input: {
   log: AgentLog;
   api?: string;
 }): Promise<void> {
-  const api = (input.api ?? "https://api.x.ai/v1").replace(/\/$/, "");
+  const api = (input.api ?? "https://api.x.ai").replace(/\/+$/, "").replace(/\/v1$/, "");
   for (const probe of PROBES) {
     const started = Date.now();
     try {

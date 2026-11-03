@@ -372,6 +372,87 @@ export async function readMedia(roots: string[], raw: string): Promise<Uint8Arra
   return bytes;
 }
 
+export async function applyDialogue(
+  video: string,
+  voice: string,
+  destination: string,
+  run: (args: string[]) => Promise<void>,
+  probe?: (path: string) => Promise<number>,
+): Promise<string> {
+  if (!voice) return video;
+  await mkdir(dirname(destination), { recursive: true });
+  let seconds = 0;
+  if (probe) {
+    try {
+      const measured = await probe(video);
+      seconds = Number.isFinite(measured) && measured > 0 ? measured : 0;
+    } catch {
+      seconds = 0;
+    }
+  }
+  const length = Math.max(0.2, seconds || 15).toFixed(3);
+  if (voice === "mute") {
+    await run([
+      "-y",
+      "-i",
+      video,
+      "-f",
+      "lavfi",
+      "-i",
+      "anullsrc=channel_layout=stereo:sample_rate=48000",
+      "-map",
+      "0:v",
+      "-map",
+      "1:a",
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
+      "-shortest",
+      destination,
+    ]);
+  } else {
+    await run([
+      "-y",
+      "-i",
+      video,
+      "-i",
+      voice,
+      "-filter_complex",
+      `[1:a]apad,atrim=0:${length},aformat=sample_rates=48000:channel_layouts=stereo[a]`,
+      "-map",
+      "0:v",
+      "-map",
+      "[a]",
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
+      destination,
+    ]);
+  }
+  return destination;
+}
+
+export async function prepareVoiceFile(directory: string, raw: string): Promise<string> {
+  if (!raw.startsWith("data:")) return raw;
+  const saved = await saveDataUrl(directory, raw);
+  if (!saved) throw new Error("Invalid film path");
+  return saved;
+}
+
+export function mediaUrlPath(raw: string): string {
+  const text = raw.trim();
+  if (!text.startsWith("aivora-media:")) return text;
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "aivora-media:" || parsed.hostname !== "local") return "";
+    return decodeURIComponent(parsed.searchParams.get("path") ?? "");
+  } catch {
+    return "";
+  }
+}
+
 export async function joinClips(
   sources: string[],
   destination: string,
@@ -404,12 +485,13 @@ export async function joinClips(
   }
 }
 
-export function bundledFfmpeg(
+export function bundledTool(
   resourcesPath: string,
   platform: NodeJS.Platform,
+  tool: "ffmpeg" | "ffprobe",
   extra: { execPath?: string; envRoot?: string } = {},
 ): string {
-  const name = platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  const name = platform === "win32" ? `${tool}.exe` : tool;
   const candidates: string[] = [];
   if (extra.envRoot) candidates.push(join(extra.envRoot, name));
   if (resourcesPath) candidates.push(join(resourcesPath, "media", name));
@@ -421,13 +503,17 @@ export function bundledFfmpeg(
   for (const path of candidates) {
     if (existsSync(path)) return path;
   }
-  throw new Error("没有找到安装包里的 ffmpeg。");
+  throw new Error(
+    tool === "ffprobe" ? "没有找到安装包里的 ffprobe。" : "没有找到安装包里的 ffmpeg。",
+  );
 }
 
-function mediaDuration(log: string): number {
-  const match = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(log);
-  if (!match) return 0;
-  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+export function bundledFfmpeg(
+  resourcesPath: string,
+  platform: NodeJS.Platform,
+  extra: { execPath?: string; envRoot?: string } = {},
+): string {
+  return bundledTool(resourcesPath, platform, "ffmpeg", extra);
 }
 
 export function musicMixArgs(
@@ -471,15 +557,18 @@ export async function mixMusic(
   music: string,
   run: (args: string[]) => Promise<void>,
   gain: boolean | number = -14,
+  probe?: (path: string) => Promise<number>,
 ): Promise<{ path: string; reason: string }> {
   const gainDb = typeof gain === "number" ? gain : -14;
   const mixed = `${video}.mix.mp4`;
-  let seconds: number;
-  try {
-    const logged = await run(["-hide_banner", "-i", video, "-f", "null", "-"]);
-    seconds = mediaDuration(String(logged ?? ""));
-  } catch (error) {
-    seconds = mediaDuration(error instanceof Error ? error.message : "");
+  let seconds = 0;
+  if (probe) {
+    try {
+      const measured = await probe(video);
+      seconds = Number.isFinite(measured) && measured > 0 ? measured : 0;
+    } catch {
+      seconds = 0;
+    }
   }
   await run(musicMixArgs(video, music, mixed, gainDb, seconds));
   await copyFile(mixed, video);

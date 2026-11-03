@@ -326,6 +326,48 @@ describe("Grok text calls", () => {
     }
   });
 
+  it("cancels only the latest text call", async () => {
+    const session: GrokSession = {
+      version: 1,
+      accessToken: "access-token-value",
+      refreshToken: "refresh-token-value",
+      expiresAt: Date.now() + 3_600_000,
+      scopes: ["openid"],
+      subject: "person",
+      email: null,
+      name: null,
+      inferenceDenied: false,
+    };
+    const signals: AbortSignal[] = [];
+    const fetch = vi.fn((_url: string, init?: RequestInit) => {
+      const signal = init?.signal;
+      if (signal) signals.push(signal);
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      });
+    });
+    const runtime = createGrokRuntime({
+      store: {
+        available: () => true,
+        read: async () => session,
+        write: async () => undefined,
+        clear: async () => undefined,
+      },
+      fetch: fetch as unknown as Fetch,
+      openBrowser: async () => undefined,
+      confirmSignIn: async () => true,
+    });
+    const first = runtime.completeText({ model: "grok-4.7", text: "先写这一场" });
+    const second = runtime.completeText({ model: "grok-4.7", text: "再写下一场" });
+    await vi.waitFor(() => expect(signals).toHaveLength(2));
+    runtime.cancelWork();
+    expect(signals[0]?.aborted).toBe(false);
+    expect(signals[1]?.aborted).toBe(true);
+    runtime.cancelWork();
+    expect(signals[0]?.aborted).toBe(true);
+    await Promise.allSettled([first, second]);
+  });
+
   it("redacts a bearer token and keeps a short status", () => {
     expect(redactSecrets("bearer abc.def model missing")).toBe("[redacted] model missing");
     expect(GrokTextFailure).toBeTruthy();

@@ -342,17 +342,62 @@ export function parseCastReply(text: string): ExtractedCast | null {
   }
 }
 
+const WOMAN = ["ara", "eve", "luna", "carina", "aurora", "liora", "celeste"];
+const MAN = ["leo", "rex", "orion", "atlas", "perseus", "zagan", "sal", "lux"];
+const YOUNG_WOMAN = ["iris", "sirius", "cosmo", "helix"];
+const YOUNG_MAN = ["helios", "castor", "kepler", "zenith"];
+const GIRL = ["iris", "sirius", "cosmo", "lumen"];
+const BOY = ["helios", "castor", "lumen", "zenith"];
+const ELDER_WOMAN = ["naksh", "ursa", "aurora"];
+const ELDER_MAN = ["orion", "lux", "ursa"];
+
+function voicePool(text: string, index: number): string[] {
+  const female = /女|她|小姐|姑娘|妈妈|母亲|姐姐|妹妹|少女|妻子/.test(text);
+  const male =
+    /男|先生|爸爸|父亲|哥哥|弟弟|少年|小伙|丈夫/.test(text) ||
+    (/他/.test(text) && !/她/.test(text));
+  const child = /小孩|孩子|儿童|幼童|孩童|宝宝|七岁|六岁|五岁|八岁|九岁|十岁/.test(text);
+  const elder = /老人|长者|爷爷|奶奶|婆婆|老爷/.test(text);
+  const young = /少年|少女|年轻|青年/.test(text);
+  if (child && female) return GIRL;
+  if (child && male) return BOY;
+  if (child) return index % 2 === 0 ? GIRL : BOY;
+  if (elder && female) return ELDER_WOMAN;
+  if (elder && male) return ELDER_MAN;
+  if (elder) return index % 2 === 0 ? ELDER_WOMAN : ELDER_MAN;
+  if (young && female) return YOUNG_WOMAN;
+  if (young && male) return YOUNG_MAN;
+  if (female) return WOMAN;
+  if (male) return MAN;
+  return index % 2 === 0 ? WOMAN : MAN;
+}
+
+/** A free preset voice. The user can change it afterwards. */
+export function assignVoice(identity: string, name: string, used: ReadonlySet<string>): string {
+  const pool = voicePool(`${name} ${identity}`, used.size);
+  const all = [...WOMAN, ...MAN, ...YOUNG_WOMAN, ...YOUNG_MAN, ...GIRL, ...BOY];
+  return pool.find((id) => !used.has(id)) ?? all.find((id) => !used.has(id)) ?? pool[0] ?? "eve";
+}
+
 export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProject {
   const known = new Set(film.characters.map((item) => item.name));
-  const characters: FilmCharacter[] = [...film.characters];
+  const used = new Set(film.characters.map((item) => item.voiceId).filter(Boolean));
+  const characters: FilmCharacter[] = film.characters.map((item) => {
+    if (item.voiceId) return item;
+    const voiceId = assignVoice(item.identity, item.name, used);
+    used.add(voiceId);
+    return { ...item, voiceId };
+  });
   for (const item of extracted.characters) {
     if (!item.name || known.has(item.name)) continue;
     known.add(item.name);
+    const voiceId = assignVoice(item.identity, item.name, used);
+    used.add(voiceId);
     characters.push({
       id: `cast-${characters.length + 1}`,
       name: item.name,
       identity: item.identity,
-      voiceId: "",
+      voiceId,
       source: "script",
       userFields: [],
       portraits: [],
@@ -375,7 +420,11 @@ export function mergeCast(film: FilmProject, extracted: ExtractedCast): FilmProj
   if (place && scenes[0] && !scenes[0].where.trim()) {
     scenes = scenes.map((scene, index) => (index === 0 ? { ...scene, where: place } : scene));
   }
+  const voicesChanged = characters.some(
+    (item, index) => item.voiceId !== film.characters[index]?.voiceId,
+  );
   if (
+    !voicesChanged &&
     characters.length === film.characters.length &&
     locations.length === film.locations.length &&
     scenes === film.scenes
@@ -617,8 +666,15 @@ export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
 
 export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string } {
   const line = shot.line.trim();
-  if (!line || shot.userFields.includes("seconds")) return { shot, warning: "" };
+  if (!line) return { shot, warning: "" };
   const plan = durationFromSpeech(speechSeconds(line, null), shot.seconds);
+  const clipped = !plan.fits || plan.seconds > shot.seconds;
+  if (shot.userFields.includes("seconds")) {
+    return {
+      shot,
+      warning: clipped ? `镜头 ${shot.no} 的台词超过这一镜的时长，生成时声音会被截断。` : "",
+    };
+  }
   if (!plan.fits) {
     return { shot, warning: `镜头 ${shot.no} 的台词超过 15 秒，生成时声音会被截断。` };
   }
@@ -627,33 +683,103 @@ export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string
   return { shot, warning: "" };
 }
 
+function usableImage(url: string): boolean {
+  return Boolean(url) && !url.startsWith("blob:") && !url.startsWith("data:");
+}
+
 function shotReference(
   shot: FilmShot,
   film: FilmProject,
 ): {
   still: string;
-  references: string[];
+  references: { url: string; who: string }[];
 } {
   const chosen =
-    [shot.poster, ...shot.stills.map((item) => item.url)].find(
-      (url) => url && !url.startsWith("blob:") && !url.startsWith("data:"),
-    ) ?? "";
-  const portraits = film.characters
-    .filter((person) => shot.characters.includes(person.name) || person.name === shot.speaker)
-    .flatMap((person) => person.portraits)
-    .map((item) => item.url)
-    .filter((url) => url && !url.startsWith("blob:"));
-  const localPortrait = portraits.find((url) => !url.startsWith("https://")) ?? "";
-  const references = [...portraits];
-  if (chosen && !references.includes(chosen)) references.unshift(chosen);
-  return {
-    still: (chosen || localPortrait).slice(0, 500),
-    references: references.slice(0, 14).map((url) => url.slice(0, 500)),
-  };
+    [shot.poster, ...shot.stills.map((item) => item.url)].find((url) => usableImage(url)) ?? "";
+  const people = film.characters.filter(
+    (person) => shot.characters.includes(person.name) || person.name === shot.speaker,
+  );
+  const ranked = people.flatMap((person) =>
+    person.portraits
+      .filter((item) => usableImage(item.url) && item.url !== chosen)
+      .map((item) => ({
+        url: item.url,
+        who: person.name || "角色",
+        rank: (person.name === shot.speaker ? 4 : 0) + (item.view === "正面" ? 2 : 0),
+      })),
+  );
+  ranked.sort((a, b) => b.rank - a.rank);
+  const seen = new Set<string>();
+  const references: { url: string; who: string }[] = [];
+  for (const item of ranked) {
+    if (seen.has(item.url)) continue;
+    seen.add(item.url);
+    references.push({ url: item.url.slice(0, 500), who: item.who });
+    if (references.length === 14) break;
+  }
+  return { still: chosen.slice(0, 500), references };
+}
+
+function imageCue(references: { who: string }[], draft: boolean): string {
+  const parts = ["<IMAGE_0> 是这一镜的起始画面。"];
+  if (!draft) {
+    references.forEach((item, index) => {
+      parts.push(`<IMAGE_${index + 1}> 是${item.who}的定妆照。`);
+    });
+  }
+  return parts.join("");
 }
 
 export function draftFaceWarning(draft: boolean): string {
   return draft ? "草稿用的是较快的模型，不能带定妆照，脸可能会变。" : "";
+}
+
+function isVoiceFile(path: string): boolean {
+  return (
+    path.startsWith("data:audio") ||
+    /\.(mp3|wav|m4a|aac)(?:$|\?)/i.test(path.split(/[\\/]/).pop() ?? "")
+  );
+}
+
+/** One entry per exported shot: a voice file, "mute", or empty to keep the take. */
+export function dialogueTracks(film: FilmProject): string[] {
+  const tracks: string[] = [];
+  for (const shot of film.shots) {
+    const chosen = shot.selectedTakeId
+      ? shot.takes.find(
+          (take) => take.id === shot.selectedTakeId && take.status === "done" && take.videoPath,
+        )
+      : shot.takes.find((take) => take.status === "done" && take.videoPath);
+    if (!chosen?.videoPath) continue;
+    const clip = film.audioClips.find(
+      (item) => item.lane === "dialogue" && item.shotId === shot.id && isVoiceFile(item.path ?? ""),
+    );
+    if (!clip?.path) tracks.push("");
+    else if ((clip.gainDb ?? 0) <= -40) tracks.push("mute");
+    else tracks.push(clip.path);
+  }
+  return tracks;
+}
+
+export function previewMix(input: {
+  joined: boolean;
+  voice: string;
+  music: string;
+  dialogueMuted: boolean;
+  solo: "" | "dialogue" | "score";
+  musicHeard: boolean;
+}): { voice: string; music: string; hearVideo: boolean } {
+  if (input.joined) {
+    if (input.solo === "score") return { voice: "", music: input.music, hearVideo: false };
+    return { voice: "", music: "", hearVideo: true };
+  }
+  const voice = input.solo === "score" || input.dialogueMuted ? "" : input.voice;
+  const music = !input.musicHeard || input.solo === "dialogue" ? "" : input.music;
+  return {
+    voice,
+    music,
+    hearVideo: !input.dialogueMuted && input.solo !== "score" && !voice,
+  };
 }
 
 export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
@@ -680,12 +806,12 @@ export function confirmEstimate(shots: { seconds: number }[], versions: number):
   return `将生成 ${count} 个视频 · 约 ${duration} 秒 · 记在 Grok 会员额度里`;
 }
 
-function oneShot(shot: FilmShot, film: FilmProject) {
+function oneShot(shot: FilmShot, film: FilmProject, draft: boolean) {
   const line = spokenLine(shot);
   const refs = shotReference(shot, film);
   return {
     narration: line || "。",
-    prompt: clip(motionPrompt(shot), 2000),
+    prompt: clip(`${imageCue(refs.references, draft)}${motionPrompt(shot)}`, 2000),
     subtitle: line.slice(0, 500),
     duration_seconds: Math.max(1, Math.min(15, Math.round(shot.seconds) || 3)),
     size: shot.size.slice(0, 20),
@@ -696,7 +822,9 @@ function oneShot(shot: FilmShot, film: FilmProject) {
     identity: shotIdentity(shot, film).slice(0, 200),
     voice_id: shotVoiceId(shot, film).slice(0, 64),
     ...(refs.still ? { still: refs.still } : {}),
-    ...(refs.references.length > 0 ? { references: refs.references } : {}),
+    ...(!draft && refs.references.length > 0
+      ? { references: refs.references.map((item) => item.url) }
+      : {}),
     ...(shot.delivery?.trim() ? { delivery: shot.delivery.trim().slice(0, 400) } : {}),
   };
 }
@@ -728,7 +856,9 @@ export function storyFilmBatches(
         .trim()
         .slice(0, 400),
       aspect_ratio: film.aspectRatio === "16:9" ? "16:9" : "9:16",
-      shots: (slice.length > 0 ? slice : rows).slice(0, 10).map((shot) => oneShot(shot, film)),
+      shots: (slice.length > 0 ? slice : rows)
+        .slice(0, 10)
+        .map((shot) => oneShot(shot, film, draft)),
       ...(draft ? { video_model: VIDEO_DRAFT_MODEL } : { video_model: VIDEO_MODEL }),
     });
     if (rows.length === 0) break;

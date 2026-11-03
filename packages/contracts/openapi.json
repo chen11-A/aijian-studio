@@ -23706,10 +23706,9 @@
           },
           "references": {
             "items": {
-              "maxLength": 500,
               "type": "string"
             },
-            "maxItems": 8,
+            "maxItems": 14,
             "title": "References",
             "type": "array"
           },

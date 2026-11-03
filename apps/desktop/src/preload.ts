@@ -574,7 +574,8 @@ contextBridge.exposeInMainWorld("aijian", {
     sources: string[],
     musicPath = "",
     duck: boolean | number = false,
-  ) => ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck),
+    dialogue: string[] = [],
+  ) => ipcRenderer.invoke("film:assemble", seriesId, sources, musicPath, duck, dialogue),
   importMusic: (seriesId: string, source: string) =>
     ipcRenderer.invoke("film:import-music", seriesId, source) as Promise<{ path: string }>,
   filePath: (file: File) => webUtils.getPathForFile(file),

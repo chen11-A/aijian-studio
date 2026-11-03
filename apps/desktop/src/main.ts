@@ -26,7 +26,7 @@ import { registerGrokHandlers } from "./grok-auth-ipc";
 import { revealInFolder } from "./reveal-in-folder";
 import { registerStoryFilmHandlers } from "./story-film-ipc";
 import { registerFilmLibraryHandlers } from "./film-library-ipc";
-import { bundledFfmpeg, trustedMediaPath } from "./film-library";
+import { bundledFfmpeg, bundledTool, trustedMediaPath } from "./film-library";
 import { registerDraftExportOutputHandlers } from "./draft-export-output-ipc";
 import { registerDraftReviewHandlers } from "./draft-review-ipc";
 import { registerDraftReviewRevisionHandlers } from "./draft-review-revision-ipc";
@@ -872,6 +872,33 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
         child.on("close", (code) => {
           if (code === 0) resolve();
           else reject(new Error("ffmpeg failed"));
+        });
+      }),
+    probeDuration: (path) =>
+      new Promise((resolve) => {
+        let bin: string;
+        try {
+          bin = bundledTool(process.resourcesPath ?? "", process.platform, "ffprobe", {
+            execPath: process.execPath,
+            envRoot: process.env.AIJIAN_DRAFT_MEDIA_TOOL_ROOT,
+          });
+        } catch {
+          resolve(0);
+          return;
+        }
+        const child = spawn(
+          bin,
+          ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path],
+          { stdio: ["ignore", "pipe", "ignore"] },
+        );
+        let out = "";
+        child.stdout?.on("data", (chunk: Buffer) => {
+          out += chunk.toString();
+        });
+        child.on("error", () => resolve(0));
+        child.on("close", () => {
+          const seconds = Number(out.trim());
+          resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
         });
       }),
     mediaToken: async () => {
