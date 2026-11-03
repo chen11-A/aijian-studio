@@ -121,6 +121,9 @@ describe("film project", () => {
       { view: "正面", prompt: "定妆", url: "data:image/png;base64,aa" },
     ];
     const episode = newEpisode(prefixed);
+    expect(episode.aspectRatio).toBe("9:16");
+    prefixed.aspectRatio = "16:9";
+    expect(newEpisode(prefixed).aspectRatio).toBe("16:9");
     expect(episode.characters[0]?.portraits[0]?.url).toBe("data:image/png;base64,aa");
     expect(episode.characters[0]?.portraits[0]).not.toBe(prefixed.characters[0]?.portraits[0]);
     const parsed = parseDirectorShots(
@@ -134,6 +137,9 @@ describe("film project", () => {
     );
     expect(flat?.map((shot) => shot.seconds)).toEqual([3, 4]);
     expect(blankFilm().aspectRatio).toBe("9:16");
+    film.aspectRatio = "16:9";
+    writeFilm(window.localStorage, film);
+    expect(readFilm(window.localStorage)?.aspectRatio).toBe("16:9");
     expect(parsed?.[0]?.performance).toBe("皱眉");
     expect(parsed?.[0]?.size).toBe("近景");
     expect(parsed?.[0]?.sound.source).toBe("native");

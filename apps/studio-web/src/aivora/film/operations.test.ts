@@ -346,6 +346,9 @@ describe("film operations", () => {
     expect(batch.shots[0]?.references).toContain("https://cdn.example/face.png");
     expect(batch.shots[0]?.references).toContain("/tmp/still.png");
     expect(batch.aspect_ratio).toBe("9:16");
+    expect(storyFilmBatches({ ...film, aspectRatio: "16:9" }, [shot], false)[0]?.aspect_ratio).toBe(
+      "16:9",
+    );
     expect(draftFaceWarning(true)).toContain("脸可能会变");
     expect(draftFaceWarning(false)).toBe("");
     shot.poster = "";

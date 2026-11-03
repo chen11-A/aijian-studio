@@ -12,6 +12,12 @@ describe("professional workspace", () => {
     delete window.aijianGrok;
   });
 
+  it("starts a landscape film from the empty screen", () => {
+    render(<ProWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));
+    expect(screen.getByText("已新建横屏作品。")).toBeInTheDocument();
+  });
+
   it("feeds a renamed character into that shot's picture prompt", async () => {
     render(<ProWorkspace />);
     fireEvent.click(screen.getByRole("button", { name: "打开示例" }));
@@ -341,6 +347,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "较快的一版" }));
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "生成 1 个版本" }));
+    expect(screen.getByText("草稿用的是较快的模型，不能带定妆照，脸可能会变。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
     expect(await screen.findByText(/不能先出草稿/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "返回分镜" }));
@@ -400,6 +407,9 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存名字" }));
     fireEvent.click(screen.getByRole("button", { name: "新建作品" }));
     expect(screen.getByText(/已新建作品/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "作品" }));
+    fireEvent.click(screen.getByRole("button", { name: "新建横屏" }));
+    expect(screen.getByText("已新建横屏作品。写下故事，或打开示例。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "作品" }));
     fireEvent.click(screen.getByRole("button", { name: "删除这一集" }));
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
