@@ -317,6 +317,59 @@ export function performanceFromModel(value: unknown, names: string[]): string | 
   return gaze && !text.includes("视线") ? `${text}。${gaze}` : text;
 }
 
+function performanceRows(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value) ? value : ((value as { shots?: unknown[] }).shots ?? []);
+  return rows.filter(
+    (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object",
+  );
+}
+
+/** Tone, pace, pauses and emotion for the line. Empty when the model did not write them. */
+export function voiceDirectionFromModel(value: unknown): string {
+  if (agentIssues("performance", value).length > 0) return "";
+  const parts: string[] = [];
+  for (const row of performanceRows(value)) {
+    const voice =
+      row.voice && typeof row.voice === "object" ? (row.voice as Record<string, unknown>) : row;
+    const tone = typeof voice.tone === "string" ? voice.tone.trim() : "";
+    const pace = typeof voice.pace === "string" ? voice.pace.trim() : "";
+    const pauses =
+      typeof voice.pauses === "string"
+        ? voice.pauses.trim()
+        : typeof voice.pause === "string"
+          ? voice.pause.trim()
+          : "";
+    const emotion = typeof voice.emotion === "string" ? voice.emotion.trim() : "";
+    const bit = [
+      tone ? `语气${tone}` : "",
+      pace ? `语速${pace}` : "",
+      pauses ? `停顿${pauses}` : "",
+      emotion ? `情绪${emotion}` : "",
+    ]
+      .filter(Boolean)
+      .join("，");
+    if (bit) parts.push(bit);
+  }
+  return parts.join("。");
+}
+
+/** Speech tags and speed the TTS API documents. Unsupported directions stay out of the request. */
+export function directedSpeech(line: string, delivery: string): { text: string; speed: number } {
+  const spoken = line.trim();
+  const note = delivery.trim();
+  if (!spoken) return { text: "", speed: 1 };
+  let speed = 1;
+  if (/语速慢|语速：慢/.test(note)) speed = 0.85;
+  else if (/语速快|语速：快/.test(note)) speed = 1.2;
+  let text = spoken;
+  if (/停|顿/.test(note) && !text.includes("[pause]")) text = `[pause] ${text}`;
+  if (/吸气|换气/.test(note) && !text.includes("[inhale]")) text = `[inhale] ${text}`;
+  if (/耳语|轻声|低声/.test(note) && !text.includes("<whisper>")) {
+    text = `<whisper>${text}</whisper>`;
+  }
+  return { text, speed };
+}
+
 export function artFromModel(value: unknown): {
   styleZh: string;
   identities: { name: string; identity: string }[];

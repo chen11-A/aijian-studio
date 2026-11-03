@@ -80,6 +80,8 @@ export type GrokLoginBridge = {
     text: string;
     projectId?: string;
     idempotencyKey?: string;
+    /** 0.7 to 1.5. Omitted means the voice's normal speed. */
+    speed?: number;
   }): Promise<GrokSpeechResult>;
   /** Aborts text requests. Does not sign out and does not stop speech. */
   cancelText?(): Promise<{ kind: string }>;

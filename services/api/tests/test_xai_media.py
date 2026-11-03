@@ -66,12 +66,22 @@ def test_image_video_and_speech_follow_documented_routes_without_a_socket():
     image_body = json.loads(transport.requests[0].body or b"{}")
     assert image_body["model"] == "grok-imagine-image-2.0"
     assert image_body["response_format"] == "url"
+    assert image_body["quality"] == "medium"
     video_body = json.loads(transport.requests[1].body or b"{}")
     assert video_body["image"] == {"url": generated.source_url}
     assert video_body["model"] == "grok-imagine-video-1.5"
     speech_body = json.loads(transport.requests[4].body or b"{}")
     assert speech_body["language"] == "zh"
     assert speech_body["voice_id"] == "eve"
+
+
+def test_slower_speech_sends_the_documented_speed():
+    transport = RecordingTransport([XaiHttpResponse(200, b"mp3-bytes", "audio/mpeg")])
+    client = XaiMediaClient(transport, token="test-token-not-a-secret")
+    assert client.synthesize(text="[pause] 雨太大。", language="zh", speed=0.85) == b"mp3-bytes"
+    body = json.loads(transport.requests[0].body or b"{}")
+    assert body["speed"] == 0.85
+    assert body["text"].startswith("[pause]")
 
 
 def test_b64_image_is_sent_to_video_as_a_data_uri_and_logged(tmp_path, monkeypatch):

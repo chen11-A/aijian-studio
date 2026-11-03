@@ -609,6 +609,7 @@ export async function speakGrokLine(
     text: string;
     endpoints?: GrokEndpoints;
     signal?: AbortSignal;
+    speed?: number;
   },
 ): Promise<GrokSpeechAudio> {
   const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
@@ -625,6 +626,9 @@ export async function speakGrokLine(
       voice_id: input.voiceId,
       language: "zh",
       with_timestamps: true,
+      ...(typeof input.speed === "number" && input.speed !== 1
+        ? { speed: Math.max(0.7, Math.min(1.5, input.speed)) }
+        : {}),
     }),
     signal: input.signal,
   });

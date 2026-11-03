@@ -547,6 +547,7 @@ export async function requestStill(options: {
         prompt,
         n: 1,
         response_format: "b64_json",
+        quality: "medium",
       }),
     });
   } catch {

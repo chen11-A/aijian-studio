@@ -72,6 +72,10 @@ class StoryShotBody(BaseModel):
     voice_id: str = Field(default="", max_length=64)
     still: str = Field(default="", max_length=500)
     reference: str = Field(default="", max_length=500)
+    references: list[Annotated[str, Field(max_length=500)]] = Field(
+        default_factory=list, max_length=8
+    )
+    delivery: str = Field(default="", max_length=400)
 
 
 class CreateStoryFilmBody(BaseModel):
@@ -300,6 +304,12 @@ def create_story_film_router(
                         voice_id=shot.voice_id.strip(),
                         still=shot.still.strip(),
                         reference=shot.reference.strip(),
+                        references=tuple(
+                            item.strip()
+                            for item in shot.references
+                            if item.strip() and len(item.strip()) <= 500
+                        )[:8],
+                        delivery=shot.delivery.strip(),
                     )
                     for shot in payload.shots
                 ),

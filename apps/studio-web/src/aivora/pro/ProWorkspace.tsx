@@ -83,7 +83,9 @@ import {
   gazeHandoff,
   missingIdentityLocks,
   parseLooseJson,
+  directedSpeech,
   performanceFromModel,
+  voiceDirectionFromModel,
   prompterFromModel,
   qcFromModel,
   scenesEchoRequest,
@@ -743,9 +745,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     setNotice("正在重配这一句，画面不动。");
+    const directed = directedSpeech(line, current.delivery ?? "");
     const spoken = await bridge.speak({
       voiceId: shotVoiceId(current, live),
-      text: line,
+      text: directed.text,
+      speed: directed.speed,
       projectId: billingProject,
       idempotencyKey: crypto.randomUUID(),
     });
@@ -895,16 +899,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         const reply = await completeAgent(
           "performance",
           context,
-          "写这一镜看得见的表情变化、视线、手势和呼吸或停顿。只输出 JSON。",
+          "写这一镜看得见的表情、视线、手势，以及这句台词的语气、语速、停顿和情绪。只输出 JSON。",
         );
         const names = people.length > 0 ? people : [shot.speaker ?? ""];
-        const parsed = reply.text ? performanceFromModel(parseLooseJson(reply.text), names) : null;
-        const emotional = parsed ? /情绪|哭|泪|怒|发抖/.test(parsed) : false;
+        const parsed = reply.text ? parseLooseJson(reply.text) : null;
+        const visual = parsed ? performanceFromModel(parsed, names) : null;
+        const delivery = parsed ? voiceDirectionFromModel(parsed) : "";
+        const emotional = visual ? /情绪|哭|泪|怒|发抖/.test(visual) : false;
         filled.push(
-          parsed
+          visual || delivery
             ? {
                 ...shot,
-                performance: parsed.includes("来自表演指导") ? parsed : `${parsed}（来自表演指导）`,
+                performance: visual
+                  ? visual.includes("来自表演指导")
+                    ? visual
+                    : `${visual}（来自表演指导）`
+                  : shot.performance,
+                delivery: delivery || shot.delivery,
                 size:
                   emotional && ["中景", "全景", "远景", "大远景"].includes(shot.size)
                     ? "近景"
@@ -1541,23 +1552,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     let line = `${performanceLine(current.picture)}${gaze ? ` ${gaze}` : ""}`;
     let note = "没有登录，已用离线表演指导。点「放入分镜」写到这一镜。";
     const reply = await completeAgent("performance", current.picture, "写这一镜的表演");
-    let parsed = reply.text
-      ? performanceFromModel(parseLooseJson(reply.text), current.characters)
-      : null;
+    let raw = reply.text ? parseLooseJson(reply.text) : null;
+    let parsed = raw ? performanceFromModel(raw, current.characters) : null;
     if (!parsed && connected) {
       const again = await completeAgent(
         "performance",
         current.picture,
         "写这一镜的表演。只输出 JSON，不要解释。",
       );
-      parsed = again.text
-        ? performanceFromModel(parseLooseJson(again.text), current.characters)
-        : null;
+      raw = again.text ? parseLooseJson(again.text) : null;
+      parsed = raw ? performanceFromModel(raw, current.characters) : null;
       if (!parsed) {
         finishTurn(turn, `${again.detail || reply.detail || "模型没有按格式返回。"} 没有写入。`);
         return;
       }
     }
+    const direction = raw ? voiceDirectionFromModel(raw) : "";
     if (parsed) {
       line = parsed.includes("来自表演指导") ? parsed : `${parsed}（来自表演指导）`;
       note = "表演指导写好了。点「放入分镜」写到这一镜。";
@@ -1566,6 +1576,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       {
         ...current,
         performance: line,
+        delivery: direction || current.delivery,
         source: "agent:performance",
         userFields: current.userFields.filter((field) => field !== "performance"),
       },
@@ -1574,6 +1585,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const performanceShot = {
       ...current,
       performance: line,
+      delivery: direction || current.delivery,
       source: "agent:performance",
       userFields: current.userFields.filter((field) => field !== "performance"),
     };
@@ -1768,32 +1780,45 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     setFilm(next);
     await fillCast(next);
     next = filmRef.current ?? next;
-    const story =
-      next.scenes
-        .map((item) => item.text)
-        .filter(Boolean)
-        .join("\n") || next.title;
-    const sceneId = next.scenes[0]?.id ?? "scene-1";
     const names = next.characters.map((item) => `${item.name}：${item.identity}`).join("\n");
-    const directorReply = await completeAgent(
-      "director",
-      `画风：${next.styleZh}\n人物：\n${names}\n剧本：\n${story}`,
-      "把这一场拆成镜头",
-    );
-    const parsed = directorReply.text
-      ? parseDirectorShots(directorReply.text, sceneId, story)
-      : null;
-    if (!parsed) {
-      writing.current = false;
-      setAsking(false);
-      setOneClickReady(true);
-      setNotice(
-        directorReply.detail || "导演没有按格式返回，已停。没有写入离线镜头。点「继续」再试。",
+    const scenesWithText = next.scenes.filter((item) => item.text.trim());
+    const directedScenes = scenesWithText.length > 0 ? scenesWithText : next.scenes.slice(0, 1);
+    for (const sceneRow of directedScenes) {
+      const story = sceneRow.text.trim() || next.title;
+      const directorReply = await completeAgent(
+        "director",
+        `画风：${next.styleZh}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
+        "把这一场拆成镜头",
       );
-      return;
+      const parsed = directorReply.text
+        ? parseDirectorShots(directorReply.text, sceneRow.id, sceneRow.text || story)
+        : null;
+      if (!parsed) {
+        writing.current = false;
+        setAsking(false);
+        setOneClickReady(true);
+        setNotice(
+          directorReply.detail ||
+            `「${sceneRow.title}」导演没有按格式返回，已停。没有写入这一场的离线镜头。点「继续」再试。`,
+        );
+        return;
+      }
+      const performed = await fillPerformance(next, parsed);
+      next = applyShots(next, performed, sceneRow.id);
+      filmRef.current = next;
+      setFilm(next);
     }
-    const performed = await fillPerformance(next, parsed);
-    next = applyShots(next, performed, sceneId);
+    next = {
+      ...next,
+      shots: [...next.shots]
+        .sort((a, b) => {
+          const sceneOrder =
+            next.scenes.findIndex((item) => item.id === a.sceneId) -
+            next.scenes.findIndex((item) => item.id === b.sceneId);
+          return sceneOrder || a.no - b.no;
+        })
+        .map((shot, index) => ({ ...shot, no: index + 1 })),
+    };
     filmRef.current = next;
     setFilm(next);
     setStage("board");

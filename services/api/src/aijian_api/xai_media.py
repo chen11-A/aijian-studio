@@ -107,7 +107,13 @@ class XaiMediaClient:
     def generate_image(self, *, prompt: str, model: str = IMAGE_MODEL) -> XaiImage:
         payload = self._post_json(
             IMAGE_GENERATION_PATH,
-            {"model": model, "prompt": prompt, "n": 1, "response_format": "url"},
+            {
+                "model": model,
+                "prompt": prompt,
+                "n": 1,
+                "response_format": "url",
+                "quality": "medium",
+            },
             "image",
         )
         rows = payload.get("data")
@@ -265,20 +271,28 @@ class XaiMediaClient:
             )
         return response.body
 
-    def synthesize(self, *, text: str, voice_id: str = "eve", language: str = "zh") -> bytes:
+    def synthesize(
+        self,
+        *,
+        text: str,
+        voice_id: str = "eve",
+        language: str = "zh",
+        speed: float | None = None,
+    ) -> bytes:
+        body: dict[str, object] = {
+            "text": text,
+            "voice_id": voice_id,
+            "language": language,
+            "output_format": {"codec": "mp3", "sample_rate": 24000, "bit_rate": 128000},
+        }
+        if isinstance(speed, (int, float)) and speed != 1:
+            body["speed"] = max(0.7, min(1.5, float(speed)))
         response = self._send(
             XaiHttpRequest(
                 method="POST",
                 url=f"{self._origin}{TTS_PATH}",
                 headers=self._json_headers(),
-                body=_json_bytes(
-                    {
-                        "text": text,
-                        "voice_id": voice_id,
-                        "language": language,
-                        "output_format": {"codec": "mp3", "sample_rate": 24000, "bit_rate": 128000},
-                    }
-                ),
+                body=_json_bytes(body),
             ),
             "tts",
         )

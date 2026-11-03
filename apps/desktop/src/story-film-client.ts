@@ -18,6 +18,8 @@ export type StoryFilmShotInput = {
   voice_id?: string;
   still?: string;
   reference?: string;
+  references?: string[];
+  delivery?: string;
 };
 
 export type StoryFilmCreateInput = {
@@ -225,6 +227,18 @@ function optionalText(
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function parseReferences(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > 8) throw new Error("Invalid story film request");
+  const references = value.map((item) => {
+    if (typeof item !== "string" || item.length > 500)
+      throw new Error("Invalid story film request");
+    return item.trim();
+  });
+  const kept = references.filter(Boolean);
+  return kept.length > 0 ? kept : undefined;
+}
+
 function parseShots(value: unknown): StoryFilmShotInput[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 10) throw new Error("Invalid story film request");
@@ -246,6 +260,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       "voice_id",
       "still",
       "reference",
+      "references",
+      "delivery",
     ];
     if (Object.keys(shot).some((key) => !allowed.includes(key))) {
       throw new Error("Invalid story film request");
@@ -285,6 +301,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     const voice = optionalText(shot, "voice_id", 64);
     const still = optionalText(shot, "still", 500);
     const reference = optionalText(shot, "reference", 500);
+    const delivery = optionalText(shot, "delivery", 400);
+    const references = parseReferences(shot.references);
     return {
       narration: narration.trim(),
       prompt: prompt.trim(),
@@ -302,6 +320,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       ...(voice ? { voice_id: voice } : {}),
       ...(still ? { still } : {}),
       ...(reference ? { reference } : {}),
+      ...(references ? { references } : {}),
+      ...(delivery ? { delivery } : {}),
     };
   });
 }

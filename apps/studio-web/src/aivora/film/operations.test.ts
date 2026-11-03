@@ -342,13 +342,13 @@ describe("film operations", () => {
     ];
     const batch = storyFilmBatches(film, [shot], false)[0]!;
     expect(batch.shots[0]?.still).toBe("/tmp/still.png");
-    expect(batch.shots[0]?.reference).toBe("https://cdn.example/face.png");
+    expect(batch.shots[0]?.references).toContain("https://cdn.example/face.png");
     shot.poster = "";
     shot.stills = [];
     film.characters[0]!.portraits = [{ view: "正面", prompt: "定妆", url: "/tmp/face.png" }];
     const local = storyFilmBatches(film, [shot], false)[0]!;
     expect(local.shots[0]?.still).toBe("/tmp/face.png");
-    expect(local.shots[0]?.reference).toBeUndefined();
+    expect(local.shots[0]?.references).toContain("/tmp/face.png");
     expect(batch.shots[0]?.narration).toBe("雨太大。我听不清。");
     expect(batch.shots[0]?.prompt).toContain("冷色");
     expect(batch.shots[0]?.prompt).not.toBe(batch.shots[0]?.narration);

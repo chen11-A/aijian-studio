@@ -16,7 +16,9 @@ import {
   scenesEchoRequest,
   scriptDialogue,
   parseLooseJson,
+  directedSpeech,
   performanceFromModel,
+  voiceDirectionFromModel,
   prompterFromModel,
   qcFromModel,
   SHOT_SIZES,
@@ -105,6 +107,18 @@ describe("phase 2 shot language", () => {
       ),
     ).toContain("视线");
     expect(performanceFromModel({ shots: [] }, [])).toBeNull();
+    const voiced = [
+      {
+        emotion: "冷静",
+        face: ["皱眉"],
+        voice: { tone: "压低", pace: "慢", pauses: "说前停一下", emotion: "克制" },
+      },
+    ];
+    expect(voiceDirectionFromModel(voiced)).toContain("语速慢");
+    expect(directedSpeech("雨太大。", voiceDirectionFromModel(voiced)).text).toContain("[pause]");
+    expect(directedSpeech("雨太大。", voiceDirectionFromModel(voiced)).speed).toBe(0.85);
+    expect(directedSpeech("雨太大。", "语速快，耳语").text).toContain("<whisper>");
+    expect(directedSpeech("雨太大。", "语速快，耳语").speed).toBe(1.2);
     const art = artFromModel({
       prompt_block_zh: "冷色雨夜",
       identities: [{ name: "林雨", identity: "年轻女性" }],

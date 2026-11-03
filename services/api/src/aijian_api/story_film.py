@@ -52,7 +52,7 @@ from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
-from aijian_api.shot_pipeline import keyframe_prompt, reference_url, video_prompt
+from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
@@ -64,6 +64,7 @@ from aijian_api.xai_media import (
     XaiMediaClient,
     XaiMediaError,
     XaiTransport,
+    _image_reference,
 )
 
 ProviderKind = Literal["stub", "grok_subscription", "xai_api_key", "chatgpt"]
@@ -115,6 +116,8 @@ class StoryShot:
     voice_id: str = ""
     still: str = ""
     reference: str = ""
+    references: tuple[str, ...] = ()
+    delivery: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +140,7 @@ class StoryFilmRequest:
     visual_prompt: str = ""
     style_block: str = ""
     move: str = ""
+    delivery: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +178,39 @@ def _local_image(source: str) -> XaiImage | None:
     if size <= 0 or size > 12_000_000:
         return None
     return XaiImage(data=path.read_bytes(), source_url=None, model=IMAGE_MODEL)
+
+
+def reference_image_url(source: str) -> str | None:
+    """An https URL, or a local portrait encoded the same way the video API accepts a still."""
+
+    text = source.strip()
+    if text.startswith("https://") or text.startswith("data:image/"):
+        return text
+    image = _local_image(text)
+    if image is None:
+        return None
+    return _image_reference(image)["url"]
+
+
+def directed_speech(line: str, delivery: str) -> tuple[str, float]:
+    """Turn performance voice notes into speech tags and a speed the TTS API accepts."""
+
+    text = line.strip()
+    note = delivery.strip()
+    speed = 1.0
+    if not text:
+        return "", speed
+    if "语速慢" in note or "语速：慢" in note:
+        speed = 0.85
+    elif "语速快" in note or "语速：快" in note:
+        speed = 1.2
+    if any(mark in note for mark in ("停", "顿")) and "[pause]" not in text:
+        text = f"[pause] {text}"
+    if any(mark in note for mark in ("吸气", "换气")) and "[inhale]" not in text:
+        text = f"[inhale] {text}"
+    if any(mark in note for mark in ("耳语", "轻声", "低声")) and "<whisper>" not in text:
+        text = f"<whisper>{text}</whisper>"
+    return text, speed
 
 
 def live_media_enabled() -> bool:
@@ -618,11 +655,22 @@ class StoryFilmService:
                     move=shot.move,
                     voice_id=shot.voice_id or request.voice_id,
                     regenerate=request.regenerate or shot.regenerate,
+                    delivery=shot.delivery,
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
-                    prepared = _local_image(shot.still) or _local_image(shot.reference)
-                    linked = reference_url(shot.reference) or reference_url(shot.still)
+                    prepared = _local_image(shot.still)
+                    linked = [
+                        url
+                        for url in (
+                            reference_image_url(item)
+                            for item in (*shot.references, shot.reference)
+                            if item
+                        )
+                        if url
+                    ]
+                    if shot.still.startswith("https://"):
+                        linked.append(shot.still)
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
@@ -630,7 +678,7 @@ class StoryFilmService:
                         duration=max(1, min(int(shot.duration_seconds), 15)),
                         prepared_image=prepared,
                         shot_label=label,
-                        reference_url=linked,
+                        reference_images=tuple(dict.fromkeys(linked)),
                     )
                 else:
                     image, clip, speech = self._placeholder_media(child)
@@ -719,6 +767,7 @@ class StoryFilmService:
         prepared_image: XaiImage | None = None,
         shot_label: str | None = None,
         reference_url: str | None = None,
+        reference_images: tuple[str, ...] = (),
     ) -> tuple[bytes, bytes, bytes]:
         if not media_token or not live_media_enabled():
             raise StoryFilmError("LIVE_DISABLED", "当前环境不会发起真实生成。")
@@ -802,7 +851,9 @@ class StoryFilmService:
             image,
             project_id,
             duration=duration,
-            reference_url=reference_url,
+            reference_images=tuple(
+                dict.fromkeys((*reference_images, *((reference_url,) if reference_url else ())))
+            ),
         )
         self._ensure_running(project_id)
         mark_film_progress(project_id, "speech", shot_label or "正在生成配音。", image_saved=kept)
@@ -810,11 +861,13 @@ class StoryFilmService:
         if not spoken:
             speech = _silent_wav()
         else:
+            directed, speed = directed_speech(spoken, request.delivery)
             try:
                 speech = client.synthesize(
-                    text=spoken,
+                    text=directed,
                     voice_id=request.voice_id or "eve",
                     language="zh",
+                    speed=speed,
                 )
             except XaiMediaError as error:
                 if clip is None:
@@ -961,7 +1014,7 @@ class StoryFilmService:
         project_id: str,
         *,
         duration: int = 2,
-        reference_url: str | None = None,
+        reference_images: tuple[str, ...] = (),
     ) -> tuple[bytes | None, str | None]:
         if not isinstance(image, XaiImage):
             raise StoryFilmError("IMAGE_RESPONSE_INVALID", "画面没有保存下来。")
@@ -979,7 +1032,7 @@ class StoryFilmService:
                 model=request.video_model or VIDEO_MODEL,
                 duration=max(1, min(duration, 15)),
                 generate_audio=False,
-                reference_images=(reference_url,) if reference_url else (),
+                reference_images=reference_images,
             )
         except XaiMediaError:
             return None, "画面已生成，视频这一步没有成功，可以重试"

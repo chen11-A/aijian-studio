@@ -588,6 +588,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     text: string;
     projectId?: string;
     idempotencyKey?: string;
+    speed?: number;
   }): Promise<GrokSpeechResult> {
     const line = input.text.trim();
     if (!line || line.length > 2000 || !input.voiceId.trim() || input.voiceId.length > 80) {
@@ -641,6 +642,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           text: line,
           endpoints,
           signal,
+          ...(typeof input.speed === "number" ? { speed: input.speed } : {}),
         });
       } finally {
         clearTimeout(timeout);

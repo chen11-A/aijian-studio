@@ -108,12 +108,17 @@ export function registerGrokHandlers<TEvent>(
           text: string;
           projectId?: unknown;
           idempotencyKey?: unknown;
+          speed?: unknown;
         };
         const keys = Object.keys(body);
         if (
-          keys.some((key) => !["voiceId", "text", "projectId", "idempotencyKey"].includes(key)) ||
+          keys.some(
+            (key) => !["voiceId", "text", "projectId", "idempotencyKey", "speed"].includes(key),
+          ) ||
           (body.projectId !== undefined && typeof body.projectId !== "string") ||
-          (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string")
+          (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string") ||
+          (body.speed !== undefined &&
+            (typeof body.speed !== "number" || body.speed < 0.7 || body.speed > 1.5))
         ) {
           throw new Error("Invalid Grok speech request");
         }
@@ -140,6 +145,7 @@ export function registerGrokHandlers<TEvent>(
           ...(typeof body.idempotencyKey === "string"
             ? { idempotencyKey: body.idempotencyKey }
             : {}),
+          ...(typeof body.speed === "number" ? { speed: body.speed } : {}),
         });
       }
       if (action === "agent-log") {

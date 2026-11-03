@@ -23646,6 +23646,12 @@
             "title": "Angle",
             "type": "string"
           },
+          "delivery": {
+            "default": "",
+            "maxLength": 400,
+            "title": "Delivery",
+            "type": "string"
+          },
           "duration_seconds": {
             "default": 5,
             "maximum": 15.0,
@@ -23688,6 +23694,15 @@
             "maxLength": 500,
             "title": "Reference",
             "type": "string"
+          },
+          "references": {
+            "items": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "References",
+            "type": "array"
           },
           "regenerate": {
             "default": false,

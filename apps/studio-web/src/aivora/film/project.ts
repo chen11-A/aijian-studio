@@ -137,6 +137,8 @@ export type FilmShot = {
   line: string;
   /** Who says the line. Empty means the line names them, or the narrator. */
   speaker?: string;
+  /** How this line should be spoken: tone, pace, pauses, emotion. */
+  delivery?: string;
   /** Phase 2 sound block. Generation ignores it in Phase 1. */
   sound: ShotSoundPlan;
   /** Insert and other non-size labels. Empty when the size already says it. */
@@ -518,6 +520,12 @@ export function parseDirectorShots(
     const emotional = /情绪|哭|泪|怒|发抖|心碎|质问/.test(`${purpose}${emotion}${performance}`);
     const size =
       emotional && ["大远景", "远景", "全景", "中景"].includes(sized.size) ? "近景" : sized.size;
+    const characters = Array.isArray(record.characters)
+      ? record.characters.filter((item): item is string => typeof item === "string")
+      : [];
+    const line = lineInScript(sceneText, proposed);
+    const named = typeof record.speaker === "string" ? record.speaker.trim() : "";
+    const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
     shots.push({
       id: `${sceneId}-shot-${index + 1}`,
       sceneId,
@@ -529,11 +537,10 @@ export function parseDirectorShots(
       picture: told,
       action: action && action !== told ? action : "",
       performance,
-      characters: Array.isArray(record.characters)
-        ? record.characters.filter((item): item is string => typeof item === "string")
-        : [],
-      line: lineInScript(sceneText, proposed),
-      speaker: typeof record.speaker === "string" ? record.speaker.trim() : "",
+      characters,
+      line,
+      speaker,
+      delivery: typeof record.delivery === "string" ? record.delivery.trim() : "",
       blocking: typeof record.blocking === "string" ? record.blocking : "",
       facing: typeof record.facing === "string" ? record.facing : "",
       sound: soundFromDirector(record, ""),

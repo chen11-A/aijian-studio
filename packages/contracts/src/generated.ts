@@ -10247,6 +10247,11 @@ export interface components {
              */
             angle: string;
             /**
+             * Delivery
+             * @default
+             */
+            delivery: string;
+            /**
              * Duration Seconds
              * @default 5
              */
@@ -10275,6 +10280,8 @@ export interface components {
              * @default
              */
             reference: string;
+            /** References */
+            references?: string[];
             /**
              * Regenerate
              * @default false

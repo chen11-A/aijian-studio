@@ -17,7 +17,9 @@ from aijian_api.story_film import (
     _fit_clip_length,
     _local_image,
     _media_duration,
+    directed_speech,
     live_media_enabled,
+    reference_image_url,
 )
 from aijian_api.xai_media import XaiHttpRequest, XaiHttpResponse
 from fastapi.testclient import TestClient
@@ -319,6 +321,7 @@ def test_subscription_hands_a_b64_image_to_video_and_logs_status_only(tmp_path, 
     assert body["duration"] == 2
     image_body = json.loads(transport.requests[0].body or b"{}")
     assert image_body["response_format"] == "url"
+    assert image_body["quality"] == "medium"
     saved = list((tmp_path / "story-films").glob("*-key.png"))
     assert saved and saved[0].read_bytes() == _PNG
     text = log_path.read_text()
@@ -1042,3 +1045,14 @@ def test_local_image_reference_accepts_only_a_real_picture(tmp_path: Path):
     loaded = _local_image(str(picture))
     assert loaded is not None
     assert loaded.data.startswith(b"\x89PNG")
+    assert reference_image_url("https://cdn.example/face.png") == "https://cdn.example/face.png"
+    assert reference_image_url("") is None
+    encoded = reference_image_url(str(picture))
+    assert encoded is not None and encoded.startswith("data:image/png;base64,")
+    assert directed_speech("", "语速慢") == ("", 1.0)
+    tagged, speed = directed_speech("雨太大。", "语气压低，语速慢，说前停一下，吸气再开口")
+    assert speed == 0.85
+    assert tagged.startswith("[inhale] [pause]") or "[pause]" in tagged and "[inhale]" in tagged
+    fast, fast_speed = directed_speech("一起上。", "语速快，轻声")
+    assert fast_speed == 1.2
+    assert fast.startswith("<whisper>") and fast.endswith("</whisper>")

@@ -97,6 +97,8 @@ export type StoryFilmBody = {
     voice_id?: string;
     still?: string;
     reference?: string;
+    references?: string[];
+    delivery?: string;
   }[];
   video_model?: string;
 };
@@ -624,20 +626,28 @@ export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string
   return { shot, warning: "" };
 }
 
-function shotReference(shot: FilmShot, film: FilmProject): { still: string; reference: string } {
+function shotReference(
+  shot: FilmShot,
+  film: FilmProject,
+): {
+  still: string;
+  references: string[];
+} {
   const chosen =
     [shot.poster, ...shot.stills.map((item) => item.url)].find(
       (url) => url && !url.startsWith("blob:") && !url.startsWith("data:"),
     ) ?? "";
-  const portrait =
-    film.characters
-      .filter((person) => shot.characters.includes(person.name) || person.name === shot.speaker)
-      .flatMap((person) => person.portraits)
-      .map((item) => item.url)
-      .find((url) => url && !url.startsWith("blob:")) ?? "";
-  const still = (chosen || (portrait.startsWith("https://") ? "" : portrait)).slice(0, 500);
-  const reference = portrait.startsWith("https://") ? portrait.slice(0, 500) : "";
-  return { still, reference };
+  const portraits = film.characters
+    .filter((person) => shot.characters.includes(person.name) || person.name === shot.speaker)
+    .flatMap((person) => person.portraits)
+    .map((item) => item.url)
+    .filter((url) => url && !url.startsWith("blob:"))
+    .slice(0, 8);
+  const localPortrait = portraits.find((url) => !url.startsWith("https://")) ?? "";
+  return {
+    still: (chosen || localPortrait).slice(0, 500),
+    references: portraits.map((url) => url.slice(0, 500)),
+  };
 }
 
 export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
@@ -680,7 +690,8 @@ function oneShot(shot: FilmShot, film: FilmProject) {
     identity: shotIdentity(shot, film).slice(0, 200),
     voice_id: shotVoiceId(shot, film).slice(0, 64),
     ...(refs.still ? { still: refs.still } : {}),
-    ...(refs.reference ? { reference: refs.reference } : {}),
+    ...(refs.references.length > 0 ? { references: refs.references } : {}),
+    ...(shot.delivery?.trim() ? { delivery: shot.delivery.trim().slice(0, 400) } : {}),
   };
 }
 
