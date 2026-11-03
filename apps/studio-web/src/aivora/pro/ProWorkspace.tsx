@@ -3012,7 +3012,6 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                     markApplied("qc");
                     setNotice("已记下审片意见。版本仍由你选。");
                   }}
-                  busy={asking}
                   onOneClick={() => void oneClickFilm()}
                   onTemplate={applyTemplate}
                 />
@@ -4285,6 +4284,7 @@ function ScriptPage({
           card={card}
           onRedoRange={onRedoRange}
           onDismiss={onDismiss}
+          busy={asking}
         />
         {film.sourceText ? (
           <details className="role-desc">
