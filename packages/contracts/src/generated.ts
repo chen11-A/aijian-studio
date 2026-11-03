@@ -10095,6 +10095,8 @@ export interface components {
             suggested_provider?: ("stub" | "grok_subscription") | null;
             /** Task Id */
             task_id?: string | null;
+            /** Voice Path */
+            voice_path?: string | null;
         };
         /** StoryFilmPlanData */
         StoryFilmPlanData: {
@@ -10269,6 +10271,11 @@ export interface components {
             /** Prompt */
             prompt: string;
             /**
+             * Reference
+             * @default
+             */
+            reference: string;
+            /**
              * Regenerate
              * @default false
              */
@@ -10278,6 +10285,11 @@ export interface components {
              * @default
              */
             size: string;
+            /**
+             * Still
+             * @default
+             */
+            still: string;
             /**
              * Subtitle
              * @default

@@ -23210,6 +23210,17 @@
               }
             ],
             "title": "Task Id"
+          },
+          "voice_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Path"
           }
         },
         "required": [
@@ -23672,6 +23683,12 @@
             "title": "Prompt",
             "type": "string"
           },
+          "reference": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reference",
+            "type": "string"
+          },
           "regenerate": {
             "default": false,
             "title": "Regenerate",
@@ -23681,6 +23698,12 @@
             "default": "",
             "maxLength": 20,
             "title": "Size",
+            "type": "string"
+          },
+          "still": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Still",
             "type": "string"
           },
           "subtitle": {
