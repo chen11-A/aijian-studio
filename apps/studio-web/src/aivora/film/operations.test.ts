@@ -28,6 +28,7 @@ import {
   splitNovel,
   chosenExport,
   confirmEstimate,
+  fitShotToLine,
   motionPrompt,
   shotVoiceId,
   spokenLine,
@@ -294,7 +295,60 @@ describe("film operations", () => {
     const silent = { ...shot, line: "", characters: [], speaker: "" };
     expect(spokenLine(silent)).toBe("");
     expect(shotVoiceId(silent, film)).toBe("eve");
+    shot.speaker = "";
+    shot.characters = [film.characters[0]!.name, film.characters[1]!.name];
+    expect(shotVoiceId(shot, film)).not.toBe("eve");
+    const unnamed = {
+      ...film,
+      narrationVoiceId: "",
+      characters: film.characters.map((person) => ({ ...person, voiceId: "" })),
+    };
+    expect(
+      shotVoiceId(
+        {
+          ...shot,
+          speaker: "",
+          line: "",
+          characters: unnamed.characters.map((person) => person.name),
+        },
+        unnamed,
+      ),
+    ).toBe("leo");
+    expect(
+      motionPrompt({ ...shot, picture: "", promptZh: "", performance: "", userFields: [] }),
+    ).toBe("起始画面");
+    shot.performance = "皱眉，呼吸停一下";
+    expect(motionPrompt(shot)).toContain("皱眉");
+    const fitted = fitShotToLine({ ...shot, seconds: 2, line: "雨太大，我听不清，你再说一遍。" });
+    expect(fitted.shot.seconds).toBeGreaterThan(2);
+    const over = fitShotToLine({
+      ...shot,
+      seconds: 3,
+      userFields: [],
+      line: "啊".repeat(90),
+    });
+    expect(over.fits ?? over.warning).toContain("截断");
+    expect(over.shot.seconds).toBe(3);
+    const kept = fitShotToLine({
+      ...shot,
+      seconds: 4,
+      userFields: ["seconds"],
+      line: "啊".repeat(40),
+    });
+    expect(kept.shot.seconds).toBe(4);
+    shot.poster = "/tmp/still.png";
+    film.characters[0]!.portraits = [
+      { view: "正面", prompt: "定妆", url: "https://cdn.example/face.png" },
+    ];
     const batch = storyFilmBatches(film, [shot], false)[0]!;
+    expect(batch.shots[0]?.still).toBe("/tmp/still.png");
+    expect(batch.shots[0]?.reference).toBe("https://cdn.example/face.png");
+    shot.poster = "";
+    shot.stills = [];
+    film.characters[0]!.portraits = [{ view: "正面", prompt: "定妆", url: "/tmp/face.png" }];
+    const local = storyFilmBatches(film, [shot], false)[0]!;
+    expect(local.shots[0]?.still).toBe("/tmp/face.png");
+    expect(local.shots[0]?.reference).toBeUndefined();
     expect(batch.shots[0]?.narration).toBe("雨太大。我听不清。");
     expect(batch.shots[0]?.prompt).toContain("冷色");
     expect(batch.shots[0]?.prompt).not.toBe(batch.shots[0]?.narration);

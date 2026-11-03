@@ -26,6 +26,33 @@ export function useGrokConnected(): boolean {
   return connected;
 }
 
+export function useGrokAccount(): { state: string; label: string } {
+  const [account, setAccount] = useState({ state: "NOT_CONNECTED", label: "" });
+  useEffect(() => {
+    let live = true;
+    const pull = () => {
+      void readGrokStatus()
+        .then((status) => {
+          if (!live) return;
+          setAccount({
+            state: status.runtime === "DESKTOP" ? status.state : "NOT_CONNECTED",
+            label: status.accountLabel ?? "",
+          });
+        })
+        .catch(() => {
+          if (live) setAccount({ state: "NOT_CONNECTED", label: "" });
+        });
+    };
+    pull();
+    window.addEventListener("aivora-grok-changed", pull);
+    return () => {
+      live = false;
+      window.removeEventListener("aivora-grok-changed", pull);
+    };
+  }, []);
+  return account;
+}
+
 /** True when the signed-in membership cannot use this app's models. */
 export function useGrokDenied(): boolean {
   const [denied, setDenied] = useState(false);

@@ -74,6 +74,8 @@ type Dependencies = {
   agentLog?: AgentLog;
   /** When set, provider HTTP waits until this ledger has a billing row. No token is passed. */
   ledger?: SubscriptionLedger;
+  /** Packaged builds ignore the slow-text fixture so it cannot pretend someone signed in. */
+  packaged?: boolean;
 };
 
 export type GrokRuntime = GrokLoginBridge & {
@@ -110,7 +112,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
   }
 
   function slowTextFixture(): boolean {
-    return process.env.AIVORA_SLOW_TEXT_FIXTURE === "1";
+    return process.env.AIVORA_SLOW_TEXT_FIXTURE === "1" && dependencies.packaged !== true;
   }
 
   function status(): GrokLoginStatus {
@@ -308,22 +310,34 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
   }
 
-  let work: AbortController | null = null;
+  const textJobs = new Set<AbortController>();
+  const speechJobs = new Set<AbortController>();
 
-  function beginWork(): AbortSignal {
-    work?.abort();
-    work = new AbortController();
-    return work.signal;
+  function beginJob(jobs: Set<AbortController>): AbortSignal {
+    const controller = new AbortController();
+    jobs.add(controller);
+    controller.signal.addEventListener("abort", () => jobs.delete(controller), { once: true });
+    return controller.signal;
+  }
+
+  function abortJobs(jobs: Set<AbortController>): void {
+    for (const job of jobs) job.abort();
   }
 
   async function cancel(): Promise<GrokLoginActionResult> {
     attempt?.abort(new GrokAuthError("AUTH_CANCELLED"));
-    work?.abort();
+    abortJobs(textJobs);
+    abortJobs(speechJobs);
     return { kind: "CANCELLED", status: status() };
   }
 
   function cancelWork(): void {
-    work?.abort();
+    abortJobs(textJobs);
+  }
+
+  async function cancelSpeech(): Promise<{ kind: string }> {
+    abortJobs(speechJobs);
+    return { kind: "OK" };
   }
 
   async function signOut(): Promise<GrokLoginActionResult> {
@@ -456,7 +470,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         model: input.model,
         text: input.text,
         endpoints,
-        signal: beginWork(),
+        signal: beginJob(textJobs),
         onProgress: (partial) =>
           input.onProgress?.({
             chars: partial.length,
@@ -587,6 +601,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     const ledger = dependencies.ledger;
     let dispatchId: string | null = null;
     let timedOut = false;
+    let speech: AbortSignal | null = null;
     try {
       await restore();
       await ensureFresh();
@@ -610,10 +625,13 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         });
         dispatchId = recorded.dispatchId;
       }
-      const signal = beginWork();
+      const controller = new AbortController();
+      speechJobs.add(controller);
+      speech = controller.signal;
+      const signal = speech;
       const timeout = setTimeout(() => {
         timedOut = true;
-        work?.abort();
+        controller.abort();
       }, 5 * 60_000);
       let audio: Awaited<ReturnType<typeof speakGrokLine>>;
       try {
@@ -641,7 +659,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           failureCode: code,
         });
       }
-      const aborted = work?.signal.aborted === true;
+      const aborted = speech?.aborted === true;
       const detail = timedOut
         ? "配音等太久，已停止。"
         : aborted
@@ -683,6 +701,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     signIn,
     cancel,
     cancelWork,
+    cancelSpeech,
     signOut,
     models,
     completeText,

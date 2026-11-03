@@ -181,4 +181,9 @@ export function registerGrokHandlers<TEvent>(
     (runtimeFor() as GrokLoginBridge & { cancelWork?: () => void }).cancelWork?.();
     return { kind: "OK" };
   });
+  handle("grok-auth:cancel-speech", async (event) => {
+    if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
+    (runtimeFor() as GrokLoginBridge & { cancelSpeech?: () => void }).cancelSpeech?.();
+    return { kind: "OK" };
+  });
 }

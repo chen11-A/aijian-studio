@@ -512,17 +512,23 @@ export function parseDirectorShots(
     const sized = classifyShotSize(typeof record.size === "string" ? record.size : "中景");
     const tag = typeof record.tag === "string" && record.tag.trim() ? record.tag.trim() : sized.tag;
     const proposed = typeof record.line === "string" ? record.line : "";
+    const performance = typeof record.performance === "string" ? record.performance.trim() : "";
+    const purpose = typeof record.purpose === "string" ? record.purpose : "";
+    const emotion = typeof record.emotion === "string" ? record.emotion : "";
+    const emotional = /情绪|哭|泪|怒|发抖|心碎|质问/.test(`${purpose}${emotion}${performance}`);
+    const size =
+      emotional && ["大远景", "远景", "全景", "中景"].includes(sized.size) ? "近景" : sized.size;
     shots.push({
       id: `${sceneId}-shot-${index + 1}`,
       sceneId,
       no: index + 1,
-      size: sized.size,
+      size,
       tag,
       move: typeof record.move === "string" ? record.move : "固定",
       seconds: storedShotSeconds(seconds),
       picture: told,
       action: action && action !== told ? action : "",
-      performance: "",
+      performance,
       characters: Array.isArray(record.characters)
         ? record.characters.filter((item): item is string => typeof item === "string")
         : [],

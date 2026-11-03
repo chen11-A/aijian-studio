@@ -52,7 +52,7 @@ from aijian_api.media_budget_store import MediaBudgetStore
 from aijian_api.media_toolchain import MediaToolchain
 from aijian_api.product_export_windows_job import ProductExportJobManager
 from aijian_api.repository import StudioRepository
-from aijian_api.shot_pipeline import keyframe_prompt, video_prompt
+from aijian_api.shot_pipeline import keyframe_prompt, reference_url, video_prompt
 from aijian_api.shot_plan import AI_GENERATED_NOTE
 from aijian_api.task_ledger import LocalTaskLedger
 from aijian_api.task_ledger_models import QueuedTask
@@ -113,6 +113,8 @@ class StoryShot:
     performance: str = ""
     identity: str = ""
     voice_id: str = ""
+    still: str = ""
+    reference: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +158,22 @@ class StoryFilmResult:
     draft: bool
     live_call: bool
     preview_image: str | None = None
+    voice_path: str | None = None
+
+
+def _local_image(source: str) -> XaiImage | None:
+    text = source.strip()
+    if not text or text.startswith(("https://", "http://", "data:", "blob:", "aivora-media:")):
+        return None
+    path = Path(text)
+    if not path.is_absolute() or not path.is_file():
+        return None
+    if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+        return None
+    size = path.stat().st_size
+    if size <= 0 or size > 12_000_000:
+        return None
+    return XaiImage(data=path.read_bytes(), source_url=None, model=IMAGE_MODEL)
 
 
 def live_media_enabled() -> bool:
@@ -603,12 +621,16 @@ class StoryFilmService:
                     shots=(),
                 )
                 if request.provider == "grok_subscription":
+                    prepared = _local_image(shot.still) or _local_image(shot.reference)
+                    linked = reference_url(shot.reference) or reference_url(shot.still)
                     image, clip, speech = self._live_media(
                         child,
                         media_token,
                         project_id,
                         duration=max(1, min(int(shot.duration_seconds), 15)),
+                        prepared_image=prepared,
                         shot_label=label,
+                        reference_url=linked,
                     )
                 else:
                     image, clip, speech = self._placeholder_media(child)
@@ -1169,6 +1191,7 @@ class StoryFilmService:
             has_audio=has_audio,
             draft=True,
             live_call=False,
+            voice_path=str(voiced) if voiced.is_file() else None,
         )
 
     def _export_story_assembly(

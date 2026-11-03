@@ -223,6 +223,109 @@ describe("Grok text calls", () => {
     }
   });
 
+  it("keeps a long shot list and drops the reasoning summary", async () => {
+    const picture = "雨夜巷口她停下脚步，霓虹倒映在积水里。".repeat(28);
+    const shots = Array.from({ length: 6 }, (_, index) => ({
+      picture: `${picture}镜头${index + 1}`,
+      size: index % 2 === 0 ? "近景" : "特写",
+      seconds: 3,
+      line: "雨太大，我听不清。",
+      speaker: index % 2 === 0 ? "林雨" : "刀疤",
+      performance: "皱眉，抬眼，手抓紧伞柄。呼吸停一下再开口。",
+      characters: ["林雨", "刀疤"],
+    }));
+    const reply = JSON.stringify({ shots });
+    expect(reply.length).toBeGreaterThan(3000);
+    const reasoning = "正在按短剧导演规则拆解这一场戏。将用 JSON 输出镜头分镜。已细化四镜结构。";
+    const encoder = new TextEncoder();
+    const events = [
+      ...reasoning.match(/.{1,18}/g)!.map((delta) => ({
+        type: "response.reasoning_summary_text.delta",
+        delta,
+      })),
+      ...reply.match(/.{1,180}/g)!.map((delta) => ({ type: "response.output_text.delta", delta })),
+      { type: "response.output_text.done", text: reply },
+      {
+        type: "response.completed",
+        response: {
+          output: [
+            {
+              type: "reasoning",
+              summary: [{ type: "summary_text", text: reasoning }],
+            },
+            { type: "message", content: [{ type: "output_text", text: reply }] },
+          ],
+          output_text: reply,
+        },
+      },
+    ];
+    const seen: string[] = [];
+    const fetch = vi.fn(async () => {
+      const stream = new ReadableStream({
+        start(controller) {
+          for (const event of events) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          }
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    });
+    const text = await completeGrokText(fetch as unknown as Fetch, {
+      accessToken: "token",
+      model: "grok-4.7",
+      text: "把这一场拆成镜头",
+      onProgress: (partial) => seen.push(partial),
+    });
+    expect(text).toBe(reply);
+    expect(text).not.toContain("正在按短剧");
+    expect(seen.every((partial) => !partial.includes("正在按短剧"))).toBe(true);
+    const parsed = JSON.parse(text) as { shots: { picture: string; speaker: string }[] };
+    expect(parsed.shots).toHaveLength(6);
+    expect(parsed.shots[0]?.picture.length).toBeGreaterThan(100);
+    expect(parsed.shots[0]?.speaker).toBe("林雨");
+    expect(parsed.shots[5]?.speaker).toBe("刀疤");
+  });
+
+  it("does not cut a JSON reply that is longer than 800 characters", async () => {
+    const picture = "巷".repeat(1200);
+    const body = { shots: [{ picture, size: "近景", seconds: 3 }] };
+    const fetch = vi.fn(async () => jsonResponse(200, body));
+    const text = await completeGrokText(fetch as unknown as Fetch, {
+      accessToken: "token",
+      model: "grok-4.7",
+      text: "拆镜头",
+    });
+    expect(text.length).toBeGreaterThan(800);
+    expect(JSON.parse(text).shots[0].picture).toBe(picture);
+  });
+
+  it("does not pretend a packaged build is signed in", async () => {
+    const previous = process.env.AIVORA_SLOW_TEXT_FIXTURE;
+    process.env.AIVORA_SLOW_TEXT_FIXTURE = "1";
+    try {
+      const runtime = createGrokRuntime({
+        store: {
+          available: () => false,
+          read: async () => null,
+          write: async () => undefined,
+          clear: async () => undefined,
+        },
+        fetch: vi.fn() as unknown as Fetch,
+        openBrowser: async () => undefined,
+        confirmSignIn: async () => true,
+        packaged: true,
+      });
+      expect((await runtime.status()).state).toBe("NOT_CONNECTED");
+    } finally {
+      if (previous === undefined) delete process.env.AIVORA_SLOW_TEXT_FIXTURE;
+      else process.env.AIVORA_SLOW_TEXT_FIXTURE = previous;
+    }
+  });
+
   it("redacts a bearer token and keeps a short status", () => {
     expect(redactSecrets("bearer abc.def model missing")).toBe("[redacted] model missing");
     expect(GrokTextFailure).toBeTruthy();

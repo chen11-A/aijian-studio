@@ -16,6 +16,8 @@ export type StoryFilmShotInput = {
   performance?: string;
   identity?: string;
   voice_id?: string;
+  still?: string;
+  reference?: string;
 };
 
 export type StoryFilmCreateInput = {
@@ -242,6 +244,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       "performance",
       "identity",
       "voice_id",
+      "still",
+      "reference",
     ];
     if (Object.keys(shot).some((key) => !allowed.includes(key))) {
       throw new Error("Invalid story film request");
@@ -279,6 +283,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
     const performance = optionalText(shot, "performance", 1000);
     const identity = optionalText(shot, "identity", 200);
     const voice = optionalText(shot, "voice_id", 64);
+    const still = optionalText(shot, "still", 500);
+    const reference = optionalText(shot, "reference", 500);
     return {
       narration: narration.trim(),
       prompt: prompt.trim(),
@@ -294,6 +300,8 @@ function parseShots(value: unknown): StoryFilmShotInput[] {
       ...(performance ? { performance } : {}),
       ...(identity ? { identity } : {}),
       ...(voice ? { voice_id: voice } : {}),
+      ...(still ? { still } : {}),
+      ...(reference ? { reference } : {}),
     };
   });
 }

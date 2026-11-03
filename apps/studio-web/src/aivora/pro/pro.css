@@ -14,6 +14,9 @@
   position: fixed;
   inset: 0;
   z-index: 30;
+  width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
 }
 .pro-root textarea::placeholder,
 .pro-root input::placeholder {
@@ -292,6 +295,16 @@ body:has(.pro-root) {
   border-top: 1px solid var(--line);
   font-size: 12px;
   color: var(--text-3);
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.pro-root .statusbar .status-note {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pro-root .statusbar .sp {
@@ -1073,7 +1086,7 @@ body:has(.pro-root) {
 .pro-root {
   --hs: 36px;
   --hv: 70px;
-  --ha: 44px;
+  --ha: 52px;
 }
 @media (min-width: 1600px) {
   .pro-root {
@@ -1861,7 +1874,7 @@ body:has(.pro-root) {
 .pro-root .tbody {
   flex: 1;
   display: grid;
-  grid-template-columns: 104px 1fr;
+  grid-template-columns: 168px 1fr;
   min-height: 0;
   position: relative;
 }
@@ -1878,13 +1891,36 @@ body:has(.pro-root) {
 .pro-root .th {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 6px 0 10px;
+  gap: 4px;
+  padding: 0 6px 0 8px;
   border-bottom: 1px solid var(--line);
   color: var(--text-2);
   font-size: 12px;
   white-space: nowrap;
   flex: none;
+  min-width: 0;
+}
+.pro-root .th .lane-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  min-width: 0;
+}
+.pro-root .th .lane-controls button {
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text-2);
+  border-radius: 4px;
+  padding: 0 5px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 16px;
+}
+.pro-root .th .lane-controls input[type="range"] {
+  width: 52px;
+  height: 14px;
+  margin: 0;
 }
 .pro-root .th .sw {
   width: 3px;

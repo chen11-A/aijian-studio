@@ -124,10 +124,12 @@ describe("film project", () => {
     expect(episode.characters[0]?.portraits[0]?.url).toBe("data:image/png;base64,aa");
     expect(episode.characters[0]?.portraits[0]).not.toBe(prefixed.characters[0]?.portraits[0]);
     const parsed = parseDirectorShots(
-      '说明 {"shots":[{"picture":"抬眼","seconds":99,"characters":["林骁",1]}]}',
+      '说明 {"shots":[{"picture":"抬眼","seconds":99,"performance":"皱眉","purpose":"情绪","size":"中景","characters":["林骁",1]}]}',
       "02",
     );
     expect(parsed?.[0]?.seconds).toBe(15);
+    expect(parsed?.[0]?.performance).toBe("皱眉");
+    expect(parsed?.[0]?.size).toBe("近景");
     expect(parsed?.[0]?.sound.source).toBe("native");
     expect(parsed?.[0]?.characters).toEqual(["林骁"]);
     expect(restored?.audioClips).toEqual([]);

@@ -70,6 +70,8 @@ class StoryShotBody(BaseModel):
     performance: str = Field(default="", max_length=1000)
     identity: str = Field(default="", max_length=200)
     voice_id: str = Field(default="", max_length=64)
+    still: str = Field(default="", max_length=500)
+    reference: str = Field(default="", max_length=500)
 
 
 class CreateStoryFilmBody(BaseModel):
@@ -112,6 +114,7 @@ class StoryFilmData(BaseModel):
     draft: bool = True
     live_call: bool = False
     preview_image: str | None = None
+    voice_path: str | None = None
 
 
 class StoryFilmProgressData(BaseModel):
@@ -295,6 +298,8 @@ def create_story_film_router(
                         performance=shot.performance.strip(),
                         identity=shot.identity.strip(),
                         voice_id=shot.voice_id.strip(),
+                        still=shot.still.strip(),
+                        reference=shot.reference.strip(),
                     )
                     for shot in payload.shots
                 ),
@@ -325,4 +330,5 @@ def _data(result: StoryFilmResult) -> StoryFilmData:
         draft=result.draft,
         live_call=result.live_call,
         preview_image=result.preview_image,
+        voice_path=result.voice_path,
     )

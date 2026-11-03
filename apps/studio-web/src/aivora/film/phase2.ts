@@ -301,7 +301,14 @@ export function performanceFromModel(value: unknown, names: string[]): string | 
       : "";
     const eyes = typeof row.eyes === "string" ? row.eyes.trim() : "";
     const emotion = typeof row.emotion === "string" ? row.emotion.trim() : "";
-    const bit = [emotion, face, eyes].filter(Boolean).join("，");
+    const hands = typeof row.hands === "string" ? row.hands.trim() : "";
+    const breath =
+      typeof row.breath === "string"
+        ? row.breath.trim()
+        : typeof row.pause === "string"
+          ? row.pause.trim()
+          : "";
+    const bit = [emotion, face, eyes, hands, breath].filter(Boolean).join("，");
     if (bit) parts.push(bit);
   }
   if (parts.length === 0) return null;

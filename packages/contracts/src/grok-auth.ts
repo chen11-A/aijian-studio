@@ -81,8 +81,10 @@ export type GrokLoginBridge = {
     projectId?: string;
     idempotencyKey?: string;
   }): Promise<GrokSpeechResult>;
-  /** Aborts the text or speech request that is in flight. Does not sign out. */
+  /** Aborts text requests. Does not sign out and does not stop speech. */
   cancelText?(): Promise<{ kind: string }>;
+  /** Aborts speech requests. Does not stop a text call that is still running. */
+  cancelSpeech?(): Promise<{ kind: string }>;
   /** Live text, so a long reply can show progress instead of looking stuck. */
   onTextProgress?(callback: (update: { chars: number; shots: number }) => void): () => void;
   /** Writes one line to the app-data agent log. Never sends a token. */

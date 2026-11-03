@@ -380,24 +380,33 @@ function modelText(value: unknown): string {
   return cleaned;
 }
 
+function isReasoningType(type: string): boolean {
+  return type.includes("reasoning") || type.includes("summary");
+}
+
+/** Message text only. Reasoning items and summary prose are never part of the reply. */
 function responseText(value: unknown): string {
   if (!isRecord(value)) return "";
-  const direct = modelText(value.output_text);
-  if (direct) return direct;
-  if (!Array.isArray(value.output)) return "";
+  const type = typeof value.type === "string" ? value.type : "";
+  if (isReasoningType(type)) return "";
+  if (!Array.isArray(value.output)) return modelText(value.output_text);
   const parts: string[] = [];
   for (const item of value.output) {
     if (!isRecord(item)) continue;
-    const own = modelText(item.text);
-    if (own) parts.push(own);
+    const itemType = typeof item.type === "string" ? item.type : "";
+    if (isReasoningType(itemType)) continue;
+    if (itemType && itemType !== "message") continue;
     if (!Array.isArray(item.content)) continue;
     for (const part of item.content) {
       if (!isRecord(part)) continue;
+      const partType = typeof part.type === "string" ? part.type : "";
+      if (partType !== "output_text") continue;
       const text = modelText(part.text);
       if (text) parts.push(text);
     }
   }
-  return parts.join("").slice(0, 100_000);
+  const joined = parts.join("").slice(0, 100_000);
+  return joined || modelText(value.output_text);
 }
 
 function chatText(value: unknown): string {
@@ -431,10 +440,28 @@ function waitMessage(reason: TextWait["reason"]): string {
   return "已取消。";
 }
 
-function pullDeltas(buffer: string): { text: string; rest: string } {
+type CollectedText = { deltas: string; completed: string };
+
+function applyStreamEvent(collected: CollectedText, event: unknown): boolean {
+  if (!isRecord(event)) return false;
+  const type = typeof event.type === "string" ? event.type : "";
+  if (!type || isReasoningType(type)) return false;
+  if (type === "response.output_text.delta" && typeof event.delta === "string") {
+    collected.deltas += event.delta;
+    return true;
+  }
+  if (type !== "response.completed" && type !== "response.incomplete") return false;
+  const response = isRecord(event.response) ? event.response : event;
+  const text = responseText(response);
+  if (!text) return false;
+  collected.completed = text;
+  return true;
+}
+
+function pullDeltas(buffer: string, collected: CollectedText): { rest: string; grew: boolean } {
   const parts = buffer.split("\n\n");
   const rest = parts.pop() ?? "";
-  let text = "";
+  let grew = false;
   for (const block of parts) {
     const raw = block
       .split("\n")
@@ -443,15 +470,12 @@ function pullDeltas(buffer: string): { text: string; rest: string } {
       .join("");
     if (!raw || raw === "[DONE]") continue;
     try {
-      const event = JSON.parse(raw) as { delta?: unknown; text?: unknown; type?: unknown };
-      if (typeof event.delta === "string") text += event.delta;
-      else if (typeof event.text === "string" && String(event.type ?? "").includes("output_text"))
-        text += event.text;
+      if (applyStreamEvent(collected, JSON.parse(raw) as unknown)) grew = true;
     } catch {
       /* a later chunk completes the event */
     }
   }
-  return { text, rest };
+  return { rest, grew };
 }
 
 async function readLimited(
@@ -468,8 +492,8 @@ async function readLimited(
   const decoder = new TextDecoder();
   const started = Date.now();
   let raw = "";
-  let streamed = "";
   let pending = "";
+  const collected: CollectedText = { deltas: "", completed: "" };
   try {
     while (true) {
       if (signal?.aborted) throw new TextWait("CANCELLED");
@@ -488,12 +512,9 @@ async function readLimited(
       const piece = decoder.decode(next.value, { stream: true });
       raw += piece;
       pending += piece;
-      const pulled = pullDeltas(pending);
+      const pulled = pullDeltas(pending, collected);
       pending = pulled.rest;
-      if (pulled.text) {
-        streamed += pulled.text;
-        onText?.(streamed);
-      }
+      if (pulled.grew) onText?.(collected.completed || collected.deltas);
     }
   } catch (error) {
     await reader.cancel().catch(() => undefined);
@@ -501,7 +522,8 @@ async function readLimited(
     if (signal?.aborted) throw new TextWait("CANCELLED");
     throw error;
   }
-  return streamed.trim() ? streamed : raw;
+  const visible = (collected.completed || collected.deltas).trim();
+  return visible || raw;
 }
 
 async function postText(
@@ -541,7 +563,7 @@ async function postText(
       json = null;
     }
   }
-  return { status: response.status, json, raw: json ? text.slice(0, 800) : text };
+  return { status: response.status, json, raw: text };
 }
 
 export type GrokSpeechAudio = {
@@ -663,7 +685,13 @@ export async function completeGrokText(
       fetch,
       `${api}/responses`,
       input.accessToken,
-      { model: input.model, input: input.text, store: false, stream: true },
+      {
+        model: input.model,
+        input: input.text,
+        store: false,
+        stream: true,
+        reasoning: { effort: "low" },
+      },
       options,
     );
   } catch (error) {

@@ -474,6 +474,7 @@ function getGrokRuntime() {
     agentLog: createAgentLog(join(app.getPath("userData"), "logs", "agents.log")),
     // The labeled button is the confirmation. One click opens the system browser.
     confirmSignIn: async () => true,
+    packaged: app.isPackaged,
   });
   return grokRuntime;
 }
@@ -796,7 +797,7 @@ registerSourceProposalAcceptanceHandler<IpcMainInvokeEvent>(
 ipcMain.handle("health:get", (event) => clientFor(event).getHealth());
 ipcMain.handle("projects:list", (event) => clientFor(event).listProjects());
 ipcMain.handle("projects:create", (event, input: CreateProjectInput) => {
-  if (process.env.AIVORA_SLOW_TEXT_FIXTURE === "1") {
+  if (process.env.AIVORA_SLOW_TEXT_FIXTURE === "1" && !app.isPackaged) {
     return { data: { id: `prj_${"a".repeat(32)}` }, request_id: "fixture" };
   }
   return clientFor(event).createProject(input);

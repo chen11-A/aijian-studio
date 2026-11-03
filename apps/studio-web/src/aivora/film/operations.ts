@@ -1,5 +1,6 @@
 import { VIDEO_DRAFT_MODEL, VIDEO_MODEL } from "../pro/capabilities";
 import { emptySoundPlan } from "./audio";
+import { durationFromSpeech, speechSeconds } from "./phase2";
 import {
   keyframePrompt,
   shotIdentity,
@@ -94,6 +95,8 @@ export type StoryFilmBody = {
     performance?: string;
     identity?: string;
     voice_id?: string;
+    still?: string;
+    reference?: string;
   }[];
   video_model?: string;
 };
@@ -578,7 +581,11 @@ export function motionPrompt(shot: FilmShot): string {
   const picture = shot.picture.trim();
   const edited = shot.userFields.includes("picture") || shot.userFields.includes("action");
   const prompted = edited ? "" : shot.promptZh?.trim() || "";
-  const visual = prompted || picture;
+  let visual = prompted || picture;
+  const acted = shot.performance.trim();
+  if (acted && visual && !visual.includes(acted) && !isBeatList(acted)) {
+    visual = `${visual}。表演：${acted}`;
+  }
   if (visual && !isBeatList(visual)) return visual;
   return picture && !isBeatList(picture) ? picture : "起始画面";
 }
@@ -596,8 +603,41 @@ export function shotVoiceId(shot: FilmShot, film: FilmProject): string {
     const only = film.characters.find((item) => item.name === names[0] && item.voiceId);
     if (only?.voiceId) return only.voiceId;
   }
+  if (names.length > 1) {
+    const speaking = film.characters.find((item) => names.includes(item.name) && item.voiceId);
+    if (speaking?.voiceId) return speaking.voiceId;
+  }
+  if (names.length > 1) return "leo";
   if (film.narrationVoiceId) return film.narrationVoiceId;
   return "eve";
+}
+
+export function fitShotToLine(shot: FilmShot): { shot: FilmShot; warning: string } {
+  const line = shot.line.trim();
+  if (!line || shot.userFields.includes("seconds")) return { shot, warning: "" };
+  const plan = durationFromSpeech(speechSeconds(line, null), shot.seconds);
+  if (!plan.fits) {
+    return { shot, warning: `镜头 ${shot.no} 的台词超过 15 秒，生成时声音会被截断。` };
+  }
+  if (plan.seconds !== shot.seconds)
+    return { shot: { ...shot, seconds: plan.seconds }, warning: "" };
+  return { shot, warning: "" };
+}
+
+function shotReference(shot: FilmShot, film: FilmProject): { still: string; reference: string } {
+  const chosen =
+    [shot.poster, ...shot.stills.map((item) => item.url)].find(
+      (url) => url && !url.startsWith("blob:") && !url.startsWith("data:"),
+    ) ?? "";
+  const portrait =
+    film.characters
+      .filter((person) => shot.characters.includes(person.name) || person.name === shot.speaker)
+      .flatMap((person) => person.portraits)
+      .map((item) => item.url)
+      .find((url) => url && !url.startsWith("blob:")) ?? "";
+  const still = (chosen || (portrait.startsWith("https://") ? "" : portrait)).slice(0, 500);
+  const reference = portrait.startsWith("https://") ? portrait.slice(0, 500) : "";
+  return { still, reference };
 }
 
 export function chosenExport(film: FilmProject): { paths: string[]; missing: string[] } {
@@ -626,6 +666,7 @@ export function confirmEstimate(shots: { seconds: number }[], versions: number):
 
 function oneShot(shot: FilmShot, film: FilmProject) {
   const line = spokenLine(shot);
+  const refs = shotReference(shot, film);
   return {
     narration: line || "。",
     prompt: clip(motionPrompt(shot), 2000),
@@ -638,6 +679,8 @@ function oneShot(shot: FilmShot, film: FilmProject) {
     performance: clip(shot.performance, 1000),
     identity: shotIdentity(shot, film).slice(0, 200),
     voice_id: shotVoiceId(shot, film).slice(0, 64),
+    ...(refs.still ? { still: refs.still } : {}),
+    ...(refs.reference ? { reference: refs.reference } : {}),
   };
 }
 

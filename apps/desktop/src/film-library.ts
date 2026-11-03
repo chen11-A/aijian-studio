@@ -75,7 +75,15 @@ async function writeIndex(root: string, series: SeriesEntry[]): Promise<void> {
   await writeAtomic(join(root, "index.json"), JSON.stringify({ series }));
 }
 
-const mediaKeys = new Set(["poster", "stillUrl", "videoUrl", "url", "assemblyUrl", "preview"]);
+const mediaKeys = new Set([
+  "poster",
+  "stillUrl",
+  "videoUrl",
+  "url",
+  "assemblyUrl",
+  "preview",
+  "path",
+]);
 
 function mediaExtension(type: string): string {
   if (type.includes("png")) return ".png";
@@ -416,13 +424,24 @@ export function bundledFfmpeg(
   throw new Error("没有找到安装包里的 ffmpeg。");
 }
 
+function mediaDuration(log: string): number {
+  const match = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(log);
+  if (!match) return 0;
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+}
+
 export function musicMixArgs(
   video: string,
   music: string,
   destination: string,
   gainDb = -14,
+  durationSeconds = 0,
 ): string[] {
   const gain = Math.max(0.02, Math.min(1, 10 ** (gainDb / 20)));
+  const fadeOut =
+    durationSeconds > 0.8
+      ? `,afade=t=out:st=${Math.max(0.2, durationSeconds - 0.4).toFixed(3)}:d=0.35`
+      : "";
   return [
     "-y",
     "-i",
@@ -432,7 +451,7 @@ export function musicMixArgs(
     "-i",
     music,
     "-filter_complex",
-    `[1:a]volume=${gain.toFixed(4)},afade=t=in:st=0:d=0.2[pre];` +
+    `[1:a]volume=${gain.toFixed(4)},afade=t=in:st=0:d=0.2${fadeOut}[pre];` +
       "[0:a]asplit=2[dry][sc];" +
       "[pre][sc]sidechaincompress=threshold=0.03:ratio=12:attack=5:release=120[bed];" +
       "[dry][bed]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[a]",
@@ -455,7 +474,14 @@ export async function mixMusic(
 ): Promise<{ path: string; reason: string }> {
   const gainDb = typeof gain === "number" ? gain : -14;
   const mixed = `${video}.mix.mp4`;
-  await run(musicMixArgs(video, music, mixed, gainDb));
+  let seconds = 0;
+  try {
+    const logged = await run(["-hide_banner", "-i", video, "-f", "null", "-"]);
+    seconds = mediaDuration(String(logged ?? ""));
+  } catch (error) {
+    seconds = mediaDuration(error instanceof Error ? error.message : "");
+  }
+  await run(musicMixArgs(video, music, mixed, gainDb, seconds));
   await copyFile(mixed, video);
   await rm(mixed, { force: true });
   return { path: video, reason: "" };
