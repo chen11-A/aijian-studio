@@ -324,6 +324,70 @@ function performanceRows(value: unknown): Record<string, unknown>[] {
   );
 }
 
+function noteFromRow(
+  row: Record<string, unknown>,
+  names: string[],
+): { performance: string; delivery: string } {
+  const face = Array.isArray(row.face)
+    ? row.face.filter((part) => typeof part === "string").join("、")
+    : "";
+  const eyes = typeof row.eyes === "string" ? row.eyes.trim() : "";
+  const emotion = typeof row.emotion === "string" ? row.emotion.trim() : "";
+  const hands = typeof row.hands === "string" ? row.hands.trim() : "";
+  const breath =
+    typeof row.breath === "string"
+      ? row.breath.trim()
+      : typeof row.pause === "string"
+        ? row.pause.trim()
+        : "";
+  const bit = [emotion, face, eyes, hands, breath].filter(Boolean).join("，");
+  const gaze = gazeHandoff(names);
+  const performance = bit ? (gaze && !bit.includes("视线") ? `${bit}。${gaze}` : bit) : "";
+  const voice =
+    row.voice && typeof row.voice === "object" ? (row.voice as Record<string, unknown>) : row;
+  const tone = typeof voice.tone === "string" ? voice.tone.trim() : "";
+  const pace = typeof voice.pace === "string" ? voice.pace.trim() : "";
+  const pauses =
+    typeof voice.pauses === "string"
+      ? voice.pauses.trim()
+      : typeof voice.pause === "string"
+        ? voice.pause.trim()
+        : "";
+  const voiceEmotion = typeof voice.emotion === "string" ? voice.emotion.trim() : "";
+  const delivery = [
+    tone ? `语气${tone}` : "",
+    pace ? `语速${pace}` : "",
+    pauses ? `停顿${pauses}` : "",
+    voiceEmotion && voiceEmotion !== emotion ? `情绪${voiceEmotion}` : "",
+  ]
+    .filter(Boolean)
+    .join("，");
+  return { performance, delivery };
+}
+
+/** Map a performance reply onto our shot ids. Unknown ids fall back to order. */
+export function assignPerformance(
+  value: unknown,
+  shots: { id: string }[],
+  names: string[] = [],
+): { id: string; performance: string; delivery: string }[] {
+  const rows = performanceRows(value);
+  const used = new Set<number>();
+  return shots.map((shot, index) => {
+    const found = rows.findIndex((row, rowIndex) => {
+      if (used.has(rowIndex)) return false;
+      const id =
+        typeof row.shot_id === "string" ? row.shot_id : typeof row.id === "string" ? row.id : "";
+      return id === shot.id;
+    });
+    const rowIndex = found >= 0 ? found : !used.has(index) && rows[index] ? index : -1;
+    if (rowIndex >= 0) used.add(rowIndex);
+    const row = rowIndex >= 0 ? rows[rowIndex] : undefined;
+    const note = row ? noteFromRow(row, names) : { performance: "", delivery: "" };
+    return { id: shot.id, ...note };
+  });
+}
+
 /** Tone, pace, pauses and emotion for the line. Empty when the model did not write them. */
 export function voiceDirectionFromModel(value: unknown): string {
   if (agentIssues("performance", value).length > 0) return "";

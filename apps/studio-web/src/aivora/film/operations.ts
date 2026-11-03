@@ -206,7 +206,40 @@ export function adaptToShortDrama(text: string, targetSeconds = 60): FilmScene[]
   return offlineScreenplay(text, targetSeconds);
 }
 
-export function parseWriterScenes(text: string): FilmScene[] | null {
+function asText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (!Array.isArray(value)) return "";
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return "";
+      const row = item as Record<string, unknown>;
+      return [row.text, row.line, row.action, row.dialogue]
+        .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+        .join("，");
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Cut the novel at each scene's place so the dialogue stays with that scene. */
+export function sliceNovel(source: string, markers: string[]): string[] {
+  const text = source.trim();
+  const slices = markers.map(() => "");
+  if (!text) return slices;
+  const found = markers
+    .map((marker, index) => ({ index, at: marker.trim() ? text.indexOf(marker.trim()) : -1 }))
+    .filter((item) => item.at >= 0)
+    .sort((a, b) => a.at - b.at);
+  for (let cursor = 0; cursor < found.length; cursor += 1) {
+    const start = found[cursor]!.at;
+    const end = cursor + 1 < found.length ? found[cursor + 1]!.at : text.length;
+    slices[found[cursor]!.index] = text.slice(start, end).trim();
+  }
+  return slices;
+}
+
+export function parseWriterScenes(text: string, source = ""): FilmScene[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
@@ -219,17 +252,33 @@ export function parseWriterScenes(text: string): FilmScene[] | null {
   if (!value || typeof value !== "object" || !("scenes" in value)) return null;
   const rows = (value as { scenes?: unknown }).scenes;
   if (!Array.isArray(rows)) return null;
+  const markers = rows.map((row) => {
+    if (!row || typeof row !== "object") return "";
+    const record = row as Record<string, unknown>;
+    const place = typeof record.place === "string" ? record.place.trim() : "";
+    const title = typeof record.title === "string" ? record.title.trim() : "";
+    return place || title;
+  });
+  const slices = sliceNovel(source, markers);
   const scenes: FilmScene[] = [];
   rows.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
-    const body = [record.key_event, record.text, record.beats]
-      .map((item) => (Array.isArray(item) ? item.join("。") : item))
-      .find((item) => typeof item === "string" && item.trim());
-    if (typeof body !== "string") return;
+    const beats = asText(record.beats);
+    const written = [asText(record.text), asText(record.dialogue), asText(record.lines)]
+      .filter(Boolean)
+      .join("\n");
+    const slice = slices[index] ?? "";
+    const key = asText(record.key_event);
+    const story = slice || written;
+    const outline = [beats, story ? "" : key].filter(Boolean).join("\n");
+    const body = [story, outline && !story.includes(outline) ? outline : ""]
+      .filter(Boolean)
+      .join("\n");
+    if (!body.trim()) return;
     const title = typeof record.title === "string" ? record.title : `第 ${index + 1} 场`;
     const where = [record.place, record.time]
-      .filter((item) => typeof item === "string")
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
       .join(" · ");
     scenes.push({
       ...scene(index + 1, title, body.trim(), where),
@@ -239,8 +288,38 @@ export function parseWriterScenes(text: string): FilmScene[] | null {
   return scenes.length > 0 ? scenes : null;
 }
 
+/** A one-line summary is not enough for the director to shoot. */
+export function sceneNeedsSource(text: string): boolean {
+  const body = text.trim();
+  if (!body) return true;
+  const line = /[「“"'][^」”"']{1,80}[」”"']/.test(body) || /(说|问|喊|哭着)[:：「"']/.test(body);
+  const action = /(挥|砍|打|哭|跑|推|划|刀|钢|拳|踢|抱|坐|站|走|看向|走进)/.test(body);
+  return !(line || action) && body.length < 80;
+}
+
+export function isFightScene(text: string): boolean {
+  return /打|斗|刀|钢|拳|砍|挥|踢/.test(text);
+}
+
+/** Keep weapons and injuries from the novel when the action pass softens them. */
+export function keepFightDetails(source: string, beats: string): string {
+  const words = ["钢条", "钢管", "钢棒", "刀", "前臂", "划开", "砍"].filter((word) =>
+    source.includes(word),
+  );
+  const missing = words.filter((word) => !beats.includes(word));
+  const kept = missing.length > 0 ? `保留原文：${missing.join("、")}` : "";
+  return [beats.trim(), kept].filter(Boolean).join("。");
+}
+
 export function applyScenes(film: FilmProject, incoming: FilmScene[]): FilmProject {
-  const kept = film.scenes.filter((item) => item.text.trim() && item.userFields.includes("text"));
+  const distinctive = incoming
+    .map((item) => item.text.trim().slice(0, 24))
+    .filter((item) => item.length >= 6);
+  const kept = film.scenes.filter((item) => {
+    if (!item.text.trim() || !item.userFields.includes("text")) return false;
+    const hits = distinctive.filter((bit) => item.text.includes(bit)).length;
+    return hits < 2;
+  });
   const locked = new Set(kept.map((item) => item.id));
   const fresh = incoming.map((item, index) =>
     locked.has(item.id) ? { ...item, id: `incoming-${index + 1}` } : item,

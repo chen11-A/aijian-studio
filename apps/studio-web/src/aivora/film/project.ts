@@ -473,12 +473,23 @@ export function offlineShots(story: string, sceneId: string): FilmShot[] {
 }
 
 export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: string): FilmProject {
-  const kept = film.shots.filter(
-    (shot) => shot.sceneId !== sceneId || shot.userFields.length > 0 || shot.source === "user",
-  );
-  const locked = new Set(kept.filter((shot) => shot.sceneId === sceneId).map((shot) => shot.id));
-  const fresh = incoming.filter((shot) => shot.sceneId === sceneId && !locked.has(shot.id));
-  return { ...film, shots: [...kept, ...fresh] };
+  const groups = new Map<string, FilmShot[]>();
+  for (const shot of incoming) {
+    const id = shot.sceneId || sceneId;
+    const list = groups.get(id) ?? [];
+    list.push({ ...shot, sceneId: id });
+    groups.set(id, list);
+  }
+  if (groups.size === 0) return film;
+  let shots = film.shots;
+  for (const [id, fresh] of groups) {
+    const kept = shots.filter(
+      (shot) => shot.sceneId !== id || shot.userFields.length > 0 || shot.source === "user",
+    );
+    const locked = new Set(kept.filter((shot) => shot.sceneId === id).map((shot) => shot.id));
+    shots = [...kept, ...fresh.filter((shot) => !locked.has(shot.id))];
+  }
+  return { ...film, shots };
 }
 
 export function agentRequest(agentId: AgentId, context: string, user: string): string {
@@ -487,10 +498,37 @@ export function agentRequest(agentId: AgentId, context: string, user: string): s
   return body.length > 7500 ? body.slice(0, 7500) : body;
 }
 
+export type DirectorSceneRef = { id: string; title: string; where: string; text: string };
+
+function matchDirectorScene(
+  block: Record<string, unknown>,
+  scenes: DirectorSceneRef[],
+  index: number,
+): DirectorSceneRef | undefined {
+  const id = typeof block.scene_id === "string" ? block.scene_id.trim() : "";
+  const title =
+    (typeof block.title === "string" && block.title.trim()) ||
+    (typeof block.place === "string" && block.place.trim()) ||
+    "";
+  return (
+    scenes.find((item) => id && (item.id === id || item.title === id || item.where === id)) ??
+    scenes.find(
+      (item) =>
+        title &&
+        (item.title.includes(title) ||
+          item.where.includes(title) ||
+          title.includes(item.title) ||
+          title.includes(item.where)),
+    ) ??
+    scenes[index]
+  );
+}
+
 export function parseDirectorShots(
   text: string,
   sceneId: string,
   sceneText = "",
+  scenes: DirectorSceneRef[] = [],
 ): FilmShot[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -501,7 +539,24 @@ export function parseDirectorShots(
   } catch {
     return null;
   }
-  if (!value || typeof value !== "object" || !("shots" in value)) return null;
+  if (!value || typeof value !== "object") return null;
+  const wrapped = (value as { scenes?: unknown; shots?: unknown }).scenes;
+  if (Array.isArray(wrapped) && !Array.isArray((value as { shots?: unknown }).shots)) {
+    const all: FilmShot[] = [];
+    wrapped.forEach((block, index) => {
+      if (!block || typeof block !== "object") return;
+      const record = block as Record<string, unknown>;
+      const target = scenes.length > 0 ? matchDirectorScene(record, scenes, index) : undefined;
+      const nested = parseDirectorShots(
+        JSON.stringify({ shots: record.shots ?? [] }),
+        target?.id ?? sceneId,
+        target?.text ?? sceneText,
+      );
+      if (nested) all.push(...nested);
+    });
+    return all.length > 0 ? all : null;
+  }
+  if (!("shots" in value)) return null;
   const rows = (value as { shots?: unknown }).shots;
   if (!Array.isArray(rows)) return null;
   const shots: FilmShot[] = [];

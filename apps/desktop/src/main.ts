@@ -928,6 +928,15 @@ registerFilmLibraryHandlers<IpcMainInvokeEvent>(
     copyFile: (source, destination) => copyFile(source, destination),
     reveal: (path) => revealSavedFile(path),
     open: (path) => shell.openPath(path),
+    logStill: ({ ok, detail }) => {
+      getGrokRuntime().recordAgent?.({
+        agent: "image",
+        model: "grok-imagine-image-2.0",
+        status: ok ? "ok" : "error",
+        parsed: ok ? "image" : "error",
+        detail,
+      });
+    },
   },
 );
 ipcMain.handle("projects:get", (event, projectId: string) =>

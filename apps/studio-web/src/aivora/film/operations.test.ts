@@ -18,7 +18,9 @@ import {
   keyframeVariants,
   locationPlate,
   offlineScreenplay,
+  keepFightDetails,
   parseWriterScenes,
+  sceneNeedsSource,
   performanceLine,
   planVideoJobs,
   filmFileName,
@@ -131,6 +133,44 @@ describe("film operations", () => {
     const next = applyScenes(film, parsed ?? []);
     expect(next.scenes.some((item) => item.text === "用户写的")).toBe(true);
     expect(next.scenes.some((item) => item.text === "只有风")).toBe(true);
+    const novel = [
+      "雨夜旧书店。林晚说：「今晚打烊了。」沈砚说：「我留下。」",
+      "码头仓库。周烈挥起钢条。林晚说：「刀放下。」周烈的前臂被划开。",
+      "医院走廊。林晚哭着说：「你还活着。」",
+    ].join("\n");
+    const split = parseWriterScenes(
+      JSON.stringify({
+        scenes: [
+          {
+            title: "雨夜旧书店",
+            place: "雨夜旧书店",
+            key_event: "沈砚许诺留下书店",
+            beats: ["打烊"],
+          },
+          { title: "码头仓库", place: "码头仓库", key_event: "仓库里打了起来", beats: ["钢条"] },
+          { title: "医院走廊", place: "医院走廊", key_event: "林晚在走廊哭", beats: ["哭"] },
+        ],
+      }),
+      novel,
+    );
+    expect(split).toHaveLength(3);
+    expect(split?.[0]?.text).toContain("今晚打烊了");
+    expect(split?.[0]?.text).toContain("我留下");
+    expect(split?.[0]?.where).toContain("雨夜旧书店");
+    expect(split?.[1]?.text).toContain("刀放下");
+    expect(split?.[1]?.text).toContain("钢条");
+    expect(split?.[2]?.text).toContain("你还活着");
+    expect(split?.[0]?.text).not.toBe("沈砚许诺留下书店");
+    const pasted = blankFilm();
+    pasted.scenes[0]!.text = novel;
+    pasted.scenes[0]!.userFields = ["text"];
+    const placed = applyScenes(pasted, split ?? []);
+    expect(placed.scenes).toHaveLength(3);
+    expect(placed.scenes.some((item) => item.text === novel)).toBe(false);
+    expect(sceneNeedsSource("沈砚许诺留下书店")).toBe(true);
+    expect(sceneNeedsSource(split?.[2]?.text ?? "")).toBe(false);
+    expect(keepFightDetails(novel, "沈砚左手按在周烈前臂上")).toContain("钢条");
+    expect(keepFightDetails(novel, "沈砚左手按在周烈前臂上")).toContain("刀");
   });
 
   it("plans portraits, empty plates, beats and four keyframes", () => {

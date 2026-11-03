@@ -218,6 +218,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     await dependencies.log?.event("sign_in_ok", {
       code: inferenceDenied ? "ENTITLEMENT_DENIED" : "CONNECTED",
     });
+    dependencies.onBrowserReturned?.();
     return { kind: "OK", status: status() };
   }
 

@@ -35,6 +35,7 @@ export type FilmLibraryHost = {
   copyFile: (source: string, destination: string) => Promise<void>;
   reveal: (path: string) => void;
   open: (path: string) => Promise<string>;
+  logStill?: (detail: { ok: boolean; detail: string }) => void;
 };
 
 function oneId(args: unknown[]): string {
@@ -198,13 +199,18 @@ export function registerFilmLibraryHandlers<TEvent>(
       throw new Error("Invalid film");
     }
     const token = await host.mediaToken();
-    return requestStill({
+    const made = await requestStill({
       prompt: args[1],
       token,
       fetcher: host.fetcher ?? globalThis.fetch,
       destination: stillPath(host.filmsRoot(), args[0]),
       ...(args[2] === "9:16" || args[2] === "16:9" ? { aspectRatio: args[2] } : {}),
     });
+    host.logStill?.({
+      ok: Boolean(made.path),
+      detail: made.path ? "定妆或起始画面已保存。" : made.reason || "出图没有成功。",
+    });
+    return made;
   });
 
   handle("film:pick-folder", async (event) => {

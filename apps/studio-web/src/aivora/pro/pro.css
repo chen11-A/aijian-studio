@@ -988,10 +988,16 @@ body:has(.pro-root) {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 12px;
+  height: auto;
+  min-height: 44px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--line);
   flex: none;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--panel);
 }
 .pro-root .tool h3 {
   font-size: 13px;
