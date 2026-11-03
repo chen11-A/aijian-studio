@@ -1084,8 +1084,8 @@ def test_saved_media_urls_reach_the_video_request(tmp_path, monkeypatch):
     (user_data / "workspace").mkdir()
     portrait = films / "portrait.png"
     still = films / "still.png"
-    portrait.write_bytes(b"\x89PNG\r\n\x1a\nface")
-    still.write_bytes(b"\x89PNG\r\n\x1a\nstill")
+    portrait.write_bytes(_PNG + b"face")
+    still.write_bytes(_PNG)
     outside = tmp_path / "outside.png"
     outside.write_bytes(b"\x89PNG\r\n\x1a\nnope")
     escaped = films / "escape.png"
