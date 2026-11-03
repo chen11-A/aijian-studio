@@ -1,0 +1,10 @@
+{
+  "name": "@aivora/local-modules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=20"},
+  "scripts": {"test": "vitest run --coverage", "typecheck": "tsc --noEmit"},
+  "dependencies": {"fflate": "0.8.2"},
+  "devDependencies": {"@types/node": "22.15.30", "@vitest/coverage-v8": "3.2.4", "typescript": "5.8.3", "vitest": "3.2.4"}
+}

@@ -1,0 +1,2054 @@
+[
+  {
+    "id": "music-6d424149d4a2",
+    "path": "music/music-6d424149d4a2.ogg",
+    "type": "music",
+    "category": "紧张",
+    "name": "电子节奏",
+    "tags": [
+      "紧张"
+    ],
+    "scene": "适合紧张情绪的过场或蒙太奇。",
+    "duration": 90.9465,
+    "loop": false,
+    "loudness": -20.32,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
+    "license": "CC0-1.0",
+    "sha256": "cdb58446c04e2e3be967519182cab86fedb5c7267f9caa7cd90451b16531ec54"
+  },
+  {
+    "id": "music-23bc02ff82e2",
+    "path": "music/music-23bc02ff82e2.ogg",
+    "type": "music",
+    "category": "搞笑",
+    "name": "气泡舞曲",
+    "tags": [
+      "搞笑"
+    ],
+    "scene": "适合搞笑情绪的过场或蒙太奇。",
+    "duration": 90.9455,
+    "loop": false,
+    "loudness": -20.05,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Bubbles.mp3",
+    "license": "CC0-1.0",
+    "sha256": "d8407c7b73d45f2624213eab5b755fbb1fc1b3bc074f034a7940428b724a27ad"
+  },
+  {
+    "id": "music-e94185587d78",
+    "path": "music/music-e94185587d78.ogg",
+    "type": "music",
+    "category": "史诗",
+    "name": "电影时刻",
+    "tags": [
+      "史诗"
+    ],
+    "scene": "适合史诗情绪的过场或蒙太奇。",
+    "duration": 90.9465,
+    "loop": false,
+    "loudness": -20.08,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Cinemato.mp3",
+    "license": "CC0-1.0",
+    "sha256": "2d26c26bb3b93220255bf66ac3c61ba7111dd736c239a721f719411a4e2f9731"
+  },
+  {
+    "id": "music-6230c9ba9eef",
+    "path": "music/music-6230c9ba9eef.ogg",
+    "type": "music",
+    "category": "打斗",
+    "name": "重拍推进",
+    "tags": [
+      "打斗"
+    ],
+    "scene": "适合打斗情绪的过场或蒙太奇。",
+    "duration": 90.9459,
+    "loop": false,
+    "loudness": -20.11,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Dubstepper.mp3",
+    "license": "CC0-1.0",
+    "sha256": "ed2c89dac1ead5b0c6519e9940e1d6d4b3d262780af93edc67fbf92b0b95bf5e"
+  },
+  {
+    "id": "music-6fe261a4eb25",
+    "path": "music/music-6fe261a4eb25.ogg",
+    "type": "music",
+    "category": "打斗",
+    "name": "怒意",
+    "tags": [
+      "打斗"
+    ],
+    "scene": "适合打斗情绪的过场或蒙太奇。",
+    "duration": 101.6461,
+    "loop": false,
+    "loudness": -20.04,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Fury.mp3",
+    "license": "CC0-1.0",
+    "sha256": "8a71b10a350b52ee4fb132444494bc5b86684349f6f010eec2258e1f0c1913a7"
+  },
+  {
+    "id": "music-0274474ab7c4",
+    "path": "music/music-0274474ab7c4.ogg",
+    "type": "music",
+    "category": "搞笑",
+    "name": "游戏少年",
+    "tags": [
+      "搞笑"
+    ],
+    "scene": "适合搞笑情绪的过场或蒙太奇。",
+    "duration": 80.2939,
+    "loop": false,
+    "loudness": -20.1,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Gamer%20Guy.mp3",
+    "license": "CC0-1.0",
+    "sha256": "b7417e13c425130732db8204a64d9fce4e118b4b90b01d9b20f07f60305fecbb"
+  },
+  {
+    "id": "music-360f3c163ed6",
+    "path": "music/music-360f3c163ed6.ogg",
+    "type": "music",
+    "category": "温暖",
+    "name": "快乐生活",
+    "tags": [
+      "温暖"
+    ],
+    "scene": "适合温暖情绪的过场或蒙太奇。",
+    "duration": 90.6959,
+    "loop": false,
+    "loudness": -20.02,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
+    "license": "CC0-1.0",
+    "sha256": "8951284046e3f64c3e5617f5db11081604c9a48f1349f9eca25350ae63988fa9"
+  },
+  {
+    "id": "music-9935a373414d",
+    "path": "music/music-9935a373414d.ogg",
+    "type": "music",
+    "category": "悬疑",
+    "name": "幻术师",
+    "tags": [
+      "悬疑"
+    ],
+    "scene": "适合悬疑情绪的过场或蒙太奇。",
+    "duration": 92.0037,
+    "loop": false,
+    "loudness": -20.05,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Illusionist.mp3",
+    "license": "CC0-1.0",
+    "sha256": "35b7cc63cff553a4cdd63140370a0ad23cb65935391f94a8e6460f3e6569e40d"
+  },
+  {
+    "id": "music-444401af8dc7",
+    "path": "music/music-444401af8dc7.ogg",
+    "type": "music",
+    "category": "温暖",
+    "name": "我的发明",
+    "tags": [
+      "温暖"
+    ],
+    "scene": "适合温暖情绪的过场或蒙太奇。",
+    "duration": 90.5855,
+    "loop": false,
+    "loudness": -20.14,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/My%20Inventions.mp3",
+    "license": "CC0-1.0",
+    "sha256": "57a55c52252a41ee146c92e60f69892af3ed91d3489fb74d97111c48f150adc0"
+  },
+  {
+    "id": "music-0a80523107eb",
+    "path": "music/music-0a80523107eb.ogg",
+    "type": "music",
+    "category": "悬疑",
+    "name": "神秘线索",
+    "tags": [
+      "悬疑"
+    ],
+    "scene": "适合悬疑情绪的过场或蒙太奇。",
+    "duration": 91.0825,
+    "loop": false,
+    "loudness": -20.0,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Mysterious.mp3",
+    "license": "CC0-1.0",
+    "sha256": "d9155eedf47767e78adabc92393336733834641d1098bec1558ddb4fa9812680"
+  },
+  {
+    "id": "music-9d2fa11d09bf",
+    "path": "music/music-9d2fa11d09bf.ogg",
+    "type": "music",
+    "category": "甜蜜",
+    "name": "新鲜时光",
+    "tags": [
+      "甜蜜"
+    ],
+    "scene": "适合甜蜜情绪的过场或蒙太奇。",
+    "duration": 90.9467,
+    "loop": false,
+    "loudness": -20.04,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Newness.mp3",
+    "license": "CC0-1.0",
+    "sha256": "d4496830ba88b55a3f27804afae2ebf7ac6ed2588fdd10e13c8728790f4d3289"
+  },
+  {
+    "id": "music-01a63f6d5d85",
+    "path": "music/music-01a63f6d5d85.ogg",
+    "type": "music",
+    "category": "悲伤",
+    "name": "局外人",
+    "tags": [
+      "悲伤"
+    ],
+    "scene": "适合悲伤情绪的过场或蒙太奇。",
+    "duration": 90.9471,
+    "loop": false,
+    "loudness": -20.07,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
+    "license": "CC0-1.0",
+    "sha256": "9d019aa7c634474013a1542a18874e83466e3993f6cbf7806afd14e2b54e7353"
+  },
+  {
+    "id": "music-b83f90a21759",
+    "path": "music/music-b83f90a21759.ogg",
+    "type": "music",
+    "category": "甜蜜",
+    "name": "派对时刻",
+    "tags": [
+      "甜蜜"
+    ],
+    "scene": "适合甜蜜情绪的过场或蒙太奇。",
+    "duration": 102.6657,
+    "loop": false,
+    "loudness": -20.04,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Party%20Time.mp3",
+    "license": "CC0-1.0",
+    "sha256": "bbb8ac730cbf2d50799527ba17b88fbbb83214ef183f9ce2e14b9e934c15bf31"
+  },
+  {
+    "id": "music-c8cdb7affbe1",
+    "path": "music/music-c8cdb7affbe1.ogg",
+    "type": "music",
+    "category": "紧张",
+    "name": "计划",
+    "tags": [
+      "紧张"
+    ],
+    "scene": "适合紧张情绪的过场或蒙太奇。",
+    "duration": 90.6961,
+    "loop": false,
+    "loudness": -19.96,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Planning.mp3",
+    "license": "CC0-1.0",
+    "sha256": "cf6738efdca32a7dd6eb90c8709d97f54c96783e3c59218f446841b18ef7a2f9"
+  },
+  {
+    "id": "music-dd0e66d1c872",
+    "path": "music/music-dd0e66d1c872.ogg",
+    "type": "music",
+    "category": "悬疑",
+    "name": "科幻空间",
+    "tags": [
+      "悬疑"
+    ],
+    "scene": "适合悬疑情绪的过场或蒙太奇。",
+    "duration": 90.8332,
+    "loop": false,
+    "loudness": -20.05,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Science%20Fiction.mp3",
+    "license": "CC0-1.0",
+    "sha256": "926f4896dbf6b9511a4f451d4b9bc1663d96dc216c323e91b2f475c8fddfb44c"
+  },
+  {
+    "id": "music-9a5a5f04056f",
+    "path": "music/music-9a5a5f04056f.ogg",
+    "type": "music",
+    "category": "史诗",
+    "name": "运动精神",
+    "tags": [
+      "史诗"
+    ],
+    "scene": "适合史诗情绪的过场或蒙太奇。",
+    "duration": 79.06,
+    "loop": false,
+    "loudness": -20.06,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sports%20Spirit.mp3",
+    "license": "CC0-1.0",
+    "sha256": "1fd28f8bbc25d6253503d179f7f4b070ec2b2a0bc8354eb65b6e9ea030ed98db"
+  },
+  {
+    "id": "music-cc2f5e437e63",
+    "path": "music/music-cc2f5e437e63.ogg",
+    "type": "music",
+    "category": "温暖",
+    "name": "启程",
+    "tags": [
+      "温暖"
+    ],
+    "scene": "适合温暖情绪的过场或蒙太奇。",
+    "duration": 90.9471,
+    "loop": false,
+    "loudness": -20.07,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Starter.mp3",
+    "license": "CC0-1.0",
+    "sha256": "4efa7fad956da5259e9c98245b9917180dd92473ee93a566e2928e246636d00a"
+  },
+  {
+    "id": "music-197b91134859",
+    "path": "music/music-197b91134859.ogg",
+    "type": "music",
+    "category": "平静",
+    "name": "突然旅行",
+    "tags": [
+      "平静"
+    ],
+    "scene": "适合平静情绪的过场或蒙太奇。",
+    "duration": 90.4714,
+    "loop": false,
+    "loudness": -20.03,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sudden%20Tour.mp3",
+    "license": "CC0-1.0",
+    "sha256": "ed3cbe5c8e4d6338c56cdcfca161c31553f27e2ab9d96d54c566ff7b0085fa77"
+  },
+  {
+    "id": "music-012b71c5161d",
+    "path": "music/music-012b71c5161d.ogg",
+    "type": "music",
+    "category": "搞笑",
+    "name": "小丑",
+    "tags": [
+      "搞笑"
+    ],
+    "scene": "适合搞笑情绪的过场或蒙太奇。",
+    "duration": 90.9271,
+    "loop": false,
+    "loudness": -20.05,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/THE%20CLOWN.mp3",
+    "license": "CC0-1.0",
+    "sha256": "c461f1a74b32c9e1939c84abc7bb24aa6014f8afc2a3ad907840dc9085f9222a"
+  },
+  {
+    "id": "music-be6017f6ca71",
+    "path": "music/music-be6017f6ca71.ogg",
+    "type": "music",
+    "category": "平静",
+    "name": "慢下来",
+    "tags": [
+      "平静"
+    ],
+    "scene": "适合平静情绪的过场或蒙太奇。",
+    "duration": 101.6477,
+    "loop": false,
+    "loudness": -20.17,
+    "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/slow%20down.mp3",
+    "license": "CC0-1.0",
+    "sha256": "4151ca088b0002c6f4462a9bf2e15b3a9cd96f4d3896263534bbd37b07003f24"
+  },
+  {
+    "id": "sfx-12e512a0f2df",
+    "path": "sfx/sfx-12e512a0f2df.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "草地脚步2四连步",
+    "tags": [
+      "脚步",
+      "草地",
+      "走路"
+    ],
+    "scene": "适合草地脚步2的镜头细节或环境铺底。",
+    "duration": 3.1939,
+    "loop": false,
+    "loudness": -18.03,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "7161271df26b7f245e8ff5c424898dfe365e3e620384ee5bbeae747bd38d1a9f",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-021c2e635561",
+    "path": "sfx/sfx-021c2e635561.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "开门1",
+    "tags": [
+      "开门"
+    ],
+    "scene": "适合开门1的镜头细节或环境铺底。",
+    "duration": 0.8991,
+    "loop": false,
+    "loudness": -18.15,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_1.ogg",
+    "license": "CC0-1.0",
+    "sha256": "1124e3fe7bf8961edb31dfb046d2749e42f686f29b58d0db7e2ec2fabea4a1c4"
+  },
+  {
+    "id": "sfx-22c2f5697f1a",
+    "path": "sfx/sfx-22c2f5697f1a.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "开门2",
+    "tags": [
+      "开门"
+    ],
+    "scene": "适合开门2的镜头细节或环境铺底。",
+    "duration": 1.3862,
+    "loop": false,
+    "loudness": -18.22,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_2.ogg",
+    "license": "CC0-1.0",
+    "sha256": "ce3f6bb8039ecfda700f61c87a42290fa993604cacb53f7bb42942c587e51077"
+  },
+  {
+    "id": "sfx-d93e440b2aa4",
+    "path": "sfx/sfx-d93e440b2aa4.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "关门1",
+    "tags": [
+      "关门"
+    ],
+    "scene": "适合关门1的镜头细节或环境铺底。",
+    "duration": 0.6198,
+    "loop": false,
+    "loudness": -18.52,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_1.ogg",
+    "license": "CC0-1.0",
+    "sha256": "02ad641907a8a9659ab8b4c34a9a952a51bf2dae6b2c0c45392fdc5683915071"
+  },
+  {
+    "id": "sfx-54b6a6e1f762",
+    "path": "sfx/sfx-54b6a6e1f762.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "关门2",
+    "tags": [
+      "关门"
+    ],
+    "scene": "适合关门2的镜头细节或环境铺底。",
+    "duration": 0.53,
+    "loop": false,
+    "loudness": -18.14,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_2.ogg",
+    "license": "CC0-1.0",
+    "sha256": "8855a7685f57a68a9f31c9189eb986822e1d156fe2eae0598d46f658d817f512"
+  },
+  {
+    "id": "sfx-cc6515f70c70",
+    "path": "sfx/sfx-cc6515f70c70.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "关门4",
+    "tags": [
+      "关门"
+    ],
+    "scene": "适合关门4的镜头细节或环境铺底。",
+    "duration": 0.5825,
+    "loop": false,
+    "loudness": -18.03,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_4.ogg",
+    "license": "CC0-1.0",
+    "sha256": "b793d075cfd33580804cdcc78def88c5600c26e1ed1b379ef866c9e9786b0cec"
+  },
+  {
+    "id": "sfx-4729d1a9a20d",
+    "path": "sfx/sfx-4729d1a9a20d.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "衣服摩擦1",
+    "tags": [
+      "摩擦",
+      "衣服",
+      "衣服摩擦"
+    ],
+    "scene": "适合衣服摩擦1的镜头细节或环境铺底。",
+    "duration": 0.5287,
+    "loop": false,
+    "loudness": -18.25,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth1.ogg",
+    "license": "CC0-1.0",
+    "sha256": "a35434d18af154c58fa11ff4c8e6601f0b57e038bf0664cf890b086db7702358"
+  },
+  {
+    "id": "sfx-a91bbbc2b480",
+    "path": "sfx/sfx-a91bbbc2b480.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "衣服摩擦3",
+    "tags": [
+      "摩擦",
+      "衣服",
+      "衣服摩擦"
+    ],
+    "scene": "适合衣服摩擦3的镜头细节或环境铺底。",
+    "duration": 0.451,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth3.ogg",
+    "license": "CC0-1.0",
+    "sha256": "eb9cc80a590c3d2f086ebf45329d414989d3d1f6cbe42f47be4231981dbc5148"
+  },
+  {
+    "id": "sfx-12dee896057b",
+    "path": "sfx/sfx-12dee896057b.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "翻书1",
+    "tags": [
+      "翻书"
+    ],
+    "scene": "适合翻书1的镜头细节或环境铺底。",
+    "duration": 0.6137,
+    "loop": false,
+    "loudness": -18.21,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/bookFlip1.ogg",
+    "license": "CC0-1.0",
+    "sha256": "b52f389c8195c6e055794b83e686fc402481c97a850cca3a8b0f42873283f678"
+  },
+  {
+    "id": "sfx-3bf9d7a22a53",
+    "path": "sfx/sfx-3bf9d7a22a53.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "金属锅碰撞1",
+    "tags": [
+      "金属锅碰撞"
+    ],
+    "scene": "适合金属锅碰撞1的镜头细节或环境铺底。",
+    "duration": 1.3043,
+    "loop": false,
+    "loudness": -18.17,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot1.ogg",
+    "license": "CC0-1.0",
+    "sha256": "de4b7e391be1e7f822d06a5c7c48339cdba0e0e15e3a5e333444d92de50cc3ff"
+  },
+  {
+    "id": "sfx-ba55b94aa69b",
+    "path": "sfx/sfx-ba55b94aa69b.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "金属锅碰撞2",
+    "tags": [
+      "金属锅碰撞"
+    ],
+    "scene": "适合金属锅碰撞2的镜头细节或环境铺底。",
+    "duration": 0.8261,
+    "loop": false,
+    "loudness": -18.44,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot2.ogg",
+    "license": "CC0-1.0",
+    "sha256": "e0e2556dba11f90002ad1f161db0c03b9a05f35c5c5b2bd77011b9b500f971ad"
+  },
+  {
+    "id": "sfx-9e826c868f2e",
+    "path": "sfx/sfx-9e826c868f2e.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "金属锅碰撞3",
+    "tags": [
+      "金属锅碰撞"
+    ],
+    "scene": "适合金属锅碰撞3的镜头细节或环境铺底。",
+    "duration": 0.7815,
+    "loop": false,
+    "loudness": -18.22,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot3.ogg",
+    "license": "CC0-1.0",
+    "sha256": "3bd8cc7052b1d60713084da9be8dbd36892e15ab7ce77c61afc6b629ecdc7e8b"
+  },
+  {
+    "id": "sfx-528edef154d1",
+    "path": "sfx/sfx-528edef154d1.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "刀刃刮擦1",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合刀刃刮擦1的镜头细节或环境铺底。",
+    "duration": 1.4768,
+    "loop": false,
+    "loudness": -18.06,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "6ffbee720410b98a7d7397c42039669651e1abadd4881be6404ed2389f623105"
+  },
+  {
+    "id": "sfx-f5ab3071c93d",
+    "path": "sfx/sfx-f5ab3071c93d.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "刀刃刮擦2",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合刀刃刮擦2的镜头细节或环境铺底。",
+    "duration": 3.7937,
+    "loop": false,
+    "loudness": -18.09,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "d73d759779e900246ebc14eeb8155a3d56141e3bcc61b876a783ba9a6fd0f103"
+  },
+  {
+    "id": "sfx-a37ee051f018",
+    "path": "sfx/sfx-a37ee051f018.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "刀刃刮擦3",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合刀刃刮擦3的镜头细节或环境铺底。",
+    "duration": 5.3709,
+    "loop": false,
+    "loudness": -18.13,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "7aa6fbf9ee5e65b5e5880497f151fd0e67746fd332883e3fff745dfdb91e5162"
+  },
+  {
+    "id": "sfx-9dcf180a63dd",
+    "path": "sfx/sfx-9dcf180a63dd.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "纸页翻动1",
+    "tags": [
+      "纸",
+      "纸张",
+      "翻书",
+      "翻页"
+    ],
+    "scene": "适合纸页翻动1的镜头细节或环境铺底。",
+    "duration": 7.5121,
+    "loop": false,
+    "loudness": -18.03,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "8a4241a795acf3060a5de77fc1f0b36d4ae4fbfef4962fdf2e7a8bbec6f24fa4"
+  },
+  {
+    "id": "sfx-57f0db65990a",
+    "path": "sfx/sfx-57f0db65990a.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "纸页翻动2",
+    "tags": [
+      "纸",
+      "纸张",
+      "翻书",
+      "翻页"
+    ],
+    "scene": "适合纸页翻动2的镜头细节或环境铺底。",
+    "duration": 0.8419,
+    "loop": false,
+    "loudness": -18.15,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "e9f0ecb62097c3af436f4361224e2edaf329326468c44167709be8a5d8475952"
+  },
+  {
+    "id": "sfx-6496901c0404",
+    "path": "sfx/sfx-6496901c0404.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "纸页翻动3",
+    "tags": [
+      "纸",
+      "纸张",
+      "翻书",
+      "翻页"
+    ],
+    "scene": "适合纸页翻动3的镜头细节或环境铺底。",
+    "duration": 1.5348,
+    "loop": false,
+    "loudness": -17.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "61a85e1a8e04d0995de07c7c70fec8b6f67a1fb1eae1636ed5902275e678b08f"
+  },
+  {
+    "id": "sfx-071cf6baccc0",
+    "path": "sfx/sfx-071cf6baccc0.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "通风口",
+    "tags": [
+      "室内",
+      "通风",
+      "通风口"
+    ],
+    "scene": "适合通风口的镜头细节或环境铺底。",
+    "duration": 56.0289,
+    "loop": false,
+    "loudness": -18.12,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Air%20Vent.wav",
+    "license": "CC0-1.0",
+    "sha256": "55ef3b1dcec784530f2e87adf4b3aaefa2d401e7c96ae521b8e4f06a4bcbb1d0"
+  },
+  {
+    "id": "sfx-510e5353e830",
+    "path": "sfx/sfx-510e5353e830.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "浴室风扇",
+    "tags": [
+      "室内",
+      "浴室风扇",
+      "风扇"
+    ],
+    "scene": "适合浴室风扇的镜头细节或环境铺底。",
+    "duration": 64.9039,
+    "loop": false,
+    "loudness": -18.14,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Bathroom%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "463def073b0dcd3f25277ac288b0388194a86e95798b03ef508cf060900f1b64"
+  },
+  {
+    "id": "sfx-843c79cf1eec",
+    "path": "sfx/sfx-843c79cf1eec.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "电脑风扇",
+    "tags": [
+      "室内",
+      "电脑风扇",
+      "风扇"
+    ],
+    "scene": "适合电脑风扇的镜头细节或环境铺底。",
+    "duration": 58.1177,
+    "loop": false,
+    "loudness": -18.01,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Computer%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "cddea3738fbf722652a50097a1cd43ab452fcf558deee47f8631e88ee0f9ec76"
+  },
+  {
+    "id": "sfx-0fee82de42e3",
+    "path": "sfx/sfx-0fee82de42e3.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "除湿机",
+    "tags": [
+      "室内",
+      "除湿机"
+    ],
+    "scene": "适合除湿机的镜头细节或环境铺底。",
+    "duration": 67.4396,
+    "loop": false,
+    "loudness": -18.03,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Dehumidifier.wav",
+    "license": "CC0-1.0",
+    "sha256": "a46ade631e5b722c888d894ec80e85cff598de12cd9b0d0b2ccb706bae2a0d42"
+  },
+  {
+    "id": "sfx-98719b6dd48c",
+    "path": "sfx/sfx-98719b6dd48c.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "暖炉风扇",
+    "tags": [
+      "室内",
+      "暖炉风扇",
+      "风扇"
+    ],
+    "scene": "适合暖炉风扇的镜头细节或环境铺底。",
+    "duration": 59.0784,
+    "loop": false,
+    "loudness": -18.09,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Furnace%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "ec091f89a9cc375f473e0a0c5426bbbf3417f88e773649a8a5c5510a8609d130"
+  },
+  {
+    "id": "sfx-e0ccb6598627",
+    "path": "sfx/sfx-e0ccb6598627.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "大风扇",
+    "tags": [
+      "大风扇",
+      "室内",
+      "风扇"
+    ],
+    "scene": "适合大风扇的镜头细节或环境铺底。",
+    "duration": 67.19,
+    "loop": false,
+    "loudness": -18.08,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Large%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "f3c02ccb4abf02f779e4dbd8838ef5083c913ca8fbcf44923ae20b41d4fbdcfa"
+  },
+  {
+    "id": "sfx-cd7e525287e0",
+    "path": "sfx/sfx-cd7e525287e0.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "微波炉",
+    "tags": [
+      "室内",
+      "微波炉"
+    ],
+    "scene": "适合微波炉的镜头细节或环境铺底。",
+    "duration": 53.7317,
+    "loop": false,
+    "loudness": -18.0,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Microwave.wav",
+    "license": "CC0-1.0",
+    "sha256": "4db4b12130dc66eb35d478f369b4fed7059b6eb6662f8baff72b843f740b1b25"
+  },
+  {
+    "id": "sfx-57aaf3ed3677",
+    "path": "sfx/sfx-57aaf3ed3677.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "室外空调",
+    "tags": [
+      "室内",
+      "室外空调"
+    ],
+    "scene": "适合室外空调的镜头细节或环境铺底。",
+    "duration": 56.3458,
+    "loop": false,
+    "loudness": -17.99,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outdoor%20AC%20Unit.wav",
+    "license": "CC0-1.0",
+    "sha256": "7f62ed4ce1136ff194f526cd86b627b0cea73bfc82503b4dbdb3fd154e71be0e"
+  },
+  {
+    "id": "sfx-5f709f72838f",
+    "path": "sfx/sfx-5f709f72838f.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "室外底噪",
+    "tags": [
+      "室外",
+      "室外底噪"
+    ],
+    "scene": "适合室外底噪的镜头细节或环境铺底。",
+    "duration": 53.1139,
+    "loop": false,
+    "loudness": -18.19,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
+    "license": "CC0-1.0",
+    "sha256": "af3a056f01629341656ca3aa91b19edca5ab6701f543ce60555770f5f91ee0b9"
+  },
+  {
+    "id": "sfx-609fbbb2cc63",
+    "path": "sfx/sfx-609fbbb2cc63.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "冰箱",
+    "tags": [
+      "冰箱",
+      "室内"
+    ],
+    "scene": "适合冰箱的镜头细节或环境铺底。",
+    "duration": 65.4283,
+    "loop": false,
+    "loudness": -18.14,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Refridgerator.wav",
+    "license": "CC0-1.0",
+    "sha256": "812d20d07f4b56fc609d4879ba6d8f9c8f48a9e3012f6b0c14747a6c1635e2cf"
+  },
+  {
+    "id": "sfx-da48e26760ac",
+    "path": "sfx/sfx-da48e26760ac.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "水槽龙头",
+    "tags": [
+      "室内",
+      "水",
+      "水槽",
+      "水槽龙头",
+      "水龙头"
+    ],
+    "scene": "适合水槽龙头的镜头细节或环境铺底。",
+    "duration": 61.0001,
+    "loop": false,
+    "loudness": -18.32,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
+    "license": "CC0-1.0",
+    "sha256": "187480baf53c21b43cde7deb91b55dfad3db96d66aae400a400baf5f3da2e363"
+  },
+  {
+    "id": "sfx-e2b5a3ce0637",
+    "path": "sfx/sfx-e2b5a3ce0637.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "小风扇",
+    "tags": [
+      "室内",
+      "小风扇",
+      "风扇"
+    ],
+    "scene": "适合小风扇的镜头细节或环境铺底。",
+    "duration": 43.1706,
+    "loop": false,
+    "loudness": -18.18,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Small%20Fan.wav",
+    "license": "CC0-1.0",
+    "sha256": "a70195e7b1bcc0f339254d684f485e3394bae92aad9315b1a0319d607c6cc5f0"
+  },
+  {
+    "id": "sfx-689299c71246",
+    "path": "sfx/sfx-689299c71246.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "风声采样",
+    "tags": [
+      "刮风",
+      "风",
+      "风声",
+      "风声采样"
+    ],
+    "scene": "适合风声采样的镜头细节或环境铺底。",
+    "duration": 2.1085,
+    "loop": false,
+    "loudness": -17.96,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-12-22%20Snow%20Day%20-%20Windy.wav",
+    "license": "CC0-1.0",
+    "sha256": "a152f424a1702394b85fb66c3de3bc54b8f466e4dd1cb146e8f10104416ad0bf"
+  },
+  {
+    "id": "sfx-2cfe172eb41f",
+    "path": "sfx/sfx-2cfe172eb41f.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "雨声采样",
+    "tags": [
+      "下雨",
+      "雨",
+      "雨声",
+      "雨声采样"
+    ],
+    "scene": "适合雨声采样的镜头细节或环境铺底。",
+    "duration": 5.7565,
+    "loop": false,
+    "loudness": -18.12,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-07-23%20Music%20for%20Four%20Dimensions%20-%20Rain.wav",
+    "license": "CC0-1.0",
+    "sha256": "b03ca5be0382545fd2f474bda48eecb2e0186b25e48cec677a82edd7109b812d"
+  },
+  {
+    "id": "sfx-72721afc39ef",
+    "path": "sfx/sfx-72721afc39ef.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "沉重喘息",
+    "tags": [
+      "喘息",
+      "喘气",
+      "沉重喘息"
+    ],
+    "scene": "适合沉重喘息的镜头细节或环境铺底。",
+    "duration": 0.5589,
+    "loop": false,
+    "loudness": -18.38,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/BB_2HTC%20Samples%20Vol%204/Weird/2022-04-16%20Triple-C%20THICCC%20-%20Heavy%20Breathing.wav",
+    "license": "CC0-1.0",
+    "sha256": "8f2ee612f6cbc3560bd1f2c213ec69ba6921db2eab420f2642b2ac63dec9df53"
+  },
+  {
+    "id": "sfx-400bbc61b44b",
+    "path": "sfx/sfx-400bbc61b44b.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "拟音雷声1",
+    "tags": [
+      "打雷",
+      "拟音",
+      "雷",
+      "雷声"
+    ],
+    "scene": "适合拟音雷声1的镜头细节或环境铺底。",
+    "duration": 11.587,
+    "loop": false,
+    "loudness": -18.01,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "71e8e3aee81b0aa3ad865181e63cdfe7a9208918674844595b2b6b4bafb98160"
+  },
+  {
+    "id": "sfx-5b3c0f1e70aa",
+    "path": "sfx/sfx-5b3c0f1e70aa.ogg",
+    "type": "sfx",
+    "category": "环境",
+    "name": "拟音雷声2",
+    "tags": [
+      "打雷",
+      "拟音",
+      "雷",
+      "雷声"
+    ],
+    "scene": "适合拟音雷声2的镜头细节或环境铺底。",
+    "duration": 15.8053,
+    "loop": false,
+    "loudness": -17.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "f6e3e679122c7dab0474c291f3318d72acff3aab86d8b7d048ff91cacb043e6d"
+  },
+  {
+    "id": "sfx-4b7ae48f1514",
+    "path": "sfx/sfx-4b7ae48f1514.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "旋转嗖声1",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合旋转嗖声1的镜头细节或环境铺底。",
+    "duration": 1.9591,
+    "loop": false,
+    "loudness": -18.16,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "7d7a7de66152cfaa5fc0fde8293ca603487098855831f244f23b93ac58816051"
+  },
+  {
+    "id": "sfx-dd062ef50014",
+    "path": "sfx/sfx-dd062ef50014.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "旋转嗖声2",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合旋转嗖声2的镜头细节或环境铺底。",
+    "duration": 1.2071,
+    "loop": false,
+    "loudness": -18.21,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "93d6c87c8429588ba73ae8b018137639cda917446e8b208601d0347d5a7207bb"
+  },
+  {
+    "id": "sfx-c8408f0b4f3c",
+    "path": "sfx/sfx-c8408f0b4f3c.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "旋转嗖声3",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合旋转嗖声3的镜头细节或环境铺底。",
+    "duration": 1.3621,
+    "loop": false,
+    "loudness": -18.16,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "ba3810a56c0a4700d3a6bc6de512fdd51cdfa990d57e8be93cc0c10a5e751d7d"
+  },
+  {
+    "id": "sfx-61cd75357c07",
+    "path": "sfx/sfx-61cd75357c07.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "旋转嗖声4",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合旋转嗖声4的镜头细节或环境铺底。",
+    "duration": 2.2524,
+    "loop": false,
+    "loudness": -18.13,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%204.wav",
+    "license": "CC0-1.0",
+    "sha256": "e6be1744c6602549b509be94058df51e0e23dd19057566fffa49dc6f613e7448"
+  },
+  {
+    "id": "sfx-1538a6137773",
+    "path": "sfx/sfx-1538a6137773.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声1",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声1的镜头细节或环境铺底。",
+    "duration": 0.5066,
+    "loop": false,
+    "loudness": -18.25,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "6a57ddd19808a67cd177d8fa32b0dd6e3e06f31946295df2b76d028aa2a879e3"
+  },
+  {
+    "id": "sfx-2f505f35e02e",
+    "path": "sfx/sfx-2f505f35e02e.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声2",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声2的镜头细节或环境铺底。",
+    "duration": 0.677,
+    "loop": false,
+    "loudness": -18.22,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "033d20629c49dee36f2266e7143ea4d1413ea3407e11841ce0af5db596351b72"
+  },
+  {
+    "id": "sfx-aa12ed90f8da",
+    "path": "sfx/sfx-aa12ed90f8da.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声3",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声3的镜头细节或环境铺底。",
+    "duration": 1.1096,
+    "loop": false,
+    "loudness": -18.07,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "4c7c8ee675b9bb4dc201d162a260a98afaed5c689df05b94d4398fe5222711c0"
+  },
+  {
+    "id": "sfx-1fc97e200590",
+    "path": "sfx/sfx-1fc97e200590.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声4",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声4的镜头细节或环境铺底。",
+    "duration": 1.0644,
+    "loop": false,
+    "loudness": -18.11,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%204.wav",
+    "license": "CC0-1.0",
+    "sha256": "3f8f4a83c79044fbf4504962331a58f718b5a6cd1a660841b7df29e48df2b319"
+  },
+  {
+    "id": "sfx-5713b6175e2d",
+    "path": "sfx/sfx-5713b6175e2d.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声5",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声5的镜头细节或环境铺底。",
+    "duration": 1.3215,
+    "loop": false,
+    "loudness": -18.14,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%205.wav",
+    "license": "CC0-1.0",
+    "sha256": "016b009e12ad312fbad305856debb8abbb39fbe2d9d921d7585a52494b5be334"
+  },
+  {
+    "id": "sfx-542b57ac2f91",
+    "path": "sfx/sfx-542b57ac2f91.ogg",
+    "type": "sfx",
+    "category": "转场",
+    "name": "短旋转嗖声6",
+    "tags": [
+      "嗖",
+      "转场"
+    ],
+    "scene": "适合短旋转嗖声6的镜头细节或环境铺底。",
+    "duration": 1.3857,
+    "loop": false,
+    "loudness": -18.13,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%206.wav",
+    "license": "CC0-1.0",
+    "sha256": "8708ad79072c8223bbd2dd342e363a480603501aff5bc0b556a9339504280867"
+  },
+  {
+    "id": "sfx-ce40ad51976c",
+    "path": "sfx/sfx-ce40ad51976c.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "连续挥动1",
+    "tags": [
+      "打斗",
+      "挥动"
+    ],
+    "scene": "适合连续挥动1的镜头细节或环境铺底。",
+    "duration": 0.6009,
+    "loop": false,
+    "loudness": -17.97,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "055e7806ca94cc9c44562c5e8f214105381bdb817942191811b087f4e976dd3d"
+  },
+  {
+    "id": "sfx-745b785ba632",
+    "path": "sfx/sfx-745b785ba632.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "连续挥动2",
+    "tags": [
+      "打斗",
+      "挥动"
+    ],
+    "scene": "适合连续挥动2的镜头细节或环境铺底。",
+    "duration": 0.9199,
+    "loop": false,
+    "loudness": -18.14,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "668de25c2a53756804095745d197daddc941c8eee593ff69cd8c021c31001980"
+  },
+  {
+    "id": "sfx-bfb3175cd7f4",
+    "path": "sfx/sfx-bfb3175cd7f4.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "连续挥动3",
+    "tags": [
+      "打斗",
+      "挥动"
+    ],
+    "scene": "适合连续挥动3的镜头细节或环境铺底。",
+    "duration": 1.529,
+    "loop": false,
+    "loudness": -18.34,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "7c17a60b7b02ade963ee1af505b7099e94b6e730659a6f120128a26bf67b7d3e"
+  },
+  {
+    "id": "sfx-05168a0aa856",
+    "path": "sfx/sfx-05168a0aa856.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "连续挥动4",
+    "tags": [
+      "打斗",
+      "挥动"
+    ],
+    "scene": "适合连续挥动4的镜头细节或环境铺底。",
+    "duration": 0.6715,
+    "loop": false,
+    "loudness": -18.18,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%204.wav",
+    "license": "CC0-1.0",
+    "sha256": "dcfead389215d1d531d183b3fcf25c7e0ff8e2e3f1e3cf87f3072c75548913d8"
+  },
+  {
+    "id": "sfx-821112262ef3",
+    "path": "sfx/sfx-821112262ef3.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦1",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦1的镜头细节或环境铺底。",
+    "duration": 0.7246,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "2fe0b5c378ef7881046e51ada85462a82d60acb6b506754f4a75dc8857f7b3e5"
+  },
+  {
+    "id": "sfx-df3377a3de24",
+    "path": "sfx/sfx-df3377a3de24.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦2",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦2的镜头细节或环境铺底。",
+    "duration": 0.6031,
+    "loop": false,
+    "loudness": -18.29,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "7e0ef009e17dd373c1d2a4ed8f0ba13e569250374b3a86ed637200918a74a831"
+  },
+  {
+    "id": "sfx-d8d150ce2346",
+    "path": "sfx/sfx-d8d150ce2346.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦3",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦3的镜头细节或环境铺底。",
+    "duration": 1.0309,
+    "loop": false,
+    "loudness": -18.08,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%203.wav",
+    "license": "CC0-1.0",
+    "sha256": "5dc8067a1aa02b9bf527a93fea2ce27bc2e2704691ec486525ad98315bd71018"
+  },
+  {
+    "id": "sfx-01d6eb26ca00",
+    "path": "sfx/sfx-01d6eb26ca00.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦4",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦4的镜头细节或环境铺底。",
+    "duration": 1.0235,
+    "loop": false,
+    "loudness": -18.21,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%204.wav",
+    "license": "CC0-1.0",
+    "sha256": "0bcbe9a3e315ddbbb1c9a95ffe663062aa62f9845d85244f0da3d992a6cae60d"
+  },
+  {
+    "id": "sfx-5ea35dd11f89",
+    "path": "sfx/sfx-5ea35dd11f89.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦5",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦5的镜头细节或环境铺底。",
+    "duration": 1.0869,
+    "loop": false,
+    "loudness": -18.26,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%205.wav",
+    "license": "CC0-1.0",
+    "sha256": "3eedb65cb566e48586255aaab4929ce5700f58a1b43f1d54bc6b64377947d5d6"
+  },
+  {
+    "id": "sfx-b6f9170c0ddf",
+    "path": "sfx/sfx-b6f9170c0ddf.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦6",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦6的镜头细节或环境铺底。",
+    "duration": 0.7534,
+    "loop": false,
+    "loudness": -18.1,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%206.wav",
+    "license": "CC0-1.0",
+    "sha256": "e2a37632ae2f49ab342a9c096f32dafdf4484e03ce045bbb2ad3a6338fe04235"
+  },
+  {
+    "id": "sfx-f3c3289ea8a0",
+    "path": "sfx/sfx-f3c3289ea8a0.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦7",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦7的镜头细节或环境铺底。",
+    "duration": 0.8336,
+    "loop": false,
+    "loudness": -18.17,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%207.wav",
+    "license": "CC0-1.0",
+    "sha256": "261ba59d879e98676d8c3009f6a3ece54bf14339fc0154fad63e7b6137ec2fd5"
+  },
+  {
+    "id": "sfx-0f5c035600b2",
+    "path": "sfx/sfx-0f5c035600b2.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦8",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦8的镜头细节或环境铺底。",
+    "duration": 1.3616,
+    "loop": false,
+    "loudness": -18.18,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%208.wav",
+    "license": "CC0-1.0",
+    "sha256": "31611bfe43d5b6f8a86551aefdee5559fd81a9dc88cec748cacf1e987d23978a"
+  },
+  {
+    "id": "sfx-5707164b78b6",
+    "path": "sfx/sfx-5707164b78b6.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀刮擦9",
+    "tags": [
+      "刀剑",
+      "打斗"
+    ],
+    "scene": "适合大刀刮擦9的镜头细节或环境铺底。",
+    "duration": 1.2877,
+    "loop": false,
+    "loudness": -18.17,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Scrape%209.wav",
+    "license": "CC0-1.0",
+    "sha256": "3ea02851ad843680aa06451c8acf30e28076f9f43b826a0ac406b535c36836f2"
+  },
+  {
+    "id": "sfx-9e3959a42c70",
+    "path": "sfx/sfx-9e3959a42c70.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀出鞘1",
+    "tags": [
+      "刀剑",
+      "拔刀"
+    ],
+    "scene": "适合大刀出鞘1的镜头细节或环境铺底。",
+    "duration": 1.5249,
+    "loop": false,
+    "loudness": -18.33,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "05d0359b19dfca2d66289d9d1d9c0f5bccc438570e56237086c7aa7e50f231d2"
+  },
+  {
+    "id": "sfx-c809f0eb7e33",
+    "path": "sfx/sfx-c809f0eb7e33.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀出鞘2",
+    "tags": [
+      "刀剑",
+      "拔刀"
+    ],
+    "scene": "适合大刀出鞘2的镜头细节或环境铺底。",
+    "duration": 1.235,
+    "loop": false,
+    "loudness": -18.34,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "53df3f31a5896b22bbfd215801b74a6cfcc239e1e31d57ea5ddece3205b4df56"
+  },
+  {
+    "id": "sfx-5408170ced24",
+    "path": "sfx/sfx-5408170ced24.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀入鞘1",
+    "tags": [
+      "刀剑",
+      "收刀"
+    ],
+    "scene": "适合大刀入鞘1的镜头细节或环境铺底。",
+    "duration": 1.2401,
+    "loop": false,
+    "loudness": -18.25,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%201.wav",
+    "license": "CC0-1.0",
+    "sha256": "176d7ae2f1d69eeb0849b72e9dcd5d9db606f26a5998db18e4429bf7ae0ba3c6"
+  },
+  {
+    "id": "sfx-e4ecdce1c649",
+    "path": "sfx/sfx-e4ecdce1c649.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "大刀入鞘2",
+    "tags": [
+      "刀剑",
+      "收刀"
+    ],
+    "scene": "适合大刀入鞘2的镜头细节或环境铺底。",
+    "duration": 1.2125,
+    "loop": false,
+    "loudness": -18.22,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%202.wav",
+    "license": "CC0-1.0",
+    "sha256": "923f29be3b9f6bd1f3decfcbdb10d7684c19b5ee077eebce1c3bce2cd5b21dbb"
+  },
+  {
+    "id": "sfx-b74c1393e17c",
+    "path": "sfx/sfx-b74c1393e17c.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "重拳1",
+    "tags": [
+      "打斗",
+      "拳",
+      "拳击",
+      "拳脚",
+      "重击"
+    ],
+    "scene": "适合重拳1的镜头细节或环境铺底。",
+    "duration": 0.4849,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "9489d657da05281fd7cefc06b8187ca3d21e0078c0322f84ea8a8ccdef3dff0f"
+  },
+  {
+    "id": "sfx-b3847cc4bfeb",
+    "path": "sfx/sfx-b3847cc4bfeb.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "重拳2",
+    "tags": [
+      "打斗",
+      "拳",
+      "拳击",
+      "拳脚",
+      "重击"
+    ],
+    "scene": "适合重拳2的镜头细节或环境铺底。",
+    "duration": 0.4034,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "8a281216e18338b3d15d59d593dc97d52ffe8aab1ef9230eb09e9ec64b9e041c"
+  },
+  {
+    "id": "sfx-8dad161c6a8c",
+    "path": "sfx/sfx-8dad161c6a8c.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "重拳5",
+    "tags": [
+      "打斗",
+      "拳",
+      "拳击",
+      "拳脚",
+      "重击"
+    ],
+    "scene": "适合重拳5的镜头细节或环境铺底。",
+    "duration": 0.4046,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_004.ogg",
+    "license": "CC0-1.0",
+    "sha256": "03c5197925eb85ada03cc1b3312c6f8f6a72b12aca9ae6672290fba10623d9cf"
+  },
+  {
+    "id": "sfx-1cfa32c9392e",
+    "path": "sfx/sfx-1cfa32c9392e.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "软物重落1",
+    "tags": [
+      "摔倒",
+      "重落"
+    ],
+    "scene": "适合软物重落1的镜头细节或环境铺底。",
+    "duration": 0.4947,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "eb78101c9de1707737ccf530cec9730c7234855aa9ff823113bce30b566e7283"
+  },
+  {
+    "id": "sfx-7a3e0edcc209",
+    "path": "sfx/sfx-7a3e0edcc209.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "软物重落2",
+    "tags": [
+      "摔倒",
+      "重落"
+    ],
+    "scene": "适合软物重落2的镜头细节或环境铺底。",
+    "duration": 0.5591,
+    "loop": false,
+    "loudness": -17.89,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "4f5f1730cf20a6b35e5aa19ce8ec1f931d6035484eb109fc65b34d63a54f5b68"
+  },
+  {
+    "id": "sfx-7b302c8ca4c4",
+    "path": "sfx/sfx-7b302c8ca4c4.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "软物重落3",
+    "tags": [
+      "摔倒",
+      "重落"
+    ],
+    "scene": "适合软物重落3的镜头细节或环境铺底。",
+    "duration": 0.5594,
+    "loop": false,
+    "loudness": -17.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "d38292625fd67a812f990715ca75e9f505d3b9ee8596d114c9e47406e36d36b7"
+  },
+  {
+    "id": "sfx-b3e38126d804",
+    "path": "sfx/sfx-b3e38126d804.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "软物重落4",
+    "tags": [
+      "摔倒",
+      "重落"
+    ],
+    "scene": "适合软物重落4的镜头细节或环境铺底。",
+    "duration": 0.5312,
+    "loop": false,
+    "loudness": -17.93,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_003.ogg",
+    "license": "CC0-1.0",
+    "sha256": "efb01b6945599f93e8b8e345df16b2771bbadf2123a0c20379c79e764d1d61ad"
+  },
+  {
+    "id": "sfx-12480f744dbc",
+    "path": "sfx/sfx-12480f744dbc.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "软物重落5",
+    "tags": [
+      "摔倒",
+      "重落"
+    ],
+    "scene": "适合软物重落5的镜头细节或环境铺底。",
+    "duration": 0.488,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_004.ogg",
+    "license": "CC0-1.0",
+    "sha256": "4c938fb34dc900507d0c9aee376b96ed1d8a314733b4bd72481d17c5799287d9"
+  },
+  {
+    "id": "sfx-0e2d7911beb9",
+    "path": "sfx/sfx-0e2d7911beb9.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "重敲钟1",
+    "tags": [
+      "重击",
+      "钟"
+    ],
+    "scene": "适合重敲钟1的镜头细节或环境铺底。",
+    "duration": 1.164,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "8c7b1877246db0cd71c0f2a3ea1b117fd438b4cb36273d2e121049cdd8ea4cfd"
+  },
+  {
+    "id": "sfx-0d2638583567",
+    "path": "sfx/sfx-0d2638583567.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "重敲钟2",
+    "tags": [
+      "重击",
+      "钟"
+    ],
+    "scene": "适合重敲钟2的镜头细节或环境铺底。",
+    "duration": 1.4124,
+    "loop": false,
+    "loudness": -17.97,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "001247c6d75305676235017f06b55d256266f0ace9f6eb44ee96d05a78aa9521"
+  },
+  {
+    "id": "sfx-5b30df9e1703",
+    "path": "sfx/sfx-5b30df9e1703.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "重敲钟3",
+    "tags": [
+      "重击",
+      "钟"
+    ],
+    "scene": "适合重敲钟3的镜头细节或环境铺底。",
+    "duration": 0.6873,
+    "loop": false,
+    "loudness": -17.97,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "67ff97ea26decc4add344acd1d7691d17059a6443ca2cc10a280d3d54a89c124"
+  },
+  {
+    "id": "sfx-1b99af348390",
+    "path": "sfx/sfx-1b99af348390.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "玻璃碰撞1",
+    "tags": [
+      "杯子",
+      "玻璃"
+    ],
+    "scene": "适合玻璃碰撞1的镜头细节或环境铺底。",
+    "duration": 0.5304,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "856f2d031e6381ebf1c0236360f781351d503316f7239ce5aa24abc53846f9d3"
+  },
+  {
+    "id": "sfx-c5fce2d03092",
+    "path": "sfx/sfx-c5fce2d03092.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "玻璃碰撞2",
+    "tags": [
+      "杯子",
+      "玻璃"
+    ],
+    "scene": "适合玻璃碰撞2的镜头细节或环境铺底。",
+    "duration": 0.5304,
+    "loop": false,
+    "loudness": -18.05,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "2b5e17c444c9fc889a479a1d808b9106318f1a1b26802c5aadb4f4790595f14e"
+  },
+  {
+    "id": "sfx-36967e97e3af",
+    "path": "sfx/sfx-36967e97e3af.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "玻璃碰撞3",
+    "tags": [
+      "杯子",
+      "玻璃"
+    ],
+    "scene": "适合玻璃碰撞3的镜头细节或环境铺底。",
+    "duration": 0.5304,
+    "loop": false,
+    "loudness": -17.92,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "1b62b26b3a5e34411973bb2a5887e4c7a2621d369de0b2d59473959d642eb5fd"
+  },
+  {
+    "id": "sfx-71b977f6090a",
+    "path": "sfx/sfx-71b977f6090a.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "玻璃碰撞4",
+    "tags": [
+      "杯子",
+      "玻璃"
+    ],
+    "scene": "适合玻璃碰撞4的镜头细节或环境铺底。",
+    "duration": 0.5304,
+    "loop": false,
+    "loudness": -18.15,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_003.ogg",
+    "license": "CC0-1.0",
+    "sha256": "3eb80366594e874d13807de68ac93e0318159f550d2bd5f2de08ededc26ab8a3"
+  },
+  {
+    "id": "sfx-bfc0ad7c2ec1",
+    "path": "sfx/sfx-bfc0ad7c2ec1.ogg",
+    "type": "sfx",
+    "category": "道具",
+    "name": "玻璃碰撞5",
+    "tags": [
+      "杯子",
+      "玻璃"
+    ],
+    "scene": "适合玻璃碰撞5的镜头细节或环境铺底。",
+    "duration": 0.5304,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactGlass_medium_004.ogg",
+    "license": "CC0-1.0",
+    "sha256": "706a10797fd3bfa02eafd0b0223f90e71f411d5c4d95064d9468d995a34b8e51"
+  },
+  {
+    "id": "sfx-ec453cc5bb80",
+    "path": "sfx/sfx-ec453cc5bb80.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "木地板脚步1四连步",
+    "tags": [
+      "木地板",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合木地板脚步1的镜头细节或环境铺底。",
+    "duration": 2.7895,
+    "loop": false,
+    "loudness": -17.93,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "042975a69db453aa328f475507a7dfdfd98a75f7c326165a5ec6f0c04b9dfaba",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-6041eb530d25",
+    "path": "sfx/sfx-6041eb530d25.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "木地板脚步2四连步",
+    "tags": [
+      "木地板",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合木地板脚步2的镜头细节或环境铺底。",
+    "duration": 2.7868,
+    "loop": false,
+    "loudness": -17.93,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "6e66500ffe22e429022f323fdf82889f0ae4ad8c4a6a13c00548946bd76b3ffa",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-5e6f44ffbfed",
+    "path": "sfx/sfx-5e6f44ffbfed.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "木地板脚步3四连步",
+    "tags": [
+      "木地板",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合木地板脚步3的镜头细节或环境铺底。",
+    "duration": 2.7871,
+    "loop": false,
+    "loudness": -18.02,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "0770e890068b4f768544ea7891b1106d7761d24965a42d561d1df9b29c5b80d1",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-a1c06f7a5401",
+    "path": "sfx/sfx-a1c06f7a5401.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "雪地脚步1四连步",
+    "tags": [
+      "脚步",
+      "走路",
+      "雪地"
+    ],
+    "scene": "适合雪地脚步1的镜头细节或环境铺底。",
+    "duration": 2.7084,
+    "loop": false,
+    "loudness": -18.19,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "a5102c632b6d93794dbd65d463bad617cff2ec57c22fd64701eacc3eba1ff143",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-4b928b5dfa43",
+    "path": "sfx/sfx-4b928b5dfa43.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "雪地脚步2四连步",
+    "tags": [
+      "脚步",
+      "走路",
+      "雪地"
+    ],
+    "scene": "适合雪地脚步2的镜头细节或环境铺底。",
+    "duration": 2.7177,
+    "loop": false,
+    "loudness": -18.07,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "f15e01c41d5a1c50ad16e31a91d967666d66a22484b6de017aa817704a877193",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-d49cbb6e2df8",
+    "path": "sfx/sfx-d49cbb6e2df8.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "雪地脚步3四连步",
+    "tags": [
+      "脚步",
+      "走路",
+      "雪地"
+    ],
+    "scene": "适合雪地脚步3的镜头细节或环境铺底。",
+    "duration": 2.8947,
+    "loop": false,
+    "loudness": -18.01,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "7ea47d4eac0dc24915a822bc226488d00a0b463c69709e5e0bd8b4a07c03b674",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-d5e473984400",
+    "path": "sfx/sfx-d5e473984400.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "草地脚步1四连步",
+    "tags": [
+      "脚步",
+      "草地",
+      "走路"
+    ],
+    "scene": "适合草地脚步1的镜头细节或环境铺底。",
+    "duration": 2.6936,
+    "loop": false,
+    "loudness": -17.95,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "669d94e4f63f1a42c47fff904c30e4fec8238050a18e05691b6e858f68dba670",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-27ddaad7d384",
+    "path": "sfx/sfx-27ddaad7d384.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "草地脚步3四连步",
+    "tags": [
+      "脚步",
+      "草地",
+      "走路"
+    ],
+    "scene": "适合草地脚步3的镜头细节或环境铺底。",
+    "duration": 2.6875,
+    "loop": false,
+    "loudness": -18.06,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "b0e584e7e502652570121aac569555d5c359013bd005dfb8dc74ce5d5287e046",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-44043937fae8",
+    "path": "sfx/sfx-44043937fae8.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地脚步1四连步",
+    "tags": [
+      "水泥地",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合水泥地脚步1的镜头细节或环境铺底。",
+    "duration": 2.6425,
+    "loop": false,
+    "loudness": -17.88,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "ce0801c0a53fb6708b782a115d7c560444de22bf42a6b889c193f1916aa13b92",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-741277a378b6",
+    "path": "sfx/sfx-741277a378b6.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地脚步2四连步",
+    "tags": [
+      "水泥地",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合水泥地脚步2的镜头细节或环境铺底。",
+    "duration": 2.6442,
+    "loop": false,
+    "loudness": -17.97,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "48377139d7688480ad33de0dd1c7d5102130aa50ab452debc0557c977a3bc9f8",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-82d4b284b701",
+    "path": "sfx/sfx-82d4b284b701.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "水泥地脚步3四连步",
+    "tags": [
+      "水泥地",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合水泥地脚步3的镜头细节或环境铺底。",
+    "duration": 2.6492,
+    "loop": false,
+    "loudness": -17.98,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "2f724745259964b84dbce931ac12d54d9f74e959754c2c1311854b71730ba080",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-1c77daadc225",
+    "path": "sfx/sfx-1c77daadc225.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "地毯脚步1四连步",
+    "tags": [
+      "地毯",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合地毯脚步1的镜头细节或环境铺底。",
+    "duration": 2.6802,
+    "loop": false,
+    "loudness": -18.0,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_000.ogg",
+    "license": "CC0-1.0",
+    "sha256": "12dfa5c6b0a72960584093e0191e3ff1d17f5829ff116eda71e7d13c2758b5be",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-6cca5747fcd3",
+    "path": "sfx/sfx-6cca5747fcd3.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "地毯脚步2四连步",
+    "tags": [
+      "地毯",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合地毯脚步2的镜头细节或环境铺底。",
+    "duration": 2.6804,
+    "loop": false,
+    "loudness": -18.06,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_001.ogg",
+    "license": "CC0-1.0",
+    "sha256": "4b7ccdb2fddc743c7bc746c8a958c2bc471e950133263bd910f0fb3cdc40411e",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  },
+  {
+    "id": "sfx-c6f19759f812",
+    "path": "sfx/sfx-c6f19759f812.ogg",
+    "type": "sfx",
+    "category": "动作",
+    "name": "地毯脚步3四连步",
+    "tags": [
+      "地毯",
+      "脚步",
+      "走路"
+    ],
+    "scene": "适合地毯脚步3的镜头细节或环境铺底。",
+    "duration": 2.6804,
+    "loop": false,
+    "loudness": -18.06,
+    "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_002.ogg",
+    "license": "CC0-1.0",
+    "sha256": "393a720d4e0fb0f5f75a117f97591c056205aba1eb9d67235ce23ca20666c06e",
+    "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。"
+  }
+]
