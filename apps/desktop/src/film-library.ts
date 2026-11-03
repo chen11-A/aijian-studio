@@ -474,7 +474,7 @@ export async function mixMusic(
 ): Promise<{ path: string; reason: string }> {
   const gainDb = typeof gain === "number" ? gain : -14;
   const mixed = `${video}.mix.mp4`;
-  let seconds = 0;
+  let seconds: number;
   try {
     const logged = await run(["-hide_banner", "-i", video, "-f", "null", "-"]);
     seconds = mediaDuration(String(logged ?? ""));
