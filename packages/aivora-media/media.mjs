@@ -1,6 +1,7 @@
 import { mkdtemp, rm, copyFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { escapeFilterPath } from "./filter-path.mjs";
 import { run } from "./process.mjs";
 import { assHeader, dimensions, escapeAss, wrapText } from "./subtitles.mjs";
 
@@ -50,6 +51,10 @@ async function probe(input, ffprobePath) {
   return JSON.parse(stdout);
 }
 
+function assFilter(fontsDir) {
+  return `ass=filename=captions.ass${fontsDir === undefined ? "" : `:fontsdir=${escapeFilterPath(path.resolve(fontsDir))}`}`;
+}
+
 function fit(orientation) {
   const [w, h] = dimensions(orientation);
   return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
@@ -96,6 +101,7 @@ export async function exportVideo({
   output,
   orientation = "portrait",
   autoAdjustVolume = false,
+  fontsDir,
   ffmpegPath = "ffmpeg",
   ffprobePath = "ffprobe",
 }) {
@@ -117,7 +123,7 @@ export async function exportVideo({
       "-map",
       hasAudio ? "0:a:0" : "1:a:0",
       "-vf",
-      `${fit(orientation)},ass=filename=captions.ass`,
+      `${fit(orientation)},${assFilter(fontsDir)}`,
       "-af",
       audio,
       ...videoCodec,
@@ -162,6 +168,7 @@ export async function createCovers({
   outputDir,
   aiLabel = true,
   fontFamily,
+  fontsDir,
   ffmpegPath = "ffmpeg",
   ffprobePath = "ffprobe",
 }) {
@@ -187,7 +194,7 @@ export async function createCovers({
           "-i",
           source,
           "-vf",
-          `${fit(orientation)},setpts=PTS-STARTPTS,ass=filename=captions.ass`,
+          `${fit(orientation)},setpts=PTS-STARTPTS,${assFilter(fontsDir)}`,
           "-frames:v",
           "1",
           "-q:v",
@@ -215,6 +222,7 @@ export async function createTitleCard({
   orientation = "portrait",
   fade = false,
   fontFamily,
+  fontsDir,
   ffmpegPath = "ffmpeg",
 }) {
   const [w, h] = dimensions(orientation);
@@ -224,7 +232,7 @@ export async function createTitleCard({
       path.join(dir, "captions.ass"),
       titleAss(title, orientation, false, fontFamily, true),
     );
-    const filter = `ass=filename=captions.ass${fade ? ",fade=t=in:st=0:d=0.3,fade=t=out:st=1.7:d=0.3" : ""}`;
+    const filter = `${assFilter(fontsDir)}${fade ? ",fade=t=in:st=0:d=0.3,fade=t=out:st=1.7:d=0.3" : ""}`;
     await run(
       ffmpegPath,
       [

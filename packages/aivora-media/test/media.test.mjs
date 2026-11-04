@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, rm, writeFile, readFile, mkdir, symlink, stat } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, symlink, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -11,14 +11,11 @@ import {
   exportVideo,
   createCovers,
   createTitleCard,
-  archiveProject,
-  restoreProject,
 } from "../index.mjs";
 import { run } from "../process.mjs";
 
 const ffmpegPath = process.env.FFMPEG_PATH ?? "ffmpeg";
 const ffprobePath = process.env.FFPROBE_PATH ?? "ffprobe";
-const pythonPath = process.env.PYTHON_PATH ?? "python3";
 let mediaAvailable = true;
 try {
   await run(ffmpegPath, ["-version"]);
@@ -113,70 +110,6 @@ test("字幕标点优先、Unicode、注入和非法输入", () => {
   assert.throws(() => generateSubtitles([shot], { style: "invalid" }));
   assert.throws(() => generateSubtitles([shot], { fontFamily: "x\nStyle:" }));
   assert.equal(generateSubtitles([]).srt, "");
-});
-
-test("归档中文空格路径往返、拒绝覆盖和源符号链接", async (t) => {
-  const dir = await temporary(t);
-  const projectDir = path.join(dir, "原始 项目");
-  await mkdir(path.join(projectDir, "素材 中文"), { recursive: true });
-  await mkdir(path.join(projectDir, "成片"));
-  await writeFile(
-    path.join(projectDir, "project.json"),
-    JSON.stringify({ assets: ["素材 中文/对白 文件.txt"], render: "成片/电影.mp4" }),
-  );
-  await writeFile(path.join(projectDir, "素材 中文/对白 文件.txt"), "中文台词");
-  await writeFile(path.join(projectDir, "成片/电影.mp4"), new Uint8Array([0, 1, 2, 255]));
-  const archive = await archiveProject({
-    projectDir,
-    output: path.join(dir, "备份 项目.zip"),
-    pythonPath,
-  });
-  const destination = await restoreProject({
-    archive,
-    destination: path.join(dir, "恢复 项目"),
-    pythonPath,
-  });
-  for (const name of ["project.json", "素材 中文/对白 文件.txt", "成片/电影.mp4"])
-    assert.deepEqual(
-      await readFile(path.join(destination, name)),
-      await readFile(path.join(projectDir, name)),
-    );
-  await assert.rejects(restoreProject({ archive, destination, pythonPath }));
-  await assert.rejects(archiveProject({ projectDir, output: archive, pythonPath }));
-  await assert.rejects(
-    archiveProject({ projectDir, output: path.join(projectDir, "nested.zip"), pythonPath }),
-  );
-  await symlink(path.join(dir, "outside"), path.join(projectDir, "link"));
-  await assert.rejects(
-    archiveProject({ projectDir, output: path.join(dir, "link.zip"), pythonPath }),
-  );
-});
-
-test("恶意 ZIP：穿越、绝对路径、Windows 路径、符号链接、重复与损坏", async (t) => {
-  const dir = await temporary(t);
-  for (const [i, name] of [
-    "../逃逸.txt",
-    "/tmp/逃逸.txt",
-    "C:/escape.txt",
-    "a\\..\\escape",
-    "a/../../escape",
-    "a//b",
-    "a/./b",
-    "link",
-    "duplicate",
-    "bad-json",
-  ].entries()) {
-    const archive = path.join(dir, `${i}.zip`);
-    await run(pythonPath, [
-      "-c",
-      `import zipfile,sys,json\np,n=sys.argv[1:]\nwith zipfile.ZipFile(p,'w') as z:\n z.writestr('project.json','{' if n=='bad-json' else '{}')\n if n=='link':\n  e=zipfile.ZipInfo(n);e.create_system=3;e.external_attr=0o120777<<16;z.writestr(e,'/tmp')\n elif n=='duplicate':\n  z.writestr('A.txt','a');z.writestr('a.txt','b')\n elif n!='bad-json': z.writestr(n,'bad')`,
-      archive,
-      name,
-    ]);
-    const destination = path.join(dir, `恢复-${i}`);
-    await assert.rejects(restoreProject({ archive, destination, pythonPath }));
-    await assert.rejects(stat(destination), { code: "ENOENT" });
-  }
 });
 
 for (const orientation of ["portrait", "landscape"]) {
@@ -425,21 +358,5 @@ test("中文空格工具路径、静音轨与高峰值音频", media, async (t) 
       assert.ok(Number(m.input_tp) <= -1);
     }
     t.diagnostic(`静音=${silence}：${m.input_i} LUFS / ${m.input_tp} dBTP`);
-  }
-});
-
-test("ZIP CRC 损坏与解压大小上限拒绝且不留下目标", async (t) => {
-  const dir = await temporary(t);
-  for (const kind of ["crc", "size"]) {
-    const archive = path.join(dir, `${kind}.zip`);
-    await run(pythonPath, [
-      "-c",
-      `import zipfile,sys,struct\np,kind=sys.argv[1:]\nwith zipfile.ZipFile(p,'w') as z:\n z.writestr('project.json','{}');z.writestr('a','a');z.writestr('b','b')\nb=bytearray(open(p,'rb').read())\nif kind=='crc': b[30+len('project.json')]=65\nelse:\n i=0\n while True:\n  i=b.find(b'PK\\x01\\x02',i)\n  if i<0: break\n  struct.pack_into('<I',b,i+24,0xffffffff);i+=46\nopen(p,'wb').write(b)`,
-      archive,
-      kind,
-    ]);
-    const destination = path.join(dir, `恢复 ${kind}`);
-    await assert.rejects(restoreProject({ archive, destination, pythonPath }));
-    await assert.rejects(stat(destination), { code: "ENOENT" });
   }
 });

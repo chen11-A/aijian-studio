@@ -6,8 +6,8 @@
 
 - Node.js 24；仓库使用 pnpm 11。
 - 媒体功能需要 FFmpeg（libx264、AAC、libass、loudnorm）和 ffprobe。
-- 系统需安装中文字体，默认 `Noto Sans CJK SC`；字幕、封面和字卡可通过 `fontFamily` 指定字体族名称。
-- 归档需要 Python 3.10+ 标准库；可以传入 `pythonPath`，默认 `python3`。不依赖 zip/unzip 命令。
+- 默认字体名为 `Noto Sans CJK SC`。`exportVideo`、`createCovers`、`createTitleCard` 均接受 `fontsDir`：传入软件自带 `fonts/NotoSansCJKsc-Regular.otf` 所在目录，即使系统未安装该字体也可渲染。省略时由 libass 使用系统字体。生成字幕、封面和字卡可用 `fontFamily` 指定其他字体族。
+- 归档完全使用 Node 内置 fs、stream、zlib 模块；无需 Python、zip/unzip 命令或第三方依赖，旧 `pythonPath` 参数已移除。
 - 所有媒体 API 接受 `ffmpegPath`；需要探测输入的 API 同时接受 `ffprobePath`。默认从 PATH 查找，支持绝对路径或相对当前调用目录的路径，包括中文、空格。以参数数组执行，不使用 shell。
 
 ## 使用
@@ -26,6 +26,7 @@ import {
 const tools = {
   ffmpegPath: "/opt/视频 工具/ffmpeg",
   ffprobePath: "/opt/视频 工具/ffprobe",
+  fontsDir: "/opt/我的软件/fonts", // Windows 例如 String.raw`C:\Users\张 三\fonts`
 };
 const { srt, ass } = generateSubtitles(
   [{ shotId: "shot-1", start: 0, end: 3.5, speaker: "旁白", text: "你好，欢迎来到我们的故事。" }],
@@ -71,13 +72,17 @@ await restoreProject({ archive: "项目 备份.zip", destination: "恢复 项目
 - `createTitleCard` 输出 2 秒、30fps、黑底居中标题 MP4，含静音 AAC。`fade` 默认 false，开启后前后各 0.3 秒淡入淡出。标题和封面最多六行，过长时报错。
 - 所有媒体输出拒绝覆盖已有文件，失败时清理私有临时目录。封面两张依次发布；第二张失败时第一张可能已存在，调用方需自行处理重试。外部工具每次调用超时 10 分钟。
 
+## 字体目录与滤镜路径
+
+三个带字的媒体函数将 `fontsDir` 解析为相对调用目录的绝对路径，并加入 ASS 滤镜的 `fontsdir` 参数。公开的 `escapeFilterPath(value)` 同时处理 FFmpeg AVOption 和 filtergraph 两层转义，保留 Windows 盘符、反斜杠和 UNC 路径，以及空格、中文、单引号、冒号、逗号、分号、方括号。结果用于 `execFile` 的 `-vf` 参数，不是 shell 字符串，不应再手动加 shell 引号。路径必须是真实可读的字体目录；字体文件不需要出现在可执行文件 PATH 中。模块不携带字体二进制。
+
 ## 项目归档与安全
 
-`archiveProject` 将项目目录内的 `project.json`、素材、成片以及其他普通文件一起压缩，保留相对路径和空目录。`project.json` 必须是 JSON 对象；不限定上层应用的项目 schema。项目中引用的素材和成片应放在该目录内并使用相对路径；不会追踪外部绝对路径、下载远程素材或改写项目 JSON。
+`archiveProject` 将项目目录内的 `project.json`、素材、成片以及其他普通文件打成 ZIP64 STORE 包（不压缩），保留相对路径和空目录。`project.json` 必须是 JSON 对象；不限定上层应用的项目 schema。项目中引用的素材和成片应放在该目录内并使用相对路径；不会追踪外部绝对路径、下载远程素材或改写项目 JSON。
 
 ZIP 输出必须位于项目目录外，且不得存在。`restoreProject` 要求目标目录不存在，先在同级私有目录验证和解压，再发布内容；普通异常会清理临时目录。恢复不会覆盖现有项目；发布阶段不是跨文件的事务，进程被强制终止可能留下部分目标目录。
 
-拒绝绝对路径、`..` / `.` 路径段、反斜杠、冒号、空路径段、大小写折叠后的重复路径、符号链接、特殊文件、加密 ZIP 和非 STORE/DEFLATE 压缩。读取 ZIP 时校验 CRC，限制最多 10,000 个条目、8 GiB 解压内容，并在解压过程中再次计数。源码目录也拒绝符号链接和特殊文件。归档/恢复期间项目及输出父目录应由调用方控制，避免其他进程并发改写；不将返回项目中的脚本或资源自动执行。
+拒绝绝对路径、`..` / `.` 路径段、反斜杠、冒号、空路径段、大小写折叠后的重复路径、符号链接、特殊文件、加密 ZIP 和非 STORE/DEFLATE 压缩。读取 ZIP 时校验 CRC，限制最多 10,000 个条目、8 GiB 解压内容，并在解压过程中再次计数。写入采用 ZIP64，恢复兼容普通 ZIP 与 ZIP64 的 STORE/DEFLATE；不支持分卷、加密、旧 CP437 非 ASCII 文件名或自定义 ZIP64 扩展尾记录。目录索引限 16 MiB，project.json 限 16 MiB。逐文件使用 256 KiB 流及背压，CRC 增量计算，DEFLATE 使用流式解压并严格核对声明大小；不将整个素材或 ZIP 读入内存。STORE 对已压缩视频避免额外压缩开销，代价是 ZIP 大小接近源文件总量，打包发布与恢复临时目录需要额外磁盘空间。还拒绝 Windows 保留设备名、末尾空格/点、ADS、Unicode 规范化冲突、文件/目录冲突、重叠文件范围及本地头/中央目录不一致。源码目录也拒绝符号链接和特殊文件。归档/恢复期间项目及输出父目录应由调用方控制，避免其他进程并发改写；不将返回项目中的脚本或资源自动执行。
 
 ## 验证
 
@@ -91,4 +96,4 @@ FFMPEG_PATH=/missing/ffmpeg FFPROBE_PATH=/missing/ffprobe \
   node --test packages/aivora-media/test/*.test.mjs
 ```
 
-测试支持 `FFMPEG_PATH`、`FFPROBE_PATH`、`PYTHON_PATH`。FFmpeg 或 ffprobe 不存在时，仅跳过真实媒体测试，字幕与归档测试继续运行且成功退出码为 0；工具存在但执行失败不会伪装成跳过。真实媒体素材全部使用本地 lavfi 合成，无网络下载、无真实用户素材。详见 [VALIDATION.md](./VALIDATION.md)。
+测试支持 `FFMPEG_PATH`、`FFPROBE_PATH`、`AIVORA_TEST_FONT`（测试字体文件完整路径）。字体隔离测试使用 Linux Fontconfig；默认寻找 `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`，可用 `AIVORA_TEST_FONT` 指定软件的 OTF。Windows 路径转义单测不依赖操作系统，不能代替 Windows 实机验证。大文件测试每次实际写入 1,152 MiB 非稀疏素材，子进程限制 V8 堆 128 MiB，断言 RSS 小于 256 MiB，并逐文件比较 SHA-256；建议至少预留 5 GiB 临时磁盘空间。FFmpeg 或 ffprobe 不存在时，仅跳过真实媒体测试，字幕与归档测试继续运行且成功退出码为 0；工具存在但执行失败不会伪装成跳过。真实媒体素材全部使用本地 lavfi 合成，无网络下载、无真实用户素材。详见 [VALIDATION.md](./VALIDATION.md)。
