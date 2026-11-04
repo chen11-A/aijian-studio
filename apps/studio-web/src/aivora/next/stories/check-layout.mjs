@@ -5,7 +5,8 @@
  * novelProject.ts): 首页, 剧本, 角色与场景, 分镜, 单镜, 剪辑, the export dialog and the task
  * center. At each window size it checks that the page does not scroll, nothing sits outside
  * the window, nothing is cut off by a box that does not scroll (one-line text with an ellipsis
- * is fine), no two pieces of text or controls overlap (text drawn on a picture frame, .nx-frame
+ * is fine, and so is text cut to a few lines whose tooltip holds all of it), no two pieces of
+ * text or controls overlap (text drawn on a picture frame, .nx-frame
  * or [data-layer], is meant to), no text is smaller than 12px, every button has a name, and
  * the console stays clean.
  *
@@ -118,6 +119,10 @@ function inspect(rootSelector) {
     }
     if (el.clientWidth === 0 && el.clientHeight === 0) continue;
     if (["INPUT", "SELECT", "TEXTAREA", "OPTION", "IMG"].includes(el.tagName)) continue;
+    // Text cut to a few lines with an ellipsis is meant to be, when hovering shows all of it.
+    const clamp = style.webkitLineClamp;
+    const title = el.getAttribute("title")?.trim();
+    if (clamp && clamp !== "none" && title && title === el.textContent.trim()) continue;
     const slackX = style.overflowX === "visible" ? 3 : 1;
     const slackY = style.overflowY === "visible" ? 3 : 1;
     if (el.scrollWidth > el.clientWidth + slackX && !/(auto|scroll)/.test(style.overflowX)) {
