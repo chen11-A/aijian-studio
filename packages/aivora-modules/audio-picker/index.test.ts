@@ -26,7 +26,7 @@ describe('配乐和音效挑选器', () => {
 import { fillDuration } from './index.js';
 import { concepts } from './synonyms.js';
 it('所有同义词和具体动作可识别',()=>{
- expect(concepts('钢管拖地、铁棍、拳头、刀划过手臂、摔倒、医院病房、监护仪、雨夜、大风、跑步、手机振动')).toEqual(expect.arrayContaining(['钢管拖地','金属击打','拳脚','刀挥砍','刀划伤','人体倒地','医院底噪','心电监护仪','雨声','风声','脚步','手机震动']));
+ expect(concepts('钢管拖地、铁棍、拳头、刀划过手臂、摔倒、医院病房、监护仪、雨夜、大风、跑步、手机振动')).toEqual(expect.arrayContaining(['钢管拖地','钢管击打','拳脚','刀挥砍','刀划伤','人体倒地','医院底噪','心电监护仪','雨声','风声','脚步','手机震动']));
 });
 it('短环境音循环铺满且描述设备无需动作节点',()=>{
  const s:Scene={emotions:[],description:'雨夜手机震动',duration:12,shots:[{duration:12,hasDialogue:false,actions:[]}]};
@@ -136,9 +136,8 @@ it('钢管砸下优先真实管拟音，不能被同场景高分金属罐抢占'
  expect(out.shots[0].effects[0].assetId).toBe('z-pipe');
  expect(out.warnings.some(w=>w.includes('金属管击打素材'))).toBe(false);
  const fallback=pickAudio(s,[can]);
- expect(fallback.shots[0].effects[0].assetId).toBe('a-can');
- expect(fallback.shots[0].effects[0].reason).toContain('替代');
- expect(fallback.warnings.some(w=>w.includes('一般金属击打拟音替代'))).toBe(true);
+ expect(fallback.shots[0].effects).toEqual([]);
+ expect(fallback.warnings.some(w=>w.includes('缺少“钢管砸下”对应音效'))).toBe(true);
 });
 it('小巷环境同义词选街道循环铺满，管拖地仍只匹配拖拽', () => {
  const s:Scene={emotions:[],description:'小巷打斗',duration:8,shots:[{duration:8,hasDialogue:false,actions:[{time:1,label:'钢管拖地'},{time:2,label:'铁管砸下'}]}]};
@@ -147,4 +146,54 @@ it('小巷环境同义词选街道循环铺满，管拖地仍只匹配拖拽', (
  expect(out.shots[0].ambience[0].segments.map(s=>[s.time,s.end])).toEqual([[0,3],[3,6],[6,8]]);
  expect(out.shots[0].effects.map(e=>e.assetId)).toEqual(['drag','pipe']);
  expect(out.warnings).toEqual([]);
+});
+
+it.each(['钢管', '铁棍', '棍子'])('具体棍管动作%s缺素材时不拿高分金属罐顶替', label => {
+ const s:Scene={emotions:[],description:'打斗',duration:5,shots:[{duration:5,hasDialogue:false,actions:[{time:1,label}]}]};
+ const can=asset('can','sfx',['金属击打',label],'动作');
+ const out=pickAudio(s,[can]);
+ expect(out.shots[0].effects).toEqual([]);
+ expect(out.warnings).toEqual([`第1镜头第1秒缺少“${label}”对应音效`]);
+});
+it('同一环境跨三个镜头沿源时间连续，跨循环点准确拆段并保留台词压低', () => {
+ const s:Scene={emotions:[],description:'雨声',duration:13,shots:[{duration:3,hasDialogue:false,actions:[]},{duration:4,hasDialogue:true,actions:[]},{duration:6,hasDialogue:false,actions:[]}]};
+ const out=pickAudio(s,[{...asset('rain','sfx',['雨声'],'环境'),duration:5}]);
+ expect(out.ambience).toHaveLength(1);
+ expect(out.ambience[0].segments.map(x=>[x.time,x.end,x.sourceStart])).toEqual([[0,5,0],[5,10,0],[10,13,0]]);
+ expect(out.ambience[0].gainAutomation).toEqual([{start:0,end:3,gainDb:-6},{start:3,end:7,gainDb:-12},{start:7,end:13,gainDb:-6}]);
+ expect(out.shots.map(shot=>shot.ambience[0].segments.map(x=>[x.time,x.end,x.sourceStart]))).toEqual([[[0,3,0]],[[0,2,3],[2,4,0]],[[0,3,2],[3,6,0]]]);
+});
+it('非循环环境在跨镜头交叉淡化中保留原始源偏移与包络锚点', () => {
+ const s:Scene={emotions:[],description:'室内',duration:10,shots:[{duration:4.75,hasDialogue:false,actions:[]},{duration:5.25,hasDialogue:false,actions:[]}]};
+ const out=pickAudio(s,[{...asset('room','sfx',['室内'],'环境'),duration:5,loop:false}]);
+ const first=out.ambience[0];
+ expect(first.segments.map(x=>[x.time,x.end])).toEqual([[0,5],[4.5,9.5],[9,10]]);
+ const continuation=out.shots[1].ambience[0].segments;
+ expect(continuation[0]).toMatchObject({time:0,end:.25,sourceStart:4.75,fadeOut:.5,fadeOutStart:-.25});
+ expect(continuation[1]).toMatchObject({time:0,end:4.75,sourceStart:.25,fadeIn:.5,fadeInStart:-.25});
+ expect(out.shots[0].ambience[0].segments[1]).toMatchObject({time:4.5,end:4.75,sourceStart:0,fadeInStart:4.5});
+});
+it('环境更换或中断才创建新轨道，其他相邻镜头不会重新开始', () => {
+ const s:Scene={emotions:[],description:'',duration:12,shots:['雨声','雨声','风声','无匹配','雨声','雨声'].map(description=>({duration:2,hasDialogue:false,actions:[],description}))};
+ const out=pickAudio(s,[asset('rain','sfx',['雨声'],'环境'),asset('wind','sfx',['风声'],'环境')]);
+ expect(out.ambience.map(t=>[t.assetId,t.time,t.end])).toEqual([['rain',0,4],['wind',4,6],['rain',8,12]]);
+ expect(out.shots[1].ambience[0].segments[0].sourceStart).toBe(2);
+ expect(out.shots[3].ambience).toEqual([]);
+ expect(out.shots[4].ambience[0].segments[0].sourceStart).toBe(0);
+});
+
+it('开伞收伞匹配精确方向，不能用反向动作或笼统开合替代', () => {
+ const s: Scene = { emotions: [], description: '夜街撑伞', duration: 10, shots: [{ duration: 10, hasDialogue: false, actions: [{ time: 1, label: '撑伞' }, { time: 7, label: '合上雨伞' }] }] };
+ const lib = [asset('open', 'sfx', ['开伞'], '道具'), asset('close', 'sfx', ['收伞'], '道具'), asset('unknown', 'sfx', ['雨伞开合'], '道具')];
+ expect(pickAudio(s, lib).shots[0].effects.map(e => e.assetId)).toEqual(['open', 'close']);
+ expect(pickAudio(s, lib.slice(2)).shots[0].effects).toEqual([]);
+});
+
+it.each([-12, -20, 3, NaN, Infinity, undefined])('环境建议增益 %s 只能降低默认值，非法值忽略', suggestedGainDb => {
+ const s: Scene = { emotions: [], description: '医院走廊', duration: 10, shots: [{ duration: 5, hasDialogue: false, actions: [] }, { duration: 5, hasDialogue: true, actions: [] }] };
+ const output = pickAudio(s, [{ ...asset('hospital', 'sfx', ['医院底噪'], '环境'), suggestedGainDb }]);
+ const expected = Number.isFinite(suggestedGainDb) ? [Math.min(-6, suggestedGainDb!), Math.min(-12, suggestedGainDb!)] : [-6, -12];
+ expect(output.shots.map(s => s.ambience[0].gainDb)).toEqual(expected);
+ expect(output.ambience[0].gainAutomation.map(g => g.gainDb)).toEqual(expected);
+ expect(output.ambience[0].gainDb).toBe(expected[0]);
 });

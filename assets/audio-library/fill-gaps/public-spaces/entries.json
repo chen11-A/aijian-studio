@@ -18,7 +18,7 @@
     "loopable": true,
     "loudness": -20.68,
     "truePeak": -1.72,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -28,13 +28,15 @@
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
     "sha256": "f011bc56aa266723cb2de1d43e7e0a4ccfde7a5bd0c2d24ba25775f9da1e6b7f",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内0至18秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -1.7285164114880012,
+    "samplePeak": -1.728516,
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "loopReport": "remaining/crowd-loop/crowd-room-loop-1.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-low-2",
@@ -55,7 +57,7 @@
     "loopable": true,
     "loudness": -20.33,
     "truePeak": -2.44,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -65,13 +67,15 @@
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
     "sha256": "710a03b929d869809cba220d2a0d9b7e058058dcd9be12023697272118cf410e",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内19至37秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -2.452953390823019,
+    "samplePeak": -2.452953,
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "loopReport": "remaining/crowd-loop/crowd-room-loop-2.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-low-3",
@@ -87,12 +91,12 @@
       "人群低语"
     ],
     "scene": "适合会议厅中众人低声交流的镜头。",
-    "duration": 17.0,
+    "duration": 17.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -21.75,
-    "truePeak": -2.13,
-    "targetLufs": -20,
+    "loudness": -18.18,
+    "truePeak": -2.84,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -100,15 +104,17 @@
     "author": "jentlemen",
     "licensePath": "remaining/crowd-loop/licenses/crowd.md",
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
-    "sha256": "573eaa04b720887beaa575d66e5ffaabefb8d082fc47845ff1c869d7fccae09b",
+    "sha256": "1c940aa737d2a8fac066f82006b78d3fbf97127128129947b0add65a8be34123",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内38至56秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -2.1432021156236534,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
-    "loopReport": "remaining/crowd-loop/crowd-room-loop-3.json",
+    "samplePeak": -2.844869,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "loopReport": "normalization/loops/sfx-crowd-low-3.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-steady",
@@ -128,7 +134,7 @@
     "loopable": false,
     "loudness": -20.1,
     "truePeak": -7.66,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -139,7 +145,9 @@
     "sha256": "3dedb4131873524ecf6280c407001587204f1dcf8b4e511839970979bcbe3806",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片0.38秒起截取10.9秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -7.662266,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-speed-up",
@@ -159,7 +167,7 @@
     "loopable": false,
     "loudness": -19.95,
     "truePeak": -10.17,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -170,7 +178,9 @@
     "sha256": "24ff3cabd2309ee990c0f6ff88d65cac543be56ff75bc9ae43c63546504ace6d",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片11.1秒起截取4.7秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -10.185965,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-continuous",
@@ -190,7 +200,7 @@
     "loopable": false,
     "loudness": -19.95,
     "truePeak": -15.04,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -201,6 +211,8 @@
     "sha256": "8425a3ad1ac890581bdcef5d690c7cd9a7a6e92ff7f85741adfa51e03f739edc",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片18秒起截取8秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -15.044401,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   }
 ]

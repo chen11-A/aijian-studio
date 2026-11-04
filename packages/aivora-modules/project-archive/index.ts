@@ -60,7 +60,7 @@ export async function packProject(folder: string, output: string, options: Archi
     const handle = await fs.open(dest, 'wx'); owned = true;
     const writing = pipeline(zip.outputStream, handle.createWriteStream());
     for (const file of manifest.files) {
-      zip.addReadStreamLazy(file.path, { size: file.size, compress: !/\.(mp4|png|ogg)$/i.test(file.path) }, async callback => {
+      zip.addReadStreamLazy(file.path, { size: file.size, compress: !/\.(mp4|png|ogg|jpg|webp|mov|m4a|mp3)$/i.test(file.path) }, async callback => {
         try {
         const source = await fs.open(path.join(root, file.path), constants.O_RDONLY | constants.O_NOFOLLOW);
         const input = source.createReadStream({ highWaterMark: 64 * 1024 });

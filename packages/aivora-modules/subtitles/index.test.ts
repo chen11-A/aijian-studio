@@ -15,6 +15,21 @@ describe('字幕', () => {
     for (const { segment } of new Intl.Segmenter('zh-CN', { granularity: 'word' }).segment(text))
       expect(lines.some(l => l.includes(segment))).toBe(true);
   });
+  it.each(['每一天', '每一次', '每个月', '每一个星期', '每两小时', '每30分钟'])('竖屏保护数量时间短语%s并保留标点', word => {
+    const text = '我们珍惜与你相伴的' + word + '，一起努力。';
+    const lines = wrapText(text, true);
+    expect(lines.join('')).toBe(text);
+    expect(lines.some(part => part.includes(word))).toBe(true);
+    expect(lines.every(part => Array.from(part).length <= 12 && !/^[，。]/.test(part))).toBe(true);
+  });
+  it('保护词的位置按Unicode字符计算，超长数量词仍可合法拆分', () => {
+    const text = '😀我们珍惜与你相伴的每一天。';
+    expect(wrapText(text, true).some(part => part.includes('每一天'))).toBe(true);
+    const long = '每12345678901234567890天';
+    const lines = wrapText(long, true);
+    expect(lines.join('')).toBe(long);
+    expect(lines.every(part => Array.from(part).length <= 12)).toBe(true);
+  });
   it('处理手动换行、空白、英文单词和空输入', () => {
     expect(wrapText(' hello world\r\n\r你好 ')).toEqual(['hello world', '你好']);
     expect(wrapText('')).toEqual([]);

@@ -2,13 +2,16 @@ import { concepts } from './synonyms.js';
 export interface AudioAsset {
   id: string; path: string; type: 'sfx' | 'music'; category: string; name: string;
   tags: string[]; scene: string; duration: number; loop: boolean; loudness: number | null;
-  source: string; license: string; author?: string; loopable?: boolean; loudnessNote?: string;
+  source: string; license: string; author?: string; loopable?: boolean; loudnessNote?: string; suggestedGainDb?: number;
 }
 export interface Shot { duration: number; hasDialogue: boolean; actions: { time: number; label?: string }[]; description?: string }
 export interface Scene { emotions: string[]; description: string; duration: number; shots: Shot[]; previousMusicId?: string }
-export interface Segment { assetId: string; path: string; time: number; end: number; sourceStart: number; fadeIn: number; fadeOut: number }
+export interface Segment { assetId: string; path: string; time: number; end: number; sourceStart: number; fadeIn: number; fadeOut: number; fadeInStart?: number; fadeOutStart?: number }
 export interface Cue { assetId: string; path: string; time: number; end: number; gainDb: number; reason: string; loop: boolean; segments: Segment[] }
+export interface SceneAmbience extends Cue { gainAutomation: { start: number; end: number; gainDb: number }[] }
 export interface Selection {
+  /** 全场环境轨道：渲染时使用此计划一次，不能再叠加镜头环境视图。 */
+  ambience: SceneAmbience[];
   music: null | { assetId: string; path: string; start: number; end: number; sourceStart: number; fadeIn: number; fadeOut: number; loop: boolean; segments: Segment[]; ducking: { start: number; end: number; gainDb: number }[] };
   shots: { index: number; ambience: Cue[]; effects: Cue[] }[];
   reason: string; warnings: string[];
@@ -47,7 +50,7 @@ function monitorState(text: string): 'steady' | 'accelerating' | 'continuous' | 
 function effectFor(assets: AudioAsset[], label: string, context: string): AudioAsset | undefined {
   const keys = concepts(label);
   // 具体动作优先：拖地不能选击打，划伤可退到明确刀挥砍，但不选择厨刀刮擦。
-  const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('钢管击打') ? ['钢管击打', '金属管击打', '金属击打'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
+  const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('钢管击打') ? ['钢管击打', '金属管击打'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
   if (!preferred.length) return choose(assets, label)[0];
   let matches = assets.filter(a => preferred.some(key => a.tags.includes(key) || a.category === key));
   if (keys.includes('心电监护仪')) {
@@ -76,6 +79,38 @@ function cue(asset: AudioAsset, time: number, end: number, gainDb: number, conti
   const segments = fillDuration([asset], length).map(s => ({ ...s, time: s.time + time, end: s.end + time }));
   return { assetId: asset.id, path: asset.path, time, end: time + length, gainDb, reason, loop: segments.length > 1, segments };
 }
+/** 将相邻镜头的同一环境素材合并成全场轨道，然后裁出保留源偏移与包络的镜头视图。 */
+function continuousAmbience(scene: Scene, shots: Selection['shots'], assets: AudioAsset[]): SceneAmbience[] {
+  const offsets = [0];
+  for (const shot of scene.shots) offsets.push(offsets.at(-1)! + shot.duration);
+  const tracks: SceneAmbience[] = [];
+  let first = 0;
+  while (first < shots.length) {
+    const selected = shots[first].ambience[0];
+    if (!selected) { first++; continue; }
+    let last = first + 1;
+    while (last < shots.length && shots[last].ambience[0]?.assetId === selected.assetId) last++;
+    const asset = assets.find(a => a.id === selected.assetId)!;
+    const master = cue(asset, offsets[first], offsets[last], selected.gainDb, true, '同一环境整场连续播放，切镜头不重启');
+    const gainAutomation = [];
+    for (let index = first; index < last; index++) {
+      const shotStart = offsets[index], shotEnd = offsets[index + 1];
+      gainAutomation.push({ start: shotStart, end: shotEnd, gainDb: shots[index].ambience[0].gainDb });
+      const segments = master.segments.filter(s => s.end > shotStart && s.time < shotEnd).map(s => {
+        const from = Math.max(shotStart, s.time);
+        return { ...s, time: from - shotStart, end: Math.min(shotEnd, s.end) - shotStart,
+          sourceStart: s.sourceStart + from - s.time,
+          ...(s.fadeIn > 0 ? { fadeInStart: s.time - shotStart } : {}),
+          ...(s.fadeOut > 0 ? { fadeOutStart: s.end - s.fadeOut - shotStart } : {}),
+        };
+      });
+      shots[index].ambience[0] = { ...shots[index].ambience[0], segments, loop: master.loop, reason: master.reason };
+    }
+    tracks.push({ ...master, gainAutomation });
+    first = last;
+  }
+  return tracks;
+}
 /** 场景配乐时间相对整场；镜头内音效时间相对该镜头。缺素材明确返回警告。 */
 export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
   if (!Number.isFinite(scene.duration) || scene.duration <= 0 || scene.shots.length === 0) throw new Error('场景时长和镜头不能为空');
@@ -103,7 +138,9 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
     const beds = choose(backgrounds, query);
     const hospital = concepts(context).includes('医院底噪');
     const bed = hospital ? beds.find(a => a.tags.includes('医院底噪')) : beds.find(a => a.loop) ?? beds[0];
-    const ambience: Cue[] = bed ? [cue(bed, 0, shot.duration, shot.hasDialogue ? -12 : -6, true, '按环境关键词选取并连续铺满镜头')] : [];
+    const defaultBedGain = shot.hasDialogue ? -12 : -6;
+    const bedGain = bed && Number.isFinite(bed.suggestedGainDb) ? Math.min(defaultBedGain, bed.suggestedGainDb!) : defaultBedGain;
+    const ambience: Cue[] = bed ? [cue(bed, 0, shot.duration, bedGain, true, '按环境关键词选取并连续铺满镜头')] : [];
     if (!bed && /雨|医院|病房|街道|小巷/.test(context)) warnings.push(`第${index + 1}镜头缺少匹配的环境音，请补充真实素材`);
     const effects: Cue[] = [];
     const effectsAssets = assets.filter(a => a.type === 'sfx' && a.category !== '环境');
@@ -111,12 +148,7 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
       if (action.time >= shot.duration) continue;
       const label = action.label || `${text} ${shot.description ?? ''}`;
       const effect = effectFor(effectsAssets, label, context);
-      if (effect) {
-        const pipeFallback = concepts(label).includes('钢管击打') && !concepts(label).includes('钢管拖地') && !['钢管击打', '金属管击打'].some(key => effect.tags.includes(key) || effect.category === key);
-        const reason = pipeFallback ? '用一般金属击打拟音替代金属管动作，请试听确认' : '音效对准动作节点';
-        effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, reason));
-        if (pipeFallback) warnings.push(`第${index + 1}镜头第${action.time}秒缺少金属管击打素材，暂用一般金属击打拟音替代`);
-      }
+      if (effect) effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, '音效对准动作节点'));
       else warnings.push(`第${index + 1}镜头第${action.time}秒缺少“${label}”对应音效`);
     }
     // 描述中的设备声音即使没有动作节点也会安排；已经明确安排的同类动作不重复。
@@ -127,5 +159,6 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
     }
     return { index: index + 1, ambience, effects };
   });
-  return { music: track ? { assetId: track.id, path: track.path, start: 0, end: scene.duration, sourceStart: 0, fadeIn: Math.min(1, scene.duration / 4), fadeOut: Math.min(1.5, scene.duration / 4), loop: musicSegments.some((s, i) => musicSegments.slice(0, i).some(p => p.assetId === s.assetId)), segments: musicSegments, ducking } : null, shots, warnings, reason: track ? '按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝' : silent ? '安静情绪保留留白' : '没有合适且不与上一场重复的配乐' };
+  const ambience = continuousAmbience(scene, shots, assets);
+  return { ambience, music: track ? { assetId: track.id, path: track.path, start: 0, end: scene.duration, sourceStart: 0, fadeIn: Math.min(1, scene.duration / 4), fadeOut: Math.min(1.5, scene.duration / 4), loop: musicSegments.some((s, i) => musicSegments.slice(0, i).some(p => p.assetId === s.assetId)), segments: musicSegments, ducking } : null, shots, warnings, reason: track ? '按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝' : silent ? '安静情绪保留留白' : '没有合适且不与上一场重复的配乐' };
 }

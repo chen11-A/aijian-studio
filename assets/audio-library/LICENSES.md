@@ -29,7 +29,7 @@ CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 
 ## 本轮新增
 
-- 自制心跳、电话铃、低频冲击各三条：自制，CC0；[生成脚本原始页面](https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py)，完整声明见 generated/LICENSES.md。
+- 自制心跳、电话铃、低频冲击各三条：自制，CC0；[生成脚本原始页面](https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py)，完整声明见 generated/LICENSES.md。
 - Wyzowl 手机震动：[原作者固定提交许可页面](https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md)，原作者声明全部是代码合成且 CC0。三条成品源自两条原始音效，加工重复方式见 manifest.processing。
 - Kenney 汽车、摩托引擎：[原作者固定提交许可页面](https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/README.md)。代码 MIT 与音效 CC0 分开，不以代码授权替代素材授权。
 - Dechode 引擎：[原作者固定提交许可页面](https://github.com/Dechode/Godot-Simple-Vehicle/blob/f448b000f896053319938e4f67ddd230623da853/README.md)，明确 enginesound 生成的音频本身 CC0。

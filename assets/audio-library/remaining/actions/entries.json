@@ -28,7 +28,7 @@
     "sampleRate": 48000,
     "truePeak": -2.22,
     "samplePeak": -2.308351,
-    "peakLimited": true,
+    "peakLimited": false,
     "sourceSha256": "04f54909f99dbdc53f5d3d23422f1e9c7b25e3a83d86d3afa0e6ed5890b6aa61",
     "sha256": "08cb903efa8cac1fed4200da36602ae50a55290053c865fd25ebbe961ba65d7c",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
@@ -40,7 +40,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-impact-2",
@@ -83,7 +85,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-impact-3",
@@ -99,10 +103,10 @@
       "拟音"
     ],
     "scene": "适合金属管遭受撞击的动作节点；原作为子弹击中管道的拟音。",
-    "duration": 1.8,
+    "duration": 1.802667,
     "loop": false,
     "loopable": false,
-    "loudness": -22.7,
+    "loudness": -19.43,
     "targetLufs": -18,
     "source": "https://freesound.org/people/martian/sounds/182262/",
     "originalSource": "https://freesound.org/people/martian/sounds/182262/",
@@ -112,11 +116,11 @@
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "truePeak": -2.56,
-    "samplePeak": -3.041537,
-    "peakLimited": true,
+    "truePeak": -3.12,
+    "samplePeak": -3.432207,
+    "peakLimited": false,
     "sourceSha256": "04f54909f99dbdc53f5d3d23422f1e9c7b25e3a83d86d3afa0e6ed5890b6aa61",
-    "sha256": "8d4186cc45992a456fff8c62adf71771dd921cc9e848ee709369b8e67154113d",
+    "sha256": "eb670f627d23c36cbd8cc0aa2f4f7f21d648e5874cbad0dcb13c5935b6ce8f00",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
     "sourceExcerpt": {
       "start": 9.34,
@@ -126,7 +130,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-1",
@@ -169,7 +175,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-2",
@@ -212,7 +220,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-3",
@@ -255,6 +265,8 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   }
 ]

@@ -16,6 +16,35 @@
       ]
     },
     "output": {
+      "ambience": [
+        {
+          "assetId": "gap-weather-1019",
+          "path": "fill-gaps/weather/gap-weather-1019.ogg",
+          "time": 0,
+          "end": 45,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": false,
+          "segments": [
+            {
+              "assetId": "gap-weather-1019",
+              "path": "fill-gaps/weather/gap-weather-1019.ogg",
+              "time": 0,
+              "end": 45,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 45,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
       "music": {
         "assetId": "r2-loop-music-9935a373414d",
         "path": "round2-loops/r2-loop-music-9935a373414d.ogg",
@@ -57,7 +86,7 @@
               "time": 0,
               "end": 45,
               "gainDb": -6,
-              "reason": "按环境关键词选取并连续铺满镜头",
+              "reason": "同一环境整场连续播放，切镜头不重启",
               "loop": false,
               "segments": [
                 {
@@ -134,6 +163,35 @@
       ]
     },
     "output": {
+      "ambience": [
+        {
+          "assetId": "sfx-night-street-puebla-1",
+          "path": "remaining/ambience/night-street-puebla-1.ogg",
+          "time": 0,
+          "end": 8,
+          "gainDb": -6,
+          "reason": "同一环境整场连续播放，切镜头不重启",
+          "loop": false,
+          "segments": [
+            {
+              "assetId": "sfx-night-street-puebla-1",
+              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "time": 0,
+              "end": 8,
+              "sourceStart": 0,
+              "fadeIn": 0,
+              "fadeOut": 0
+            }
+          ],
+          "gainAutomation": [
+            {
+              "start": 0,
+              "end": 8,
+              "gainDb": -6
+            }
+          ]
+        }
+      ],
       "music": {
         "assetId": "r2-loop-music-6230c9ba9eef",
         "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
@@ -166,7 +224,7 @@
               "time": 0,
               "end": 8,
               "gainDb": -6,
-              "reason": "按环境关键词选取并连续铺满镜头",
+              "reason": "同一环境整场连续播放，切镜头不重启",
               "loop": false,
               "segments": [
                 {
@@ -206,7 +264,7 @@
               "assetId": "sfx-8dad161c6a8c",
               "path": "sfx/sfx-8dad161c6a8c.ogg",
               "time": 2,
-              "end": 2.4046,
+              "end": 2.404583,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
@@ -215,7 +273,7 @@
                   "assetId": "sfx-8dad161c6a8c",
                   "path": "sfx/sfx-8dad161c6a8c.ogg",
                   "time": 2,
-                  "end": 2.4046,
+                  "end": 2.404583,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -273,6 +331,7 @@
       ]
     },
     "output": {
+      "ambience": [],
       "music": {
         "assetId": "r2-loop-music-6d424149d4a2",
         "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
@@ -287,7 +346,7 @@
             "assetId": "r2-loop-music-6d424149d4a2",
             "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
             "time": 0,
-            "end": 40.32,
+            "end": 40.322667,
             "sourceStart": 0,
             "fadeIn": 0,
             "fadeOut": 0
@@ -295,7 +354,7 @@
           {
             "assetId": "r2-loop-music-6d424149d4a2",
             "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
-            "time": 40.32,
+            "time": 40.322667,
             "end": 45,
             "sourceStart": 0,
             "fadeIn": 0,
@@ -319,7 +378,7 @@
               "assetId": "sfx-44043937fae8",
               "path": "sfx/sfx-44043937fae8.ogg",
               "time": 1,
-              "end": 3.6425,
+              "end": 3.645188,
               "gainDb": -6,
               "reason": "音效对准动作节点",
               "loop": false,
@@ -328,7 +387,7 @@
                   "assetId": "sfx-44043937fae8",
                   "path": "sfx/sfx-44043937fae8.ogg",
                   "time": 1,
-                  "end": 3.6425,
+                  "end": 3.645188,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -417,6 +476,7 @@
       ]
     },
     "output": {
+      "ambience": [],
       "music": {
         "assetId": "r2-loop-music-360f3c163ed6",
         "path": "round2-loops/r2-loop-music-360f3c163ed6.ogg",

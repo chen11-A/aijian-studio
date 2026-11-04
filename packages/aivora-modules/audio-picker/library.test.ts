@@ -74,7 +74,7 @@ describe('真实素材库与挑选器联调', () => {
     expect(evidence).toContain('Creative Commons 0');
     const report = JSON.parse(readFileSync(new URL(long.loopReport, libraryRoot), 'utf8'));
     expect(report.seam.passed).toBe(true);
-    expect(report.outputSha256).toBe(long.sha256);
+    expect(report.outputSha256 ?? report.sha256).toBe(long.sha256);
     expect(createHash('sha256').update(readFileSync(new URL(long.path, libraryRoot))).digest('hex')).toBe(long.sha256);
     const output = pickAudio({ emotions: [], description: '会议厅人群低语', duration: 120, shots: [{ duration: 120, hasDialogue: true, actions: [] }] }, library);
     const bed = output.shots[0].ambience[0];
@@ -107,7 +107,7 @@ describe('真实素材库与挑选器联调', () => {
   });
 });
 
-import { runScenarios } from './scenarios.js';
+import { runScenarios, runRound3Scenarios } from './scenarios.js';
 
 /** 真实素材片段必须首尾覆盖全场；非循环片段可以交叉淡化，但不能留下空隙。 */
 function expectFilled(segments: Segment[], duration: number): void {
@@ -175,5 +175,55 @@ it('四个指定场景用新真实清单，雨与监护仪补齐，医院走廊�
   } else {
     const saved = JSON.parse(readFileSync(new URL('./SCENARIO_RESULTS.json', import.meta.url), 'utf8'));
     expect(saved).toEqual(results);
+  }
+});
+
+
+it('第三轮三个真实场景的环境整场连续，镜头视图保留源位置', () => {
+  const results = runRound3Scenarios(library);
+  for (const result of results) {
+    const plan = result.output;
+    for (const bed of plan.ambience) {
+      expectFilled(bed.segments.map(s => ({ ...s, time: s.time - bed.time, end: s.end - bed.time })), bed.end - bed.time);
+      let offset = 0;
+      for (const [index, shot] of result.input.shots.entries()) {
+        for (const view of plan.shots[index].ambience.filter(a => a.assetId === bed.assetId)) {
+          for (const part of view.segments) {
+            const master = bed.segments.find(s => s.time <= offset + part.time + 1e-6 && s.end >= offset + part.end - 1e-6
+              && Math.abs(s.sourceStart + offset + part.time - s.time - part.sourceStart) < 1e-6);
+            expect(master).toBeDefined();
+            expect(part.sourceStart + part.end - part.time).toBeLessThanOrEqual(library.find(a => a.id === part.assetId)!.duration + 1e-6);
+          }
+        }
+        offset += shot.duration;
+      }
+    }
+  }
+  const fight = results[0].output;
+  expect(fight.ambience).toHaveLength(1);
+  expect(fight.ambience[0].end).toBe(55);
+  expect(fight.shots[1].ambience[0].segments[0].sourceStart).toBe(18);
+  for (const [shot, time] of [[0, 2], [1, 4], [2, 5]]) {
+    const effect = fight.shots[shot].effects.find(e => e.time === time)!;
+    expect(effect).toBeDefined();
+    expect(library.find(a => a.id === effect.assetId)!.tags.some(t => ['钢管击打', '金属管击打'].includes(t))).toBe(true);
+  }
+  expect(fight.warnings.some(w => w.includes('倒地'))).toBe(true);
+  const hospital = results[1].output;
+  expect(hospital.ambience).toEqual([]);
+  expect(hospital.warnings.filter(w => w.includes('环境音'))).toHaveLength(3);
+  const street = results[2].output;
+  expect(street.ambience).toHaveLength(1);
+  expect(street.ambience[0].end).toBe(75);
+  expect(street.shots[1].ambience[0].segments[0].sourceStart).toBe(22);
+  expect(street.shots[0].effects).toEqual([]);
+  expect(street.shots[2].effects).toEqual([]);
+  expect(street.warnings).toEqual(expect.arrayContaining([
+    '第1镜头第3秒缺少“开伞”对应音效', '第3镜头第16秒缺少“收伞”对应音效',
+  ]));
+  if (process.env.AIVORA_SCENARIO_REPORT) {
+    writeFileSync(new URL('./ROUND3_SCENARIO_RESULTS.json', import.meta.url), JSON.stringify(results, null, 2) + '\n');
+  } else {
+    expect(JSON.parse(readFileSync(new URL('./ROUND3_SCENARIO_RESULTS.json', import.meta.url), 'utf8'))).toEqual(results);
   }
 });

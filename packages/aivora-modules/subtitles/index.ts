@@ -35,6 +35,12 @@ export function wrapText(text: string, portrait = false): string[] {
       offset += length;
       boundaries.add(offset);
     }
+    // ICU 会把“每一天”分为“每”“一天”；合并常见数量时间短语，避免按实现差异拆词。
+    for (const match of clean.matchAll(/每(?:[一二三四五六七八九十百两\d]+)?(?:个(?:月|星期)|分钟|小时|星期|[天年月日周晚次秒分])/gu)) {
+      const begin = Array.from(clean.slice(0, match.index)).length;
+      const length = Array.from(match[0]).length;
+      if (length <= limit) for (let i = 1; i < length; i++) boundaries.delete(begin + i);
+    }
     let start = 0;
     while (start < characters.length) {
       const maximum = Math.min(start + limit, characters.length);

@@ -1,0 +1,30 @@
+{
+  "id": "gap-weather-1290",
+  "sha256": "dd564b18dd71285b639a8b181d738606dc3f4ac6b29a2773237bb41410dbd007",
+  "duration": 45.002667,
+  "loudness": -19.16,
+  "truePeak": -2.79,
+  "samplePeak": -2.890236,
+  "seam": {
+    "channels": [
+      {
+        "boundary_sample_jump": 0.0698769073933363,
+        "adjacent_difference_p95": 0.13873375207185745,
+        "adjacent_difference_p99": 0.27239111065864563,
+        "boundary_difference_percentile": 80.98364860354101,
+        "boundary_to_p99_ratio": 0.2565315263936952,
+        "seam_window_ms_each_side": 20.0,
+        "seam_rms": 0.0866314217218313,
+        "nearby_rms": 0.08616671961185561,
+        "seam_to_nearby_rms_ratio": 1.0053930579238595,
+        "left_to_right_rms_ratio": 1.0828139749443466,
+        "passed": true,
+        "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+  "subjectiveListeningPerformed": false
+}

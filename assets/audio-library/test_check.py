@@ -81,6 +81,27 @@ class NewRequirementsTests(CheckTests):
              patch.object(check, 'measured_levels', return_value={'loudness':measured,'truePeak':-2,'samplePeak':-2.1}):
             return check.validate(self.root, self.tool, self.tool, strict_request=strict)
 
+    def test_loudness_report_uses_measurements_even_when_manifest_disagrees(self):
+        errors, report = self.validate_media([self.fixture(loudness=-18)], measured=-24)
+        self.assertTrue(any('实测响度与清单不一致' in error for error in errors))
+        self.assertEqual(report['响度检查']['音效']['最小实测LUFS'], -24)
+        self.assertEqual(report['响度检查']['音效']['响度范围超标数'], 1)
+        self.assertIsNone(report['响度检查']['配乐']['最大实测LUFS'])
+
+    def test_loudness_report_separates_ranges_and_null_exceptions(self):
+        report = check.loudness_summary([
+            {'type':'sfx','loudness':-21}, {'type':'sfx','loudness':-15},
+            {'type':'sfx','loudness':-21.01}, {'type':'sfx','loudness':None,'nullExempt':True},
+            {'type':'sfx','loudness':None,'nullExempt':False},
+            {'type':'music','loudness':-22}, {'type':'music','loudness':-18},
+            {'type':'music','loudness':-17.99}])
+        self.assertEqual(report['音效']['响度范围超标数'],1)
+        self.assertEqual(report['音效']['极短音null豁免数'],1)
+        self.assertEqual(report['音效']['不可测但不符合豁免数'],1)
+        self.assertEqual(report['配乐']['响度范围超标数'],1)
+        self.assertEqual(report['配乐']['最小实测LUFS'],-22)
+        self.assertEqual(report['配乐']['最大实测LUFS'],-17.99)
+
     def test_target_defaults(self):
         self.assertEqual(check.target_lufs({'type': 'sfx'}), -18)
         self.assertEqual(check.target_lufs({'type': 'music'}), -20)
@@ -232,21 +253,31 @@ class NewRequirementsTests(CheckTests):
 
 class PeakSafetyTests(unittest.TestCase):
     def test_peak_checks_and_quieter_short_effects(self):
-        item = {'loudness':-30, 'peakLimited':True}
-        levels = {'loudness':-30, 'truePeak':-1.5, 'samplePeak':-1.6}
+        item = {'loudness':-18, 'peakLimited':True}
+        levels = {'loudness':-18, 'truePeak':-1.5, 'samplePeak':-1.6}
         check.validate_levels(item, levels, -18)
         for name in ('truePeak', 'samplePeak'):
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, '峰值超标'):
                 check.validate_levels(item, {**levels, name:0.5}, -18)
         with self.assertRaisesRegex(ValueError, 'peakLimited'):
-            check.validate_levels({'loudness':-30}, levels, -18)
+            check.validate_levels({'loudness':-30,'peakLimited':True}, {**levels,'loudness':-30}, -18)
         with self.assertRaisesRegex(ValueError, '实测响度'):
             check.validate_levels({'loudness':-29}, levels, -18)
         with self.assertRaisesRegex(ValueError, '布尔值'):
-            check.validate_levels({'loudness':-30,'peakLimited':'true'},levels,-18)
+            check.validate_levels({'loudness':-18,'peakLimited':'true'},levels,-18)
         for invalid in (float('nan'), True, '-1', -10):
             with self.subTest(value=invalid), self.assertRaisesRegex(ValueError, '实测峰值'):
                 check.validate_levels({**item,'truePeak':invalid},levels,-18)
+
+    def test_loudness_ranges_cannot_be_waived_by_peak_limited(self):
+        for kind, lower, upper in [('sfx',-21,-15), ('music',-22,-18)]:
+            for value in (lower, upper):
+                check.validate_levels({'type':kind,'loudness':value},
+                    {'loudness':value,'truePeak':-2,'samplePeak':-2}, -18)
+            for value in (lower-.01,upper+.01):
+                with self.assertRaisesRegex(ValueError,'允许范围'):
+                    check.validate_levels({'type':kind,'loudness':value,'peakLimited':True},
+                        {'loudness':value,'truePeak':-2,'samplePeak':-2}, -18)
 
     def test_real_short_effect_has_no_integrated_loudness(self):
         ffmpeg = Path(os.environ.get('FFMPEG_PATH', '/usr/bin/ffmpeg'))
@@ -293,7 +324,7 @@ class PeakSafetyTests(unittest.TestCase):
             # 大幅衰减的纯音仍可能高于 -18；测试保留真实响度，继续降低到目标以下。
             if after['loudness'] > -17:
                 quieter=root/'安静.ogg'
-                check.run(ffmpeg,['-v','error','-i',str(file),'-af','volume=-20dB','-c:a','libvorbis',str(quieter)])
+                check.run(ffmpeg,['-v','error','-i',str(file),'-af',f"volume={-18-after['loudness']}dB",'-c:a','libvorbis',str(quieter)])
                 file.write_bytes(quieter.read_bytes()); quieter.unlink()
                 item.update(check.measured_levels(file,ffmpeg));item['sha256']=hashlib.sha256(file.read_bytes()).hexdigest()
             (root/'manifest.json').write_text(json.dumps([item]))

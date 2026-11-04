@@ -1,0 +1,5600 @@
+{
+  "files": 187,
+  "modified": 79,
+  "applied": true,
+  "items": [
+    {
+      "id": "music-6d424149d4a2",
+      "path": "music/music-6d424149d4a2.ogg",
+      "before": {
+        "loudness": -22.43,
+        "truePeak": -2.01,
+        "samplePeak": -2.43884
+      },
+      "modified": true,
+      "sha256": "199e270f4f33cd2258f624f3615e27dcc5285baea84a02cca17793d71bee3b76",
+      "duration": 90.949146,
+      "after": {
+        "loudness": -20.82,
+        "truePeak": -2.74,
+        "samplePeak": -2.818553
+      },
+      "iterations": [
+        {
+          "gainDb": 2.4299999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.82,
+          "truePeak": -2.74,
+          "samplePeak": -2.818553
+        }
+      ],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "music-23bc02ff82e2",
+      "path": "music/music-23bc02ff82e2.ogg",
+      "before": {
+        "loudness": -21.56,
+        "truePeak": -1.68,
+        "samplePeak": -1.677036
+      },
+      "modified": false,
+      "sha256": "ec4da0d940c37dfcf627a93ccf456daa4df4992726bc0ea9e113cbed02204554",
+      "duration": 90.945542,
+      "after": {
+        "loudness": -21.56,
+        "truePeak": -1.68,
+        "samplePeak": -1.677036
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-e94185587d78",
+      "path": "music/music-e94185587d78.ogg",
+      "before": {
+        "loudness": -20.08,
+        "truePeak": -3.63,
+        "samplePeak": -3.698966
+      },
+      "modified": false,
+      "sha256": "2d26c26bb3b93220255bf66ac3c61ba7111dd736c239a721f719411a4e2f9731",
+      "duration": 90.946479,
+      "after": {
+        "loudness": -20.08,
+        "truePeak": -3.63,
+        "samplePeak": -3.698966
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-6230c9ba9eef",
+      "path": "music/music-6230c9ba9eef.ogg",
+      "before": {
+        "loudness": -20.11,
+        "truePeak": -1.24,
+        "samplePeak": -1.309443
+      },
+      "modified": false,
+      "sha256": "ed2c89dac1ead5b0c6519e9940e1d6d4b3d262780af93edc67fbf92b0b95bf5e",
+      "duration": 90.945896,
+      "after": {
+        "loudness": -20.11,
+        "truePeak": -1.24,
+        "samplePeak": -1.309443
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-6fe261a4eb25",
+      "path": "music/music-6fe261a4eb25.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -2.85,
+        "samplePeak": -2.886313
+      },
+      "modified": false,
+      "sha256": "8a71b10a350b52ee4fb132444494bc5b86684349f6f010eec2258e1f0c1913a7",
+      "duration": 101.646104,
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -2.85,
+        "samplePeak": -2.886313
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-0274474ab7c4",
+      "path": "music/music-0274474ab7c4.ogg",
+      "before": {
+        "loudness": -21.75,
+        "truePeak": -1.65,
+        "samplePeak": -1.80176
+      },
+      "modified": false,
+      "sha256": "45549e3d65e4b45df983463f87dacb91285bc31257496f808b619d8a3884f70f",
+      "duration": 80.293875,
+      "after": {
+        "loudness": -21.75,
+        "truePeak": -1.65,
+        "samplePeak": -1.80176
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-360f3c163ed6",
+      "path": "music/music-360f3c163ed6.ogg",
+      "before": {
+        "loudness": -23.54,
+        "truePeak": -1.76,
+        "samplePeak": -1.837608
+      },
+      "modified": true,
+      "sha256": "f9a59406d1e4b9b9ca538ba6af63c55110585665ebab4f8443b9f1e242b55169",
+      "duration": 90.698188,
+      "after": {
+        "loudness": -20.71,
+        "truePeak": -2.96,
+        "samplePeak": -2.956541
+      },
+      "iterations": [
+        {
+          "gainDb": 3.539999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.71,
+          "truePeak": -2.96,
+          "samplePeak": -2.956541
+        }
+      ],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "music-9935a373414d",
+      "path": "music/music-9935a373414d.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -1.6,
+        "samplePeak": -1.684104
+      },
+      "modified": false,
+      "sha256": "35b7cc63cff553a4cdd63140370a0ad23cb65935391f94a8e6460f3e6569e40d",
+      "duration": 92.003708,
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -1.6,
+        "samplePeak": -1.684104
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-444401af8dc7",
+      "path": "music/music-444401af8dc7.ogg",
+      "before": {
+        "loudness": -22.33,
+        "truePeak": -1.49,
+        "samplePeak": -1.531044
+      },
+      "modified": true,
+      "sha256": "34868ab7c127b7908625d06e89c87e79098a29956e6e30eef6106a567107d5fd",
+      "duration": 90.587875,
+      "after": {
+        "loudness": -20.89,
+        "truePeak": -2.6,
+        "samplePeak": -2.794157
+      },
+      "iterations": [
+        {
+          "gainDb": 2.3299999999999983,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.89,
+          "truePeak": -2.6,
+          "samplePeak": -2.794157
+        }
+      ],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "music-0a80523107eb",
+      "path": "music/music-0a80523107eb.ogg",
+      "before": {
+        "loudness": -20.0,
+        "truePeak": -3.77,
+        "samplePeak": -3.791986
+      },
+      "modified": false,
+      "sha256": "d9155eedf47767e78adabc92393336733834641d1098bec1558ddb4fa9812680",
+      "duration": 91.082479,
+      "after": {
+        "loudness": -20.0,
+        "truePeak": -3.77,
+        "samplePeak": -3.791986
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-9d2fa11d09bf",
+      "path": "music/music-9d2fa11d09bf.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -3.15,
+        "samplePeak": -3.157593
+      },
+      "modified": false,
+      "sha256": "d4496830ba88b55a3f27804afae2ebf7ac6ed2588fdd10e13c8728790f4d3289",
+      "duration": 90.946708,
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -3.15,
+        "samplePeak": -3.157593
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-01a63f6d5d85",
+      "path": "music/music-01a63f6d5d85.ogg",
+      "before": {
+        "loudness": -22.65,
+        "truePeak": -1.77,
+        "samplePeak": -1.812482
+      },
+      "modified": true,
+      "sha256": "b03cad6c40b7ffd1e53f1a592e7059ae759c1947b4171e5b2e2d625f2e5cb6c3",
+      "duration": 90.949438,
+      "after": {
+        "loudness": -20.42,
+        "truePeak": -2.76,
+        "samplePeak": -2.812371
+      },
+      "iterations": [
+        {
+          "gainDb": 2.6499999999999986,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.42,
+          "truePeak": -2.76,
+          "samplePeak": -2.812371
+        }
+      ],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "music-b83f90a21759",
+      "path": "music/music-b83f90a21759.ogg",
+      "before": {
+        "loudness": -20.04,
+        "truePeak": -2.38,
+        "samplePeak": -2.399089
+      },
+      "modified": false,
+      "sha256": "bbb8ac730cbf2d50799527ba17b88fbbb83214ef183f9ce2e14b9e934c15bf31",
+      "duration": 102.665708,
+      "after": {
+        "loudness": -20.04,
+        "truePeak": -2.38,
+        "samplePeak": -2.399089
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-c8cdb7affbe1",
+      "path": "music/music-c8cdb7affbe1.ogg",
+      "before": {
+        "loudness": -19.96,
+        "truePeak": -1.39,
+        "samplePeak": -1.494942
+      },
+      "modified": false,
+      "sha256": "cf6738efdca32a7dd6eb90c8709d97f54c96783e3c59218f446841b18ef7a2f9",
+      "duration": 90.696083,
+      "after": {
+        "loudness": -19.96,
+        "truePeak": -1.39,
+        "samplePeak": -1.494942
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-dd0e66d1c872",
+      "path": "music/music-dd0e66d1c872.ogg",
+      "before": {
+        "loudness": -20.05,
+        "truePeak": -1.35,
+        "samplePeak": -1.42897
+      },
+      "modified": false,
+      "sha256": "926f4896dbf6b9511a4f451d4b9bc1663d96dc216c323e91b2f475c8fddfb44c",
+      "duration": 90.833167,
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -1.35,
+        "samplePeak": -1.42897
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-9a5a5f04056f",
+      "path": "music/music-9a5a5f04056f.ogg",
+      "before": {
+        "loudness": -20.06,
+        "truePeak": -3.39,
+        "samplePeak": -3.392272
+      },
+      "modified": false,
+      "sha256": "1fd28f8bbc25d6253503d179f7f4b070ec2b2a0bc8354eb65b6e9ea030ed98db",
+      "duration": 79.059979,
+      "after": {
+        "loudness": -20.06,
+        "truePeak": -3.39,
+        "samplePeak": -3.392272
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-cc2f5e437e63",
+      "path": "music/music-cc2f5e437e63.ogg",
+      "before": {
+        "loudness": -21.29,
+        "truePeak": -2.35,
+        "samplePeak": -2.351059
+      },
+      "modified": false,
+      "sha256": "e55860f9982467960ab2f504ae1131cc74f164e3199dddabd6745e49cf5ca572",
+      "duration": 90.947146,
+      "after": {
+        "loudness": -21.29,
+        "truePeak": -2.35,
+        "samplePeak": -2.351059
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-197b91134859",
+      "path": "music/music-197b91134859.ogg",
+      "before": {
+        "loudness": -20.03,
+        "truePeak": -4.99,
+        "samplePeak": -5.268817
+      },
+      "modified": false,
+      "sha256": "ed3cbe5c8e4d6338c56cdcfca161c31553f27e2ab9d96d54c566ff7b0085fa77",
+      "duration": 90.471396,
+      "after": {
+        "loudness": -20.03,
+        "truePeak": -4.99,
+        "samplePeak": -5.268817
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-012b71c5161d",
+      "path": "music/music-012b71c5161d.ogg",
+      "before": {
+        "loudness": -20.79,
+        "truePeak": -1.59,
+        "samplePeak": -1.745839
+      },
+      "modified": false,
+      "sha256": "743b4da9dce65356ed2b89363b7043da74b29f45440bd8385993f8d530471f36",
+      "duration": 90.927063,
+      "after": {
+        "loudness": -20.79,
+        "truePeak": -1.59,
+        "samplePeak": -1.745839
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "music-be6017f6ca71",
+      "path": "music/music-be6017f6ca71.ogg",
+      "before": {
+        "loudness": -21.61,
+        "truePeak": -1.57,
+        "samplePeak": -1.569515
+      },
+      "modified": false,
+      "sha256": "ca9e6999ee34d7029175299731ebb608552364e58a7bf62589d803b36a8eba82",
+      "duration": 101.647667,
+      "after": {
+        "loudness": -21.61,
+        "truePeak": -1.57,
+        "samplePeak": -1.569515
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-12e512a0f2df",
+      "path": "sfx/sfx-12e512a0f2df.ogg",
+      "before": {
+        "loudness": -29.14,
+        "truePeak": -1.66,
+        "samplePeak": -1.705292
+      },
+      "modified": true,
+      "sha256": "ae86305a912bd7d6b5a40b80ba209eacdf5792da128ec34af14f7aafda6fd86e",
+      "duration": 3.196208,
+      "after": {
+        "loudness": -20.63,
+        "truePeak": -2.73,
+        "samplePeak": -2.820464
+      },
+      "iterations": [
+        {
+          "gainDb": 11.14,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -27.18,
+          "truePeak": -3.02,
+          "samplePeak": -3.02937
+        },
+        {
+          "gainDb": 20.32,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.44,
+          "truePeak": -2.96,
+          "samplePeak": -2.969123
+        },
+        {
+          "gainDb": 23.76,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.63,
+          "truePeak": -2.73,
+          "samplePeak": -2.820464
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-021c2e635561",
+      "path": "sfx/sfx-021c2e635561.ogg",
+      "before": {
+        "loudness": -20.67,
+        "truePeak": -1.77,
+        "samplePeak": -1.857088
+      },
+      "modified": false,
+      "sha256": "3aa053a0b43cf39c577042b71231d487995f9d752cec88f6822a3f1379945818",
+      "duration": 0.899104,
+      "after": {
+        "loudness": -20.67,
+        "truePeak": -1.77,
+        "samplePeak": -1.857088
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-22c2f5697f1a",
+      "path": "sfx/sfx-22c2f5697f1a.ogg",
+      "before": {
+        "loudness": -21.02,
+        "truePeak": -2.1,
+        "samplePeak": -2.320534
+      },
+      "modified": true,
+      "sha256": "9385986b943b53223528311b95b6ef172a0413488190e859dcbf058d2fd4937b",
+      "duration": 1.388896,
+      "after": {
+        "loudness": -19.2,
+        "truePeak": -3.0,
+        "samplePeak": -2.996505
+      },
+      "iterations": [
+        {
+          "gainDb": 3.0199999999999996,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.42,
+          "truePeak": -2.97,
+          "samplePeak": -2.969576
+        },
+        {
+          "gainDb": 8.440000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.61,
+          "truePeak": -3.02,
+          "samplePeak": -3.031055
+        },
+        {
+          "gainDb": 13.05,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.15,
+          "truePeak": -2.99,
+          "samplePeak": -2.98826
+        },
+        {
+          "gainDb": 16.2,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.2,
+          "truePeak": -3.0,
+          "samplePeak": -2.996505
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-d93e440b2aa4",
+      "path": "sfx/sfx-d93e440b2aa4.ogg",
+      "before": {
+        "loudness": -18.52,
+        "truePeak": -1.78,
+        "samplePeak": -1.990055
+      },
+      "modified": false,
+      "sha256": "02ad641907a8a9659ab8b4c34a9a952a51bf2dae6b2c0c45392fdc5683915071",
+      "duration": 0.619833,
+      "after": {
+        "loudness": -18.52,
+        "truePeak": -1.78,
+        "samplePeak": -1.990055
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-54b6a6e1f762",
+      "path": "sfx/sfx-54b6a6e1f762.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -1.73,
+        "samplePeak": -1.731736
+      },
+      "modified": false,
+      "sha256": "8855a7685f57a68a9f31c9189eb986822e1d156fe2eae0598d46f658d817f512",
+      "duration": 0.530021,
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -1.73,
+        "samplePeak": -1.731736
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-cc6515f70c70",
+      "path": "sfx/sfx-cc6515f70c70.ogg",
+      "before": {
+        "loudness": -19.93,
+        "truePeak": -1.63,
+        "samplePeak": -1.637235
+      },
+      "modified": false,
+      "sha256": "c975b8e7b9c6ab211bd22a0557944d059b439101c30e3af6555983e98886d3a3",
+      "duration": 0.582542,
+      "after": {
+        "loudness": -19.93,
+        "truePeak": -1.63,
+        "samplePeak": -1.637235
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-4729d1a9a20d",
+      "path": "sfx/sfx-4729d1a9a20d.ogg",
+      "before": {
+        "loudness": -24.4,
+        "truePeak": -2.01,
+        "samplePeak": -2.010695
+      },
+      "modified": true,
+      "sha256": "077857a6d9d31a40c81bf7c994147a8f6245d19a079e3325c25134c3c83b360f",
+      "duration": 0.528729,
+      "after": {
+        "loudness": -20.5,
+        "truePeak": -3.01,
+        "samplePeak": -3.021943
+      },
+      "iterations": [
+        {
+          "gainDb": 6.399999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.5,
+          "truePeak": -3.01,
+          "samplePeak": -3.021943
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-a91bbbc2b480",
+      "path": "sfx/sfx-a91bbbc2b480.ogg",
+      "before": {
+        "loudness": -21.65,
+        "truePeak": -2.3,
+        "samplePeak": -2.299954
+      },
+      "modified": true,
+      "sha256": "81b879e109f42d88d26961636b24678a6a2d025c51650c30db07f2be02cedda3",
+      "duration": 0.451,
+      "after": {
+        "loudness": -19.55,
+        "truePeak": -3.12,
+        "samplePeak": -3.118538
+      },
+      "iterations": [
+        {
+          "gainDb": 3.6499999999999986,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.55,
+          "truePeak": -3.12,
+          "samplePeak": -3.118538
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-12dee896057b",
+      "path": "sfx/sfx-12dee896057b.ogg",
+      "before": {
+        "loudness": -31.0,
+        "truePeak": -1.96,
+        "samplePeak": -2.055378
+      },
+      "modified": true,
+      "sha256": "ccbee75eba79996295c7fe157abf44c87816343c7864afae2a663b7e6a840609",
+      "duration": 0.618667,
+      "after": {
+        "loudness": -19.36,
+        "truePeak": -2.85,
+        "samplePeak": -3.112369
+      },
+      "iterations": [
+        {
+          "gainDb": 13.0,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.93,
+          "truePeak": -2.88,
+          "samplePeak": -3.265878
+        },
+        {
+          "gainDb": 20.93,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.36,
+          "truePeak": -2.85,
+          "samplePeak": -3.112369
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-3bf9d7a22a53",
+      "path": "sfx/sfx-3bf9d7a22a53.ogg",
+      "before": {
+        "loudness": -18.17,
+        "truePeak": -2.34,
+        "samplePeak": -2.339713
+      },
+      "modified": false,
+      "sha256": "de4b7e391be1e7f822d06a5c7c48339cdba0e0e15e3a5e333444d92de50cc3ff",
+      "duration": 1.304292,
+      "after": {
+        "loudness": -18.17,
+        "truePeak": -2.34,
+        "samplePeak": -2.339713
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-ba55b94aa69b",
+      "path": "sfx/sfx-ba55b94aa69b.ogg",
+      "before": {
+        "loudness": -18.44,
+        "truePeak": -7.43,
+        "samplePeak": -7.526123
+      },
+      "modified": false,
+      "sha256": "e0e2556dba11f90002ad1f161db0c03b9a05f35c5c5b2bd77011b9b500f971ad",
+      "duration": 0.826146,
+      "after": {
+        "loudness": -18.44,
+        "truePeak": -7.43,
+        "samplePeak": -7.526123
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-9e826c868f2e",
+      "path": "sfx/sfx-9e826c868f2e.ogg",
+      "before": {
+        "loudness": -18.22,
+        "truePeak": -6.56,
+        "samplePeak": -6.672462
+      },
+      "modified": false,
+      "sha256": "3bd8cc7052b1d60713084da9be8dbd36892e15ab7ce77c61afc6b629ecdc7e8b",
+      "duration": 0.7815,
+      "after": {
+        "loudness": -18.22,
+        "truePeak": -6.56,
+        "samplePeak": -6.672462
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-528edef154d1",
+      "path": "sfx/sfx-528edef154d1.ogg",
+      "before": {
+        "loudness": -22.6,
+        "truePeak": -1.91,
+        "samplePeak": -2.139288
+      },
+      "modified": true,
+      "sha256": "059cd9a3a8516a2e43d8631e2e035da87463d5c492e1677c17f408f05191786f",
+      "duration": 1.479146,
+      "after": {
+        "loudness": -18.49,
+        "truePeak": -3.0,
+        "samplePeak": -3.222791
+      },
+      "iterations": [
+        {
+          "gainDb": 4.600000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.49,
+          "truePeak": -3.0,
+          "samplePeak": -3.222791
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-f5ab3071c93d",
+      "path": "sfx/sfx-f5ab3071c93d.ogg",
+      "before": {
+        "loudness": -18.09,
+        "truePeak": -2.3,
+        "samplePeak": -2.29774
+      },
+      "modified": false,
+      "sha256": "d73d759779e900246ebc14eeb8155a3d56141e3bcc61b876a783ba9a6fd0f103",
+      "duration": 3.793688,
+      "after": {
+        "loudness": -18.09,
+        "truePeak": -2.3,
+        "samplePeak": -2.29774
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-a37ee051f018",
+      "path": "sfx/sfx-a37ee051f018.ogg",
+      "before": {
+        "loudness": -18.13,
+        "truePeak": -2.36,
+        "samplePeak": -2.359813
+      },
+      "modified": false,
+      "sha256": "7aa6fbf9ee5e65b5e5880497f151fd0e67746fd332883e3fff745dfdb91e5162",
+      "duration": 5.370917,
+      "after": {
+        "loudness": -18.13,
+        "truePeak": -2.36,
+        "samplePeak": -2.359813
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-9dcf180a63dd",
+      "path": "sfx/sfx-9dcf180a63dd.ogg",
+      "before": {
+        "loudness": -35.24,
+        "truePeak": -2.14,
+        "samplePeak": -2.242779
+      },
+      "modified": true,
+      "sha256": "0a70d212a204f3ba4d0bda89d4474f78075c5ec56bf632e560bae0ab38a23c9f",
+      "duration": 7.514417,
+      "after": {
+        "loudness": -20.01,
+        "truePeak": -2.89,
+        "samplePeak": -2.887595
+      },
+      "iterations": [
+        {
+          "gainDb": 17.240000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.85,
+          "truePeak": -2.99,
+          "samplePeak": -3.001844
+        },
+        {
+          "gainDb": 21.090000000000003,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.01,
+          "truePeak": -2.89,
+          "samplePeak": -2.887595
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-57f0db65990a",
+      "path": "sfx/sfx-57f0db65990a.ogg",
+      "before": {
+        "loudness": -31.54,
+        "truePeak": -1.64,
+        "samplePeak": -1.638264
+      },
+      "modified": true,
+      "sha256": "da45b4ea90cb86c048d5778059338904debd47d1e41be0391e42c874dc010d75",
+      "duration": 0.845333,
+      "after": {
+        "loudness": -19.86,
+        "truePeak": -2.93,
+        "samplePeak": -2.941682
+      },
+      "iterations": [
+        {
+          "gainDb": 13.54,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.68,
+          "truePeak": -3.05,
+          "samplePeak": -3.054075
+        },
+        {
+          "gainDb": 19.22,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.86,
+          "truePeak": -2.93,
+          "samplePeak": -2.941682
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-6496901c0404",
+      "path": "sfx/sfx-6496901c0404.ogg",
+      "before": {
+        "loudness": -27.45,
+        "truePeak": -1.92,
+        "samplePeak": -1.918938
+      },
+      "modified": true,
+      "sha256": "9e790254857c56d98fb0b5f3ed8737503d6bb071b8d581204880c631ac81c7a7",
+      "duration": 1.537104,
+      "after": {
+        "loudness": -18.96,
+        "truePeak": -2.89,
+        "samplePeak": -2.888901
+      },
+      "iterations": [
+        {
+          "gainDb": 9.45,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.33,
+          "truePeak": -2.89,
+          "samplePeak": -2.904415
+        },
+        {
+          "gainDb": 14.779999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.22,
+          "truePeak": -2.95,
+          "samplePeak": -2.949804
+        },
+        {
+          "gainDb": 17.999999999999996,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.96,
+          "truePeak": -2.89,
+          "samplePeak": -2.888901
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-071cf6baccc0",
+      "path": "sfx/sfx-071cf6baccc0.ogg",
+      "before": {
+        "loudness": -18.12,
+        "truePeak": -2.79,
+        "samplePeak": -2.800323
+      },
+      "modified": false,
+      "sha256": "55ef3b1dcec784530f2e87adf4b3aaefa2d401e7c96ae521b8e4f06a4bcbb1d0",
+      "duration": 56.028938,
+      "after": {
+        "loudness": -18.12,
+        "truePeak": -2.79,
+        "samplePeak": -2.800323
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-510e5353e830",
+      "path": "sfx/sfx-510e5353e830.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -4.29,
+        "samplePeak": -4.295601
+      },
+      "modified": false,
+      "sha256": "463def073b0dcd3f25277ac288b0388194a86e95798b03ef508cf060900f1b64",
+      "duration": 64.903917,
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -4.29,
+        "samplePeak": -4.295601
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-843c79cf1eec",
+      "path": "sfx/sfx-843c79cf1eec.ogg",
+      "before": {
+        "loudness": -18.01,
+        "truePeak": -5.1,
+        "samplePeak": -5.106496
+      },
+      "modified": false,
+      "sha256": "cddea3738fbf722652a50097a1cd43ab452fcf558deee47f8631e88ee0f9ec76",
+      "duration": 58.117688,
+      "after": {
+        "loudness": -18.01,
+        "truePeak": -5.1,
+        "samplePeak": -5.106496
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-0fee82de42e3",
+      "path": "sfx/sfx-0fee82de42e3.ogg",
+      "before": {
+        "loudness": -18.03,
+        "truePeak": -3.66,
+        "samplePeak": -3.662305
+      },
+      "modified": false,
+      "sha256": "a46ade631e5b722c888d894ec80e85cff598de12cd9b0d0b2ccb706bae2a0d42",
+      "duration": 67.439604,
+      "after": {
+        "loudness": -18.03,
+        "truePeak": -3.66,
+        "samplePeak": -3.662305
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-98719b6dd48c",
+      "path": "sfx/sfx-98719b6dd48c.ogg",
+      "before": {
+        "loudness": -18.09,
+        "truePeak": -4.19,
+        "samplePeak": -4.194264
+      },
+      "modified": false,
+      "sha256": "ec091f89a9cc375f473e0a0c5426bbbf3417f88e773649a8a5c5510a8609d130",
+      "duration": 59.078438,
+      "after": {
+        "loudness": -18.09,
+        "truePeak": -4.19,
+        "samplePeak": -4.194264
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-e0ccb6598627",
+      "path": "sfx/sfx-e0ccb6598627.ogg",
+      "before": {
+        "loudness": -19.79,
+        "truePeak": -1.72,
+        "samplePeak": -1.719017
+      },
+      "modified": false,
+      "sha256": "26bbe8da5c57dfd9fe5c4bfd28ab4905361a73ae7bd396f2b8fb7a690865007f",
+      "duration": 67.189979,
+      "after": {
+        "loudness": -19.79,
+        "truePeak": -1.72,
+        "samplePeak": -1.719017
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-cd7e525287e0",
+      "path": "sfx/sfx-cd7e525287e0.ogg",
+      "before": {
+        "loudness": -18.0,
+        "truePeak": -6.55,
+        "samplePeak": -6.552416
+      },
+      "modified": false,
+      "sha256": "4db4b12130dc66eb35d478f369b4fed7059b6eb6662f8baff72b843f740b1b25",
+      "duration": 53.731667,
+      "after": {
+        "loudness": -18.0,
+        "truePeak": -6.55,
+        "samplePeak": -6.552416
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-57aaf3ed3677",
+      "path": "sfx/sfx-57aaf3ed3677.ogg",
+      "before": {
+        "loudness": -17.99,
+        "truePeak": -7.4,
+        "samplePeak": -7.404468
+      },
+      "modified": false,
+      "sha256": "7f62ed4ce1136ff194f526cd86b627b0cea73bfc82503b4dbdb3fd154e71be0e",
+      "duration": 56.34575,
+      "after": {
+        "loudness": -17.99,
+        "truePeak": -7.4,
+        "samplePeak": -7.404468
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-5f709f72838f",
+      "path": "sfx/sfx-5f709f72838f.ogg",
+      "before": {
+        "loudness": -23.13,
+        "truePeak": -1.89,
+        "samplePeak": -1.888518
+      },
+      "modified": true,
+      "sha256": "61517c861083bbe143114bcc89f5820ceeffbe4143ac3478c27cb390b5e5460d",
+      "duration": 53.116271,
+      "after": {
+        "loudness": -18.23,
+        "truePeak": -2.87,
+        "samplePeak": -2.874133
+      },
+      "iterations": [
+        {
+          "gainDb": 5.129999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.23,
+          "truePeak": -2.87,
+          "samplePeak": -2.874133
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-609fbbb2cc63",
+      "path": "sfx/sfx-609fbbb2cc63.ogg",
+      "before": {
+        "loudness": -18.14,
+        "truePeak": -2.63,
+        "samplePeak": -2.62981
+      },
+      "modified": false,
+      "sha256": "812d20d07f4b56fc609d4879ba6d8f9c8f48a9e3012f6b0c14747a6c1635e2cf",
+      "duration": 65.428271,
+      "after": {
+        "loudness": -18.14,
+        "truePeak": -2.63,
+        "samplePeak": -2.62981
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-da48e26760ac",
+      "path": "sfx/sfx-da48e26760ac.ogg",
+      "before": {
+        "loudness": -25.03,
+        "truePeak": -2.07,
+        "samplePeak": -2.065438
+      },
+      "modified": true,
+      "sha256": "207c7cf823b617fcc4d2203a173c5caeb31aea74955a2a0e272c56bc1532a4dc",
+      "duration": 61.002458,
+      "after": {
+        "loudness": -18.36,
+        "truePeak": -2.8,
+        "samplePeak": -2.970811
+      },
+      "iterations": [
+        {
+          "gainDb": 7.030000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.36,
+          "truePeak": -2.8,
+          "samplePeak": -2.970811
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-e2b5a3ce0637",
+      "path": "sfx/sfx-e2b5a3ce0637.ogg",
+      "before": {
+        "loudness": -18.18,
+        "truePeak": -1.61,
+        "samplePeak": -1.74944
+      },
+      "modified": false,
+      "sha256": "a70195e7b1bcc0f339254d684f485e3394bae92aad9315b1a0319d607c6cc5f0",
+      "duration": 43.170583,
+      "after": {
+        "loudness": -18.18,
+        "truePeak": -1.61,
+        "samplePeak": -1.74944
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-400bbc61b44b",
+      "path": "sfx/sfx-400bbc61b44b.ogg",
+      "before": {
+        "loudness": -21.74,
+        "truePeak": -1.78,
+        "samplePeak": -1.783196
+      },
+      "modified": true,
+      "sha256": "91be401672f70d7686b82812aa7162f12b37297f302240cb06df4f273c01e186",
+      "duration": 11.586979,
+      "after": {
+        "loudness": -18.36,
+        "truePeak": -2.93,
+        "samplePeak": -2.928887
+      },
+      "iterations": [
+        {
+          "gainDb": 3.7399999999999984,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.36,
+          "truePeak": -2.93,
+          "samplePeak": -2.928887
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-5b3c0f1e70aa",
+      "path": "sfx/sfx-5b3c0f1e70aa.ogg",
+      "before": {
+        "loudness": -17.98,
+        "truePeak": -1.05,
+        "samplePeak": -1.052554
+      },
+      "modified": false,
+      "sha256": "f6e3e679122c7dab0474c291f3318d72acff3aab86d8b7d048ff91cacb043e6d",
+      "duration": 15.805313,
+      "after": {
+        "loudness": -17.98,
+        "truePeak": -1.05,
+        "samplePeak": -1.052554
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-4b7ae48f1514",
+      "path": "sfx/sfx-4b7ae48f1514.ogg",
+      "before": {
+        "loudness": -22.64,
+        "truePeak": -1.86,
+        "samplePeak": -1.8797
+      },
+      "modified": true,
+      "sha256": "4de4a23a2336f71b19c2e1cc0e335ba3f5e23f9caa501fa53ff086fb6ff895b6",
+      "duration": 1.959063,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -2.99,
+        "samplePeak": -2.989229
+      },
+      "iterations": [
+        {
+          "gainDb": 4.640000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.95,
+          "truePeak": -2.99,
+          "samplePeak": -2.989229
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-dd062ef50014",
+      "path": "sfx/sfx-dd062ef50014.ogg",
+      "before": {
+        "loudness": -20.55,
+        "truePeak": -2.0,
+        "samplePeak": -1.998847
+      },
+      "modified": false,
+      "sha256": "bd930adc73cc9d9dad6fa0efeff4fc664e27e4ed067aa1597c82aee078e0d9db",
+      "duration": 1.207104,
+      "after": {
+        "loudness": -20.55,
+        "truePeak": -2.0,
+        "samplePeak": -1.998847
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-c8408f0b4f3c",
+      "path": "sfx/sfx-c8408f0b4f3c.ogg",
+      "before": {
+        "loudness": -20.14,
+        "truePeak": -1.62,
+        "samplePeak": -1.666024
+      },
+      "modified": false,
+      "sha256": "190b2a14c1eab5d21361666874d701abb4dca7f1475477a6212398bca8856da2",
+      "duration": 1.362083,
+      "after": {
+        "loudness": -20.14,
+        "truePeak": -1.62,
+        "samplePeak": -1.666024
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-61cd75357c07",
+      "path": "sfx/sfx-61cd75357c07.ogg",
+      "before": {
+        "loudness": -21.6,
+        "truePeak": -1.84,
+        "samplePeak": -1.839796
+      },
+      "modified": true,
+      "sha256": "e4b74fc09c44f7bdfd463762143ae0d219682e4c02691e62da023565ab81ff6e",
+      "duration": 2.254708,
+      "after": {
+        "loudness": -18.91,
+        "truePeak": -2.87,
+        "samplePeak": -2.937003
+      },
+      "iterations": [
+        {
+          "gainDb": 3.6000000000000014,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.91,
+          "truePeak": -2.87,
+          "samplePeak": -2.937003
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-1538a6137773",
+      "path": "sfx/sfx-1538a6137773.ogg",
+      "before": {
+        "loudness": -21.7,
+        "truePeak": -1.82,
+        "samplePeak": -1.815734
+      },
+      "modified": true,
+      "sha256": "10f797d3de7a8367426b84b5103c3363368667544db15fed569296d0919f39ea",
+      "duration": 0.509333,
+      "after": {
+        "loudness": -20.25,
+        "truePeak": -2.91,
+        "samplePeak": -2.983015
+      },
+      "iterations": [
+        {
+          "gainDb": 3.6999999999999993,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.25,
+          "truePeak": -2.91,
+          "samplePeak": -2.983015
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-2f505f35e02e",
+      "path": "sfx/sfx-2f505f35e02e.ogg",
+      "before": {
+        "loudness": -19.34,
+        "truePeak": -1.97,
+        "samplePeak": -2.037912
+      },
+      "modified": false,
+      "sha256": "48356bea5a6d772dccc6d553699df380ea157dc26d130b287635b1560a713d42",
+      "duration": 0.68,
+      "after": {
+        "loudness": -19.34,
+        "truePeak": -1.97,
+        "samplePeak": -2.037912
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-aa12ed90f8da",
+      "path": "sfx/sfx-aa12ed90f8da.ogg",
+      "before": {
+        "loudness": -19.6,
+        "truePeak": -1.81,
+        "samplePeak": -1.862904
+      },
+      "modified": false,
+      "sha256": "1f455e4907d854ddf579ad468a75c90ac043af8021c025614b8a0727412cfe28",
+      "duration": 1.109604,
+      "after": {
+        "loudness": -19.6,
+        "truePeak": -1.81,
+        "samplePeak": -1.862904
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-1fc97e200590",
+      "path": "sfx/sfx-1fc97e200590.ogg",
+      "before": {
+        "loudness": -19.94,
+        "truePeak": -1.6,
+        "samplePeak": -1.641581
+      },
+      "modified": false,
+      "sha256": "fed4fbc4773afcc4c6f4422df0ce026bf6d23f16292d6d42f72cd7ff00fcd280",
+      "duration": 1.064438,
+      "after": {
+        "loudness": -19.94,
+        "truePeak": -1.6,
+        "samplePeak": -1.641581
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-5713b6175e2d",
+      "path": "sfx/sfx-5713b6175e2d.ogg",
+      "before": {
+        "loudness": -20.41,
+        "truePeak": -1.72,
+        "samplePeak": -1.76341
+      },
+      "modified": false,
+      "sha256": "aab687b71713a295b4a8fb97b585e41586c6892c6e0b86715b2c8f981f78ef27",
+      "duration": 1.3215,
+      "after": {
+        "loudness": -20.41,
+        "truePeak": -1.72,
+        "samplePeak": -1.76341
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-542b57ac2f91",
+      "path": "sfx/sfx-542b57ac2f91.ogg",
+      "before": {
+        "loudness": -18.99,
+        "truePeak": -2.07,
+        "samplePeak": -2.132441
+      },
+      "modified": false,
+      "sha256": "5e345cab609c9aee68b867998a167dcd0ff4345a139ab0ef4d595e92624e52e7",
+      "duration": 1.385708,
+      "after": {
+        "loudness": -18.99,
+        "truePeak": -2.07,
+        "samplePeak": -2.132441
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-ce40ad51976c",
+      "path": "sfx/sfx-ce40ad51976c.ogg",
+      "before": {
+        "loudness": -22.4,
+        "truePeak": -2.1,
+        "samplePeak": -2.117697
+      },
+      "modified": true,
+      "sha256": "620cf8f492365e6cf9dc6415c448a325f6246d98e1928d229e1b5b54da359b83",
+      "duration": 0.600938,
+      "after": {
+        "loudness": -20.66,
+        "truePeak": -2.9,
+        "samplePeak": -2.898136
+      },
+      "iterations": [
+        {
+          "gainDb": 4.399999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.66,
+          "truePeak": -2.9,
+          "samplePeak": -2.898136
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-745b785ba632",
+      "path": "sfx/sfx-745b785ba632.ogg",
+      "before": {
+        "loudness": -24.44,
+        "truePeak": -1.71,
+        "samplePeak": -1.778923
+      },
+      "modified": true,
+      "sha256": "ed539c47f2432c061c2a8c04abc02a50a42c567c9c914714c1aa5d9ea31350c6",
+      "duration": 0.922667,
+      "after": {
+        "loudness": -20.8,
+        "truePeak": -2.56,
+        "samplePeak": -2.603748
+      },
+      "iterations": [
+        {
+          "gainDb": 6.440000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.8,
+          "truePeak": -2.56,
+          "samplePeak": -2.603748
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-bfb3175cd7f4",
+      "path": "sfx/sfx-bfb3175cd7f4.ogg",
+      "before": {
+        "loudness": -24.1,
+        "truePeak": -1.65,
+        "samplePeak": -1.654149
+      },
+      "modified": true,
+      "sha256": "ae8dc97367d4c9651d20fa1b2976fdaf71e1f50efec11ad279ed82533bd5feed",
+      "duration": 1.529021,
+      "after": {
+        "loudness": -20.19,
+        "truePeak": -2.82,
+        "samplePeak": -2.861187
+      },
+      "iterations": [
+        {
+          "gainDb": 6.100000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.41,
+          "truePeak": -2.65,
+          "samplePeak": -2.719988
+        },
+        {
+          "gainDb": 9.510000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.19,
+          "truePeak": -2.82,
+          "samplePeak": -2.861187
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-05168a0aa856",
+      "path": "sfx/sfx-05168a0aa856.ogg",
+      "before": {
+        "loudness": -21.49,
+        "truePeak": -1.76,
+        "samplePeak": -1.79174
+      },
+      "modified": true,
+      "sha256": "7b5587bc0006c319b4d463898ff371f5854700daebb6c14812916cd957edac2a",
+      "duration": 0.674667,
+      "after": {
+        "loudness": -20.54,
+        "truePeak": -2.96,
+        "samplePeak": -2.98862
+      },
+      "iterations": [
+        {
+          "gainDb": 3.4899999999999984,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.54,
+          "truePeak": -2.96,
+          "samplePeak": -2.98862
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-9e3959a42c70",
+      "path": "sfx/sfx-9e3959a42c70.ogg",
+      "before": {
+        "loudness": -24.77,
+        "truePeak": -4.19,
+        "samplePeak": -4.18995
+      },
+      "modified": true,
+      "sha256": "01c9a8e873f3ee863c88eebdc35630e5a5bc5ef5e75f9961b0dab117af366520",
+      "duration": 1.52725,
+      "after": {
+        "loudness": -20.25,
+        "truePeak": -3.0,
+        "samplePeak": -3.001147
+      },
+      "iterations": [
+        {
+          "gainDb": 6.77,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.25,
+          "truePeak": -3.0,
+          "samplePeak": -3.001147
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-c809f0eb7e33",
+      "path": "sfx/sfx-c809f0eb7e33.ogg",
+      "before": {
+        "loudness": -18.34,
+        "truePeak": -2.59,
+        "samplePeak": -2.778801
+      },
+      "modified": false,
+      "sha256": "53df3f31a5896b22bbfd215801b74a6cfcc239e1e31d57ea5ddece3205b4df56",
+      "duration": 1.235042,
+      "after": {
+        "loudness": -18.34,
+        "truePeak": -2.59,
+        "samplePeak": -2.778801
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-5408170ced24",
+      "path": "sfx/sfx-5408170ced24.ogg",
+      "before": {
+        "loudness": -23.2,
+        "truePeak": -1.94,
+        "samplePeak": -2.353259
+      },
+      "modified": true,
+      "sha256": "121510dc79304320e258c4d204367d152764432feddc20be126f56fa2662447f",
+      "duration": 1.233479,
+      "after": {
+        "loudness": -19.69,
+        "truePeak": -3.01,
+        "samplePeak": -3.009582
+      },
+      "iterations": [
+        {
+          "gainDb": 5.199999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.69,
+          "truePeak": -3.01,
+          "samplePeak": -3.009582
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-e4ecdce1c649",
+      "path": "sfx/sfx-e4ecdce1c649.ogg",
+      "before": {
+        "loudness": -30.74,
+        "truePeak": -2.12,
+        "samplePeak": -2.118758
+      },
+      "modified": true,
+      "sha256": "a19562dacbc601e832278907eab26bdb275255f37464b640d302e355206bcad0",
+      "duration": 1.214833,
+      "after": {
+        "loudness": -19.02,
+        "truePeak": -2.88,
+        "samplePeak": -2.99763
+      },
+      "iterations": [
+        {
+          "gainDb": 12.739999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.91,
+          "truePeak": -3.03,
+          "samplePeak": -3.036939
+        },
+        {
+          "gainDb": 17.65,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.02,
+          "truePeak": -2.88,
+          "samplePeak": -2.99763
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-b74c1393e17c",
+      "path": "sfx/sfx-b74c1393e17c.ogg",
+      "before": {
+        "loudness": -19.25,
+        "truePeak": -1.66,
+        "samplePeak": -1.6642
+      },
+      "modified": false,
+      "sha256": "e92a027b9d6429f185590ff385148ffa800aaf102f3326d40b3aa5076eeda06c",
+      "duration": 0.484917,
+      "after": {
+        "loudness": -19.25,
+        "truePeak": -1.66,
+        "samplePeak": -1.6642
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-b3847cc4bfeb",
+      "path": "sfx/sfx-b3847cc4bfeb.ogg",
+      "before": {
+        "loudness": -18.75,
+        "truePeak": -1.77,
+        "samplePeak": -1.771519
+      },
+      "modified": false,
+      "sha256": "36e8ed4653239612322786e86b7b02ffcbf122fbd23ff779087137cb4065c56d",
+      "duration": 0.403396,
+      "after": {
+        "loudness": -18.75,
+        "truePeak": -1.77,
+        "samplePeak": -1.771519
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-8dad161c6a8c",
+      "path": "sfx/sfx-8dad161c6a8c.ogg",
+      "before": {
+        "loudness": -19.05,
+        "truePeak": -1.75,
+        "samplePeak": -1.747542
+      },
+      "modified": false,
+      "sha256": "e41bd2635605a0432b07977a9b8517c35c720389bc71c280d91e68b57a2f30ab",
+      "duration": 0.404583,
+      "after": {
+        "loudness": -19.05,
+        "truePeak": -1.75,
+        "samplePeak": -1.747542
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-1cfa32c9392e",
+      "path": "sfx/sfx-1cfa32c9392e.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -1.57,
+        "samplePeak": -1.569869
+      },
+      "modified": false,
+      "sha256": "e8792d09a5949f69c2770995d6abc84416d6a39a1804e99bb40c4dbff0a72a62",
+      "duration": 0.494667,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -1.57,
+        "samplePeak": -1.569869
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-7a3e0edcc209",
+      "path": "sfx/sfx-7a3e0edcc209.ogg",
+      "before": {
+        "loudness": -22.49,
+        "truePeak": -1.58,
+        "samplePeak": -1.584497
+      },
+      "modified": true,
+      "sha256": "54e35a0ee8a18d117a4bcd309bfd47cceb5aa395983b7d1fd4cbd995bcb6572f",
+      "duration": 0.559063,
+      "after": {
+        "loudness": -20.3,
+        "truePeak": -3.01,
+        "samplePeak": -3.010742
+      },
+      "iterations": [
+        {
+          "gainDb": 4.489999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.3,
+          "truePeak": -3.01,
+          "samplePeak": -3.010742
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-7b302c8ca4c4",
+      "path": "sfx/sfx-7b302c8ca4c4.ogg",
+      "before": {
+        "loudness": -22.28,
+        "truePeak": -1.6,
+        "samplePeak": -1.603496
+      },
+      "modified": true,
+      "sha256": "b99b9cbb91887d6dcb9285caa4432d388519a5d1957306e4e78b17a8b8ad081a",
+      "duration": 0.559396,
+      "after": {
+        "loudness": -20.1,
+        "truePeak": -2.99,
+        "samplePeak": -2.989242
+      },
+      "iterations": [
+        {
+          "gainDb": 4.280000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.1,
+          "truePeak": -2.99,
+          "samplePeak": -2.989242
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-b3e38126d804",
+      "path": "sfx/sfx-b3e38126d804.ogg",
+      "before": {
+        "loudness": -22.43,
+        "truePeak": -1.63,
+        "samplePeak": -1.627922
+      },
+      "modified": true,
+      "sha256": "412f22063736f8d4f158d16b83b5c2b7a3fe963f3d97980ccf41b4adde27fea3",
+      "duration": 0.531167,
+      "after": {
+        "loudness": -20.45,
+        "truePeak": -3.0,
+        "samplePeak": -2.999971
+      },
+      "iterations": [
+        {
+          "gainDb": 4.43,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.45,
+          "truePeak": -3.0,
+          "samplePeak": -2.999971
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-12480f744dbc",
+      "path": "sfx/sfx-12480f744dbc.ogg",
+      "before": {
+        "loudness": -19.75,
+        "truePeak": -1.64,
+        "samplePeak": -1.642012
+      },
+      "modified": false,
+      "sha256": "ebf1b94e58545d88befb4f6f4b406382978b2b599cb14dc112c2470646656949",
+      "duration": 0.487979,
+      "after": {
+        "loudness": -19.75,
+        "truePeak": -1.64,
+        "samplePeak": -1.642012
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-0e2d7911beb9",
+      "path": "sfx/sfx-0e2d7911beb9.ogg",
+      "before": {
+        "loudness": -22.6,
+        "truePeak": -1.95,
+        "samplePeak": -1.956935
+      },
+      "modified": true,
+      "sha256": "5f0198819d3bd51e26057ce3cf56c20ea9ebacfbadd5027fadfedbdb92c0e79b",
+      "duration": 1.164042,
+      "after": {
+        "loudness": -18.72,
+        "truePeak": -2.95,
+        "samplePeak": -2.949392
+      },
+      "iterations": [
+        {
+          "gainDb": 4.600000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.72,
+          "truePeak": -2.95,
+          "samplePeak": -2.949392
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-0d2638583567",
+      "path": "sfx/sfx-0d2638583567.ogg",
+      "before": {
+        "loudness": -22.6,
+        "truePeak": -1.84,
+        "samplePeak": -1.840172
+      },
+      "modified": true,
+      "sha256": "dddf2b5b6a9983606be112ab0765cb054efdeda2e35b0c8e2590b6b8a6c05635",
+      "duration": 1.412417,
+      "after": {
+        "loudness": -18.51,
+        "truePeak": -2.91,
+        "samplePeak": -2.916795
+      },
+      "iterations": [
+        {
+          "gainDb": 4.600000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.51,
+          "truePeak": -2.91,
+          "samplePeak": -2.916795
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-5b30df9e1703",
+      "path": "sfx/sfx-5b30df9e1703.ogg",
+      "before": {
+        "loudness": -22.68,
+        "truePeak": -1.65,
+        "samplePeak": -1.655284
+      },
+      "modified": true,
+      "sha256": "0523156ef4da62ae0310c447103108613538980d6add32de8420daec4cbe0532",
+      "duration": 0.687271,
+      "after": {
+        "loudness": -20.05,
+        "truePeak": -3.02,
+        "samplePeak": -3.017483
+      },
+      "iterations": [
+        {
+          "gainDb": 4.68,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.05,
+          "truePeak": -3.02,
+          "samplePeak": -3.017483
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-ec453cc5bb80",
+      "path": "sfx/sfx-ec453cc5bb80.ogg",
+      "before": {
+        "loudness": -26.8,
+        "truePeak": -1.59,
+        "samplePeak": -1.594386
+      },
+      "modified": true,
+      "sha256": "a1ad87c3d5e3994e93092eea2ad664733615db773641612671f1c1ecbefa1dc6",
+      "duration": 2.791854,
+      "after": {
+        "loudness": -20.83,
+        "truePeak": -2.92,
+        "samplePeak": -2.918661
+      },
+      "iterations": [
+        {
+          "gainDb": 8.8,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -26.47,
+          "truePeak": -2.97,
+          "samplePeak": -2.974908
+        },
+        {
+          "gainDb": 17.27,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -24.31,
+          "truePeak": -2.97,
+          "samplePeak": -2.967354
+        },
+        {
+          "gainDb": 23.58,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.54,
+          "truePeak": -2.98,
+          "samplePeak": -2.976953
+        },
+        {
+          "gainDb": 27.119999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.83,
+          "truePeak": -2.92,
+          "samplePeak": -2.918661
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-6041eb530d25",
+      "path": "sfx/sfx-6041eb530d25.ogg",
+      "before": {
+        "loudness": -25.71,
+        "truePeak": -1.66,
+        "samplePeak": -1.66435
+      },
+      "modified": true,
+      "sha256": "7dc80c03f7d864cb324e056e94304066115feb781d1f5626450400bf788c6295",
+      "duration": 2.789146,
+      "after": {
+        "loudness": -20.8,
+        "truePeak": -2.89,
+        "samplePeak": -2.886433
+      },
+      "iterations": [
+        {
+          "gainDb": 7.710000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.5,
+          "truePeak": -3.01,
+          "samplePeak": -3.007167
+        },
+        {
+          "gainDb": 15.21,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.58,
+          "truePeak": -2.95,
+          "samplePeak": -2.945156
+        },
+        {
+          "gainDb": 20.79,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.6,
+          "truePeak": -2.92,
+          "samplePeak": -2.923098
+        },
+        {
+          "gainDb": 24.39,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.17,
+          "truePeak": -2.93,
+          "samplePeak": -2.925487
+        },
+        {
+          "gainDb": 27.560000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.8,
+          "truePeak": -2.89,
+          "samplePeak": -2.886433
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-5e6f44ffbfed",
+      "path": "sfx/sfx-5e6f44ffbfed.ogg",
+      "before": {
+        "loudness": -25.43,
+        "truePeak": -1.64,
+        "samplePeak": -1.638252
+      },
+      "modified": true,
+      "sha256": "2afa6af144532c7a8eae5a90f77b542e74abc8393a2ad0c744939451d93457b1",
+      "duration": 2.789729,
+      "after": {
+        "loudness": -20.7,
+        "truePeak": -2.92,
+        "samplePeak": -2.920393
+      },
+      "iterations": [
+        {
+          "gainDb": 7.43,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.4,
+          "truePeak": -3.02,
+          "samplePeak": -3.021667
+        },
+        {
+          "gainDb": 14.829999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.72,
+          "truePeak": -2.97,
+          "samplePeak": -2.972274
+        },
+        {
+          "gainDb": 20.549999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.02,
+          "truePeak": -2.94,
+          "samplePeak": -2.938718
+        },
+        {
+          "gainDb": 24.569999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.7,
+          "truePeak": -2.92,
+          "samplePeak": -2.920393
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-a1c06f7a5401",
+      "path": "sfx/sfx-a1c06f7a5401.ogg",
+      "before": {
+        "loudness": -25.71,
+        "truePeak": -1.81,
+        "samplePeak": -1.819492
+      },
+      "modified": true,
+      "sha256": "6b89acb397c7d2072937a2fb0df699016ef30142caf96643dbef37ea81c4c7bc",
+      "duration": 2.71075,
+      "after": {
+        "loudness": -20.62,
+        "truePeak": -2.86,
+        "samplePeak": -2.865254
+      },
+      "iterations": [
+        {
+          "gainDb": 7.710000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.05,
+          "truePeak": -2.7,
+          "samplePeak": -2.77546
+        },
+        {
+          "gainDb": 11.760000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.25,
+          "truePeak": -2.91,
+          "samplePeak": -2.908129
+        },
+        {
+          "gainDb": 15.010000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.62,
+          "truePeak": -2.86,
+          "samplePeak": -2.865254
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-4b928b5dfa43",
+      "path": "sfx/sfx-4b928b5dfa43.ogg",
+      "before": {
+        "loudness": -22.52,
+        "truePeak": -1.68,
+        "samplePeak": -1.679588
+      },
+      "modified": true,
+      "sha256": "ce01d94808038ba589fce8d8118feb8cd3ac3dba542b2de268d32e959ecc14c1",
+      "duration": 2.720063,
+      "after": {
+        "loudness": -20.53,
+        "truePeak": -2.83,
+        "samplePeak": -2.85554
+      },
+      "iterations": [
+        {
+          "gainDb": 4.52,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.35,
+          "truePeak": -3.03,
+          "samplePeak": -3.025512
+        },
+        {
+          "gainDb": 7.870000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.53,
+          "truePeak": -2.83,
+          "samplePeak": -2.85554
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-d49cbb6e2df8",
+      "path": "sfx/sfx-d49cbb6e2df8.ogg",
+      "before": {
+        "loudness": -22.71,
+        "truePeak": -1.83,
+        "samplePeak": -1.831916
+      },
+      "modified": true,
+      "sha256": "be70ffca2e7e4f8156777bf0af82aa480d7597abe1664d0f58f843b271522bed",
+      "duration": 2.897,
+      "after": {
+        "loudness": -20.52,
+        "truePeak": -2.87,
+        "samplePeak": -2.870157
+      },
+      "iterations": [
+        {
+          "gainDb": 4.710000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.35,
+          "truePeak": -2.86,
+          "samplePeak": -2.867777
+        },
+        {
+          "gainDb": 8.060000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.52,
+          "truePeak": -2.87,
+          "samplePeak": -2.870157
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-d5e473984400",
+      "path": "sfx/sfx-d5e473984400.ogg",
+      "before": {
+        "loudness": -30.3,
+        "truePeak": -1.73,
+        "samplePeak": -1.732594
+      },
+      "modified": true,
+      "sha256": "95dde5d605977ff8db641f2258dd7c8801b7a5e7240213efee3b2b98c72cc15f",
+      "duration": 2.695917,
+      "after": {
+        "loudness": -20.68,
+        "truePeak": -2.73,
+        "samplePeak": -2.774207
+      },
+      "iterations": [
+        {
+          "gainDb": 12.3,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -29.22,
+          "truePeak": -3.03,
+          "samplePeak": -3.03271
+        },
+        {
+          "gainDb": 23.52,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -24.17,
+          "truePeak": -2.94,
+          "samplePeak": -2.939361
+        },
+        {
+          "gainDb": 29.69,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.68,
+          "truePeak": -2.73,
+          "samplePeak": -2.774207
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-27ddaad7d384",
+      "path": "sfx/sfx-27ddaad7d384.ogg",
+      "before": {
+        "loudness": -29.93,
+        "truePeak": -1.77,
+        "samplePeak": -1.766301
+      },
+      "modified": true,
+      "sha256": "5fc5e767ce1949ee4988133044c52a8157981c41fe5a62fbabf10e749436f8cb",
+      "duration": 2.689792,
+      "after": {
+        "loudness": -20.25,
+        "truePeak": -2.75,
+        "samplePeak": -2.923132
+      },
+      "iterations": [
+        {
+          "gainDb": 11.93,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -27.32,
+          "truePeak": -2.94,
+          "samplePeak": -2.938328
+        },
+        {
+          "gainDb": 21.25,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.7,
+          "truePeak": -2.94,
+          "samplePeak": -2.974281
+        },
+        {
+          "gainDb": 24.95,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.25,
+          "truePeak": -2.75,
+          "samplePeak": -2.923132
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-44043937fae8",
+      "path": "sfx/sfx-44043937fae8.ogg",
+      "before": {
+        "loudness": -30.02,
+        "truePeak": -1.62,
+        "samplePeak": -1.627099
+      },
+      "modified": true,
+      "sha256": "92b416de26af7cc1fcd39b055e40f60069c58cbc888c847f947d879def50a543",
+      "duration": 2.645188,
+      "after": {
+        "loudness": -20.96,
+        "truePeak": -2.89,
+        "samplePeak": -2.897992
+      },
+      "iterations": [
+        {
+          "gainDb": 12.02,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -29.49,
+          "truePeak": -2.97,
+          "samplePeak": -2.967532
+        },
+        {
+          "gainDb": 23.509999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -26.41,
+          "truePeak": -2.97,
+          "samplePeak": -2.972193
+        },
+        {
+          "gainDb": 31.919999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.51,
+          "truePeak": -2.92,
+          "samplePeak": -2.918584
+        },
+        {
+          "gainDb": 37.43,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.71,
+          "truePeak": -2.95,
+          "samplePeak": -2.954837
+        },
+        {
+          "gainDb": 41.14,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.21,
+          "truePeak": -2.87,
+          "samplePeak": -2.918715
+        },
+        {
+          "gainDb": 44.35,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.05,
+          "truePeak": -2.89,
+          "samplePeak": -2.897659
+        },
+        {
+          "gainDb": 47.400000000000006,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.02,
+          "truePeak": -2.91,
+          "samplePeak": -2.910512
+        },
+        {
+          "gainDb": 50.42,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.96,
+          "truePeak": -2.89,
+          "samplePeak": -2.897992
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-741277a378b6",
+      "path": "sfx/sfx-741277a378b6.ogg",
+      "before": {
+        "loudness": -31.42,
+        "truePeak": -1.69,
+        "samplePeak": -1.709282
+      },
+      "modified": true,
+      "sha256": "c5535019ee861d3b2dff53f8cc5a1aa8fd1754c0606a426d0f25fab7f7a383a6",
+      "duration": 2.646521,
+      "after": {
+        "loudness": -20.93,
+        "truePeak": -2.84,
+        "samplePeak": -2.844037
+      },
+      "iterations": [
+        {
+          "gainDb": 13.420000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -30.1,
+          "truePeak": -3.01,
+          "samplePeak": -3.009422
+        },
+        {
+          "gainDb": 25.520000000000003,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -24.87,
+          "truePeak": -2.91,
+          "samplePeak": -2.910989
+        },
+        {
+          "gainDb": 32.39,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.23,
+          "truePeak": -2.78,
+          "samplePeak": -2.779804
+        },
+        {
+          "gainDb": 35.620000000000005,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.93,
+          "truePeak": -2.84,
+          "samplePeak": -2.844037
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-82d4b284b701",
+      "path": "sfx/sfx-82d4b284b701.ogg",
+      "before": {
+        "loudness": -31.49,
+        "truePeak": -1.81,
+        "samplePeak": -1.817463
+      },
+      "modified": true,
+      "sha256": "f193d78b81b8f31cfa3785bda8c126f1782ce992668f20526fc5a95f391d7a5e",
+      "duration": 2.651521,
+      "after": {
+        "loudness": -20.92,
+        "truePeak": -2.75,
+        "samplePeak": -2.881035
+      },
+      "iterations": [
+        {
+          "gainDb": 13.489999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -30.25,
+          "truePeak": -2.99,
+          "samplePeak": -3.023459
+        },
+        {
+          "gainDb": 25.74,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.23,
+          "truePeak": -2.98,
+          "samplePeak": -2.976505
+        },
+        {
+          "gainDb": 32.97,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.53,
+          "truePeak": -2.89,
+          "samplePeak": -2.886377
+        },
+        {
+          "gainDb": 36.5,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.62,
+          "truePeak": -2.89,
+          "samplePeak": -2.909899
+        },
+        {
+          "gainDb": 40.120000000000005,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.07,
+          "truePeak": -2.83,
+          "samplePeak": -2.88103
+        },
+        {
+          "gainDb": 43.190000000000005,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.92,
+          "truePeak": -2.75,
+          "samplePeak": -2.881035
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-1c77daadc225",
+      "path": "sfx/sfx-1c77daadc225.ogg",
+      "before": {
+        "loudness": -30.2,
+        "truePeak": -1.69,
+        "samplePeak": -1.686816
+      },
+      "modified": true,
+      "sha256": "532cdf91aca89da04792e347de0273582e8787b0105e27b85f1dd3dd358be0b1",
+      "duration": 2.682563,
+      "after": {
+        "loudness": -20.72,
+        "truePeak": -2.92,
+        "samplePeak": -2.926979
+      },
+      "iterations": [
+        {
+          "gainDb": 12.2,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -28.12,
+          "truePeak": -3.0,
+          "samplePeak": -3.022045
+        },
+        {
+          "gainDb": 22.32,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.96,
+          "truePeak": -2.88,
+          "samplePeak": -2.888225
+        },
+        {
+          "gainDb": 28.28,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.65,
+          "truePeak": -2.94,
+          "samplePeak": -2.977721
+        },
+        {
+          "gainDb": 32.93,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.51,
+          "truePeak": -2.88,
+          "samplePeak": -2.92365
+        },
+        {
+          "gainDb": 36.44,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.72,
+          "truePeak": -2.92,
+          "samplePeak": -2.926979
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-6cca5747fcd3",
+      "path": "sfx/sfx-6cca5747fcd3.ogg",
+      "before": {
+        "loudness": -26.31,
+        "truePeak": -1.93,
+        "samplePeak": -1.933927
+      },
+      "modified": true,
+      "sha256": "f2b252d35f26c4f44a6c286f1b8d69cba429612ee7df7a5ddfe4df24f2edc486",
+      "duration": 2.68275,
+      "after": {
+        "loudness": -20.73,
+        "truePeak": -2.88,
+        "samplePeak": -2.89049
+      },
+      "iterations": [
+        {
+          "gainDb": 8.309999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.74,
+          "truePeak": -3.01,
+          "samplePeak": -3.018538
+        },
+        {
+          "gainDb": 14.049999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.29,
+          "truePeak": -3.01,
+          "samplePeak": -3.024594
+        },
+        {
+          "gainDb": 18.339999999999996,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.6,
+          "truePeak": -2.83,
+          "samplePeak": -2.938686
+        },
+        {
+          "gainDb": 21.939999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.38,
+          "truePeak": -2.92,
+          "samplePeak": -2.920059
+        },
+        {
+          "gainDb": 25.319999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.73,
+          "truePeak": -2.88,
+          "samplePeak": -2.89049
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-c6f19759f812",
+      "path": "sfx/sfx-c6f19759f812.ogg",
+      "before": {
+        "loudness": -26.31,
+        "truePeak": -1.93,
+        "samplePeak": -1.933927
+      },
+      "modified": true,
+      "sha256": "7968066f1eb46d96d50b94ddc36afad707c0e38681c7698191a35d48e2b300f9",
+      "duration": 2.68275,
+      "after": {
+        "loudness": -20.73,
+        "truePeak": -2.88,
+        "samplePeak": -2.89049
+      },
+      "iterations": [
+        {
+          "gainDb": 8.309999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -23.74,
+          "truePeak": -3.01,
+          "samplePeak": -3.018538
+        },
+        {
+          "gainDb": 14.049999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.29,
+          "truePeak": -3.01,
+          "samplePeak": -3.024594
+        },
+        {
+          "gainDb": 18.339999999999996,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.6,
+          "truePeak": -2.83,
+          "samplePeak": -2.938686
+        },
+        {
+          "gainDb": 21.939999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.38,
+          "truePeak": -2.92,
+          "samplePeak": -2.920059
+        },
+        {
+          "gainDb": 25.319999999999997,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.73,
+          "truePeak": -2.88,
+          "samplePeak": -2.89049
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "self-heartbeat-01",
+      "path": "generated/self-heartbeat-01.ogg",
+      "before": {
+        "loudness": -20.16,
+        "truePeak": -1.82,
+        "samplePeak": -1.817015
+      },
+      "modified": false,
+      "sha256": "9b35ecbb2aca2a61cec0efe21a57b580115bc733caf8c9133bce86f9e287fc87",
+      "duration": 7.8,
+      "after": {
+        "loudness": -20.16,
+        "truePeak": -1.82,
+        "samplePeak": -1.817015
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-heartbeat-02",
+      "path": "generated/self-heartbeat-02.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -1.82,
+        "samplePeak": -1.820917
+      },
+      "modified": false,
+      "sha256": "1ad7e6b276c161b8d60db4c02d04022049e6f63eecd64f9952552298ee07b313",
+      "duration": 6.7,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -1.82,
+        "samplePeak": -1.820917
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-heartbeat-03",
+      "path": "generated/self-heartbeat-03.ogg",
+      "before": {
+        "loudness": -19.97,
+        "truePeak": -2.62,
+        "samplePeak": -2.621504
+      },
+      "modified": false,
+      "sha256": "f87d03b89349897c01f860056dd11f6eaff187a9fe16515c9a9590cf4a6a2443",
+      "duration": 5.799958,
+      "after": {
+        "loudness": -19.97,
+        "truePeak": -2.62,
+        "samplePeak": -2.621504
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-impact-01",
+      "path": "generated/self-impact-01.ogg",
+      "before": {
+        "loudness": -20.75,
+        "truePeak": -2.12,
+        "samplePeak": -2.123341
+      },
+      "modified": false,
+      "sha256": "784514294eff332ba6d1dc1892a02a0407c5295c74b69efd32c07fa44f7647ff",
+      "duration": 2.199979,
+      "after": {
+        "loudness": -20.75,
+        "truePeak": -2.12,
+        "samplePeak": -2.123341
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-impact-02",
+      "path": "generated/self-impact-02.ogg",
+      "before": {
+        "loudness": -19.96,
+        "truePeak": -2.87,
+        "samplePeak": -2.916841
+      },
+      "modified": false,
+      "sha256": "707787757a4e1bd5dc9199cd266ed9150dc12281df311ee984ae24259cc7020d",
+      "duration": 3.199979,
+      "after": {
+        "loudness": -19.96,
+        "truePeak": -2.87,
+        "samplePeak": -2.916841
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-impact-03",
+      "path": "generated/self-impact-03.ogg",
+      "before": {
+        "loudness": -20.01,
+        "truePeak": -2.18,
+        "samplePeak": -2.189621
+      },
+      "modified": false,
+      "sha256": "cc7d99095e0ef0200a54146772a22895481a5c6f3d0c86eb40d8ee3bdef7b7a9",
+      "duration": 2.694625,
+      "after": {
+        "loudness": -20.01,
+        "truePeak": -2.18,
+        "samplePeak": -2.189621
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-phone-01",
+      "path": "generated/self-phone-01.ogg",
+      "before": {
+        "loudness": -19.91,
+        "truePeak": -12.42,
+        "samplePeak": -12.415295
+      },
+      "modified": false,
+      "sha256": "1c01c89d0f3990ae06aa9eba12d955ee610f87f01ca7e0167150fe5f4ee69147",
+      "duration": 4.499938,
+      "after": {
+        "loudness": -19.91,
+        "truePeak": -12.42,
+        "samplePeak": -12.415295
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-phone-02",
+      "path": "generated/self-phone-02.ogg",
+      "before": {
+        "loudness": -19.94,
+        "truePeak": -11.17,
+        "samplePeak": -11.167319
+      },
+      "modified": false,
+      "sha256": "491daad4c6823fd4087fa1ab214360d3322901a47ad731b5fdaa4b5f30a2f96c",
+      "duration": 5.239979,
+      "after": {
+        "loudness": -19.94,
+        "truePeak": -11.17,
+        "samplePeak": -11.167319
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "self-phone-03",
+      "path": "generated/self-phone-03.ogg",
+      "before": {
+        "loudness": -19.98,
+        "truePeak": -11.01,
+        "samplePeak": -11.03896
+      },
+      "modified": false,
+      "sha256": "498b0917a9c200eb63f177155c135921cc5d9618184eb26e477101bf08bd145a",
+      "duration": 5.899896,
+      "after": {
+        "loudness": -19.98,
+        "truePeak": -11.01,
+        "samplePeak": -11.03896
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-phone-hand-double",
+      "path": "additions/phone-vehicle/phone-hand-double.ogg",
+      "before": {
+        "loudness": -20.14,
+        "truePeak": -8.15,
+        "samplePeak": -8.153308
+      },
+      "modified": false,
+      "sha256": "46ea8c380c91e8a6721511dc9327ff124a666ba32c982025d4660e389ecb8acb",
+      "duration": 0.800521,
+      "after": {
+        "loudness": -20.14,
+        "truePeak": -8.15,
+        "samplePeak": -8.153308
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-phone-table",
+      "path": "additions/phone-vehicle/phone-table.ogg",
+      "before": {
+        "loudness": -21.57,
+        "truePeak": -1.93,
+        "samplePeak": -1.929267
+      },
+      "modified": true,
+      "sha256": "b90491b931c462f379a642e7ee7cbe43913c2fd2f119ca6d45f5d977c67fa082",
+      "duration": 1.106375,
+      "after": {
+        "loudness": -18.63,
+        "truePeak": -2.98,
+        "samplePeak": -2.985779
+      },
+      "iterations": [
+        {
+          "gainDb": 3.5700000000000003,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.63,
+          "truePeak": -2.98,
+          "samplePeak": -2.985779
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-phone-table-repeat",
+      "path": "additions/phone-vehicle/phone-table-repeat.ogg",
+      "before": {
+        "loudness": -21.12,
+        "truePeak": -1.93,
+        "samplePeak": -1.93147
+      },
+      "modified": true,
+      "sha256": "46827f73c8a5c98bbdd5026b63d8972b59b49523a4baa2a5d3084c3a99d45adc",
+      "duration": 4.302333,
+      "after": {
+        "loudness": -18.73,
+        "truePeak": -2.91,
+        "samplePeak": -2.907272
+      },
+      "iterations": [
+        {
+          "gainDb": 3.120000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.73,
+          "truePeak": -2.91,
+          "samplePeak": -2.907272
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-car-engine",
+      "path": "additions/phone-vehicle/car-engine.ogg",
+      "before": {
+        "loudness": -20.18,
+        "truePeak": -5.62,
+        "samplePeak": -5.638437
+      },
+      "modified": false,
+      "sha256": "91d9d4bb202c1235721a48c38be44af81c5bd7aa1ab34f5fe28397ccef053c3e",
+      "duration": 8.0,
+      "after": {
+        "loudness": -20.18,
+        "truePeak": -5.62,
+        "samplePeak": -5.638437
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-motorcycle-engine",
+      "path": "additions/phone-vehicle/motorcycle-engine.ogg",
+      "before": {
+        "loudness": -20.19,
+        "truePeak": -5.44,
+        "samplePeak": -5.444784
+      },
+      "modified": false,
+      "sha256": "a1214bb5e1dfc1da7ad289123cb156d78f9b819518a280b98622ef8ad479b34d",
+      "duration": 7.982104,
+      "after": {
+        "loudness": -20.19,
+        "truePeak": -5.44,
+        "samplePeak": -5.444784
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-engine-synth",
+      "path": "additions/phone-vehicle/engine-synth.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -3.81,
+        "samplePeak": -3.814055
+      },
+      "modified": false,
+      "sha256": "df1045bafc2c8ed2149aabe2eb84c8883fa6da9f7ee06c248edbe9bdd46d521a",
+      "duration": 3.2,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -3.81,
+        "samplePeak": -3.814055
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-metal-can-01",
+      "path": "round2/r2-metal-can-01.ogg",
+      "before": {
+        "loudness": -22.28,
+        "truePeak": -2.16,
+        "samplePeak": -2.158864
+      },
+      "modified": true,
+      "sha256": "2a0db780c989fa9512e998a570112e41b66e7caf27f7372b0959f0de2be1695c",
+      "duration": 0.812938,
+      "after": {
+        "loudness": -19.38,
+        "truePeak": -3.03,
+        "samplePeak": -3.129194
+      },
+      "iterations": [
+        {
+          "gainDb": 4.280000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.14,
+          "truePeak": -3.01,
+          "samplePeak": -3.104461
+        },
+        {
+          "gainDb": 7.420000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.38,
+          "truePeak": -3.03,
+          "samplePeak": -3.129194
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-metal-can-02",
+      "path": "round2/r2-metal-can-02.ogg",
+      "before": {
+        "loudness": -22.59,
+        "truePeak": -1.8,
+        "samplePeak": -1.80065
+      },
+      "modified": true,
+      "sha256": "0b1aeab3be8d701fa80f02d63935660eaa970828bd5adb589ca404d34cba7fbf",
+      "duration": 1.730354,
+      "after": {
+        "loudness": -20.53,
+        "truePeak": -3.0,
+        "samplePeak": -3.023249
+      },
+      "iterations": [
+        {
+          "gainDb": 4.59,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.0,
+          "truePeak": -2.95,
+          "samplePeak": -2.949849
+        },
+        {
+          "gainDb": 8.59,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.53,
+          "truePeak": -3.0,
+          "samplePeak": -3.023249
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-metal-can-03",
+      "path": "round2/r2-metal-can-03.ogg",
+      "before": {
+        "loudness": -24.2,
+        "truePeak": -1.73,
+        "samplePeak": -1.949599
+      },
+      "modified": true,
+      "sha256": "c4335ce8ae4427f8b5d8c834e45cf934ed5546e334078dc9631d0a9d0c100148",
+      "duration": 0.926708,
+      "after": {
+        "loudness": -20.47,
+        "truePeak": -2.81,
+        "samplePeak": -2.973695
+      },
+      "iterations": [
+        {
+          "gainDb": 6.199999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.46,
+          "truePeak": -2.81,
+          "samplePeak": -2.855453
+        },
+        {
+          "gainDb": 10.66,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.47,
+          "truePeak": -2.81,
+          "samplePeak": -2.973695
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-metal-can-drag",
+      "path": "round2/r2-metal-can-drag.ogg",
+      "before": {
+        "loudness": -32.99,
+        "truePeak": -2.14,
+        "samplePeak": -2.685144
+      },
+      "modified": true,
+      "sha256": "c47986593fb9b275714e9a9d78d539c69bd36559d2d0f98db0fdb0b8dce75153",
+      "duration": 1.264417,
+      "after": {
+        "loudness": -20.15,
+        "truePeak": -2.96,
+        "samplePeak": -2.95625
+      },
+      "iterations": [
+        {
+          "gainDb": 14.990000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -24.25,
+          "truePeak": -2.97,
+          "samplePeak": -3.045496
+        },
+        {
+          "gainDb": 21.240000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.15,
+          "truePeak": -2.96,
+          "samplePeak": -2.95625
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-knife-slice-01",
+      "path": "round2/r2-knife-slice-01.ogg",
+      "before": {
+        "loudness": -18.25,
+        "truePeak": -4.11,
+        "samplePeak": -4.537118
+      },
+      "modified": false,
+      "sha256": "27255d4ea076d0f51784fe61b83807a4b2c3eb3d92e31e4310eb4608cee12f53",
+      "duration": 0.599542,
+      "after": {
+        "loudness": -18.25,
+        "truePeak": -4.11,
+        "samplePeak": -4.537118
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-knife-slice-02",
+      "path": "round2/r2-knife-slice-02.ogg",
+      "before": {
+        "loudness": -18.43,
+        "truePeak": -2.64,
+        "samplePeak": -2.769407
+      },
+      "modified": false,
+      "sha256": "9112f3d64e185cb2a92ae4309fcbe182935624d8c73045bc1fb7b475382ad5e3",
+      "duration": 0.568792,
+      "after": {
+        "loudness": -18.43,
+        "truePeak": -2.64,
+        "samplePeak": -2.769407
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-concrete-run-01",
+      "path": "round2/r2-concrete-run-01.ogg",
+      "before": {
+        "loudness": -27.97,
+        "truePeak": -1.93,
+        "samplePeak": -1.93289
+      },
+      "modified": true,
+      "sha256": "bfa6a7903a83b29833d57b4b150e98b4e1b4acc66c55ddd384869355b3685d44",
+      "duration": 2.242333,
+      "after": {
+        "loudness": -20.9,
+        "truePeak": -2.95,
+        "samplePeak": -2.950067
+      },
+      "iterations": [
+        {
+          "gainDb": 9.969999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -28.32,
+          "truePeak": -3.02,
+          "samplePeak": -3.02433
+        },
+        {
+          "gainDb": 20.29,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.98,
+          "truePeak": -2.94,
+          "samplePeak": -2.942353
+        },
+        {
+          "gainDb": 28.27,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.02,
+          "truePeak": -2.97,
+          "samplePeak": -2.97619
+        },
+        {
+          "gainDb": 32.29,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.9,
+          "truePeak": -2.95,
+          "samplePeak": -2.950067
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-concrete-run-02",
+      "path": "round2/r2-concrete-run-02.ogg",
+      "before": {
+        "loudness": -29.53,
+        "truePeak": -2.06,
+        "samplePeak": -2.064968
+      },
+      "modified": true,
+      "sha256": "e87e3008fe1a0171bc3630f74e0d7e02379da3749a07930ee73c556221fc116e",
+      "duration": 2.242333,
+      "after": {
+        "loudness": -20.1,
+        "truePeak": -2.92,
+        "samplePeak": -2.941735
+      },
+      "iterations": [
+        {
+          "gainDb": 11.530000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -29.29,
+          "truePeak": -3.03,
+          "samplePeak": -3.034207
+        },
+        {
+          "gainDb": 22.82,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -24.77,
+          "truePeak": -3.0,
+          "samplePeak": -2.997265
+        },
+        {
+          "gainDb": 29.59,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.1,
+          "truePeak": -2.92,
+          "samplePeak": -2.941735
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-concrete-run-03",
+      "path": "round2/r2-concrete-run-03.ogg",
+      "before": {
+        "loudness": -29.53,
+        "truePeak": -2.02,
+        "samplePeak": -2.03176
+      },
+      "modified": true,
+      "sha256": "17b81690adc6a422e105045f64a6c74bcc4c5bd8bfab04f3d3ea663fdb333b14",
+      "duration": 2.242333,
+      "after": {
+        "loudness": -20.34,
+        "truePeak": -2.91,
+        "samplePeak": -2.926419
+      },
+      "iterations": [
+        {
+          "gainDb": 11.530000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -29.24,
+          "truePeak": -3.01,
+          "samplePeak": -3.02051
+        },
+        {
+          "gainDb": 22.77,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.32,
+          "truePeak": -2.93,
+          "samplePeak": -2.951849
+        },
+        {
+          "gainDb": 30.09,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.34,
+          "truePeak": -2.91,
+          "samplePeak": -2.926419
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-music-6d424149d4a2",
+      "path": "round2-loops/r2-loop-music-6d424149d4a2.ogg",
+      "before": {
+        "loudness": -22.08,
+        "truePeak": -1.55,
+        "samplePeak": -2.287951
+      },
+      "modified": true,
+      "sha256": "81b48de57d123121c8ad44cbeda0cac6bdf18851da98b9e9eda22eb7251a122f",
+      "duration": 40.322667,
+      "after": {
+        "loudness": -20.73,
+        "truePeak": -2.89,
+        "samplePeak": -2.920447
+      },
+      "iterations": [
+        {
+          "gainDb": 2.0799999999999983,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.73,
+          "truePeak": -2.89,
+          "samplePeak": -2.920447
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0068356990814208984,
+            "adjacent_difference_p95": 0.09595236927270889,
+            "adjacent_difference_p99": 0.27107609063386917,
+            "boundary_difference_percentile": 47.33623064248028,
+            "boundary_to_p99_ratio": 0.025216901518081813,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.0495677501428348,
+            "nearby_rms": 0.03644667933039258,
+            "seam_to_nearby_rms_ratio": 1.3600073052883221,
+            "left_to_right_rms_ratio": 0.9587150851856977,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          },
+          {
+            "boundary_sample_jump": 0.001209404319524765,
+            "adjacent_difference_p95": 0.046281082555651665,
+            "adjacent_difference_p99": 0.12338434159755707,
+            "boundary_difference_percentile": 23.941862982526757,
+            "boundary_to_p99_ratio": 0.009801927083012538,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.03596144035483487,
+            "nearby_rms": 0.025034056047868018,
+            "seam_to_nearby_rms_ratio": 1.4365007526575966,
+            "left_to_right_rms_ratio": 0.9645576059582106,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-music-23bc02ff82e2",
+      "path": "round2-loops/r2-loop-music-23bc02ff82e2.ogg",
+      "before": {
+        "loudness": -21.1,
+        "truePeak": -1.94,
+        "samplePeak": -1.944088
+      },
+      "modified": false,
+      "sha256": "20056de7e4ce39b8340871aed31a409299dcce98feb4f7af6c305a50517cb3ea",
+      "duration": 40.32,
+      "after": {
+        "loudness": -21.1,
+        "truePeak": -1.94,
+        "samplePeak": -1.944088
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-music-e94185587d78",
+      "path": "round2-loops/r2-loop-music-e94185587d78.ogg",
+      "before": {
+        "loudness": -20.21,
+        "truePeak": -4.15,
+        "samplePeak": -4.166114
+      },
+      "modified": false,
+      "sha256": "eed6d51e8a2cd9d4c896b4b61a066723ba79b4d1f870274e531c207ac9eab665",
+      "duration": 40.32,
+      "after": {
+        "loudness": -20.21,
+        "truePeak": -4.15,
+        "samplePeak": -4.166114
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-music-6230c9ba9eef",
+      "path": "round2-loops/r2-loop-music-6230c9ba9eef.ogg",
+      "before": {
+        "loudness": -20.14,
+        "truePeak": -1.89,
+        "samplePeak": -1.956501
+      },
+      "modified": false,
+      "sha256": "df5758d7161e27bd2a57dd47d8d3f975518dded7a6daa311449baa5a0705dc5e",
+      "duration": 40.32,
+      "after": {
+        "loudness": -20.14,
+        "truePeak": -1.89,
+        "samplePeak": -1.956501
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-music-360f3c163ed6",
+      "path": "round2-loops/r2-loop-music-360f3c163ed6.ogg",
+      "before": {
+        "loudness": -22.77,
+        "truePeak": -1.6,
+        "samplePeak": -1.596912
+      },
+      "modified": true,
+      "sha256": "cc56c1c60dca9ee30ee9b6c9388fe0a204841350e5b22bc189f45561a74192ef",
+      "duration": 42.24,
+      "after": {
+        "loudness": -20.67,
+        "truePeak": -2.9,
+        "samplePeak": -2.904867
+      },
+      "iterations": [
+        {
+          "gainDb": 2.7699999999999996,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.67,
+          "truePeak": -2.9,
+          "samplePeak": -2.904867
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.000788412056863308,
+            "adjacent_difference_p95": 0.023761659860610962,
+            "adjacent_difference_p99": 0.04659456014633179,
+            "boundary_difference_percentile": 24.887411659274218,
+            "boundary_to_p99_ratio": 0.016920688904182662,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.0070492298142335805,
+            "nearby_rms": 0.009094012331406724,
+            "seam_to_nearby_rms_ratio": 0.7751506768787455,
+            "left_to_right_rms_ratio": 0.9145209719044565,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          },
+          {
+            "boundary_sample_jump": 0.0008213762193918228,
+            "adjacent_difference_p95": 0.023687681183218956,
+            "adjacent_difference_p99": 0.04638649523258209,
+            "boundary_difference_percentile": 25.07152830626988,
+            "boundary_to_p99_ratio": 0.01770722740041986,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.007104775998892679,
+            "nearby_rms": 0.009133175764435744,
+            "seam_to_nearby_rms_ratio": 0.7779086028934666,
+            "left_to_right_rms_ratio": 0.9154985561370995,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-music-9935a373414d",
+      "path": "round2-loops/r2-loop-music-9935a373414d.ogg",
+      "before": {
+        "loudness": -20.24,
+        "truePeak": -2.49,
+        "samplePeak": -2.50522
+      },
+      "modified": false,
+      "sha256": "269f3bc3019a66e0e121639a8d9402b220b9895f92d25fc7d685c250a95ddd05",
+      "duration": 42.88,
+      "after": {
+        "loudness": -20.24,
+        "truePeak": -2.49,
+        "samplePeak": -2.50522
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-music-9d2fa11d09bf",
+      "path": "round2-loops/r2-loop-music-9d2fa11d09bf.ogg",
+      "before": {
+        "loudness": -20.21,
+        "truePeak": -3.47,
+        "samplePeak": -3.503133
+      },
+      "modified": false,
+      "sha256": "5e95c4d5bb0f4032f6038c98922d0d41071edf9bc891a94f78b0d3f930313be7",
+      "duration": 40.32,
+      "after": {
+        "loudness": -20.21,
+        "truePeak": -3.47,
+        "samplePeak": -3.503133
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-music-01a63f6d5d85",
+      "path": "round2-loops/r2-loop-music-01a63f6d5d85.ogg",
+      "before": {
+        "loudness": -22.76,
+        "truePeak": -1.78,
+        "samplePeak": -1.85585
+      },
+      "modified": true,
+      "sha256": "04ab6c19709c1e3e247faf1b495f62e5845ed827e839742d2b431fb85fcdf872",
+      "duration": 40.32,
+      "after": {
+        "loudness": -20.43,
+        "truePeak": -2.86,
+        "samplePeak": -2.951905
+      },
+      "iterations": [
+        {
+          "gainDb": 2.7600000000000016,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.43,
+          "truePeak": -2.86,
+          "samplePeak": -2.951905
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.001577688381075859,
+            "adjacent_difference_p95": 0.025663912296295166,
+            "adjacent_difference_p99": 0.06772541999816895,
+            "boundary_difference_percentile": 44.936985851203836,
+            "boundary_to_p99_ratio": 0.023295365036030993,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.033450473583907875,
+            "nearby_rms": 0.02651130944049112,
+            "seam_to_nearby_rms_ratio": 1.2617435460512738,
+            "left_to_right_rms_ratio": 0.9625225390580731,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          },
+          {
+            "boundary_sample_jump": 0.0026947055011987686,
+            "adjacent_difference_p95": 0.030261057429015636,
+            "adjacent_difference_p99": 0.0696038156747818,
+            "boundary_difference_percentile": 54.27608004509758,
+            "boundary_to_p99_ratio": 0.038714910599004546,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.03977920188653565,
+            "nearby_rms": 0.03029895120704626,
+            "seam_to_nearby_rms_ratio": 1.3128903906510363,
+            "left_to_right_rms_ratio": 0.8085008620195528,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-music-197b91134859",
+      "path": "round2-loops/r2-loop-music-197b91134859.ogg",
+      "before": {
+        "loudness": -19.97,
+        "truePeak": -5.17,
+        "samplePeak": -5.184899
+      },
+      "modified": false,
+      "sha256": "b374e4ef2369eb003981501d764df59a956f44d47cf8dcb42bff459a783a1658",
+      "duration": 45.44,
+      "after": {
+        "loudness": -19.97,
+        "truePeak": -5.17,
+        "samplePeak": -5.184899
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-071cf6baccc0",
+      "path": "round2-loops/r2-loop-sfx-071cf6baccc0.ogg",
+      "before": {
+        "loudness": -20.08,
+        "truePeak": -4.77,
+        "samplePeak": -4.775278
+      },
+      "modified": false,
+      "sha256": "bbcebc00d9d7fc03319f6a6600f5a7ce3ff3f0d3c8a3c52edb8c58a5a7244bca",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.08,
+        "truePeak": -4.77,
+        "samplePeak": -4.775278
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-510e5353e830",
+      "path": "round2-loops/r2-loop-sfx-510e5353e830.ogg",
+      "before": {
+        "loudness": -20.07,
+        "truePeak": -6.66,
+        "samplePeak": -6.669811
+      },
+      "modified": false,
+      "sha256": "75916151ab02dd0ae39c3f8a1aace4be9fafbd73b10ad7ad25c9dece583908a8",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.07,
+        "truePeak": -6.66,
+        "samplePeak": -6.669811
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-843c79cf1eec",
+      "path": "round2-loops/r2-loop-sfx-843c79cf1eec.ogg",
+      "before": {
+        "loudness": -19.98,
+        "truePeak": -7.47,
+        "samplePeak": -7.468268
+      },
+      "modified": false,
+      "sha256": "25f6b32020da75d8be89d9c18e40dce31ac6c6ea6a6f095f3f3708b4ee82f21e",
+      "duration": 40.0,
+      "after": {
+        "loudness": -19.98,
+        "truePeak": -7.47,
+        "samplePeak": -7.468268
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-0fee82de42e3",
+      "path": "round2-loops/r2-loop-sfx-0fee82de42e3.ogg",
+      "before": {
+        "loudness": -20.0,
+        "truePeak": -5.8,
+        "samplePeak": -5.798028
+      },
+      "modified": false,
+      "sha256": "02b151f53493277c00fbb03c30f1d017e11dce5899e946badb47ec350ac521a2",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.0,
+        "truePeak": -5.8,
+        "samplePeak": -5.798028
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-cd7e525287e0",
+      "path": "round2-loops/r2-loop-sfx-cd7e525287e0.ogg",
+      "before": {
+        "loudness": -20.02,
+        "truePeak": -8.74,
+        "samplePeak": -8.738996
+      },
+      "modified": false,
+      "sha256": "b8863b4c1f8fa735ba8330735e6ccf7d6b2ae8768cf8c48739af96f40220f0b8",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.02,
+        "truePeak": -8.74,
+        "samplePeak": -8.738996
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-57aaf3ed3677",
+      "path": "round2-loops/r2-loop-sfx-57aaf3ed3677.ogg",
+      "before": {
+        "loudness": -19.98,
+        "truePeak": -8.96,
+        "samplePeak": -8.968178
+      },
+      "modified": false,
+      "sha256": "108b2c3ab0a2567c1bdd193d94c2b0710f1ca1eb265cb399e4298bc9ae44c1d0",
+      "duration": 40.0,
+      "after": {
+        "loudness": -19.98,
+        "truePeak": -8.96,
+        "samplePeak": -8.968178
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-sfx-5f709f72838f",
+      "path": "round2-loops/r2-loop-sfx-5f709f72838f.ogg",
+      "before": {
+        "loudness": -22.55,
+        "truePeak": -1.95,
+        "samplePeak": -1.951922
+      },
+      "modified": true,
+      "sha256": "0518dba5f043380606c654ec2a9c28ad4ab64700b0d6784ce6df4ab49c3efc32",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.19,
+        "truePeak": -2.86,
+        "samplePeak": -2.857373
+      },
+      "iterations": [
+        {
+          "gainDb": 4.550000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.19,
+          "truePeak": -2.86,
+          "samplePeak": -2.857373
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.004313435405492783,
+            "adjacent_difference_p95": 0.024310149252414703,
+            "adjacent_difference_p99": 0.03279075026512146,
+            "boundary_difference_percentile": 27.88860827531681,
+            "boundary_to_p99_ratio": 0.13154427302265342,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.11659451076437537,
+            "nearby_rms": 0.13683739445827658,
+            "seam_to_nearby_rms_ratio": 0.8520661419048466,
+            "left_to_right_rms_ratio": 1.087130446323991,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-sfx-da48e26760ac",
+      "path": "round2-loops/r2-loop-sfx-da48e26760ac.ogg",
+      "before": {
+        "loudness": -24.85,
+        "truePeak": -2.38,
+        "samplePeak": -2.384114
+      },
+      "modified": true,
+      "sha256": "88b2082d781eaf04c3b2e36e8ba94e32751c5bea7259bebdcc6574c01afe9720",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.29,
+        "truePeak": -2.95,
+        "samplePeak": -2.945325
+      },
+      "iterations": [
+        {
+          "gainDb": 6.850000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.29,
+          "truePeak": -2.95,
+          "samplePeak": -2.945325
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.009010247886180878,
+            "adjacent_difference_p95": 0.08886649459600449,
+            "adjacent_difference_p99": 0.15100463945418596,
+            "boundary_difference_percentile": 19.53761434250747,
+            "boundary_to_p99_ratio": 0.05966868249047766,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.11362670764766146,
+            "nearby_rms": 0.10760637542440951,
+            "seam_to_nearby_rms_ratio": 1.0559477279994536,
+            "left_to_right_rms_ratio": 1.0086427838136645,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-weather-1019",
+      "path": "fill-gaps/weather/gap-weather-1019.ogg",
+      "before": {
+        "loudness": -20.85,
+        "truePeak": -1.74,
+        "samplePeak": -3.594185
+      },
+      "modified": false,
+      "sha256": "27eb02219f5ce8fa71d123446beb439d1559626e4900815efff76472de0a2d88",
+      "duration": 45.0,
+      "after": {
+        "loudness": -20.85,
+        "truePeak": -1.74,
+        "samplePeak": -3.594185
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-weather-1290",
+      "path": "fill-gaps/weather/gap-weather-1290.ogg",
+      "before": {
+        "loudness": -22.39,
+        "truePeak": -1.42,
+        "samplePeak": -2.996724
+      },
+      "modified": true,
+      "sha256": "dd564b18dd71285b639a8b181d738606dc3f4ac6b29a2773237bb41410dbd007",
+      "duration": 45.002667,
+      "after": {
+        "loudness": -19.16,
+        "truePeak": -2.79,
+        "samplePeak": -2.890236
+      },
+      "iterations": [
+        {
+          "gainDb": 4.390000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.16,
+          "truePeak": -2.79,
+          "samplePeak": -2.890236
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0698769073933363,
+            "adjacent_difference_p95": 0.13873375207185745,
+            "adjacent_difference_p99": 0.27239111065864563,
+            "boundary_difference_percentile": 80.98364860354101,
+            "boundary_to_p99_ratio": 0.2565315263936952,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.0866314217218313,
+            "nearby_rms": 0.08616671961185561,
+            "seam_to_nearby_rms_ratio": 1.0053930579238595,
+            "left_to_right_rms_ratio": 1.0828139749443466,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-weather-1289",
+      "path": "fill-gaps/weather/gap-weather-1289.ogg",
+      "before": {
+        "loudness": -24.01,
+        "truePeak": -1.43,
+        "samplePeak": -2.793429
+      },
+      "modified": true,
+      "sha256": "197af1317f688571e4d58557e93f5aa6e499a1d73da347449ea3f7f52c836588",
+      "duration": 45.002667,
+      "after": {
+        "loudness": -20.35,
+        "truePeak": -2.84,
+        "samplePeak": -2.912111
+      },
+      "iterations": [
+        {
+          "gainDb": 6.010000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.35,
+          "truePeak": -2.84,
+          "samplePeak": -2.912111
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.008644161891425028,
+            "adjacent_difference_p95": 0.11209953762590885,
+            "adjacent_difference_p99": 0.28413283079862595,
+            "boundary_difference_percentile": 28.717513295145043,
+            "boundary_to_p99_ratio": 0.030422960511562368,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.05411993124235867,
+            "nearby_rms": 0.06087112575574959,
+            "seam_to_nearby_rms_ratio": 0.8890903621450892,
+            "left_to_right_rms_ratio": 1.8883431062688867,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-weather-1295",
+      "path": "fill-gaps/weather/gap-weather-1295.ogg",
+      "before": {
+        "loudness": -20.22,
+        "truePeak": -2.97,
+        "samplePeak": -2.973745
+      },
+      "modified": false,
+      "sha256": "c690ac44e98511f7dbb293ea16be094279acfbed9aaa0635fdfbfb50c53a832d",
+      "duration": 45.0,
+      "after": {
+        "loudness": -20.22,
+        "truePeak": -2.97,
+        "samplePeak": -2.973745
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-weather-2679",
+      "path": "fill-gaps/weather/gap-weather-2679.ogg",
+      "before": {
+        "loudness": -20.32,
+        "truePeak": -2.63,
+        "samplePeak": -2.667114
+      },
+      "modified": false,
+      "sha256": "b3a78338825a0eadac0e6f341bf15be7a1d4ee9de5bbaaf4d8e0172f3f07f768",
+      "duration": 30.737521,
+      "after": {
+        "loudness": -20.32,
+        "truePeak": -2.63,
+        "samplePeak": -2.667114
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-weather-0904",
+      "path": "fill-gaps/weather/gap-weather-0904.ogg",
+      "before": {
+        "loudness": -25.53,
+        "truePeak": -3.53,
+        "samplePeak": -3.542
+      },
+      "modified": true,
+      "sha256": "224aa67efe04df654b8cc32f0af547d231b7deb53d0421664a320e1920b303fa",
+      "duration": 45.002667,
+      "after": {
+        "loudness": -18.72,
+        "truePeak": -2.85,
+        "samplePeak": -2.868862
+      },
+      "iterations": [
+        {
+          "gainDb": 7.530000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.72,
+          "truePeak": -2.85,
+          "samplePeak": -2.868862
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0032145576551556587,
+            "adjacent_difference_p95": 0.07943815737962723,
+            "adjacent_difference_p99": 0.12199074029922485,
+            "boundary_difference_percentile": 7.927966633317886,
+            "boundary_to_p99_ratio": 0.026350833245792547,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.12282067579897536,
+            "nearby_rms": 0.1172903311783295,
+            "seam_to_nearby_rms_ratio": 1.0471508995250212,
+            "left_to_right_rms_ratio": 1.1509832194404541,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-weather-0908",
+      "path": "fill-gaps/weather/gap-weather-0908.ogg",
+      "before": {
+        "loudness": -20.37,
+        "truePeak": -3.84,
+        "samplePeak": -3.976857
+      },
+      "modified": false,
+      "sha256": "76665df56639e526afa7b52b4af35bf781cc226fe77a8cee7126d9ad08947f53",
+      "duration": 45.0,
+      "after": {
+        "loudness": -20.37,
+        "truePeak": -3.84,
+        "samplePeak": -3.976857
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-weather-0907",
+      "path": "fill-gaps/weather/gap-weather-0907.ogg",
+      "before": {
+        "loudness": -20.28,
+        "truePeak": -3.92,
+        "samplePeak": -4.034537
+      },
+      "modified": false,
+      "sha256": "7b654dd513a0baf84d91197d97174c0410d62443fb0fd2863aab03aa1381432b",
+      "duration": 45.0,
+      "after": {
+        "loudness": -20.28,
+        "truePeak": -3.92,
+        "samplePeak": -4.034537
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-holizna-all-the-way-sad",
+      "path": "fill-gaps/music/r2-loop-holizna-all-the-way-sad.ogg",
+      "before": {
+        "loudness": -20.24,
+        "truePeak": -7.24,
+        "samplePeak": -7.243878
+      },
+      "modified": false,
+      "sha256": "7a1d3f19b6f24bf6851b55886425d419aef995438504cbd3af2c48b86a3fd70d",
+      "duration": 33.92,
+      "after": {
+        "loudness": -20.24,
+        "truePeak": -7.24,
+        "samplePeak": -7.243878
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-holizna-sad-boi",
+      "path": "fill-gaps/music/r2-loop-holizna-sad-boi.ogg",
+      "before": {
+        "loudness": -20.18,
+        "truePeak": -5.32,
+        "samplePeak": -5.32515
+      },
+      "modified": false,
+      "sha256": "24c81c23bdc99cd8d5c20622be5d1c669d75a2c32db210ab8304975a99ce4327",
+      "duration": 48.0,
+      "after": {
+        "loudness": -20.18,
+        "truePeak": -5.32,
+        "samplePeak": -5.32515
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -20,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-crowd-low-1",
+      "path": "remaining/crowd-loop/crowd-room-loop-1.ogg",
+      "before": {
+        "loudness": -20.68,
+        "truePeak": -1.72,
+        "samplePeak": -1.728516
+      },
+      "modified": false,
+      "sha256": "f011bc56aa266723cb2de1d43e7e0a4ccfde7a5bd0c2d24ba25775f9da1e6b7f",
+      "duration": 17.0,
+      "after": {
+        "loudness": -20.68,
+        "truePeak": -1.72,
+        "samplePeak": -1.728516
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-crowd-low-2",
+      "path": "remaining/crowd-loop/crowd-room-loop-2.ogg",
+      "before": {
+        "loudness": -20.33,
+        "truePeak": -2.44,
+        "samplePeak": -2.452953
+      },
+      "modified": false,
+      "sha256": "710a03b929d869809cba220d2a0d9b7e058058dcd9be12023697272118cf410e",
+      "duration": 17.0,
+      "after": {
+        "loudness": -20.33,
+        "truePeak": -2.44,
+        "samplePeak": -2.452953
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-crowd-low-3",
+      "path": "remaining/crowd-loop/crowd-room-loop-3.ogg",
+      "before": {
+        "loudness": -21.75,
+        "truePeak": -2.13,
+        "samplePeak": -2.143202
+      },
+      "modified": true,
+      "sha256": "1c940aa737d2a8fac066f82006b78d3fbf97127128129947b0add65a8be34123",
+      "duration": 17.002667,
+      "after": {
+        "loudness": -18.18,
+        "truePeak": -2.84,
+        "samplePeak": -2.844869
+      },
+      "iterations": [
+        {
+          "gainDb": 3.75,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.18,
+          "truePeak": -2.84,
+          "samplePeak": -2.844869
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.012530997395515442,
+            "adjacent_difference_p95": 0.0256054550409317,
+            "adjacent_difference_p99": 0.03777529299259186,
+            "boundary_difference_percentile": 70.59224337284726,
+            "boundary_to_p99_ratio": 0.3317246910030031,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.10569594732647003,
+            "nearby_rms": 0.1349607611597059,
+            "seam_to_nearby_rms_ratio": 0.7831605751051942,
+            "left_to_right_rms_ratio": 1.2233165400859523,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-monitor-steady",
+      "path": "fill-gaps/public-spaces/monitor-steady.ogg",
+      "before": {
+        "loudness": -20.1,
+        "truePeak": -7.66,
+        "samplePeak": -7.662266
+      },
+      "modified": false,
+      "sha256": "3dedb4131873524ecf6280c407001587204f1dcf8b4e511839970979bcbe3806",
+      "duration": 10.9,
+      "after": {
+        "loudness": -20.1,
+        "truePeak": -7.66,
+        "samplePeak": -7.662266
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-monitor-speed-up",
+      "path": "fill-gaps/public-spaces/monitor-speed-up.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -10.17,
+        "samplePeak": -10.185965
+      },
+      "modified": false,
+      "sha256": "24ff3cabd2309ee990c0f6ff88d65cac543be56ff75bc9ae43c63546504ace6d",
+      "duration": 4.7,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -10.17,
+        "samplePeak": -10.185965
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-monitor-continuous",
+      "path": "fill-gaps/public-spaces/monitor-continuous.ogg",
+      "before": {
+        "loudness": -19.95,
+        "truePeak": -15.04,
+        "samplePeak": -15.044401
+      },
+      "modified": false,
+      "sha256": "8425a3ad1ac890581bdcef5d690c7cd9a7a6e92ff7f85741adfa51e03f739edc",
+      "duration": 8.0,
+      "after": {
+        "loudness": -19.95,
+        "truePeak": -15.04,
+        "samplePeak": -15.044401
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-knife-whoosh",
+      "path": "fill-gaps/actions/knife-whoosh.ogg",
+      "before": {
+        "loudness": null,
+        "truePeak": -2.52,
+        "samplePeak": -3.298056
+      },
+      "modified": false,
+      "sha256": "ee3ab207763e09bd95b047fdf0dbb1eb362a9ffaf9a8eed4ee0e9094bfd0315e",
+      "duration": 0.148688,
+      "after": {
+        "loudness": null,
+        "truePeak": -2.52,
+        "samplePeak": -3.298056
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-knife-slash-1",
+      "path": "fill-gaps/actions/knife-slash-1.ogg",
+      "before": {
+        "loudness": null,
+        "truePeak": -2.41,
+        "samplePeak": -2.525645
+      },
+      "modified": false,
+      "sha256": "a46782fb8b865edfd10e3f1eeffb9357223a5c2d89f36a911da1cf29caf390b1",
+      "duration": 0.36,
+      "after": {
+        "loudness": null,
+        "truePeak": -2.41,
+        "samplePeak": -2.525645
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-knife-slash-2",
+      "path": "fill-gaps/actions/knife-slash-2.ogg",
+      "before": {
+        "loudness": -23.51,
+        "truePeak": -2.35,
+        "samplePeak": -2.364337
+      },
+      "modified": true,
+      "sha256": "7b2729491f8e15111f9088a2559a68ac0b84a7f475c417f8d1d2205662959d40",
+      "duration": 0.64,
+      "after": {
+        "loudness": -20.31,
+        "truePeak": -3.15,
+        "samplePeak": -3.187095
+      },
+      "iterations": [
+        {
+          "gainDb": 5.510000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.02,
+          "truePeak": -3.13,
+          "samplePeak": -3.236754
+        },
+        {
+          "gainDb": 9.530000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.31,
+          "truePeak": -3.15,
+          "samplePeak": -3.187095
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-knife-slash-3",
+      "path": "fill-gaps/actions/knife-slash-3.ogg",
+      "before": {
+        "loudness": -29.75,
+        "truePeak": -2.27,
+        "samplePeak": -2.27041
+      },
+      "modified": true,
+      "sha256": "e3ea7c6d88e3923b5ea19ab2ac6a76cf5b1a0abd311d2bd4410fc4020b99482b",
+      "duration": 1.242333,
+      "after": {
+        "loudness": -20.11,
+        "truePeak": -2.74,
+        "samplePeak": -2.741369
+      },
+      "iterations": [
+        {
+          "gainDb": 11.75,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -25.02,
+          "truePeak": -3.13,
+          "samplePeak": -3.125352
+        },
+        {
+          "gainDb": 18.77,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.05,
+          "truePeak": -2.93,
+          "samplePeak": -3.048055
+        },
+        {
+          "gainDb": 22.82,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.11,
+          "truePeak": -2.74,
+          "samplePeak": -2.741369
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-wet-step-1",
+      "path": "fill-gaps/actions/wet-step-1.ogg",
+      "before": {
+        "loudness": null,
+        "truePeak": -2.63,
+        "samplePeak": -2.63064
+      },
+      "modified": false,
+      "sha256": "614be49fe594940ce966f0913aa4908f970859b0adab086acc3aeb7926721904",
+      "duration": 0.376,
+      "after": {
+        "loudness": null,
+        "truePeak": -2.63,
+        "samplePeak": -2.63064
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-wet-step-2",
+      "path": "fill-gaps/actions/wet-step-2.ogg",
+      "before": {
+        "loudness": null,
+        "truePeak": -2.67,
+        "samplePeak": -2.673756
+      },
+      "modified": false,
+      "sha256": "f6985f48c027f9bc0caf370ab1058ed4c15e229432910603e836e201a0972c6f",
+      "duration": 0.246,
+      "after": {
+        "loudness": null,
+        "truePeak": -2.67,
+        "samplePeak": -2.673756
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-wet-step-3",
+      "path": "fill-gaps/actions/wet-step-3.ogg",
+      "before": {
+        "loudness": null,
+        "truePeak": -2.5,
+        "samplePeak": -2.517095
+      },
+      "modified": false,
+      "sha256": "795c1ebcd7e02f1fa8a395e82080505c8b1d35fcd9627b94b02ab4926cada202",
+      "duration": 0.211125,
+      "after": {
+        "loudness": null,
+        "truePeak": -2.5,
+        "samplePeak": -2.517095
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-car-pass-night",
+      "path": "fill-gaps/public-spaces/car-pass-night.ogg",
+      "before": {
+        "loudness": -19.84,
+        "truePeak": -1.82,
+        "samplePeak": -1.836479
+      },
+      "modified": false,
+      "sha256": "febf28781ec1eb05301e425034927a5efab539bce4eff8a47d018f69d2d13e77",
+      "duration": 10.9,
+      "after": {
+        "loudness": -19.84,
+        "truePeak": -1.82,
+        "samplePeak": -1.836479
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-car-pass-left",
+      "path": "fill-gaps/public-spaces/car-pass-left.ogg",
+      "before": {
+        "loudness": -20.07,
+        "truePeak": -2.55,
+        "samplePeak": -2.559895
+      },
+      "modified": false,
+      "sha256": "c2a6fc4c2df3e8ff1660bcba49de78635c08ed3543a66fe8802dc78549afd5ce",
+      "duration": 5.4,
+      "after": {
+        "loudness": -20.07,
+        "truePeak": -2.55,
+        "samplePeak": -2.559895
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-car-pass-country",
+      "path": "fill-gaps/public-spaces/car-pass-country.ogg",
+      "before": {
+        "loudness": -20.52,
+        "truePeak": -2.45,
+        "samplePeak": -2.465082
+      },
+      "modified": false,
+      "sha256": "9c6e4ffda744346859f0fa01354b6f066f143fde9b87e9066de0886be68b4e1d",
+      "duration": 13.0,
+      "after": {
+        "loudness": -20.52,
+        "truePeak": -2.45,
+        "samplePeak": -2.465082
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-bsb-2749",
+      "path": "fill-gaps/nature/r2-loop-bsb-2749.ogg",
+      "before": {
+        "loudness": -20.55,
+        "truePeak": -2.88,
+        "samplePeak": -3.027652
+      },
+      "modified": false,
+      "sha256": "5834c1959084c0a691ae173fb1ba8eebc22ec8059b2805e1e4d236f042e9a849",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.55,
+        "truePeak": -2.88,
+        "samplePeak": -3.027652
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-bsb-2713",
+      "path": "fill-gaps/nature/r2-loop-bsb-2713.ogg",
+      "before": {
+        "loudness": -27.37,
+        "truePeak": -2.0,
+        "samplePeak": -2.793511
+      },
+      "modified": true,
+      "sha256": "31a7226b47e1fd0793935c39da4117a25d06c86c8a948aa7f1d1b7b57e46286a",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.5,
+        "truePeak": -2.95,
+        "samplePeak": -3.034011
+      },
+      "iterations": [
+        {
+          "gainDb": 9.370000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.5,
+          "truePeak": -2.95,
+          "samplePeak": -3.034011
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0016479380428791046,
+            "adjacent_difference_p95": 0.11263560131192207,
+            "adjacent_difference_p99": 0.1792738437652588,
+            "boundary_difference_percentile": 2.7475014309903285,
+            "boundary_to_p99_ratio": 0.009192294917472262,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.06571260873757138,
+            "nearby_rms": 0.07402760333491755,
+            "seam_to_nearby_rms_ratio": 0.887677106609446,
+            "left_to_right_rms_ratio": 0.9515181436858179,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-bsb-2715",
+      "path": "fill-gaps/nature/r2-loop-bsb-2715.ogg",
+      "before": {
+        "loudness": -25.47,
+        "truePeak": -1.78,
+        "samplePeak": -1.983066
+      },
+      "modified": true,
+      "sha256": "6dbe4988967b829bd1b8fdff9253a4517fb5f5e76801cc6f762e0bb7c201e56b",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -19.39,
+        "truePeak": -2.82,
+        "samplePeak": -2.876589
+      },
+      "iterations": [
+        {
+          "gainDb": 7.469999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.39,
+          "truePeak": -2.82,
+          "samplePeak": -2.876589
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.013381604105234146,
+            "adjacent_difference_p95": 0.11418507993221283,
+            "adjacent_difference_p99": 0.20086339488625526,
+            "boundary_difference_percentile": 32.198402186667806,
+            "boundary_to_p99_ratio": 0.06662042186836416,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.03136629644465171,
+            "nearby_rms": 0.03916029954560625,
+            "seam_to_nearby_rms_ratio": 0.8009718211711427,
+            "left_to_right_rms_ratio": 1.1304329361446517,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-bsb-0698",
+      "path": "fill-gaps/nature/r2-loop-bsb-0698.ogg",
+      "before": {
+        "loudness": -20.37,
+        "truePeak": -5.12,
+        "samplePeak": -5.134013
+      },
+      "modified": false,
+      "sha256": "ae4709f2dc53d9dbd28e582685344b6ed97247f39587b24e53fe64fd3b79ca0e",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.37,
+        "truePeak": -5.12,
+        "samplePeak": -5.134013
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-bsb-1447",
+      "path": "fill-gaps/nature/r2-loop-bsb-1447.ogg",
+      "before": {
+        "loudness": -22.17,
+        "truePeak": -1.59,
+        "samplePeak": -1.628209
+      },
+      "modified": true,
+      "sha256": "1eece1558463cfa939b8ba9a50194592ac9ae9c5f9a3351a381e98d6d13fe551",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.75,
+        "truePeak": -2.41,
+        "samplePeak": -2.413178
+      },
+      "iterations": [
+        {
+          "gainDb": 4.170000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.75,
+          "truePeak": -2.41,
+          "samplePeak": -2.413178
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.005327560007572174,
+            "adjacent_difference_p95": 0.06558680534362793,
+            "adjacent_difference_p99": 0.10419502854347229,
+            "boundary_difference_percentile": 16.678706603493023,
+            "boundary_to_p99_ratio": 0.051130654523976714,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.20847506241582037,
+            "nearby_rms": 0.1942000595203536,
+            "seam_to_nearby_rms_ratio": 1.073506686510416,
+            "left_to_right_rms_ratio": 0.9592234749403702,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-bsb-1046",
+      "path": "fill-gaps/nature/r2-loop-bsb-1046.ogg",
+      "before": {
+        "loudness": -22.26,
+        "truePeak": -2.91,
+        "samplePeak": -2.906271
+      },
+      "modified": true,
+      "sha256": "bbc6f56d62fde34580baf12bb8d710dda48e41d6148e2946555a1b244116da9e",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.57,
+        "truePeak": -2.99,
+        "samplePeak": -2.985533
+      },
+      "iterations": [
+        {
+          "gainDb": 4.260000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.57,
+          "truePeak": -2.99,
+          "samplePeak": -2.985533
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.02220643311738968,
+            "adjacent_difference_p95": 0.08527469635009766,
+            "adjacent_difference_p99": 0.13500096648931503,
+            "boundary_difference_percentile": 48.99096301612657,
+            "boundary_to_p99_ratio": 0.16449091954572975,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.12595782726771065,
+            "nearby_rms": 0.12248891879065325,
+            "seam_to_nearby_rms_ratio": 1.0283201820320265,
+            "left_to_right_rms_ratio": 0.9362260712300867,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-bsb-1880",
+      "path": "fill-gaps/nature/r2-loop-bsb-1880.ogg",
+      "before": {
+        "loudness": -20.34,
+        "truePeak": -4.44,
+        "samplePeak": -4.509981
+      },
+      "modified": false,
+      "sha256": "e3548a11063d6473b922c05c4f75c79faef30a26e489d5731185c04b00384372",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.34,
+        "truePeak": -4.44,
+        "samplePeak": -4.509981
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-wav-crickets",
+      "path": "fill-gaps/nature/r2-loop-wav-crickets.ogg",
+      "before": {
+        "loudness": -20.16,
+        "truePeak": -5.87,
+        "samplePeak": -5.907469
+      },
+      "modified": false,
+      "sha256": "5f7cae08773291569d36e4ec4b820c86ca37a67c487df6c0627e95c30d12294a",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.16,
+        "truePeak": -5.87,
+        "samplePeak": -5.907469
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "r2-loop-fs-175020",
+      "path": "fill-gaps/nature/r2-loop-fs-175020.ogg",
+      "before": {
+        "loudness": -20.43,
+        "truePeak": -8.84,
+        "samplePeak": -8.87254
+      },
+      "modified": false,
+      "sha256": "70b97f9b7d4c8acfaed54125763747001406941c4bcefbb938c9158905aa9d39",
+      "duration": 40.0,
+      "after": {
+        "loudness": -20.43,
+        "truePeak": -8.84,
+        "samplePeak": -8.87254
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "gap-human-757113",
+      "path": "fill-gaps/weather-extra/gap-human-757113.ogg",
+      "before": {
+        "loudness": -24.76,
+        "truePeak": -3.21,
+        "samplePeak": -3.21223
+      },
+      "modified": true,
+      "sha256": "1b83c826351b05a4bdd68771b1c4f4382c529a9146de9fb83381deeef430476b",
+      "duration": 24.450667,
+      "after": {
+        "loudness": -19.51,
+        "truePeak": -2.69,
+        "samplePeak": -2.688061
+      },
+      "iterations": [
+        {
+          "gainDb": 6.760000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.51,
+          "truePeak": -2.69,
+          "samplePeak": -2.688061
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-human-554906",
+      "path": "fill-gaps/weather-extra/gap-human-554906.ogg",
+      "before": {
+        "loudness": -22.77,
+        "truePeak": -3.73,
+        "samplePeak": -3.730553
+      },
+      "modified": true,
+      "sha256": "7ed52c3c2a1dc44fa8ac414bf05d287170abc11f7a4543a7728c801d17a5171b",
+      "duration": 7.052375,
+      "after": {
+        "loudness": -18.6,
+        "truePeak": -2.94,
+        "samplePeak": -2.944771
+      },
+      "iterations": [
+        {
+          "gainDb": 4.77,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.6,
+          "truePeak": -2.94,
+          "samplePeak": -2.944771
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "gap-human-344407",
+      "path": "fill-gaps/weather-extra/gap-human-344407.ogg",
+      "before": {
+        "loudness": -17.95,
+        "truePeak": -5.83,
+        "samplePeak": -5.869163
+      },
+      "modified": false,
+      "sha256": "ef4fbe45e5ac1e98783c716e10bcc2e7158fc00d858406ca2b3c2ce25cc61edb",
+      "duration": 0.666667,
+      "after": {
+        "loudness": -17.95,
+        "truePeak": -5.83,
+        "samplePeak": -5.869163
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "remaining-keys-131437",
+      "path": "remaining/keys-umbrella/remaining-keys-131437.ogg",
+      "before": {
+        "loudness": -29.47,
+        "truePeak": -3.67,
+        "samplePeak": -5.499851
+      },
+      "modified": true,
+      "sha256": "a278b323fe9942d585fc42fd6a522145f3a848dafacbb8afb6222611d1f8c257",
+      "duration": 5.380375,
+      "after": {
+        "loudness": -20.93,
+        "truePeak": -2.86,
+        "samplePeak": -3.054048
+      },
+      "iterations": [
+        {
+          "gainDb": 11.469999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -22.02,
+          "truePeak": -2.83,
+          "samplePeak": -3.123316
+        },
+        {
+          "gainDb": 15.489999999999998,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.93,
+          "truePeak": -2.86,
+          "samplePeak": -3.054048
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "remaining-keys-173943",
+      "path": "remaining/keys-umbrella/remaining-keys-173943.ogg",
+      "before": {
+        "loudness": -22.66,
+        "truePeak": -2.77,
+        "samplePeak": -3.016825
+      },
+      "modified": true,
+      "sha256": "5015281138056ac488f791fdc005dec22ba69b140c3d0b8ceb248b89fb7b492c",
+      "duration": 5.380646,
+      "after": {
+        "loudness": -20.13,
+        "truePeak": -2.86,
+        "samplePeak": -2.858377
+      },
+      "iterations": [
+        {
+          "gainDb": 4.66,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.13,
+          "truePeak": -2.86,
+          "samplePeak": -2.858377
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "remaining-keys-235564",
+      "path": "remaining/keys-umbrella/remaining-keys-235564.ogg",
+      "before": {
+        "loudness": -22.65,
+        "truePeak": -2.82,
+        "samplePeak": -3.398353
+      },
+      "modified": true,
+      "sha256": "a435ee2e773e417f74f7451f8aad4a4b4e79ae9e0a56d4c2b762af5e8d08bd85",
+      "duration": 5.840792,
+      "after": {
+        "loudness": -19.61,
+        "truePeak": -2.47,
+        "samplePeak": -2.912274
+      },
+      "iterations": [
+        {
+          "gainDb": 4.649999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.61,
+          "truePeak": -2.47,
+          "samplePeak": -2.912274
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "remaining-pipe-impact-1",
+      "path": "remaining/actions/pipe-impact-1.ogg",
+      "before": {
+        "loudness": -20.98,
+        "truePeak": -2.22,
+        "samplePeak": -2.308351
+      },
+      "modified": false,
+      "sha256": "08cb903efa8cac1fed4200da36602ae50a55290053c865fd25ebbe961ba65d7c",
+      "duration": 2.1,
+      "after": {
+        "loudness": -20.98,
+        "truePeak": -2.22,
+        "samplePeak": -2.308351
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "remaining-pipe-impact-2",
+      "path": "remaining/actions/pipe-impact-2.ogg",
+      "before": {
+        "loudness": -18.95,
+        "truePeak": -2.09,
+        "samplePeak": -2.086211
+      },
+      "modified": false,
+      "sha256": "c1d48f37e4c2812f9200585ae99ef704e717acc2e3b8e895c20b559963f9457e",
+      "duration": 2.2,
+      "after": {
+        "loudness": -18.95,
+        "truePeak": -2.09,
+        "samplePeak": -2.086211
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "remaining-pipe-impact-3",
+      "path": "remaining/actions/pipe-impact-3.ogg",
+      "before": {
+        "loudness": -22.7,
+        "truePeak": -2.56,
+        "samplePeak": -3.041537
+      },
+      "modified": true,
+      "sha256": "eb670f627d23c36cbd8cc0aa2f4f7f21d648e5874cbad0dcb13c5935b6ce8f00",
+      "duration": 1.802667,
+      "after": {
+        "loudness": -19.43,
+        "truePeak": -3.12,
+        "samplePeak": -3.432207
+      },
+      "iterations": [
+        {
+          "gainDb": 4.699999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -19.43,
+          "truePeak": -3.12,
+          "samplePeak": -3.432207
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "remaining-pipe-drag-1",
+      "path": "remaining/actions/pipe-drag-1.ogg",
+      "before": {
+        "loudness": -18.26,
+        "truePeak": -3.66,
+        "samplePeak": -3.752201
+      },
+      "modified": false,
+      "sha256": "5dfdc1bd33fc177bebccdbd7a8e335a96453072cda5d055cbfb8eb6b76a9530e",
+      "duration": 4.0,
+      "after": {
+        "loudness": -18.26,
+        "truePeak": -3.66,
+        "samplePeak": -3.752201
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "remaining-pipe-drag-2",
+      "path": "remaining/actions/pipe-drag-2.ogg",
+      "before": {
+        "loudness": -18.21,
+        "truePeak": -4.64,
+        "samplePeak": -4.658765
+      },
+      "modified": false,
+      "sha256": "b006f4dfec3756aa28ea74b65a00b852bb3de277f48b8d745cce8afc4df87db3",
+      "duration": 4.0,
+      "after": {
+        "loudness": -18.21,
+        "truePeak": -4.64,
+        "samplePeak": -4.658765
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "remaining-pipe-drag-3",
+      "path": "remaining/actions/pipe-drag-3.ogg",
+      "before": {
+        "loudness": -18.38,
+        "truePeak": -2.84,
+        "samplePeak": -2.917187
+      },
+      "modified": false,
+      "sha256": "ab49d29dca70722e2aac9b634f7d7308e0dc501d33499f481a2c3456ab5f87cc",
+      "duration": 4.0,
+      "after": {
+        "loudness": -18.38,
+        "truePeak": -2.84,
+        "samplePeak": -2.917187
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-night-street-puebla-1",
+      "path": "remaining/ambience/night-street-puebla-1.ogg",
+      "before": {
+        "loudness": -21.13,
+        "truePeak": -2.24,
+        "samplePeak": -2.243185
+      },
+      "modified": true,
+      "sha256": "63e4d69431caed8ecdb13acc80a0b174ee6d7843bfaa0b036cc8709b5a7c9a52",
+      "duration": 39.0,
+      "after": {
+        "loudness": -18.37,
+        "truePeak": -2.88,
+        "samplePeak": -2.878162
+      },
+      "iterations": [
+        {
+          "gainDb": 3.129999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.37,
+          "truePeak": -2.88,
+          "samplePeak": -2.878162
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0027958666905760765,
+            "adjacent_difference_p95": 0.03517664968967438,
+            "adjacent_difference_p99": 0.05168711394071579,
+            "boundary_difference_percentile": 18.650864663923432,
+            "boundary_to_p99_ratio": 0.05409214168511878,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.031064371116790005,
+            "nearby_rms": 0.02847467903185714,
+            "seam_to_nearby_rms_ratio": 1.0909471914340296,
+            "left_to_right_rms_ratio": 1.0049248169747027,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-night-street-puebla-2",
+      "path": "remaining/ambience/night-street-puebla-2.ogg",
+      "before": {
+        "loudness": -19.88,
+        "truePeak": -2.48,
+        "samplePeak": -2.486829
+      },
+      "modified": false,
+      "sha256": "4171a7f52c85292dc01eaee18532b37b345f6d6c2e86748bc4ccb034a3caed12",
+      "duration": 39.0,
+      "after": {
+        "loudness": -19.88,
+        "truePeak": -2.48,
+        "samplePeak": -2.486829
+      },
+      "iterations": [],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "原文件实测在允许范围内，未修改。"
+    },
+    {
+      "id": "sfx-night-street-puebla-3",
+      "path": "remaining/ambience/night-street-puebla-3.ogg",
+      "before": {
+        "loudness": -26.72,
+        "truePeak": -1.92,
+        "samplePeak": -1.921519
+      },
+      "modified": true,
+      "sha256": "7f9f7801291483467e332025eb27d0a01e43f1847c23495e85ba188275dc089a",
+      "duration": 39.002667,
+      "after": {
+        "loudness": -18.67,
+        "truePeak": -2.76,
+        "samplePeak": -2.788991
+      },
+      "iterations": [
+        {
+          "gainDb": 8.719999999999999,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.67,
+          "truePeak": -2.76,
+          "samplePeak": -2.788991
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.032245486974716187,
+            "adjacent_difference_p95": 0.028552785515785217,
+            "adjacent_difference_p99": 0.04643547534942627,
+            "boundary_difference_percentile": 96.52136566312268,
+            "boundary_to_p99_ratio": 0.6944149216104577,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.13454387767398232,
+            "nearby_rms": 0.12572894497450315,
+            "seam_to_nearby_rms_ratio": 1.0701106073964652,
+            "left_to_right_rms_ratio": 1.0198788067923168,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "sfx-crowd-long-loop",
+      "path": "remaining/crowd-loop/crowd-room-loop-long.ogg",
+      "before": {
+        "loudness": -21.89,
+        "truePeak": -1.72,
+        "samplePeak": -1.728516
+      },
+      "modified": true,
+      "sha256": "803df60d97801ca3a13225971ac908a5b48c6e1f8f9996b606ade46a5c1a7d0d",
+      "duration": 55.002667,
+      "after": {
+        "loudness": -18.18,
+        "truePeak": -2.81,
+        "samplePeak": -2.809778
+      },
+      "iterations": [
+        {
+          "gainDb": 3.8900000000000006,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.18,
+          "truePeak": -2.81,
+          "samplePeak": -2.809778
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.011376425623893738,
+            "adjacent_difference_p95": 0.026794545352458954,
+            "adjacent_difference_p99": 0.03971579670906067,
+            "boundary_difference_percentile": 65.57941878008288,
+            "boundary_to_p99_ratio": 0.2864458620138507,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.1066911825258317,
+            "nearby_rms": 0.10625909026964728,
+            "seam_to_nearby_rms_ratio": 1.004066402743407,
+            "left_to_right_rms_ratio": 0.978177955871744,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    }
+  ],
+  "method": "先加增益，192kHz四倍过采样alimiter动态限幅，回48kHz Vorbis；循环重复三遍后取中间原长一遍；编码后测量并迭代，不能peakLimited豁免。",
+  "allowedLufs": {
+    "sfx": [
+      -21,
+      -15
+    ],
+    "music": [
+      -22,
+      -18
+    ]
+  },
+  "modifiedLoops": 16,
+  "subjectiveListeningPerformed": false
+}

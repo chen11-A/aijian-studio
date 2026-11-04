@@ -13,10 +13,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 7.8,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.16,
     "truePeak": -1.82,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "9b35ecbb2aca2a61cec0efe21a57b580115bc733caf8c9133bce86f9e287fc87",
@@ -25,7 +25,9 @@
     "loopable": false,
     "samplePeak": -1.817015,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-heartbeat-02",
@@ -41,10 +43,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 6.7,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.95,
     "truePeak": -1.82,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "1ad7e6b276c161b8d60db4c02d04022049e6f63eecd64f9952552298ee07b313",
@@ -53,7 +55,9 @@
     "loopable": false,
     "samplePeak": -1.820917,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-heartbeat-03",
@@ -69,10 +73,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 5.799958,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.97,
     "truePeak": -2.62,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "f87d03b89349897c01f860056dd11f6eaff187a9fe16515c9a9590cf4a6a2443",
@@ -81,7 +85,9 @@
     "loopable": false,
     "samplePeak": -2.621504,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-01",
@@ -97,10 +103,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 2.199979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.75,
     "truePeak": -2.12,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "784514294eff332ba6d1dc1892a02a0407c5295c74b69efd32c07fa44f7647ff",
@@ -109,7 +115,9 @@
     "loopable": false,
     "samplePeak": -2.123341,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-02",
@@ -125,10 +133,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 3.199979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.96,
     "truePeak": -2.87,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "707787757a4e1bd5dc9199cd266ed9150dc12281df311ee984ae24259cc7020d",
@@ -137,7 +145,9 @@
     "loopable": false,
     "samplePeak": -2.916841,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-03",
@@ -153,10 +163,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 2.694625,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.01,
     "truePeak": -2.18,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "cc7d99095e0ef0200a54146772a22895481a5c6f3d0c86eb40d8ee3bdef7b7a9",
@@ -165,7 +175,9 @@
     "loopable": false,
     "samplePeak": -2.189621,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-01",
@@ -180,10 +192,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 4.499938,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.91,
     "truePeak": -12.42,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "1c01c89d0f3990ae06aa9eba12d955ee610f87f01ca7e0167150fe5f4ee69147",
@@ -192,7 +204,9 @@
     "loopable": false,
     "samplePeak": -12.415295,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-02",
@@ -207,10 +221,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 5.239979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.94,
     "truePeak": -11.17,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "491daad4c6823fd4087fa1ab214360d3322901a47ad731b5fdaa4b5f30a2f96c",
@@ -219,7 +233,9 @@
     "loopable": false,
     "samplePeak": -11.167319,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-03",
@@ -234,10 +250,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 5.899896,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.98,
     "truePeak": -11.01,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "498b0917a9c200eb63f177155c135921cc5d9618184eb26e477101bf08bd145a",
@@ -246,6 +262,8 @@
     "loopable": false,
     "samplePeak": -11.03896,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   }
 ]

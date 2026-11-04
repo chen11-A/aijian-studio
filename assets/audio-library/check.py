@@ -43,7 +43,7 @@ def validate_levels(item, levels, target):
         raise ValueError(f"真峰值超标：{levels['truePeak']:.2f} dBTP，须不高于 -1 dBTP。")
     if levels['samplePeak'] > -1:
         raise ValueError(f"采样峰值超标：{levels['samplePeak']:.2f} dBFS，须不高于 -1 dBFS。")
-    short_unmeasurable = (levels['loudness'] is None and item['loudness'] is None
+    short_unmeasurable = (item.get('type', 'sfx') == 'sfx' and levels['loudness'] is None and item['loudness'] is None
                           and item.get('duration', 1) < .4 and bool(item.get('loudnessNote')))
     if not short_unmeasurable and (levels['loudness'] is None or item['loudness'] is None):
         raise ValueError('只有不足 400 毫秒且附有说明的音效可以没有积分响度。')
@@ -52,8 +52,9 @@ def validate_levels(item, levels, target):
     limited = item.get('peakLimited', False)
     if not isinstance(limited, bool):
         raise ValueError('峰值优先标记必须是布尔值。')
-    if not short_unmeasurable and (levels['loudness'] > target + 1 or (levels['loudness'] < target - 1 and not limited)):
-        raise ValueError('实测响度不符合目标；为峰值安全而降低响度须明确记录 peakLimited。')
+    lower, upper = (-22, -18) if item.get('type') == 'music' else (-21, -15)
+    if not short_unmeasurable and not lower <= levels['loudness'] <= upper:
+        raise ValueError(f'实测响度超出允许范围 {lower} 至 {upper} LUFS；peakLimited 不能豁免。')
     for key in ('truePeak', 'samplePeak'):
         if key in item and (isinstance(item[key], bool) or not isinstance(item[key], (float, int))
                             or not math.isfinite(item[key]) or abs(item[key] - levels[key]) > .1):
@@ -159,6 +160,19 @@ def strict_requirements(entries):
         '悲伤配乐独立来源数':len(sad_sources), '真实录音数量':recording_counts}
 
 
+def loudness_summary(measured):
+    summary = {}
+    for kind, name, lower, upper in [('sfx', '音效', -21, -15), ('music', '配乐', -22, -18)]:
+        rows = [row for row in measured if row['type'] == kind]
+        values = [row['loudness'] for row in rows if row['loudness'] is not None]
+        summary[name] = {'已测文件':len(rows), '允许范围LUFS':[lower, upper],
+            '最小实测LUFS':min(values, default=None), '最大实测LUFS':max(values, default=None),
+            '响度范围超标数':sum(not lower <= value <= upper for value in values),
+            '极短音null豁免数':sum(row.get('nullExempt', False) for row in rows),
+            '不可测但不符合豁免数':sum(row['loudness'] is None and not row.get('nullExempt',False) for row in rows)}
+    return summary
+
+
 def validate(root, ffmpeg, ffprobe, strict_request=False):
     errors = []
     for tool in (ffmpeg, ffprobe):
@@ -220,7 +234,9 @@ def validate(root, ffmpeg, ffprobe, strict_request=False):
             if item['type'] == 'music' and not 30 <= duration <= 180:
                 raise ValueError('音乐时长须为 30 到 180 秒。')
             levels = measured_levels(file, ffmpeg)
-            measured.append({'id': item['id'], **levels})
+            measured.append({'id': item['id'], 'type': item['type'], **levels,
+                'nullExempt': item['type'] == 'sfx' and levels['loudness'] is None
+                    and item['loudness'] is None and duration < .4 and bool(item.get('loudnessNote'))})
             validate_levels({**item, 'duration': duration}, levels, target)
             if can_loop:
                 validate_loop_seam(file, ffmpeg, channels=channels)
@@ -242,6 +258,7 @@ def validate(root, ffmpeg, ffprobe, strict_request=False):
                         '最大采样峰值dBFS': max((x['samplePeak'] for x in measured), default=None),
                         '真峰值超标数': sum(x['truePeak'] > -1 for x in measured),
                         '采样峰值超标数': sum(x['samplePeak'] > -1 for x in measured)}
+    report['响度检查'] = loudness_summary(measured)
     if strict_request:
         strict_errors, strict_report = strict_requirements(valid_entries)
         errors.extend(strict_errors)

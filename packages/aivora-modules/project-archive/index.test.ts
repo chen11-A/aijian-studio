@@ -32,10 +32,15 @@ describe('备份结构验证',()=>{
  it('错误数据报告中文',async()=>{await expect(importProject(path.join(dir,'不存在'),dest)).rejects.toThrow('文件或文件夹不存在');await fs.writeFile(archive,zipSync({'__aivora_manifest.json':new TextEncoder().encode('bad json')}));await expect(importProject(archive,dest)).rejects.toThrow('备份数据损坏');});
 });
 describe('流式归档边界',()=>{
- it('图片与Ogg不重新压缩，文本保持压缩',async()=>{
+ it('常见媒体格式包括大写扩展名使用STORE且导入内容完整，文本保持DEFLATE',async()=>{
+  const media=['照片.jpg','照片.WEBP','视频.mov','声音.M4A','配音.mp3','视频.MP4'];
+  for(const name of media)await fs.writeFile(path.join(src,name),Buffer.alloc(10000,7));
   await fs.writeFile(path.join(src,'图片.PNG'),Buffer.alloc(10000,7));await fs.writeFile(path.join(src,'音乐.ogg'),Buffer.alloc(10000,8));
   await packProject(src,archive);const yauzl=await import('yauzl');
   const methods=await new Promise<Record<string,number>>((resolve,reject)=>yauzl.open(archive,{lazyEntries:true},(error,zip)=>{if(error){reject(error);return;}const out:Record<string,number>={};zip!.on('error',reject);zip!.on('entry',(e)=>{out[e.fileName]=e.compressionMethod;zip!.readEntry();});zip!.on('end',()=>resolve(out));zip!.readEntry();}));
+  for(const name of media)expect(methods[name]).toBe(0);
+  const restored=await importProject(archive,dest);
+  for(const name of media)expect(await fs.readFile(path.join(restored,name))).toEqual(Buffer.alloc(10000,7));
   expect(methods['图片.PNG']).toBe(0);expect(methods['音乐.ogg']).toBe(0);expect(methods['剧本.txt']).toBe(8);
  });
  it.each(['变大','变小','删除'])('检测扫描后文件%s并清理半成品',async mode=>{

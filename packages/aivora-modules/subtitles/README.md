@@ -11,9 +11,9 @@ const ass = generateAss(lines, { portrait: true, preset: 'comic' });
 const command = burnSubtitleArgs({ ffmpegPath: '/工具/ffmpeg', videoPath: '/项目/画面.mp4', subtitlePath: '/项目/字幕.ass', outputPath: '/项目/成片.mp4' });
 ```
 
-预设：`short-drama` 短剧大字粗描边（默认）、`cinema` 电影细字、`comic` 漫剧彩色描边。默认字体家族为 `Noto Sans CJK SC`。`burnSubtitleArgs` 默认用 `import.meta.url` 定位仓库 `apps/studio-web/src/aivora/assets/v2` 中已有的 Noto 字体，即使改变工作目录也会传入正确的绝对 `fontsdir`，不依赖系统安装中文字体，不修改或复制字体。可用 `fontsDirectory` 明确覆盖目录；若将模块搬离仓库，需要保留该相对布局或传入字体目录。现有目录也有图片，libass 可能记录跳过非字体文件的日志，不影响 Noto 字体加载。横屏坐标 1920×1080，竖屏 1080×1920，底部居中；竖屏底部留 240 像素。
+预设：`short-drama` 短剧大字粗描边（默认）、`cinema` 电影细字、`comic` 漫剧彩色描边。默认字体家族为 `Noto Sans CJK SC`。`burnSubtitleArgs` 默认用 `import.meta.url` 定位仓库 `apps/studio-web/src/aivora/assets/v2` 中已有的 Noto 字体，即使改变工作目录也会传入正确的绝对 `fontsdir`，不依赖系统安装中文字体，不修改或复制字体。**Electron 打包接入时必须显式传入 `fontsDirectory`，指向随应用部署的字体资源绝对目录（例如 `path.join(process.resourcesPath, "fonts")`）。默认路径只适用于源码仓库布局，编译、打包或移动模块后会失效。** 应用负责将字体作为资源打包并提供运行时路径。现有目录也有图片，libass 可能记录跳过非字体文件的日志，不影响 Noto 字体加载。横屏坐标 1920×1080，竖屏 1080×1920，底部居中；竖屏底部留 240 像素。
 
-`wrapText(text, portrait)` 使用 Node 20+ 的本地 `Intl.Segmenter` 中文分词，每行不超过 16 字（竖屏 12 字，标点也计数）。优先在完整词之间断行，并避免闭标点（如 `，。！？、）》”`）出现在新行开头、开标点（如 `“（《`）出现在前行末尾。超长英文和数字按 Unicode 字符拆分，不报错。完整词与避头尾规则冲突时，优先尝试不超长的合法字符边界；仍无解（例如连续 17 个闭标点）时保留原文并严格限制行长，允许标点留在边界。显式手动换行和原文开头、末尾已有的孤立标点不重排，因此也可能留下避头尾例外。自动分词无法保证专有名词边界，手动换行可控制。长台词可能超过两行，不自动缩短文字或修改时序。ASS 控制字符会转为全角，避免文字注入样式。
+`wrapText(text, portrait)` 使用 Node 20+ 的本地 `Intl.Segmenter` 中文分词，每行不超过 16 字（竖屏 12 字，标点也计数）。保护“每一天”“每一次”“每个月”等数量时间短语，优先在完整词之间断行，并避免闭标点（如 `，。！？、）》”`）出现在新行开头、开标点（如 `“（《`）出现在前行末尾。超长英文和数字按 Unicode 字符拆分，不报错。完整词与避头尾规则冲突时，优先尝试不超长的合法字符边界；仍无解（例如连续 17 个闭标点）时保留原文并严格限制行长，允许标点留在边界。显式手动换行和原文开头、末尾已有的孤立标点不重排，因此也可能留下避头尾例外。自动分词无法保证专有名词边界，手动换行可控制。长台词可能超过两行，不自动缩短文字或修改时序。ASS 控制字符会转为全角，避免文字注入样式。
 
 ffmpeg 必须传入完整路径，支持 Windows 和 Linux 中文及空格路径；返回参数应直接交给 spawn，不拼接 shell 命令。过滤器路径做两层转义。程序需支持 libass 和 libx264；此模块只生成命令参数，不执行程序。
 

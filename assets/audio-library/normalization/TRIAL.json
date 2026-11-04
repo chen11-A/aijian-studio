@@ -1,0 +1,92 @@
+{
+  "files": 2,
+  "modified": 2,
+  "applied": false,
+  "items": [
+    {
+      "id": "sfx-9dcf180a63dd",
+      "path": "sfx/sfx-9dcf180a63dd.ogg",
+      "before": {
+        "loudness": -35.24,
+        "truePeak": -2.14,
+        "samplePeak": -2.242779
+      },
+      "modified": true,
+      "sha256": "6b3071fa4f016549913d67eccbe4ba8bd623527819e94e2e950a858d34d60ff3",
+      "duration": 7.514417,
+      "after": {
+        "loudness": -20.01,
+        "truePeak": -2.89,
+        "samplePeak": -2.887595
+      },
+      "iterations": [
+        {
+          "gainDb": 17.240000000000002,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -21.85,
+          "truePeak": -2.99,
+          "samplePeak": -3.001844
+        },
+        {
+          "gainDb": 21.090000000000003,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -20.01,
+          "truePeak": -2.89,
+          "samplePeak": -2.887595
+        }
+      ],
+      "seam": null,
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    },
+    {
+      "id": "r2-loop-bsb-2713",
+      "path": "fill-gaps/nature/r2-loop-bsb-2713.ogg",
+      "before": {
+        "loudness": -27.37,
+        "truePeak": -2.0,
+        "samplePeak": -2.793511
+      },
+      "modified": true,
+      "sha256": "5eb07a5d3f603e99885e083e0d3ec4593e257a140e92ce09ea75b186593f9e31",
+      "duration": 40.002667,
+      "after": {
+        "loudness": -18.5,
+        "truePeak": -2.95,
+        "samplePeak": -3.034011
+      },
+      "iterations": [
+        {
+          "gainDb": 9.370000000000001,
+          "limiterLinearCeiling": 0.7,
+          "loudness": -18.5,
+          "truePeak": -2.95,
+          "samplePeak": -3.034011
+        }
+      ],
+      "seam": {
+        "channels": [
+          {
+            "boundary_sample_jump": 0.0016479380428791046,
+            "adjacent_difference_p95": 0.11263560131192207,
+            "adjacent_difference_p99": 0.1792738437652588,
+            "boundary_difference_percentile": 2.7475014309903285,
+            "boundary_to_p99_ratio": 0.009192294917472262,
+            "seam_window_ms_each_side": 20.0,
+            "seam_rms": 0.06571260873757138,
+            "nearby_rms": 0.07402760333491755,
+            "seam_to_nearby_rms_ratio": 0.887677106609446,
+            "left_to_right_rms_ratio": 0.9515181436858179,
+            "passed": true,
+            "limits": "边界跳变≤全片相邻差分99百分位；接缝/附近及左/右20毫秒RMS比在0.5至2之间。客观检查不等同主观试听。"
+          }
+        ],
+        "passed": true
+      },
+      "targetLufs": -18,
+      "peakLimited": false,
+      "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。"
+    }
+  ]
+}

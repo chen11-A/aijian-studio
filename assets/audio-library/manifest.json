@@ -9,18 +9,20 @@
       "紧张"
     ],
     "scene": "适合紧张情绪的过场或蒙太奇。",
-    "duration": 90.9465,
+    "duration": 90.949146,
     "loop": false,
-    "loudness": -22.43,
+    "loudness": -20.82,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
     "license": "CC0-1.0",
-    "sha256": "954f7a1596c489766962dad2b030606d0f9af0a20af4d5426442770827246122",
-    "truePeak": -2.01,
-    "samplePeak": -2.43884,
+    "sha256": "199e270f4f33cd2258f624f3615e27dcc5285baea84a02cca17793d71bee3b76",
+    "truePeak": -2.74,
+    "samplePeak": -2.818553,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.0200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.0200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-23bc02ff82e2",
@@ -32,7 +34,7 @@
       "搞笑"
     ],
     "scene": "适合搞笑情绪的过场或蒙太奇。",
-    "duration": 90.9455,
+    "duration": 90.945542,
     "loop": false,
     "loudness": -21.56,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Bubbles.mp3",
@@ -42,8 +44,10 @@
     "samplePeak": -1.677036,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.4900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.4900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-e94185587d78",
@@ -55,7 +59,7 @@
       "史诗"
     ],
     "scene": "适合史诗情绪的过场或蒙太奇。",
-    "duration": 90.9465,
+    "duration": 90.946479,
     "loop": false,
     "loudness": -20.08,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Cinemato.mp3",
@@ -65,7 +69,9 @@
     "samplePeak": -3.698966,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-6230c9ba9eef",
@@ -77,7 +83,7 @@
       "打斗"
     ],
     "scene": "适合打斗情绪的过场或蒙太奇。",
-    "duration": 90.9459,
+    "duration": 90.945896,
     "loop": false,
     "loudness": -20.11,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Dubstepper.mp3",
@@ -87,7 +93,9 @@
     "samplePeak": -1.309443,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-6fe261a4eb25",
@@ -99,7 +107,7 @@
       "打斗"
     ],
     "scene": "适合打斗情绪的过场或蒙太奇。",
-    "duration": 101.6461,
+    "duration": 101.646104,
     "loop": false,
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Fury.mp3",
@@ -109,7 +117,9 @@
     "samplePeak": -2.886313,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-0274474ab7c4",
@@ -121,7 +131,7 @@
       "搞笑"
     ],
     "scene": "适合搞笑情绪的过场或蒙太奇。",
-    "duration": 80.2939,
+    "duration": 80.293875,
     "loop": false,
     "loudness": -21.75,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Gamer%20Guy.mp3",
@@ -131,8 +141,10 @@
     "samplePeak": -1.80176,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.6800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.6800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-360f3c163ed6",
@@ -144,18 +156,20 @@
       "温暖"
     ],
     "scene": "适合温暖情绪的过场或蒙太奇。",
-    "duration": 90.6959,
+    "duration": 90.698188,
     "loop": false,
-    "loudness": -23.54,
+    "loudness": -20.71,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
     "license": "CC0-1.0",
-    "sha256": "246c6ce3bd3bee1444a440d3253fc5e75ff44a451802aa767fc85500bf849e22",
-    "truePeak": -1.76,
-    "samplePeak": -1.837608,
+    "sha256": "f9a59406d1e4b9b9ca538ba6af63c55110585665ebab4f8443b9f1e242b55169",
+    "truePeak": -2.96,
+    "samplePeak": -2.956541,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.5500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.5500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-9935a373414d",
@@ -167,7 +181,7 @@
       "悬疑"
     ],
     "scene": "适合悬疑情绪的过场或蒙太奇。",
-    "duration": 92.0037,
+    "duration": 92.003708,
     "loop": false,
     "loudness": -20.05,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Illusionist.mp3",
@@ -177,7 +191,9 @@
     "samplePeak": -1.684104,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-444401af8dc7",
@@ -189,18 +205,20 @@
       "温暖"
     ],
     "scene": "适合温暖情绪的过场或蒙太奇。",
-    "duration": 90.5855,
+    "duration": 90.587875,
     "loop": false,
-    "loudness": -22.33,
+    "loudness": -20.89,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/My%20Inventions.mp3",
     "license": "CC0-1.0",
-    "sha256": "272a8e6f72c43e92fca9a1df9f18c4643910bb0656e0c3f4067be338b87464db",
-    "truePeak": -1.49,
-    "samplePeak": -1.531044,
+    "sha256": "34868ab7c127b7908625d06e89c87e79098a29956e6e30eef6106a567107d5fd",
+    "truePeak": -2.6,
+    "samplePeak": -2.794157,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.1202 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1202 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-0a80523107eb",
@@ -212,7 +230,7 @@
       "悬疑"
     ],
     "scene": "适合悬疑情绪的过场或蒙太奇。",
-    "duration": 91.0825,
+    "duration": 91.082479,
     "loop": false,
     "loudness": -20.0,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Mysterious.mp3",
@@ -222,7 +240,9 @@
     "samplePeak": -3.791986,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-9d2fa11d09bf",
@@ -234,7 +254,7 @@
       "甜蜜"
     ],
     "scene": "适合甜蜜情绪的过场或蒙太奇。",
-    "duration": 90.9467,
+    "duration": 90.946708,
     "loop": false,
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Newness.mp3",
@@ -244,7 +264,9 @@
     "samplePeak": -3.157593,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-01a63f6d5d85",
@@ -256,18 +278,20 @@
       "悲伤"
     ],
     "scene": "适合悲伤情绪的过场或蒙太奇。",
-    "duration": 90.9471,
+    "duration": 90.949438,
     "loop": false,
-    "loudness": -22.65,
+    "loudness": -20.42,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
     "license": "CC0-1.0",
-    "sha256": "66204a91083a3545f38c144aa1995bd60724f958f6e1ccd12c0dfd9ce87f4e25",
-    "truePeak": -1.77,
-    "samplePeak": -1.812482,
+    "sha256": "b03cad6c40b7ffd1e53f1a592e7059ae759c1947b4171e5b2e2d625f2e5cb6c3",
+    "truePeak": -2.76,
+    "samplePeak": -2.812371,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.5600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.5600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-b83f90a21759",
@@ -279,7 +303,7 @@
       "甜蜜"
     ],
     "scene": "适合甜蜜情绪的过场或蒙太奇。",
-    "duration": 102.6657,
+    "duration": 102.665708,
     "loop": false,
     "loudness": -20.04,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Party%20Time.mp3",
@@ -289,7 +313,9 @@
     "samplePeak": -2.399089,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-c8cdb7affbe1",
@@ -301,7 +327,7 @@
       "紧张"
     ],
     "scene": "适合紧张情绪的过场或蒙太奇。",
-    "duration": 90.6961,
+    "duration": 90.696083,
     "loop": false,
     "loudness": -19.96,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Planning.mp3",
@@ -311,7 +337,9 @@
     "samplePeak": -1.494942,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-dd0e66d1c872",
@@ -323,7 +351,7 @@
       "悬疑"
     ],
     "scene": "适合悬疑情绪的过场或蒙太奇。",
-    "duration": 90.8332,
+    "duration": 90.833167,
     "loop": false,
     "loudness": -20.05,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Science%20Fiction.mp3",
@@ -333,7 +361,9 @@
     "samplePeak": -1.42897,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-9a5a5f04056f",
@@ -345,7 +375,7 @@
       "史诗"
     ],
     "scene": "适合史诗情绪的过场或蒙太奇。",
-    "duration": 79.06,
+    "duration": 79.059979,
     "loop": false,
     "loudness": -20.06,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sports%20Spirit.mp3",
@@ -355,7 +385,9 @@
     "samplePeak": -3.392272,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-cc2f5e437e63",
@@ -367,7 +399,7 @@
       "温暖"
     ],
     "scene": "适合温暖情绪的过场或蒙太奇。",
-    "duration": 90.9471,
+    "duration": 90.947146,
     "loop": false,
     "loudness": -21.29,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Starter.mp3",
@@ -377,8 +409,10 @@
     "samplePeak": -2.351059,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-197b91134859",
@@ -390,7 +424,7 @@
       "平静"
     ],
     "scene": "适合平静情绪的过场或蒙太奇。",
-    "duration": 90.4714,
+    "duration": 90.471396,
     "loop": false,
     "loudness": -20.03,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Sudden%20Tour.mp3",
@@ -400,7 +434,9 @@
     "samplePeak": -5.268817,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-012b71c5161d",
@@ -412,7 +448,7 @@
       "搞笑"
     ],
     "scene": "适合搞笑情绪的过场或蒙太奇。",
-    "duration": 90.9271,
+    "duration": 90.927063,
     "loop": false,
     "loudness": -20.79,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/THE%20CLOWN.mp3",
@@ -422,8 +458,10 @@
     "samplePeak": -1.745839,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -0.7900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.7900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "music-be6017f6ca71",
@@ -435,7 +473,7 @@
       "平静"
     ],
     "scene": "适合平静情绪的过场或蒙太奇。",
-    "duration": 101.6477,
+    "duration": 101.647667,
     "loop": false,
     "loudness": -21.61,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/slow%20down.mp3",
@@ -445,8 +483,10 @@
     "samplePeak": -1.569515,
     "author": "effacestudios",
     "targetLufs": -20,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.3114 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.3114 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-12e512a0f2df",
@@ -460,19 +500,21 @@
       "走路"
     ],
     "scene": "适合草地脚步2的镜头细节或环境铺底。",
-    "duration": 3.1939,
+    "duration": 3.196208,
     "loop": false,
-    "loudness": -29.14,
+    "loudness": -20.63,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "68cc2d50c85e71cbc093eb2405138178d3b5d83e0c11286e4b8e5e42098f368e",
+    "sha256": "ae86305a912bd7d6b5a40b80ba209eacdf5792da128ec34af14f7aafda6fd86e",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.66,
-    "samplePeak": -1.705292,
+    "truePeak": -2.73,
+    "samplePeak": -2.820464,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -11.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -11.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-021c2e635561",
@@ -484,7 +526,7 @@
       "开门"
     ],
     "scene": "适合开门1的镜头细节或环境铺底。",
-    "duration": 0.8991,
+    "duration": 0.899104,
     "loop": false,
     "loudness": -20.67,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_1.ogg",
@@ -494,8 +536,10 @@
     "samplePeak": -1.857088,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-22c2f5697f1a",
@@ -507,18 +551,20 @@
       "开门"
     ],
     "scene": "适合开门2的镜头细节或环境铺底。",
-    "duration": 1.3862,
+    "duration": 1.388896,
     "loop": false,
-    "loudness": -21.02,
+    "loudness": -19.2,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorOpen_2.ogg",
     "license": "CC0-1.0",
-    "sha256": "b27e60405ac0f4231ce16fd66d55e64275c0daad2ec11ab4ce94db630d4ad6c2",
-    "truePeak": -2.1,
-    "samplePeak": -2.320534,
+    "sha256": "9385986b943b53223528311b95b6ef172a0413488190e859dcbf058d2fd4937b",
+    "truePeak": -3.0,
+    "samplePeak": -2.996505,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.6000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.6000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-d93e440b2aa4",
@@ -530,7 +576,7 @@
       "关门"
     ],
     "scene": "适合关门1的镜头细节或环境铺底。",
-    "duration": 0.6198,
+    "duration": 0.619833,
     "loop": false,
     "loudness": -18.52,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_1.ogg",
@@ -540,7 +586,9 @@
     "samplePeak": -1.990055,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-54b6a6e1f762",
@@ -552,7 +600,7 @@
       "关门"
     ],
     "scene": "适合关门2的镜头细节或环境铺底。",
-    "duration": 0.53,
+    "duration": 0.530021,
     "loop": false,
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_2.ogg",
@@ -562,7 +610,9 @@
     "samplePeak": -1.731736,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-cc6515f70c70",
@@ -574,7 +624,7 @@
       "关门"
     ],
     "scene": "适合关门4的镜头细节或环境铺底。",
-    "duration": 0.5825,
+    "duration": 0.582542,
     "loop": false,
     "loudness": -19.93,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/doorClose_4.ogg",
@@ -584,8 +634,10 @@
     "samplePeak": -1.637235,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-4729d1a9a20d",
@@ -599,18 +651,20 @@
       "衣服摩擦"
     ],
     "scene": "适合衣服摩擦1的镜头细节或环境铺底。",
-    "duration": 0.5287,
+    "duration": 0.528729,
     "loop": false,
-    "loudness": -24.4,
+    "loudness": -20.5,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth1.ogg",
     "license": "CC0-1.0",
-    "sha256": "3804ef7eac232c533128f53ada6b2035e37def0f1a0fe0ec19fda5176209c2e7",
-    "truePeak": -2.01,
-    "samplePeak": -2.010695,
+    "sha256": "077857a6d9d31a40c81bf7c994147a8f6245d19a079e3325c25134c3c83b360f",
+    "truePeak": -3.01,
+    "samplePeak": -3.021943,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -6.0344 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.0344 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-a91bbbc2b480",
@@ -626,16 +680,18 @@
     "scene": "适合衣服摩擦3的镜头细节或环境铺底。",
     "duration": 0.451,
     "loop": false,
-    "loudness": -21.65,
+    "loudness": -19.55,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/cloth3.ogg",
     "license": "CC0-1.0",
-    "sha256": "07e5f003073682f1f52c0681291a74ea774f0f025ac63137341154b0886526f7",
-    "truePeak": -2.3,
-    "samplePeak": -2.299954,
+    "sha256": "81b879e109f42d88d26961636b24678a6a2d025c51650c30db07f2be02cedda3",
+    "truePeak": -3.12,
+    "samplePeak": -3.118538,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-12dee896057b",
@@ -647,18 +703,20 @@
       "翻书"
     ],
     "scene": "适合翻书1的镜头细节或环境铺底。",
-    "duration": 0.6137,
+    "duration": 0.618667,
     "loop": false,
-    "loudness": -31.0,
+    "loudness": -19.36,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/bookFlip1.ogg",
     "license": "CC0-1.0",
-    "sha256": "31148bea78d1f3aeebe4b93084f1688690febc33ebd6fe105bee290c695e026d",
-    "truePeak": -1.96,
-    "samplePeak": -2.055378,
+    "sha256": "ccbee75eba79996295c7fe157abf44c87816343c7864afae2a663b7e6a840609",
+    "truePeak": -2.85,
+    "samplePeak": -3.112369,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -10.9300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -10.9300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-3bf9d7a22a53",
@@ -670,7 +728,7 @@
       "金属锅碰撞"
     ],
     "scene": "适合金属锅碰撞1的镜头细节或环境铺底。",
-    "duration": 1.3043,
+    "duration": 1.304292,
     "loop": false,
     "loudness": -18.17,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot1.ogg",
@@ -680,7 +738,9 @@
     "samplePeak": -2.339713,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-ba55b94aa69b",
@@ -692,7 +752,7 @@
       "金属锅碰撞"
     ],
     "scene": "适合金属锅碰撞2的镜头细节或环境铺底。",
-    "duration": 0.8261,
+    "duration": 0.826146,
     "loop": false,
     "loudness": -18.44,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_rpgaudio/Audio/metalPot2.ogg",
@@ -702,7 +762,9 @@
     "samplePeak": -7.526123,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-9e826c868f2e",
@@ -724,7 +786,9 @@
     "samplePeak": -6.672462,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-528edef154d1",
@@ -737,18 +801,20 @@
       "打斗"
     ],
     "scene": "适合刀刃刮擦1的镜头细节或环境铺底。",
-    "duration": 1.4768,
+    "duration": 1.479146,
     "loop": false,
-    "loudness": -22.6,
+    "loudness": -18.49,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%201.wav",
     "license": "CC0-1.0",
-    "sha256": "64c7749ad47d1624619f3a3434586cfc450c4353bc7b58cd6a1344f1fcce0098",
-    "truePeak": -1.91,
-    "samplePeak": -2.139288,
+    "sha256": "059cd9a3a8516a2e43d8631e2e035da87463d5c492e1677c17f408f05191786f",
+    "truePeak": -3.0,
+    "samplePeak": -3.222791,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.4300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.4300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-f5ab3071c93d",
@@ -761,7 +827,7 @@
       "打斗"
     ],
     "scene": "适合刀刃刮擦2的镜头细节或环境铺底。",
-    "duration": 3.7937,
+    "duration": 3.793688,
     "loop": false,
     "loudness": -18.09,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%202.wav",
@@ -771,7 +837,9 @@
     "samplePeak": -2.29774,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-a37ee051f018",
@@ -784,7 +852,7 @@
       "打斗"
     ],
     "scene": "适合刀刃刮擦3的镜头细节或环境铺底。",
-    "duration": 5.3709,
+    "duration": 5.370917,
     "loop": false,
     "loudness": -18.13,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Unpleasant%20Scraping%203.wav",
@@ -794,7 +862,9 @@
     "samplePeak": -2.359813,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-9dcf180a63dd",
@@ -809,18 +879,20 @@
       "翻页"
     ],
     "scene": "适合纸页翻动1的镜头细节或环境铺底。",
-    "duration": 7.5121,
+    "duration": 7.514417,
     "loop": false,
-    "loudness": -35.24,
+    "loudness": -20.01,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%201.wav",
     "license": "CC0-1.0",
-    "sha256": "c47045d6ae8da1de3369930cdb5dfd5d8643301484d1e8270e84d80922ce1875",
-    "truePeak": -2.14,
-    "samplePeak": -2.242779,
+    "sha256": "0a70d212a204f3ba4d0bda89d4474f78075c5ec56bf632e560bae0ab38a23c9f",
+    "truePeak": -2.89,
+    "samplePeak": -2.887595,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -17.2100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -17.2100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-57f0db65990a",
@@ -835,18 +907,20 @@
       "翻页"
     ],
     "scene": "适合纸页翻动2的镜头细节或环境铺底。",
-    "duration": 0.8419,
+    "duration": 0.845333,
     "loop": false,
-    "loudness": -31.54,
+    "loudness": -19.86,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%202.wav",
     "license": "CC0-1.0",
-    "sha256": "689d618951de46050689f6a5b2de0e5029cae10b5768d3916d67f038a102d4cb",
-    "truePeak": -1.64,
-    "samplePeak": -1.638264,
+    "sha256": "da45b4ea90cb86c048d5778059338904debd47d1e41be0391e42c874dc010d75",
+    "truePeak": -2.93,
+    "samplePeak": -2.941682,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -13.1500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.1500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-6496901c0404",
@@ -861,18 +935,20 @@
       "翻页"
     ],
     "scene": "适合纸页翻动3的镜头细节或环境铺底。",
-    "duration": 1.5348,
+    "duration": 1.537104,
     "loop": false,
-    "loudness": -27.45,
+    "loudness": -18.96,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Books%2C%20Paper%2C%20Writing%20%28Jan%202021%29/Riffle%20Pages%203.wav",
     "license": "CC0-1.0",
-    "sha256": "309308de856d0da69d80137d8043964bc1864179c2f56fb849c7935437e58381",
-    "truePeak": -1.92,
-    "samplePeak": -1.918938,
+    "sha256": "9e790254857c56d98fb0b5f3ed8737503d6bb071b8d581204880c631ac81c7a7",
+    "truePeak": -2.89,
+    "samplePeak": -2.888901,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -9.3700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -9.3700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-071cf6baccc0",
@@ -886,7 +962,7 @@
       "通风口"
     ],
     "scene": "适合通风口的镜头细节或环境铺底。",
-    "duration": 56.0289,
+    "duration": 56.028938,
     "loop": false,
     "loudness": -18.12,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Air%20Vent.wav",
@@ -896,7 +972,9 @@
     "samplePeak": -2.800323,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-510e5353e830",
@@ -910,7 +988,7 @@
       "风扇"
     ],
     "scene": "适合浴室风扇的镜头细节或环境铺底。",
-    "duration": 64.9039,
+    "duration": 64.903917,
     "loop": false,
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Bathroom%20Fan.wav",
@@ -920,7 +998,9 @@
     "samplePeak": -4.295601,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-843c79cf1eec",
@@ -934,7 +1014,7 @@
       "风扇"
     ],
     "scene": "适合电脑风扇的镜头细节或环境铺底。",
-    "duration": 58.1177,
+    "duration": 58.117688,
     "loop": false,
     "loudness": -18.01,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Computer%20Fan.wav",
@@ -944,7 +1024,9 @@
     "samplePeak": -5.106496,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-0fee82de42e3",
@@ -957,7 +1039,7 @@
       "除湿机"
     ],
     "scene": "适合除湿机的镜头细节或环境铺底。",
-    "duration": 67.4396,
+    "duration": 67.439604,
     "loop": false,
     "loudness": -18.03,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Dehumidifier.wav",
@@ -967,7 +1049,9 @@
     "samplePeak": -3.662305,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-98719b6dd48c",
@@ -981,7 +1065,7 @@
       "风扇"
     ],
     "scene": "适合暖炉风扇的镜头细节或环境铺底。",
-    "duration": 59.0784,
+    "duration": 59.078438,
     "loop": false,
     "loudness": -18.09,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Furnace%20Fan.wav",
@@ -991,7 +1075,9 @@
     "samplePeak": -4.194264,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-e0ccb6598627",
@@ -1005,7 +1091,7 @@
       "风扇"
     ],
     "scene": "适合大风扇的镜头细节或环境铺底。",
-    "duration": 67.19,
+    "duration": 67.189979,
     "loop": false,
     "loudness": -19.79,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Large%20Fan.wav",
@@ -1015,8 +1101,10 @@
     "samplePeak": -1.719017,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.6300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.6300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-cd7e525287e0",
@@ -1029,7 +1117,7 @@
       "微波炉"
     ],
     "scene": "适合微波炉的镜头细节或环境铺底。",
-    "duration": 53.7317,
+    "duration": 53.731667,
     "loop": false,
     "loudness": -18.0,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Microwave.wav",
@@ -1039,7 +1127,9 @@
     "samplePeak": -6.552416,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-57aaf3ed3677",
@@ -1052,7 +1142,7 @@
       "室外空调"
     ],
     "scene": "适合室外空调的镜头细节或环境铺底。",
-    "duration": 56.3458,
+    "duration": 56.34575,
     "loop": false,
     "loudness": -17.99,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outdoor%20AC%20Unit.wav",
@@ -1062,7 +1152,9 @@
     "samplePeak": -7.404468,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5f709f72838f",
@@ -1075,18 +1167,20 @@
       "室外底噪"
     ],
     "scene": "适合室外底噪的镜头细节或环境铺底。",
-    "duration": 53.1139,
+    "duration": 53.116271,
     "loop": false,
-    "loudness": -23.13,
+    "loudness": -18.23,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
     "license": "CC0-1.0",
-    "sha256": "fda4383aef6ab43713bb7d0f475e568d516ed6ec1de99006ef24ba6574b17d01",
-    "truePeak": -1.89,
-    "samplePeak": -1.888518,
+    "sha256": "61517c861083bbe143114bcc89f5820ceeffbe4143ac3478c27cb390b5e5460d",
+    "truePeak": -2.87,
+    "samplePeak": -2.874133,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.7800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-609fbbb2cc63",
@@ -1099,7 +1193,7 @@
       "室内"
     ],
     "scene": "适合冰箱的镜头细节或环境铺底。",
-    "duration": 65.4283,
+    "duration": 65.428271,
     "loop": false,
     "loudness": -18.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Refridgerator.wav",
@@ -1109,7 +1203,9 @@
     "samplePeak": -2.62981,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-da48e26760ac",
@@ -1125,18 +1221,20 @@
       "水龙头"
     ],
     "scene": "适合水槽龙头的镜头细节或环境铺底。",
-    "duration": 61.0001,
+    "duration": 61.002458,
     "loop": false,
-    "loudness": -25.03,
+    "loudness": -18.36,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
     "license": "CC0-1.0",
-    "sha256": "4e753a0105218c2af70b19054d436a502153d66ae08ec46aa067fe36e0d831b1",
-    "truePeak": -2.07,
-    "samplePeak": -2.065438,
+    "sha256": "207c7cf823b617fcc4d2203a173c5caeb31aea74955a2a0e272c56bc1532a4dc",
+    "truePeak": -2.8,
+    "samplePeak": -2.970811,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -6.5300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.5300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-e2b5a3ce0637",
@@ -1150,7 +1248,7 @@
       "风扇"
     ],
     "scene": "适合小风扇的镜头细节或环境铺底。",
-    "duration": 43.1706,
+    "duration": 43.170583,
     "loop": false,
     "loudness": -18.18,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Small%20Fan.wav",
@@ -1160,7 +1258,9 @@
     "samplePeak": -1.74944,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-400bbc61b44b",
@@ -1175,18 +1275,20 @@
       "雷声"
     ],
     "scene": "适合拟音雷声1的镜头细节或环境铺底。",
-    "duration": 11.587,
+    "duration": 11.586979,
     "loop": false,
-    "loudness": -21.74,
+    "loudness": -18.36,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%201.wav",
     "license": "CC0-1.0",
-    "sha256": "460210674977070f86cae3ee80e39ecc51037ac3037dad3e992d76779d3358e9",
-    "truePeak": -1.78,
-    "samplePeak": -1.783196,
+    "sha256": "91be401672f70d7686b82812aa7162f12b37297f302240cb06df4f273c01e186",
+    "truePeak": -2.93,
+    "samplePeak": -2.928887,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.7300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.7300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5b3c0f1e70aa",
@@ -1201,7 +1303,7 @@
       "雷声"
     ],
     "scene": "适合拟音雷声2的镜头细节或环境铺底。",
-    "duration": 15.8053,
+    "duration": 15.805313,
     "loop": false,
     "loudness": -17.98,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Chairmat/Fake%20Thunder%202.wav",
@@ -1211,7 +1313,9 @@
     "samplePeak": -1.052554,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-4b7ae48f1514",
@@ -1224,18 +1328,20 @@
       "转场"
     ],
     "scene": "适合旋转嗖声1的镜头细节或环境铺底。",
-    "duration": 1.9591,
+    "duration": 1.959063,
     "loop": false,
-    "loudness": -22.64,
+    "loudness": -19.95,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%201.wav",
     "license": "CC0-1.0",
-    "sha256": "1376c57107685c8beb7c835495cbe3a7d5111cc019746a24ba81c9f29e90cac8",
-    "truePeak": -1.86,
-    "samplePeak": -1.8797,
+    "sha256": "4de4a23a2336f71b19c2e1cc0e335ba3f5e23f9caa501fa53ff086fb6ff895b6",
+    "truePeak": -2.99,
+    "samplePeak": -2.989229,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-dd062ef50014",
@@ -1248,7 +1354,7 @@
       "转场"
     ],
     "scene": "适合旋转嗖声2的镜头细节或环境铺底。",
-    "duration": 1.2071,
+    "duration": 1.207104,
     "loop": false,
     "loudness": -20.55,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%202.wav",
@@ -1258,8 +1364,10 @@
     "samplePeak": -1.998847,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.2049 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.2049 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-c8408f0b4f3c",
@@ -1272,7 +1380,7 @@
       "转场"
     ],
     "scene": "适合旋转嗖声3的镜头细节或环境铺底。",
-    "duration": 1.3621,
+    "duration": 1.362083,
     "loop": false,
     "loudness": -20.14,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%203.wav",
@@ -1282,8 +1390,10 @@
     "samplePeak": -1.666024,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.9700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.9700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-61cd75357c07",
@@ -1296,18 +1406,20 @@
       "转场"
     ],
     "scene": "适合旋转嗖声4的镜头细节或环境铺底。",
-    "duration": 2.2524,
+    "duration": 2.254708,
     "loop": false,
-    "loudness": -21.6,
+    "loudness": -18.91,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%204.wav",
     "license": "CC0-1.0",
-    "sha256": "d521348373927cc62a1cbcf0d96ba8e810c53f252ad849948f3c2a0644e2aaaf",
-    "truePeak": -1.84,
-    "samplePeak": -1.839796,
+    "sha256": "e4b74fc09c44f7bdfd463762143ae0d219682e4c02691e62da023565ab81ff6e",
+    "truePeak": -2.87,
+    "samplePeak": -2.937003,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-1538a6137773",
@@ -1320,18 +1432,20 @@
       "转场"
     ],
     "scene": "适合短旋转嗖声1的镜头细节或环境铺底。",
-    "duration": 0.5066,
+    "duration": 0.509333,
     "loop": false,
-    "loudness": -21.7,
+    "loudness": -20.25,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%201.wav",
     "license": "CC0-1.0",
-    "sha256": "86cc966fcfe6938fffcc61190ca53af9174cc43665fb9a9f52c808a3a868a7a5",
-    "truePeak": -1.82,
-    "samplePeak": -1.815734,
+    "sha256": "10f797d3de7a8367426b84b5103c3363368667544db15fed569296d0919f39ea",
+    "truePeak": -2.91,
+    "samplePeak": -2.983015,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.3540 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.3540 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-2f505f35e02e",
@@ -1344,7 +1458,7 @@
       "转场"
     ],
     "scene": "适合短旋转嗖声2的镜头细节或环境铺底。",
-    "duration": 0.677,
+    "duration": 0.68,
     "loop": false,
     "loudness": -19.34,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%202.wav",
@@ -1354,8 +1468,10 @@
     "samplePeak": -2.037912,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.1100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-aa12ed90f8da",
@@ -1368,7 +1484,7 @@
       "转场"
     ],
     "scene": "适合短旋转嗖声3的镜头细节或环境铺底。",
-    "duration": 1.1096,
+    "duration": 1.109604,
     "loop": false,
     "loudness": -19.6,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%203.wav",
@@ -1378,8 +1494,10 @@
     "samplePeak": -1.862904,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.5200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.5200 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-1fc97e200590",
@@ -1392,7 +1510,7 @@
       "转场"
     ],
     "scene": "适合短旋转嗖声4的镜头细节或环境铺底。",
-    "duration": 1.0644,
+    "duration": 1.064438,
     "loop": false,
     "loudness": -19.94,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%204.wav",
@@ -1402,8 +1520,10 @@
     "samplePeak": -1.641581,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.8100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.8100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5713b6175e2d",
@@ -1426,8 +1546,10 @@
     "samplePeak": -1.76341,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1800 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-542b57ac2f91",
@@ -1440,7 +1562,7 @@
       "转场"
     ],
     "scene": "适合短旋转嗖声6的镜头细节或环境铺底。",
-    "duration": 1.3857,
+    "duration": 1.385708,
     "loop": false,
     "loudness": -18.99,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Twirl%20Smol%206.wav",
@@ -1450,8 +1572,10 @@
     "samplePeak": -2.132441,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -0.8700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.8700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-ce40ad51976c",
@@ -1464,18 +1588,20 @@
       "挥动"
     ],
     "scene": "适合连续挥动1的镜头细节或环境铺底。",
-    "duration": 0.6009,
+    "duration": 0.600938,
     "loop": false,
-    "loudness": -22.4,
+    "loudness": -20.66,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%201.wav",
     "license": "CC0-1.0",
-    "sha256": "2e2fbb5e495e2bb2a9bddf06e9fd0e125a59f0163904c25fd7ab0f5bc5d482dd",
-    "truePeak": -2.1,
-    "samplePeak": -2.117697,
+    "sha256": "620cf8f492365e6cf9dc6415c448a325f6246d98e1928d229e1b5b54da359b83",
+    "truePeak": -2.9,
+    "samplePeak": -2.898136,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.0700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.0700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-745b785ba632",
@@ -1488,18 +1614,20 @@
       "挥动"
     ],
     "scene": "适合连续挥动2的镜头细节或环境铺底。",
-    "duration": 0.9199,
+    "duration": 0.922667,
     "loop": false,
-    "loudness": -24.44,
+    "loudness": -20.8,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%202.wav",
     "license": "CC0-1.0",
-    "sha256": "fbeb698cf9fe43c913cfcab189bce64381d9269fdf81ad62743d946bb37b6938",
-    "truePeak": -1.71,
-    "samplePeak": -1.778923,
+    "sha256": "ed539c47f2432c061c2a8c04abc02a50a42c567c9c914714c1aa5d9ea31350c6",
+    "truePeak": -2.56,
+    "samplePeak": -2.603748,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -6.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-bfb3175cd7f4",
@@ -1512,18 +1640,20 @@
       "挥动"
     ],
     "scene": "适合连续挥动3的镜头细节或环境铺底。",
-    "duration": 1.529,
+    "duration": 1.529021,
     "loop": false,
-    "loudness": -24.1,
+    "loudness": -20.19,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%203.wav",
     "license": "CC0-1.0",
-    "sha256": "4d208f4c57b0315e569bc411e0e5780b5acae0fe37227a41074ddf07db979832",
-    "truePeak": -1.65,
-    "samplePeak": -1.654149,
+    "sha256": "ae8dc97367d4c9651d20fa1b2976fdaf71e1f50efec11ad279ed82533bd5feed",
+    "truePeak": -2.82,
+    "samplePeak": -2.861187,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -5.2900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -5.2900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-05168a0aa856",
@@ -1536,18 +1666,20 @@
       "挥动"
     ],
     "scene": "适合连续挥动4的镜头细节或环境铺底。",
-    "duration": 0.6715,
+    "duration": 0.674667,
     "loop": false,
-    "loudness": -21.49,
+    "loudness": -20.54,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Organic%20Wooshes/Combo%204.wav",
     "license": "CC0-1.0",
-    "sha256": "eb3aa11914d547eaf0c3fe4fad9c7e27c312bd8007c4889e7a74af988c39a3db",
-    "truePeak": -1.76,
-    "samplePeak": -1.79174,
+    "sha256": "7b5587bc0006c319b4d463898ff371f5854700daebb6c14812916cd957edac2a",
+    "truePeak": -2.96,
+    "samplePeak": -2.98862,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -3.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -3.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-9e3959a42c70",
@@ -1560,18 +1692,20 @@
       "拔刀"
     ],
     "scene": "适合大刀出鞘1的镜头细节或环境铺底。",
-    "duration": 1.5249,
+    "duration": 1.52725,
     "loop": false,
-    "loudness": -24.77,
+    "loudness": -20.25,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%201.wav",
     "license": "CC0-1.0",
-    "sha256": "73bb5fda01c0b536f64a792d7d5d5d49bec87391cf881c6a437667f9ec8e1062",
-    "truePeak": -4.19,
-    "samplePeak": -4.18995,
+    "sha256": "01c9a8e873f3ee863c88eebdc35630e5a5bc5ef5e75f9961b0dab117af366520",
+    "truePeak": -3.0,
+    "samplePeak": -3.001147,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -6.1518 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -6.1518 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-c809f0eb7e33",
@@ -1584,7 +1718,7 @@
       "拔刀"
     ],
     "scene": "适合大刀出鞘2的镜头细节或环境铺底。",
-    "duration": 1.235,
+    "duration": 1.235042,
     "loop": false,
     "loudness": -18.34,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Unsheath%202.wav",
@@ -1594,7 +1728,9 @@
     "samplePeak": -2.778801,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5408170ced24",
@@ -1607,18 +1743,20 @@
       "收刀"
     ],
     "scene": "适合大刀入鞘1的镜头细节或环境铺底。",
-    "duration": 1.2401,
+    "duration": 1.233479,
     "loop": false,
-    "loudness": -23.2,
+    "loudness": -19.69,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%201.wav",
     "license": "CC0-1.0",
-    "sha256": "857bac6cf1319c8dc559d9a312720423d4c5f51b9826cdc3116274eb57ed9c0a",
-    "truePeak": -1.94,
-    "samplePeak": -2.353259,
+    "sha256": "121510dc79304320e258c4d204367d152764432feddc20be126f56fa2662447f",
+    "truePeak": -3.01,
+    "samplePeak": -3.009582,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -5.0000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -5.0000 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-e4ecdce1c649",
@@ -1631,18 +1769,20 @@
       "收刀"
     ],
     "scene": "适合大刀入鞘2的镜头细节或环境铺底。",
-    "duration": 1.2125,
+    "duration": 1.214833,
     "loop": false,
-    "loudness": -30.74,
+    "loudness": -19.02,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Kitchen%20Knives/Big%20Knife%20-%20Sheath%202.wav",
     "license": "CC0-1.0",
-    "sha256": "6caafd2eb2272faee48c1a7d8db1f8dd197e5f7048eca7e63f423d702a42361f",
-    "truePeak": -2.12,
-    "samplePeak": -2.118758,
+    "sha256": "a19562dacbc601e832278907eab26bdb275255f37464b640d302e355206bcad0",
+    "truePeak": -2.88,
+    "samplePeak": -2.99763,
     "author": "Benjamin Burnes（包内协作者见许可证原文）",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -12.3335 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.3335 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-b74c1393e17c",
@@ -1658,7 +1798,7 @@
       "重击"
     ],
     "scene": "适合重拳1的镜头细节或环境铺底。",
-    "duration": 0.4849,
+    "duration": 0.484917,
     "loop": false,
     "loudness": -19.25,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_000.ogg",
@@ -1668,8 +1808,10 @@
     "samplePeak": -1.6642,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.1900 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-b3847cc4bfeb",
@@ -1685,7 +1827,7 @@
       "重击"
     ],
     "scene": "适合重拳2的镜头细节或环境铺底。",
-    "duration": 0.4034,
+    "duration": 0.403396,
     "loop": false,
     "loudness": -18.75,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_001.ogg",
@@ -1695,8 +1837,10 @@
     "samplePeak": -1.771519,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -0.7209 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -0.7209 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-8dad161c6a8c",
@@ -1712,7 +1856,7 @@
       "重击"
     ],
     "scene": "适合重拳5的镜头细节或环境铺底。",
-    "duration": 0.4046,
+    "duration": 0.404583,
     "loop": false,
     "loudness": -19.05,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactPunch_heavy_004.ogg",
@@ -1722,8 +1866,10 @@
     "samplePeak": -1.747542,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.0940 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0940 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-1cfa32c9392e",
@@ -1736,7 +1882,7 @@
       "重落"
     ],
     "scene": "适合软物重落1的镜头细节或环境铺底。",
-    "duration": 0.4947,
+    "duration": 0.494667,
     "loop": false,
     "loudness": -19.95,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_000.ogg",
@@ -1746,8 +1892,10 @@
     "samplePeak": -1.569869,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -2.1330 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -2.1330 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-7a3e0edcc209",
@@ -1760,18 +1908,20 @@
       "重落"
     ],
     "scene": "适合软物重落2的镜头细节或环境铺底。",
-    "duration": 0.5591,
+    "duration": 0.559063,
     "loop": false,
-    "loudness": -22.49,
+    "loudness": -20.3,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "2a00b4e4effb12ff32998d15447ff9c1c8f1ebafffeaa990040c74eec405710b",
-    "truePeak": -1.58,
-    "samplePeak": -1.584497,
+    "sha256": "54e35a0ee8a18d117a4bcd309bfd47cceb5aa395983b7d1fd4cbd995bcb6572f",
+    "truePeak": -3.01,
+    "samplePeak": -3.010742,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.5923 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.5923 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-7b302c8ca4c4",
@@ -1784,18 +1934,20 @@
       "重落"
     ],
     "scene": "适合软物重落3的镜头细节或环境铺底。",
-    "duration": 0.5594,
+    "duration": 0.559396,
     "loop": false,
-    "loudness": -22.28,
+    "loudness": -20.1,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "3eb2c5c375e5c3a8daad0d7c580094d2e9d486515721e69f570dbcbfb0a3ab66",
-    "truePeak": -1.6,
-    "samplePeak": -1.603496,
+    "sha256": "b99b9cbb91887d6dcb9285caa4432d388519a5d1957306e4e78b17a8b8ad081a",
+    "truePeak": -2.99,
+    "samplePeak": -2.989242,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.3337 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.3337 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-b3e38126d804",
@@ -1808,18 +1960,20 @@
       "重落"
     ],
     "scene": "适合软物重落4的镜头细节或环境铺底。",
-    "duration": 0.5312,
+    "duration": 0.531167,
     "loop": false,
-    "loudness": -22.43,
+    "loudness": -20.45,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_003.ogg",
     "license": "CC0-1.0",
-    "sha256": "6c59666924c7518dc339cd1483d2ca13538db77bbdb056c0f3b4d677be3a4a6a",
-    "truePeak": -1.63,
-    "samplePeak": -1.627922,
+    "sha256": "412f22063736f8d4f158d16b83b5c2b7a3fe963f3d97980ccf41b4adde27fea3",
+    "truePeak": -3.0,
+    "samplePeak": -2.999971,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.5206 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.5206 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-12480f744dbc",
@@ -1832,7 +1986,7 @@
       "重落"
     ],
     "scene": "适合软物重落5的镜头细节或环境铺底。",
-    "duration": 0.488,
+    "duration": 0.487979,
     "loop": false,
     "loudness": -19.75,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactSoft_heavy_004.ogg",
@@ -1842,8 +1996,10 @@
     "samplePeak": -1.642012,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.8536 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.8536 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-0e2d7911beb9",
@@ -1856,18 +2012,20 @@
       "钟"
     ],
     "scene": "适合重敲钟1的镜头细节或环境铺底。",
-    "duration": 1.164,
+    "duration": 1.164042,
     "loop": false,
-    "loudness": -22.6,
+    "loudness": -18.72,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "b3d3b6273c4ae82034906b025fad820802cb45e0fb9702e492eadf18de5c46d4",
-    "truePeak": -1.95,
-    "samplePeak": -1.956935,
+    "sha256": "5f0198819d3bd51e26057ce3cf56c20ea9ebacfbadd5027fadfedbdb92c0e79b",
+    "truePeak": -2.95,
+    "samplePeak": -2.949392,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-0d2638583567",
@@ -1880,18 +2038,20 @@
       "钟"
     ],
     "scene": "适合重敲钟2的镜头细节或环境铺底。",
-    "duration": 1.4124,
+    "duration": 1.412417,
     "loop": false,
-    "loudness": -22.6,
+    "loudness": -18.51,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "c2fd36bf9e3dd097c1a1c4c622b9c6770a790f3090cff1cab840ddbdf86eda9e",
-    "truePeak": -1.84,
-    "samplePeak": -1.840172,
+    "sha256": "dddf2b5b6a9983606be112ab0765cb054efdeda2e35b0c8e2590b6b8a6c05635",
+    "truePeak": -2.91,
+    "samplePeak": -2.916795,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.6924 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6924 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5b30df9e1703",
@@ -1904,18 +2064,20 @@
       "钟"
     ],
     "scene": "适合重敲钟3的镜头细节或环境铺底。",
-    "duration": 0.6873,
+    "duration": 0.687271,
     "loop": false,
-    "loudness": -22.68,
+    "loudness": -20.05,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/impactBell_heavy_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "f8e5b3a17b9aac737ac92335a632aa3b9d3e9e1586223101865f5f3d6a9dc303",
-    "truePeak": -1.65,
-    "samplePeak": -1.655284,
+    "sha256": "0523156ef4da62ae0310c447103108613538980d6add32de8420daec4cbe0532",
+    "truePeak": -3.02,
+    "samplePeak": -3.017483,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.7722 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.7722 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-ec453cc5bb80",
@@ -1929,19 +2091,21 @@
       "走路"
     ],
     "scene": "适合木地板脚步1的镜头细节或环境铺底。",
-    "duration": 2.7895,
+    "duration": 2.791854,
     "loop": false,
-    "loudness": -26.8,
+    "loudness": -20.83,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "89213e643aefa396c447eb0e1d6b7c2cf2f4817f0221f43032698fc089c589db",
+    "sha256": "a1ad87c3d5e3994e93092eea2ad664733615db773641612671f1c1ecbefa1dc6",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.59,
-    "samplePeak": -1.594386,
+    "truePeak": -2.92,
+    "samplePeak": -2.918661,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -8.9100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.9100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-6041eb530d25",
@@ -1955,19 +2119,21 @@
       "走路"
     ],
     "scene": "适合木地板脚步2的镜头细节或环境铺底。",
-    "duration": 2.7868,
+    "duration": 2.789146,
     "loop": false,
-    "loudness": -25.71,
+    "loudness": -20.8,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "c7cd0a86f9f8bfa19715a699bd405c76ff0b1080890407f9cc57c312af61fd0d",
+    "sha256": "7dc80c03f7d864cb324e056e94304066115feb781d1f5626450400bf788c6295",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.66,
-    "samplePeak": -1.66435,
+    "truePeak": -2.89,
+    "samplePeak": -2.886433,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -7.7825 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.7825 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-5e6f44ffbfed",
@@ -1981,19 +2147,21 @@
       "走路"
     ],
     "scene": "适合木地板脚步3的镜头细节或环境铺底。",
-    "duration": 2.7871,
+    "duration": 2.789729,
     "loop": false,
-    "loudness": -25.43,
+    "loudness": -20.7,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_wood_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "807ea6dd0241a4d93a6179401cf5a8ad98ec845b3d976949210cbd3514de8880",
+    "sha256": "2afa6af144532c7a8eae5a90f77b542e74abc8393a2ad0c744939451d93457b1",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.64,
-    "samplePeak": -1.638252,
+    "truePeak": -2.92,
+    "samplePeak": -2.920393,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -7.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-a1c06f7a5401",
@@ -2007,19 +2175,21 @@
       "雪地"
     ],
     "scene": "适合雪地脚步1的镜头细节或环境铺底。",
-    "duration": 2.7084,
+    "duration": 2.71075,
     "loop": false,
-    "loudness": -25.71,
+    "loudness": -20.62,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "92c9f4e34d5e3206b2e8876811e4abc89be20414d3820128de4c0be61160a28d",
+    "sha256": "6b89acb397c7d2072937a2fb0df699016ef30142caf96643dbef37ea81c4c7bc",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.81,
-    "samplePeak": -1.819492,
+    "truePeak": -2.86,
+    "samplePeak": -2.865254,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -7.4400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -7.4400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-4b928b5dfa43",
@@ -2033,19 +2203,21 @@
       "雪地"
     ],
     "scene": "适合雪地脚步2的镜头细节或环境铺底。",
-    "duration": 2.7177,
+    "duration": 2.720063,
     "loop": false,
-    "loudness": -22.52,
+    "loudness": -20.53,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "b6c1cd182cb4a449d944326d8f1c211d79c6a52e457c1e92742c7a7b81cead3d",
+    "sha256": "ce01d94808038ba589fce8d8118feb8cd3ac3dba542b2de268d32e959ecc14c1",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.68,
-    "samplePeak": -1.679588,
+    "truePeak": -2.83,
+    "samplePeak": -2.85554,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.3500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.3500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-d49cbb6e2df8",
@@ -2059,19 +2231,21 @@
       "雪地"
     ],
     "scene": "适合雪地脚步3的镜头细节或环境铺底。",
-    "duration": 2.8947,
+    "duration": 2.897,
     "loop": false,
-    "loudness": -22.71,
+    "loudness": -20.52,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_snow_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "a170c45e684a381c74e08a2ee012d749b628fa6b9877b19bafb60796383c89bc",
+    "sha256": "be70ffca2e7e4f8156777bf0af82aa480d7597abe1664d0f58f843b271522bed",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.83,
-    "samplePeak": -1.831916,
+    "truePeak": -2.87,
+    "samplePeak": -2.870157,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -4.6700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -4.6700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-d5e473984400",
@@ -2085,19 +2259,21 @@
       "走路"
     ],
     "scene": "适合草地脚步1的镜头细节或环境铺底。",
-    "duration": 2.6936,
+    "duration": 2.695917,
     "loop": false,
-    "loudness": -30.3,
+    "loudness": -20.68,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "a0c4cb0a5e62746448c37433a5fa6a6090e3e6773cfe8a9eada0371aced4a5d6",
+    "sha256": "95dde5d605977ff8db641f2258dd7c8801b7a5e7240213efee3b2b98c72cc15f",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.73,
-    "samplePeak": -1.732594,
+    "truePeak": -2.73,
+    "samplePeak": -2.774207,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -12.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.3100 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-27ddaad7d384",
@@ -2111,19 +2287,21 @@
       "走路"
     ],
     "scene": "适合草地脚步3的镜头细节或环境铺底。",
-    "duration": 2.6875,
+    "duration": 2.689792,
     "loop": false,
-    "loudness": -29.93,
+    "loudness": -20.25,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_grass_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "27dc9d47ead439a1145e29451fbc392dc9de354f1b9400ee4a3dfe9e30c32d81",
+    "sha256": "5fc5e767ce1949ee4988133044c52a8157981c41fe5a62fbabf10e749436f8cb",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.77,
-    "samplePeak": -1.766301,
+    "truePeak": -2.75,
+    "samplePeak": -2.923132,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -11.8400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -11.8400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-44043937fae8",
@@ -2137,19 +2315,21 @@
       "走路"
     ],
     "scene": "适合水泥地脚步1的镜头细节或环境铺底。",
-    "duration": 2.6425,
+    "duration": 2.645188,
     "loop": false,
-    "loudness": -30.02,
+    "loudness": -20.96,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "b125a81d26cb94b60a47b145c8488e80faf8bac314575442d852b536fe659d47",
+    "sha256": "92b416de26af7cc1fcd39b055e40f60069c58cbc888c847f947d879def50a543",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.62,
-    "samplePeak": -1.627099,
+    "truePeak": -2.89,
+    "samplePeak": -2.897992,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -12.2500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.2500 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-741277a378b6",
@@ -2163,19 +2343,21 @@
       "走路"
     ],
     "scene": "适合水泥地脚步2的镜头细节或环境铺底。",
-    "duration": 2.6442,
+    "duration": 2.646521,
     "loop": false,
-    "loudness": -31.42,
+    "loudness": -20.93,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "06ab4f558f36d546548b7c7cb1482c4b93680ec8666f4445744da759cf069711",
+    "sha256": "c5535019ee861d3b2dff53f8cc5a1aa8fd1754c0606a426d0f25fab7f7a383a6",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.69,
-    "samplePeak": -1.709282,
+    "truePeak": -2.84,
+    "samplePeak": -2.844037,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -13.4600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.4600 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-82d4b284b701",
@@ -2189,19 +2371,21 @@
       "走路"
     ],
     "scene": "适合水泥地脚步3的镜头细节或环境铺底。",
-    "duration": 2.6492,
+    "duration": 2.651521,
     "loop": false,
-    "loudness": -31.49,
+    "loudness": -20.92,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "492f62d4505971cb0de7d5768d5e88299e05629e15ac115a37c0ad4b01ab4d2c",
+    "sha256": "f193d78b81b8f31cfa3785bda8c126f1782ce992668f20526fc5a95f391d7a5e",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.81,
-    "samplePeak": -1.817463,
+    "truePeak": -2.75,
+    "samplePeak": -2.881035,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -13.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -13.4700 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-1c77daadc225",
@@ -2215,19 +2399,21 @@
       "走路"
     ],
     "scene": "适合地毯脚步1的镜头细节或环境铺底。",
-    "duration": 2.6802,
+    "duration": 2.682563,
     "loop": false,
-    "loudness": -30.2,
+    "loudness": -20.72,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_000.ogg",
     "license": "CC0-1.0",
-    "sha256": "71f1495ec48372528a98874ada785b011fa3fa8de22071d13a487ba31c205d52",
+    "sha256": "532cdf91aca89da04792e347de0273582e8787b0105e27b85f1dd3dd358be0b1",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.69,
-    "samplePeak": -1.686816,
+    "truePeak": -2.92,
+    "samplePeak": -2.926979,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -12.1931 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -12.1931 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-6cca5747fcd3",
@@ -2241,19 +2427,21 @@
       "走路"
     ],
     "scene": "适合地毯脚步2的镜头细节或环境铺底。",
-    "duration": 2.6804,
+    "duration": 2.68275,
     "loop": false,
-    "loudness": -26.31,
+    "loudness": -20.73,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_001.ogg",
     "license": "CC0-1.0",
-    "sha256": "a2bb1f0fa2ceb1f7d4aef6ea68cbf242375e3a4df8969a4404b4477d7e45132d",
+    "sha256": "f2b252d35f26c4f44a6c286f1b8d69cba429612ee7df7a5ddfe4df24f2edc486",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.93,
-    "samplePeak": -1.933927,
+    "truePeak": -2.88,
+    "samplePeak": -2.89049,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-c6f19759f812",
@@ -2267,19 +2455,21 @@
       "走路"
     ],
     "scene": "适合地毯脚步3的镜头细节或环境铺底。",
-    "duration": 2.6804,
+    "duration": 2.68275,
     "loop": false,
-    "loudness": -26.31,
+    "loudness": -20.73,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_carpet_002.ogg",
     "license": "CC0-1.0",
-    "sha256": "c1b30465fd76b610bce0075f9e6bbd5987b5b6a116cd93f4624b411a648e9bc1",
+    "sha256": "7968066f1eb46d96d50b94ddc36afad707c0e38681c7698191a35d48e2b300f9",
     "processing": "同一原始脚步每隔0.85秒重复，共四步；去首尾静音并统一响度。",
-    "truePeak": -1.93,
-    "samplePeak": -1.933927,
+    "truePeak": -2.88,
+    "samplePeak": -2.89049,
     "author": "Kenney Vleugels",
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -8.1917 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-heartbeat-01",
@@ -2295,10 +2485,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 7.8,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.16,
     "truePeak": -1.82,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "9b35ecbb2aca2a61cec0efe21a57b580115bc733caf8c9133bce86f9e287fc87",
@@ -2307,7 +2497,9 @@
     "loopable": false,
     "samplePeak": -1.817015,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-heartbeat-02",
@@ -2323,10 +2515,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 6.7,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.95,
     "truePeak": -1.82,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "1ad7e6b276c161b8d60db4c02d04022049e6f63eecd64f9952552298ee07b313",
@@ -2335,7 +2527,9 @@
     "loopable": false,
     "samplePeak": -1.820917,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-heartbeat-03",
@@ -2351,10 +2545,10 @@
     "scene": "适合表现人物心跳和紧张情绪。",
     "duration": 5.799958,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.97,
     "truePeak": -2.62,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "f87d03b89349897c01f860056dd11f6eaff187a9fe16515c9a9590cf4a6a2443",
@@ -2363,7 +2557,9 @@
     "loopable": false,
     "samplePeak": -2.621504,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-01",
@@ -2379,10 +2575,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 2.199979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.75,
     "truePeak": -2.12,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "784514294eff332ba6d1dc1892a02a0407c5295c74b69efd32c07fa44f7647ff",
@@ -2391,7 +2587,9 @@
     "loopable": false,
     "samplePeak": -2.123341,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-02",
@@ -2407,10 +2605,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 3.199979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.96,
     "truePeak": -2.87,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "707787757a4e1bd5dc9199cd266ed9150dc12281df311ee984ae24259cc7020d",
@@ -2419,7 +2617,9 @@
     "loopable": false,
     "samplePeak": -2.916841,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-impact-03",
@@ -2435,10 +2635,10 @@
     "scene": "适合突转画面、重击或悬念揭示。",
     "duration": 2.694625,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -20.01,
     "truePeak": -2.18,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "cc7d99095e0ef0200a54146772a22895481a5c6f3d0c86eb40d8ee3bdef7b7a9",
@@ -2447,7 +2647,9 @@
     "loopable": false,
     "samplePeak": -2.189621,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-01",
@@ -2462,10 +2664,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 4.499938,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.91,
     "truePeak": -12.42,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "1c01c89d0f3990ae06aa9eba12d955ee610f87f01ca7e0167150fe5f4ee69147",
@@ -2474,7 +2676,9 @@
     "loopable": false,
     "samplePeak": -12.415295,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-02",
@@ -2489,10 +2693,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 5.239979,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.94,
     "truePeak": -11.17,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "491daad4c6823fd4087fa1ab214360d3322901a47ad731b5fdaa4b5f30a2f96c",
@@ -2501,7 +2705,9 @@
     "loopable": false,
     "samplePeak": -11.167319,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "self-phone-03",
@@ -2516,10 +2722,10 @@
     "scene": "适合电话来电的道具提示。",
     "duration": 5.899896,
     "loop": false,
-    "targetLufs": -20.0,
+    "targetLufs": -18,
     "loudness": -19.98,
     "truePeak": -11.01,
-    "source": "https://github.com/chen11-A/aijian-studio/blob/gpt/aivora-modules/assets/audio-library/generated/generate.py",
+    "source": "https://github.com/chen11-A/aijian-studio/blob/40049a9966298aae6c6058673abf945d48fba2b9/assets/audio-library/generated/generate.py",
     "license": "CC0-1.0",
     "origin": "self-generated",
     "sha256": "498b0917a9c200eb63f177155c135921cc5d9618184eb26e477101bf08bd145a",
@@ -2528,7 +2734,9 @@
     "loopable": false,
     "samplePeak": -11.03896,
     "author": "AIVORA 项目自制（程序合成）",
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-phone-hand-double",
@@ -2545,7 +2753,7 @@
     "loop": false,
     "loopable": false,
     "loudness": -20.14,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "source": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/sounds/phone/phone-vibrate-hand.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
@@ -2555,7 +2763,9 @@
     "sha256": "46ea8c380c91e8a6721511dc9327ff124a666ba32c982025d4660e389ecb8acb",
     "truePeak": -8.15,
     "samplePeak": -8.153308,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-phone-table",
@@ -2568,22 +2778,24 @@
       "桌面手机双震动"
     ],
     "scene": "适合手机收到消息或来电的特写。",
-    "duration": 1.104042,
+    "duration": 1.106375,
     "loop": false,
     "loopable": false,
-    "loudness": -21.57,
-    "targetLufs": -20,
+    "loudness": -18.63,
+    "targetLufs": -18,
     "source": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/sounds/phone/phone-vibrate-table.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
     "originalLicenseUrl": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md",
     "author": "Wyzowl",
     "processing": "第三方代码合成；保留原桌面双震动节奏。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "29361d3cc28cc1836cdab844859c98b313bc53e7dd703526b0d4e1353675541e",
-    "truePeak": -1.93,
-    "samplePeak": -1.929267,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.0300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "sha256": "b90491b931c462f379a642e7ee7cbe43913c2fd2f119ca6d45f5d977c67fa082",
+    "truePeak": -2.98,
+    "samplePeak": -2.985779,
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0300 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-phone-table-repeat",
@@ -2596,22 +2808,24 @@
       "桌面手机连续来电震动"
     ],
     "scene": "适合手机收到消息或来电的特写。",
-    "duration": 4.3,
+    "duration": 4.302333,
     "loop": false,
     "loopable": false,
-    "loudness": -21.12,
-    "targetLufs": -20,
+    "loudness": -18.73,
+    "targetLufs": -18,
     "source": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/sounds/phone/phone-vibrate-table.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/wyzowl-README.md",
     "originalLicenseUrl": "https://github.com/wyzowl/sfx-kit/blob/92780e7ab0cdfb557497a988089c47f46e8c7412/README.md",
     "author": "Wyzowl",
     "processing": "第三方代码合成素材的加工变体；原桌面双震动重复三次，每次间隔0.45秒，不是独立录音。 成品48kHz单声道Ogg，目标-20 LUFS。",
-    "sha256": "02f3923f30d5c2dc696f14bdc11299563712462e644a543a2a7f809a95e1cac1",
-    "truePeak": -1.93,
-    "samplePeak": -1.93147,
-    "peakLimited": true,
-    "peakProcessing": "最终 Ogg 固定衰减 -1.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。"
+    "sha256": "46827f73c8a5c98bbdd5026b63d8972b59b49523a4baa2a5d3084c3a99d45adc",
+    "truePeak": -2.91,
+    "samplePeak": -2.907272,
+    "peakLimited": false,
+    "peakProcessing": "最终 Ogg 固定衰减 -1.0400 dB，再编码并测量；峰值优先，不提升或强压短瞬态响度。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-car-engine",
@@ -2628,7 +2842,7 @@
     "loop": false,
     "loopable": false,
     "loudness": -20.18,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "source": "https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/audio/engine.ogg",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/kenney-README.md",
@@ -2638,7 +2852,9 @@
     "sha256": "91d9d4bb202c1235721a48c38be44af81c5bd7aa1ab34f5fe28397ccef053c3e",
     "truePeak": -5.62,
     "samplePeak": -5.638437,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-motorcycle-engine",
@@ -2655,7 +2871,7 @@
     "loop": false,
     "loopable": false,
     "loudness": -20.19,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "source": "https://github.com/KenneyNL/Starter-Kit-Racing/blob/2f2e5f2646dda89cb21d4e8539bab60c6e955dc8/audio/engine-motorcycle.ogg",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/kenney-README.md",
@@ -2665,7 +2881,9 @@
     "sha256": "a1214bb5e1dfc1da7ad289123cb156d78f9b819518a280b98622ef8ad479b34d",
     "truePeak": -5.44,
     "samplePeak": -5.444784,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-engine-synth",
@@ -2682,7 +2900,7 @@
     "loop": false,
     "loopable": false,
     "loudness": -19.95,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "source": "https://github.com/Dechode/Godot-Simple-Vehicle/blob/f448b000f896053319938e4f67ddd230623da853/sounds/EngineSample.wav",
     "license": "CC0-1.0",
     "licensePath": "additions/phone-vehicle/licenses/dechode-README.md",
@@ -2692,7 +2910,9 @@
     "sha256": "df1045bafc2c8ed2149aabe2eb84c8883fa6da9f7ee06c248edbe9bdd46d521a",
     "truePeak": -3.81,
     "samplePeak": -3.814055,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-metal-can-01",
@@ -2708,19 +2928,23 @@
     "scene": "适合压扁金属罐碰撞1的动作细节；按实际镜头试听。",
     "duration": 0.812938,
     "loop": false,
-    "loudness": -22.28,
+    "loudness": -19.38,
     "truePeakDbtp": -2.16,
     "samplePeakDbfs": -2.1589,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter.wav",
     "license": "CC0-1.0",
     "author": "Benjamin Burnes",
     "licenseEvidence": "round2/licenses/ben-small-can.txt",
-    "sha256": "f752e333e96a963860563ec177488a046153192fb41faa4674daf127a04c051f",
+    "sha256": "2a0db780c989fa9512e998a570112e41b66e7caf27f7372b0959f0de2be1695c",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "3e30f34a78f60250a41e5391005ae3005cdf947b6a24fb116a61421a43aa0d93",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -3.03,
+    "samplePeak": -3.129194,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-metal-can-02",
@@ -2734,21 +2958,25 @@
       "金属击打"
     ],
     "scene": "适合压扁金属罐碰撞2的动作细节；按实际镜头试听。",
-    "duration": 1.728021,
+    "duration": 1.730354,
     "loop": false,
-    "loudness": -22.59,
+    "loudness": -20.53,
     "truePeakDbtp": -1.8,
     "samplePeakDbfs": -1.8007,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter%202.wav",
     "license": "CC0-1.0",
     "author": "Benjamin Burnes",
     "licenseEvidence": "round2/licenses/ben-small-can.txt",
-    "sha256": "c3a3377115355d919c5d9db48fc2f4fbaa99f5dc7b454870976ca488633a9f8b",
+    "sha256": "0b1aeab3be8d701fa80f02d63935660eaa970828bd5adb589ca404d34cba7fbf",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "97326aa9e0e9f11fd6cc19f00c6b893de2a6ed0e51ea6e4086c3662061c0235b",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -3.0,
+    "samplePeak": -3.023249,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-metal-can-03",
@@ -2764,19 +2992,23 @@
     "scene": "适合压扁金属罐碰撞3的动作细节；按实际镜头试听。",
     "duration": 0.926708,
     "loop": false,
-    "loudness": -24.2,
+    "loudness": -20.47,
     "truePeakDbtp": -1.73,
     "samplePeakDbfs": -1.9496,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Crushed%20Can%20-%20Clatter%203.wav",
     "license": "CC0-1.0",
     "author": "Benjamin Burnes",
     "licenseEvidence": "round2/licenses/ben-small-can.txt",
-    "sha256": "cbd0a2d0c5afcb52040bd7f0700c8f55bb9bfe18b7fd489f5cf95fb5b897f4e6",
+    "sha256": "c4335ce8ae4427f8b5d8c834e45cf934ed5546e334078dc9631d0a9d0c100148",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "7951ccec5de5663d7b34045c8ba9d6363d324afb52f4c028387a85a5acde7ed3",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -2.81,
+    "samplePeak": -2.973695,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-metal-can-drag",
@@ -2790,21 +3022,25 @@
       "瓷砖"
     ],
     "scene": "适合金属罐在瓷砖上拖动的动作细节；按实际镜头试听。",
-    "duration": 1.262083,
+    "duration": 1.264417,
     "loop": false,
-    "loudness": -32.99,
+    "loudness": -20.15,
     "truePeakDbtp": -2.14,
     "samplePeakDbfs": -2.6851,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/Micro%20Pack%20-%20Small%20Can/Small%20Can%20-%20Drag%20on%20Tile.wav",
     "license": "CC0-1.0",
     "author": "Benjamin Burnes",
     "licenseEvidence": "round2/licenses/ben-small-can.txt",
-    "sha256": "99d5313b4b5fa48660ee49e06c24cb0f0a23aca8e2412c233a96c894e97e0378",
+    "sha256": "c47986593fb9b275714e9a9d78d539c69bd36559d2d0f98db0fdb0b8dce75153",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "1f0f0edc5b12637815389e349051420d537154dccd8275b5b19f877e68a062a1",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -2.96,
+    "samplePeak": -2.95625,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-knife-slice-01",
@@ -2831,7 +3067,13 @@
     "sha256": "27255d4ea076d0f51784fe61b83807a4b2c3eb3d92e31e4310eb4608cee12f53",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "4cd96dc630bed9840c15f1dd2306da2cc56a4da26a5d3f1a03c5a7265ac5e54f",
-    "origin": "foley"
+    "origin": "foley",
+    "truePeak": -4.11,
+    "samplePeak": -4.537118,
+    "targetLufs": -18,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-knife-slice-02",
@@ -2858,7 +3100,13 @@
     "sha256": "9112f3d64e185cb2a92ae4309fcbe182935624d8c73045bc1fb7b475382ad5e3",
     "processing": "原录音转为48kHz单声道Ogg；增益取目标响度与峰值安全增益的较小值，优先真峰值安全；保留原短片段长度。",
     "sourceSha256": "6c2064d0ef988d1ec3d56868e823ea8823a5cac00f2742560052633529407def",
-    "origin": "foley"
+    "origin": "foley",
+    "truePeak": -2.64,
+    "samplePeak": -2.769407,
+    "targetLufs": -18,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-concrete-run-01",
@@ -2874,21 +3122,25 @@
       "脚步"
     ],
     "scene": "适合水泥地快步节奏1的动作细节；按实际镜头试听。",
-    "duration": 2.24,
+    "duration": 2.242333,
     "loop": false,
-    "loudness": -27.97,
+    "loudness": -20.9,
     "truePeakDbtp": -1.93,
     "samplePeakDbfs": -1.9329,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_000.ogg",
     "license": "CC0-1.0",
     "author": "Kenney Vleugels",
     "licenseEvidence": "round2/licenses/kenney-impact.txt",
-    "sha256": "562bde0e6d807ecc3b29958f1ed2f2b9267bdc905e6ef3936444d07c7abb5ddd",
+    "sha256": "bfa6a7903a83b29833d57b4b150e98b4e1b4acc66c55ddd384869355b3685d44",
     "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
     "sourceSha256": "d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -2.95,
+    "samplePeak": -2.950067,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-concrete-run-02",
@@ -2904,21 +3156,25 @@
       "脚步"
     ],
     "scene": "适合水泥地快步节奏2的动作细节；按实际镜头试听。",
-    "duration": 2.24,
+    "duration": 2.242333,
     "loop": false,
-    "loudness": -29.53,
+    "loudness": -20.1,
     "truePeakDbtp": -2.06,
     "samplePeakDbfs": -2.065,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_001.ogg",
     "license": "CC0-1.0",
     "author": "Kenney Vleugels",
     "licenseEvidence": "round2/licenses/kenney-impact.txt",
-    "sha256": "0d6c7a88264e22f8310e59fddc35fd05811c17e843658250754328ab7f507829",
+    "sha256": "e87e3008fe1a0171bc3630f74e0d7e02379da3749a07930ee73c556221fc116e",
     "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
     "sourceSha256": "507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -2.92,
+    "samplePeak": -2.941735,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-concrete-run-03",
@@ -2934,21 +3190,25 @@
       "脚步"
     ],
     "scene": "适合水泥地快步节奏3的动作细节；按实际镜头试听。",
-    "duration": 2.24,
+    "duration": 2.242333,
     "loop": false,
-    "loudness": -29.53,
+    "loudness": -20.34,
     "truePeakDbtp": -2.02,
     "samplePeakDbfs": -2.0318,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/kenney_impactsounds/Audio/footstep_concrete_002.ogg",
     "license": "CC0-1.0",
     "author": "Kenney Vleugels",
     "licenseEvidence": "round2/licenses/kenney-impact.txt",
-    "sha256": "a77aee60caeb5085a53309a958e6b79a102f4ac94e6abe9c8e367ad2a4753f4c",
+    "sha256": "17b81690adc6a422e105045f64a6c74bcc4c5bd8bfab04f3d3ea663fdb333b14",
     "processing": "真实单次水泥脚步按0.28秒间隔重复八次形成快步节奏；不是现场奔跑录音；增益优先保证编码后真峰值不超过-1dBTP。",
     "sourceSha256": "b21fa546d74941196b25da8a20b7010abd8c05c4fcf93545d1f344e66a664e13",
     "origin": "foley",
     "targetLufs": -18,
-    "peakLimited": true
+    "peakLimited": false,
+    "truePeak": -2.91,
+    "samplePeak": -2.926419,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-6d424149d4a2",
@@ -2960,25 +3220,27 @@
       "紧张"
     ],
     "scene": "适合紧张情绪的过场或蒙太奇。",
-    "duration": 40.32,
+    "duration": 40.322667,
     "loop": true,
-    "loudness": -22.08,
+    "loudness": -20.73,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Beeper.mp3",
     "license": "CC0-1.0",
-    "sha256": "040860c5f935f246ff62be90ffcb09ce6f9adccf8abddd406287b47967e31b8c",
+    "sha256": "81b48de57d123121c8ad44cbeda0cac6bdf18851da98b9e9eda22eb7251a122f",
     "author": "effacestudios",
     "loopable": true,
     "targetLufs": -20,
-    "truePeak": -1.55,
-    "samplePeak": -2.2879508837034823,
+    "truePeak": -2.89,
+    "samplePeak": -2.920447,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
-    "loopReport": "round2-loops/r2-loop-music-6d424149d4a2.json",
+    "loopReport": "normalization/loops/r2-loop-music-6d424149d4a2.json",
     "derivedFrom": "music-6d424149d4a2",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-23bc02ff82e2",
@@ -3000,15 +3262,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -1.94,
-    "samplePeak": -1.9440879477977246,
+    "samplePeak": -1.944088,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-23bc02ff82e2.json",
     "derivedFrom": "music-23bc02ff82e2",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-e94185587d78",
@@ -3030,14 +3294,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -4.15,
-    "samplePeak": -4.166114007255375,
+    "samplePeak": -4.166114,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-e94185587d78.json",
     "derivedFrom": "music-e94185587d78",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-6230c9ba9eef",
@@ -3059,14 +3326,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -1.89,
-    "samplePeak": -1.9565013624651415,
+    "samplePeak": -1.956501,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-6230c9ba9eef.json",
     "derivedFrom": "music-6230c9ba9eef",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-360f3c163ed6",
@@ -3080,23 +3350,25 @@
     "scene": "适合温暖情绪的过场或蒙太奇。",
     "duration": 42.24,
     "loop": true,
-    "loudness": -22.77,
+    "loudness": -20.67,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Happy%20Life.mp3",
     "license": "CC0-1.0",
-    "sha256": "4a75e2ec5c458f215ccdbe1630ac610f4ad4d1f384a2da87d5de43981ef3289a",
+    "sha256": "cc56c1c60dca9ee30ee9b6c9388fe0a204841350e5b22bc189f45561a74192ef",
     "author": "effacestudios",
     "loopable": true,
     "targetLufs": -20,
-    "truePeak": -1.6,
-    "samplePeak": -1.596912302850852,
+    "truePeak": -2.9,
+    "samplePeak": -2.904867,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
-    "loopReport": "round2-loops/r2-loop-music-360f3c163ed6.json",
+    "loopReport": "normalization/loops/r2-loop-music-360f3c163ed6.json",
     "derivedFrom": "music-360f3c163ed6",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-9935a373414d",
@@ -3118,14 +3390,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -2.49,
-    "samplePeak": -2.505220313215037,
+    "samplePeak": -2.50522,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-9935a373414d.json",
     "derivedFrom": "music-9935a373414d",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-9d2fa11d09bf",
@@ -3147,14 +3422,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -3.47,
-    "samplePeak": -3.5031326017117648,
+    "samplePeak": -3.503133,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-9d2fa11d09bf.json",
     "derivedFrom": "music-9d2fa11d09bf",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-01a63f6d5d85",
@@ -3168,23 +3446,25 @@
     "scene": "适合悲伤情绪的过场或蒙太奇。",
     "duration": 40.32,
     "loop": true,
-    "loudness": -22.76,
+    "loudness": -20.43,
     "source": "https://github.com/effacestudios/Royalty-Free-Music-Pack/blob/2ce8458293fe4eeb91414a19d6d7ecd1562a5949/Outsider.mp3",
     "license": "CC0-1.0",
-    "sha256": "84053b811ea94b9610835ba1a6779bb535c3b3255129045c445c9e1e12d62b02",
+    "sha256": "04ab6c19709c1e3e247faf1b495f62e5845ed827e839742d2b431fb85fcdf872",
     "author": "effacestudios",
     "loopable": true,
     "targetLufs": -20,
-    "truePeak": -1.78,
-    "samplePeak": -1.8558498380576263,
+    "truePeak": -2.86,
+    "samplePeak": -2.951905,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
-    "loopReport": "round2-loops/r2-loop-music-01a63f6d5d85.json",
+    "loopReport": "normalization/loops/r2-loop-music-01a63f6d5d85.json",
     "derivedFrom": "music-01a63f6d5d85",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-music-197b91134859",
@@ -3206,14 +3486,17 @@
     "loopable": true,
     "targetLufs": -20,
     "truePeak": -5.17,
-    "samplePeak": -5.184899059411833,
+    "samplePeak": -5.184899,
     "origin": "derived",
     "channels": 2,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-music-197b91134859.json",
     "derivedFrom": "music-197b91134859",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-071cf6baccc0",
@@ -3235,16 +3518,19 @@
     "sha256": "bbcebc00d9d7fc03319f6a6600f5a7ce3ff3f0d3c8a3c52edb8c58a5a7244bca",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -4.77,
-    "samplePeak": -4.775277572197333,
+    "samplePeak": -4.775278,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-071cf6baccc0.json",
     "derivedFrom": "sfx-071cf6baccc0",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-510e5353e830",
@@ -3266,16 +3552,19 @@
     "sha256": "75916151ab02dd0ae39c3f8a1aace4be9fafbd73b10ad7ad25c9dece583908a8",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -6.66,
-    "samplePeak": -6.669811354016404,
+    "samplePeak": -6.669811,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-510e5353e830.json",
     "derivedFrom": "sfx-510e5353e830",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-843c79cf1eec",
@@ -3297,16 +3586,19 @@
     "sha256": "25f6b32020da75d8be89d9c18e40dce31ac6c6ea6a6f095f3f3708b4ee82f21e",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -7.47,
-    "samplePeak": -7.468267598022513,
+    "samplePeak": -7.468268,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-843c79cf1eec.json",
     "derivedFrom": "sfx-843c79cf1eec",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-0fee82de42e3",
@@ -3327,16 +3619,19 @@
     "sha256": "02b151f53493277c00fbb03c30f1d017e11dce5899e946badb47ec350ac521a2",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -5.8,
-    "samplePeak": -5.798027934333119,
+    "samplePeak": -5.798028,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-0fee82de42e3.json",
     "derivedFrom": "sfx-0fee82de42e3",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-cd7e525287e0",
@@ -3357,16 +3652,19 @@
     "sha256": "b8863b4c1f8fa735ba8330735e6ccf7d6b2ae8768cf8c48739af96f40220f0b8",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -8.74,
-    "samplePeak": -8.738995740921547,
+    "samplePeak": -8.738996,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-cd7e525287e0.json",
     "derivedFrom": "sfx-cd7e525287e0",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-57aaf3ed3677",
@@ -3387,16 +3685,19 @@
     "sha256": "108b2c3ab0a2567c1bdd193d94c2b0710f1ca1eb265cb399e4298bc9ae44c1d0",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "truePeak": -8.96,
-    "samplePeak": -8.968178340849773,
+    "samplePeak": -8.968178,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
     "loopReport": "round2-loops/r2-loop-sfx-57aaf3ed3677.json",
     "derivedFrom": "sfx-57aaf3ed3677",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-5f709f72838f",
@@ -3409,25 +3710,27 @@
       "室外底噪"
     ],
     "scene": "适合室外底噪的镜头细节或环境铺底。",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
-    "loudness": -22.55,
+    "loudness": -18.19,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Outside.wav",
     "license": "CC0-1.0",
-    "sha256": "2e1537e5f06febb39cded6533a0c606befeb18f9f77398fa8a6760b99fcba116",
+    "sha256": "0518dba5f043380606c654ec2a9c28ad4ab64700b0d6784ce6df4ab49c3efc32",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
-    "truePeak": -1.95,
-    "samplePeak": -1.9519221140986731,
+    "targetLufs": -18,
+    "truePeak": -2.86,
+    "samplePeak": -2.857373,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "round2-loops/r2-loop-sfx-5f709f72838f.json",
+    "loopReport": "normalization/loops/r2-loop-sfx-5f709f72838f.json",
     "derivedFrom": "sfx-5f709f72838f",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-sfx-da48e26760ac",
@@ -3443,25 +3746,27 @@
       "水龙头"
     ],
     "scene": "适合水槽龙头的镜头细节或环境铺底。",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
-    "loudness": -24.85,
+    "loudness": -18.29,
     "source": "https://github.com/lavenderdotpet/CC0-Public-Domain-Sounds/blob/f2b6264f9ab89fabc266914c3654685d68c5a39b/bb%20-%20Fans%20and%20Drones%20%28Jul%202021%29/Sink%20and%20Faucet.wav",
     "license": "CC0-1.0",
-    "sha256": "5eddd77eaa472a3b3fb338755b70bfb026004e3a28cffbfa33af797beb0a7dff",
+    "sha256": "88b2082d781eaf04c3b2e36e8ba94e32751c5bea7259bebdcc6574c01afe9720",
     "author": "Benjamin Burnes",
     "loopable": true,
-    "targetLufs": -20,
-    "truePeak": -2.38,
-    "samplePeak": -2.3841138366264367,
+    "targetLufs": -18,
+    "truePeak": -2.95,
+    "samplePeak": -2.945325,
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "round2-loops/r2-loop-sfx-da48e26760ac.json",
+    "loopReport": "normalization/loops/r2-loop-sfx-da48e26760ac.json",
     "derivedFrom": "sfx-da48e26760ac",
     "processing": "真实录音截段；尾首等功率交叉淡化；固定增益以真峰值和采样峰值不高于-1dB优先；48kHz Vorbis重新编码；最终文件客观接缝检查通过，未人工试听。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-1019",
@@ -3486,19 +3791,21 @@
     "author": "Joseph SARDIN",
     "sha256": "27eb02219f5ce8fa71d123446beb439d1559626e4900815efff76472de0a2d88",
     "truePeak": -1.74,
-    "samplePeak": -3.5941850390694166,
+    "samplePeak": -3.594185,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-1019-source.json",
     "sourceSha256": "66ed2534bdde6c399426e568ce8f82c680d7644d19a7fcd4b73cd3fb3a4a07c8",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/1019.wav",
     "loopReport": "fill-gaps/weather/gap-weather-1019.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-1290",
@@ -3514,28 +3821,30 @@
       "水洼"
     ],
     "scene": "适合雨落水洼环境的场景铺底。",
-    "duration": 45.0,
+    "duration": 45.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -22.39,
+    "loudness": -19.16,
     "source": "https://bigsoundbank.com/rain-on-puddle-s1290.html",
     "license": "CC0-1.0",
     "author": "Joseph SARDIN",
-    "sha256": "ad76b605e2306e2be91bec98137d82c8388a1f81918b5cd2be7552872d84909a",
-    "truePeak": -1.42,
-    "samplePeak": -2.9967239206731637,
+    "sha256": "dd564b18dd71285b639a8b181d738606dc3f4ac6b29a2773237bb41410dbd007",
+    "truePeak": -2.79,
+    "samplePeak": -2.890236,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-1290-source.json",
     "sourceSha256": "412c59465f8b2c1e0d6f5d44b5a38d3b916347d2de2f38f4c2c360cf6788c06c",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/1290.wav",
-    "loopReport": "fill-gaps/weather/gap-weather-1290.json",
+    "loopReport": "normalization/loops/gap-weather-1290.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-1289",
@@ -3551,28 +3860,30 @@
       "水泥"
     ],
     "scene": "适合雨落水泥环境的场景铺底。",
-    "duration": 45.0,
+    "duration": 45.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -24.01,
+    "loudness": -20.35,
     "source": "https://bigsoundbank.com/rain-on-concrete-s1289.html",
     "license": "CC0-1.0",
     "author": "Joseph SARDIN",
-    "sha256": "35d1c21cfa68605f0676c54525e6b66073ede53de830aa2bbc3e946d42e67c23",
-    "truePeak": -1.43,
-    "samplePeak": -2.7934288203516844,
+    "sha256": "197af1317f688571e4d58557e93f5aa6e499a1d73da347449ea3f7f52c836588",
+    "truePeak": -2.84,
+    "samplePeak": -2.912111,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-1289-source.json",
     "sourceSha256": "e4876e37514c40728637c6caaed6068209c00f77b80557752f237bb02c7bdbef",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/1289.wav",
-    "loopReport": "fill-gaps/weather/gap-weather-1289.json",
+    "loopReport": "normalization/loops/gap-weather-1289.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-1295",
@@ -3597,19 +3908,21 @@
     "author": "Joseph SARDIN",
     "sha256": "c690ac44e98511f7dbb293ea16be094279acfbed9aaa0635fdfbfb50c53a832d",
     "truePeak": -2.97,
-    "samplePeak": -2.973745416368056,
+    "samplePeak": -2.973745,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-1295-source.json",
     "sourceSha256": "f40678cf909f21200e746478021b3be75a7e2a9aa88b0b6c279ce89dc012a42e",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/1295.wav",
     "loopReport": "fill-gaps/weather/gap-weather-1295.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-2679",
@@ -3625,7 +3938,7 @@
       "伞下"
     ],
     "scene": "适合雨打伞面环境的场景铺底。",
-    "duration": 30.737520833333335,
+    "duration": 30.737521,
     "loop": true,
     "loopable": true,
     "loudness": -20.32,
@@ -3634,19 +3947,21 @@
     "author": "Pierre SIBANARCO",
     "sha256": "b3a78338825a0eadac0e6f341bf15be7a1d4ee9de5bbaaf4d8e0172f3f07f768",
     "truePeak": -2.63,
-    "samplePeak": -2.6671135702848576,
+    "samplePeak": -2.667114,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-2679-source.json",
     "sourceSha256": "117386e62d251facb60a308a66fabd72f063439a3ab4911505c467adf3bf2f7b",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/2679.wav",
     "loopReport": "fill-gaps/weather/gap-weather-2679.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-0904",
@@ -3662,28 +3977,30 @@
       "树林"
     ],
     "scene": "适合森林树梢风环境的场景铺底。",
-    "duration": 45.0,
+    "duration": 45.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -25.53,
+    "loudness": -18.72,
     "source": "https://bigsoundbank.com/forest-wind-in-the-trees-s0904.html",
     "license": "CC0-1.0",
     "author": "Joseph SARDIN",
-    "sha256": "4a5be4f557632f24a7ef89f400ed8a112bac521bc9b2e196dd4698fd2ddb3fe9",
-    "truePeak": -3.53,
-    "samplePeak": -3.541999783526758,
+    "sha256": "224aa67efe04df654b8cc32f0af547d231b7deb53d0421664a320e1920b303fa",
+    "truePeak": -2.85,
+    "samplePeak": -2.868862,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-0904-source.json",
     "sourceSha256": "0977950ade4efe3c1a975c4c7c983b1487bfeb4adb456895e4d0b637ba81373b",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/0904.wav",
-    "loopReport": "fill-gaps/weather/gap-weather-0904.json",
+    "loopReport": "normalization/loops/gap-weather-0904.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-0908",
@@ -3707,19 +4024,21 @@
     "author": "Joseph SARDIN",
     "sha256": "76665df56639e526afa7b52b4af35bf781cc226fe77a8cee7126d9ad08947f53",
     "truePeak": -3.84,
-    "samplePeak": -3.9768571700760518,
+    "samplePeak": -3.976857,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-0908-source.json",
     "sourceSha256": "e45986e15436ea41af289fb929524df889c1f3204e263fd6b1231d4140b11da1",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/0908.wav",
     "loopReport": "fill-gaps/weather/gap-weather-0908.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-weather-0907",
@@ -3743,19 +4062,21 @@
     "author": "Joseph SARDIN",
     "sha256": "7b654dd513a0baf84d91197d97174c0410d62443fb0fd2863aab03aa1381432b",
     "truePeak": -3.92,
-    "samplePeak": -4.034537109899878,
+    "samplePeak": -4.034537,
     "origin": "recording",
     "channels": 1,
     "sampleRate": 48000,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "licenseEvidence": "fill-gaps/weather/gap-weather-0907-source.json",
     "sourceSha256": "b475ae35034865ecfdf1468886a0618adc960155c8a66924ed9b10025f3236c9",
     "downloadSource": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip#QuietField-win32-x64/resources/app/dist/sounds/bigsoundbank/0907.wav",
     "loopReport": "fill-gaps/weather/gap-weather-0907.json",
     "processing": "真实独立原录音截取前段；48kHz单声道、0.5秒尾首交叉淡化和固定增益；峰值安全优先；没有重复短片凑时长。",
-    "peakSafetyPrioritized": true,
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakSafetyPrioritized": false,
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-holizna-all-the-way-sad",
@@ -3778,7 +4099,7 @@
     "targetLufs": -20,
     "loudness": -20.24,
     "truePeak": -7.24,
-    "samplePeak": -7.243878468929534,
+    "samplePeak": -7.243878,
     "peakSafetyPrioritized": false,
     "sha256": "7a1d3f19b6f24bf6851b55886425d419aef995438504cbd3af2c48b86a3fd70d",
     "origin": "derived",
@@ -3794,7 +4115,9 @@
     "licenseEvidence": "fill-gaps/music/LICENSE_EVIDENCE.md",
     "licenseEvidenceNote": "原作者Bandcamp与站外账号双向关联，明确整音乐档案CC0额外授权；平台官方说明许可菜单不含CC0，通用CC-BY按钮并存。FMA直接页未重试，曲目关联边界见独立审查。",
     "peakLimited": false,
-    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md"
+    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-holizna-sad-boi",
@@ -3817,7 +4140,7 @@
     "targetLufs": -20,
     "loudness": -20.18,
     "truePeak": -5.32,
-    "samplePeak": -5.325150065639598,
+    "samplePeak": -5.32515,
     "peakSafetyPrioritized": false,
     "sha256": "24c81c23bdc99cd8d5c20622be5d1c669d75a2c32db210ab8304975a99ce4327",
     "origin": "derived",
@@ -3833,7 +4156,9 @@
     "licenseEvidence": "fill-gaps/music/LICENSE_EVIDENCE.md",
     "licenseEvidenceNote": "原作者Bandcamp与站外账号双向关联，明确整音乐档案CC0额外授权；平台官方说明许可菜单不含CC0，通用CC-BY按钮并存。FMA直接页未重试，曲目关联边界见独立审查。",
     "peakLimited": false,
-    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md"
+    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-low-1",
@@ -3854,7 +4179,7 @@
     "loopable": true,
     "loudness": -20.68,
     "truePeak": -1.72,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -3864,13 +4189,15 @@
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
     "sha256": "f011bc56aa266723cb2de1d43e7e0a4ccfde7a5bd0c2d24ba25775f9da1e6b7f",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内0至18秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -1.7285164114880012,
+    "samplePeak": -1.728516,
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "loopReport": "remaining/crowd-loop/crowd-room-loop-1.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-low-2",
@@ -3891,7 +4218,7 @@
     "loopable": true,
     "loudness": -20.33,
     "truePeak": -2.44,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -3901,13 +4228,15 @@
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
     "sha256": "710a03b929d869809cba220d2a0d9b7e058058dcd9be12023697272118cf410e",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内19至37秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -2.452953390823019,
+    "samplePeak": -2.452953,
     "peakLimited": false,
     "peakSafetyPrioritized": false,
     "loopReport": "remaining/crowd-loop/crowd-room-loop-2.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-low-3",
@@ -3923,12 +4252,12 @@
       "人群低语"
     ],
     "scene": "适合会议厅中众人低声交流的镜头。",
-    "duration": 17.0,
+    "duration": 17.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -21.75,
-    "truePeak": -2.13,
-    "targetLufs": -20,
+    "loudness": -18.18,
+    "truePeak": -2.84,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -3936,15 +4265,17 @@
     "author": "jentlemen",
     "licensePath": "remaining/crowd-loop/licenses/crowd.md",
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
-    "sha256": "573eaa04b720887beaa575d66e5ffaabefb8d082fc47845ff1c869d7fccae09b",
+    "sha256": "1c940aa737d2a8fac066f82006b78d3fbf97127128129947b0add65a8be34123",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内38至56秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -2.1432021156236534,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
-    "loopReport": "remaining/crowd-loop/crowd-room-loop-3.json",
+    "samplePeak": -2.844869,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "loopReport": "normalization/loops/sfx-crowd-low-3.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-steady",
@@ -3964,7 +4295,7 @@
     "loopable": false,
     "loudness": -20.1,
     "truePeak": -7.66,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -3975,7 +4306,9 @@
     "sha256": "3dedb4131873524ecf6280c407001587204f1dcf8b4e511839970979bcbe3806",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片0.38秒起截取10.9秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -7.662266,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-speed-up",
@@ -3995,7 +4328,7 @@
     "loopable": false,
     "loudness": -19.95,
     "truePeak": -10.17,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -4006,7 +4339,9 @@
     "sha256": "24ff3cabd2309ee990c0f6ff88d65cac543be56ff75bc9ae43c63546504ace6d",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片11.1秒起截取4.7秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -10.185965,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-monitor-continuous",
@@ -4026,7 +4361,7 @@
     "loopable": false,
     "loudness": -19.95,
     "truePeak": -15.04,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/samfk360/sounds/148897/",
     "originalLicenseUrl": "https://freesound.org/people/samfk360/sounds/148897/",
@@ -4037,7 +4372,9 @@
     "sha256": "8425a3ad1ac890581bdcef5d690c7cd9a7a6e92ff7f85741adfa51e03f739edc",
     "processing": "第三方制作的监护仪提示音；非医院现场录音。镜像保留原始ID、作者及标题，时长27.9秒对应。原片18秒起截取8秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。同类三条来自同一原片，不是三次独立录音。",
     "samplePeak": -15.044401,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-knife-whoosh",
@@ -4078,7 +4415,9 @@
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
     "loudnessNote": "独立短动作不足400毫秒，无法得到有效EBU积分响度；不加静音凑长度，改按约-1.8dB峰值规范化，并以实际采样及真峰值验收。",
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-knife-slash-1",
@@ -4119,7 +4458,9 @@
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
     "loudnessNote": "独立短动作不足400毫秒，无法得到有效EBU积分响度；不加静音凑长度，改按约-1.8dB峰值规范化，并以实际采样及真峰值验收。",
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-knife-slash-2",
@@ -4136,7 +4477,7 @@
     "duration": 0.64,
     "loop": false,
     "loopable": false,
-    "loudness": -23.51,
+    "loudness": -20.31,
     "targetLufs": -18,
     "source": "https://freesound.org/people/sillygrizzlies/sounds/635049/",
     "originalSource": "https://freesound.org/people/sillygrizzlies/sounds/635049/",
@@ -4146,11 +4487,11 @@
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "truePeak": -2.35,
-    "samplePeak": -2.364337,
-    "peakLimited": true,
+    "truePeak": -3.15,
+    "samplePeak": -3.187095,
+    "peakLimited": false,
     "sourceSha256": "474ba7003dc5d88299d8ef403cc39120e9fe7aef0eb389b46110a49d02722937",
-    "sha256": "3dbfd133af121874a08fbc42efb6264dc1dfcd333c262ae415dc04c77c1c9ec5",
+    "sha256": "7b2729491f8e15111f9088a2559a68ac0b84a7f475c417f8d1d2205662959d40",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
     "sourceExcerpt": {
       "start": 3.7,
@@ -4159,7 +4500,9 @@
     "gainDb": -3.91,
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-knife-slash-3",
@@ -4173,10 +4516,10 @@
       "拟音"
     ],
     "scene": "适合刀挥动或划伤动作的同步拟音。",
-    "duration": 1.24,
+    "duration": 1.242333,
     "loop": false,
     "loopable": false,
-    "loudness": -29.75,
+    "loudness": -20.11,
     "targetLufs": -18,
     "source": "https://freesound.org/people/sillygrizzlies/sounds/635049/",
     "originalSource": "https://freesound.org/people/sillygrizzlies/sounds/635049/",
@@ -4186,11 +4529,11 @@
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "truePeak": -2.27,
-    "samplePeak": -2.27041,
-    "peakLimited": true,
+    "truePeak": -2.74,
+    "samplePeak": -2.741369,
+    "peakLimited": false,
     "sourceSha256": "474ba7003dc5d88299d8ef403cc39120e9fe7aef0eb389b46110a49d02722937",
-    "sha256": "70dfcc5ef2c39f0417c409ee5589313c1e2a94a502a321fa92a8d3a02952434e",
+    "sha256": "e3ea7c6d88e3923b5ea19ab2ac6a76cf5b1a0abd311d2bd4410fc4020b99482b",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
     "sourceExcerpt": {
       "start": 6.61,
@@ -4199,7 +4542,9 @@
     "gainDb": -4.18,
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-wet-step-1",
@@ -4240,7 +4585,9 @@
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
     "loudnessNote": "独立短动作不足400毫秒，无法得到有效EBU积分响度；不加静音凑长度，改按约-1.8dB峰值规范化，并以实际采样及真峰值验收。",
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-wet-step-2",
@@ -4281,7 +4628,9 @@
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
     "loudnessNote": "独立短动作不足400毫秒，无法得到有效EBU积分响度；不加静音凑长度，改按约-1.8dB峰值规范化，并以实际采样及真峰值验收。",
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-wet-step-3",
@@ -4322,7 +4671,9 @@
     "evidence": "fill-gaps/actions/SOURCES.md",
     "subjectiveListeningCompleted": false,
     "loudnessNote": "独立短动作不足400毫秒，无法得到有效EBU积分响度；不加静音凑长度，改按约-1.8dB峰值规范化，并以实际采样及真峰值验收。",
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-car-pass-night",
@@ -4344,7 +4695,7 @@
     "loopable": false,
     "loudness": -19.84,
     "truePeak": -1.82,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/robotjay/sounds/275164/",
     "originalLicenseUrl": "https://freesound.org/people/robotjay/sounds/275164/",
@@ -4355,7 +4706,9 @@
     "sha256": "febf28781ec1eb05301e425034927a5efab539bce4eff8a47d018f69d2d13e77",
     "processing": "奥克兰夜晚郊区街道真实汽车驶过录音；不是30秒连续街景底噪。原片0秒起截取10.824秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。镜像保留原编号、作者、标题，原始来源CSV对应相同ID和作者；部分为数据集节选。",
     "samplePeak": -1.836479,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-car-pass-left",
@@ -4375,7 +4728,7 @@
     "loopable": false,
     "loudness": -20.07,
     "truePeak": -2.55,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/hinzebeat/sounds/171447/",
     "originalLicenseUrl": "https://freesound.org/people/hinzebeat/sounds/171447/",
@@ -4386,7 +4739,9 @@
     "sha256": "c2a6fc4c2df3e8ff1660bcba49de78635c08ed3543a66fe8802dc78549afd5ce",
     "processing": "原作者汽车驶过录音。原片0秒起截取5.408秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。镜像保留原编号、作者、标题，原始来源CSV对应相同ID和作者；部分为数据集节选。",
     "samplePeak": -2.559895,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-car-pass-country",
@@ -4406,7 +4761,7 @@
     "loopable": false,
     "loudness": -20.52,
     "truePeak": -2.45,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/dankri2/sounds/343424/",
     "originalLicenseUrl": "https://freesound.org/people/dankri2/sounds/343424/",
@@ -4417,7 +4772,9 @@
     "sha256": "9c6e4ffda744346859f0fa01354b6f066f143fde9b87e9066de0886be68b4e1d",
     "processing": "乡间道路真实汽车驶过录音，使用数据集保留的12.955秒节选，原页完整录音48.439秒，原片节选位置未公开。原片0秒起截取12.955秒，去首尾静音，10毫秒淡化，转为48kHz单声道Ogg并统一-20 LUFS。镜像保留原编号、作者、标题，原始来源CSV对应相同ID和作者；部分为数据集节选。",
     "samplePeak": -2.465082,
-    "peakLimited": false
+    "peakLimited": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-2749",
@@ -4437,10 +4794,10 @@
     "duration": 40.0,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "loudness": -20.55,
     "truePeak": -2.88,
-    "samplePeak": -3.0276521827365803,
+    "samplePeak": -3.027652,
     "peakSafetyPrioritized": false,
     "sha256": "5834c1959084c0a691ae173fb1ba8eebc22ec8059b2805e1e4d236f042e9a849",
     "origin": "derived",
@@ -4455,7 +4812,9 @@
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
     "peakLimited": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-2713",
@@ -4472,19 +4831,19 @@
     "source": "https://bigsoundbank.com/forest-and-stream-1-s2713.html",
     "license": "CC0-1.0",
     "author": "Pierre SIBANARCO",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
-    "loudness": -27.37,
-    "truePeak": -2.0,
-    "samplePeak": -2.7935109435293333,
-    "peakSafetyPrioritized": true,
-    "sha256": "e6b99f3cdf8c66ca7f5be6657a2d9d39c0d3e959d4e841697a61d57695a7953e",
+    "targetLufs": -18,
+    "loudness": -18.5,
+    "truePeak": -2.95,
+    "samplePeak": -3.034011,
+    "peakSafetyPrioritized": false,
+    "sha256": "31a7226b47e1fd0793935c39da4117a25d06c86c8a948aa7f1d1b7b57e46286a",
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "fill-gaps/nature/r2-loop-bsb-2713.json",
+    "loopReport": "normalization/loops/r2-loop-bsb-2713.json",
     "derivedFrom": "bsb-2713",
     "processing": "从独立真实自然录音取连续41秒，首尾1秒等功率交叉淡化至40秒；48kHz单声道；固定增益峰值优先；最终Ogg接缝与峰值复测通过，未人工试听。",
     "recordingOrigin": "field-recording",
@@ -4492,8 +4851,10 @@
     "sourceMirror": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip",
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-2715",
@@ -4509,19 +4870,19 @@
     "source": "https://bigsoundbank.com/forest-3-s2715.html",
     "license": "CC0-1.0",
     "author": "Pierre SIBANARCO",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
-    "loudness": -25.47,
-    "truePeak": -1.78,
-    "samplePeak": -1.983066173941791,
-    "peakSafetyPrioritized": true,
-    "sha256": "55156d4b4d45a6a087f222b2efff98e8b232444ca02058cb4a953151443e0336",
+    "targetLufs": -18,
+    "loudness": -19.39,
+    "truePeak": -2.82,
+    "samplePeak": -2.876589,
+    "peakSafetyPrioritized": false,
+    "sha256": "6dbe4988967b829bd1b8fdff9253a4517fb5f5e76801cc6f762e0bb7c201e56b",
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "fill-gaps/nature/r2-loop-bsb-2715.json",
+    "loopReport": "normalization/loops/r2-loop-bsb-2715.json",
     "derivedFrom": "bsb-2715",
     "processing": "从独立真实自然录音取连续41秒，首尾1秒等功率交叉淡化至40秒；48kHz单声道；固定增益峰值优先；最终Ogg接缝与峰值复测通过，未人工试听。",
     "recordingOrigin": "field-recording",
@@ -4529,8 +4890,10 @@
     "sourceMirror": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip",
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-0698",
@@ -4550,10 +4913,10 @@
     "duration": 40.0,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "loudness": -20.37,
     "truePeak": -5.12,
-    "samplePeak": -5.134012581258772,
+    "samplePeak": -5.134013,
     "peakSafetyPrioritized": false,
     "sha256": "ae4709f2dc53d9dbd28e582685344b6ed97247f39587b24e53fe64fd3b79ca0e",
     "origin": "derived",
@@ -4568,7 +4931,9 @@
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
     "peakLimited": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-1447",
@@ -4585,19 +4950,19 @@
     "source": "https://bigsoundbank.com/small-waves-froth-and-beach-s1447.html",
     "license": "CC0-1.0",
     "author": "Joseph SARDIN",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
-    "loudness": -22.17,
-    "truePeak": -1.59,
-    "samplePeak": -1.62820875622149,
-    "peakSafetyPrioritized": true,
-    "sha256": "82362aa4b8fa5933d7ad735673d845cb3764d4b185b323c70153d81d836ec922",
+    "targetLufs": -18,
+    "loudness": -18.75,
+    "truePeak": -2.41,
+    "samplePeak": -2.413178,
+    "peakSafetyPrioritized": false,
+    "sha256": "1eece1558463cfa939b8ba9a50194592ac9ae9c5f9a3351a381e98d6d13fe551",
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "fill-gaps/nature/r2-loop-bsb-1447.json",
+    "loopReport": "normalization/loops/r2-loop-bsb-1447.json",
     "derivedFrom": "bsb-1447",
     "processing": "从独立真实自然录音取连续41秒，首尾1秒等功率交叉淡化至40秒；48kHz单声道；固定增益峰值优先；最终Ogg接缝与峰值复测通过，未人工试听。",
     "recordingOrigin": "field-recording",
@@ -4605,8 +4970,10 @@
     "sourceMirror": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip",
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-1046",
@@ -4622,19 +4989,19 @@
     "source": "https://bigsoundbank.com/small-waves-facing-the-ocean-s1046.html",
     "license": "CC0-1.0",
     "author": "Joseph SARDIN",
-    "duration": 40.0,
+    "duration": 40.002667,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
-    "loudness": -22.26,
-    "truePeak": -2.91,
-    "samplePeak": -2.906270531144765,
-    "peakSafetyPrioritized": true,
-    "sha256": "46fe207eed117e8bcb16ab15d95ac421b1ca5accb2f820c3e57f540fc778c95e",
+    "targetLufs": -18,
+    "loudness": -18.57,
+    "truePeak": -2.99,
+    "samplePeak": -2.985533,
+    "peakSafetyPrioritized": false,
+    "sha256": "bbc6f56d62fde34580baf12bb8d710dda48e41d6148e2946555a1b244116da9e",
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "loopReport": "fill-gaps/nature/r2-loop-bsb-1046.json",
+    "loopReport": "normalization/loops/r2-loop-bsb-1046.json",
     "derivedFrom": "bsb-1046",
     "processing": "从独立真实自然录音取连续41秒，首尾1秒等功率交叉淡化至40秒；48kHz单声道；固定增益峰值优先；最终Ogg接缝与峰值复测通过，未人工试听。",
     "recordingOrigin": "field-recording",
@@ -4642,8 +5009,10 @@
     "sourceMirror": "https://github.com/Gary06868/QuietField/releases/download/v1.8.1/QuietField-1.8.1-Windows-x64-public.zip",
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
-    "peakLimited": true,
-    "recordingVerified": true
+    "peakLimited": false,
+    "recordingVerified": true,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-bsb-1880",
@@ -4664,10 +5033,10 @@
     "duration": 40.0,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "loudness": -20.34,
     "truePeak": -4.44,
-    "samplePeak": -4.5099813467108305,
+    "samplePeak": -4.509981,
     "peakSafetyPrioritized": false,
     "sha256": "e3548a11063d6473b922c05c4f75c79faef30a26e489d5731185c04b00384372",
     "origin": "derived",
@@ -4682,7 +5051,9 @@
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
     "peakLimited": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-wav-crickets",
@@ -4702,10 +5073,10 @@
     "duration": 40.0,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "loudness": -20.16,
     "truePeak": -5.87,
-    "samplePeak": -5.9074685360686106,
+    "samplePeak": -5.907469,
     "peakSafetyPrioritized": false,
     "sha256": "5f7cae08773291569d36e4ec4b820c86ca37a67c487df6c0627e95c30d12294a",
     "origin": "derived",
@@ -4720,7 +5091,9 @@
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
     "peakLimited": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "r2-loop-fs-175020",
@@ -4741,10 +5114,10 @@
     "duration": 40.0,
     "loop": true,
     "loopable": true,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "loudness": -20.43,
     "truePeak": -8.84,
-    "samplePeak": -8.872540406725744,
+    "samplePeak": -8.87254,
     "peakSafetyPrioritized": false,
     "sha256": "70b97f9b7d4c8acfaed54125763747001406941c4bcefbb938c9158905aa9d39",
     "origin": "derived",
@@ -4759,7 +5132,9 @@
     "sourceCatalog": "https://github.com/Gary06868/QuietField/blob/1b54955db94baa59571bb0ae3e56fcad190f2087/src/catalog.public.json",
     "licenseEvidence": "fill-gaps/nature/LICENSE_EVIDENCE.md",
     "peakLimited": false,
-    "recordingVerified": true
+    "recordingVerified": true,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-human-757113",
@@ -4774,10 +5149,10 @@
       "害怕"
     ],
     "scene": "适合恐慌或行走后急促喘息的人物特写。",
-    "duration": 24.448,
+    "duration": 24.450667,
     "loop": false,
     "loopable": false,
-    "loudness": -24.76,
+    "loudness": -19.51,
     "source": "https://freesound.org/people/jcdeegs123/sounds/757113/",
     "license": "CC0-1.0",
     "author": "jcdeegs123",
@@ -4785,16 +5160,18 @@
     "recordingVerified": true,
     "sampleRate": 48000,
     "channels": 1,
-    "truePeak": -3.21,
-    "samplePeak": -3.2122300936324693,
+    "truePeak": -2.69,
+    "samplePeak": -2.688061,
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
-    "sha256": "f6730e0253b438b7d322f800112895bf4195fc24b4f4b835c74d8d28db73d8b4",
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "sha256": "1b83c826351b05a4bdd68771b1c4f4382c529a9146de9fb83381deeef430476b",
     "sourceSha256": "eca028953141b8701d0cddebc8a9b6c798103a9b311e8d58318189d477105d45",
     "licenseEvidence": "fill-gaps/weather-extra/757113-source.json",
     "downloadSource": "https://github.com/crafter-games/the-ones-game/releases/download/v0.7.3/TheOnes-win64.zip",
-    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。"
+    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-human-554906",
@@ -4810,10 +5187,10 @@
       "发冷"
     ],
     "scene": "适合男性受惊或发冷时的短促呼吸。",
-    "duration": 7.047375,
+    "duration": 7.052375,
     "loop": false,
     "loopable": false,
-    "loudness": -22.77,
+    "loudness": -18.6,
     "source": "https://freesound.org/people/Nox_Sound/sounds/554906/",
     "license": "CC0-1.0",
     "author": "Nox_Sound",
@@ -4821,16 +5198,18 @@
     "recordingVerified": true,
     "sampleRate": 48000,
     "channels": 1,
-    "truePeak": -3.73,
-    "samplePeak": -3.7305528667059695,
+    "truePeak": -2.94,
+    "samplePeak": -2.944771,
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
-    "sha256": "1a9ea4c2ba51cfdf67f96ee402f7a6432a0bc6e5acfe570a280bce883fc5b03e",
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "sha256": "7ed52c3c2a1dc44fa8ac414bf05d287170abc11f7a4543a7728c801d17a5171b",
     "sourceSha256": "101c6c175186ce54afeef662dc7d12b8d232c58e9fb3020b3a3a2473751e218b",
     "licenseEvidence": "fill-gaps/weather-extra/554906-source.json",
     "downloadSource": "https://github.com/crafter-games/the-ones-game/releases/download/v0.7.3/TheOnes-win64.zip",
-    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。"
+    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "gap-human-344407",
@@ -4844,7 +5223,7 @@
       "惊讶"
     ],
     "scene": "适合突然受惊的单次倒吸气，不是连续喘息。",
-    "duration": 0.6866666666666666,
+    "duration": 0.666667,
     "loop": false,
     "loopable": false,
     "loudness": -17.95,
@@ -4856,15 +5235,17 @@
     "sampleRate": 48000,
     "channels": 1,
     "truePeak": -5.83,
-    "samplePeak": -5.869163263021183,
+    "samplePeak": -5.869163,
     "targetLufs": -18,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
     "sha256": "ef4fbe45e5ac1e98783c716e10bcc2e7158fc00d858406ca2b3c2ce25cc61edb",
     "sourceSha256": "3579a7f68eb582f55a0824efe4afbb570d4ae6921701bed3471200f949eb8f39",
     "licenseEvidence": "fill-gaps/weather-extra/344407-source.json",
     "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/tree/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/066Human%20sounds_Respiratory%20sounds_Breathing_Gasp",
-    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。"
+    "processing": "保留原片长度，不复制拼接；固定增益和48kHz单声道Vorbis，最终峰值实测优先，不宣称循环。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-keys-131437",
@@ -4879,27 +5260,29 @@
       "金属"
     ],
     "scene": "适合人物拿出、摇动或整理钥匙的动作细节。",
-    "duration": 5.387041666666667,
+    "duration": 5.380375,
     "loop": false,
     "loopable": false,
-    "loudness": -29.47,
+    "loudness": -20.93,
     "targetLufs": -18,
-    "truePeak": -3.67,
-    "samplePeak": -5.49985078753886,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
+    "truePeak": -2.86,
+    "samplePeak": -3.054048,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
     "origin": "recording",
     "recordingVerified": true,
     "sampleRate": 48000,
     "channels": 1,
-    "sha256": "7f7bcb5fdc4f906b75753c25a7862248752cc75e9a870e1c92d2ff7ee82e9eaf",
+    "sha256": "a278b323fe9942d585fc42fd6a522145f3a848dafacbb8afb6222611d1f8c257",
     "source": "https://freesound.org/people/sKydran/sounds/131437/",
     "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/131437__skydran__key-noises.wav",
     "sourceSha256": "11452b7c22a4241e4a0e89e1ea877cf6b04f9202812ef76e7005c8544cadc394",
     "author": "sKydran",
     "license": "CC0-1.0",
     "licenseEvidence": "remaining/keys-umbrella/sources.json",
-    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。"
+    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-keys-173943",
@@ -4914,27 +5297,29 @@
       "金属"
     ],
     "scene": "适合人物拿出、摇动或整理钥匙的动作细节。",
-    "duration": 5.377979166666667,
+    "duration": 5.380646,
     "loop": false,
     "loopable": false,
-    "loudness": -22.66,
+    "loudness": -20.13,
     "targetLufs": -18,
-    "truePeak": -2.77,
-    "samplePeak": -3.0168246878237017,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
+    "truePeak": -2.86,
+    "samplePeak": -2.858377,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
     "origin": "recording",
     "recordingVerified": true,
     "sampleRate": 48000,
     "channels": 1,
-    "sha256": "e20e772a9caa335e618af86a029050964ff90b55b4e4b1e3b56b083257141f48",
+    "sha256": "5015281138056ac488f791fdc005dec22ba69b140c3d0b8ceb248b89fb7b492c",
     "source": "https://freesound.org/people/JohnsonBrandEditing/sounds/173943/",
     "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/173943__johnsonbrandediting__key-jingle.wav",
     "sourceSha256": "b700cc2a7faf234613e2da3f5517f5bb2a3e2a3d2a01a729a6ca220bdadee9ee",
     "author": "JohnsonBrandEditing",
     "license": "CC0-1.0",
     "licenseEvidence": "remaining/keys-umbrella/sources.json",
-    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。"
+    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-keys-235564",
@@ -4949,27 +5334,29 @@
       "金属"
     ],
     "scene": "适合人物拿出、摇动或整理钥匙的动作细节。",
-    "duration": 5.838125,
+    "duration": 5.840792,
     "loop": false,
     "loopable": false,
-    "loudness": -22.65,
+    "loudness": -19.61,
     "targetLufs": -18,
-    "truePeak": -2.82,
-    "samplePeak": -3.3983530856291373,
-    "peakLimited": true,
-    "peakSafetyPrioritized": true,
+    "truePeak": -2.47,
+    "samplePeak": -2.912274,
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
     "origin": "recording",
     "recordingVerified": true,
     "sampleRate": 48000,
     "channels": 1,
-    "sha256": "05c9fdb0030ddd5fa61c9ab31ead0fd95cdf02f77625c3104d87f51095ddab6a",
+    "sha256": "a435ee2e773e417f74f7451f8aad4a4b4e79ae9e0a56d4c2b762af5e8d08bd85",
     "source": "https://freesound.org/people/SkeetMasterFunk69/sounds/235564/",
     "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/235564__skeetmasterfunk69__keys.wav",
     "sourceSha256": "3ec2ef682d83c9b82d700d08ea233fc6f7d284c313db789cb42c07e07fa89e08",
     "author": "SkeetMasterFunk69",
     "license": "CC0-1.0",
     "licenseEvidence": "remaining/keys-umbrella/sources.json",
-    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。"
+    "processing": "使用研究库保留的真实钥匙录音片段；固定增益、48kHz单声道Vorbis；最终峰值优先，不重复拼接，不标记循环。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-impact-1",
@@ -5000,7 +5387,7 @@
     "sampleRate": 48000,
     "truePeak": -2.22,
     "samplePeak": -2.308351,
-    "peakLimited": true,
+    "peakLimited": false,
     "sourceSha256": "04f54909f99dbdc53f5d3d23422f1e9c7b25e3a83d86d3afa0e6ed5890b6aa61",
     "sha256": "08cb903efa8cac1fed4200da36602ae50a55290053c865fd25ebbe961ba65d7c",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
@@ -5012,7 +5399,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-impact-2",
@@ -5055,7 +5444,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-impact-3",
@@ -5071,10 +5462,10 @@
       "拟音"
     ],
     "scene": "适合金属管遭受撞击的动作节点；原作为子弹击中管道的拟音。",
-    "duration": 1.8,
+    "duration": 1.802667,
     "loop": false,
     "loopable": false,
-    "loudness": -22.7,
+    "loudness": -19.43,
     "targetLufs": -18,
     "source": "https://freesound.org/people/martian/sounds/182262/",
     "originalSource": "https://freesound.org/people/martian/sounds/182262/",
@@ -5084,11 +5475,11 @@
     "origin": "derived",
     "channels": 1,
     "sampleRate": 48000,
-    "truePeak": -2.56,
-    "samplePeak": -3.041537,
-    "peakLimited": true,
+    "truePeak": -3.12,
+    "samplePeak": -3.432207,
+    "peakLimited": false,
     "sourceSha256": "04f54909f99dbdc53f5d3d23422f1e9c7b25e3a83d86d3afa0e6ed5890b6aa61",
-    "sha256": "8d4186cc45992a456fff8c62adf71771dd921cc9e848ee709369b8e67154113d",
+    "sha256": "eb670f627d23c36cbd8cc0aa2f4f7f21d648e5874cbad0dcb13c5935b6ce8f00",
     "processing": "原作者CC0录音的GitHub镜像；选取独立动作，裁首尾低于-55dB静音；48kHz单声道Vorbis；固定增益以不超过-1dB真峰值和采样峰值优先；无合成、无变速。",
     "sourceExcerpt": {
       "start": 9.34,
@@ -5098,7 +5489,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-1",
@@ -5141,7 +5534,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-2",
@@ -5184,7 +5579,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "remaining-pipe-drag-3",
@@ -5227,7 +5624,9 @@
     "evidence": "remaining/actions/SOURCES.md",
     "recordingVerified": true,
     "subjectiveListeningCompleted": false,
-    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。"
+    "materialNote": "原作者仅注明金属管；钢管标签表示适用拟音场景，不表示钢材已确认。",
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-night-street-puebla-1",
@@ -5246,9 +5645,9 @@
     "duration": 39.0,
     "loop": true,
     "loopable": true,
-    "loudness": -21.13,
-    "truePeak": -2.24,
-    "targetLufs": -20,
+    "loudness": -18.37,
+    "truePeak": -2.88,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
     "originalLicenseUrl": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
@@ -5256,12 +5655,14 @@
     "author": "Romano.Tercero",
     "licensePath": "remaining/ambience/licenses/puebla.md",
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
-    "sha256": "7ffd6b7d614e7604e491d37db339765893ea5cd5eb7a5711169c1c1f61ed9135",
+    "sha256": "63e4d69431caed8ecdb13acc80a0b174ee6d7843bfaa0b036cc8709b5a7c9a52",
     "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内0至40秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
-    "samplePeak": -2.2431852881236245,
-    "loopReport": "remaining/ambience/night-street-puebla-1.json",
-    "peakLimited": true,
-    "peakSafetyPrioritized": true
+    "samplePeak": -2.878162,
+    "loopReport": "normalization/loops/sfx-night-street-puebla-1.json",
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-night-street-puebla-2",
@@ -5282,7 +5683,7 @@
     "loopable": true,
     "loudness": -19.88,
     "truePeak": -2.48,
-    "targetLufs": -20,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
     "originalLicenseUrl": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
@@ -5292,10 +5693,12 @@
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
     "sha256": "4171a7f52c85292dc01eaee18532b37b345f6d6c2e86748bc4ccb034a3caed12",
     "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内45至85秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
-    "samplePeak": -2.486829155196853,
+    "samplePeak": -2.486829,
     "loopReport": "remaining/ambience/night-street-puebla-2.json",
     "peakLimited": false,
-    "peakSafetyPrioritized": false
+    "peakSafetyPrioritized": false,
+    "normalization": "原文件实测在允许范围内，未修改。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-night-street-puebla-3",
@@ -5311,12 +5714,12 @@
       "底噪"
     ],
     "scene": "适合城市夜间街道的连续环境底噪。",
-    "duration": 39.0,
+    "duration": 39.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -26.72,
-    "truePeak": -1.92,
-    "targetLufs": -20,
+    "loudness": -18.67,
+    "truePeak": -2.76,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
     "originalLicenseUrl": "https://freesound.org/people/Romano.Tercero/sounds/726615/",
@@ -5324,12 +5727,14 @@
     "author": "Romano.Tercero",
     "licensePath": "remaining/ambience/licenses/puebla.md",
     "sourceSha256": "f86b1959ba782115ce972278df058f2fab7b8d589fa4ef36ced34b8057f4fa9d",
-    "sha256": "672da8b53a7059882e3c03036bdf6678e33be9db47de5cabaf2bf87391099816",
+    "sha256": "7f9f7801291483467e332025eb27d0a01e43f1847c23495e85ba188275dc089a",
     "processing": "墨西哥Puebla真实夜街同一原作不同片段；取136.056秒镜像节选内90至130秒，原504.384秒录音中的镜像起点未知。首尾1秒等功率交叉淡化，循环边界旋转到稳定窗口，不重复短车声；固定增益后48kHz单声道Vorbis编码，最终逐声道接缝、真峰值及采样峰值检查通过；未人工试听。",
-    "samplePeak": -1.9215190623427623,
-    "loopReport": "remaining/ambience/night-street-puebla-3.json",
-    "peakLimited": true,
-    "peakSafetyPrioritized": true
+    "samplePeak": -2.788991,
+    "loopReport": "normalization/loops/sfx-night-street-puebla-3.json",
+    "peakLimited": false,
+    "peakSafetyPrioritized": false,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   },
   {
     "id": "sfx-crowd-long-loop",
@@ -5345,12 +5750,12 @@
       "人群低语"
     ],
     "scene": "适合会议厅中众人低声交流的镜头。",
-    "duration": 55.0,
+    "duration": 55.002667,
     "loop": true,
     "loopable": true,
-    "loudness": -21.89,
-    "truePeak": -1.72,
-    "targetLufs": -20,
+    "loudness": -18.18,
+    "truePeak": -2.81,
+    "targetLufs": -18,
     "license": "CC0-1.0",
     "source": "https://freesound.org/people/jentlemen/sounds/432331/",
     "originalLicenseUrl": "https://freesound.org/people/jentlemen/sounds/432331/",
@@ -5358,15 +5763,17 @@
     "author": "jentlemen",
     "licensePath": "remaining/crowd-loop/licenses/crowd.md",
     "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
-    "sha256": "7cec4c8eb91bcf1793c1f4985fb157a23d7a55fb4948aa328f4ab0c014a35ec8",
+    "sha256": "803df60d97801ca3a13225971ac908a5b48c6e1f8f9996b606ade46a5c1a7d0d",
     "processing": "jentlemen会议厅真实人群录音；取57.432秒镜像内0至56秒。前三个18秒原段互不重叠；第四条为同原录音56秒长版本，与前三条重叠，不是独立采集。首尾1秒等功率交叉淡化并旋转循环边界，未重复短片段凑时长。固定增益，48kHz单声道Vorbis编码；最终逐声道接缝、真峰值及采样峰值检查通过，未人工试听。",
-    "samplePeak": -1.7285164114880012,
-    "peakLimited": true,
+    "samplePeak": -2.809778,
+    "peakLimited": false,
     "derivedFrom": "sfx-crowd-low-1",
-    "peakSafetyPrioritized": true,
-    "loopReport": "remaining/crowd-loop/crowd-room-loop-long.json",
+    "peakSafetyPrioritized": false,
+    "loopReport": "normalization/loops/sfx-crowd-long-loop.json",
     "recordingVerified": true,
     "channels": 1,
-    "sampleRate": 48000
+    "sampleRate": 48000,
+    "normalization": "四倍过采样动态限幅；循环三遍处理后保留中间一遍；Ogg编码后实测响度、峰值与循环接缝。",
+    "normalizationReport": "ROUND3_NORMALIZATION.json"
   }
 ]
