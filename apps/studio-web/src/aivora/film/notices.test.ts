@@ -36,6 +36,45 @@ describe("structured business notices", () => {
     if (notice.text !== message) expect(notice.detail).toBe(message);
   });
 
+  it("uses the approved copy table while preserving every documented legacy code", () => {
+    const table = readFileSync(
+      resolve(__dirname, "../../../../..", "docs/design/copy-zh.md"),
+      "utf8",
+    );
+    const rows = [...table.matchAll(/^\| `([A-Z_]+)`\s*\| ([^|]+)\| ([^|]+)\|/gmu)].filter(
+      (row) => row[1]! in NOTICE_TEXT && !["OPERATION_STATUS", "EDITOR_GUIDANCE"].includes(row[1]!),
+    );
+    expect(rows).toHaveLength(118);
+    for (const [, code, old, replacement] of rows) {
+      const expected = replacement!.trim();
+      expect(normalizeNotice(old!.trim()), code).toMatchObject({ code, text: expected });
+      expect(normalizeNotice(expected), code).toEqual({ code, text: expected });
+      expect(normalizeNotice({ code: code!, text: old!.trim() }), code).toMatchObject({
+        code,
+        text: expected,
+      });
+    }
+  });
+
+  it("preserves failure details and cancellation uncertainty with the revised copy", () => {
+    expect(
+      normalizeNotice({
+        code: "GENERATION_CANCEL_REQUESTED",
+        text: "镜头 5 已发出",
+        detail: "还未确认停止",
+      }),
+    ).toEqual({
+      code: "GENERATION_CANCEL_REQUESTED",
+      text: "已取消。已经发出去的几段可能停不下来。",
+      detail: "镜头 5 已发出\n还未确认停止",
+    });
+    expect(normalizeNotice("提示词没有按格式返回，未完成。")).toEqual({
+      code: "PLANPROMPTER_FAILED",
+      text: "画面说明这次没写完，可以再试一次。",
+      detail: "提示词没有按格式返回，未完成。",
+    });
+  });
+
   it("has a non-generic business code for every direct static workspace notice", () => {
     const source = readFileSync(resolve(__dirname, "../pro/ProWorkspace.tsx"), "utf8");
     const literals = [...source.matchAll(/setNotice\("([^"\n]*)"\)/gu)].map((match) => match[1]!);
