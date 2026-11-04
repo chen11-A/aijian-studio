@@ -32,7 +32,7 @@ export function createProductionActions(host: {
         current: host.current,
         isCurrent: valid,
         apply: host.apply,
-        generate: (prompt) => requestFilmStill(base, prompt),
+        generate: (prompt, references) => requestFilmStill(base, prompt, references),
         progress: (batch) => {
           if (valid())
             host.notify({

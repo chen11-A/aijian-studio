@@ -718,7 +718,7 @@ export function portraitPrompts(
 ): { view: string; prompt: string }[] {
   const who = identity.trim() || name.trim() || "人物";
   const views = [
-    ["正面", "正面半身，看向镜头，作为定妆锚定"],
+    ["正面", "正面全身，看向镜头，作为定妆锚定"],
     ["侧面", "正侧面半身，同一张脸，同一套衣服"],
     ["背面", "背面全身，能看见衣服和发型"],
     ["脸部", "脸部特写，眼睛清楚，不要文字"],

@@ -187,6 +187,11 @@ describe("professional workspace", () => {
 
   it("generates every missing portrait from one whole-cast click", async () => {
     installDesktop();
+    let image = 0;
+    vi.mocked(window.aijian!.generateFilmStill!).mockImplementation(async () => ({
+      path: `/tmp/portrait-${++image}.png`,
+      reason: "",
+    }));
     await openSample();
     fireEvent.click(stageTab("角色与场景"));
     fireEvent.click(screen.getByRole("button", { name: "给所有人出定妆照" }));
@@ -210,6 +215,12 @@ describe("professional workspace", () => {
           ),
         ),
       ).toBe(true);
+      const calls = vi.mocked(window.aijian!.generateFilmStill!).mock.calls;
+      for (const [index, person] of saved.characters.entries()) {
+        const front = person.portraits.find((portrait) => portrait.view === "正面")!.url;
+        expect(calls[index * 4]?.[3]).toEqual([]);
+        for (const offset of [1, 2, 3]) expect(calls[index * 4 + offset]?.[3]).toEqual([front]);
+      }
     });
     expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
   });

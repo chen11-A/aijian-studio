@@ -1517,7 +1517,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
           applyLive(next);
           await saveFilm(next);
         },
-        generate: (prompt) => requestFilmStill(current, prompt),
+        generate: (prompt, references) => requestFilmStill(current, prompt, references),
         progress: (batch) => {
           if (valid())
             emitNotice({

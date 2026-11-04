@@ -6,7 +6,7 @@ import {
   makePipelineStill,
   type PipelineMediaContext,
 } from "./pipeline-media-actions";
-import { requestShotStill } from "./workflow";
+import { requestShotStill, type requestStill } from "./workflow";
 import type * as Workflow from "./workflow";
 
 vi.mock("./workflow", async (original) => ({
@@ -68,6 +68,23 @@ it("persists exactly the requested portrait angle before completing its target",
     generate,
   );
   expect(generate).toHaveBeenCalledOnce();
+});
+
+it("passes the saved front anchor through the pipeline's real request adapter", async () => {
+  const { film, context } = fixture();
+  let count = 0;
+  const generate = vi.fn<typeof requestStill>(async () => ({
+    url: `/media/portrait-${++count}.png`,
+    reason: "",
+  }));
+  expect(
+    await makePipelinePortraits(film, `${film.characters[0]!.id}@脸部`, context, generate),
+  ).toMatchObject({ status: "done" });
+  expect(generate.mock.calls.map((call) => call[3])).toEqual([[], ["/media/portrait-1.png"]]);
+  expect(context.current().characters[0]!.portraits.map((portrait) => portrait.view)).toEqual([
+    "正面",
+    "脸部",
+  ]);
 });
 
 it("retains the portrait queue's single retry and never marks a failed angle done", async () => {

@@ -38,8 +38,8 @@ export async function makePipelinePortraits(
     current: context.current,
     isCurrent: () => valid(context),
     apply: context.commitPartial,
-    generate: (prompt) =>
-      generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio),
+    generate: (prompt, references) =>
+      generate(film.seriesId, withStyleBible(prompt, film.styleZh), film.aspectRatio, references),
     progress: () => undefined, // The existing task feed reports each image's progress.
   });
   if (!valid(context) || result.cancelled) return stale();
