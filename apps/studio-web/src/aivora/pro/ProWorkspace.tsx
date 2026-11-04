@@ -1,3 +1,4 @@
+import { runPreparedGeneration } from "./actions/generation-run";
 import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
 import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
@@ -8,19 +9,18 @@ import { planPerformanceDraft } from "./actions/performance";
 import { planPrompterDraft } from "./actions/prompter";
 import { planArtDraft } from "./actions/art";
 import { applyContinuityChecks } from "../film/continuity-rules";
-import { ensureContinuityFrame, continuityFailureNotice } from "./continuity-frame";
+import { continuityFailureNotice } from "./continuity-frame";
 import { setFilmStyle, styleFailureNotice } from "../film/style-bible";
 import { createPipelineWorkspaceHost, type PipelineVideoHost } from "./pipeline-workspace-host";
 import { createFilmPersistence } from "./film-persistence";
 import { stillFailureNotice } from "./workflow";
 import { coverageNotice } from "../film/coverage-notice";
-import { awaitVideoResult } from "./video-request";
 import { useProductionActions } from "./use-production-actions";
 import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
-import { ensureShotFrame, makeFourStills } from "./still-workflow";
+import { makeFourStills } from "./still-workflow";
 import { useEffect, useId, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
   addShot,
@@ -47,7 +47,6 @@ import {
   removeShot,
   splitNovel,
   generationEstimate,
-  storyFilmBatches,
   spokenLine,
   draftFaceWarning,
   dialogueTracks,
@@ -112,9 +111,7 @@ import {
   retryVideoTasks,
   retryableVideoTask,
   videoTaskTarget,
-  setVideoTaskState,
   cancelVideoTask,
-  videoQueueInterruption,
 } from "../film/generation-queue";
 import { useScopedSuggestions } from "./use-scoped-suggestions";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
@@ -154,7 +151,6 @@ import {
   shotFrame,
   hydrateFilm,
   filmSignature,
-  replaceTakes,
   requestShotStill,
   assembleCurrentFilm,
   retryDirectorTimeout,
@@ -2330,174 +2326,22 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       : prepareVideoQueue(live, selected, requestedVersions, resume, takeIds);
     const next = prepared.film;
     const groups = prepared.groups;
-    const queueStopped = async () => {
-      const interrupted = videoQueueInterruption(
-        filmRef.current ?? next,
-        stopRef.current,
-        pauseRef.current,
-      );
-      if (!interrupted) return false;
-      await applyGeneration(interrupted.film);
-      setNotice(interrupted.notice);
-      return true;
-    };
     await applyGeneration(next);
     try {
-      if (!pipeline) await saveFilm(next);
-      if (!valid()) return;
-      for (const group of groups) {
-        for (let index = 0; index < group.takes.length; index += 1) {
-          const take = group.takes[index]!;
-          const jobId = `video:${take.id}`;
-          if (!valid()) return;
-          const current = filmRef.current ?? next;
-          if (cancelledJobs.current.has(jobId)) {
-            await applyGeneration(cancelVideoTask(current, take.id).film);
-            continue;
-          }
-          if (await queueStopped()) return;
-          const targetShot = current.shots.find((item) => item.id === group.shot.id) ?? group.shot;
-          const connectedShot = await ensureContinuityFrame(current, targetShot, {
-            current: () => filmRef.current,
-            valid,
-            apply: applyGeneration,
-          });
-          const shotNow = await ensureShotFrame(filmRef.current ?? current, connectedShot, {
-            current: () => filmRef.current,
-            valid,
-            apply: applyGeneration,
-          });
-          if (!valid()) return;
-          const liveBeforeSend = filmRef.current ?? current;
-          if (cancelledJobs.current.has(jobId)) {
-            await applyGeneration(cancelVideoTask(liveBeforeSend, take.id).film);
-            continue;
-          }
-          if (await queueStopped()) return;
-          const dispatched = setVideoTaskState(liveBeforeSend, take.id, "running");
-          await applyGeneration(dispatched);
-          if (!pipeline) await saveFilm(dispatched);
-          if (!valid()) return;
-          if (cancelledJobs.current.has(jobId) || stopRef.current) {
-            await applyGeneration(cancelVideoTask(filmRef.current ?? dispatched, take.id).film);
-            if (await queueStopped()) return;
-            continue;
-          }
-          if (pauseRef.current) {
-            await applyGeneration(
-              setVideoTaskState(filmRef.current ?? dispatched, take.id, "queued"),
-            );
-            await queueStopped();
-            return;
-          }
-          const body = storyFilmBatches(dispatched, [shotNow], current.draft)[0];
-          const response = await awaitVideoResult(
-            () =>
-              bridge!.createStoryFilm!(billingProject, {
-                ...body!,
-                regenerate: index > 0 || group.hadTakes,
-              }),
-            () => !valid() || stopRef.current || cancelledJobs.current.has(jobId),
-          );
-          if (!valid()) return;
-          if (cancelledJobs.current.has(jobId)) {
-            await applyGeneration(cancelVideoTask(filmRef.current ?? current, take.id).film);
-            continue;
-          }
-          const data = response.data ?? {};
-          const message = typeof data.message === "string" ? data.message : "";
-          const output = typeof data.output_path === "string" ? data.output_path : "";
-          const preview = typeof data.preview_image === "string" ? data.preview_image : "";
-          const reportedRaw = data.duration_seconds;
-          const reported =
-            typeof reportedRaw === "number"
-              ? reportedRaw
-              : typeof reportedRaw === "string"
-                ? Number(reportedRaw)
-                : 0;
-          const ok = data.status === "SUCCEEDED";
-          const videoUrl = ok ? fileMediaUrl(output) : "";
-          const done = ok && Boolean(videoUrl || preview || output);
-          if (!valid()) return;
-          const latest = filmRef.current ?? current;
-          const takes = (latest.shots.find((item) => item.id === group.shot.id)?.takes ?? []).map(
-            (item) =>
-              item.id === take.id
-                ? {
-                    ...item,
-                    status: done ? ("done" as const) : ("failed" as const),
-                    videoPath: output,
-                    videoUrl,
-                    stillUrl: preview,
-                    reason: message,
-                  }
-                : item,
-          );
-          const frame =
-            preview.startsWith("data:") || preview.startsWith("blob:") || preview.startsWith("http")
-              ? preview
-              : "";
-          const selectedId =
-            latest.shots.find((item) => item.id === group.shot.id)?.selectedTakeId ?? "";
-          const selectedDone = takes.some(
-            (item) => item.id === selectedId && item.status === "done" && item.videoPath,
-          );
-          let saved = replaceTakes(
-            latest,
-            group.shot.id,
-            takes,
-            selectedDone ? selectedId : done ? take.id : selectedId,
-          );
-          if (done && frame) saved = updateShot(saved, group.shot.id, { poster: frame });
-          const voicePath = typeof data.voice_path === "string" ? data.voice_path : "";
-          if (done && isVoiceFile(voicePath) && group.shot.line.trim()) {
-            saved = {
-              ...saved,
-              shots: saved.shots.map((item) =>
-                item.id === group.shot.id
-                  ? { ...item, sound: { ...item.sound, source: "dub" } }
-                  : item,
-              ),
-              audioClips: [
-                ...saved.audioClips.filter(
-                  (clip) => !(clip.lane === "dialogue" && clip.shotId === group.shot.id),
-                ),
-                {
-                  id: `voice-${group.shot.id}`,
-                  lane: "dialogue",
-                  shotId: group.shot.id,
-                  takeId: take.id,
-                  label: "配音",
-                  startSeconds: 0,
-                  durationSeconds: group.shot.seconds,
-                  offsetSeconds: 0,
-                  gainDb: 0,
-                  path: voicePath,
-                },
-              ],
-            };
-          }
-          if (done && Number.isFinite(reported) && reported > 0.4) {
-            const shown = Math.max(1, Math.min(15, Math.round(reported)));
-            const chosen = saved.shots.find((item) => item.id === group.shot.id)?.seconds ?? 0;
-            if (Math.abs(shown - chosen) >= 1) {
-              saved = updateShot(saved, group.shot.id, { seconds: shown });
-            }
-          }
-          saved = {
-            ...saved,
-            jobs: saved.jobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: done ? ("done" as const) : ("failed" as const),
-                    reason: message,
-                  }
-                : job,
-            ),
-          };
-          await applyGeneration(saved);
-          if (done && group.shot.id === openShotRef.current) setPlaying(true);
+      await runPreparedGeneration(prepared, {
+        current: () => filmRef.current,
+        valid,
+        apply: applyGeneration,
+        persist: async (snapshot) => {
+          if (!pipeline) await saveFilm(snapshot);
+        },
+        stopped: () => stopRef.current,
+        paused: () => pauseRef.current,
+        cancelled: (jobId) => cancelledJobs.current.has(jobId),
+        request: (body) => bridge!.createStoryFilm!(billingProject, body),
+        notice: emitNotice,
+        completed: ({ shotId, done, message }) => {
+          if (done && shotId === openShotRef.current) setPlaying(true);
           setNotice((current) =>
             current.startsWith("已暂停")
               ? current
@@ -2505,8 +2349,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 ? "这一版已经生成。"
                 : message || "没有生成成功，可以重试。",
           );
-        }
-      }
+        },
+      });
     } catch (error) {
       if (!valid()) return;
       const styleFailure = styleFailureNotice(error) ?? continuityFailureNotice(error);
