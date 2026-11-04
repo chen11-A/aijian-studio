@@ -508,7 +508,11 @@ export function applyShots(film: FilmProject, incoming: FilmShot[], sceneId: str
 
 export function agentRequest(agentId: AgentId, context: string, user: string): string {
   const system = (PROMPTS[agentId] ?? "").trim();
-  const body = `${system}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
+  const coverage =
+    agentId === "director"
+      ? "\n本次镜头数上限是合并节拍的建议预算，不是截断原文的许可。每句台词和每场末段必须完整覆盖；无法合并时保留全部镜头并说明超额，不得省略剧情。"
+      : "";
+  const body = `${system}${coverage}\n\n上下文：\n${context.trim()}\n\n用户：\n${user.trim()}`;
   return body;
 }
 
@@ -538,14 +542,13 @@ function matchDirectorScene(
   if (byPlace.length === 1) return byPlace[0];
   if (scenes.length === 1) return scenes[0];
   const requested = scenes.find((item) => item.id === requestedId);
-  if (requested && byPlace.length !== 1) return requested;
   return scenes[index] ?? requested;
 }
 
-/** About one shot per 40–60 source characters, and never more than 16. Short text is not cut. */
+/** Suggested pacing only. Never discard source material to meet this budget. */
 export function shotBudget(sceneText: string): number | null {
   const length = sceneText.trim().length;
-  if (length < 80) return null;
+  if (!length) return null;
   return Math.min(16, Math.max(1, Math.round(length / 50)));
 }
 
@@ -554,6 +557,7 @@ export function parseDirectorShots(
   sceneId: string,
   sceneText = "",
   scenes: DirectorSceneRef[] = [],
+  preserveSource = true,
 ): FilmShot[] | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -577,16 +581,46 @@ export function parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
         target?.text ?? sceneText,
+        [],
+        false,
       );
       if (nested) all.push(...nested);
     });
-    return all.length > 0 ? all : null;
+    if (!all.length) return null;
+    return [...new Set(all.map((shot) => shot.sceneId))].flatMap((id) =>
+      completeDirectorCoverage(
+        all.filter((shot) => shot.sceneId === id),
+        id,
+        scenes.find((scene) => scene.id === id)?.text ?? sceneText,
+      ),
+    );
   }
   if (!("shots" in value)) return null;
   const rows = (value as { shots?: unknown }).shots;
   if (!Array.isArray(rows)) return null;
   const shots: FilmShot[] = [];
-  rows.forEach((row, index) => {
+  const expanded = rows.flatMap((row) => {
+    if (!row || typeof row !== "object") return [row];
+    const record = row as Record<string, unknown>;
+    const lines = Array.isArray(record.dialogue)
+      ? record.dialogue.filter(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            typeof (item as { line?: unknown }).line === "string",
+        )
+      : [];
+    return lines.length > 1
+      ? lines.map((item) => ({
+          ...record,
+          id: undefined,
+          line: undefined,
+          speaker: undefined,
+          dialogue: [item],
+        }))
+      : [row];
+  });
+  expanded.forEach((row, index) => {
     if (!row || typeof row !== "object") return;
     const record = row as Record<string, unknown>;
     const spoken = Array.isArray(record.dialogue)
@@ -605,8 +639,8 @@ export function parseDirectorShots(
       record.action,
     ].find((item) => typeof item === "string" && item.trim());
     if (typeof picture !== "string") return;
-    const told = picture.trim();
-    const action = typeof record.action === "string" ? record.action.trim() : "";
+    const told = plainCue(picture.trim());
+    const action = typeof record.action === "string" ? plainCue(record.action.trim()) : "";
     const seconds = typeof record.seconds === "number" ? record.seconds : 3;
     const sized = classifyShotSize(typeof record.size === "string" ? record.size : "中景");
     const tag = typeof record.tag === "string" && record.tag.trim() ? record.tag.trim() : sized.tag;
@@ -682,10 +716,68 @@ export function parseDirectorShots(
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
         }))
       : shots;
-  const budget = shotBudget(sceneText);
-  const capped = budget !== null && varied.length > budget ? varied.slice(0, budget) : varied;
-  const known = capped.flatMap((shot) => shot.characters);
-  return capped.length > 0 ? attachScriptLines(capped, sceneText, known) : null;
+  if (!varied.length) return null;
+  return preserveSource ? completeDirectorCoverage(varied, sceneId, sceneText) : varied;
+}
+
+function completeDirectorCoverage(
+  shots: FilmShot[],
+  sceneId: string,
+  sceneText: string,
+): FilmShot[] {
+  const known = shots.flatMap((shot) => shot.characters);
+  const complete = attachScriptLines(shots, sceneText, known);
+  // Preserve source paragraphs the model skipped. These are visible source-derived
+  // shots, not invented action or hidden text appended to an unrelated shot.
+  for (const paragraph of sceneText
+    .split(/\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean)) {
+    if (/^第[\d一二三四五六七八九十]+场/u.test(paragraph)) continue;
+    const covered = complete.some((shot) =>
+      [shot.picture, shot.action, shot.line].some((part) => part.includes(paragraph)),
+    );
+    if (covered) continue;
+    // A dialogue-only paragraph is covered when every exact line is already present.
+    const quotes = [...paragraph.matchAll(/[“「]([^”」]+)[”」]/gu)].map((match) => match[1] ?? "");
+    if (
+      quotes.length &&
+      quotes.every((line) => complete.some((shot) => shot.line === line)) &&
+      paragraph.replace(/[“「][^”」]+[”」]/gu, "").length < 12
+    )
+      continue;
+    const template = complete[complete.length - 1]!;
+    const missingLines = quotes.filter(
+      (line) => /[，。！？；：]/u.test(line) && !complete.some((shot) => shot.line === line),
+    );
+    for (const line of missingLines.length ? missingLines : [""]) {
+      complete.push({
+        ...template,
+        picture: paragraph,
+        action: "",
+        line,
+        speaker: "",
+        characters: [],
+        delivery: "",
+        poster: "",
+        posterPosition: "",
+        takes: [],
+        stills: [],
+        selectedTakeId: "",
+        performance: "",
+        blocking: "",
+        facing: "",
+        sound: emptySoundPlan(),
+        source: "source:coverage",
+        seconds: 4,
+      });
+    }
+  }
+  return complete.map((shot, index) => ({
+    ...shot,
+    no: index + 1,
+    id: `${sceneId}-shot-${index + 1}`,
+  }));
 }
 
 export function assistantPrompt(userText: string, film: FilmProject | null): string {

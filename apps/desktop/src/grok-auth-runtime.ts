@@ -440,7 +440,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
     }
     if (
       input.text.length === 0 ||
-      input.text.length > 8000 ||
+      input.text.length > 100_000 ||
       input.model.length === 0 ||
       input.model.length > 200
     ) {
@@ -490,7 +490,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           httpStatus: 200,
           durationMs: Date.now() - started,
           parsed: "text",
-          body: text,
+          responseChars: text.length,
         });
         if (ledger && dispatchId && input.projectId) {
           await ledger.finish({
@@ -523,6 +523,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         "QUOTA_UNAVAILABLE",
         "RATE_UNAVAILABLE",
         "TEXT_FAILED",
+        "TEXT_TIMEOUT",
+        "TEXT_CANCELLED",
       ].includes(code)
         ? code
         : "TEXT_FAILED";
@@ -545,7 +547,8 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
             httpStatus: attempt.httpStatus,
             durationMs: Date.now() - started,
             parsed: "error",
-            body: attempt.body,
+            responseChars: attempt.body.length,
+            errorCode: safe,
           });
         }
       } else {
@@ -556,7 +559,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
           httpStatus: 0,
           durationMs: Date.now() - started,
           parsed: "error",
-          body: safe,
+          errorCode: safe,
         });
       }
       if (safe === "ENTITLEMENT_DENIED" && session) {
@@ -565,12 +568,12 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
       } else if (safe === "REAUTH_REQUIRED") {
         lastError = safe;
       }
-      if (safe === "TEXT_FAILED" && error instanceof GrokTextFailure) {
+      if (
+        ["TEXT_FAILED", "TEXT_TIMEOUT", "TEXT_CANCELLED"].includes(safe) &&
+        error instanceof GrokTextFailure
+      ) {
         const last = error.attempts[error.attempts.length - 1];
-        const waited =
-          last?.body.startsWith("很久") ||
-          last?.body.startsWith("这次") ||
-          last?.body.startsWith("已取消");
+        const waited = safe === "TEXT_TIMEOUT" || safe === "TEXT_CANCELLED";
         const status = waited
           ? (last?.body ?? "文本接口没有返回正文")
           : last?.httpStatus
@@ -730,7 +733,7 @@ export function createGrokRuntime(dependencies: Dependencies): GrokRuntime {
         endpoint: "parse",
         httpStatus: input.status === "ok" ? 200 : 0,
         parsed: input.parsed,
-        body: input.detail,
+        responseChars: input.detail.length,
       });
     },
     mediaAccessToken,

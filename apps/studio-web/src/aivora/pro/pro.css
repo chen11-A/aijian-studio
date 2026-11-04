@@ -1015,12 +1015,18 @@ body:has(.pro-root) {
 }
 .pro-root .grid {
   display: grid;
+  grid-auto-rows: max-content;
+  align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 12px;
   padding: 14px;
   align-content: start;
 }
 .pro-root .card {
+  height: auto;
+  min-height: min-content;
+  align-self: start;
+  display: block;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1057,8 +1063,11 @@ body:has(.pro-root) {
   font-size: 12px;
   color: var(--text-2);
   line-height: 1.5;
-  height: auto;
-  overflow: visible;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  max-height: 4.5em;
+  overflow: hidden;
   margin: 3px 0 7px;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -2579,4 +2588,21 @@ body:has(.pro-root) {
 .pro-root button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.pro-root .shot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pro-root #cast-id {
+  min-height: 7em;
+  height: auto;
+  field-sizing: content;
+}
+.pro-root .export-path {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

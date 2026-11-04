@@ -295,10 +295,10 @@ test("a prompt over 3000 characters, a placeholder or a wrong skeleton is report
   }, /骨架里少了这个字段/u);
 });
 
-test("a request longer than the app's 7500 characters is reported", () => {
+test("a request longer than the app's 100000 characters is reported", () => {
   expectError((roles) => {
-    roles.director.examples[1].input.scenes[0].paragraphs[0].text += "雨".repeat(300);
-  }, /超过软件一次请求的 7500 字/u);
+    roles.director.examples[1].input.scenes[0].paragraphs[0].text += "雨".repeat(100000);
+  }, /超过软件一次请求的 100000 字/u);
 });
 
 test("parseReply accepts one bare JSON value of the right type only", () => {

@@ -484,6 +484,7 @@ async function readLimited(
   signal?: AbortSignal,
   onText?: (text: string) => void,
 ): Promise<string> {
+  if (signal?.aborted) throw new TextWait("CANCELLED");
   const reader = response.body?.getReader();
   if (!reader) {
     const bytes = Buffer.from(await response.arrayBuffer());
@@ -494,6 +495,11 @@ async function readLimited(
   let raw = "";
   let pending = "";
   const collected: CollectedText = { deltas: "", completed: "" };
+  let cancel: () => void = () => undefined;
+  const cancelled = new Promise<never>((_, reject) => {
+    cancel = () => reject(new TextWait("CANCELLED"));
+    signal?.addEventListener("abort", cancel, { once: true });
+  });
   try {
     while (true) {
       if (signal?.aborted) throw new TextWait("CANCELLED");
@@ -504,7 +510,7 @@ async function readLimited(
       });
       let next: Awaited<ReturnType<typeof reader.read>>;
       try {
-        next = await Promise.race([reader.read(), idle]);
+        next = await Promise.race([reader.read(), idle, cancelled]);
       } finally {
         if (timer) clearTimeout(timer);
       }
@@ -517,10 +523,13 @@ async function readLimited(
       if (pulled.grew) onText?.(collected.completed || collected.deltas);
     }
   } catch (error) {
-    await reader.cancel().catch(() => undefined);
+    void reader.cancel().catch(() => undefined);
     if (error instanceof TextWait) throw error;
     if (signal?.aborted) throw new TextWait("CANCELLED");
     throw error;
+  } finally {
+    signal?.removeEventListener("abort", cancel);
+    reader.releaseLock();
   }
   const visible = (collected.completed || collected.deltas).trim();
   return visible || raw;
@@ -538,6 +547,7 @@ async function postText(
     onText?: (text: string) => void;
   } = {},
 ): Promise<{ status: number; json: unknown | null; raw: string }> {
+  if (options.signal?.aborted) throw new TextWait("CANCELLED");
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -676,6 +686,45 @@ export async function completeGrokText(
     limits?: { idleMs: number; totalMs: number };
   },
 ): Promise<string> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: () => void = () => undefined;
+  const stopped = new Promise<never>((_, reject) => {
+    abort = () => {
+      controller.abort();
+      reject(new TextWait("CANCELLED"));
+    };
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new TextWait("TOTAL"));
+    }, input.limits?.totalMs ?? TEXT_TOTAL_MS);
+    if (input.signal?.aborted) abort();
+    else input.signal?.addEventListener("abort", abort, { once: true });
+  });
+  try {
+    if (input.signal?.aborted) return await stopped;
+    return await Promise.race([
+      executeGrokText(fetch, { ...input, signal: controller.signal }),
+      stopped,
+    ]);
+  } catch (error) {
+    if (error instanceof TextWait) {
+      throw new GrokTextFailure(error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT", [
+        { endpoint: "text", httpStatus: 0, body: waitMessage(error.reason) },
+      ]);
+    }
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+    input.signal?.removeEventListener("abort", abort);
+    controller.abort();
+  }
+}
+
+async function executeGrokText(
+  fetch: Fetch,
+  input: Parameters<typeof completeGrokText>[1],
+): Promise<string> {
   const api = (input.endpoints ?? OFFICIAL_GROK_ENDPOINTS).api;
   const options = {
     signal: input.signal,
@@ -700,7 +749,7 @@ export async function completeGrokText(
     );
   } catch (error) {
     if (error instanceof TextWait) {
-      throw new GrokTextFailure("TEXT_FAILED", [
+      throw new GrokTextFailure(error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT", [
         { endpoint: "responses", httpStatus: 0, body: waitMessage(error.reason) },
       ]);
     }
@@ -733,7 +782,10 @@ export async function completeGrokText(
   } catch (error) {
     if (error instanceof TextWait) {
       attempts.push({ endpoint: "chat", httpStatus: 0, body: waitMessage(error.reason) });
-      throw new GrokTextFailure("TEXT_FAILED", attempts);
+      throw new GrokTextFailure(
+        error.reason === "CANCELLED" ? "TEXT_CANCELLED" : "TEXT_TIMEOUT",
+        attempts,
+      );
     }
     throw error;
   }

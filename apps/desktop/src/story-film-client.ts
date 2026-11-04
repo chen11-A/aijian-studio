@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { accessSync, constants, statSync } from "node:fs";
+import { extname, isAbsolute } from "node:path";
+import { mediaUrlPath, trustedMediaPath } from "./film-library";
 import { canonicalLoopbackOrigin } from "./sidecar-origin";
 
 export type StoryFilmProvider = "stub" | "grok_subscription" | "xai_api_key" | "chatgpt";
@@ -56,10 +59,41 @@ function readable(value: unknown): value is { data: Record<string, unknown>; req
   );
 }
 
+/** The server's automatic first-frame fallback does not yet carry reference images. */
+function requireReferencedStill(
+  shot: StoryFilmShotInput,
+  mediaRoots: string[],
+): StoryFilmShotInput {
+  if (!shot.reference?.trim() && !shot.references?.some((item) => item.trim())) return shot;
+  const source = mediaUrlPath(shot.still ?? "");
+  const missing = "请先用定妆照生成本地首帧，再生成视频。当前首帧不存在或无法读取。";
+  try {
+    if (shot.still?.startsWith("aivora-media:")) {
+      const url = new URL(shot.still);
+      if (!["", "/"].includes(url.pathname) || url.searchParams.get("path") !== source)
+        throw new Error(missing);
+    }
+    trustedMediaPath(mediaRoots, source);
+    if (
+      !isAbsolute(source) ||
+      ![".png", ".jpg", ".jpeg", ".webp"].includes(extname(source).toLowerCase())
+    )
+      throw new Error(missing);
+    const file = statSync(source);
+    if (!file.isFile() || file.size <= 0 || file.size > 12_000_000) throw new Error(missing);
+    accessSync(source, constants.R_OK);
+  } catch {
+    throw new Error(missing);
+  }
+  // Preserve the URL so the backend retains its own userData-root checks.
+  return shot;
+}
+
 export function createStoryFilmClient(
   fetcher: typeof fetch,
   session: Session,
   newId: () => string = randomUUID,
+  mediaRoots: string[] = [],
 ) {
   const origin = canonicalLoopbackOrigin(session.origin);
   if (!/^[A-Za-z0-9_-]{43,256}$/.test(session.token)) {
@@ -118,6 +152,10 @@ export function createStoryFilmClient(
     },
     create(projectId: string, input: StoryFilmCreateInput, mediaBearer?: string) {
       if (!projectIdPattern.test(projectId)) throw new Error("Invalid story film project");
+      const shots =
+        input.provider === "stub"
+          ? input.shots
+          : input.shots?.map((shot) => requireReferencedStill(shot, mediaRoots));
       const idempotencyKey = `story-film:v1:${newId()}`;
       const requestHeaders: Record<string, string> = {
         ...headers,
@@ -139,7 +177,7 @@ export function createStoryFilmClient(
           ...(input.regenerate ? { regenerate: true } : {}),
           ...(input.style_block ? { style_block: input.style_block } : {}),
           ...(input.aspect_ratio ? { aspect_ratio: input.aspect_ratio } : {}),
-          ...(input.shots && input.shots.length > 0 ? { shots: input.shots } : {}),
+          ...(shots && shots.length > 0 ? { shots } : {}),
         }),
       }).then(read);
     },

@@ -100,11 +100,20 @@ export function withIdentityLocks(
 export function lineInScript(sceneText: string, proposed: string): string {
   const line = proposed.replace(/\s+/g, " ").trim();
   if (!line || !sceneText.includes(line)) return "";
-  return line;
+  const quoted = [...sceneText.matchAll(/[“「"']([^”」"'\n]+)[”」"']/gu)].some(
+    (match) => (match[1] ?? "").includes(line) && /[，。！？；：]/u.test(match[1] ?? ""),
+  );
+  const at = sceneText.indexOf(line);
+  const prefix = sceneText.slice(Math.max(0, sceneText.lastIndexOf("\n", at) + 1), at);
+  return quoted ||
+    /(?:说|道|问|喊|叫)[：:]\s*[“「"']?\s*$/u.test(prefix) ||
+    /^[\u4e00-\u9fff]{2,4}[：:]\s*[“「"']?\s*$/u.test(prefix)
+    ? line
+    : "";
 }
 
 function spokenLine(raw: string): string {
-  return raw.trim().replace(/[」”"'。！？…]+$/u, "");
+  return raw.trim().replace(/^[「“"']|[」”"']$/gu, "");
 }
 
 /** Lines from a scene's dialogue list: 已知人名：台词, or 人名说/道/问/喊/叫：台词.
@@ -129,7 +138,16 @@ export function scriptDialogue(
   for (const name of names) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     for (const match of sceneText.matchAll(new RegExp(`${escaped}[：:]\\s*([^\\n]{1,80})`, "g"))) {
-      push(name, match[1] ?? "");
+      const raw = match[1] ?? "";
+      const quoted = /^[「“"']([^」”"']+)[」”"']/u.exec(raw);
+      push(
+        name,
+        quoted?.[1] ??
+          raw.match(
+            /^.*?[。！？](?=(?:随后|然后|接着)(?:他|她)[\u4e00-\u9fff]|说完(?:后|[，,]))/u,
+          )?.[0] ??
+          raw,
+      );
     }
   }
   for (const match of sceneText.matchAll(
@@ -148,7 +166,11 @@ export function attachScriptLines<
       .map((name) => name.trim())
       .filter(Boolean),
   );
-  const next = shots.map((shot) => ({ ...shot, characters: [...shot.characters] }));
+  const next = shots.map((shot) => ({
+    ...shot,
+    line: lineInScript(sceneText, shot.line),
+    characters: [...shot.characters],
+  }));
   for (const spoken of scriptDialogue(sceneText, [...names])) {
     if (!names.has(spoken.speaker)) continue;
     if (next.some((shot) => shot.line.includes(spoken.line))) continue;
@@ -329,7 +351,14 @@ export function actionFromModel(value: unknown): ActionRow[] | null {
       if (!text) continue;
       const feasibility =
         row.feasibility === "难" || row.feasibility === "看运气" ? row.feasibility : "稳";
+      const shotId =
+        typeof row.shot_id === "string"
+          ? row.shot_id.trim()
+          : typeof row.id === "string"
+            ? row.id.trim()
+            : "";
       onlyBeats.push({
+        ...(shotId ? { shotId } : {}),
         text,
         feasibility,
         workaround: typeof row.workaround === "string" ? row.workaround.trim() : "",
@@ -388,8 +417,19 @@ function performanceRows(value: unknown): Record<string, unknown>[] {
 /** Turn model field names into words a person can read. */
 export function plainCue(text: string): string {
   return text
-    .replace(/hold_seconds\s*[:=：]?\s*([0-9.]+)/gi, "停 $1 秒")
-    .replace(/hold_s\s*([0-9.]+)/gi, "停 $1 秒")
+    .replace(
+      /\bhold_(?:seconds|s)\b[ \t]*[:=：]?[ \t]*([^\s,，;；。！？]*)/gi,
+      (_field, raw: string) => {
+        if (!raw || /^(?:null|undefined|none)$/i.test(raw)) return "";
+        if (/^(?:\d+(?:\.\d*)?|\.\d+)$/u.test(raw) && Number.isFinite(Number(raw)))
+          return `停 ${raw} 秒`;
+        return "停顿时间未指定";
+      },
+    )
+    .replace(/([，,；;])(?:\s*[，,；;])+/gu, "$1")
+    .replace(/^[\s，,；;]+|[\s，,；;]+$/gu, "")
+    .replace(/保留原文\s*[:：]\s*/gu, "")
+    .replace(/。{2,}/gu, "。")
     .replace(
       /\b(shot_id|scene_id|at_seconds|feasibility|workaround|micro_expressions)\b\s*[:=：]?\s*/gi,
       "",

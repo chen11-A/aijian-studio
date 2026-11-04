@@ -127,3 +127,75 @@ describe("story film IPC", () => {
     await expect(handlers.get("story-film:read")?.(true, film)).rejects.toThrow("too large");
   });
 });
+
+it("checks the actual media roots before a referenced live IPC request", async () => {
+  const root = mkdtempSync(join(tmpdir(), "p3j-referenced-ipc-"));
+  const workspace = join(root, "workspace");
+  const films = join(root, "films");
+  const generated = join(workspace, "story-films");
+  mkdirSync(films, { recursive: true });
+  mkdirSync(generated, { recursive: true });
+  const image = join(films, "start.png");
+  const serverImage = join(generated, "start.png");
+  const outside = join(root, "private.png");
+  const escape = join(films, "escape.png");
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  for (const path of [image, serverImage, outside]) writeFileSync(path, png);
+  symlinkSync(outside, escape);
+  const fetcher = vi.fn(async () => Response.json({ data: {}, request_id: "fixture" }));
+  const handlers = new Map<string, (event: boolean, ...args: unknown[]) => Promise<unknown>>();
+  registerStoryFilmHandlers(
+    (channel, callback) => handlers.set(channel, callback),
+    (event: boolean) => event,
+    () => session,
+    async () => "synthetic",
+    fetcher,
+    {
+      workspace: () => workspace,
+      byteLength: async () => 0,
+      read: async () => new Uint8Array(),
+      reveal: () => undefined,
+      chooseExport: async () => null,
+      copy: async () => undefined,
+    },
+  );
+  const input = {
+    scene_label: "回归",
+    narration: "台词",
+    provider: "grok_subscription",
+    confirmed: true,
+  };
+  const shot = {
+    narration: "台词",
+    prompt: "画面",
+    duration_seconds: 3,
+    references: ["https://example.invalid/portrait.png"],
+  };
+  for (const still of [
+    outside,
+    escape,
+    `aivora-media://local/?path=${encodeURIComponent(outside)}`,
+  ]) {
+    await expect(
+      handlers.get("story-film:create")?.(true, projectId, {
+        ...input,
+        shots: [{ ...shot, still }],
+      }),
+    ).rejects.toThrow("请先用定妆照生成本地首帧");
+  }
+  expect(fetcher).not.toHaveBeenCalled();
+  for (const still of [
+    image,
+    serverImage,
+    `aivora-media://local/?path=${encodeURIComponent(image)}`,
+  ]) {
+    await handlers.get("story-film:create")?.(true, projectId, {
+      ...input,
+      shots: [{ ...shot, still }],
+    });
+  }
+  expect(fetcher).toHaveBeenCalledTimes(3);
+});

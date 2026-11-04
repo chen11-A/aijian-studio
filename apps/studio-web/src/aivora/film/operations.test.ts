@@ -217,21 +217,28 @@ describe("film operations", () => {
       }),
       book,
     );
-    expect(five).toHaveLength(5);
+    expect(five).toHaveLength(3);
     expect(five?.[0]?.text).toContain("我叫沈砚");
     expect(five?.[0]?.text).not.toContain("小心");
-    expect(five?.[2]?.text).toContain("小心");
-    expect(five?.[3]?.text).toContain("你本来可以不管的");
+    expect(five?.some((item) => item.text.includes("小心"))).toBe(true);
+    expect(five?.some((item) => item.text.includes("你本来可以不管的"))).toBe(true);
     expect(five?.some((item) => item.text.length > book.length * 0.75)).toBe(false);
     const joined = five?.map((item) => item.text).join("\n") ?? "";
     expect(joined).toContain("我叫沈砚");
     expect(joined).toContain("小心");
     expect(joined).toContain("灯还亮着");
     expect(isFightScene("打烊了。林晚说今晚不卖了。")).toBe(false);
-    expect(isFightScene(five?.[2]?.text ?? "")).toBe(true);
-    expect(beatsForShot([{ text: "镜头1·攻：挥铁棍" }, { text: "镜头2·防：侧身" }], 2)).toBe(
-      "镜头2·防：侧身",
-    );
+    expect(five?.some((item) => isFightScene(item.text))).toBe(true);
+    expect(
+      beatsForShot(
+        [
+          { text: "镜头1·攻：挥铁棍", shotId: "one" },
+          { text: "镜头2·防：侧身", shotId: "two" },
+        ],
+        2,
+        "two",
+      ),
+    ).toBe("镜头2·防：侧身");
     expect(beatsForShot([{ text: "镜头1·攻：挥铁棍" }, { text: "镜头1·防：侧身" }], 18)).toBe("");
     const adults = mergeCast(blankFilm(), {
       characters: [
@@ -676,14 +683,8 @@ describe("film operations", () => {
       }),
       novel,
     );
-    expect(parsed).toHaveLength(1);
-    expect(parsed?.[0]?.id).toBe("scene-2");
-    expect(parsed?.[0]?.no).toBe(2);
-    expect(parsed?.[0]?.tags).toEqual(["打斗", "换地点"]);
-    expect(parsed?.[0]?.text).toContain("铁棍");
-    expect(parsed?.[0]?.text).toContain("小心");
-    expect(parsed?.[0]?.text).not.toContain("本店月底停业");
-    expect(parsed?.[0]?.text).not.toContain("你本来可以不管的");
+    // A response claiming only the middle of the full novel must be rejected.
+    expect(parsed).toBeNull();
   });
 
   it("describes every voice in plain words", () => {

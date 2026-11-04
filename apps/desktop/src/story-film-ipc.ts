@@ -1,5 +1,5 @@
 import { realpathSync } from "node:fs";
-import { basename, extname, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { stripUnsafeFileChars } from "./film-library";
 import { createStoryFilmClient, parseStoryFilmCreate } from "./story-film-client";
 
@@ -112,7 +112,15 @@ export function registerStoryFilmHandlers<TEvent>(
     const body = parseStoryFilmCreate(args[1]);
     const bearer =
       body.provider === "grok_subscription" ? safeBearer(await mediaBearerFor()) : undefined;
-    return createStoryFilmClient(fetcher, sessionFor()).create(projectId, body, bearer);
+    const workspace = files?.workspace();
+    const mediaRoots = workspace
+      ? [join(dirname(workspace), "films"), join(workspace, "story-films")]
+      : [];
+    return createStoryFilmClient(fetcher, sessionFor(), undefined, mediaRoots).create(
+      projectId,
+      body,
+      bearer,
+    );
   });
 
   handle("story-film:read", async (event, ...args) => {

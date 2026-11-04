@@ -9,7 +9,10 @@ export type AgentLogLine = {
   httpStatus: number;
   durationMs?: number;
   parsed?: string;
-  body: string;
+  /** Legacy callers may supply a body; it is never persisted. */
+  body?: string;
+  responseChars?: number;
+  errorCode?: string;
 };
 
 export type AgentLog = {
@@ -31,19 +34,73 @@ export function redactSecrets(value: string): string {
     .slice(0, 500);
 }
 
-/** Append-only text-model log under the app data directory. Never stores a token. */
+const agents = new Set([
+  "writer",
+  "director",
+  "action",
+  "performance",
+  "art",
+  "prompter",
+  "qc",
+  "probe",
+  "image",
+]);
+const endpoints = new Set([
+  "responses",
+  "chat",
+  "text",
+  "parse",
+  "probe",
+  "reference-images",
+  "first-last-frame",
+  "keyframes",
+  "video-voice",
+  "vision",
+  "tts-timestamps",
+  "image-edit",
+  "quality-medium",
+]);
+const parsedKinds = new Set([
+  "text",
+  "error",
+  "shots",
+  "scenes",
+  "beats",
+  "performance",
+  "art",
+  "prompt",
+  "qc",
+  "offline",
+  "accepted",
+  "rejected",
+  "image",
+  "no-token",
+]);
+const errorCodes = new Set([
+  "TEXT_FAILED",
+  "TEXT_TIMEOUT",
+  "TEXT_CANCELLED",
+  "REAUTH_REQUIRED",
+  "ENTITLEMENT_DENIED",
+  "NOT_CONNECTED",
+]);
+const count = (value: number | undefined) =>
+  Number.isFinite(value) ? Math.max(0, Math.floor(value ?? 0)) : 0;
+
+/** Append-only metadata log. Neither model replies nor provider error bodies are persisted. */
 export function createAgentLog(filePath: string): AgentLog {
   return {
     write(line) {
       const row = JSON.stringify({
         t: new Date().toISOString(),
-        agent: (line.agent ?? "").slice(0, 40),
-        model: line.model.slice(0, 80),
-        endpoint: line.endpoint.slice(0, 40),
-        httpStatus: line.httpStatus,
-        durationMs: line.durationMs ?? 0,
-        parsed: (line.parsed ?? "").slice(0, 40),
-        body: redactSecrets(line.body),
+        agent: agents.has(line.agent ?? "") ? line.agent : "other",
+        model: /^grok-[a-z0-9.-]{1,70}$/.test(line.model) ? line.model : "other",
+        endpoint: endpoints.has(line.endpoint) ? line.endpoint : "other",
+        httpStatus: count(line.httpStatus),
+        durationMs: count(line.durationMs),
+        parsed: parsedKinds.has(line.parsed ?? "") ? line.parsed : "other",
+        responseChars: count(line.responseChars),
+        errorCode: errorCodes.has(line.errorCode ?? "") ? line.errorCode : undefined,
       });
       void mkdir(dirname(filePath), { recursive: true, mode: 0o700 })
         .then(() =>
