@@ -1,3 +1,4 @@
+import { castExtractionStory, extractAndMergeCast } from "./actions/cast";
 import { directorRequestInput, requestDirectorDraft } from "./actions/director";
 import { planWriterDraft, writerDraftInput, type WriterDraftResult } from "./actions/writer";
 import { planActionDraft } from "./actions/action";
@@ -28,12 +29,9 @@ import {
   CONTINUITY_REASON,
   DESKTOP_REASON,
   ensureLocations,
-  extractCastOffline,
   chosenExport,
   confirmEstimate,
   filmFileName,
-  mergeCast,
-  parseCastReply,
   extractBookText,
   LOUDNESS_NOTE,
   numberedScript,
@@ -1400,43 +1398,19 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   async function fillCast(base: FilmProject) {
-    if (base.characters.length > 0 && base.locations.length > 0) return;
-    const story = base.scenes
-      .map((item) => item.text)
-      .filter(Boolean)
-      .join("\n");
-    if (!story.trim()) return;
+    const story = castExtractionStory(base);
+    if (story === null) return;
     const epoch = noticeEpoch.current;
     const requestVersion = ++castEpoch.current;
-    let extracted = connected ? null : extractCastOffline(story);
-    if (connected) {
-      const reply = await completeAgent(
-        "writer",
-        story,
-        '抽出人物和场景，只返回 JSON：{"characters":[{"name":"","identity":"","gender":"male/female/unknown","age_band":"child/young/adult/elder/unknown"}],"locations":[{"name":"","prompt":""}]}',
-      ).catch(() => ({ text: null, detail: "人物提取失败，可以重试。" }));
-      if (filmRef.current?.id !== base.id || requestVersion !== castEpoch.current) return;
-      const parsed = reply.text ? parseCastReply(reply.text) : null;
-      if (parsed && (parsed.characters.length > 0 || parsed.locations.length > 0))
-        extracted = parsed;
-      else {
-        if (noticeEpoch.current === epoch)
-          setNotice(reply.detail || "没有认出人物和场景，没有写入猜测。");
-        return;
-      }
-    }
-    if (!extracted || filmRef.current?.id !== base.id || requestVersion !== castEpoch.current)
-      return;
-    const merged = mergeCast(filmRef.current, extracted);
-    if (merged === (filmRef.current ?? base)) {
-      if (base.characters.length === 0 && base.locations.length === 0) {
-        setNotice("这一场还没有认出人物和场景。");
-      }
-      return;
-    }
-    applyLive(merged);
-    const names = merged.characters.map((item) => item.name).filter(Boolean);
-    if (names.length > 0) setNotice(`已记下人物：${names.join("、")}。`);
+    return extractAndMergeCast(base, story, {
+      connected,
+      request: completeAgent,
+      current: () => filmRef.current,
+      valid: () => filmRef.current?.id === base.id && requestVersion === castEpoch.current,
+      noticeCurrent: () => noticeEpoch.current === epoch,
+      apply: applyLive,
+      notice: setNotice,
+    });
   }
 
   async function makePortraits(characterId: string) {
