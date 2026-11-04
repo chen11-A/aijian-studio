@@ -1,8 +1,8 @@
 /*
  * Shared look for the next/ components. Only custom properties defined in ../pro/pro.css are
- * used, so the components must sit inside .pro-root. pro.css does not define --accent-strong,
- * so var(--accent-strong, var(--accent)) shows --accent. Every rule is scoped under .nx-root so
- * it wins over the .pro-root button and * resets.
+ * used, so the components must sit inside .pro-root. --accent-strong is always written as
+ * var(--accent-strong, var(--accent)), so a pro.css without it still colors the primary button.
+ * Every rule is scoped under .nx-root so it wins over the .pro-root button and * resets.
  */
 .nx-root {
   display: flex;

@@ -46,17 +46,14 @@ describe("next/ styles", () => {
       for (const match of file.text.matchAll(/var\((--[a-z0-9-]+)/g)) {
         const name = match[1]!;
         checked += 1;
-        if (name === "--accent-strong") continue;
         expect(defined.has(name), `${file.path} uses ${name}`).toBe(true);
       }
     }
     expect(checked).toBeGreaterThan(100);
   });
 
-  it("always falls back to --accent where --accent-strong is used", () => {
-    const { pro, own } = load();
-    expect(pro).not.toMatch(/--accent-strong\s*:/);
-    for (const file of own) {
+  it("falls back to --accent wherever --accent-strong is used", () => {
+    for (const file of load().own) {
       const uses = file.text.match(/var\(--accent-strong/g)?.length ?? 0;
       const withFallback = file.text.match(/var\(--accent-strong, var\(--accent\)\)/g)?.length ?? 0;
       expect(uses, file.path).toBe(withFallback);
