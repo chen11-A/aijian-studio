@@ -5,7 +5,7 @@
 ## 基线与职责
 
 - 集成分支 `aivora/dev`：`7f7a6ade8890c0bf829d511fc5f7f2bcabd97f11`，仍是已发布3j-r1代码。
-- GPT 代码交接基线 `gpt/work-4a`：`9e8e9dda10146bc8e35ae26088ba20aeb26ccb0f`（包含本轮B01、B08补修）。此前完整交付点 `b1afb5958efcaae25b708d57afc411ede2341857`；本轮B01适配为 `a7b5249`，B08设计声明为 `9e8e9dd`。后续GPT提交仍须保留。
+- GPT 代码交接基线 `gpt/work-4a`：`05c59c74ce6a15875a0c39191e8bfb49496d8984`（包含本轮B01、B08、B09、B11补修）。此前完整交付点 `b1afb5958efcaae25b708d57afc411ede2341857`；本轮B01适配为 `a7b5249`，B08设计声明为 `9e8e9dd`。后续GPT提交仍须保留。
 - 已发现 `claude/work@caf50e27b50cdbf7571e85d28d5dc4319efa6d82`，它直接基于3j-r1，已经提供 PipelineSteps 和模板入口，**不需要重做组件**。其代码尚未含GPT的4a逻辑。
 - 旧 `claude/aivora-readme-docs-sa77rk@5ba2b82302a6bd035353e30f11eb1f1c922997a4` 的四笔改动 `9d89db8 → 2d7acb7 → d894dc3 → 5ba2b82` 仍未合入。它们与新claude/work不是同一条连续历史，后续整合需逐项保留，不要丢弃或重复覆盖。
 - ProWorkspace 按业务职责拆分，不按旧行号：GPT保留 `pipelineWorkspace`、保存协调、请求守卫、角色事务、generation队列等逻辑；Claude改JSX/CSS/页面props/最终文案。冲突时不整文件取任一边，不复制3j版本的处理函数覆盖4a。`pro/actions/**`、`film/*.ts` 归GPT。
@@ -84,3 +84,11 @@ pnpm exec vitest run src/aivora/next/wiring/noticeCopy.test.ts
 交接整理期间 `claude/work` 又推进到 `ceef82629c22f9fc7e1bab7edb577e501248157d`（4A-U02画风卡），父提交仍为caf50e2。它只改画风卡、样式、测试及接口文档，没有补B01或NOTICE_COPY；上述101项差集及B01接线差异仍适用。
 
 画风卡目前用 `styleAtOpen` 判断改变，跨页/重开会重置，不能表示持久失效。请读GPT已保存的 `shot.regenerationRequired`，保留 `setFilmStyle` 的版本与媒体保护；不要在合并时用Claude基于3j的setFilm/处理函数覆盖这些逻辑。最终状态的中文展示仍由Claude决定。本轮没有擅自修改该组件。
+
+### 本轮追加核对
+
+远端 `claude/work` 已到 `d1209d1e390dad5e5f965fb10b901aed823b2eea`，新增U03多版本视频播放；只读核对后未合并。它保持aiChoiceId=null，没有把文字审片当视觉评分，这一边界应保留。旧四笔提交和U01/U02均仍需按历史保留。`aivora/dev`仍为7f7a6ad。
+
+GPT新增：B08 `528d850`编剧/导演声明与原子确认、`11229ca`表演null/主配角；B09 `9b3af94`导演/审片/视频任务准备；B11 `cdfc2f5`迟到保存完成守卫、`c6d4273`保存失败分类、`05c59c7`实际编剧/美术选择快照接线。完整字段矩阵在 `4a-field-audit.md`；无新界面生成入口要求。请保留actions调用和固定事务，不将基于3j的处理函数整段覆盖。
+
+固定adff全web3970通过/2失败（NOTICE_COPY101码和已修的保存分类）；最新代码全量正在重跑。这不是阶段通过，仍需Claude最终文案、流水线完整交互与真实会员验收。

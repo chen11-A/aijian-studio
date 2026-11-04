@@ -762,3 +762,10 @@ UIR-03 的 STILL_REJECTED 保留供应商明确拒绝的含义，兜底文字为
 ### B08 美术设计声明（已提供，非生成素材）
 
 `FilmProject.artDesign/artDesignBaseline` 保存色板、年代、光线、镜头、备用英文描述及模型声明的人物/地点/道具/定妆照计划；与真实portraits/referenceImage分离。新图显示仍取实际生成结果，不能因asset_id存在就显示已完成。由applyArtDraft统一合并，artDiff纳入CAS与撤销。实现 `9e8e9dd`，52项相关与91项工作区回归通过；不要求Claude接新的生成入口。
+
+### B08/B09/B11 后端补修与已提供接口
+
+- B08（`528d850`、`11229ca`）：`FilmProject.writerPlan`、`FilmScene.writerPlan`、`FilmCharacter.writerPlan`保存编剧原声明，导演segments保留sceneDeclaration与原no/seconds，表演people.declarations保存主配角来源及显式null。声明不是实际产物或核实过的时长/覆盖率；不要求新增服装生产或智能体。编剧同一回复的人物/地点随原确认事务一起应用和撤销，有并发修改则整笔拒绝。
+- B09（`9b3af94`）：导演策略、审片和视频任务准备进一步迁入actions，工作台现有回调名称与职责保留。合并Claude界面时保留这些函数调用，不复制3j旧函数覆盖。
+- B11（`05c59c74ce6a15875a0c39191e8bfb49496d8984`）：`actions/editor-request-context.ts`的`globalEditorRequest(base,selection,request)`已接实际手动编剧与美术请求。选择取请求前快照，仅白名单文本；编剧引用场ID而不重传正文，美术附选中内容但仍处理全项目。无效选择不猜第一场。其他角色原有明确当前场/镜头输入保留，自动流水线不读取UI选择。
+- B11（`cdfc2f5`）：提示词保存完成后再次验证作品版本及原页面选择；迟到结果不在新页面提示成功，已授权的保存仍继续。按页撤销及固定建议的before/after数据已提供，统一差异展示仍由Claude接线。
