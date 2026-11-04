@@ -1,3 +1,7 @@
+import { createEditorPageHistory } from "./actions/page-history";
+import { createEditorHost } from "./actions/editor-host";
+import type { EditorSuggestion } from "./actions/editor-changes";
+import type { EditorSelection } from "./actions/editor-context";
 import { runPreparedGeneration } from "./actions/generation-run";
 import { buildLegacyStoryboard } from "./actions/legacy-storyboard";
 import { preparePortraitIdentity } from "./actions/portrait-identity";
@@ -162,6 +166,7 @@ type Stage = "script" | "cast" | "board" | "edit";
 type Role = "writer" | "director" | "action" | "performance" | "art" | "prompter" | "qc";
 
 type RoleCard = {
+  editorDiff?: EditorSuggestion;
   title: string;
   rows: { id: string; mark: string; text: string; tail: string }[];
   notes: string[];
@@ -465,7 +470,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [roleCards, setRoleCards] = useState<Partial<Record<Role, RoleCard>>>({});
   const [stillArmed, setStillArmed] = useState("");
-  const assistantScope = `${film?.id ?? ""}:${stage}:${scene}:${assistantInputVersion(film, scene)}`;
+  const selectedEditorShot =
+    stage === "board" || stage === "edit"
+      ? film?.shots
+          .filter(
+            (item) => item.sceneId === scene || !film.scenes.some((row) => row.id === item.sceneId),
+          )
+          .slice()
+          .sort((a, b) => a.no - b.no)[shot]
+      : undefined;
+  const editorSelection = useRef<EditorSelection>({ projectId: "", page: stage });
+  editorSelection.current = {
+    projectId: film?.id ?? "",
+    page: stage,
+    sceneId: scene,
+    ...(selectedEditorShot ? { shotId: selectedEditorShot.id } : {}),
+  };
+  const assistantScope = `${film?.id ?? ""}:${stage}:${scene}:${selectedEditorShot?.id ?? ""}:${assistantInputVersion(film, scene)}`;
   const scopeRef = useRef(assistantScope);
   scopeRef.current = assistantScope;
   const [versions, setVersions] = useState(1);
@@ -509,6 +530,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     [],
   );
   const saveFilm = (next: FilmProject) => persistence.save(next);
+  const editorHost = useMemo(
+    () =>
+      createEditorHost({
+        current: () => filmRef.current,
+        selection: () => editorSelection.current,
+        applyLive: (next) => {
+          const live = filmRef.current;
+          if (live && committed.current?.id === live.id)
+            pageHistory.record(committed.current, live, historyScope.current);
+          applyLive(next);
+        },
+        applied: (receipt) => {
+          pageHistory.recordReceipt(receipt);
+          skipHistory.current = true;
+          committed.current = filmRef.current;
+          setHistoryTick((value) => value + 1);
+        },
+        save: (next) => {
+          // setFilm applies continuity normalization; save that exact live result through the existing queue.
+          const live = filmRef.current;
+          return live?.id === next.id ? persistence.save(live) : Promise.resolve(null);
+        },
+      }),
+    [persistence],
+  );
   const pipelineLive = useRef({ connected, modelIds, ensureBillingProject, submitGeneration });
   pipelineLive.current = { connected, modelIds, ensureBillingProject, submitGeneration };
   const pipelineWorkspace = useMemo(
@@ -541,8 +587,8 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         emitNotice,
       ),
   });
-  const pastRef = useRef<FilmProject[]>([]);
-  const futureRef = useRef<FilmProject[]>([]);
+  const pageHistory = useMemo(() => createEditorPageHistory(), []);
+  const historyScope = useRef(editorSelection.current);
   const committed = useRef<FilmProject | null>(null);
   const skipHistory = useRef(false);
   const pauseRef = useRef(false);
@@ -625,6 +671,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   useEffect(() => {
     filmRef.current = film;
     if (!film) return;
+    if (historyScope.current.page !== stage && committed.current?.id === film.id) {
+      pageHistory.record(committed.current, film, historyScope.current);
+      committed.current = film;
+    }
+    historyScope.current = editorSelection.current;
     const generation = ++saveGeneration.current;
     const savingId = film.id;
     const flush = () => {
@@ -665,8 +716,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         if (filmRef.current?.id !== film.id || committed.current?.id !== film.id) return;
         const previous = committed.current;
         if (previous && filmSignature(previous) !== filmSignature(film)) {
-          pastRef.current = [...pastRef.current, previous].slice(-50);
-          futureRef.current = [];
+          pageHistory.record(previous, film, historyScope.current);
           setHistoryTick((value) => value + 1);
         }
         committed.current = film;
@@ -677,7 +727,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       window.clearTimeout(handle);
       if (timer) window.clearTimeout(timer);
     };
-  }, [film]);
+  }, [film, stage]);
 
   const queueProject = film?.id ?? "";
   useEffect(() => {
@@ -748,14 +798,14 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   }
 
   function resetHistory(current: FilmProject) {
-    pastRef.current = [];
-    futureRef.current = [];
+    pageHistory.clear();
+    historyScope.current = editorSelection.current;
     skipHistory.current = false;
     committed.current = current;
     setHistoryTick((value) => value + 1);
   }
 
-  function undoEdit() {
+  function movePageHistory(inverse: boolean) {
     const current = filmRef.current;
     const baseline = committed.current;
     if (!current) return;
@@ -764,39 +814,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       return;
     }
     if (filmSignature(current) !== filmSignature(baseline)) {
-      skipHistory.current = true;
-      rememberFilm(baseline);
+      const conflicts = pageHistory.record(baseline, current, historyScope.current);
+      if (conflicts.length) {
+        setNotice("这次改动不能安全撤销，已保留当前内容。");
+        committed.current = current;
+        return;
+      }
+      committed.current = current;
+    }
+    const result = inverse
+      ? pageHistory.undo(current, editorSelection.current)
+      : pageHistory.redo(current, editorSelection.current);
+    if (result.film === current) {
+      if (result.conflicts[0] !== "NOTHING_TO_UNDO") setNotice("内容后来改过，这次没有覆盖。");
       return;
     }
-    const previous = pastRef.current.pop();
-    if (!previous) return;
-    if (previous.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    futureRef.current.push(current);
     skipHistory.current = true;
+    committed.current = result.film;
     setHistoryTick((value) => value + 1);
-    rememberFilm(previous);
+    rememberFilm(result.film);
   }
-
+  function undoEdit() {
+    movePageHistory(true);
+  }
   function redoEdit() {
-    const current = filmRef.current;
-    if (!current) return;
-    if (committed.current?.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    const next = futureRef.current.pop();
-    if (!next) return;
-    if (next.id !== current.id) {
-      resetHistory(current);
-      return;
-    }
-    pastRef.current.push(current);
-    skipHistory.current = true;
-    setHistoryTick((value) => value + 1);
-    rememberFilm(next);
+    movePageHistory(false);
   }
 
   const open = film !== null;
@@ -1743,14 +1785,15 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
 
   async function planPrompterWork() {
     if (!film) return;
-    const current = shownShots[shot] ?? film.shots[shot] ?? film.shots[0];
+    const current = shownShots[shot];
+    const request = editorHost.capture();
     const turn = pushTurn("prompter", chat.trim() || `写镜头 ${current?.no ?? shot + 1} 的提示词`);
-    if (!current) {
+    if (!current || !request || request.selection.shotId !== current.id) {
       finishTurn(turn, "先拆出镜头，再请提示词工程师。");
       noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
       return;
     }
-    const result = await planPrompterDraft(film, current, {
+    const result = await planPrompterDraft(request.base, current, {
       request: completeAgent,
       current: () => isTurnCurrent(turn),
     });
@@ -1760,11 +1803,23 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("prompter", "rejected", result.notice);
       return;
     }
-    setFilm(result.film);
+    const editorDiff = editorHost.preview(request, result.film);
+    const applied = await editorHost.apply(request.id);
+    if (!isTurnCurrent(turn)) return;
+    if (applied.status !== "saved") {
+      finishTurn(
+        turn,
+        applied.status === "applied_unsaved"
+          ? "提示词已应用，但还没有保存。"
+          : "镜头已变更，这次建议没有写入。",
+      );
+      return;
+    }
     setStructured([result.zh, result.en ? `英文：${result.en}` : "英文还没写。"].filter(Boolean));
     const missed =
       result.missing.length > 0 ? `已补上${result.missing.join("、")}的外貌描述。` : "";
     publishCard("prompter", {
+      editorDiff: editorDiff ?? undefined,
       title: `提示词 · 镜头 ${current.no}`,
       rows: [{ id: current.id, mark: "中文", text: result.zh, tail: "" }],
       notes: result.en ? [`英文：${result.en}`] : [],
@@ -2500,8 +2555,11 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     film !== null &&
     committed.current !== null &&
     liveSignature !== filmSignature(committed.current);
-  const canUndo = historyTick >= 0 && (pastRef.current.length > 0 || dirty);
-  const canRedo = futureRef.current.length > 0;
+  const canUndo =
+    historyTick >= 0 &&
+    (pageHistory.canUndo(editorSelection.current) ||
+      (dirty && historyScope.current.page === stage));
+  const canRedo = pageHistory.canRedo(editorSelection.current);
   const tracked =
     film?.jobs.filter(
       (job) =>

@@ -3471,3 +3471,71 @@ it.each([false, true])(
     }
   },
 );
+
+it("B11 rejects a prompter reply after selecting another shot", async () => {
+  const { completeText } = installDesktop();
+  await openSample();
+  openBoardTools();
+  let resolveReply!: (reply: { kind: "OK"; text: string }) => void;
+  completeText.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolveReply = done;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  await waitFor(() => expect(resolveReply).toBeDefined());
+  const cards = document.querySelectorAll(".pb.grid button.card");
+  expect(cards.length).toBeGreaterThan(1);
+  fireEvent.click(cards[1]!);
+  await act(async () =>
+    resolveReply({
+      kind: "OK",
+      text: JSON.stringify({
+        keyframe: { prompt_zh: "不能写到其他镜头", prompt_en: "stale selected shot" },
+      }),
+    }),
+  );
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.some(([film]) =>
+        (film as FilmProject).shots.some((shot) => shot.promptEn === "stale selected shot"),
+      ),
+  ).toBe(false);
+});
+
+it("B11 does not claim a prompter suggestion is saved after disk failure", async () => {
+  const { completeText } = installDesktop();
+  await openSample();
+  openBoardTools();
+  await act(async () => {
+    await new Promise((done) => setTimeout(done, 550));
+  });
+  vi.mocked(window.aijian!.writeFilmProject!).mockRejectedValue(new Error("disk unavailable"));
+  completeText.mockResolvedValueOnce({
+    kind: "OK",
+    text: JSON.stringify({ keyframe: { prompt_zh: "雨夜", prompt_en: "unsaved prompt" } }),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  expect(await screen.findByText(/提示词已应用，但还没有保存/)).toBeInTheDocument();
+  expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
+});
+
+it("B11 keeps prompter undo on its page and restores only the applied prompt fields", async () => {
+  const { completeText } = installDesktop();
+  await openSample();
+  openBoardTools();
+  completeText.mockResolvedValueOnce({
+    kind: "OK",
+    text: JSON.stringify({ keyframe: { prompt_zh: "新提示", prompt_en: "page scoped prompt" } }),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  expect(await screen.findByText(/提示词写好了/)).toBeInTheDocument();
+  fireEvent.click(stageTab("角色与场景"));
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  openBoardTools();
+  expect(screen.getByText("page scoped prompt")).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+  await waitFor(() => expect(screen.queryByText("page scoped prompt")).not.toBeInTheDocument());
+});

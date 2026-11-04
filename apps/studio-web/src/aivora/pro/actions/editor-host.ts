@@ -25,6 +25,7 @@ export function createEditorHost(host: {
   applyLive: (film: FilmProject) => void;
   /** Return false/null when an owner defers the write; throw on disk failure. */
   save: (film: FilmProject) => Promise<unknown>;
+  applied?: (receipt: EditorReceipt) => void;
 }) {
   let serial = 0;
   let busy = false;
@@ -100,6 +101,7 @@ export function createEditorHost(host: {
       const key = pageKey(scope);
       history.set(key, [...(history.get(key) ?? []), result.receipt].slice(-50));
       drafts.delete(id);
+      host.applied?.(structuredClone(result.receipt));
       return await persist(result.film, result.conflicts);
     } finally {
       busy = false;
