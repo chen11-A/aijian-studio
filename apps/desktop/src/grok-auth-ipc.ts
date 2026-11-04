@@ -57,14 +57,22 @@ export function registerGrokHandlers<TEvent>(
           text: string;
           projectId?: unknown;
           idempotencyKey?: unknown;
+          deadlineAt?: unknown;
         };
         const keys = Object.keys(body);
         if (
           keys.some(
-            (key) => !["model", "text", "projectId", "idempotencyKey", "agent"].includes(key),
+            (key) =>
+              !["model", "text", "projectId", "idempotencyKey", "agent", "deadlineAt"].includes(
+                key,
+              ),
           ) ||
           (body.projectId !== undefined && typeof body.projectId !== "string") ||
           (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== "string") ||
+          (body.deadlineAt !== undefined &&
+            (typeof body.deadlineAt !== "number" ||
+              !Number.isSafeInteger(body.deadlineAt) ||
+              body.deadlineAt <= 0)) ||
           ((body as { agent?: unknown }).agent !== undefined &&
             typeof (body as { agent?: unknown }).agent !== "string")
         ) {
@@ -82,6 +90,7 @@ export function registerGrokHandlers<TEvent>(
         return complete({
           model: body.model,
           text: body.text,
+          ...(typeof body.deadlineAt === "number" ? { deadlineAt: body.deadlineAt } : {}),
           ...(typeof body.projectId === "string" ? { projectId: body.projectId } : {}),
           ...(typeof body.idempotencyKey === "string"
             ? { idempotencyKey: body.idempotencyKey }
@@ -182,9 +191,17 @@ export function registerGrokHandlers<TEvent>(
       return runtime.models();
     });
   }
-  handle("grok-auth:cancel-text", async (event) => {
+  handle("grok-auth:cancel-text", async (event, ...args) => {
     if (!authorized(event)) throw new Error("Grok IPC sender is not authorized");
-    (runtimeFor() as GrokLoginBridge & { cancelWork?: () => void }).cancelWork?.();
+    if (
+      args.length > 1 ||
+      (args.length === 1 &&
+        (typeof args[0] !== "string" || !args[0].length || args[0].length > 200))
+    )
+      throw new Error("Invalid Grok text cancellation");
+    (runtimeFor() as GrokLoginBridge & { cancelWork?: (key?: string) => void }).cancelWork?.(
+      args[0] as string | undefined,
+    );
     return { kind: "OK" };
   });
   handle("grok-auth:cancel-speech", async (event) => {

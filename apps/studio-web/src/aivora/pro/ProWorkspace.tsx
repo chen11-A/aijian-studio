@@ -129,6 +129,7 @@ import {
   assembleCurrentFilm,
   retryDirectorTimeout,
   type AgentReply,
+  type AgentRequestControl,
 } from "./workflow";
 
 type Stage = "script" | "cast" | "board" | "edit";
@@ -866,9 +867,10 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         text = "没有登录，已用离线拆镜。点「写入分镜」才会写入。";
       } else {
         const first = await retryDirectorTimeout(
-          () => completeAgent("director", context, "把这一场拆成镜头"),
+          (control) => completeAgent("director", context, "把这一场拆成镜头", control),
           setNotice,
           emitNotice,
+          { current: () => isTurnCurrent(turn) && filmRef.current?.id === film.id },
         );
         const parsed = first.text
           ? parseDirectorShots(first.text, sceneId, current?.text ?? "", sceneRefs)
@@ -1119,7 +1121,12 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function completeAgent(agent: Role, context: string, user: string): Promise<AgentReply> {
+  async function completeAgent(
+    agent: Role,
+    context: string,
+    user: string,
+    control?: AgentRequestControl,
+  ): Promise<AgentReply> {
     const bridge = grokBridge();
     if (!connected || !bridge || !film) return { text: null, detail: "没有登录。" };
     const requestProjectId = film.id;
@@ -1130,6 +1137,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       billingProject: ensureBillingProject,
       current: () => filmRef.current?.id === requestProjectId && activeTurn.current === requestTurn,
       modelsChanged: setModelIds,
+      control,
     });
   }
 
@@ -1819,13 +1827,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(`正在写第 ${sceneIndex + 1}/${directedScenes.length} 场「${sceneRow.title}」`);
       const story = sceneRow.text.trim() || next.title;
       const directorReply = await retryDirectorTimeout(
-        () =>
+        (control) =>
           completeAgent(
             "director",
             `画风：${next.styleZh}\n场次 id：${sceneRow.id}\n人物：\n${names}\n这一场：${sceneRow.title} ${sceneRow.where}\n剧本：\n${story}`,
             "把这一场拆成镜头",
+            control,
           ),
         setNotice,
+        emitNotice,
+        { current: valid },
       );
       const parsed = directorReply.text
         ? parseDirectorShots(directorReply.text, sceneRow.id, sceneRow.text || story, [
