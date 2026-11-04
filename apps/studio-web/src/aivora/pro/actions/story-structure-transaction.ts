@@ -29,6 +29,12 @@ export type StoryStructureTransaction = {
   };
   workBefore: unknown;
   workAfter: unknown;
+  /** Writer-only, ordered cleanup of obsolete automatic shots before replacing their scenes. */
+  shotChanges?: {
+    structure: EditorStructureTransaction;
+    workBefore: unknown;
+    workAfter: unknown;
+  }[];
   /** Explicit splitting shifts only subsequent labels, without replacing their live shot content. */
   numbering?: { id: string; before: number; after: number }[];
   unsupported: string[];
@@ -235,7 +241,64 @@ export function prepareWriterTransaction(
   base: FilmProject,
   scenes: FilmScene[],
 ): StoryStructureTransaction {
-  const tx = prepare(base, applyScenes(base, scenes), "writer", base.scenes[0]?.id ?? "");
+  const proposed = applyScenes(base, scenes);
+  const affected = base.scenes.filter(
+    (scene) =>
+      !same(
+        scene,
+        proposed.scenes.find((row) => row.id === scene.id),
+      ),
+  );
+  const unsupported: string[] = [];
+  const shotChanges: NonNullable<StoryStructureTransaction["shotChanges"]> = [];
+  let cleared = base;
+  for (const scene of affected) {
+    const next = proposed.scenes.find((row) => row.id === scene.id);
+    // State without a replacement is not silently discarded, even if it has no media yet.
+    if (
+      scene.userFields.length ||
+      (scene.source === "user" && scene.text.trim()) ||
+      (["actionState", "performanceState", "sound"] as const).some(
+        (field) => scene[field] !== undefined && !same(scene[field], next?.[field]),
+      )
+    )
+      unsupported.push(`SCENE_STATE_PROTECTED:${scene.id}`);
+    const children = cleared.shots.filter((shot) => shot.sceneId === scene.id);
+    if (!children.length) continue;
+    if (
+      children.some(
+        (shot) =>
+          shot.userFields.length ||
+          !["sample", "agent:director", "offline:director"].includes(shot.source) ||
+          shotWork(base, shot.id),
+      )
+    ) {
+      unsupported.push(`DEPENDENT_WORK_EXISTS:${scene.id}`);
+      continue;
+    }
+    const after = { ...cleared, shots: cleared.shots.filter((shot) => shot.sceneId !== scene.id) };
+    const structure = diffEditorStructure(
+      cleared,
+      after,
+      { projectId: base.id, page: "board", sceneId: scene.id },
+      { collection: "shots" },
+    );
+    unsupported.push(...structure.unsupported);
+    shotChanges.push({
+      structure,
+      workBefore: workSnapshot(cleared, structure),
+      workAfter: workSnapshot(after, structure),
+    });
+    cleared = after;
+  }
+  const tx = prepare(
+    cleared,
+    { ...proposed, shots: cleared.shots },
+    "writer",
+    base.scenes[0]?.id ?? "",
+  );
+  tx.unsupported.push(...unsupported);
+  if (shotChanges.length) tx.shotChanges = structuredClone(shotChanges);
   if (!scenes.length) tx.unsupported.push("EMPTY_PROPOSAL");
   return tx;
 }
@@ -340,11 +403,21 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
     !tx.structure.before.length &&
     !tx.structure.after.length &&
     same(tx.structure.beforeOrder, tx.structure.afterOrder);
-  if (noStructure && !tx.coverage && !tx.beats)
+  if (noStructure && !tx.coverage && !tx.beats && !tx.shotChanges?.length)
     return { film: current, receipt: null, conflicts: [] as string[], code: "NO_CHANGES" as const };
+  let prepared = current;
+  if (!inverse) {
+    for (const child of tx.shotChanges ?? []) {
+      if (!same(workSnapshot(prepared, child.structure), child.workBefore))
+        return reject(["TASKS_CHANGED"]);
+      const cleaned = applyEditorStructure(prepared, child.structure);
+      if (cleaned.conflicts.length) return reject(cleaned.conflicts);
+      prepared = cleaned.film;
+    }
+  }
   const changed = inverse
-    ? undoEditorStructure(current, tx.structure)
-    : applyEditorStructure(current, tx.structure);
+    ? undoEditorStructure(prepared, tx.structure)
+    : applyEditorStructure(prepared, tx.structure);
   if (changed.conflicts.length) return reject(changed.conflicts);
   let film = changed.film;
   if (tx.numbering?.length) {
@@ -391,6 +464,15 @@ function execute(current: FilmProject, tx: StoryStructureTransaction, inverse: b
       !film.unassignedBeats!.length
     )
       delete film.unassignedBeats;
+  }
+  if (inverse) {
+    for (const child of [...(tx.shotChanges ?? [])].reverse()) {
+      if (!same(workSnapshot(film, child.structure), child.workAfter))
+        return reject(["TASKS_CHANGED"]);
+      const restored = undoEditorStructure(film, child.structure);
+      if (restored.conflicts.length) return reject(restored.conflicts);
+      film = restored.film;
+    }
   }
   return {
     film,

@@ -357,8 +357,9 @@ describe("fixed story structure transactions", () => {
     expect(undone.film.shots).toEqual(live.shots);
   });
 
-  it("refuses writer replacement of scenes with shots or unresolved work and rejects changed source", () => {
+  it("refuses writer replacement of scenes with manually edited shots or unresolved work and rejects changed source", () => {
     const { film } = setup();
+    film.shots[0]!.userFields = ["picture"];
     const changed = film.scenes.map((scene, index) =>
       index ? scene : { ...scene, text: "重写正文" },
     );
