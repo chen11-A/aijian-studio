@@ -144,6 +144,23 @@ export type StatusLine = { code: string; text: string; detail: string };
 
 const joined = (notice: UiNotice) => [notice.text, notice.detail].filter(Boolean).join(" ");
 
+/** Program data (JSON) in a detail is for the log file, never for the person using the app. */
+function readable(detail: string): string {
+  return detail
+    .split("\n")
+    .filter((line) => {
+      if (!/^\s*[[{]/.test(line)) return true;
+      try {
+        JSON.parse(line);
+        return false;
+      } catch {
+        return true;
+      }
+    })
+    .join("\n")
+    .trim();
+}
+
 /**
  * The status-bar line for what the workspace shows now.
  *
@@ -157,7 +174,7 @@ export function statusLine(shown: string, last: UiNotice | null): StatusLine | n
   const plain = shown.trim();
   if (!plain) return null;
   if (last && joined(last) === plain) {
-    const detail = last.detail?.trim() ?? "";
+    const detail = readable(last.detail?.trim() ?? "");
     if (OWN_SENTENCE.has(last.code)) {
       const [first = last.text, ...rest] = detail ? detail.split("\n") : [last.text];
       return { code: last.code, text: first, detail: rest.join("\n") };

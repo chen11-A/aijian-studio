@@ -514,6 +514,17 @@ coverEditorData(film, { mediaUrl: fileMediaUrl });
 - 重试：状态栏里不再有重试按钮。`pendingRetry` 有值时，ScriptPage 和 BoardPage 把 `onRetry` 传给 Assistant，按钮「换个问法再问一次」只出现在最后一条 AI 回复下面；点了以后 `retryPending` 清掉 `pendingRetry`，按钮就没了。
 - 要 GPT 配合：新加提示时给 code；新加 code 时在 `noticeCopy.ts` 补一行（不补 `noticeCopy.test.ts` 会失败）。`detail` 里请写给人看的话，比如「雨停：1 个镜头，建议 2 个」，不要只写「雨停：1/2」。
 
+## 角色页：性别年龄和定妆照（3J-U05、3J-U06）
+
+- 性别、年龄段：名字旁边两个下拉，改了调 `createProductionActions().updateCharacterTraits(id, {gender, ageBand})`。production actions 在紧挨 `return (` 的地方用 `useMemo` 建一次，`apply` 是 `applyLive` 加 `saveFilm`，每次调用都读 `filmRef.current`。
+- 声音下拉按性别分组（`next/adapters/voices.ts`）：分组靠 GPT 的 `assignVoice` 读出来，不另抄声音表。手选的声音写进 `userFields: ["voiceId"]`，之后改性别年龄 GPT 不会换掉它。
+- 「给所有人出定妆照」：角色列表顶上唯一的主按钮，调 `makeAllPortraits(有外貌的人)`；没写外貌的人列在按钮下面，先跳过。进度「5/28 · 失败 1」和四个图位的状态来自任务进度（`next/wiring/portraitFeed.ts`）。
+- 「补这个人的」和图位上的「重试」走原来的 `makePortraits`（没外貌时先问编剧写一句）。有任何定妆照在出时，这几个按钮都不能点，避免两条队列同时出同一张。
+- 要 GPT 配合：
+  - `portraitFeed` 靠任务 id `portraits:<作品 id>:<这一轮>:<人物 id>:<角度>` 认图位。希望 `TaskItem` 加 `characterId`、`view` 两个字段，界面就不用拆 id。
+  - `production-actions.ts` 的定妆照进度把 `JSON.stringify(batch)` 放进 `detail`，`text` 是「定妆照队列进度已更新。」。界面不显示 JSON（已经滤掉），请改成给人看的话，比如 `text: "定妆照 5/28"`，`detail` 写失败的是谁的哪一张。
+  - `updateCharacterTraits` 没把 `gender`、`ageBand` 记进 `userFields`。用户选「未写」时，`castTraits` 会按外貌再猜一次，选择被盖掉。
+
 ## 和 GPT 的接口对照（3J-B17）
 
 GPT 提供了哪一条，就在「已提供」一栏写上提交号和函数名，界面再接。

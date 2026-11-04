@@ -76,6 +76,17 @@ describe("statusLine", () => {
     expect(line).toEqual({ code: "SOMETHING_NEW", text: "新的提示", detail: "" });
   });
 
+  it("never shows program data from a detail", () => {
+    const { structured, shown } = shownFor({
+      code: "PORTRAIT_BATCH_RUNNING",
+      text: "定妆照队列进度已更新。",
+      detail: JSON.stringify({ total: 28, done: 5 }),
+    });
+    const line = statusLine(shown, structured);
+    expect(line?.text).toBe(NOTICE_COPY.PORTRAIT_BATCH_RUNNING);
+    expect(line?.detail).not.toContain("{");
+  });
+
   it("shows nothing for an empty sentence", () => {
     expect(statusLine("  ", null)).toBeNull();
     expect(statusLine("", { code: "NOTICE_CLEAR", text: "" })).toBeNull();

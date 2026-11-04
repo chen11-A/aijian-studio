@@ -55,7 +55,7 @@ describe("professional workspace", () => {
         .getAllByRole("button", { name: /角色/ })
         .find((item) => item.className.includes("tab"))!,
     );
-    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
     expect((await screen.findAllByText(/请打开安装好的 AIVORA 再出图/)).length).toBeGreaterThan(0);
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
@@ -180,7 +180,7 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("人物名字"), { target: { value: "老刀" } });
     fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "老刀，光头" } });
     fireEvent.change(screen.getByLabelText("画风"), { target: { value: "古风武侠" } });
-    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
     expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
@@ -470,7 +470,7 @@ describe("professional workspace", () => {
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
-      fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+      fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
       expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
       expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
       fireEvent.click(stageTab("分镜"));
@@ -614,16 +614,18 @@ describe("professional workspace", () => {
       return { kind: "OK", text: "性别未写明", model: "grok-4.7" };
     });
     fireEvent.click(stageTab("角色与场景"));
+    // 3J-U06: 「补这个人的」 goes away once all four are done, so ask the unknown look first.
+    const inferLook = completeText.getMockImplementation()!;
+    completeText.mockResolvedValue({ kind: "OK", text: "性别未写明", model: "grok-4.7" });
     fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
+    expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
+    completeText.mockImplementation(inferLook);
+    fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
     await waitFor(() =>
       expect(screen.getByLabelText("外貌")).toHaveValue("年轻女性，二十多岁，黑色长发。"),
     );
     expect(screen.getByLabelText("外貌")).toHaveValue("年轻女性，二十多岁，黑色长发。");
-    completeText.mockResolvedValue({ kind: "OK", text: "性别未写明", model: "grok-4.7" });
-    fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
-    expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     const place = document.querySelector(".scene.place");
     expect(place?.getAttribute("title")).toBe("外景 · 夜");
@@ -879,7 +881,7 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.change(screen.getByLabelText("环境音"), { target: { value: "雨声" } });
     expect(screen.getByLabelText("环境音")).toHaveValue("雨声");
-    fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+    fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
     expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
     expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "声音开" }));
@@ -953,15 +955,16 @@ it("asks before a portrait, and splits a line that will not fit in 15 seconds", 
   });
   await openSample();
   fireEvent.click(stageTab("角色与场景"));
+  // 3J-U06: 「补这个人的」 goes away once all four are done, so ask the unknown look first.
+  mode = "unknown";
   fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
+  fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
+  expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
+  mode = "infer";
+  fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
   await waitFor(() =>
     expect(screen.getByLabelText("外貌")).toHaveValue("林骁，男性，约二十八岁，短发。"),
   );
-  mode = "unknown";
-  fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "生成定妆照" }));
-  expect(await screen.findByText("先写下外貌，再出定妆照。")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("角色声音"), { target: { value: "leo" } });
   fireEvent.change(screen.getByLabelText("旁白声音"), { target: { value: "leo" } });
   fireEvent.click(stageTab("剧本"));
@@ -1102,6 +1105,24 @@ it("asks action and performance, then writes those fields on the shot", async ()
   fireEvent.change(screen.getByLabelText("作品名"), { target: { value: "雨夜巷战测试" } });
   fireEvent.keyDown(screen.getByLabelText("作品名"), { key: "Enter" });
   expect(screen.getByRole("button", { name: "作品" }).textContent).toContain("雨夜巷战测试");
+});
+
+it("makes every missing portrait from one button and shows each slot's state", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("角色与场景"));
+  const all = screen.getByRole("button", { name: "给所有人出定妆照" });
+  expect(all).toHaveClass("primary");
+  expect(screen.queryByRole("button", { name: "生成定妆照" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "补全缺少的定妆照" })).toBeNull();
+  expect(document.querySelectorAll(".slot-empty")).toHaveLength(4);
+  expect(document.querySelector(".refs4 .rain")).toBeNull();
+  fireEvent.click(all);
+  await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));
+  expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
+  expect(screen.getByRole("button", { name: "给所有人出定妆照" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "补这个人的" })).toBeNull();
+  expect(screen.getAllByText("定妆照齐了").length).toBeGreaterThan(0);
 });
 
 it("lets the character page set gender and age, and lists only voices of that gender", async () => {
@@ -2178,7 +2199,7 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
   ).toContain("镜");
   expect(document.body.textContent).toContain("抓紧衣角");
   fireEvent.click(stageTab("角色"));
-  fireEvent.click(screen.getAllByRole("button", { name: "生成定妆照" })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: "补这个人的" })[0]!);
   expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
