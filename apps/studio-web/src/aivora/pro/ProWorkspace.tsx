@@ -2627,6 +2627,13 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   const finished = tracked.filter((job) => job.status === "done" || job.status === "failed").length;
   const progress = tracked.length === 0 ? 0 : Math.round((finished / tracked.length) * 100);
 
+  // UI wiring (3J-U02): each page opens with its own helper in the assistant. Only a page
+  // change picks it; chooseRole is a new function on every render.
+  useEffect(() => {
+    const helper = PAGE_ROLE[stage];
+    if (helper) chooseRole(helper);
+  }, [stage]);
+
   return (
     <div
       className="pro-root"
@@ -3737,6 +3744,12 @@ const CHAT_ROLES: { id: Role; label: string }[] = [
   { id: "art", label: "美术" },
 ];
 const inChat = (role: Role) => CHAT_ROLES.some((item) => item.id === role);
+/** The helper each page starts with: 剧本 the writer, 角色与场景 the art director, 分镜 the director. */
+const PAGE_ROLE: Partial<Record<Stage, Role>> = {
+  script: "writer",
+  cast: "art",
+  board: "director",
+};
 
 function Assistant({
   role,

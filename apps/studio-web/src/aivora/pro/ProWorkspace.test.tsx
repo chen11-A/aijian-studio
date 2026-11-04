@@ -2291,3 +2291,23 @@ it("keeps 提示词 and 审片 out of the chat and answers them under 高级", a
   expect(screen.queryByText(/提示词写好了/)).not.toBeInTheDocument();
   expect(screen.queryByText("雨夜巷口，林骁抬眼")).not.toBeInTheDocument();
 });
+
+it("starts each page with its own helper", async () => {
+  installDesktop();
+  await openSample();
+  const helper = () => (screen.getByLabelText("正在和：") as HTMLSelectElement).value;
+  expect(helper()).toBe("writer");
+  expect(screen.getByLabelText("跟助手说")).toHaveAttribute(
+    "placeholder",
+    expect.stringContaining("跟编剧说说你的想法"),
+  );
+  fireEvent.click(stageTab("角色与场景"));
+  expect(helper()).toBe("art");
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  expect(helper()).toBe("director");
+  pickHelper("表演指导");
+  expect(helper()).toBe("performance");
+  fireEvent.click(stageTab("剧本"));
+  expect(helper()).toBe("writer");
+});
