@@ -3232,3 +3232,55 @@ it("discards a late art draft after leaving its assistant scope", async () => {
     writes.some(([value]) => (value as FilmProject).styleZh === "迟到的美术画风不应写入"),
   ).toBe(false);
 });
+
+it("keeps a hand-edited shot when a late prompter request returns", async () => {
+  const { completeText } = installDesktop();
+  const saved = sampleFilm();
+  saved.backendProjectId = PROJECT_ID;
+  vi.mocked(window.aijian!.readFilmProject!).mockResolvedValue(saved);
+  window.localStorage.setItem("aivora.film.activeId", saved.id);
+  render(<ProWorkspace projectId={PROJECT_ID} />);
+  await waitFor(() =>
+    expect(document.querySelector(".pro-root")).toHaveAttribute("data-generate", "on"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /巷战·初交手/ }));
+  openBoardTools();
+  let resolve!: (reply: { kind: "OK"; text: string }) => void;
+  completeText.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "写英文提示词" }));
+  await waitFor(() => expect(resolve).toBeDefined());
+  fireEvent.change(screen.getByLabelText("分镜画面"), {
+    target: { value: "用户手改镜头必须保留" },
+  });
+  await act(async () => {
+    resolve({
+      kind: "OK",
+      text: '{"keyframe":{"prompt_zh":"迟到的提示词不应写入","prompt_en":"late prompt"}}',
+    });
+  });
+  expect(screen.getByLabelText("分镜画面")).toHaveValue("用户手改镜头必须保留");
+  expect(screen.queryByText(/迟到的提示词不应写入/)).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      vi
+        .mocked(window.aijian!.writeFilmProject!)
+        .mock.calls.some(([value]) =>
+          (value as FilmProject).shots.some((shot) => shot.picture === "用户手改镜头必须保留"),
+        ),
+    ).toBe(true),
+  );
+  expect(
+    vi
+      .mocked(window.aijian!.writeFilmProject!)
+      .mock.calls.some(([value]) =>
+        (value as FilmProject).shots.some((shot) =>
+          shot.promptZh?.includes("迟到的提示词不应写入"),
+        ),
+      ),
+  ).toBe(false);
+});

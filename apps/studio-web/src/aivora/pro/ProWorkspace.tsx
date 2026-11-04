@@ -1,3 +1,4 @@
+import { planPrompterDraft } from "./actions/prompter";
 import { planArtDraft } from "./actions/art";
 import { applyContinuityChecks } from "../film/continuity-rules";
 import { ensureContinuityFrame, continuityFailureNotice } from "./continuity-frame";
@@ -98,14 +99,12 @@ import {
   parseLooseJson,
   performanceFromModel,
   voiceDirectionFromModel,
-  prompterFromModel,
   qcFromModel,
   scenesEchoRequest,
   SHOT_SIZES,
   shotPerson,
   speechSeconds,
   splitSpokenLine,
-  withIdentityLocks,
 } from "../film/phase2";
 import { grokBridge } from "../grok-auth/transport";
 import { useGrokAccount, useGrokConnected, useGrokDenied } from "../grok-auth/useGrokConnected";
@@ -1879,37 +1878,24 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       noteAgent("prompter", "rejected", "先拆出镜头，再请提示词工程师。");
       return;
     }
-    const locked = withIdentityLocks(
-      keyframePrompt(current, film),
-      film.characters,
-      current.characters,
-    );
-    const reply = await completeAgent(
-      "prompter",
-      locked.prompt,
-      "写成这一镜的提示词。只输出 JSON。",
-    );
-    if (!isTurnCurrent(turn)) return;
-    const parsed = reply.text ? prompterFromModel(parseLooseJson(reply.text)) : null;
-    if (!parsed) {
-      const failed = reply.text ? "提示词没有按格式返回。" : reply.detail;
-      finishTurn(turn, failed);
-      noteAgent("prompter", "rejected", failed);
+    const result = await planPrompterDraft(film, current, {
+      request: completeAgent,
+      current: () => isTurnCurrent(turn),
+    });
+    if (!isTurnCurrent(turn) || result.status === "stale") return;
+    if (result.status === "rejected") {
+      finishTurn(turn, result.notice);
+      noteAgent("prompter", "rejected", result.notice);
       return;
     }
-    const zh = withIdentityLocks(parsed.zh || locked.prompt, film.characters, current.characters);
-    setFilm(
-      updateShot(film, current.id, {
-        promptZh: zh.prompt,
-        promptEn: parsed.en,
-      }),
-    );
-    setStructured([zh.prompt, parsed.en ? `英文：${parsed.en}` : "英文还没写。"].filter(Boolean));
-    const missed = zh.missing.length > 0 ? `已补上${zh.missing.join("、")}的外貌描述。` : "";
+    setFilm(result.film);
+    setStructured([result.zh, result.en ? `英文：${result.en}` : "英文还没写。"].filter(Boolean));
+    const missed =
+      result.missing.length > 0 ? `已补上${result.missing.join("、")}的外貌描述。` : "";
     publishCard("prompter", {
       title: `提示词 · 镜头 ${current.no}`,
-      rows: [{ id: current.id, mark: "中文", text: zh.prompt, tail: "" }],
-      notes: parsed.en ? [`英文：${parsed.en}`] : [],
+      rows: [{ id: current.id, mark: "中文", text: result.zh, tail: "" }],
+      notes: result.en ? [`英文：${result.en}`] : [],
       applied: true,
       mode: "shots",
     });
