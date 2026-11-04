@@ -30,7 +30,8 @@
 .demo-root .brand strong {
   font-size: 25px;
 }
-.demo-root .topbar > select {
+.demo-root .topbar > select,
+.demo-root .topbar > .mouse-select {
   width: 164px;
   height: 40px;
 }

@@ -22,6 +22,7 @@ import { useDraftReviewRevision } from "./useDraftReviewRevision";
 import { useDraftReviewRevisionInput } from "./useDraftReviewRevisionInput";
 import "./draft-review-revision.css";
 
+import { Select } from "./Select";
 type Props = {
   job: DraftExportJob;
   sourceTarget?: DraftReviewTarget;
@@ -585,7 +586,7 @@ function RevisionPlan({
           </details>
           <div className="assembly-actions">
             {onAssembly && <Button onClick={onAssembly}>按已批准计划编辑本集装配</Button>}
-            {onExport && <Button onClick={onExport}>另行导出本集新装配 DRAFT</Button>}
+            {onExport && <Button onClick={onExport}>另行导出本集新装配草稿</Button>}
           </div>
           <h5>3. 关联批准后另行导出的候选草稿</h5>
           <p>
@@ -594,7 +595,7 @@ function RevisionPlan({
           <InputRecovery draft={draft} locked={locked} />
           <label>
             候选草稿
-            <select
+            <Select
               aria-label={`计划 ${plan.plan_id} 候选草稿`}
               disabled={locked || jobsBusy || !exports || draft.status === "INVALID"}
               value={draft.input.candidateOperationId}
@@ -611,7 +612,7 @@ function RevisionPlan({
                   缓存候选已不符合条件，请重新选择
                 </option>
               )}
-            </select>
+            </Select>
           </label>
           {!choices.length && <p>尚无符合条件的后来导出。保存、导出新版后重新读取候选列表。</p>}
           {chosen && (
@@ -799,7 +800,7 @@ function RevisionCandidate({
           <InputRecovery draft={draft} locked={state.busy || state.pending !== null} />
           <label>
             人工复核结果
-            <select
+            <Select
               aria-label={`候选 ${candidate.candidate_id} 人工复核结果`}
               value={draft.input.outcome}
               disabled={locked}
@@ -811,7 +812,7 @@ function RevisionCandidate({
             >
               <option value="NEEDS_MORE_WORK">仍需修改</option>
               <option value="MANUALLY_CHECKED">已人工核对</option>
-            </select>
+            </Select>
           </label>
           <label>
             人工复核说明

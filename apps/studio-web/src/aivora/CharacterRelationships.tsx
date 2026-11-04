@@ -2,6 +2,7 @@ import { Button } from "./Common";
 import { newCreativeId } from "./adapters/creativeLibrary";
 import { withCreativeDetails } from "./adapters/creativeCharacterDetails";
 import type { CharacterDetailsProps } from "./CharacterDetails";
+import { Select } from "./Select";
 
 export function CharacterRelationships({
   content,
@@ -63,7 +64,7 @@ export function CharacterRelationships({
       <h3>角色关系</h3>
       <label>
         添加关系对象
-        <select
+        <Select
           value=""
           disabled={locked || relationships.length >= 2000}
           onChange={(event) => add(event.currentTarget.value)}
@@ -76,7 +77,7 @@ export function CharacterRelationships({
                 {item.name || "未命名角色"}
               </option>
             ))}
-        </select>
+        </Select>
       </label>
       {!selected.length && (
         <p className="manual-creative-muted">尚无关系；先创建其他角色，再明确选择关系对象。</p>

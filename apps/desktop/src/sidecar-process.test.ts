@@ -48,6 +48,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 import { createLocalApiClient } from "./api-client";
 import { SidecarStartupError, startSidecar, type SidecarHandle } from "./sidecar-process";
 import { developmentPythonLaunch } from "./development-python";
+import { ffmpegOnPath, ffmpegSkipReason } from "./test-ffmpeg";
 
 let activeSidecar: SidecarHandle | null = null;
 const repositoryRoot = resolve(__dirname, "../../..");
@@ -213,9 +214,9 @@ afterEach(async () => {
   }
 });
 
-test(
-  "starts the real Python sidecar, authenticates health, and stops on stdin EOF",
-  { timeout: 30_000 },
+test.skipIf(!ffmpegOnPath())(
+  `starts the real Python sidecar, authenticates health, and stops on stdin EOF (${ffmpegSkipReason})`,
+  { timeout: 60_000 },
   async () => {
     const phases: Phase[] = [];
     phaseCapture.current = phases;
@@ -238,7 +239,7 @@ test(
           PYTHONPATH: join(repositoryRoot, "services", "api", "src"),
           AIJIAN_DATA_DIR: join(testWorkspace, "workspace"),
         },
-        startupTimeoutMs: 10_000,
+        startupTimeoutMs: 20_000,
         shutdownTimeoutMs: 5_000,
       });
       mark(phases, "ready", { pid: activeSidecar.session.pid, port: activeSidecar.session.port });

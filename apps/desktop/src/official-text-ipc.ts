@@ -123,6 +123,7 @@ async function generate(
     text: command.text,
     ...(command.instructions !== undefined ? { instructions: command.instructions } : {}),
     approvalContext: `项目：${project}\n分集：${episode}\n剧本基准：${command.base ? `${command.base.version_id} / ${command.base.content_hash} / r${command.base.head_revision}` : "无已保存剧本"}\n只发送下方输入和指令；生成结果存为待采纳建议。`,
+    billingProjectId: project,
   };
   let result: ChatGPTTextResult;
   try {

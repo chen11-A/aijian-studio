@@ -13,7 +13,7 @@ if __name__ == "__main__":
         and (Path(sys._MEIPASS) / "aivora-development-runtime.json").is_file()
     ):
         if sys.platform != "win32" or sys.getwindowsversion().major < 10:
-            raise RuntimeError("AIVORA Dev Core requires Windows 10 or later")
+            raise RuntimeError("AIVORA requires Windows 10 or later")
     from aijian_api.sidecar import backup_command, run
 
     if len(sys.argv) > 1:

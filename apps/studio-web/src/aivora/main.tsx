@@ -6,6 +6,7 @@ import "./demo.css";
 import "./authority.css";
 import "./v2.css";
 import "./workbench-layout.css";
+import "./qa-polish.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

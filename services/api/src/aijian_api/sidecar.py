@@ -545,8 +545,9 @@ def run(*, remote_source_extract_composition: RemoteSourceExtractComposition | N
         if remote_worker is not None:
             remote_worker.start()
             remote_worker_started = True
-        sub2api_worker.start()
-        sub2api_worker_started = True
+        # Sub2API relay dispatch is retired. The runtime stays constructed so
+        # readiness can see that it was not started, but it must not poll or
+        # open a gateway connection. Historical rows remain readable.
 
         handshake = create_handshake(port=port, token=token, pid=os.getpid())
         # Keep UTF-8/LF wire framing independent of Windows text newline translation.

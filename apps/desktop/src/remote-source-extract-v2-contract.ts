@@ -125,7 +125,7 @@ export type Sub2APIApprovalResponse = {
 export type Sub2APIQueueReceipt = components["schemas"]["CreatedProposalRunResponse"];
 export type Sub2APIDefiniteError = {
   kind: "DEFINITE_SERVER_ERROR";
-  status: 401 | 403 | 404 | 409 | 422 | 428 | 503;
+  status: 401 | 403 | 404 | 409 | 410 | 422 | 428 | 503;
   code: string;
   request_id: string;
 };

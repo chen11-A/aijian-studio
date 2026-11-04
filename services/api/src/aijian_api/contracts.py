@@ -176,6 +176,7 @@ class CreateRemoteSourceExtractRunRequest(BaseModel):
 
     source: CreateProposalRunRequest
     selection: RemoteSourceExtractSelectionData
+    billing_account_kind: Literal["gpt_login", "grok_login"] = "gpt_login"
 
 
 class ProposalRunTaskData(BaseModel):

@@ -69,5 +69,6 @@ class ProposalRunFactory:
                 connection_id=payload.selection.connection_id,
                 connection_revision=payload.selection.connection_revision,
                 model_id=payload.selection.model_id,
+                billing_account_kind=payload.billing_account_kind,
             ),
         )

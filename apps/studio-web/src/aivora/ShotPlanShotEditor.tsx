@@ -1,4 +1,5 @@
 import type { ShotPlanPreparation, ShotPlanShot } from "@aijian/contracts/shot-plan";
+import { Select } from "./Select";
 
 const framingNames = {
   EXTREME_WIDE: "大远景",
@@ -72,7 +73,7 @@ export function ShotPlanShotEditor({
         <>
           <label>
             剧本场景
-            <select
+            <Select
               value={shot.script_scene_id}
               onChange={(event) => {
                 const next = scenes.find((item) => item.scene_id === event.target.value);
@@ -92,7 +93,7 @@ export function ShotPlanShotEditor({
                   {item.ordinal}. {item.heading}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <div className="shot-plan-block-choices" role="group" aria-label="镜头引用的剧本块">
             <p>选择本镜覆盖的动作和对白，原文与稳定引用会一起保留。</p>
@@ -133,7 +134,7 @@ export function ShotPlanShotEditor({
       <div className="shot-plan-inline-fields">
         <label>
           景别
-          <select
+          <Select
             value={shot.framing}
             onChange={(event) => {
               const framing = event.target.value;
@@ -146,7 +147,7 @@ export function ShotPlanShotEditor({
                 {name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
           时长（整数帧）

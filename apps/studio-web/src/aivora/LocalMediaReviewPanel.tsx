@@ -28,6 +28,7 @@ import type { AssemblyVersion } from "./adapters/episodeMediaAssembly";
 import { Button } from "./Common";
 import "./local-media-review.css";
 
+import { Select } from "./Select";
 export type LocalReviewFormState = {
   input: boolean;
   busy: boolean;
@@ -465,7 +466,7 @@ function ScopedLocalMediaReviewPanel(props: Props) {
       {notice && <p role="status">{notice}</p>}
       <label>
         选择已保存的自审片段
-        <select
+        <Select
           value={selection}
           disabled={blocked || !savedVersion}
           onChange={(event) => void choose(event.target.value)}
@@ -484,7 +485,7 @@ function ScopedLocalMediaReviewPanel(props: Props) {
                   文字字幕 · {s.segment_id} · [{s.start_frame}, {s.end_frame}) 帧
                 </option>
               ))}
-        </select>
+        </Select>
       </label>
       {snapshot && (
         <div className="local-review-subject">
@@ -533,7 +534,7 @@ function ScopedLocalMediaReviewPanel(props: Props) {
           <p>{[...observation].length} / 2000 字符；请写实际观察，不预填通过。</p>
           <label>
             本次自审结果
-            <select
+            <Select
               value={outcome}
               disabled={busy || unresolved}
               onChange={(event) =>
@@ -547,7 +548,7 @@ function ScopedLocalMediaReviewPanel(props: Props) {
               <option value="">请明确选择结果</option>
               <option value="CHECKED">已核对并记录</option>
               <option value="NEEDS_CHANGES">发现问题，需修改</option>
-            </select>
+            </Select>
           </label>
           <label className="local-review-declaration">
             <input

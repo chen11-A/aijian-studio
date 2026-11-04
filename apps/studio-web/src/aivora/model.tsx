@@ -262,7 +262,12 @@ function useDemoModel(fixture?: DemoFixture) {
   }, []);
   const canNavigate = () => navigationGuard.current?.() ?? true;
   const [scenario, setScenario] = useState<Scenario>("normal");
-  const [professional, setProfessional] = useState(false);
+  const productWorkspace = fixture === undefined;
+  const [professional, setProfessionalState] = useState(productWorkspace);
+  const setProfessional = (value: boolean) => {
+    setProfessionalState(productWorkspace ? true : value);
+  };
+  const [filmStep, setFilmStep] = useState(0);
   const [inspector, setInspector] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -456,6 +461,7 @@ function useDemoModel(fixture?: DemoFixture) {
     setAiDraft(request);
   }
   const history = useRef<PageId[]>([]);
+  const goRef = useRef<(next: PageId) => void>(() => undefined);
   const scroll = useRef<Partial<Record<PageId, number>>>({});
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -825,13 +831,13 @@ function useDemoModel(fixture?: DemoFixture) {
               kind: "unknown",
               message: "来源已找到，但保存记录未能清除；请人工核对。",
             });
-            return;
+          } else {
+            sourceImportUnknown.delete(projectId);
+            put("source", normalizedText);
+            put("importedName", reconciled.data.filename);
+            setSourceDocument(reconciled);
+            setSourceImportState({ kind: "saved", filename: reconciled.data.filename });
           }
-          sourceImportUnknown.delete(projectId);
-          put("source", normalizedText);
-          put("importedName", reconciled.data.filename);
-          setSourceDocument(reconciled);
-          setSourceImportState({ kind: "saved", filename: reconciled.data.filename });
         }
       }
       const manifest = await studio.getSourceManifest(projectId);
@@ -1446,9 +1452,14 @@ function useDemoModel(fixture?: DemoFixture) {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }
+  function releaseSourceRead(next: PageId) {
+    if (next === "source") return;
+    sourceStageGate.invalidate();
+    setSourceStage((current) => (current.kind === "loading" ? { kind: "empty" } : current));
+  }
   function go(next: PageId) {
     if (next !== page && !canNavigate()) return;
-    if (next !== "source") sourceStageGate.invalidate();
+    releaseSourceRead(next);
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     if (next !== page) history.current.push(page);
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
@@ -1459,10 +1470,11 @@ function useDemoModel(fixture?: DemoFixture) {
     setPlaying(false);
     window.history.pushState({}, "", `#${next}`);
   }
+  goRef.current = go;
   function back() {
     if (!canNavigate()) return;
     const next = history.current.pop() ?? "projects";
-    if (next !== "source") sourceStageGate.invalidate();
+    releaseSourceRead(next);
     if (page === "storyboard") setSelectedShot(shotAtTime(shots, time)?.id ?? 1);
     scroll.current[page] = document.getElementById("demo-scroll")?.scrollTop ?? 0;
     setPage(next);
@@ -1474,6 +1486,17 @@ function useDemoModel(fixture?: DemoFixture) {
     const el = document.getElementById("demo-scroll");
     if (el) el.scrollTop = scroll.current[page] ?? 0;
   }, [page]);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (typeof next !== "string" || !(next in pages)) return;
+      goRef.current(next as PageId);
+      if (next === "services")
+        requestAnimationFrame(() => document.getElementById("model-center")?.focus());
+    };
+    window.addEventListener("aivora-open-page", open);
+    return () => window.removeEventListener("aivora-open-page", open);
+  }, []);
   useEffect(() => {
     void connectRealWorkspace();
   }, []);
@@ -1503,7 +1526,10 @@ function useDemoModel(fixture?: DemoFixture) {
         window.history.pushState({}, "", `#${currentPage.current}`);
         return;
       }
-      if (next !== "source") sourceStageGate.invalidate();
+      if (next !== "source") {
+        sourceStageGate.invalidate();
+        setSourceStage((current) => (current.kind === "loading" ? { kind: "empty" } : current));
+      }
       setPage(next);
       setPlaying(false);
     };
@@ -1607,6 +1633,8 @@ function useDemoModel(fixture?: DemoFixture) {
     setScenario,
     professional,
     setProfessional,
+    filmStep,
+    setFilmStep,
     inspector,
     setInspector,
     aiOpen,

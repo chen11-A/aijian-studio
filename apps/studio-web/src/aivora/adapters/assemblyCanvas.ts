@@ -1,4 +1,4 @@
-/** Saved canvas choices supported by the bounded local DRAFT encoder. */
+/** Saved canvas choices supported by the bounded local 草稿 encoder. */
 export const ASSEMBLY_CANVASES = [
   { width: 1920, height: 1080, label: "横屏 16:9 · 1920 × 1080" },
   { width: 1080, height: 1920, label: "竖屏 9:16 · 1080 × 1920" },

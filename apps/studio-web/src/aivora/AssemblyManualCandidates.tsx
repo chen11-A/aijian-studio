@@ -15,6 +15,7 @@ import { impactEnvelope } from "@aijian/contracts/script-confirmation-impact";
 import { Button } from "./Common";
 import { newAssemblySegmentId } from "./adapters/assemblyEditing";
 import type { AssemblyContent, AssemblyVisualSegment } from "./adapters/episodeMediaAssembly";
+import { Select } from "./Select";
 type Gateway = Partial<ManualMediaCandidateGateway & MediaPreparationGateway>;
 export function AssemblyManualCandidates({
   content,
@@ -232,7 +233,7 @@ export function AssemblyManualCandidates({
       </div>
       <label>
         精确手工候选
-        <select
+        <Select
           value={choice}
           disabled={!ready || busy || locked}
           onChange={(event) => void inspect(event.target.value)}
@@ -243,7 +244,7 @@ export function AssemblyManualCandidates({
               候选{v.version_number} · {v.content.asset_snapshot.filename} · {v.version_id}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {candidate && preparation && (
         <>

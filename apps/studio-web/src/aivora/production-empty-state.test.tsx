@@ -8,43 +8,68 @@ import { DemoProvider, createAivoraSampleFixture, useDemo } from "./model";
 
 afterEach(() => cleanup());
 
+function expectProfessionalShell() {
+  expect(
+    screen.getByRole("heading", { name: "写下你的故事，或者一句话的想法" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "打开示例" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "新建作品" })).toBeInTheDocument();
+  for (const stage of ["剧本", "角色与场景", "分镜", "剪辑"]) {
+    expect(screen.getByRole("button", { name: new RegExp(stage) })).toBeInTheDocument();
+  }
+  expect(screen.queryByRole("button", { name: "普通模式" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "专业模式" })).not.toBeInTheDocument();
+  expect(screen.queryByText("苏晚", { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText("雨夜街道", { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText("城市入夜", { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText(/记忆可以被读取、交易和修改/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
+}
+
 describe("production empty project state", () => {
   it.each([
-    ["launch", "把故事，变成看得见的世界。"],
-    ["home", "创作首页"],
-    ["project", "项目创作首页"],
-    ["projects", "项目中心"],
-    ["source", "故事输入与来源"],
-    ["story", "故事理解"],
-    ["script", "剧本"],
-    ["characters", "角色与世界"],
-    ["character", "角色模型与本集造型"],
-    ["world", "世界观"],
-    ["scenes", "场景"],
-    ["storyboard", "分镜"],
-    ["generation", "制作"],
-    ["assembly", "成片组装"],
-    ["review", "审片"],
-    ["changes", "修改方案"],
-    ["assets", "素材库"],
-    ["voice", "声音制作"],
-    ["export", "成片预览与导出"],
-    ["services", "AI 服务"],
-    ["costs", "用量"],
-    ["settings", "用户设置"],
-    ["projectSettings", "项目设置"],
-  ])("renders %s without sample domain facts", (page, heading) => {
+    "launch",
+    "home",
+    "project",
+    "projects",
+    "source",
+    "story",
+    "script",
+    "characters",
+    "character",
+    "world",
+    "scenes",
+    "storyboard",
+    "assembly",
+    "review",
+    "changes",
+    "assets",
+    "services",
+    "costs",
+    "settings",
+    "projectSettings",
+  ])("renders %s in the professional workspace without sample domain facts", (page) => {
     window.history.replaceState({}, "", `#${page}`);
+    window.localStorage.clear();
 
     render(<DemoApp />);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-    expect(screen.queryByText("苏晚", { exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByText("雨夜街道", { exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByText("城市入夜", { exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByText(/记忆可以被读取、交易和修改/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
+    expectProfessionalShell();
   });
+
+  it.each(["generation", "voice", "export"])(
+    "renders the %s route in the professional workspace before a project exists",
+    (page) => {
+      window.history.replaceState({}, "", `#${page}`);
+      window.localStorage.clear();
+
+      render(<DemoApp />);
+
+      expectProfessionalShell();
+      expect(screen.queryByLabelText("媒体任务沙箱")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("配音方案沙箱")).not.toBeInTheDocument();
+    },
+  );
 
   it("updates an already-mounted character page to its empty state", () => {
     function CharacterStateHarness() {
@@ -87,7 +112,7 @@ describe("production empty project state", () => {
       );
 
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByText(/才会读取此页面的内容/)).toBeInTheDocument();
+      expect(screen.getByText(/可以打开示例「雾城来信」/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "确认世界观" })).not.toBeInTheDocument();
     },
   );

@@ -244,6 +244,6 @@ describe("reversible desktop editor presentation", () => {
     expect(screen.getByLabelText("叙事覆盖说明")).toHaveValue("建立两人关系");
     expect(screen.getByLabelText("连续性说明")).toHaveValue("两人视线相对");
     expect(screen.getByLabelText("转场说明")).toHaveValue("切到近景");
-    expect(screen.getByText(`镜头身份：${id}`)).toBeInTheDocument();
+    expect(screen.getByText("镜头已编号，保存后仍是这一镜。")).toBeInTheDocument();
   });
 });

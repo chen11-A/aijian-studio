@@ -7,6 +7,7 @@ import { CharacterReferencePreview } from "./CharacterReferencePreview";
 import { VisualBibleHistory } from "./VisualBibleHistory";
 import { VisualEnvironmentScopeEditor } from "./VisualEnvironmentScopeEditor";
 import type { AssetLibraryGateway, MediaAsset } from "./adapters/assetLibrary";
+import { Select } from "./Select";
 
 type AssetRef = VisualContent["scenes"][number]["assets"][number];
 function AssetChoices({
@@ -29,7 +30,7 @@ function AssetChoices({
   );
   return (
     <div>
-      <select
+      <Select
         aria-label={label}
         value=""
         disabled={locked}
@@ -57,7 +58,7 @@ function AssetChoices({
             {x.version.filename} · v{x.version.ordinal} · {x.version.id}
           </option>
         ))}
-      </select>
+      </Select>
       {!assets.length && <p>尚无已核对的素材列表；请在素材页登记或核对读取状态。</p>}
       <ul>
         {value.map((x) => (
@@ -130,16 +131,16 @@ export function VisualBibleEditor({
   return (
     <section
       className="manual-creative-page visual-bible-page"
-      aria-label="G5视觉版本审签"
+      aria-label="视觉版本审签"
       aria-busy={w.busy}
     >
       <header>
-        <h2>作品视觉版本与 G5 人工审签</h2>
+        <h2>视觉与环境</h2>
         <Pill>
           {w.dirty
             ? "未保存视觉候选"
             : w.authority?.status === "CURRENT"
-              ? "G5当前批准"
+              ? "视觉版本已批准"
               : w.selected
                 ? "视觉候选 / 历史版本"
                 : "尚无视觉候选"}
@@ -272,7 +273,9 @@ export function VisualBibleEditor({
                 · {r.label} · {r.costume_id ?? "身份参考"} · <code>{r.reference_id}</code>
               </label>
             ))}
-            {!refs.length && <p>本库没有真实角色参考，不能通过G5。请先在角色设定中登记并保存。</p>}
+            {!refs.length && (
+              <p>本库没有真实角色参考，不能通过视觉审签。请先在角色设定中登记并保存。</p>
+            )}
           </fieldset>
           <fieldset disabled={w.locked}>
             <legend>场景参考</legend>
@@ -478,7 +481,7 @@ export function VisualBibleEditor({
         </>
       )}
       {w.selected && (
-        <section aria-label="人工G5动作">
+        <section aria-label="人工视觉审签">
           <h3>精确视觉版本人工审签</h3>
           <p>当前账户允许 continuity_reviewer / producer 两角色自审；这不等于两个独立人员审批。</p>
           <p>
@@ -556,7 +559,7 @@ export function VisualBibleEditor({
               })
             }
           >
-            明确批准此版本 G5
+            明确批准此视觉版本
           </Button>
           <Button
             disabled={actionsLocked || !inReview || !w.rationale.trim()}

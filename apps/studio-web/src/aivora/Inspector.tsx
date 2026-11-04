@@ -8,6 +8,7 @@ import { mediaTimecode } from "./MediaPages";
 import { useCurrentObject } from "./useCurrentObject";
 import "./v2-inspector.css";
 
+import { Select } from "./Select";
 type Spec = {
   key: string;
   label: string;
@@ -445,7 +446,7 @@ function CurrentObjectInspector() {
         {family === "shot" && actualTab === "参考" && (
           <label>
             关联角色
-            <select
+            <Select
               value={o.character.id}
               onChange={(event) => putField("characterId", event.target.value)}
             >
@@ -454,21 +455,21 @@ function CurrentObjectInspector() {
                   {item.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {fields.map((item) => (
           <label key={item.key}>
             {item.label}
             {item.options ? (
-              <select
+              <Select
                 value={field(item.key, item.fallback)}
                 onChange={(event) => putField(item.key, event.target.value)}
               >
                 {item.options.map((value) => (
                   <option key={value}>{value}</option>
                 ))}
-              </select>
+              </Select>
             ) : item.multiline ? (
               <textarea
                 value={field(item.key, item.fallback)}
@@ -527,7 +528,7 @@ function CurrentObjectInspector() {
         )}
       </div>
       <div className="v2-inspector-reference">
-        <small>本次演示内保存 · 切换模式保留</small>
+        <small>只保存在这次演示里</small>
         <Button
           icon="link"
           onClick={() => {
@@ -545,7 +546,7 @@ function CurrentObjectInspector() {
       <header>
         <Logo />
         <div>
-          <h2>Inspector</h2>
+          <h2>属性</h2>
           <p>当前对象 · 演示属性</p>
         </div>
       </header>

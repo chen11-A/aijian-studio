@@ -1,6 +1,7 @@
 import { useDemo } from "./model";
 import { seconds } from "./data";
 import { Button, FlowFooter, Info, PageTitle, Pill } from "./Common";
+import { Select } from "./Select";
 
 export function ChangesPage() {
   const d = useDemo();
@@ -142,14 +143,14 @@ export function ExportSettings() {
       ].map((field) => (
         <label key={field.key}>
           {field.label}
-          <select
+          <Select
             value={d.value(field.key, field.options[0])}
             onChange={(event) => d.put(field.key, event.target.value)}
           >
             {field.options.map((option) => (
               <option key={option}>{option}</option>
             ))}
-          </select>
+          </Select>
         </label>
       ))}
       <Pill tone="amber">设置仅保存在演示内存中</Pill>

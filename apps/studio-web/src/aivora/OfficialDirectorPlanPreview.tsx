@@ -78,10 +78,16 @@ export function OfficialDirectorPlanPreview({ content }: { content: OfficialDire
                     "手柄与安全切区",
                     `入 ${shot.handle_in_frames} 帧 / 出 ${shot.handle_out_frames} 帧 · [${shot.safe_cut_window.start_frame}, ${shot.safe_cut_window.end_frame})`,
                   ],
-                  ["原剧本场景", shot.script_scene_id],
-                  ["覆盖的原剧本块", shot.script_block_ids.join("、")],
-                  ["原对白块", shot.dialogue_block_ids.join("、") || "无"],
-                  ["稳定镜头身份", shot.shot_id],
+                  ["原剧本场景", shot.script_scene_id ? "已关联" : "未关联"],
+                  [
+                    "覆盖的原剧本块",
+                    shot.script_block_ids.length ? `${shot.script_block_ids.length} 块` : "无",
+                  ],
+                  [
+                    "原对白块",
+                    shot.dialogue_block_ids.length ? `${shot.dialogue_block_ids.length} 块` : "无",
+                  ],
+                  ["稳定镜头身份", "已编号"],
                 ] as const
               ).map(([label, value]) => (
                 <div key={label}>

@@ -136,6 +136,9 @@ def test_pinned_connection_verifies_original_hostname_and_closes_failed_socket(
 def test_real_store_worker_binding_consumes_once_and_preserves_unknown(
     tmp_path, monkeypatch, origin_mode, outcome
 ):
+    # Portproxy detection shells out to netsh on Windows and can time out on a
+    # busy runner. This test checks the consume-once binding, not that command.
+    monkeypatch.setattr(worker_module, "local_loopback_route_clear", lambda _url: True)
     client, studio = sidecar_client(tmp_path)
     now = datetime.now(UTC) + timedelta(seconds=5)
     source = accepted_source(client)

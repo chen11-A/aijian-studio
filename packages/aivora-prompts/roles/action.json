@@ -1,0 +1,2121 @@
+{
+  "$schema": "../schema/role-file.schema.json",
+  "format_version": 2,
+  "role": "action",
+  "name": "动作指导",
+  "version": 2,
+  "summary": "把每个镜头里的打斗和肢体动作拆成节点：方向、力度、接触和反应，再标出难拍的地方。",
+  "pipeline": {
+    "step": 5,
+    "reads_from": ["director"],
+    "feeds": ["sound", "continuity"]
+  },
+  "batching": "一次发一场里的一批镜头，最多 12 个；伤和手里的东西用 injuries_before 带到下一批。",
+  "attach_images": false,
+  "app_parsers": [
+    "actionFromModel 读顶层 beats[] 的 text、feasibility、workaround、at_seconds。",
+    "每个镜头自己的节点在 shots[].nodes 里，beats 和节点一一对应。"
+  ],
+  "system_prompt": [
+    "你是 AIVORA 的动作指导，也清楚 AI 视频的局限。一次拿到一批镜头，把打斗和肢体动作拆成节点，让每一下都有力度。",
+    "- 输入的每个镜头在 shots 里写一条，顺序不变；没有肢体动作的镜头 nodes 写 []。每个镜头最多 3 个节点，按开始时间排。",
+    "- 一个节点只写一个动作：一攻、一防、一受击或一个反应。at_seconds 是开始时间，duration_seconds 在 0.3 到 3 秒之间，结束不能超过镜头长度；同一个人的两个节点不能重叠。node_id 写成 镜头id-node-序号，例如 scene-2-shot-17-node-1。",
+    "- actor 是谁，target 是对谁（没有写 null），body_part 写用身体哪里或拿着什么，direction 写方向。同一场里一个人冲着别人出手的方向保持一致，不要越轴。",
+    "- force 是力度 1 到 5。3 以上必须写 force_cue：观众看得见的用力迹象，例如蹬地、转胯、对方被推后半步、溅起的水；1、2 写 null。",
+    "- contact 写这一下有没有碰到人或东西；碰到了写 reaction（被碰的一方看得见的反应），没碰到写 null。sfx_cue 写这一下最该有的声音，交给声音设计；人声不写，没有写 null。",
+    "- 难拍的动作（两人缠抱、地面翻滚、多人同时出手）拆成出手、冲击特写、受击反应，靠剪辑做出接触。",
+    "- beats 把全部节点按顺序再写一遍给软件看：text 用一句话写这个节点，feasibility 写 稳、看运气 或 难，写 难 时必须给 workaround，其他没有写 \"\"；at_seconds 和 node_id 和节点一致。",
+    "- injuries_before 里的伤，以及这一批里刚受的伤，之后那个部位只能做力度 1 的动作。新受的伤写进 injuries：哪个部位、哪一侧、什么伤、从哪个镜头开始、看起来什么样。",
+    "- props_after 写这一批结束时每个人两只手里拿着什么，空手写 null。",
+    "- 软件按字面判断是不是打斗戏，没有打斗的场也可能发过来（比如原文只是写了「打烊」）。这种场只给明显的肢体动作写节点，力度不超过 2。",
+    "- prompt_addon 是加在视频提示词后面的一句话，不超过 100 个字，写清力度和方向，不写 <IMAGE_n>；没有节点写 \"\"。safety_notes 写生成时要注意的事，比如不拍伤口特写。",
+    "输出格式：",
+    "{\"scene_id\":\"scene-1\",\"beats\":[{\"text\":\"\",\"feasibility\":\"稳\",\"workaround\":\"\",\"at_seconds\":0,\"node_id\":\"\"}],\"safety_notes\":[\"\"],\"shots\":[{\"shot_id\":\"scene-1-shot-1\",\"nodes\":[{\"node_id\":\"scene-1-shot-1-node-1\",\"at_seconds\":0,\"duration_seconds\":0,\"actor\":\"\",\"target\":null,\"move\":\"\",\"body_part\":\"\",\"direction\":\"\",\"force\":1,\"force_cue\":null,\"contact\":false,\"reaction\":null,\"sfx_cue\":null}],\"prompt_addon\":\"\"}],\"injuries\":[{\"name\":\"\",\"body_part\":\"\",\"side\":\"左\",\"kind\":\"\",\"from_shot\":\"\",\"visible_as\":\"\"}],\"props_after\":[{\"name\":\"\",\"left\":null,\"right\":null}]}",
+    "- direction 写 画左→画右、画右→画左、向前、向后、向下、向上、原地；side 写 左 或 右。",
+    "输出规则：",
+    "- 只输出一个 JSON 对象：第一个字符是 {，最后一个是 }。不要代码块、注释和说明文字，不写思考过程。",
+    "- 照上面的格式写，字段不能少也不能多；没有内容写 \"\"、null 或 []。",
+    "- 输入有几场、几个镜头，就一次全部写完，顺序不变。",
+    "- id 和人物名字照抄输入，不新造；字符串里不用英文双引号，要引号用「」。"
+  ],
+  "input_format": {
+    "notes": [
+      "shots 来自导演。positions 用来判断谁在画左、谁在画右。",
+      "injuries_before 是这一批之前已经受的伤。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "动作指导输入",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "scene", "injuries_before", "shots"],
+      "properties": {
+        "task": {
+          "const": "design_action"
+        },
+        "scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "title"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^scene-[1-9][0-9]*$"
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          }
+        },
+        "injuries_before": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "body_part", "side", "kind", "from_shot", "visible_as"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "body_part": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "side": {
+                "enum": ["左", "右"]
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "from_shot": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "visible_as": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "shot_id",
+              "size",
+              "seconds",
+              "picture",
+              "action",
+              "characters",
+              "positions"
+            ],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "size": {
+                "enum": ["大远景", "远景", "全景", "中景", "近景", "特写", "大特写"]
+              },
+              "seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 15
+              },
+              "picture": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 160
+              },
+              "action": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 160
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8
+                },
+                "minItems": 0,
+                "maxItems": 6,
+                "uniqueItems": true
+              },
+              "positions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "position", "depth", "visible"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "position": {
+                      "enum": ["画左", "画中", "画右", "画外"]
+                    },
+                    "depth": {
+                      "enum": ["前景", "中间", "后景"]
+                    },
+                    "visible": {
+                      "enum": ["全身", "半身", "脸", "背影", "只露手", "画外"]
+                    }
+                  }
+                },
+                "minItems": 0,
+                "maxItems": 6
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 12
+        }
+      }
+    }
+  },
+  "output_format": {
+    "notes": [
+      "beats 是旧格式，软件现在读它；shots[].nodes 是每个镜头自带的节点，声音设计按 node_id 配音效。",
+      "at_seconds 是这个镜头自己的秒数。"
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "动作指导输出",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene_id", "beats", "safety_notes", "shots", "injuries", "props_after"],
+      "properties": {
+        "scene_id": {
+          "type": "string",
+          "pattern": "^scene-[1-9][0-9]*$"
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text", "feasibility", "workaround", "at_seconds", "node_id"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 60
+              },
+              "feasibility": {
+                "enum": ["稳", "看运气", "难"]
+              },
+              "workaround": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "at_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "node_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-node-[1-9]$"
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 40
+        },
+        "safety_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "minItems": 0,
+          "maxItems": 5
+        },
+        "shots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["shot_id", "nodes", "prompt_addon"],
+            "properties": {
+              "shot_id": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "node_id",
+                    "at_seconds",
+                    "duration_seconds",
+                    "actor",
+                    "target",
+                    "move",
+                    "body_part",
+                    "direction",
+                    "force",
+                    "force_cue",
+                    "contact",
+                    "reaction",
+                    "sfx_cue"
+                  ],
+                  "properties": {
+                    "node_id": {
+                      "type": "string",
+                      "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*-node-[1-9]$"
+                    },
+                    "at_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 15
+                    },
+                    "duration_seconds": {
+                      "type": "number",
+                      "minimum": 0.3,
+                      "maximum": 3
+                    },
+                    "actor": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "target": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 8
+                    },
+                    "move": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 30
+                    },
+                    "body_part": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 12
+                    },
+                    "direction": {
+                      "enum": ["画左→画右", "画右→画左", "向前", "向后", "向下", "向上", "原地"]
+                    },
+                    "force": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "force_cue": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "contact": {
+                      "type": "boolean"
+                    },
+                    "reaction": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "sfx_cue": {
+                      "type": ["string", "null"],
+                      "minLength": 1,
+                      "maxLength": 16
+                    }
+                  }
+                },
+                "minItems": 0,
+                "maxItems": 3
+              },
+              "prompt_addon": {
+                "type": "string",
+                "maxLength": 100
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "injuries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "body_part", "side", "kind", "from_shot", "visible_as"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "body_part": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "side": {
+                "enum": ["左", "右"]
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "from_shot": {
+                "type": "string",
+                "pattern": "^scene-[1-9][0-9]*-shot-[1-9][0-9]*$"
+              },
+              "visible_as": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 40
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 10
+        },
+        "props_after": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "left", "right"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8
+              },
+              "left": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "right": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 16
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 12
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "action-1",
+      "title": "第一场第 4 到 15 镜：不是打斗（打烊不算），只写推门、站起和推信封",
+      "input": {
+        "task": "design_action",
+        "scene": {
+          "id": "scene-1",
+          "title": "雨夜旧书店"
+        },
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "scene-1-shot-4",
+            "size": "全景",
+            "seconds": 5,
+            "picture": "书店门口，沈砚推门进来，风衣湿透，肩头往下滴水；画左前景是背对他蹲着装书的林晚。",
+            "action": "沈砚推门进来，收起雨伞，站在门口没有往里走；画左前景的林晚背对着他，继续装书。",
+            "characters": ["沈砚", "林晚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "后景",
+                "visible": "全身"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-5",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "林晚蹲在书架前装书，头也没抬。",
+            "action": "林晚一边把书放进纸箱一边开口，头也没抬。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-6",
+            "size": "特写",
+            "seconds": 5,
+            "picture": "林晚沾着灰的手，把一摞旧书码进纸箱。",
+            "action": "林晚的手把书码齐，压进纸箱。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-7",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "门口的沈砚，头发湿透贴在额头，眼神沉静。",
+            "action": "沈砚看着画左，低声开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-8",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "林晚的手拿着一本旧书，停在半空。",
+            "action": "林晚手里的书停在半空，不动了；画外的沈砚说出一个名字。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "前景",
+                "visible": "只露手"
+              },
+              {
+                "name": "沈砚",
+                "position": "画外",
+                "depth": "后景",
+                "visible": "画外"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-9",
+            "size": "中景",
+            "seconds": 5,
+            "picture": "林晚站在书架前转过身，和门口的沈砚面对面。",
+            "action": "林晚慢慢站起来转过身，看清了门口的沈砚；沈砚站着没动。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-10",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚站在书架前，脸上没有表情。",
+            "action": "林晚看着画右的沈砚，平静地说。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-11",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "从沈砚肩后拍林晚：画右前景是沈砚湿透的风衣肩头，画左是林晚。",
+            "action": "画左的林晚看着沈砚追问；画右前景的沈砚背影不动。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-12",
+            "size": "近景",
+            "seconds": 14,
+            "picture": "沈砚站在收银台前，手里拿着一个油纸包着的信封。",
+            "action": "沈砚沉默几秒，把油纸信封放在收银台上，然后开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-13",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚盯着收银台上的信封，没有伸手。",
+            "action": "林晚盯着信封，没有伸手，轻声开口。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-14",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "沈砚站在收银台另一边，看着林晚。",
+            "action": "沈砚看着画左，语气很平。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-1-shot-15",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "收银台上的油纸信封，一只虎口有旧疤的左手按在信封上。",
+            "action": "那只左手把信封往前推了推。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "scene_id": "scene-1",
+        "beats": [
+          {
+            "text": "沈砚用右手推开玻璃门走进来",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-1-shot-4-node-1"
+          },
+          {
+            "text": "沈砚在门口收起雨伞",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 2,
+            "node_id": "scene-1-shot-4-node-2"
+          },
+          {
+            "text": "林晚慢慢站起来，转身面向门口",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.5,
+            "node_id": "scene-1-shot-9-node-1"
+          },
+          {
+            "text": "沈砚用左手从风衣内袋掏出油纸信封",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 1,
+            "node_id": "scene-1-shot-12-node-1"
+          },
+          {
+            "text": "沈砚把信封轻轻放在收银台上",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 2.4,
+            "node_id": "scene-1-shot-12-node-2"
+          },
+          {
+            "text": "沈砚用左手把信封往林晚那边推了推",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-1-shot-15-node-1"
+          }
+        ],
+        "safety_notes": ["这一场没有打斗，所有动作都很轻，力度不超过 1。"],
+        "shots": [
+          {
+            "shot_id": "scene-1-shot-4",
+            "nodes": [
+              {
+                "node_id": "scene-1-shot-4-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": null,
+                "move": "推门进来",
+                "body_part": "右手",
+                "direction": "向前",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "玻璃门被推开，门上的铃晃了一下",
+                "sfx_cue": "推门声"
+              },
+              {
+                "node_id": "scene-1-shot-4-node-2",
+                "at_seconds": 2,
+                "duration_seconds": 1.5,
+                "actor": "沈砚",
+                "target": null,
+                "move": "收起雨伞",
+                "body_part": "双手",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "收伞的哗啦声"
+              }
+            ],
+            "prompt_addon": "沈砚推门进来；沈砚收起雨伞。"
+          },
+          {
+            "shot_id": "scene-1-shot-5",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-6",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-7",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-8",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-9",
+            "nodes": [
+              {
+                "node_id": "scene-1-shot-9-node-1",
+                "at_seconds": 0.5,
+                "duration_seconds": 2,
+                "actor": "林晚",
+                "target": null,
+                "move": "慢慢站起来转过身",
+                "body_part": "全身",
+                "direction": "向上",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "林晚慢慢站起来转过身。"
+          },
+          {
+            "shot_id": "scene-1-shot-10",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-11",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-12",
+            "nodes": [
+              {
+                "node_id": "scene-1-shot-12-node-1",
+                "at_seconds": 1,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": null,
+                "move": "从风衣内袋掏出信封",
+                "body_part": "左手",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              },
+              {
+                "node_id": "scene-1-shot-12-node-2",
+                "at_seconds": 2.4,
+                "duration_seconds": 0.8,
+                "actor": "沈砚",
+                "target": null,
+                "move": "把信封放在收银台上",
+                "body_part": "左手",
+                "direction": "向下",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "信封落在台面上",
+                "sfx_cue": "纸包落在木台面上"
+              }
+            ],
+            "prompt_addon": "沈砚从风衣内袋掏出信封；沈砚把信封放在收银台上。"
+          },
+          {
+            "shot_id": "scene-1-shot-13",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-14",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-1-shot-15",
+            "nodes": [
+              {
+                "node_id": "scene-1-shot-15-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.6,
+                "actor": "沈砚",
+                "target": null,
+                "move": "把信封往前推",
+                "body_part": "左手",
+                "direction": "画右→画左",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "信封往前滑了一点",
+                "sfx_cue": "纸擦过台面"
+              }
+            ],
+            "prompt_addon": "沈砚从画右往画左把信封往前推。"
+          }
+        ],
+        "injuries": [],
+        "props_after": [
+          {
+            "name": "林晚",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": "收起的雨伞"
+          }
+        ]
+      }
+    },
+    {
+      "id": "action-2",
+      "title": "第二场第 14 到 25 镜：打斗，铁棍砸空、肘击、刀伤后只用右手",
+      "input": {
+        "task": "design_action",
+        "scene": {
+          "id": "scene-2",
+          "title": "码头仓库"
+        },
+        "injuries_before": [],
+        "shots": [
+          {
+            "shot_id": "scene-2-shot-14",
+            "size": "全景",
+            "seconds": 5,
+            "picture": "仓库里，林晚被推到木箱旁边，周烈、打手甲和打手乙围成半圈。",
+            "action": "打手甲把林晚推到木箱旁边，周烈和打手乙围上来；门口一辆旧面包车的车灯照了进来。",
+            "characters": ["林晚", "周烈", "打手甲", "打手乙"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "后景",
+                "visible": "全身"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "全身"
+              },
+              {
+                "name": "打手甲",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "全身"
+              },
+              {
+                "name": "打手乙",
+                "position": "画中",
+                "depth": "中间",
+                "visible": "全身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-15",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "仓库里，周烈握着一根铁棍，对着画左走进来的沈砚。",
+            "action": "周烈掂了掂手里的铁棍，冲着画左的沈砚笑。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "后景",
+                "visible": "全身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-16",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "周烈握着铁棍，眼神发狠。",
+            "action": "周烈握紧铁棍，盯着画左放狠话。",
+            "characters": ["周烈"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-17",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "仓库的木箱旁，周烈高举铁棍，沈砚站在他对面。",
+            "action": "画右的周烈猛地挥棍砸向画左，画左的沈砚侧身一让，铁棍擦着耳边落下，砸在木箱上，木屑四溅。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-18",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "沈砚的右手扣住周烈握棍的右手腕。",
+            "action": "画左的沈砚顺势扣住周烈的手腕一拧，铁棍当啷落地。",
+            "characters": ["沈砚", "周烈"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "半身"
+              },
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-19",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "沈砚背后，打手甲正扑上来。",
+            "action": "打手甲从画右背后扑向沈砚，沈砚矮身一记肘击正中他肋下，打手甲闷哼一声跪倒在积水里。",
+            "characters": ["沈砚", "打手甲"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "打手甲",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "全身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-20",
+            "size": "特写",
+            "seconds": 2,
+            "picture": "昏暗的灯下，打手乙手里攥着一把折叠刀。",
+            "action": "打手乙弹开折叠刀，刀刃在灯下一闪。",
+            "characters": ["打手乙"],
+            "positions": [
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-21",
+            "size": "近景",
+            "seconds": 2,
+            "picture": "木箱旁，林晚惊恐地睁大眼睛。",
+            "action": "林晚冲着画右尖叫。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-22",
+            "size": "特写",
+            "seconds": 3,
+            "picture": "特写：画左一条卷起袖子的左小臂抬起来挡在身前，画右一只手握着折叠刀。",
+            "action": "画右的刀从右往左划过，画左抬起的左小臂去挡，刀锋划过小臂，渗出一道血。不拍伤口特写。",
+            "characters": ["沈砚", "打手乙"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "只露手"
+              },
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-23",
+            "size": "中景",
+            "seconds": 3,
+            "picture": "沈砚咬着牙，右手抓住打手乙握刀的手肘。",
+            "action": "画左的沈砚咬紧牙，右手反手抓住打手乙的手肘往下一压，膝盖顶上去，刀飞出去滑进铁链堆。",
+            "characters": ["沈砚", "打手乙"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "打手乙",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-24",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "周烈从积水里爬起来，喘着粗气；画左的沈砚左小臂流着血。",
+            "action": "周烈喘着粗气爬起来，脸色铁青地盯着画左的沈砚；远处警笛声由远及近。",
+            "characters": ["周烈", "沈砚"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-2-shot-25",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "周烈咬着牙，嘴角挂着水。",
+            "action": "周烈啐了一口，咬着牙说。",
+            "characters": ["周烈"],
+            "positions": [
+              {
+                "name": "周烈",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "scene_id": "scene-2",
+        "beats": [
+          {
+            "text": "打手甲一把把林晚推到木箱旁边",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.5,
+            "node_id": "scene-2-shot-14-node-1"
+          },
+          {
+            "text": "周烈在手里掂了掂铁棍",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 1,
+            "node_id": "scene-2-shot-15-node-1"
+          },
+          {
+            "text": "周烈抡起铁棍从画右往画左砸下，砸在木箱上",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-2-shot-17-node-1"
+          },
+          {
+            "text": "沈砚侧身让开，铁棍擦着耳边落下",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.4,
+            "node_id": "scene-2-shot-17-node-2"
+          },
+          {
+            "text": "沈砚扣住周烈的手腕一拧，铁棍落地",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.5,
+            "node_id": "scene-2-shot-18-node-1"
+          },
+          {
+            "text": "打手甲从画右背后扑向沈砚",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-2-shot-19-node-1"
+          },
+          {
+            "text": "沈砚矮身用右肘往后顶中打手甲肋下",
+            "feasibility": "看运气",
+            "workaround": "接触拍成肘尖到位和受击反应两下，靠剪辑接上",
+            "at_seconds": 0.9,
+            "node_id": "scene-2-shot-19-node-2"
+          },
+          {
+            "text": "打手乙弹开折叠刀",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.4,
+            "node_id": "scene-2-shot-20-node-1"
+          },
+          {
+            "text": "沈砚抬起左小臂去挡",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.2,
+            "node_id": "scene-2-shot-22-node-1"
+          },
+          {
+            "text": "打手乙的刀从画右往画左划过沈砚的左小臂",
+            "feasibility": "看运气",
+            "workaround": "只拍刀划过和手臂一缩，不拍伤口特写",
+            "at_seconds": 0.3,
+            "node_id": "scene-2-shot-22-node-2"
+          },
+          {
+            "text": "沈砚用右手抓住打手乙的手肘往下压",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-2-shot-23-node-1"
+          },
+          {
+            "text": "沈砚提起右膝顶上去，刀飞进铁链堆",
+            "feasibility": "看运气",
+            "workaround": "膝顶和刀飞出分成两下，刀飞出可以单独拍插入",
+            "at_seconds": 1,
+            "node_id": "scene-2-shot-23-node-2"
+          },
+          {
+            "text": "周烈撑着膝盖从积水里爬起来",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-2-shot-24-node-1"
+          }
+        ],
+        "safety_notes": [
+          "不拍伤口特写，刀划过只拍手臂一缩和袖子上的血。",
+          "肘击和膝顶拍成出手和受击反应，不拍两个人缠在一起。",
+          "沈砚左小臂受伤以后，左手只做力度 1 的动作。"
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-2-shot-14",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-14-node-1",
+                "at_seconds": 0.5,
+                "duration_seconds": 0.8,
+                "actor": "打手甲",
+                "target": "林晚",
+                "move": "把林晚推到木箱旁边",
+                "body_part": "右手",
+                "direction": "向后",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "林晚踉跄一步，撞到木箱边",
+                "sfx_cue": "鞋底擦过水泥地"
+              }
+            ],
+            "prompt_addon": "打手甲把林晚推到木箱旁边。"
+          },
+          {
+            "shot_id": "scene-2-shot-15",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-15-node-1",
+                "at_seconds": 1,
+                "duration_seconds": 1,
+                "actor": "周烈",
+                "target": null,
+                "move": "掂了掂铁棍",
+                "body_part": "右手握铁棍",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "周烈掂了掂铁棍。"
+          },
+          {
+            "shot_id": "scene-2-shot-16",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-2-shot-17",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-17-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.6,
+                "actor": "周烈",
+                "target": "沈砚",
+                "move": "抡起铁棍斜着砸下",
+                "body_part": "双手握铁棍",
+                "direction": "画右→画左",
+                "force": 5,
+                "force_cue": "蹬地转胯，铁棍砸到底时肩膀跟上",
+                "contact": true,
+                "reaction": "铁棍砸在木箱上，木屑四溅",
+                "sfx_cue": "铁棍砸碎木箱"
+              },
+              {
+                "node_id": "scene-2-shot-17-node-2",
+                "at_seconds": 0.4,
+                "duration_seconds": 0.4,
+                "actor": "沈砚",
+                "target": null,
+                "move": "侧身一让",
+                "body_part": "上半身",
+                "direction": "画左→画右",
+                "force": 2,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "周烈从画右往画左抡起铁棍斜着砸下，蹬地转胯，铁棍砸到底时肩膀跟上；沈砚从画左往画右侧身一让。"
+          },
+          {
+            "shot_id": "scene-2-shot-18",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-18-node-1",
+                "at_seconds": 0.5,
+                "duration_seconds": 1.2,
+                "actor": "沈砚",
+                "target": "周烈",
+                "move": "扣住手腕一拧",
+                "body_part": "右手",
+                "direction": "画左→画右",
+                "force": 3,
+                "force_cue": "手腕一翻，周烈的肩膀跟着歪下去",
+                "contact": true,
+                "reaction": "周烈疼得松手，铁棍当啷落地",
+                "sfx_cue": "铁棍当啷落地"
+              }
+            ],
+            "prompt_addon": "沈砚从画左往画右扣住手腕一拧，手腕一翻，周烈的肩膀跟着歪下去。"
+          },
+          {
+            "shot_id": "scene-2-shot-19",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-19-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.6,
+                "actor": "打手甲",
+                "target": "沈砚",
+                "move": "扑向沈砚的后背",
+                "body_part": "全身",
+                "direction": "画右→画左",
+                "force": 3,
+                "force_cue": "扑过来时脚下溅起积水",
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "踩水声"
+              },
+              {
+                "node_id": "scene-2-shot-19-node-2",
+                "at_seconds": 0.9,
+                "duration_seconds": 0.5,
+                "actor": "沈砚",
+                "target": "打手甲",
+                "move": "矮身一记肘击",
+                "body_part": "右肘",
+                "direction": "画左→画右",
+                "force": 4,
+                "force_cue": "矮身转腰，肘尖顶到底",
+                "contact": true,
+                "reaction": "打手甲闷哼一声，跪倒在积水里",
+                "sfx_cue": "肘击闷响"
+              }
+            ],
+            "prompt_addon": "打手甲从画右往画左扑向沈砚的后背，扑过来时脚下溅起积水；沈砚从画左往画右矮身一记肘击，矮身转腰，肘尖顶到底。"
+          },
+          {
+            "shot_id": "scene-2-shot-20",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-20-node-1",
+                "at_seconds": 0.4,
+                "duration_seconds": 0.4,
+                "actor": "打手乙",
+                "target": null,
+                "move": "弹开折叠刀",
+                "body_part": "右手",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "折叠刀弹开"
+              }
+            ],
+            "prompt_addon": "打手乙弹开折叠刀。"
+          },
+          {
+            "shot_id": "scene-2-shot-21",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-2-shot-22",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-22-node-1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.4,
+                "actor": "沈砚",
+                "target": null,
+                "move": "抬起左小臂挡在身前",
+                "body_part": "左小臂",
+                "direction": "向上",
+                "force": 2,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              },
+              {
+                "node_id": "scene-2-shot-22-node-2",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.5,
+                "actor": "打手乙",
+                "target": "沈砚",
+                "move": "挥刀划过",
+                "body_part": "右手握刀",
+                "direction": "画右→画左",
+                "force": 3,
+                "force_cue": "整条手臂甩出去，刀刃一闪",
+                "contact": true,
+                "reaction": "刀锋划过沈砚的左小臂，渗出一道血",
+                "sfx_cue": "刀锋划过"
+              }
+            ],
+            "prompt_addon": "沈砚抬起左小臂挡在身前；打手乙从画右往画左挥刀划过，整条手臂甩出去，刀刃一闪。"
+          },
+          {
+            "shot_id": "scene-2-shot-23",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-23-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 0.6,
+                "actor": "沈砚",
+                "target": "打手乙",
+                "move": "抓住手肘往下压",
+                "body_part": "右手",
+                "direction": "画左→画右",
+                "force": 4,
+                "force_cue": "身体往下沉，把对方手肘压到底",
+                "contact": true,
+                "reaction": "打手乙的手肘被压下去",
+                "sfx_cue": null
+              },
+              {
+                "node_id": "scene-2-shot-23-node-2",
+                "at_seconds": 1,
+                "duration_seconds": 0.4,
+                "actor": "沈砚",
+                "target": "打手乙",
+                "move": "提膝顶上去",
+                "body_part": "右膝",
+                "direction": "向上",
+                "force": 4,
+                "force_cue": "提膝时整个人往前送",
+                "contact": true,
+                "reaction": "刀脱手飞出去，滑进铁链堆",
+                "sfx_cue": "刀滑进铁链堆"
+              }
+            ],
+            "prompt_addon": "沈砚从画左往画右抓住手肘往下压，身体往下沉，把对方手肘压到底；沈砚提膝顶上去，提膝时整个人往前送。"
+          },
+          {
+            "shot_id": "scene-2-shot-24",
+            "nodes": [
+              {
+                "node_id": "scene-2-shot-24-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 1.5,
+                "actor": "周烈",
+                "target": null,
+                "move": "撑着膝盖从地上爬起来",
+                "body_part": "双手",
+                "direction": "向上",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "周烈撑着膝盖从地上爬起来。"
+          },
+          {
+            "shot_id": "scene-2-shot-25",
+            "nodes": [],
+            "prompt_addon": ""
+          }
+        ],
+        "injuries": [
+          {
+            "name": "沈砚",
+            "body_part": "小臂",
+            "side": "左",
+            "kind": "刀伤",
+            "from_shot": "scene-2-shot-22",
+            "visible_as": "左小臂的白衬衫划破，渗出一道血"
+          }
+        ],
+        "props_after": [
+          {
+            "name": "周烈",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "打手甲",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "打手乙",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "林晚",
+            "left": null,
+            "right": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "action-3",
+      "title": "第三场第 9 到 20 镜：沈砚左小臂有伤，扶书架只用右手",
+      "input": {
+        "task": "design_action",
+        "scene": {
+          "id": "scene-3",
+          "title": "医院走廊"
+        },
+        "injuries_before": [
+          {
+            "name": "沈砚",
+            "body_part": "小臂",
+            "side": "左",
+            "kind": "刀伤",
+            "from_shot": "scene-2-shot-22",
+            "visible_as": "左小臂缠着一圈白纱布"
+          }
+        ],
+        "shots": [
+          {
+            "shot_id": "scene-3-shot-9",
+            "size": "中景",
+            "seconds": 5,
+            "picture": "沈砚站在林晚身后，右手拿着那件半干的黑风衣。",
+            "action": "沈砚犹豫了一下，没有碰她，只用右手把半干的风衣披在林晚肩上。",
+            "characters": ["沈砚", "林晚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-10",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "沈砚看着画左林晚的背影。",
+            "action": "沈砚看着她的背影，开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-11",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "沈砚看着画左。",
+            "action": "沈砚停了一下，接着说。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-12",
+            "size": "近景",
+            "seconds": 3,
+            "picture": "林晚披着黑风衣转过头，泪痕还挂在脸上。",
+            "action": "林晚转过头看向画右，问。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-13",
+            "size": "全景",
+            "seconds": 4,
+            "picture": "沈砚背对镜头，看向走廊尽头的窗户，窗外雨停了。",
+            "action": "沈砚望着走廊尽头的窗，窗外的天边慢慢透出一线灰白的光。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "前景",
+                "visible": "背影"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-14",
+            "size": "近景",
+            "seconds": 5,
+            "picture": "沈砚望着窗外，脸上有一点笑意。",
+            "action": "沈砚望着窗外，慢慢开口。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-15",
+            "size": "近景",
+            "seconds": 5,
+            "picture": "沈砚转回头看向画左。",
+            "action": "沈砚顿了顿，转回来看向画左，说。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "脸"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-16",
+            "size": "近景",
+            "seconds": 4,
+            "picture": "林晚披着黑风衣，低着头。",
+            "action": "林晚攥紧风衣领口，轻轻点了点头。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-17",
+            "size": "远景",
+            "seconds": 5,
+            "picture": "天亮了，青石巷里，书店的玻璃门碎了一角，地上的书泡在水里，林晚和沈砚并排走回来。",
+            "action": "林晚和沈砚并排走到书店门口停下，看着碎了一角的玻璃门。",
+            "characters": ["林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "后景",
+                "visible": "全身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "后景",
+                "visible": "全身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-18",
+            "size": "特写",
+            "seconds": 4,
+            "picture": "地上泡水的书里，一本封面被踩脏的诗集。",
+            "action": "林晚的手捡起诗集，用袖子一点点擦掉封面上的泥。",
+            "characters": ["林晚"],
+            "positions": [
+              {
+                "name": "林晚",
+                "position": "画中",
+                "depth": "前景",
+                "visible": "只露手"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-19",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "书店里，沈砚扶着倒下的书架。",
+            "action": "沈砚用右手把倒下的书架扶起来，一层一层摆正，缠着纱布的左小臂只轻轻扶着。",
+            "characters": ["沈砚"],
+            "positions": [
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "中间",
+                "visible": "半身"
+              }
+            ]
+          },
+          {
+            "shot_id": "scene-3-shot-20",
+            "size": "中景",
+            "seconds": 4,
+            "picture": "书店门口，阿婆端着两碗热豆浆探进头来，林晚站在门边，沈砚在后面。",
+            "action": "阿婆把两碗热豆浆递给林晚，笑着说了一句；画右的沈砚停下手看过来。",
+            "characters": ["阿婆", "林晚", "沈砚"],
+            "positions": [
+              {
+                "name": "阿婆",
+                "position": "画中",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "林晚",
+                "position": "画左",
+                "depth": "中间",
+                "visible": "半身"
+              },
+              {
+                "name": "沈砚",
+                "position": "画右",
+                "depth": "后景",
+                "visible": "半身"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "scene_id": "scene-3",
+        "beats": [
+          {
+            "text": "沈砚用右手把半干的风衣披在林晚肩上",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 1.5,
+            "node_id": "scene-3-shot-9-node-1"
+          },
+          {
+            "text": "林晚转过头看向沈砚",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.2,
+            "node_id": "scene-3-shot-12-node-1"
+          },
+          {
+            "text": "沈砚从窗外转回头看向林晚",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.4,
+            "node_id": "scene-3-shot-15-node-1"
+          },
+          {
+            "text": "林晚双手攥紧风衣领口",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.5,
+            "node_id": "scene-3-shot-16-node-1"
+          },
+          {
+            "text": "林晚轻轻点了点头",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 2,
+            "node_id": "scene-3-shot-16-node-2"
+          },
+          {
+            "text": "林晚走到书店门口停下",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0,
+            "node_id": "scene-3-shot-17-node-1"
+          },
+          {
+            "text": "沈砚和林晚并排走到门口",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0,
+            "node_id": "scene-3-shot-17-node-2"
+          },
+          {
+            "text": "林晚用右手捡起地上的诗集",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-3-shot-18-node-1"
+          },
+          {
+            "text": "林晚用袖子一点点擦掉封面上的泥",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 1.5,
+            "node_id": "scene-3-shot-18-node-2"
+          },
+          {
+            "text": "沈砚用右手把书架扶起来，左手只轻轻搭着",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.3,
+            "node_id": "scene-3-shot-19-node-1"
+          },
+          {
+            "text": "阿婆把两碗热豆浆递给林晚",
+            "feasibility": "稳",
+            "workaround": "",
+            "at_seconds": 0.8,
+            "node_id": "scene-3-shot-20-node-1"
+          }
+        ],
+        "safety_notes": ["沈砚的左小臂有伤，只做力度 1 的动作，用力的事交给右手。"],
+        "shots": [
+          {
+            "shot_id": "scene-3-shot-9",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-9-node-1",
+                "at_seconds": 1.5,
+                "duration_seconds": 2,
+                "actor": "沈砚",
+                "target": "林晚",
+                "move": "把风衣披在林晚肩上",
+                "body_part": "右手",
+                "direction": "画右→画左",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "风衣落在林晚肩上",
+                "sfx_cue": "布料轻响"
+              }
+            ],
+            "prompt_addon": "沈砚从画右往画左把风衣披在林晚肩上。"
+          },
+          {
+            "shot_id": "scene-3-shot-10",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-3-shot-11",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-3-shot-12",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-12-node-1",
+                "at_seconds": 0.2,
+                "duration_seconds": 0.6,
+                "actor": "林晚",
+                "target": null,
+                "move": "转过头看向画右",
+                "body_part": "头",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "林晚转过头看向画右。"
+          },
+          {
+            "shot_id": "scene-3-shot-13",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-3-shot-14",
+            "nodes": [],
+            "prompt_addon": ""
+          },
+          {
+            "shot_id": "scene-3-shot-15",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-15-node-1",
+                "at_seconds": 0.4,
+                "duration_seconds": 0.6,
+                "actor": "沈砚",
+                "target": null,
+                "move": "转回头看向画左",
+                "body_part": "头",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "沈砚转回头看向画左。"
+          },
+          {
+            "shot_id": "scene-3-shot-16",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-16-node-1",
+                "at_seconds": 0.5,
+                "duration_seconds": 0.8,
+                "actor": "林晚",
+                "target": null,
+                "move": "攥紧风衣领口",
+                "body_part": "双手",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              },
+              {
+                "node_id": "scene-3-shot-16-node-2",
+                "at_seconds": 2,
+                "duration_seconds": 0.8,
+                "actor": "林晚",
+                "target": null,
+                "move": "轻轻点头",
+                "body_part": "头",
+                "direction": "向下",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "林晚攥紧风衣领口；林晚轻轻点头。"
+          },
+          {
+            "shot_id": "scene-3-shot-17",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-17-node-1",
+                "at_seconds": 0,
+                "duration_seconds": 3,
+                "actor": "林晚",
+                "target": null,
+                "move": "并排走到书店门口",
+                "body_part": "全身",
+                "direction": "向前",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "脚步声"
+              },
+              {
+                "node_id": "scene-3-shot-17-node-2",
+                "at_seconds": 0,
+                "duration_seconds": 3,
+                "actor": "沈砚",
+                "target": null,
+                "move": "并排走到书店门口",
+                "body_part": "全身",
+                "direction": "向前",
+                "force": 1,
+                "force_cue": null,
+                "contact": false,
+                "reaction": null,
+                "sfx_cue": "脚步声"
+              }
+            ],
+            "prompt_addon": "林晚并排走到书店门口；沈砚并排走到书店门口。"
+          },
+          {
+            "shot_id": "scene-3-shot-18",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-18-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 1,
+                "actor": "林晚",
+                "target": null,
+                "move": "捡起泡水的诗集",
+                "body_part": "右手",
+                "direction": "向上",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "诗集被从水里拿起来",
+                "sfx_cue": "水滴落下"
+              },
+              {
+                "node_id": "scene-3-shot-18-node-2",
+                "at_seconds": 1.5,
+                "duration_seconds": 2,
+                "actor": "林晚",
+                "target": null,
+                "move": "用袖子擦封面",
+                "body_part": "右手袖口",
+                "direction": "原地",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "封面上的泥被一点点擦掉",
+                "sfx_cue": "布料擦过纸面"
+              }
+            ],
+            "prompt_addon": "林晚捡起泡水的诗集；林晚用袖子擦封面。"
+          },
+          {
+            "shot_id": "scene-3-shot-19",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-19-node-1",
+                "at_seconds": 0.3,
+                "duration_seconds": 2,
+                "actor": "沈砚",
+                "target": null,
+                "move": "用右手把书架扶起来",
+                "body_part": "右手",
+                "direction": "向上",
+                "force": 2,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "倒下的书架被扶正",
+                "sfx_cue": "木书架立起来的吱呀声"
+              }
+            ],
+            "prompt_addon": "沈砚用右手把书架扶起来。"
+          },
+          {
+            "shot_id": "scene-3-shot-20",
+            "nodes": [
+              {
+                "node_id": "scene-3-shot-20-node-1",
+                "at_seconds": 0.8,
+                "duration_seconds": 1.2,
+                "actor": "阿婆",
+                "target": "林晚",
+                "move": "递过两碗热豆浆",
+                "body_part": "双手",
+                "direction": "画右→画左",
+                "force": 1,
+                "force_cue": null,
+                "contact": true,
+                "reaction": "林晚双手接住豆浆",
+                "sfx_cue": null
+              }
+            ],
+            "prompt_addon": "阿婆从画右往画左递过两碗热豆浆。"
+          }
+        ],
+        "injuries": [],
+        "props_after": [
+          {
+            "name": "林晚",
+            "left": "一碗热豆浆",
+            "right": "一碗热豆浆"
+          },
+          {
+            "name": "沈砚",
+            "left": null,
+            "right": null
+          },
+          {
+            "name": "阿婆",
+            "left": null,
+            "right": null
+          }
+        ]
+      }
+    }
+  ]
+}

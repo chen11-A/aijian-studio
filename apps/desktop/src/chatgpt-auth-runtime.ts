@@ -18,6 +18,9 @@ import { AUTH_TTL, ChatGPTError, RESOURCE } from "./chatgpt-auth-oauth";
 import { discover, listModels, requestTokens, type Fetch } from "./chatgpt-auth-http";
 import { authorizeInBrowser } from "./chatgpt-auth-callback";
 import type { AuthData, Profile, ProtectedStore } from "./chatgpt-auth-storage";
+import type { createSubscriptionLedger } from "./desktop-subscription-ledger";
+
+type SubscriptionLedger = ReturnType<typeof createSubscriptionLedger>;
 
 type Dependencies = {
   store: ProtectedStore;
@@ -26,6 +29,8 @@ type Dependencies = {
   confirmSignIn(scope: ChatGPTUseScope, signal: AbortSignal): Promise<boolean>;
   authorize?: typeof authorizeInBrowser;
   confirmText?(request: ChatGPTTextApproval): Promise<boolean>;
+  /** When set, provider HTTP waits until a subscription billing row exists. */
+  ledger?: SubscriptionLedger;
 };
 const errorCode = (error: unknown) =>
   error instanceof ChatGPTError ? error.code : "CONNECTION_UNAVAILABLE";
@@ -371,6 +376,7 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         return { kind: "NOT_SENT", operationId: input.operationId, code: "OPERATION_LIMIT" };
       busy = true;
       let sent = false;
+      let dispatchId: string | null = null;
       try {
         await restore();
         const profile = active();
@@ -408,6 +414,26 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         });
         await options.beforeSend(metadata);
         if (signal.aborted) throw new ChatGPTError("REQUEST_TIMED_OUT");
+        if (dependencies.ledger) {
+          if (!input.billingProjectId) throw new ChatGPTError("BILLING_PROJECT_REQUIRED");
+          let recorded;
+          try {
+            recorded = await dependencies.ledger.record({
+              projectId: input.billingProjectId,
+              accountKind: "gpt_login",
+              model: input.model,
+              text: input.text,
+              idempotencyKey: input.operationId,
+              connected: true,
+            });
+          } catch (error) {
+            throw new ChatGPTError(error instanceof Error ? error.message : "BILLING_NOT_RECORDED");
+          }
+          if (!recorded.created && recorded.outcome !== "RECORDED") {
+            throw new ChatGPTError("DISPATCH_ALREADY_FINISHED");
+          }
+          dispatchId = recorded.dispatchId;
+        }
         if (
           active() !== profile ||
           profile.tokens !== tokens ||
@@ -437,6 +463,13 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         );
         if (!options.allowEmptyOutput && !completion.text.trim())
           throw new ChatGPTError("INFERENCE_EMPTY");
+        if (dependencies.ledger && dispatchId && input.billingProjectId) {
+          await dependencies.ledger.finish({
+            projectId: input.billingProjectId,
+            dispatchId,
+            outcome: "COMPLETED",
+          });
+        }
         const result: ChatGPTTextResult = {
           kind: "COMPLETED",
           ...metadata,
@@ -451,10 +484,26 @@ export function createChatGPTRuntime(dependencies: Dependencies): ChatGPTRuntime
         });
         return result;
       } catch (error) {
+        const code = errorCode(error);
+        if (
+          dependencies.ledger &&
+          dispatchId &&
+          input.billingProjectId &&
+          code !== "DISPATCH_ALREADY_FINISHED"
+        ) {
+          await dependencies.ledger
+            .finish({
+              projectId: input.billingProjectId,
+              dispatchId,
+              outcome: "FAILED",
+              failureCode: /^[A-Z0-9_]{1,64}$/.test(code) ? code : "TEXT_FAILED",
+            })
+            .catch(() => undefined);
+        }
         const result: ChatGPTTextResult = {
           kind: sent ? "REMOTE_UNKNOWN" : "NOT_SENT",
           operationId: input.operationId,
-          code: errorCode(error),
+          code,
         };
         generations.set(input.operationId, {
           hash,

@@ -26,9 +26,9 @@ it("requires explicit selection and restores the same source and unsent input ac
   const exports = gateway();
   const props = { ...scope, exports, onAssembly: vi.fn(), onExport: vi.fn() };
   const first = render(<DraftReviewWorkspace {...props} view="review" />);
-  await screen.findByRole("option", { name: /source-DRAFT/ });
+  await screen.findByRole("option", { name: /第 1 个草稿视频/ });
   expect(exports.get).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("审片原版 DRAFT"), {
+  fireEvent.change(screen.getByLabelText("审片原版草稿"), {
     target: { value: source.operation_id },
   });
   await screen.findByLabelText("评论");
@@ -49,7 +49,7 @@ it("requires explicit selection and restores the same source and unsent input ac
   second.unmount();
   render(<DraftReviewWorkspace {...props} view="export" />);
   await screen.findByLabelText("评论");
-  expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id);
+  expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id);
   expect(exports.review!.listDraftReviewNotes).toHaveBeenLastCalledWith(
     scope.projectId,
     scope.episodeId,
@@ -103,13 +103,13 @@ it("ignores a late A reply after A→B→A and keeps project/episode cursors iso
     complete({
       kind: "FOUND" as const,
       receipt: {
-        data: { ...sourceJob, output_filename: "obsolete-DRAFT.mp4" },
+        data: { ...sourceJob, output_filename: "obsolete-草稿.mp4" },
         request_id: requestId,
       },
     }),
   );
-  expect(screen.queryByText("obsolete-DRAFT.mp4")).not.toBeInTheDocument();
-  expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id);
+  expect(screen.queryByText("obsolete-草稿.mp4")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id);
 });
 
 it("protects unsaved input on selection, refresh and native navigation and restores it after accepted leave", async () => {
@@ -131,8 +131,8 @@ it("protects unsaved input on selection, refresh and native navigation and resto
   await screen.findByLabelText("评论");
   fireEvent.change(screen.getByLabelText("评论"), { target: { value: "需要保留的输入" } });
   expect(guard.current?.()).toBe(false);
-  fireEvent.change(screen.getByLabelText("审片原版 DRAFT"), { target: { value: "" } });
-  expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(source.operation_id);
+  fireEvent.change(screen.getByLabelText("审片原版草稿"), { target: { value: "" } });
+  expect(screen.getByLabelText("审片原版草稿")).toHaveValue(source.operation_id);
   expect(screen.getByLabelText("评论")).toHaveValue("需要保留的输入");
   fireEvent.click(screen.getByRole("button", { name: "重新读取原版与导出列表（只读）" }));
   expect(exports.get).toHaveBeenCalledTimes(1);
@@ -322,7 +322,7 @@ it("recovers separate unsent comments in two projects with two episodes each", a
     );
     await screen.findByLabelText("评论");
     expect(screen.getByLabelText("评论")).toHaveValue(`输入-${record.operation_id}`);
-    expect(screen.getByLabelText("审片原版 DRAFT")).toHaveValue(record.operation_id);
+    expect(screen.getByLabelText("审片原版草稿")).toHaveValue(record.operation_id);
     result.unmount();
   }
   expect(exports.review!.createDraftReviewNote).not.toHaveBeenCalled();

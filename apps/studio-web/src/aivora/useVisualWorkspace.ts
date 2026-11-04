@@ -399,7 +399,7 @@ export function useVisualWorkspace(projectId: string, setNavigationGuard: GuardS
         setSelected(result.data);
         invalidateEvidence();
         updateIndex(result.data);
-        setNotice("已保存不可变视觉候选；尚未获得G5批准。");
+        setNotice("已保存不可变视觉候选；尚未获得视觉版本批准。");
       } else if (result.kind === "DEFINITE_SERVER_ERROR") {
         if (!persist(null, original)) return;
         setNotice(`保存被明确拒绝（${result.code}），输入保留。`);

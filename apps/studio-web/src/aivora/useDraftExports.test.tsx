@@ -49,7 +49,7 @@ function job(patch: Partial<DraftExportJob> = {}): DraftExportJob {
     status: "QUEUED",
     total_frames: 50,
     progress_frames: 0,
-    output_filename: "test-DRAFT.mp4",
+    output_filename: "test-草稿.mp4",
     output_path: null,
     output_sha256: null,
     output_bytes: null,
@@ -209,7 +209,7 @@ describe("draft export hook keeps cancellation and recovery non-replaying", () =
           ...(status === "SUCCEEDED"
             ? {
                 progress_frames: 50,
-                output_path: "C:\\synthetic\\test-DRAFT.mp4",
+                output_path: "C:\\synthetic\\test-草稿.mp4",
                 output_sha256: "a".repeat(64),
                 output_bytes: 100,
               }

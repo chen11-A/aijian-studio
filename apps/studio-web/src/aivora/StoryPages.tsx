@@ -5,6 +5,7 @@ import type { ProjectData } from "../api/studio";
 import { art, sourceText } from "./data";
 import { useDemo } from "./model";
 import { Button, FlowFooter, PageTitle, Pill } from "./Common";
+import { ShortFilmGuide } from "./ShortFilmGuide";
 import { SourceExtractionPanel } from "./SourceExtractionPanel";
 import { EpisodeScriptEditor } from "./EpisodeScriptEditor";
 import { Icon } from "./Icon";
@@ -1126,6 +1127,7 @@ function LegacyStoryPages() {
   if (d.page === "story" && !d.isFixture)
     return (
       <>
+        <ShortFilmGuide />
         <PageTitle
           actions={
             <>

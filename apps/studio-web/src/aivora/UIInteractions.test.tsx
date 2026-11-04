@@ -15,8 +15,10 @@ function open(page = "project") {
   return render(<DemoApp fixture={createAivoraSampleFixture()} />);
 }
 function details(label: string) {
-  const trigger = screen.getByLabelText(label);
-  return { trigger, panel: trigger.closest("details")! };
+  const panel = screen.getByRole("group", { name: label });
+  const trigger = panel.querySelector("summary");
+  if (!trigger) throw new Error(`missing summary for ${label}`);
+  return { trigger, panel };
 }
 describe("workbench menu dismissal", () => {
   it("closes the user menu outside and on Escape, returning keyboard focus", () => {

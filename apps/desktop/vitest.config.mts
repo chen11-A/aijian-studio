@@ -1,11 +1,15 @@
 import { availableParallelism } from "node:os";
 import { defineConfig } from "vitest/config";
 
+const windowsCi = process.env.RUNNER_OS === "Windows";
+
 export default defineConfig({
   test: {
     // pnpm runs desktop and renderer suites together; share CPU capacity.
     // https://v4.vitest.dev/config/maxworkers
-    maxWorkers: Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
+    // Windows CI has been killing the OAuth worker when several files run at once.
+    maxWorkers: windowsCi ? 1 : Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2))),
+    fileParallelism: windowsCi ? false : true,
     environment: "node",
     include: ["src/**/*.test.ts"],
     coverage: {

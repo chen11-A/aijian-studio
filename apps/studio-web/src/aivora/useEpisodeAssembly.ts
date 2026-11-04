@@ -231,7 +231,7 @@ export function useEpisodeAssembly({
       setBusy(false);
       setLibrary(assetState.kind === "READY" ? assetState.assets : null);
       if (!result) {
-        setNotice("当前桌面版本没有集级媒体装配读写接口。");
+        setNotice("这一版还不能读取或保存成片。");
         return;
       }
       if (result.kind === "NOT_FOUND") {

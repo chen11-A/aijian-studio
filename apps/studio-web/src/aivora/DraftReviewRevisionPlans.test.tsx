@@ -144,7 +144,7 @@ function setup(data = revisionData()) {
               ...candidateJob,
               operation_id: `dmp_${"e".repeat(32)}`,
               created_at: "2026-10-09T19:00:00Z",
-              output_filename: "early-DRAFT.mp4",
+              output_filename: "early-草稿.mp4",
             },
           ],
         },
@@ -218,8 +218,8 @@ describe("manual revision panel", () => {
       return value;
     });
     const select = await screen.findByLabelText(`计划 ${entry.plan.plan_id} 候选草稿`);
-    expect(within(select).queryByRole("option", { name: /early-DRAFT/ })).not.toBeInTheDocument();
-    expect(within(select).queryByRole("option", { name: /source-DRAFT/ })).not.toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: /early-草稿/ })).not.toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: /source-草稿/ })).not.toBeInTheDocument();
     fireEvent.change(select, { target: { value: candidateJob.operation_id } });
     fireEvent.change(screen.getByLabelText(`计划 ${entry.plan.plan_id} 人工修改摘要`), {
       target: { value: candidate.change_summary },

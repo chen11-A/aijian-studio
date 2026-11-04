@@ -134,7 +134,7 @@ export function reviewRevisionLifecycle(data = revisionData()) {
               ...candidateJob,
               operation_id: `dmp_${"e".repeat(32)}`,
               created_at: "2026-10-09T19:00:00Z",
-              output_filename: "early-DRAFT.mp4",
+              output_filename: "early-草稿.mp4",
             },
           ],
         },

@@ -10,6 +10,7 @@ import type { ChatGPTBridge } from "@aijian/contracts/chatgpt-auth";
 import { OfficialTextProposalPanel } from "./OfficialTextProposalPanel";
 import { OfficialConnectionProvider } from "./chatgpt-auth/ChatGPTConnectionContext";
 import { DESKTOP_REQUIRED } from "./chatgpt-auth/transport";
+import { selectCenteredModel } from "./account/model-center";
 const project = `prj_${"a".repeat(32)}`;
 const episode = `ep_${"b".repeat(32)}`;
 const id = "11111111-1111-4111-8111-111111111111";
@@ -240,10 +241,14 @@ describe("official proposal review in the original script editor", () => {
       target: { value: "Explicit synthetic prompt" },
     });
     fireEvent.click(screen.getByRole("button", { name: "读取官方可用模型" }));
-    await screen.findByRole("option", { name: "Synthetic fixture" });
-    fireEvent.change(screen.getByLabelText("官方模型"), {
-      target: { value: "synthetic-test-model" },
+    await screen.findByText(/Synthetic fixture/);
+    act(() => {
+      selectCenteredModel("TEXT", {
+        provider: "CHATGPT_OFFICIAL",
+        modelId: "synthetic-test-model",
+      });
     });
+    await screen.findByText("本项目已覆盖默认模型");
     fireEvent.click(screen.getByRole("button", { name: "审阅并生成一次建议" }));
     await screen.findByText("此次请求未发送（TEXT_REQUEST_CANCELLED）。");
     expect(bridge.generate).toHaveBeenCalledExactlyOnceWith({

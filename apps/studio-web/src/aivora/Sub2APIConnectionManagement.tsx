@@ -206,7 +206,7 @@ export function Sub2APIConnectionManagement({
         : validOrigin(baseUrl)) ||
       !parsedModels
     ) {
-      setNotice("请填写 1–80 字符名称、当前模式允许的 origin 和不重复的 TEXT 模型 ID。");
+      setNotice("请填写 1–80 字符名称、当前模式允许的 origin 和不重复的文本模型标识。");
       return;
     }
     metadataInFlight.current = scope;
@@ -390,7 +390,7 @@ export function Sub2APIConnectionManagement({
           />
         </label>
         <label>
-          TEXT 模型 ID（逗号分隔）
+          文本模型标识（逗号分隔）
           <input value={models} onChange={(event) => setModels(event.target.value)} />
         </label>
         <label>

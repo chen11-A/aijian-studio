@@ -24,7 +24,7 @@ export function ManualCreativePage({ kind }: { kind: "characters" | "world" | "s
             if (d.canLeaveCurrentEditor()) setVisual(true);
           }}
         >
-          视觉与环境版本 G5 人工审签
+          视觉与环境
         </Button>
       </nav>
       {visual ? (

@@ -104,7 +104,7 @@ export function useChatGPTConnection(provided?: ChatGPTBridge, onConnected?: () 
         result.kind === "ERROR"
           ? chatGPTErrorMessage(result.code)
           : result.kind === "CANCELLED"
-            ? "已取消登录。可以继续使用 API 连接。"
+            ? "已取消登录。可以继续使用密钥连接。"
             : result.status.lastError
               ? chatGPTErrorMessage(result.status.lastError)
               : "",

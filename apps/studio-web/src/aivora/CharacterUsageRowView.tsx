@@ -49,7 +49,7 @@ export function CharacterUsageRowView({
                     .filter((binding) => binding.character_id === characterId)
                     .map((binding) => (
                       <p key={binding.character_id}>
-                        保存的 DRAFT 服装选用：<code>{binding.costume_id ?? "未选用"}</code>
+                        保存的 草稿 服装选用：<code>{binding.costume_id ?? "未选用"}</code>
                         <br />
                         保存的参考选用：{" "}
                         {binding.reference_ids.length

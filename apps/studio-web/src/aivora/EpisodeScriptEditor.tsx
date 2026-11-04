@@ -849,13 +849,7 @@ export function EpisodeScriptEditor({
   const metadata = (
     <>
       <h1>分集剧本</h1>
-      <p>当前剧集：{episodeTitle ?? episodeId}</p>
-      {episodeTitle && (
-        <details>
-          <summary>剧集标识</summary>
-          <p>{episodeId}</p>
-        </details>
-      )}
+      <p>当前剧集：{episodeTitle ?? "当前这一集"}</p>
       <p>
         {version
           ? `草稿版本 ${version.version_number} · 修订 ${version.head_revision}`

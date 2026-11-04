@@ -134,7 +134,7 @@ function ReviewEditor({
   };
   return (
     <div className="draft-review-editor">
-      <h4>手工核对记录 · 仅此 DRAFT 版本</h4>
+      <h4>手工核对记录 · 仅此 草稿 版本</h4>
       <p>评论及处理说明保存在当前项目和分集。处理评论不代表画面修正、版权通过或正式发布批准。</p>
       <Button disabled={state.busy} onClick={() => void state.load()}>
         重新读取手工记录

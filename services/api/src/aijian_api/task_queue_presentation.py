@@ -4,6 +4,10 @@ from aijian_api.task_queue_read import TaskQueueRecord
 
 
 def task_presentation(record: TaskQueueRecord) -> tuple[str, str]:
+    if record.superseded:
+        return "已被后来的成片取代", "无需处理"
+    if record.error_code == "STALE_SESSION":
+        return "上一次没有做完，已经结束", "无需处理"
     if record.node_status == "RECONCILIATION_REQUIRED":
         return "需要核对供应商任务", "查看证据并开始核对"
     if record.attempt_status == "REMOTE_UNKNOWN":

@@ -107,7 +107,7 @@ describe("production assistant conversation", () => {
   it("does not offer preview or send without a verified model and desktop bridge", () => {
     const openServices = vi.fn();
     view(undefined, { modelVerified: false, onOpenServices: openServices });
-    expect(screen.getByText(/选择已核验的官方文字模型/)).toBeInTheDocument();
+    expect(screen.getByText(/请先确认文字模型已登录/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "预览发送内容" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "打开 AI 服务" }));
     expect(openServices).toHaveBeenCalledOnce();
@@ -647,5 +647,38 @@ describe("production assistant conversation", () => {
     rendered.rerender(<AssistantChatConversation {...props} scope={scope} />);
     await act(async () => answer?.({ kind: "COMPLETED", operationId, text: "旧作用域结果" }));
     expect(screen.queryByText("旧作用域结果")).not.toBeInTheDocument();
+  });
+
+  it("sends with the connected Grok text model instead of asking for another login", async () => {
+    const completeText = vi.fn(async () => ({
+      kind: "OK" as const,
+      text: "可以先写灯塔。",
+      model: "grok-4.7",
+      billingAccountKind: "grok_login" as const,
+    }));
+    window.aijianGrok = {
+      status: vi.fn(),
+      signIn: vi.fn(),
+      cancel: vi.fn(),
+      signOut: vi.fn(),
+      models: vi.fn(),
+      completeText,
+    } as unknown as Window["aijianGrok"];
+    view(undefined, { modelVerified: false, profileId: null, model: "", grokModel: "grok-4.7" });
+    expect(screen.queryByText(/请先确认文字模型已登录/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "给 AI 助手的消息" }), {
+      target: { value: "这一场怎么写" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("可以先写灯塔。")).toBeInTheDocument();
+    expect(completeText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "grok-4.7",
+        text: expect.stringContaining("这一场怎么写"),
+      }),
+    );
+    expect(JSON.stringify(completeText.mock.calls)).toContain("短剧");
+    expect(JSON.stringify(completeText.mock.calls)).not.toContain('"text":"这一场怎么写"');
+    delete window.aijianGrok;
   });
 });

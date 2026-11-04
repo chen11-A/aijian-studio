@@ -23,6 +23,7 @@ export type OfficialConnectionState = {
   readModels: () => Promise<void>;
   reloadPreference: () => void;
   setDefaultModel: (slug: string) => boolean;
+  clearDefaultModel: () => boolean;
   setProjectModel: (projectId: string, slug: string) => boolean;
   restoreProjectDefault: (projectId: string) => boolean;
   resolve: (projectId: string) => ReturnType<typeof resolveModelPreference>;
@@ -166,6 +167,7 @@ export function OfficialConnectionProvider({ children }: { children: ReactNode }
       const choice = reference(slug);
       return choice ? update({ ...stored.value, defaultModel: choice }, true) : false;
     },
+    clearDefaultModel: () => update({ ...stored.value, defaultModel: null }),
     setProjectModel: (projectId, slug) => {
       const choice = reference(slug);
       return choice
