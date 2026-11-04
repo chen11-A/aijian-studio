@@ -34,8 +34,9 @@
     "compositionId": "holizna-all-the-way-sad",
     "sourceMirror": "https://github.com/SoundSafari/CC0-1.0-Music/blob/655388f987eacf6d08d73080fcc3e727f267bfde/freemusicarchive.org/HoliznaCC0%20-%20All%20The%20Way%20Sad.mp3",
     "licenseEvidence": "fill-gaps/music/LICENSE_EVIDENCE.md",
-    "licenseEvidenceNote": "FMA逐曲链接用于原作品定位，本轮未直接读取其页面；依据原作者对整个音乐archive的CC0声明及对应镜像。Bandcamp通用许可按钮另指向CC-BY4.0，冲突与选择依据详见证据说明。",
-    "peakLimited": false
+    "licenseEvidenceNote": "原作者Bandcamp与站外账号双向关联，明确整音乐档案CC0额外授权；平台官方说明许可菜单不含CC0，通用CC-BY按钮并存。FMA直接页未重试，曲目关联边界见独立审查。",
+    "peakLimited": false,
+    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md"
   },
   {
     "id": "r2-loop-holizna-sad-boi",
@@ -72,7 +73,8 @@
     "compositionId": "holizna-sad-boi",
     "sourceMirror": "https://github.com/SoundSafari/CC0-1.0-Music/blob/655388f987eacf6d08d73080fcc3e727f267bfde/freemusicarchive.org/HoliznaCC0%20-%20Sad%20Boi.mp3",
     "licenseEvidence": "fill-gaps/music/LICENSE_EVIDENCE.md",
-    "licenseEvidenceNote": "FMA逐曲链接用于原作品定位，本轮未直接读取其页面；依据原作者对整个音乐archive的CC0声明及对应镜像。Bandcamp通用许可按钮另指向CC-BY4.0，冲突与选择依据详见证据说明。",
-    "peakLimited": false
+    "licenseEvidenceNote": "原作者Bandcamp与站外账号双向关联，明确整音乐档案CC0额外授权；平台官方说明许可菜单不含CC0，通用CC-BY按钮并存。FMA直接页未重试，曲目关联边界见独立审查。",
+    "peakLimited": false,
+    "licenseReview": "remaining/music-review/HOLIZNA_REVIEW.md"
   }
 ]

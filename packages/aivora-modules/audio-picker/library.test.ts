@@ -1,4 +1,5 @@
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { pickAudio, type AudioAsset, type Scene, type Segment } from './index.js';
 
@@ -54,6 +55,42 @@ describe('真实素材库与挑选器联调', () => {
     expectFilled(rain.segments, 100);
     expect(result.warnings.some(w => w.includes('环境音'))).toBe(false);
   });
+  it('三条原人群均为可循环实录，存在有来源证据的长循环，并铺满120秒会议厅场景', () => {
+    type RecordedAsset = AudioAsset & { recordingVerified: boolean; licensePath: string; loopReport: string; sha256: string };
+    const originalIds = ['sfx-crowd-low-1', 'sfx-crowd-low-2', 'sfx-crowd-low-3'];
+    for (const id of originalIds) {
+      const asset = library.find(a => a.id === id) as RecordedAsset;
+      expect(asset).toBeDefined();
+      expect(asset).toMatchObject({ loop: true, loopable: true, recordingVerified: true, category: '环境' });
+      expect(asset.tags).toContain('人群');
+    }
+    const long = library.find(a => a.tags.includes('人群') && a.loop && a.loopable && a.duration >= 30 && a.duration <= 60) as RecordedAsset;
+    expect(long).toBeDefined();
+    expect(long.recordingVerified).toBe(true);
+    expect(long.source).toBe('https://freesound.org/people/jentlemen/sounds/432331/');
+    expect(long.author).toBe('jentlemen');
+    const evidence = readFileSync(new URL(long.licensePath, libraryRoot), 'utf8');
+    expect(evidence).toContain(long.source);
+    expect(evidence).toContain('Creative Commons 0');
+    const report = JSON.parse(readFileSync(new URL(long.loopReport, libraryRoot), 'utf8'));
+    expect(report.seam.passed).toBe(true);
+    expect(report.outputSha256).toBe(long.sha256);
+    expect(createHash('sha256').update(readFileSync(new URL(long.path, libraryRoot))).digest('hex')).toBe(long.sha256);
+    const output = pickAudio({ emotions: [], description: '会议厅人群低语', duration: 120, shots: [{ duration: 120, hasDialogue: true, actions: [] }] }, library);
+    const bed = output.shots[0].ambience[0];
+    expect(bed).toBeDefined();
+    expect(library.find(a => a.id === bed.assetId)?.tags).toContain('人群');
+    expect(bed.loop).toBe(true);
+    expect(bed.gainDb).toBe(-12);
+    expectFilled(bed.segments, 120);
+    expect(bed.segments.length).toBeGreaterThan(1);
+    for (const [index, segment] of bed.segments.entries()) {
+      expect(segment.fadeIn).toBe(0);
+      expect(segment.fadeOut).toBe(0);
+      if (index > 0) expect(segment.time).toBe(bed.segments[index - 1].end);
+    }
+    expect(output.warnings).toEqual([]);
+  });
   it('拳脚打斗的两个节点准确触发真实音效', () => {
     const fight = scene();
     fight.emotions = ['打斗'];
@@ -100,6 +137,18 @@ it('四个指定场景用新真实清单，雨与监护仪补齐，医院走廊�
   expect(rain.warnings.some(w => w.includes('环境音'))).toBe(false);
 
   expect(fight.shots[0].effects.map(e => e.time)).toEqual([1, 2, 3]);
+  const street = fight.shots[0].ambience[0];
+  expect(street).toBeDefined();
+  const streetAsset = library.find(a => a.id === street.assetId)!;
+  expect(streetAsset.tags).toContain('街道');
+  expect(streetAsset.id).toMatch(/^sfx-night-street-puebla-/);
+  expect(streetAsset.loop).toBe(true);
+  expectFilled(street.segments, 8);
+  expect(fight.warnings.some(w => w.includes('环境音'))).toBe(false);
+  const pipe = library.find(a => a.id === fight.shots[0].effects[0].assetId)!;
+  expect(pipe.id).toMatch(/^remaining-pipe-impact-/);
+  expect(pipe.tags).toContain('金属管击打');
+  expect(fight.warnings.some(w => w.includes('金属管击打素材'))).toBe(false);
   const knife = fight.shots[0].effects.find(e => e.time === 3)!;
   expect(library.find(a => a.id === knife.assetId)?.tags).toContain('刀划伤');
   expect(fight.warnings.some(w => w.includes('倒地'))).toBe(true);

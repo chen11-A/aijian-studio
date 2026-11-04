@@ -1,5 +1,9 @@
 普通实际命令：/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/aijian-studio/assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe
-严格分类要求：仅普通实际检查通过且manifest SHA256未变化后，调用同一check.py.strict_requirements追加；复用同一轮已验证有效素材，不重复解码。
-清单SHA256：f2da4f1d44a8f1f57d218541e615ff8787eedde1a2e0768fa0786443fbe58250
 普通退出码：0
+普通耗时秒：220.236
+普通标准错误：
+严格实际命令：/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/aijian-studio/assets/audio-library/check.py --ffmpeg /usr/bin/ffmpeg --ffprobe /usr/bin/ffprobe --strict-request
 严格退出码：1
+严格耗时秒：216.578
+严格标准错误：
+清单SHA256：e83d5717dea6f3f9d3e39a09c84e0ca82010e64912cade0e2841826b4628e950

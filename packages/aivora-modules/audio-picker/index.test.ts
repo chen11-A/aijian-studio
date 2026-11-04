@@ -127,3 +127,24 @@ it('缺少对应监护状态时不使用相反状态冒充', () => {
   expect(abnormal.shots[0].effects).toEqual([]);
   expect(abnormal.warnings.some(w => w.includes('心电监护仪'))).toBe(true);
 });
+
+it('钢管砸下优先真实管拟音，不能被同场景高分金属罐抢占', () => {
+ const s:Scene={emotions:[],description:'小巷打斗',duration:8,shots:[{duration:8,hasDialogue:false,actions:[{time:1,label:'钢管砸下'}]}]};
+ const can=asset('a-can','sfx',['金属击打','小巷打斗','钢管砸下'],'动作');
+ const pipe=asset('z-pipe','sfx',['金属管击打'],'动作');
+ const out=pickAudio(s,[can,pipe]);
+ expect(out.shots[0].effects[0].assetId).toBe('z-pipe');
+ expect(out.warnings.some(w=>w.includes('金属管击打素材'))).toBe(false);
+ const fallback=pickAudio(s,[can]);
+ expect(fallback.shots[0].effects[0].assetId).toBe('a-can');
+ expect(fallback.shots[0].effects[0].reason).toContain('替代');
+ expect(fallback.warnings.some(w=>w.includes('一般金属击打拟音替代'))).toBe(true);
+});
+it('小巷环境同义词选街道循环铺满，管拖地仍只匹配拖拽', () => {
+ const s:Scene={emotions:[],description:'小巷打斗',duration:8,shots:[{duration:8,hasDialogue:false,actions:[{time:1,label:'钢管拖地'},{time:2,label:'铁管砸下'}]}]};
+ const out=pickAudio(s,[{...asset('street','sfx',['街道'],'环境'),duration:3},asset('drag','sfx',['钢管拖地'],'动作'),asset('pipe','sfx',['钢管击打'],'动作')]);
+ expect(out.shots[0].ambience[0].assetId).toBe('street');
+ expect(out.shots[0].ambience[0].segments.map(s=>[s.time,s.end])).toEqual([[0,3],[3,6],[6,8]]);
+ expect(out.shots[0].effects.map(e=>e.assetId)).toEqual(['drag','pipe']);
+ expect(out.warnings).toEqual([]);
+});

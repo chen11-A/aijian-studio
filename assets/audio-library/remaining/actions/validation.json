@@ -1,0 +1,74 @@
+[
+  {
+    "id": "remaining-pipe-impact-1",
+    "bytes": 25561,
+    "levels": {
+      "loudness": -20.98,
+      "truePeak": -2.22,
+      "samplePeak": -2.308351
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  },
+  {
+    "id": "remaining-pipe-impact-2",
+    "bytes": 26458,
+    "levels": {
+      "loudness": -18.95,
+      "truePeak": -2.09,
+      "samplePeak": -2.086211
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  },
+  {
+    "id": "remaining-pipe-impact-3",
+    "bytes": 23022,
+    "levels": {
+      "loudness": -22.7,
+      "truePeak": -2.56,
+      "samplePeak": -3.041537
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  },
+  {
+    "id": "remaining-pipe-drag-1",
+    "bytes": 46339,
+    "levels": {
+      "loudness": -18.26,
+      "truePeak": -3.66,
+      "samplePeak": -3.752201
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  },
+  {
+    "id": "remaining-pipe-drag-2",
+    "bytes": 49004,
+    "levels": {
+      "loudness": -18.21,
+      "truePeak": -4.64,
+      "samplePeak": -4.658765
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  },
+  {
+    "id": "remaining-pipe-drag-3",
+    "bytes": 43327,
+    "levels": {
+      "loudness": -18.38,
+      "truePeak": -2.84,
+      "samplePeak": -2.917187
+    },
+    "formatVerified": true,
+    "sha256Verified": true,
+    "levelValidationPassed": true
+  }
+]

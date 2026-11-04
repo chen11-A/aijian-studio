@@ -60,7 +60,7 @@ def validate_levels(item, levels, target):
             raise ValueError('实测峰值与清单不一致。')
 
 
-STRICT_CATEGORIES = ('手机震动', '电话铃', '雨伞', '心跳', '低频冲击', '街道',
+STRICT_CATEGORIES = ('钥匙', '手机震动', '电话铃', '雨伞', '心跳', '低频冲击', '街道',
     '湿地面脚步', '水泥地奔跑', '钢管击打', '钢管拖地', '金属撞击', '刀挥砍', '刀划伤',
     '人体倒地', '心电监护仪', '医院底噪', '人群低语', '车辆驶过')
 LOOP_CATEGORIES = ('雨', '风', '街道', '医院底噪')
@@ -109,6 +109,7 @@ def strict_requirements(entries):
     music = dict.fromkeys(MUSIC_EMOTIONS, 0)
     environments = set()
     sad_sources = set()
+    crowd_loops = 0
     recording_counts = dict.fromkeys(('雨', '风', '雨打伞', '雨打窗', '喘息'), 0)
     for item in entries:
         labels = set(item['tags']) | {item['category']}
@@ -130,6 +131,13 @@ def strict_requirements(entries):
             for category in loops:
                 if category in labels:
                     loops[category] += 1
+        if (labels & {'人群低语', '人群'} and item['category'] == '环境'
+                and loopable(item) and 30 <= item['duration'] <= 60
+                and item.get('recordingVerified') is True
+                and item.get('license') in ('CC0-1.0', 'Public Domain')
+                and any(item.get(key) for key in ('licensePath', 'licenseEvidence', 'licenseEvidencePath'))
+                and item.get('author') and source):
+            crowd_loops += 1
         # “真实录音”须在元数据中明确通过来源证据核实，不能把合成/音乐采样只改标签。
         if item.get('recordingVerified') is True:
             for label in recording_counts:
@@ -137,6 +145,8 @@ def strict_requirements(entries):
                     recording_counts[label] += 1
     errors = [f'严格验收：{category}不足 3 个（实有 {count} 个）。'
               for category, count in counts.items() if count < 3]
+    if not crowd_loops:
+        errors.append('严格验收：人群缺少已核实真实录音、附许可依据且30–60秒可循环的环境音。')
     if len(environments) < 8:
         errors.append(f'严格验收：30–60秒可循环环境音不足 8 条不同来源（实有 {len(environments)} 条）。')
     errors += [f'严格验收：{emotion}缺少可循环配乐。' for emotion, count in music.items() if not count]
@@ -145,7 +155,7 @@ def strict_requirements(entries):
     errors += [f'严格验收：{label}缺少已核实真实录音' + ('且至少30秒可循环的版本。' if label in ('雨','风') else '。')
                for label, count in recording_counts.items() if not count]
     return errors, {'指定类别数量': counts, '可循环环境音数量': loops,
-        '30至60秒不同来源环境循环数':len(environments), '可循环配乐情绪数量':music,
+        '已核实人群环境循环数':crowd_loops, '30至60秒不同来源环境循环数':len(environments), '可循环配乐情绪数量':music,
         '悲伤配乐独立来源数':len(sad_sources), '真实录音数量':recording_counts}
 
 

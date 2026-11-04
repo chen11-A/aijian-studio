@@ -160,7 +160,7 @@ class NewRequirementsTests(CheckTests):
 
     def test_strict_reports_every_missing_category(self):
         errors, report = check.strict_requirements([])
-        self.assertEqual(len(errors), len(check.STRICT_CATEGORIES)+1+len(check.MUSIC_EMOTIONS)+1+5)
+        self.assertEqual(len(errors), len(check.STRICT_CATEGORIES)+1+len(check.MUSIC_EMOTIONS)+1+5+1)
         self.assertEqual(list(report['指定类别数量']), list(check.STRICT_CATEGORIES))
         self.assertTrue(all('不足 3' in error for error in errors[:len(check.STRICT_CATEGORIES)]))
 
@@ -172,6 +172,17 @@ class NewRequirementsTests(CheckTests):
         self.assertEqual(report['指定类别数量']['刀划伤'], 0)
         self.assertEqual(report['可循环环境音数量']['雨'], 0)
 
+    def test_strict_requires_three_keys_and_ignores_music_and_near_matches(self):
+        entries = [self.fixture(tags=['钥匙']), self.fixture(category='钥匙'),
+                   self.fixture(tags=['钥匙串配乐']),
+                   self.fixture(type='music', tags=['钥匙'])]
+        errors, report = check.strict_requirements(entries)
+        self.assertEqual(report['指定类别数量']['钥匙'], 2)
+        self.assertIn('严格验收：钥匙不足 3 个（实有 2 个）。', errors)
+        errors, report = check.strict_requirements(entries + [self.fixture(tags=['钥匙'])])
+        self.assertEqual(report['指定类别数量']['钥匙'], 3)
+        self.assertFalse(any('钥匙不足' in error for error in errors))
+
     def test_strict_success(self):
         entries = []
         for category in check.STRICT_CATEGORIES:
@@ -179,6 +190,7 @@ class NewRequirementsTests(CheckTests):
         for n in range(8):
             entries.append(self.fixture(tags=['雨','风','雨打伞','雨打窗','喘息'], duration=40,
                            loop=True,loopable=True,recordingVerified=True,source=f'https://example.org/recording/{n}'))
+        entries.append(self.fixture(tags=['人群'], duration=40, loop=True, recordingVerified=True, licensePath='许可证.md'))
         for emotion in check.MUSIC_EMOTIONS:
             entries.append(self.fixture(type='music',category=emotion,tags=[emotion],loop=True))
         for n in range(2):
@@ -186,6 +198,21 @@ class NewRequirementsTests(CheckTests):
         errors, report = check.strict_requirements(entries)
         self.assertEqual(errors, [])
         self.assertTrue(all(count == 3 for count in report['指定类别数量'].values()))
+
+    def test_crowd_loop_requires_real_recording_and_license_evidence(self):
+        valid = self.fixture(tags=['人群低语'], duration=40, loop=True,
+                             recordingVerified=True, licensePath='许可证.md')
+        for changes in ({'loop':False}, {'duration':18}, {'recordingVerified':False},
+                        {'license':'CC-BY-4.0'}, {'licensePath':''}, {'category':'道具'}):
+            errors, report = check.strict_requirements([{**valid, **changes}])
+            self.assertEqual(report['已核实人群环境循环数'], 0)
+            self.assertTrue(any('人群缺少' in error for error in errors))
+        for tags, evidence in ((['人群低语'], {'licensePath':'许可证.md'}),
+                               (['人群'], {'licensePath':'', 'licenseEvidence':'许可说明.md'}),
+                               (['人群'], {'licensePath':'', 'licenseEvidencePath':'来源.md'})):
+            errors, report = check.strict_requirements([{**valid, 'tags':tags, **evidence}])
+            self.assertEqual(report['已核实人群环境循环数'], 1)
+            self.assertFalse(any('人群缺少' in error for error in errors))
 
     def test_strict_does_not_count_same_song_twice_or_claim_recording(self):
         one=self.fixture(type='music',category='悲伤',tags=['悲伤'],loop=True)

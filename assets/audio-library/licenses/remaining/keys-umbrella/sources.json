@@ -1,0 +1,44 @@
+[
+  {
+    "id": "remaining-keys-131437",
+    "filename": "131437.wav",
+    "author": "sKydran",
+    "name": "钥匙摇动",
+    "source": "https://freesound.org/people/sKydran/sounds/131437/",
+    "license": "CC0-1.0",
+    "licenseExcerpt": "Creative Commons 0",
+    "verifiedDate": "2026-11-04",
+    "sourceSha256": "11452b7c22a4241e4a0e89e1ea877cf6b04f9202812ef76e7005c8544cadc394",
+    "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/131437__skydran__key-noises.wav",
+    "sourceFile": "original_recordings/non_reference/184Sounds of things_Domestic sounds_ home sounds_Keys jangling/131437__skydran__key-noises.wav",
+    "matchingEvidence": "原作者页面独立确认作者、编号、钥匙录音描述及CC0；研究库original_recordings文件名与original_recordings_license.csv对应，使用其保留的原录音片段，不是vocal_imitations。研究库可能重采样或截段，不宣称原站文件逐字节一致。"
+  },
+  {
+    "id": "remaining-keys-173943",
+    "filename": "173943.wav",
+    "author": "JohnsonBrandEditing",
+    "name": "一串钥匙叮当",
+    "source": "https://freesound.org/people/JohnsonBrandEditing/sounds/173943/",
+    "license": "CC0-1.0",
+    "licenseExcerpt": "Creative Commons 0",
+    "verifiedDate": "2026-11-04",
+    "sourceSha256": "b700cc2a7faf234613e2da3f5517f5bb2a3e2a3d2a01a729a6ca220bdadee9ee",
+    "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/173943__johnsonbrandediting__key-jingle.wav",
+    "sourceFile": "original_recordings/non_reference/184Sounds of things_Domestic sounds_ home sounds_Keys jangling/173943__johnsonbrandediting__key-jingle.wav",
+    "matchingEvidence": "原作者页面独立确认作者、编号、钥匙录音描述及CC0；研究库original_recordings文件名与original_recordings_license.csv对应，使用其保留的原录音片段，不是vocal_imitations。研究库可能重采样或截段，不宣称原站文件逐字节一致。"
+  },
+  {
+    "id": "remaining-keys-235564",
+    "filename": "235564.wav",
+    "author": "SkeetMasterFunk69",
+    "name": "钥匙轻晃",
+    "source": "https://freesound.org/people/SkeetMasterFunk69/sounds/235564/",
+    "license": "CC0-1.0",
+    "licenseExcerpt": "Creative Commons 0",
+    "verifiedDate": "2026-11-04",
+    "sourceSha256": "3ec2ef682d83c9b82d700d08ea233fc6f7d284c313db789cb42c07e07fa89e08",
+    "downloadSource": "https://github.com/interactiveaudiolab/VocalImitationSet/blob/b77114c43c52f5faa7d0bb69b22e1ebca0632201/original_recordings/non_reference/184Sounds%20of%20things_Domestic%20sounds_%20home%20sounds_Keys%20jangling/235564__skeetmasterfunk69__keys.wav",
+    "sourceFile": "original_recordings/non_reference/184Sounds of things_Domestic sounds_ home sounds_Keys jangling/235564__skeetmasterfunk69__keys.wav",
+    "matchingEvidence": "原作者页面独立确认作者、编号、钥匙录音描述及CC0；研究库original_recordings文件名与original_recordings_license.csv对应，使用其保留的原录音片段，不是vocal_imitations。研究库可能重采样或截段，不宣称原站文件逐字节一致。"
+  }
+]

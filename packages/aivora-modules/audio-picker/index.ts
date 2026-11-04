@@ -47,7 +47,7 @@ function monitorState(text: string): 'steady' | 'accelerating' | 'continuous' | 
 function effectFor(assets: AudioAsset[], label: string, context: string): AudioAsset | undefined {
   const keys = concepts(label);
   // 具体动作优先：拖地不能选击打，划伤可退到明确刀挥砍，但不选择厨刀刮擦。
-  const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
+  const preferred = keys.includes('钢管拖地') ? ['钢管拖地'] : keys.includes('钢管击打') ? ['钢管击打', '金属管击打', '金属击打'] : keys.includes('刀划伤') ? ['刀划伤', '刀挥砍'] : keys;
   if (!preferred.length) return choose(assets, label)[0];
   let matches = assets.filter(a => preferred.some(key => a.tags.includes(key) || a.category === key));
   if (keys.includes('心电监护仪')) {
@@ -111,7 +111,12 @@ export function pickAudio(scene: Scene, library: AudioAsset[]): Selection {
       if (action.time >= shot.duration) continue;
       const label = action.label || `${text} ${shot.description ?? ''}`;
       const effect = effectFor(effectsAssets, label, context);
-      if (effect) effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, '音效对准动作节点'));
+      if (effect) {
+        const pipeFallback = concepts(label).includes('钢管击打') && !concepts(label).includes('钢管拖地') && !['钢管击打', '金属管击打'].some(key => effect.tags.includes(key) || effect.category === key);
+        const reason = pipeFallback ? '用一般金属击打拟音替代金属管动作，请试听确认' : '音效对准动作节点';
+        effects.push(cue(effect, action.time, shot.duration, shot.hasDialogue ? -6 : 0, false, reason));
+        if (pipeFallback) warnings.push(`第${index + 1}镜头第${action.time}秒缺少金属管击打素材，暂用一般金属击打拟音替代`);
+      }
       else warnings.push(`第${index + 1}镜头第${action.time}秒缺少“${label}”对应音效`);
     }
     // 描述中的设备声音即使没有动作节点也会安排；已经明确安排的同类动作不重复。

@@ -1,6 +1,6 @@
 # 音频来源与许可
 
-当前收录为173条 CC0-1.0 和1条 Public Domain，具体以每条清单为准。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
+当前收录为186条 CC0-1.0 和1条 Public Domain，具体以每条清单为准。第三方 manifest.source 链接到固定提交的原始文件，自制条目链接到本分支的生成脚本，sha256 校验交付后的 Ogg。未将第三方合集的根目录许可当成逐包授权，另存原作者随包的许可声明。
 
 ## 配乐
 
@@ -52,3 +52,9 @@ CC0 说明：https://creativecommons.org/publicdomain/zero/1.0/
 - 悲伤音乐2首：`fill-gaps/music/LICENSE_EVIDENCE.md`。依据HoliznaCC0明确整音乐档案的CC0额外授权；Bandcamp通用按钮另指向CC-BY4.0，FMA直接请求403、逐曲CC0依据官方搜索索引，均已披露，不声称只存在CC0标记。
 
 本次没有执行下载包中的应用，只读取其中音频。未进行人工试听；原站未提供原文件哈希时，不声称已完成原站字节比对。下载镜像SHA和最终派生SHA均记录在对应报告。
+
+## 后续12条与音乐许可复核
+
+钥匙3位作者、金属管2位作者、夜街Romano.Tercero的原作者CC0证据在 `remaining/` 及 `licenses/remaining/` 对应目录；同源分段如实标注。音乐新增证据包含Bandcamp平台官方文档、与原作者双向关联的站外CC0声明及作者当前档案授权，见 `remaining/music-review/HOLIZNA_REVIEW.md`，支持额外CC0授权，不忽略BY通用按钮。
+
+人群三个非循环成品已替换，并新增55秒长循环；来源仍为已核实jentlemen432331，不新增原作者或冒称不同录音。证据见 remaining/crowd-loop/ 及 licenses/remaining/crowd-loop/。

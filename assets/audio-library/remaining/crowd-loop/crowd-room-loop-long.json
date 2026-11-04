@@ -1,0 +1,28 @@
+{
+  "id": "sfx-crowd-long-loop",
+  "sourceSha256": "9586b83be54d1ba107f05058338f0f168ed36ef6c962669ae9f316a2fbfb51a5",
+  "outputSha256": "7cec4c8eb91bcf1793c1f4985fb157a23d7a55fb4948aa328f4ab0c014a35ec8",
+  "sourceSliceStart": 0,
+  "sourceSliceDuration": 56,
+  "crossfadeSeconds": 1,
+  "boundaryRotationSeconds": 1.0773958333333333,
+  "duration": 55.0,
+  "loudness": -21.89,
+  "truePeak": -1.72,
+  "samplePeak": -1.7285164114880012,
+  "seam": {
+    "channels": [
+      {
+        "channel": 1,
+        "boundarySampleJump": 0.0002519860863685608,
+        "adjacentDifferenceP99": 0.02672424539923668,
+        "leftRightRmsRatio": 0.9748707739769134,
+        "seamNearbyRmsRatio": 1.0031842852436093,
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "subjectiveListeningCompleted": false
+  },
+  "subjectiveListeningCompleted": false
+}

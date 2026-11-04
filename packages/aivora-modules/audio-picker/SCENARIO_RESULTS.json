@@ -159,22 +159,43 @@
       "shots": [
         {
           "index": 1,
-          "ambience": [],
+          "ambience": [
+            {
+              "assetId": "sfx-night-street-puebla-1",
+              "path": "remaining/ambience/night-street-puebla-1.ogg",
+              "time": 0,
+              "end": 8,
+              "gainDb": -6,
+              "reason": "按环境关键词选取并连续铺满镜头",
+              "loop": false,
+              "segments": [
+                {
+                  "assetId": "sfx-night-street-puebla-1",
+                  "path": "remaining/ambience/night-street-puebla-1.ogg",
+                  "time": 0,
+                  "end": 8,
+                  "sourceStart": 0,
+                  "fadeIn": 0,
+                  "fadeOut": 0
+                }
+              ]
+            }
+          ],
           "effects": [
             {
-              "assetId": "r2-metal-can-01",
-              "path": "round2/r2-metal-can-01.ogg",
+              "assetId": "remaining-pipe-impact-1",
+              "path": "remaining/actions/pipe-impact-1.ogg",
               "time": 1,
-              "end": 1.812938,
+              "end": 3.1,
               "gainDb": 0,
               "reason": "音效对准动作节点",
               "loop": false,
               "segments": [
                 {
-                  "assetId": "r2-metal-can-01",
-                  "path": "round2/r2-metal-can-01.ogg",
+                  "assetId": "remaining-pipe-impact-1",
+                  "path": "remaining/actions/pipe-impact-1.ogg",
                   "time": 1,
-                  "end": 1.812938,
+                  "end": 3.1,
                   "sourceStart": 0,
                   "fadeIn": 0,
                   "fadeOut": 0
@@ -225,7 +246,6 @@
         }
       ],
       "warnings": [
-        "第1镜头缺少匹配的环境音，请补充真实素材",
         "第1镜头第5秒缺少“倒地”对应音效"
       ],
       "reason": "按情绪配乐，循环或接曲铺满场景，台词区间压低十二分贝"

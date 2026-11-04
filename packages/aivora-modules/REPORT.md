@@ -1,3 +1,36 @@
+# 当前交付：f099ace之后继续补缺
+
+分支 `gpt/aivora-modules`；本轮仅改两个获准目录，不合并、不创建PR。此次新增13个清单条目：钥匙3、夜街循环3、金属管受击3、金属管拖混凝土3、人群长循环1；并替换原3个人群非循环版，保留ID。实际生成16个音频文件、删除3个旧文件，净增13。现187文件：156音效、31配乐文件，独立作品仍22首。逐条变化见 [REMAINING_CHANGES.json](../../assets/audio-library/REMAINING_CHANGES.json)。
+
+夜街三段来自同一真实城市夜晚录音的非重叠片段，各39秒，实际首尾交叉淡化；管声分别来自两份原作者CC0录音，钢管标签为拟音适用场景，不声称具体钢材已确认。钥匙是三个不同原作者的真实录音，严格检查已增加钥匙≥3的断言，不能再漏验。原三段人群改为17秒实际循环，新增55秒同源长循环；人群严格条件还核实环境类别、来源标记及许可证据，不仅检查loop字段。
+
+两首Holizna配乐已核实原作者跨站双向身份链接、当前整音乐档案明确CC0授权与平台官方菜单不含CC0的说明，依据额外CC0授权保留，详见 [独立审查](../../assets/audio-library/remaining/music-review/HOLIZNA_REVIEW.md)。Sad Boi未在当前Bandcamp曲目目录直接列名的边界仍保留；没有把艺名或镜像标题当作许可。
+
+仍有雨伞开合、人体水泥倒地、医院走廊底噪3类未完成，不报告整包严格验收通过。网络/来源阻碍详见 [BLOCKERS.md](../../assets/audio-library/remaining/BLOCKERS.md)。现有工具不能可靠听觉审查：43条循环的原音数值接缝检查与[本地试听页](../../assets/audio-library/remaining/loop-review/index.html)可复核，但没有人工试听。Windows仍未实机测试。
+
+本轮 `npm test` 213项、Python44项、类型检查通过。模块语句/函数/行覆盖率均100%；分支和测试数如下。
+
+| 模块 | 测试数 | 分支覆盖率 |
+| --- | ---: | ---: |
+| audio-library | 48 | 100% |
+| audio-picker | 43 | 99.45% |
+| subtitles | 20 | 98.61% |
+| export-check | 12 | 95.61% |
+| loudness | 11 | 97.50% |
+| cover-title | 16 | 100% |
+| project-archive | 37 | 92.85% |
+| rough-cut | 26 | 100% |
+
+1,074,790,400字节文件实际流式打包、还原、SHA256一致，STORE归档1,074,790,943字节，打包约18.8秒、导入约1.91秒、峰值RSS约135.0MiB。原样数值见 [PERFORMANCE.json](project-archive/PERFORMANCE.json)，测试日志及覆盖率已同步本轮。
+
+[四场景完整原样输出](audio-picker/SCENARIO_RESULTS.json)：雨声铺满45秒并有手机震动；小巷夜街铺满8秒、1秒选管声而非罐声，倒地仍告缺；医院有规律监护音与硬地面脚步，走廊底噪仍缺；温暖配乐铺满130秒。
+
+普通与严格检查均实际重新执行CLI：普通退出0、严格退出1（仅上面3类缺项）。两次均实测187文件，最大真峰值−1.05dBTP、最大采样峰值−1.052554dBFS，双超标数0。普通扫描目录60,827,060字节，约60.8MB，低于150MB；后续验收文本会略增。完整输出和退出码见素材库 CHECK_OUTPUT.json、STRICT_CHECK_OUTPUT.json、CHECK_COMMAND.txt、VALIDATION.json。这里的严格数量按适用拟音类别计数，不把它解释为钢材鉴定或人工听感通过。
+
+---
+
+以下保留 **f099ace阶段的历史记录**；其中174文件、210项测试等数字只描述该阶段，当前数字以上文和最新检查产物为准。
+
 # AIVORA 第二轮修改与继续补缺交付记录
 
 分支 `gpt/aivora-modules`，本轮从 `b86138c23b2d39aac3ea935c73131e95b8e3b874` 继续；已核实它是初次 `644ae3c` 的后续，未重置或丢弃前轮提交。只修改 `assets/audio-library/` 与 `packages/aivora-modules/`，不合并、不创建 PR。
