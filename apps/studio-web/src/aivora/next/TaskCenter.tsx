@@ -596,7 +596,7 @@ export function TaskCenter(props: TaskCenterProps) {
         <section className="nx-panel nx-tasks-empty">
           <h2>现在没有任务</h2>
           <p className="nx-muted">
-            在首页点「一键成片」，或者在分镜里点「生成」，要做的画面、视频和配音会排在这里。
+            在剧本页点「一键成片」，或者在分镜页点「生成这一场」，要做的画面、视频和配音会排在这里。
           </p>
           <p className="nx-faint">
             关掉软件也不会丢：重新打开后，没做完的会标成「已中断」，在这里重试。

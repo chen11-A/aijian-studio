@@ -219,7 +219,7 @@ TakePicker 等 next 组件里的文案已经按这份约定写好，不在表里
 
 ## 后端给的提示
 
-3J-B17 让 GPT 把给用户的提示改成 `{code, text, detail?}`。状态栏（3J-U04）按 code 显示下表「界面显示」那一列；`text` 是 GPT 的兜底文字，只在 code 不认识时显示；`detail`（人名、场名、数量、原因）跟在后面用浅色小字，鼠标停上去看全文，也记进任务中心的「最近的提示」。
+3J-B17 让 GPT 把给用户的提示改成 `{code, text, detail?}`。状态栏（3J-U04）按 code 显示下表「界面显示」那一列；`text` 是 GPT 的兜底文字，只在 code 不认识时显示；`detail`（人名、场名、数量、原因）不跟在状态栏后面（UIR-03：状态栏一次只有一句话），鼠标停上去看全文，也记进任务中心的「最近的提示」。
 
 - 代码里的表：`apps/studio-web/src/aivora/next/wiring/noticeCopy.ts` 的 `NOTICE_COPY`。GPT 新加 code 而这里没有对应的一行时，`noticeCopy.test.ts` 会失败，提醒补文案。
 - 工作区直接给的整句话（不是 code）原样显示，不按字面猜 code 换掉：那句话里通常有人名和数字。

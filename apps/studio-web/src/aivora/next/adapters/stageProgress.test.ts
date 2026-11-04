@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sampleFilm, type FilmProject } from "../../film/project";
-import { stageProgress } from "./stageProgress";
+import { hasChosenVideo, stageProgress, stageTabs } from "./stageProgress";
 
 const portraits = (url = "file:///p.png") =>
   ["正面", "侧面", "背面", "脸部"].map((view) => ({ view, prompt: "", url }));
@@ -76,5 +76,51 @@ describe("stageProgress", () => {
       })),
     };
     expect(stageProgress(done).board).toBe(true);
+  });
+});
+
+describe("stageTabs", () => {
+  it("ticks 角色与场景 only when everyone has a front portrait, and counts until then", () => {
+    const film = sampleFilm();
+    const none = stageTabs({
+      ...film,
+      characters: film.characters.map((p) => ({ ...p, portraits: [] })),
+    });
+    expect(none.cast).toEqual({ done: false, have: 0, total: film.characters.length });
+    const front = stageTabs({
+      ...film,
+      characters: film.characters.map((p) => ({
+        ...p,
+        portraits: [{ view: "正面", prompt: "", url: "file:///f.png" }],
+      })),
+    });
+    expect(front.cast.done).toBe(film.characters.length > 0);
+  });
+
+  it("counts scenes with words and shots whose chosen version has a video", () => {
+    const film = sampleFilm();
+    const tabs = stageTabs(film);
+    expect(tabs.script).toEqual({
+      done: film.scenes.every((scene) => scene.text.trim()),
+      have: film.scenes.filter((scene) => scene.text.trim()).length,
+      total: film.scenes.length,
+    });
+    expect(tabs.board).toEqual({ done: false, have: 0, total: film.shots.length });
+    const [first] = film.shots;
+    const take = {
+      id: "t1",
+      shotId: first!.id,
+      index: 1,
+      status: "done" as const,
+      stillUrl: "",
+      videoPath: "/a.mp4",
+      videoUrl: "",
+      prompt: "",
+      createdAt: "",
+      reason: "",
+    };
+    expect(hasChosenVideo({ ...first!, takes: [take], selectedTakeId: "t1" })).toBe(true);
+    expect(hasChosenVideo({ ...first!, takes: [take], selectedTakeId: "other" })).toBe(false);
+    expect(hasChosenVideo({ ...first!, takes: [take], selectedTakeId: "" })).toBe(true);
   });
 });

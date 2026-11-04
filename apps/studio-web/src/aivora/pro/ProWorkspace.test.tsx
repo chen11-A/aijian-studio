@@ -89,7 +89,7 @@ describe("professional workspace", () => {
         .find((item) => item.className.includes("tab"))!,
     );
     fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
-    expect((await screen.findAllByText(/请打开安装好的 AIVORA 再出图/)).length).toBeGreaterThan(0);
+    await waitFor(() => expect(statusDetail()).toMatch(/请打开安装好的 AIVORA 再出图/));
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "试听" }));
     fireEvent.click(
@@ -100,7 +100,7 @@ describe("professional workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "加镜头" }));
     expect(screen.getByText(/已加一个镜头/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "生成画面" }));
-    expect(await screen.findByText(/请打开安装好的 AIVORA 再出图/)).toBeInTheDocument();
+    await waitFor(() => expect(statusDetail()).toMatch(/请打开安装好的 AIVORA 再出图/));
     fireEvent.click(
       screen
         .getAllByRole("button", { name: /剪辑/ })
@@ -214,7 +214,7 @@ describe("professional workspace", () => {
     fireEvent.change(screen.getByLabelText("外貌"), { target: { value: "老刀，光头" } });
     fireEvent.change(screen.getByLabelText("画风"), { target: { value: "古风武侠" } });
     fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
-    expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
+    await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
     expect(screen.getByText(/登录 Grok 会员后才能看到声音名单/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "场景" }));
     fireEvent.click(stageTab("剪辑"));
@@ -497,15 +497,15 @@ describe("professional workspace", () => {
       expect(screen.getAllByText("画面已出").length).toBeGreaterThan(0);
       expect(screen.getByRole("button", { name: "生成视频" })).toHaveClass("primary");
       moreAction("重新生成画面");
-      expect(await screen.findByText(/模型拒绝了这一张。/)).toBeInTheDocument();
+      await waitFor(() => expect(statusDetail()).toMatch(/模型拒绝了这一张。/));
       moreAction("重新生成画面");
-      expect(await screen.findByText(/出图没有成功，可以重试。/)).toBeInTheDocument();
+      await waitFor(() => expect(statusDetail()).toMatch(/出图没有成功，可以重试。/));
       moreAction("重新生成画面");
       expect(await screen.findByText(/画面已生成。/)).toBeInTheDocument();
       fireEvent.click(stageTab("角色与场景"));
       fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
-      expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
-      expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
+      await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
+      await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
       fireEvent.click(stageTab("分镜"));
       fireEvent.click(screen.getByRole("button", { name: "单镜" }));
       fireEvent.click(screen.getByRole("button", { name: "2 秒" }));
@@ -915,8 +915,8 @@ it("runs the seven agents, confirms a portrait, and times a shot from the line",
     fireEvent.change(screen.getByLabelText("环境音"), { target: { value: "雨声" } });
     expect(screen.getByLabelText("环境音")).toHaveValue("雨声");
     fireEvent.click(screen.getByRole("button", { name: "补这个人的" }));
-    expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
-    expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
+    await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
+    await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
     fireEvent.click(screen.getByRole("button", { name: "声音开" }));
     fireEvent.click(screen.getByRole("button", { name: "试听旁白" }));
     expect(await screen.findByText(/声音关着/)).toBeInTheDocument();
@@ -1190,6 +1190,23 @@ it("warns about a scene end with no shot and lets an unplaced action go onto a s
   expect(screen.getByRole("button", { name: "补上结尾" })).toBeEnabled();
 });
 
+it("ticks a stage only when it is done, hides an idle progress bar, and points to real buttons", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  // UIR-06: the sample has no portraits, so 角色与场景 is not ticked even when passed.
+  const cast = stageTab("角色与场景");
+  expect(cast).not.toHaveClass("done");
+  expect(cast.querySelector(".tab-count")?.textContent).toMatch(/^0\/\d+$/);
+  // UIR-04: nothing is being made, so there is no progress bar.
+  expect(document.querySelector(".statusbar .bar")).toBeNull();
+  // UIR-05: the empty 单镜 says where the button is, once.
+  fireEvent.click(screen.getByRole("button", { name: "单镜" }));
+  expect(screen.getByText("还没有版本。在右边点「生成 1 个版本」。")).toBeInTheDocument();
+  expect(screen.queryByText("还没有版本")).toBeNull();
+  expect(screen.getByRole("button", { name: "生成 1 个版本" })).toBeInTheDocument();
+});
+
 it("keeps one primary button per page, export only on 剪辑", async () => {
   installDesktop();
   await openSample();
@@ -1220,6 +1237,8 @@ it("makes every missing portrait from one button and shows each slot's state", a
   fireEvent.click(all);
   await waitFor(() => expect(screen.getAllByText("已完成")).toHaveLength(4));
   expect(document.querySelector(".portrait-progress")).toHaveTextContent("都齐了");
+  // UIR-03: a coded message is one sentence; the counts stay in the tooltip.
+  expect(document.querySelector(".status-note")?.textContent ?? "").not.toMatch(/\d+\/\d+/);
   // Everyone is done: the one primary button now moves on to the storyboard.
   expect(screen.queryByRole("button", { name: "给所有人出定妆照" })).toBeNull();
   expect(screen.getByRole("button", { name: "下一步：分镜" })).toHaveClass("primary");
@@ -1401,6 +1420,11 @@ function openBoardTools() {
   if (!screen.queryByRole("button", { name: "写英文提示词" })) {
     fireEvent.click(screen.getByRole("button", { name: "高级" }));
   }
+}
+
+// UIR-03: a coded message shows one sentence; its detail is in the status bar's tooltip.
+function statusDetail() {
+  return document.querySelector(".status-note")?.getAttribute("title") ?? "";
 }
 
 function stageTab(name: string) {
@@ -2302,7 +2326,7 @@ it("keeps the three-scene novel, its shots, portraits, and video references", as
   expect(document.body.textContent).toContain("抓紧衣角");
   fireEvent.click(stageTab("角色"));
   fireEvent.click(screen.getAllByRole("button", { name: "补这个人的" })[0]!);
-  expect(await screen.findByText(/定妆照 4\/4，失败 0/)).toBeInTheDocument();
+  await waitFor(() => expect(statusDetail()).toMatch(/定妆照 4\/4，失败 0/));
   fireEvent.click(stageTab("分镜"));
   fireEvent.click(screen.getByRole("button", { name: "生成这一场" }));
   fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
