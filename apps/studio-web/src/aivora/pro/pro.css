@@ -1613,9 +1613,12 @@ body:has(.pro-root) {
 .pro-root .sec-t .sp {
   flex: 1;
 }
+/* Seven people do not fit in the 单镜 column; the strip scrolls sideways in its own row. */
 .pro-root .refs {
   display: flex;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 .pro-root .ref {
   width: 48px;
