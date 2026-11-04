@@ -17,7 +17,6 @@ import {
   extractCastOffline,
   chosenExport,
   confirmEstimate,
-  exportSummary,
   filmFileName,
   mergeCast,
   parseCastReply,
@@ -3638,7 +3637,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
         )}
         {exportOpen && (
           <div className="dialog-back">
-            <div className="dialog" role="dialog" aria-label="导出成片">
+            <div className="dialog export" role="dialog" aria-label="导出成片">
               <h2>导出成片</h2>
               <div className="field">
                 <label>文件名</label>
@@ -3650,70 +3649,86 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
               </div>
               <div className="field">
                 <label htmlFor="export-dir">保存到</label>
-                <input
-                  id="export-dir"
-                  className="input"
-                  aria-label="导出文件夹"
-                  title={exportDir}
-                  value={exportDir}
-                  placeholder="点浏览。文件夹选择会打开视频里的 AIVORA"
-                  onChange={(event) => setExportDir(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    const path = event.currentTarget.value.trim();
-                    if (!path) return;
-                    setExportDir(path);
-                    void startExport(path);
-                  }}
-                />
-                <span className="export-path" title={exportDir}>
-                  {middlePath(exportDir)}
-                </span>
-                <button
-                  className="btn sm"
-                  type="button"
-                  onClick={() => {
-                    void window.aijian?.pickFilmFolder?.().then((dir) => {
-                      if (dir) setExportDir(dir);
-                    });
-                  }}
-                >
-                  浏览
-                </button>
+                <div className="pathrow">
+                  {/* The box shows a long path with its middle cut out; typing shows all of it. */}
+                  <div className="pathfield" data-layer title={exportDir}>
+                    <input
+                      id="export-dir"
+                      className="input"
+                      aria-label="导出文件夹"
+                      value={exportDir}
+                      placeholder="点「浏览」选一个文件夹"
+                      onChange={(event) => setExportDir(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        const path = event.currentTarget.value.trim();
+                        if (!path) return;
+                        setExportDir(path);
+                        void startExport(path);
+                      }}
+                    />
+                    {exportDir ? (
+                      <span className="pathshow" aria-hidden="true">
+                        {middlePath(exportDir)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    className="btn sm"
+                    type="button"
+                    onClick={() => {
+                      void window.aijian?.pickFilmFolder?.().then((dir) => {
+                        if (dir) setExportDir(dir);
+                      });
+                    }}
+                  >
+                    浏览
+                  </button>
+                </div>
               </div>
-              <p className="role-desc" data-testid="export-summary">
-                {film ? exportSummary(film) : "还没有作品。"}
+              <p className="export-line" data-testid="export-summary">
+                {film ? exportLine(film) : "还没有作品。"}
               </p>
-              {film && chosenExport(film).missing.length > 0 && (
-                <p className="role-desc">
-                  还没生成：{chosenExport(film).missing.join("、")}。可以只导出已生成的。
-                </p>
-              )}
+              {film && missingByScene(film).length > 0 ? (
+                <details className="missing">
+                  <summary>按场看还没生成的镜头</summary>
+                  <ul>
+                    {missingByScene(film).map((row) => (
+                      <li key={row.id}>
+                        <b>{row.scene}</b>
+                        <span>{row.shots}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+              {partialExport && partialExport.length > 0 ? (
+                <p className="role-desc">还有镜头没生成，可以只导出已生成的。</p>
+              ) : null}
               <div className="acts">
                 <button className="btn" onClick={() => setExportOpen(false)}>
                   关闭
                 </button>
-                <button
-                  className="btn"
-                  disabled={!exportFile}
-                  title={exportFile ? "打开导出的文件夹" : "还没有导出的文件"}
-                  onClick={() => {
-                    if (exportFile) void window.aijian?.revealFilmPath?.(exportFile);
-                  }}
-                >
-                  打开文件夹
-                </button>
-                <button
-                  className="btn"
-                  disabled={!exportFile}
-                  title={exportFile ? "播放导出的文件" : "还没有导出的文件"}
-                  onClick={() => {
-                    if (exportFile) void window.aijian?.openFilmPath?.(exportFile);
-                  }}
-                >
-                  播放
-                </button>
+                {exportFile ? (
+                  <>
+                    <button
+                      className="btn"
+                      title="打开导出的文件夹"
+                      onClick={() => void window.aijian?.revealFilmPath?.(exportFile)}
+                    >
+                      打开文件夹
+                    </button>
+                    <button
+                      className="btn"
+                      title="播放导出的文件"
+                      onClick={() => void window.aijian?.openFilmPath?.(exportFile)}
+                    >
+                      播放
+                    </button>
+                  </>
+                ) : null}
+                <span className="sp" />
                 {partialExport && partialExport.length > 0 && (
                   <button className="btn" onClick={() => void startExport(exportDir, true)}>
                     只导出已生成的
@@ -3991,6 +4006,35 @@ function Assistant({
       </div>
     </>
   );
+}
+
+/** The export summary in one line: 「共 3 场 · 28 个镜头 · 约 149 秒 · 27 个还没生成」. */
+function exportLine(film: FilmProject): string {
+  const seconds = film.shots.reduce((sum, item) => sum + item.seconds, 0);
+  const missing = chosenExport(film).missing.length;
+  const gap = missing === 0 ? "都已生成" : `${missing} 个还没生成`;
+  return `共 ${film.scenes.length} 场 · ${film.shots.length} 个镜头 · 约 ${seconds} 秒 · ${gap}`;
+}
+
+/**
+ * The shots the export would leave out, scene by scene: 「第 1 场 雨夜旧书店」 and
+ * 「第 1、2、3 个镜头」. Each shot goes through chosenExport, so the rule is the export's own.
+ */
+function missingByScene(film: FilmProject): { id: string; scene: string; shots: string }[] {
+  return film.scenes.flatMap((scene) => {
+    const numbers = film.shots
+      .filter((item) => item.sceneId === scene.id)
+      .filter((item) => chosenExport({ ...film, shots: [item] }).missing.length > 0)
+      .map((item) => item.no);
+    if (numbers.length === 0) return [];
+    return [
+      {
+        id: scene.id,
+        scene: `第 ${scene.no} 场 ${scene.title}`,
+        shots: `第 ${numbers.join("、")} 个镜头`,
+      },
+    ];
+  });
 }
 
 /** Where the timeline ruler marks fall: every 5 seconds, every 10 past two minutes. */

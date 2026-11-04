@@ -2418,3 +2418,24 @@ it("gives both sound tracks a name, mute, solo and volume, and says when a track
   );
   expect(screen.getByLabelText("导入音乐")).toBeInTheDocument();
 });
+
+it("sums the export in one line, lists missing shots by scene, and offers the file only after", async () => {
+  const { exportFilmCut } = installDesktop();
+  await openSample();
+  fireEvent.click(screen.getByRole("button", { name: "导出成片" }));
+  const dialog = screen.getByRole("dialog", { name: "导出成片" });
+  expect(within(dialog).getByTestId("export-summary").textContent).toBe(
+    "共 6 场 · 6 个镜头 · 约 14 秒 · 6 个还没生成",
+  );
+  expect(within(dialog).getByText("第 2 场 巷战·初交手")).toBeInTheDocument();
+  expect(within(dialog).getByText("第 1、2、3、4、5、6 个镜头")).toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: "打开文件夹" })).toBeNull();
+  expect(within(dialog).queryByRole("button", { name: "播放" })).toBeNull();
+  expect(dialog.querySelectorAll(".btn.primary")).toHaveLength(1);
+  const long = "/home/box/Videos/AIVORA/晚照书店/第一季/导出的成片/这一集的文件夹放在这里";
+  fireEvent.change(within(dialog).getByLabelText("导出文件夹"), { target: { value: long } });
+  expect(dialog.querySelector(".pathfield")).toHaveAttribute("title", long);
+  expect(dialog.querySelector(".pathshow")?.textContent).toContain("…");
+  expect(dialog.querySelector(".pathrow")?.textContent).toContain("浏览");
+  expect(exportFilmCut).not.toHaveBeenCalled();
+});

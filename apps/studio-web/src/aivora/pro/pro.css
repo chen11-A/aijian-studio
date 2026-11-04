@@ -2779,9 +2779,81 @@ body:has(.pro-root) {
   height: auto;
   field-sizing: content;
 }
-.pro-root .export-path {
+/* 3J-U11 export dialog: the path box takes the row with 「浏览」 beside it; a long path shows
+   its start and end with the middle cut out until the box is being typed in. */
+.pro-root .dialog.export {
+  width: 620px;
+}
+.pro-root .dialog.export .field {
+  padding: 0;
+}
+.pro-root .pathrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pro-root .pathfield {
+  position: relative;
+  flex: 1;
   min-width: 0;
+}
+.pro-root .pathfield .input {
+  width: 100%;
+}
+.pro-root .pathfield:not(:focus-within) .input {
+  color: transparent;
+}
+.pro-root .pathshow {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  pointer-events: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.pro-root .pathfield:focus-within .pathshow {
+  display: none;
+}
+.pro-root .export-line {
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 13px;
+}
+.pro-root .missing {
+  margin-top: 8px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.pro-root .missing summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+.pro-root .missing ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 160px;
+  overflow: auto;
+}
+.pro-root .missing li {
+  display: flex;
+  gap: 8px;
+  padding: 3px 0;
+}
+.pro-root .missing li b {
+  flex: none;
+  font-weight: 500;
+  color: var(--text);
+}
+.pro-root .dialog.export .acts {
+  margin-top: 16px;
+  align-items: center;
+}
+.pro-root .dialog.export .acts .sp {
+  flex: 1;
 }
