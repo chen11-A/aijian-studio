@@ -82,6 +82,8 @@ export type FilmJob = {
 };
 
 export type FilmLocation = {
+  userFields?: string[];
+  artFields?: { prompt?: string; ambience?: string };
   referenceImage?: string;
   referenceStyleRevision?: number;
   id: string;
@@ -91,6 +93,8 @@ export type FilmLocation = {
 };
 
 export type FilmProp = {
+  userFields?: string[];
+  artFields?: { note?: string };
   id: string;
   name: string;
   note: string;

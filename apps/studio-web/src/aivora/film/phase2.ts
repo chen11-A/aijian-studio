@@ -1,3 +1,9 @@
+import {
+  normalizeGender,
+  normalizeAgeBand,
+  type CharacterGender,
+  type CharacterAgeBand,
+} from "./cast-traits";
 import { normalizeAgentReply } from "./agent-reply-compat";
 import { emptySoundPlan, shotSecondsForLine, type ShotSoundPlan } from "./audio";
 
@@ -651,7 +657,12 @@ export function directedSpeech(line: string, delivery: string): { text: string; 
 
 export function artFromModel(value: unknown): {
   styleZh: string;
-  identities: { name: string; identity: string }[];
+  identities: {
+    name: string;
+    identity: string;
+    gender?: CharacterGender;
+    ageBand?: CharacterAgeBand;
+  }[];
   places: { name: string; prompt: string; ambience: string }[];
   props: { name: string; note: string }[];
   lines: string[];
@@ -670,7 +681,11 @@ export function artFromModel(value: unknown): {
             : typeof person.identity_block_en === "string"
               ? person.identity_block_en.trim()
               : "";
-        return name && identity ? [{ name, identity }] : [];
+        const gender = normalizeGender(person.gender);
+        const ageBand = normalizeAgeBand(person.ageBand ?? person.age_band);
+        return name && (identity || gender || ageBand)
+          ? [{ name, identity, ...(gender ? { gender } : {}), ...(ageBand ? { ageBand } : {}) }]
+          : [];
       })
     : [];
   const places = Array.isArray(row.locations)

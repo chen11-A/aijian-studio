@@ -3,7 +3,13 @@ import type { artFromModel } from "../film/phase2";
 import type { UiNotice } from "../film/contracts3j";
 import { normalizeNotice, NOTICE_TEXT } from "../film/notices";
 import type { FilmProject, FilmPortrait, FilmShot, FilmTake } from "../film/project";
-import { dialogueTracks, firstFrameReferences, portraitPrompts } from "../film/operations";
+import {
+  autoVoiceForCharacter,
+  locationPlate,
+  dialogueTracks,
+  firstFrameReferences,
+  portraitPrompts,
+} from "../film/operations";
 
 export type AgentReply = { text: string | null; detail: string; code?: string };
 export type AgentRequestControl = { deadlineAt: number; signal: AbortSignal };
@@ -317,31 +323,118 @@ export function replaceTakes(
   };
 }
 
+function mergeArtField(
+  field: string,
+  current: string,
+  incoming: string,
+  baseline: string | undefined,
+  locks: Set<string>,
+  knownDefault = false,
+): { value: string; baseline?: string } {
+  if (locks.has(field)) return { value: current, baseline };
+  if (baseline !== undefined && current !== baseline) {
+    locks.add(field);
+    return { value: current, baseline };
+  }
+  if (baseline === undefined && current.trim() && !knownDefault) return { value: current };
+  return incoming.trim() ? { value: incoming, baseline: incoming } : { value: current, baseline };
+}
+
 export function applyArtDraft(
   film: FilmProject,
   parsed: NonNullable<ReturnType<typeof artFromModel>>,
 ): FilmProject {
   const next = { ...(parsed.styleZh ? setFilmStyle(film, parsed.styleZh) : film) };
+  const used = new Set(next.characters.map((person) => person.voiceId).filter(Boolean));
   next.characters = next.characters.map((person) => {
-    if (person.userFields.includes("identity")) return person;
     const found = parsed.identities.find((item) => item.name === person.name);
-    return found ? { ...person, identity: found.identity } : person;
+    if (!found) return person;
+    const updated = {
+      ...person,
+      identity: person.userFields.includes("identity")
+        ? person.identity
+        : found.identity || person.identity,
+      gender: person.userFields.includes("gender") ? person.gender : person.gender || found.gender,
+      ageBand: person.userFields.includes("ageBand")
+        ? person.ageBand
+        : person.ageBand || found.ageBand,
+    };
+    const voiced = autoVoiceForCharacter(updated, used, film.sourceText);
+    used.add(voiced.voiceId);
+    return voiced;
   });
-  const places = [...next.locations];
+  const styleChanged = next.styleZh !== film.styleZh;
+  const places = next.locations.map((place) =>
+    styleChanged && place.referenceImage ? { ...place, referenceStyleRevision: -1 } : place,
+  );
   for (const place of parsed.places) {
-    if (places.some((item) => item.name === place.name)) continue;
-    places.push({
-      id: `loc-${places.length + 1}`,
-      name: place.name,
-      prompt: place.prompt,
-      ambience: place.ambience,
-    });
+    const index = places.findIndex((item) => item.name === place.name);
+    if (index >= 0) {
+      const previous = places[index]!;
+      const locks = new Set(previous.userFields ?? []);
+      const prompt = mergeArtField(
+        "prompt",
+        previous.prompt,
+        place.prompt,
+        previous.artFields?.prompt,
+        locks,
+        previous.prompt === locationPlate(previous.name, film.styleZh, "夜"),
+      );
+      const ambience = mergeArtField(
+        "ambience",
+        previous.ambience,
+        place.ambience,
+        previous.artFields?.ambience,
+        locks,
+      );
+      places[index] = {
+        ...previous,
+        prompt: prompt.value,
+        ambience: ambience.value,
+        userFields: [...locks],
+        artFields: {
+          ...previous.artFields,
+          ...(prompt.baseline !== undefined ? { prompt: prompt.baseline } : {}),
+          ...(ambience.baseline !== undefined ? { ambience: ambience.baseline } : {}),
+        },
+        ...(prompt.value !== previous.prompt && previous.referenceImage
+          ? { referenceStyleRevision: -1 }
+          : {}),
+      };
+    } else {
+      places.push({
+        id: `loc-${places.length + 1}`,
+        name: place.name,
+        prompt: place.prompt,
+        ambience: place.ambience,
+        artFields: { prompt: place.prompt, ambience: place.ambience },
+      });
+    }
   }
   next.locations = places;
   const props = [...next.props];
   for (const prop of parsed.props) {
-    if (props.some((item) => item.name === prop.name)) continue;
-    props.push({ id: `prop-${props.length + 1}`, name: prop.name, note: prop.note });
+    const index = props.findIndex((item) => item.name === prop.name);
+    if (index >= 0) {
+      const previous = props[index]!;
+      const locks = new Set(previous.userFields ?? []);
+      const note = mergeArtField("note", previous.note, prop.note, previous.artFields?.note, locks);
+      props[index] = {
+        ...previous,
+        note: note.value,
+        userFields: [...locks],
+        artFields: {
+          ...previous.artFields,
+          ...(note.baseline !== undefined ? { note: note.baseline } : {}),
+        },
+      };
+    } else
+      props.push({
+        id: `prop-${props.length + 1}`,
+        name: prop.name,
+        note: prop.note,
+        artFields: { note: prop.note },
+      });
   }
   next.props = props;
   return next;
