@@ -258,6 +258,14 @@ const pages = [
       await page.reload({ waitUntil: "networkidle" });
       await page.locator("nav.tabs").getByRole("button", { name: "剧本" }).click();
     },
+    // 3J-U03: the chat keeps at least 60% of the assistant column.
+    rules: () => {
+      const pane = document.querySelector(".pane.ai")?.getBoundingClientRect();
+      const chat = document.querySelector(".pane.ai .pb.chat")?.getBoundingClientRect();
+      if (!pane || !chat) return ["找不到 AI 助手的聊天区"];
+      const share = Math.round((chat.height / pane.height) * 100);
+      return share >= 60 ? [] : [`聊天区只占右栏 ${share}% 高，要不少于 60%`];
+    },
   },
   { name: "角色与场景", tab: "角色与场景" },
   { name: "分镜", tab: "分镜" },
@@ -290,8 +298,10 @@ async function checkPages(browser, size) {
     if (shots) {
       await page.screenshot({ path: `${shots}/${step.name}-${size.width}x${size.height}.png` });
     }
+    const extra = step.rules ? await page.evaluate(step.rules) : [];
     for (const [label, found] of await inspectPage(page, ".pro-root")) {
-      failed += report(`页面 ${step.name}${label} ${size.width}×${size.height}`, found, errors);
+      const where = `页面 ${step.name}${label} ${size.width}×${size.height}`;
+      failed += report(where, label ? found : [...found, ...extra], errors);
     }
     if (step.close) await page.getByRole("button", { name: step.close }).first().click();
   }

@@ -2,7 +2,7 @@ import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
 import { ensureShotFrame, makeFourStills } from "./still-workflow";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   actionBeats,
   adaptToShortDrama,
@@ -3147,6 +3147,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                       ? null
                       : (roleCards[role] ?? null)
                   }
+                  qcCard={roleCards.qc ?? null}
                   onRedoRange={() => {
                     setStage("edit");
                     setRange(true);
@@ -3727,6 +3728,16 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
   );
 }
 
+/** Who the chat can talk to. 提示词 and 审片 run from 分镜 → 属性 → 高级 instead of the chat. */
+const CHAT_ROLES: { id: Role; label: string }[] = [
+  { id: "writer", label: "编剧" },
+  { id: "director", label: "导演" },
+  { id: "action", label: "动作指导" },
+  { id: "performance", label: "表演指导" },
+  { id: "art", label: "美术" },
+];
+const inChat = (role: Role) => CHAT_ROLES.some((item) => item.id === role);
+
 function Assistant({
   role,
   onRole,
@@ -3767,8 +3778,12 @@ function Assistant({
   onDismiss?: () => void;
   busy?: boolean;
 }) {
+  const pickId = useId();
   const scenes = role === "writer" ? pendingScenes : null;
   const list = pending ?? [];
+  const talking = CHAT_ROLES.find((item) => item.id === role) ?? CHAT_ROLES[1]!;
+  const chatTurns = turns.filter((item) => inChat(item.role));
+  const lastRole = turns.at(-1)?.role;
   const chips =
     role === "writer"
       ? ["让编剧写", "改成短剧", "导入小说"]
@@ -3778,92 +3793,39 @@ function Assistant({
           ? ["请表演指导看看"]
           : role === "art"
             ? ["请美术定画风"]
-            : role === "prompter"
-              ? ["写这一镜的提示词"]
-              : role === "qc"
-                ? ["请审片看看"]
-                : ["节奏再快些", "加一个特写", "请动作指导看看"];
+            : ["节奏再快些", "加一个特写", "请动作指导看看"];
   return (
     <>
-      {showRoles ? (
-        <div className="roles">
-          <button
-            className={role === "writer" ? "role on" : "role"}
-            onClick={() => onRole("writer")}
-          >
-            <span className="ri">
-              <Ic name="text" size={15} />
-            </span>
-            编剧
-          </button>
-          <button
-            className={role === "director" ? "role on" : "role"}
-            onClick={() => onRole("director")}
-          >
-            <span className="ri">
-              <Ic name="clap" size={15} />
-            </span>
-            导演
-          </button>
-          <button
-            className={role === "action" ? "role on" : "role"}
-            onClick={() => onRole("action")}
-          >
-            <span className="ri">
-              <Ic name="sword" size={15} />
-            </span>
-            动作指导
-          </button>
-          <button
-            className={role === "performance" ? "role on" : "role"}
-            onClick={() => onRole("performance")}
-          >
-            <span className="ri">
-              <Ic name="heart" size={15} />
-            </span>
-            表演指导
-          </button>
-          <button className={role === "art" ? "role on" : "role"} onClick={() => onRole("art")}>
-            <span className="ri">
-              <Ic name="spark" size={15} />
-            </span>
-            美术
-          </button>
-          <button
-            className={role === "prompter" ? "role on" : "role"}
-            onClick={() => onRole("prompter")}
-          >
-            <span className="ri">
-              <Ic name="text" size={15} />
-            </span>
-            提示词
-          </button>
-          <button className={role === "qc" ? "role on" : "role"} onClick={() => onRole("qc")}>
-            <span className="ri">
-              <Ic name="eye" size={15} />
-            </span>
-            审片
-          </button>
-        </div>
-      ) : (
-        <div className="role-desc">新手只看这一位助手。</div>
-      )}
-      <div className="role-desc">
-        {ROLE_COPY[role]}
-        {onToggleRoles ? (
-          <button
-            className="btn sm"
-            type="button"
-            onClick={onToggleRoles}
-            style={{ marginLeft: 8 }}
-          >
-            {showRoles ? "新手" : "切换角色"}
-          </button>
-        ) : null}
+      <div className="role-pick">
+        {showRoles || !onToggleRoles ? (
+          <>
+            <label htmlFor={pickId}>正在和：</label>
+            <select
+              id={pickId}
+              className="input"
+              value={talking.id}
+              title={ROLE_COPY[talking.id]}
+              onChange={(event) => onRole(event.target.value as Role)}
+            >
+              {CHAT_ROLES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            <span title={ROLE_COPY[talking.id]}>正在和：{talking.label}</span>
+            <button className="btn sm" type="button" onClick={onToggleRoles}>
+              换一位
+            </button>
+          </>
+        )}
       </div>
       <div className="pb chat">
-        {(turns.length > 0
-          ? turns.slice(-8)
+        {(chatTurns.length > 0
+          ? chatTurns.slice(-8)
           : [
               {
                 id: "hint",
@@ -3932,7 +3894,7 @@ function Assistant({
                       </div>
                     ))}
             </div>
-            {structured.length > 0 && (
+            {structured.length > 0 && (!lastRole || inChat(lastRole)) && (
               <div className="shotlist">
                 {structured.map((line) => (
                   <div key={line}>
@@ -4002,15 +3964,7 @@ function Assistant({
           className="ph-t"
           aria-label="跟助手说"
           value={chat}
-          placeholder={`跟${
-            role === "writer"
-              ? "编剧"
-              : role === "action"
-                ? "动作指导"
-                : role === "performance"
-                  ? "表演指导"
-                  : "导演"
-          }说说你的想法… 回车发送，换行用 Shift+回车`}
+          placeholder={`跟${talking.label}说说你的想法… 回车发送，换行用 Shift+回车`}
           onChange={(event) => onChat(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -4259,10 +4213,16 @@ function ScriptPage({
             if (label === "让编剧写" || label === "节奏再快些") onWrite();
             else if (label === "改成短剧" || label === "加一个特写") onAdapt();
             else if (label === "导入小说") onImport();
-            else if (label.includes("动作")) onAction();
-            else if (label.includes("表演")) onPerformance();
-            else if (label.includes("美术")) onArt();
-            else if (label.includes("提示词")) onPrompter();
+            else if (label.includes("动作")) {
+              onRole("action");
+              onAction();
+            } else if (label.includes("表演")) {
+              onRole("performance");
+              onPerformance();
+            } else if (label.includes("美术")) {
+              onRole("art");
+              onArt();
+            } else if (label.includes("提示词")) onPrompter();
             else if (label.includes("审片")) onQc();
             else onSend();
           }}
@@ -4766,6 +4726,7 @@ function BoardPage({
   assistPulse,
   structured,
   card,
+  qcCard = null,
   onRedoRange,
   onDismiss,
 }: {
@@ -4801,20 +4762,27 @@ function BoardPage({
   assistPulse: number;
   structured: string[];
   card: RoleCard | null;
+  /** The last 审片 answer; it shows under 高级, not in the chat. */
+  qcCard?: RoleCard | null;
   onRedoRange: () => void;
   onDismiss: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
   const seenAssist = useRef(assistPulse);
+  const lastTurnRole = turns.at(-1)?.role;
   useEffect(() => {
     if (seenAssist.current === assistPulse) return;
     seenAssist.current = assistPulse;
-    setTab("ai");
-  }, [assistPulse]);
+    // 提示词 and 审片 answer under 高级, so their requests keep 属性 open.
+    if (!lastTurnRole || inChat(lastTurnRole)) setTab("ai");
+  }, [assistPulse, lastTurnRole]);
   const current = shots[shot];
   const seconds = shots.reduce((sum, item) => sum + item.seconds, 0);
   const focused = shots[shot];
+  const toolNote = turns
+    .filter((item) => (item.role === "prompter" || item.role === "qc") && item.who === "agent")
+    .at(-1)?.text;
   const focusedPrompt = focused?.promptZh || (focused ? keyframePrompt(focused, film) : "");
   const missingLocks = focused
     ? missingIdentityLocks(
@@ -4984,10 +4952,16 @@ function BoardPage({
             onChat={onChat}
             onSend={onSend}
             onQuick={(label) => {
-              if (label.includes("动作")) onAction();
-              else if (label.includes("表演")) onPerformance();
-              else if (label.includes("美术")) onArt();
-              else if (label.includes("提示词")) onPrompter();
+              if (label.includes("动作")) {
+                onRole("action");
+                onAction();
+              } else if (label.includes("表演")) {
+                onRole("performance");
+                onPerformance();
+              } else if (label.includes("美术")) {
+                onRole("art");
+                onArt();
+              } else if (label.includes("提示词")) onPrompter();
               else if (label.includes("审片")) onQc();
               else onSend();
             }}
@@ -5156,9 +5130,48 @@ function BoardPage({
                   高级
                 </button>
                 {showEnglish ? (
-                  <p className="role-desc">
-                    {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
-                  </p>
+                  <div className="adv">
+                    <p className="role-desc">
+                      {current.promptEn || "英文提示词还没写。请提示词工程师写。"}
+                    </p>
+                    <div className="acts">
+                      <button className="btn sm" type="button" onClick={onPrompter}>
+                        写英文提示词
+                      </button>
+                      <button className="btn sm" type="button" onClick={onQc}>
+                        审一下这一镜的文字
+                      </button>
+                    </div>
+                    {toolNote ? <p className="role-desc">{toolNote}</p> : null}
+                    {qcCard ? (
+                      <div className="bubble">
+                        <div className="h">{qcCard.title}</div>
+                        <div className="shotlist">
+                          {qcCard.rows.map((item) => (
+                            <div key={item.id}>
+                              <span>{item.mark}</span>
+                              <span />
+                              <span title={item.text}>{item.text}</span>
+                              <span />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="acts">
+                          <button className="btn sm" type="button" onClick={onRedoRange}>
+                            按意见重做这一镜
+                          </button>
+                          <button
+                            className="btn sm"
+                            type="button"
+                            disabled={qcCard.applied}
+                            onClick={onDismiss}
+                          >
+                            {qcCard.applied ? "已记下" : "知道了"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
               <div className="field">
