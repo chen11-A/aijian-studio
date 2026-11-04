@@ -1234,6 +1234,35 @@ it("closes 「更多」 on Esc, a press outside, and another shot; closes the to
   expect(screen.queryByRole("menu", { name: "账号菜单" })).toBeNull();
 });
 
+it("puts the helper a picked shot needs first among the quick asks", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  const cards = () => [...document.querySelectorAll<HTMLElement>(".pb.grid .card")];
+  const firstAsk = () => {
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    const ask = document.querySelector(".quick button")?.textContent;
+    fireEvent.click(screen.getByRole("button", { name: "属性" }));
+    return ask;
+  };
+  // 镜头 5: 侧身让过铁棍 — a fight.
+  fireEvent.click(cards()[4]!);
+  expect(firstAsk()).toBe("请动作指导看看");
+  // 镜头 1: 俯拍窄巷 — neither, so the usual order.
+  fireEvent.click(cards()[0]!);
+  expect(firstAsk()).toBe("节奏再快些");
+});
+
+it("tells an empty storyboard how to get shots and leads back to 剧本", async () => {
+  installDesktop();
+  await openSample();
+  fireEvent.click(stageTab("分镜"));
+  fireEvent.click(screen.getByRole("button", { name: /雨夜·巷口/ }));
+  expect(screen.getByText(/这一场还没有镜头。回剧本页点「让导演拆镜头」/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "去剧本页" }));
+  expect(stageTab("剧本")).toHaveClass("on");
+});
+
 it("keeps one primary button per page, export only on 剪辑", async () => {
   installDesktop();
   await openSample();

@@ -3097,3 +3097,15 @@ body:has(.pro-root) {
 .pro-root .menu button.danger {
   color: var(--err);
 }
+
+/* An empty storyboard says how to get shots, with a way back to 剧本. */
+.pro-root .board-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}

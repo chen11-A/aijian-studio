@@ -3234,6 +3234,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                   assistPulse={assistPulse}
                   onFixCoverage={(sceneId) => production.fixCoverage(sceneId)}
                   onNext={() => setStage("edit")}
+                  onScript={() => setStage("script")}
                   structured={structured}
                   card={
                     roleCards[role]?.shots &&
@@ -3858,6 +3859,23 @@ const PAGE_ROLE: Partial<Record<Stage, Role>> = {
   board: "director",
 };
 
+/**
+ * The director's quick asks, ordered by the picked shot: a fight shot puts 「请动作指导看看」
+ * first, a close shot with a line puts 「请表演指导看看」 first. Only the order changes; the
+ * person still picks who to talk to.
+ */
+function chipsForShot(shot: FilmShot | null): string[] {
+  const base = ["节奏再快些", "加一个特写", "请动作指导看看"];
+  if (!shot) return base;
+  const seen = `${shot.picture} ${shot.action}`;
+  if (/打斗|挥|砍|刺|肘击|拳|踢|格挡|追打|搏斗|闪避|铁棍|刀/.test(seen))
+    return ["请动作指导看看", "节奏再快些", "加一个特写"];
+  const close = /特写|近景|中近景/.test(shot.size);
+  if (close && shotLines(shot).some((line) => line.text.trim()))
+    return ["请表演指导看看", "节奏再快些", "请动作指导看看"];
+  return base;
+}
+
 function Assistant({
   role,
   onRole,
@@ -3878,6 +3896,7 @@ function Assistant({
   onDismiss,
   busy = false,
   onRetry,
+  focusShot = null,
 }: {
   role: Role;
   onRole: (role: Role) => void;
@@ -3887,6 +3906,8 @@ function Assistant({
   onApplyScenes?: () => void;
   /** 3J-U04: set while the last request failed; shows 「换个问法再问一次」 under that reply. */
   onRetry?: () => void;
+  /** The shot picked on 分镜; the quick asks put the helper that shot needs first. */
+  focusShot?: FilmShot | null;
   shots: FilmShot[];
   chat: string;
   onChat: (value: string) => void;
@@ -3916,7 +3937,7 @@ function Assistant({
           ? ["请表演指导看看"]
           : role === "art"
             ? ["请美术定画风"]
-            : ["节奏再快些", "加一个特写", "请动作指导看看"];
+            : chipsForShot(focusShot);
   return (
     <>
       <div className="role-pick">
@@ -4650,8 +4671,8 @@ function CastPage({
           {film.characters.length === 0 && (
             <p className="role-desc">
               {film.scenes.some((item) => item.text.trim())
-                ? "这一场还没有认出人物和场景。"
-                : "还没有人物。写下名字，生成时会写进每一镜。"}
+                ? "还没认出人物。可以在中间写一个名字，生成时会写进每一镜。"
+                : "还没有人物。剧本里写了故事，到这一页会自动认出人物；也可以在中间写一个名字。"}
             </p>
           )}
         </div>
@@ -5075,6 +5096,7 @@ function BoardPage({
   onRetry,
   onFixCoverage,
   onNext,
+  onScript,
 }: {
   film: FilmProject;
   shots: FilmShot[];
@@ -5118,6 +5140,8 @@ function BoardPage({
   onFixCoverage: (sceneId: string) => Promise<unknown>;
   /** 「下一步：剪辑」, the primary button once every shot has a video. */
   onNext?: () => void;
+  /** Back to 剧本, from the empty storyboard. */
+  onScript?: () => void;
 }) {
   const [tab, setTab] = useState<"props" | "ai">("props");
   const [showEnglish, setShowEnglish] = useState(false);
@@ -5276,6 +5300,16 @@ function BoardPage({
           />
         )}
         <div className="pb grid">
+          {shots.length === 0 && (
+            <div className="board-empty">
+              <p>这一场还没有镜头。回剧本页点「让导演拆镜头」，或者点上面「加镜头」自己加一个。</p>
+              {onScript ? (
+                <button className="btn" type="button" onClick={onScript}>
+                  去剧本页
+                </button>
+              ) : null}
+            </div>
+          )}
           {shots.map((item, index) => (
             <button
               key={item.id}
@@ -5376,6 +5410,7 @@ function BoardPage({
             structured={structured}
             card={card}
             onRetry={onRetry}
+            focusShot={current ?? null}
             onRedoRange={onRedoRange}
             onDismiss={onDismiss}
           />
@@ -6379,7 +6414,7 @@ function EditPage({
                   <span className="subt">
                     {shots.filter((item) => item.takes.some((take) => take.videoUrl)).length > 1
                       ? ROUGH_CUT_REASON
-                      : "还没有可以播放的视频。"}
+                      : "还没有可以播放的视频。先到分镜页生成视频。"}
                   </span>
                 </div>
               )}
