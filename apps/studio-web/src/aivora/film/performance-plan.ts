@@ -2,7 +2,16 @@ import type { FilmShot } from "./project";
 import { bindPerformanceRows, normalizeAgentReply } from "./agent-reply-compat";
 import { plainCue } from "./phase2";
 export type PerformanceVoice = { tone: string; pace: string; pauses: string; emotion: string };
+export type PerformanceVoiceDeclaration = Partial<PerformanceVoice> & { pause?: string };
+export type PerformanceDeclarations = {
+  role: "primary" | "other";
+  /** Presence is meaningful: null explicitly declares no duration/voice; absence does not. */
+  holdS?: number | null;
+  voice?: PerformanceVoiceDeclaration | PerformanceVoiceDeclaration[] | null;
+};
 export type PerformerPlan = {
+  /** Source declarations only; generation and voice execution must use the existing projected fields. */
+  declarations?: PerformanceDeclarations;
   name: string;
   emotion: string;
   intensity?: number;
@@ -53,7 +62,15 @@ function voiceCue(value: unknown): PerformanceVoice {
     emotion: text(voice.emotion),
   };
 }
-function person(value: unknown): PerformerPlan {
+function voiceDeclaration(value: unknown): PerformanceVoiceDeclaration {
+  const row = object(value);
+  return Object.fromEntries(
+    ["tone", "pace", "pauses", "pause", "emotion"].flatMap((key) =>
+      typeof row[key] === "string" ? [[key, row[key]]] : [],
+    ),
+  );
+}
+function person(value: unknown, role: PerformanceDeclarations["role"]): PerformerPlan {
   const p = object(value);
 
   const eyes = object(p.eyes);
@@ -62,7 +79,21 @@ function person(value: unknown): PerformerPlan {
   const times = list(p.face_at);
   const intensity = number(p.intensity);
   const holdSeconds = number(p.hold_s ?? eyes.hold_seconds);
+  const declarations: PerformanceDeclarations = {
+    role,
+    ...(p.hold_s === null || (typeof p.hold_s === "number" && Number.isFinite(p.hold_s))
+      ? { holdS: p.hold_s }
+      : {}),
+    ...(p.voice === null
+      ? { voice: null }
+      : Array.isArray(p.voice)
+        ? { voice: p.voice.map(voiceDeclaration) }
+        : p.voice && typeof p.voice === "object"
+          ? { voice: voiceDeclaration(p.voice) }
+          : {}),
+  };
   return {
+    declarations,
     name: text(p.who ?? p.name),
     emotion: text(p.emotion),
     ...(intensity !== undefined ? { intensity } : {}),
@@ -88,7 +119,10 @@ export function parsePerformancePlans(
   return list(normalizeAgentReply("performance", value)?.shots).map((raw) => {
     const row = object(raw);
     const main = Array.isArray(row.performances) ? row.performances : [row];
-    const performers = [...main, ...list(row.others)].map(person);
+    const performers = [
+      ...main.map((value) => person(value, "primary")),
+      ...list(row.others).map((value) => person(value, "other")),
+    ];
     return {
       shotId: text(row.shot_id ?? row.id),
       plan: {
