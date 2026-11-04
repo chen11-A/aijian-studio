@@ -1,3 +1,4 @@
+import { mergeDirectorPlans } from "./director-plan";
 import { extractScriptLines, type ScriptLine } from "./phase2";
 import type { FilmShot } from "./project";
 
@@ -125,7 +126,7 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
     const join = (a: string | undefined, b: string | undefined) =>
       [a, b].filter(Boolean).join("\n");
     const lines = [...left.lines, ...right.lines];
-    next.splice(index, 2, {
+    const merged: FilmShot = {
       ...left,
       seconds: left.seconds + right.seconds,
       picture: join(left.picture, right.picture),
@@ -172,7 +173,10 @@ export function mergeAdjacentShots(shots: readonly FilmShot[], target: number): 
           ...right.sound.sfx.map((cue) => ({ ...cue, atSeconds: cue.atSeconds + left.seconds })),
         ],
       },
-    });
+    };
+    const plan = mergeDirectorPlans(left, right, merged);
+    if (plan) merged.directorPlan = plan;
+    next.splice(index, 2, { ...merged, lines });
   }
   const reserved = new Set(next.map((shot) => shot.id).filter(Boolean));
   const used = new Set<string>();

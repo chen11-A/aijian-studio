@@ -1,3 +1,9 @@
+import {
+  directorPlanPrompt,
+  parseDirectorPlan,
+  type ShotDirectorPlan,
+  type DirectorSourceRef,
+} from "./director-plan";
 import type { CostumeRule, CostumeRisk } from "./costume-rules";
 import type { WriterElement } from "./writer-elements";
 import type { ShotPerformancePlan, PerformanceState } from "./performance-plan";
@@ -180,6 +186,7 @@ export type FilmScene = {
 };
 
 export type FilmShot = {
+  directorPlan?: ShotDirectorPlan;
   performancePlan?: ShotPerformancePlan;
   actionPlan?: ShotActionPlan;
   continuityFromShotId?: string;
@@ -494,7 +501,11 @@ export function keyframePrompt(shot: FilmShot, film: FilmProject): string {
       ? picture
       : `${picture}。`
     : framedKeyframe(shot, film, picture);
-  return withStyleBible(lockKeyframe(base, shot, film), film.styleZh);
+  const notes = directorPlanPrompt(shot, "frame");
+  return withStyleBible(
+    lockKeyframe([base, notes].filter(Boolean).join("\n"), shot, film),
+    film.styleZh,
+  );
 }
 
 function framedKeyframe(shot: FilmShot, film: FilmProject, picture: string): string {
@@ -535,7 +546,7 @@ export function videoPrompt(shot: FilmShot): string {
       : explicit || shot.directorVideoPrompt || shot.picture || shot.action
   ).replace(/。$/, "");
   const spoken = shot.line.trim() ? `台词原句：「${shot.line.trim()}」。不要背景音乐。` : "";
-  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}`;
+  return `从这张起始画面开始。${motion}。只做这一个动作，运镜用${shot.move || "固定"}。背景保持稳定。视频不要自己出声。${spoken}${directorPlanPrompt(shot, "video") ? `\n${directorPlanPrompt(shot, "video")}` : ""}`;
 }
 
 export function offlineShots(story: string, sceneId: string): FilmShot[] {
@@ -603,7 +614,7 @@ export function agentRequest(agentId: AgentId, context: string, user: string): s
   return body;
 }
 
-export type DirectorSceneRef = { id: string; title: string; where: string; text: string };
+export type DirectorSceneRef = { id: string; title: string; where: string } & DirectorSourceRef;
 
 function placeName(value: string): string {
   return value.split(/[·_]/)[0]?.trim() ?? "";
@@ -665,7 +676,7 @@ export function parseDirectorShots(
         JSON.stringify({ shots: record.shots ?? [] }),
         target?.id ?? sceneId,
         target?.text ?? sceneText,
-        [],
+        target ? [target] : [],
         false,
       );
       if (nested) all.push(...nested);
@@ -734,7 +745,7 @@ export function parseDirectorShots(
           ? (parsedLines[0]?.speaker ?? "")
           : "";
     const speaker = named || (line && characters.length === 1 ? characters[0]!.trim() : "");
-    shots.push({
+    const parsed: ParsedDirectorShot = {
       [directorConnection]: {
         previous: record.connect_previous === true || record.continuity_from_prev === true,
         explicit:
@@ -797,13 +808,23 @@ export function parseDirectorShots(
       takes: [],
       stills: [],
       selectedTakeId: "",
-    });
+    };
+    const plan = parseDirectorPlan(
+      record,
+      parsed,
+      scenes.find((scene) => scene.id === sceneId && scene.text === sceneText),
+    );
+    if (plan) parsed.directorPlan = plan;
+    shots.push(parsed);
   });
   const varied =
     shots.length > 0 && shots.every((shot) => shot.seconds === 8)
       ? shots.map((shot, index) => ({
           ...shot,
           seconds: [3, 4, 5, 2, 4, 6, 3, 5][index % 8] ?? 4,
+          ...(shot.directorPlan
+            ? { directorPlan: { ...shot.directorPlan, timingStatus: "needs_review" as const } }
+            : {}),
         }))
       : shots;
   if (!varied.length) return null;

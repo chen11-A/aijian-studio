@@ -1,3 +1,4 @@
+import { directorPlanPrompt } from "./director-plan";
 import { withShotCostumes } from "./costume-rules";
 import { writerElements } from "./writer-elements";
 import { performancePlanPrompt } from "./performance-plan";
@@ -1286,6 +1287,8 @@ export function motionPrompt(shot: FilmShot): string {
       shot.promptZh?.trim() ||
       "";
   let visual = prompted || picture;
+  const directorNotes = directorPlanPrompt(shot, "video");
+  if (directorNotes) visual = [visual, directorNotes].filter(Boolean).join("\n");
   const constraints = actionPlanPrompt(shot);
   if (constraints) visual = [visual, constraints].filter(Boolean).join("。 ");
   const acted = performancePlanPrompt(shot) || shot.performance.trim();
