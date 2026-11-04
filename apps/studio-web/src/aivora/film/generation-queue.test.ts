@@ -47,3 +47,24 @@ describe("persisted video queue", () => {
     expect(videoTaskTarget(next, "unknown")).toBeNull();
   });
 });
+
+it("explicit retry keeps the failed version id and does not reset adjacent versions", async () => {
+  const { retryVideoTasks, failRunningVideoTasks, generationTargets } =
+    await import("./generation-queue");
+  const film = emptyFilm();
+  const queue = prepareVideoQueue(film, film.shots, 2, false);
+  const chosen = queue.groups[0]!.takes[0]!;
+  const failed = failRunningVideoTasks(
+    setVideoTaskState(queue.film, chosen.id, "running"),
+    queue.groups,
+    "network",
+  );
+  const retried = retryVideoTasks(failed, [`video:${chosen.id}`]);
+  expect(retried.shots[0]!.takes[0]!.id).toBe(chosen.id);
+  expect(retried.shots[0]!.takes[0]!.status).toBe("queued");
+  expect(retried.shots[1]).toEqual(failed.shots[1]);
+  expect(generationTargets(retried, [retried.shots[0]!], true)).toEqual([retried.shots[0]]);
+  expect(retried.shots.flatMap((shot) => shot.takes)).toHaveLength(4);
+  const retry = prepareVideoQueue(retried, retried.shots, 4, true, [chosen.id]);
+  expect(retry.groups.flatMap((group) => group.takes.map((take) => take.id))).toEqual([chosen.id]);
+});

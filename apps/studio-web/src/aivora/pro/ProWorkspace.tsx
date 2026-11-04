@@ -1,3 +1,4 @@
+import { BatchProgressView } from "../next/wiring/BatchProgressView";
 import { useWorkOwners } from "./use-work-owners";
 import { exportFilmTask, revoiceFilmShot } from "./media-tasks";
 import { deleteCurrentFilm } from "./delete-workflow";
@@ -108,6 +109,8 @@ import {
   canResumeTake,
   prepareVideoQueue,
   generationTargets,
+  retryVideoTasks,
+  videoTaskTarget,
   setVideoTaskState,
   cancelVideoTask,
   videoQueueInterruption,
@@ -2276,12 +2279,46 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     }
   }
 
-  async function submitGeneration(targets?: FilmShot[], resume = false) {
+  function retryGenerationTasks(ids: string[]) {
+    const current = filmRef.current;
+    if (!current || generationRuns.current.has(current.id)) return;
+    const blocked = current.jobs.filter(
+      (job) => ids.includes(job.id) && job.kind === "video" && job.status === "blocked",
+    );
+    if (blocked.length) {
+      void submitGeneration(
+        current.shots.filter((shot) => blocked.some((job) => job.shotId === shot.id)),
+      );
+      return;
+    }
+    const next = retryVideoTasks(current, ids);
+    const targets = next.shots.filter((row) =>
+      row.takes.some(
+        (take) =>
+          take.status === "queued" &&
+          ids.some((id) => videoTaskTarget(next, id)?.take.id === take.id),
+      ),
+    );
+    if (!targets.length) return;
+    applyLive(next);
+    pauseRef.current = false;
+    void submitGeneration(
+      targets,
+      true,
+      ids.flatMap((id) => {
+        const take = videoTaskTarget(next, id)?.take;
+        return take ? [take.id] : [];
+      }),
+    );
+    setPaused(false);
+  }
+
+  async function submitGeneration(targets?: FilmShot[], resume = false, takeIds?: string[]) {
     const id = filmRef.current?.id;
     if (!id || generationRuns.current.has(id)) return;
     generationRuns.current.add(id);
     try {
-      await runGeneration(targets, resume);
+      await runGeneration(targets, resume, takeIds);
     } finally {
       generationRuns.current.delete(id);
     }
@@ -2291,7 +2328,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       void submitGeneration(undefined, true);
   };
 
-  async function runGeneration(targets?: FilmShot[], resume = false) {
+  async function runGeneration(targets?: FilmShot[], resume = false, takeIds?: string[]) {
     const mine = ++runToken.current;
     stopRef.current = false;
     let live = filmRef.current ?? film;
@@ -2332,7 +2369,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
       setNotice(blocked);
       return;
     }
-    const prepared = prepareVideoQueue(live, selected, versions, resume);
+    const prepared = prepareVideoQueue(live, selected, versions, resume, takeIds);
     const next = prepared.film;
     const groups = prepared.groups;
     const queueStopped = () => {
@@ -3599,6 +3636,7 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 <Ic name="x" size={16} />
               </button>
             </div>
+            <BatchProgressView batches={feed.batches} />
             <TaskCenter
               title={film.seriesTitle || film.title}
               tasks={namedTasks(feed.tasks, film)}
@@ -3614,38 +3652,27 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
                 setPaused(false);
                 setNotice("继续排队。");
               }}
-              onRetry={(taskId) => {
-                const job = film.jobs.find((item) => item.id === taskId);
-                const target = film.shots.find((item) => item.id === job?.shotId);
-                if (target) void submitGeneration([target]);
-              }}
+              onRetry={(taskId) => retryGenerationTasks([taskId])}
               canRetry={(task) =>
-                film.jobs.some((job) => job.id === task.id && job.kind === "video")
+                Boolean(videoTaskTarget(film, task.id)) ||
+                film.jobs.some(
+                  (job) => job.id === task.id && job.kind === "video" && job.status === "blocked",
+                )
               }
-              onRetryFailed={() => {
-                const failed = film.shots.filter((item) =>
-                  item.takes.some((take) => take.status === "failed"),
-                );
-                if (failed.length === 0) {
-                  setNotice("没有失败的生成。");
-                  return;
-                }
-                void submitGeneration(failed);
-              }}
+              onRetryFailed={() =>
+                retryGenerationTasks(
+                  film.jobs
+                    .filter((job) => job.kind === "video" && job.status === "failed")
+                    .map((job) => job.id),
+                )
+              }
               onRemove={(taskId) => {
-                const job = film.jobs.find((item) => item.id === taskId);
-                if (!job) return;
-                cancelledJobs.current.add(job.id);
+                const cancelled = cancelVideoTask(filmRef.current ?? film, taskId);
+                if (!cancelled.jobId) return;
+                cancelledJobs.current.add(cancelled.jobId);
+                applyLive(cancelled.film);
                 const billed = film.backendProjectId || projectId;
-                if (billed && window.aijian?.cancelStoryFilm && job.status === "running") {
-                  void window.aijian.cancelStoryFilm(billed);
-                }
-                setFilm({
-                  ...film,
-                  jobs: film.jobs.map((item) =>
-                    item.id === job.id ? { ...item, status: "cancelled" } : item,
-                  ),
-                });
+                if (cancelled.running && billed) void window.aijian?.cancelStoryFilm?.(billed);
                 setNotice("已取消这一次。已经发出的请求不一定能停。");
               }}
               canRemove={(task) =>

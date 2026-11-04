@@ -93,12 +93,15 @@ export function prepareVideoQueue(
   targets: FilmShot[],
   versions: number,
   resume: boolean,
+  takeIds?: string[],
 ) {
   let next = resume ? resumeQueuedFilm(film) : film;
   const groups = targets.map((target) => {
     const shot = next.shots.find((item) => item.id === target.id) ?? target;
     const takes: FilmTake[] = resume
-      ? shot.takes.filter((take) => take.status === "queued")
+      ? shot.takes.filter(
+          (take) => take.status === "queued" && (!takeIds || takeIds.includes(take.id)),
+        )
       : Array.from({ length: Math.max(1, Math.min(versions, 4)) }, (_, index) => ({
           id: crypto.randomUUID(),
           shotId: shot.id,
@@ -214,7 +217,18 @@ export function generationTargets(
 ) {
   return (
     resume
-      ? film.shots.filter((shot) => shot.takes.some(canResumeTake))
+      ? (targets ?? film.shots).filter((shot) => shot.takes.some(canResumeTake))
       : (targets ?? [fallback ?? film.shots[0]])
   ).filter((shot): shot is FilmShot => Boolean(shot));
+}
+
+/** Explicit retry reuses only the chosen failed versions, never creates neighboring takes. */
+export function retryVideoTasks(film: FilmProject, ids: string[]): FilmProject {
+  const selected = new Set(ids.map((id) => videoTaskTarget(film, id)?.take.id).filter(Boolean));
+  let next = film;
+  for (const shot of film.shots)
+    for (const take of shot.takes)
+      if (selected.has(take.id) && take.status === "failed")
+        next = setVideoTaskState(next, take.id, "queued");
+  return next;
 }
