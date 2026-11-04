@@ -1,3 +1,4 @@
+import { isBillingProjectId, resolveBillingProject } from "./actions/billing-project";
 import { captureReviewInput, applyTextReview } from "../film/review-report";
 import { generateShotStill } from "./actions/shot-still";
 import { createEditorPageHistory } from "./actions/page-history";
@@ -1314,46 +1315,31 @@ export function ProWorkspace({ projectId = null }: { projectId?: string | null }
     const live = filmRef.current;
     const filmId = live?.id ?? "";
     const stored = live?.backendProjectId ?? "";
-    if (/^prj_[0-9a-f]{32}$/.test(stored)) return stored;
+    if (isBillingProjectId(stored)) return stored;
     if (
-      /^prj_[0-9a-f]{32}$/.test(projectId ?? "") &&
+      isBillingProjectId(projectId) &&
       filmId &&
       (!propFilmId.current || propFilmId.current === filmId)
     ) {
       propFilmId.current = filmId;
-      if (live && !stored) applyLive({ ...live, backendProjectId: projectId ?? "" });
-      return projectId ?? "";
+      if (live) applyLive({ ...live, backendProjectId: projectId });
+      return projectId;
     }
     const api = window.aijian;
     if (!api?.createProject || !filmId) return "";
-    let pending = billingPromises.current.get(filmId);
-    if (!pending) {
-      const name = (live?.seriesTitle || live?.title || "未命名作品").slice(0, 80) || "未命名作品";
-      pending = api
-        .createProject({
-          name,
-          aspect_ratio: "9:16",
-          source_language: "zh-CN",
-          target_duration_seconds: 90,
-        })
-        .then((response) => {
-          const id = response.data?.id ?? "";
-          if (!/^prj_[0-9a-f]{32}$/.test(id)) throw new Error("bad project");
-          const current = filmRef.current;
-          if (current?.id === filmId) applyLive({ ...current, backendProjectId: id });
-          return id;
-        })
-        .catch((error: unknown) => {
-          billingPromises.current.delete(filmId);
-          throw error;
-        });
-      billingPromises.current.set(filmId, pending);
-    }
-    try {
-      return await pending;
-    } catch {
-      return "";
-    }
+    const id = await resolveBillingProject({
+      filmId,
+      name: live?.seriesTitle || live?.title || "未命名作品",
+      pending: billingPromises.current,
+      isCurrent: () => filmRef.current?.id === filmId,
+      create: (input) => api.createProject!(input),
+    });
+    const current = filmRef.current;
+    if (!id || current?.id !== filmId) return "";
+    // Another caller may already have bound this project while creation was pending.
+    if (isBillingProjectId(current.backendProjectId)) return current.backendProjectId;
+    applyLive({ ...current, backendProjectId: id });
+    return id;
   }
 
   async function completeAgent(
