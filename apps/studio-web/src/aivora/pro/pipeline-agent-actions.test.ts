@@ -221,3 +221,36 @@ describe("persistent pipeline text actions", () => {
     ).toMatchObject({ status: "blocked", code: "SCENE_NOT_FOUND" });
   });
 });
+
+it("keeps sanitized rejected combat separate from multiple ID-bound pipeline shots", async () => {
+  const film = sampleFilm();
+  const scene = film.scenes.find((item) => item.id === film.shots[0]!.sceneId)!;
+  scene.tags = ["打斗"];
+  const first = film.shots[0]!;
+  const second = film.shots[1]!;
+  second.sceneId = scene.id;
+  first.picture = "林晚在书店说话。";
+  first.action = "";
+  first.userFields = [];
+  second.picture = "沈砚打斗闪避。";
+  second.action = "";
+  second.userFields = [];
+  const firstSfx = structuredClone(first.sound.sfx);
+  const result = await runPipelineAgentAction(
+    film,
+    { step: "action", targetId: scene.id },
+    host({
+      beats: [
+        { shot_id: second.id, text: "保留原文：肘击" },
+        { shot_id: first.id, text: "保留原文：挥铁棍" },
+      ],
+    }),
+  );
+  expect(result.status).toBe("blocked");
+  expect(result.code).toBe("ACTION_UNASSIGNED");
+  expect(result.film?.shots.find((shot) => shot.id === first.id)?.action).toBe("");
+  expect(result.film?.shots.find((shot) => shot.id === first.id)?.sound.sfx).toEqual(firstSfx);
+  expect(result.film?.shots.find((shot) => shot.id === second.id)?.action).toBe("肘击");
+  expect(result.film?.unassignedBeats).toContainEqual({ sceneId: scene.id, text: "挥铁棍" });
+  expect(JSON.stringify(result.film)).not.toContain("保留原文：");
+});

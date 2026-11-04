@@ -328,3 +328,32 @@ describe("phase 2 shot language", () => {
     expect(notes[0]?.delivery).toContain("轻慢");
   });
 });
+
+it("cleans action beats and nodes before any consumer while preserving binding metadata", () => {
+  expect(
+    actionFromModel({
+      beats: [
+        {
+          shot_id: "shot-9",
+          text: "保留原文：抬手。。",
+          at_seconds: 2,
+          feasibility: "难",
+          workaround: "近景替代",
+        },
+      ],
+    }),
+  ).toEqual([
+    { shotId: "shot-9", text: "抬手。", at: 2, feasibility: "难", workaround: "近景替代" },
+  ]);
+  expect(
+    actionFromModel({
+      shots: [{ shot_id: "shot-3", nodes: [{ text: "保留原文：肘击", at_seconds: 1 }] }],
+    })?.[0],
+  ).toMatchObject({ shotId: "shot-3", text: "肘击", at: 1 });
+  expect(
+    actionFromModel({
+      shots: [{ shot_id: "shot-3", nodes: [{ actor: "沈砚", move: "保留原文：抬手" }] }],
+    })?.[0]?.text,
+  ).toBe("沈砚，抬手");
+  expect(actionFromModel({ beats: [{ shot_id: "shot-9", text: "保留原文：" }] })).toBeNull();
+});

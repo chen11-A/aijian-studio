@@ -14,7 +14,7 @@ it("uses explicit shot IDs within the one-shot manual scope and preserves unassi
     text: JSON.stringify({
       beats: [
         { shot_id: film.shots[1]!.id, text: "别镜挥铁棍", at_seconds: 0 },
-        { shot_id: current.id, text: "肘击", at_seconds: 1 },
+        { shot_id: current.id, text: "保留原文：肘击", at_seconds: 1 },
       ],
     }),
     detail: "",
@@ -32,6 +32,7 @@ it("uses explicit shot IDs within the one-shot manual scope and preserves unassi
   expect(result.shot.action).not.toMatch(/保留原文|动作约束|别镜/);
   expect(result.unassigned).toEqual([{ sceneId: current.sceneId, text: "别镜挥铁棍" }]);
   expect(result.shot.sound.sfx).toEqual([{ atSeconds: 1, text: "肘击" }]);
+  expect(result.notes.join(" ")).not.toMatch(/保留原文|动作约束|别镜/);
   expect(result.shot.userFields).toEqual(["picture", "line"]);
   expect(film).toEqual(snapshot);
 });
@@ -43,7 +44,7 @@ it("does not place combat into a dialogue shot even when the model names its ID"
   shot.action = "";
   const result = await planActionDraft(film, shot, {
     request: async () => ({
-      text: JSON.stringify({ beats: [{ shot_id: shot.id, text: "挥铁棍" }] }),
+      text: JSON.stringify({ beats: [{ shot_id: shot.id, text: "保留原文：挥铁棍" }] }),
       detail: "",
     }),
     current: () => true,
@@ -52,6 +53,8 @@ it("does not place combat into a dialogue shot even when the model names its ID"
   expect(result.status).toBe("ready");
   if (result.status === "ready") {
     expect(result.shot.action).toBe("");
+    expect(result.shot.sound.sfx).toEqual([]);
+    expect(result.notes).toEqual([]);
     expect(result.unassigned).toEqual([{ sceneId: shot.sceneId, text: "挥铁棍" }]);
     expect(result.notice).toContain("ACTION_UNASSIGNED");
   }

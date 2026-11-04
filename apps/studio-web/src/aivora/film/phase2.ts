@@ -342,10 +342,14 @@ type ActionRow = {
 };
 
 function actionText(row: Record<string, unknown>): string {
-  if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
-  return [row.actor, row.move, row.target, row.body_part, row.direction, row.reaction]
-    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    .join("，");
+  // Normalize once before assignment and rejection filtering, so sound cues and card notes
+  // cannot retain raw internal prefixes or bypass comparison with sanitized unassigned beats.
+  if (typeof row.text === "string" && row.text.trim()) return plainCue(row.text);
+  return plainCue(
+    [row.actor, row.move, row.target, row.body_part, row.direction, row.reaction]
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .join("，"),
+  );
 }
 
 export function actionFromModel(value: unknown): ActionRow[] | null {
